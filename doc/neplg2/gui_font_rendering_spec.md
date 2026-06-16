@@ -6763,6 +6763,40 @@ prepare は stored `encoded_byte_count > 0`、stored `total_run_count > 0`、che
 
 この layer は RLE run drain、`cursor_next_run`、payload byte read、encoded byte write、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual run writer、write cursor、tile transport ABI は後続 phase の owner boundary として定義する。
 
+### Render2d row tile RLE run writer cursor boundary
+
+F5ck は `GuiRgba8888RowTileRleStorageOwner` を、encoded byte storage へ 1 run ずつ書く `GuiRgba8888RowTileRleWriteCursorOwner` へ変換する phase である。writer cursor owner は underlying RLE cursor、exact `total_run_count`、exact `encoded_byte_count`、private `RegionToken u8` storage、`written_run_count`、`written_byte_count` を保持する。
+
+```text
+GuiRgba8888RowTileRleStorageOwner
+    -> gui_rgba8888_row_tile_rle_write_cursor_start
+    -> GuiRgba8888RowTileRleWriteCursorOwner
+
+GuiRgba8888RowTileRleWriteCursorOwner
+    -> gui_rgba8888_row_tile_rle_write_cursor_step_one
+    -> WroteRun GuiRgba8888RowTileRleWriteCursorOwner
+    -> Completed GuiRgba8888RowTileRleWriteCursorOwner
+```
+
+write record layout は固定 12 bytes である。
+
+```text
+byte 0..3    pixel_offset i32 little-endian
+byte 4..7    pixel_count i32 little-endian
+byte 8       r
+byte 9       g
+byte 10      b
+byte 11      a
+```
+
+F5ck は consuming `cursor_next_run` を writer step の前半で呼ばない。`row_tile_rle` 下層に borrowed `gui_rgba8888_row_tile_rle_cursor_peek_run` と consuming `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を分けて定義し、writer は `peek_run` で run metadata を得て 12 byte write を完了してからだけ `advance_by_run` を呼ぶ。これにより projection / store failure では original cursor と unchanged written counts を owner-bearing error で返せる。
+
+`written_run_count == total_run_count` では lower cursor status を検査し、`Complete` なら `Completed` を返す。lower cursor がまだ `Ready` なら `RunCountExhaustedBeforeCursorComplete` であり、silent no-op や fallback completion にしない。逆に expected run が残っているのに lower cursor が `CursorComplete` を返す場合は `CursorCompleteBeforeExpectedRun` とする。
+
+store / projection failure では `written_run_count` と `written_byte_count` を進めない。storage の対象 12 byte slot に一部 byte が書かれている可能性はあるが、その slot は uncommitted であり、この phase では public reader を提供しない。caller が retry する場合は同じ 12 byte を全て上書きする。
+
+この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。tile transport ABI と host-visible publish は後続 phase の owner boundary として定義する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

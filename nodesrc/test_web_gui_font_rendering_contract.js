@@ -19187,23 +19187,29 @@ assert(
         allocRender2dRowTileRleStorage.includes("EncodedByteCountOverflow") &&
         allocRender2dRowTileRleStorage.includes("EncodedByteCountMismatch") &&
         allocRender2dRowTileRleStorage.includes("AllocationFailed") &&
+        allocRender2dRowTileRleStorage.includes("pub enum GuiRgba8888RowTileRleWriteCursorStartErrorKind:") &&
+        allocRender2dRowTileRleStorage.includes("pub enum GuiRgba8888RowTileRleWriteStepStatus:") &&
+        allocRender2dRowTileRleStorage.includes("pub enum GuiRgba8888RowTileRleWriteStepErrorKind:") &&
         allocRender2dRowTileRleStorage.includes("pub struct GuiRgba8888RowTileRleStorageOwner:") &&
+        allocRender2dRowTileRleStorage.includes("pub struct GuiRgba8888RowTileRleWriteCursorOwner:") &&
         allocRender2dRowTileRleStorage.includes("cursor %GuiRgba8888RowTileRleCursorOwner") &&
         allocRender2dRowTileRleStorage.includes("total_run_count %i32") &&
         allocRender2dRowTileRleStorage.includes("encoded_byte_count %i32") &&
         allocRender2dRowTileRleStorage.includes("storage %RegionToken u8") &&
+        allocRender2dRowTileRleStorage.includes("written_run_count %i32") &&
+        allocRender2dRowTileRleStorage.includes("written_byte_count %i32") &&
         allocRender2dRowTileRleStorage.includes("plan %GuiRgba8888RowTileRleWriterPlanOwner"),
-    "alloc/gui/render2d/row_tile_rle_storage F5cj must define typed encoded storage owner and owner-bearing prepare error",
+    "alloc/gui/render2d/row_tile_rle_storage F5cj/F5ck must define typed encoded storage owner, write cursor owner, and owner-bearing errors",
 );
 assertNoMatch(
     allocRender2dRowTileRleStorageImpl,
-    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStoragePrepareError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageFinishError\b/,
-    "alloc/gui/render2d/row_tile_rle_storage F5cj owner and errors must not implement Clone or Copy",
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStoragePrepareError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageFinishError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleWriteCursorOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleWriteCursorStartError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleWriteStep\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleWriteStepError\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5cj/F5ck owners and owner-bearing errors must not implement Clone or Copy",
 );
 assertNoMatch(
-    allocRender2dRowTileRleStorageImpl,
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_storage_prepare"),
     /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_rle_drain_budget\b|\bgui_rgba8888_row_tile_rle_read_pixel\b|\bgui_rgba8888_row_tile_payload_byte_at\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b/,
-    "alloc/gui/render2d/row_tile_rle_storage F5cj must not drain, rescan, read payload bytes, or read/write encoded storage bytes",
+    "alloc/gui/render2d/row_tile_rle_storage F5cj prepare must not drain, rescan, read payload bytes, or read/write encoded storage bytes",
 );
 assertNoMatch(
     allocRender2dRowTileRleStorageImpl,
@@ -19253,13 +19259,99 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/render2d/row_tile_rle_storage F5cj implementation must preserve NEPL prefix style without parentheses",
 );
+const rowTileRlePeekRun = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_cursor_peek_run");
+assertOrderedFragments(
+    rowTileRlePeekRun,
+    [
+        "gui_rgba8888_row_tile_rle_cursor_status cursor",
+        "GuiRgba8888RowTileRleCursorStatus::Complete:",
+        "GuiRgba8888RowTileRleStepErrorKind::CursorComplete",
+        "GuiRgba8888RowTileRleCursorStatus::Ready:",
+        "field::get_ref cursor \"payload\"",
+        "gui_rgba8888_row_tile_rle_peek_run_at payload start_pixel_index pixel_count",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5ck peek_run must borrow cursor/payload and return typed status without owner movement",
+);
+const rowTileRleAdvanceByRun = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_cursor_advance_by_run");
+assertOrderedFragments(
+    rowTileRleAdvanceByRun,
+    [
+        "gui_rgba8888_row_tile_rle_run_advance_index &cursor run",
+        "Result::Err gui_rgba8888_row_tile_rle_step_error kind cursor",
+        "let payload %GuiRgba8888RowTilePayloadOwner field::get cursor \"payload\"",
+        "Result::Ok gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count next_pixel_index",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5ck advance_by_run must consume cursor only after caller-side success and recover owner on validation failure",
+);
+assertNoMatch(
+    allocRender2dRowTileRleStorageImpl,
+    /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_payload_byte_at\b|\bload_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck writer must not use consuming next_run, payload byte reader, or encoded byte reader",
+);
+const rowTileRleWriteStepOne = functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_cursor_step_one");
+assertOrderedFragments(
+    rowTileRleWriteStepOne,
+    [
+        "gui_rgba8888_row_tile_rle_write_cursor_validate_counts &owner",
+        "if eq written_run_count total_run_count:",
+        "gui_rgba8888_row_tile_rle_write_cursor_step_completed owner",
+        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta written_byte_count 12 GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountOverflow",
+        "if gt next_written_byte_count encoded_byte_count:",
+        "gui_rgba8888_row_tile_rle_cursor_peek_run cursor",
+        "gui_rgba8888_row_tile_rle_write_cursor_step_write_run owner run next_written_run_count next_written_byte_count",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must validate counts, handle completion explicitly, check 12 byte capacity, peek, and delegate write/advance",
+);
+assertNoMatch(
+    rowTileRleWriteStepOne,
+    /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bstore_u8\b|\bregion_ptr_at\b|\bload_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must not directly consume cursor or touch raw byte storage",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_cursor_step_write_run"),
+    [
+        "gui_rgba8888_row_tile_rle_write_run_record &storage encoded_byte_count written_byte_count &run",
+        "Result::Err kind:",
+        "gui_rgba8888_row_tile_rle_write_cursor_owner_new cursor total_run_count encoded_byte_count storage written_run_count written_byte_count",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_cursor_advance_by_run cursor &run",
+        "GuiRgba8888RowTileRleWriteStepErrorKind::CursorAdvanceFailed lower_kind",
+        "gui_rgba8888_row_tile_rle_write_cursor_owner_new next_cursor total_run_count encoded_byte_count storage next_written_run_count next_written_byte_count",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5ck write helper must keep counts unchanged on store/advance failure and advance only after write success",
+);
+assertMatch(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_project_byte"),
+    /region_ptr_at<u8,u8>/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must confine raw storage projection to the byte projection helper",
+);
+assertMatch(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_store_byte"),
+    /\bstore_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must confine raw storage writes to the byte store helper",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_run_record"),
+    [
+        "gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count base pixel_offset",
+        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 4 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow",
+        "gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count count_base pixel_count",
+        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 8 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow",
+        "gui_rgba8888_row_tile_rle_write_rgba8888_at storage encoded_byte_count color_base color",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must pin i32 LE pixel_offset, i32 LE pixel_count, and RGBA byte order",
+);
 assert(
     guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_facade_ok") &&
         guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_writer_plan_to_storage_ok") &&
         guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_exact_byte_count_ok") &&
         guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_prepare_error_owner_recovery_ok") &&
-        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_allocation_only_no_write_no_platform_no_fallback"),
-    "F5cj row tile RLE storage focused doctest must cover facade, writer-plan-to-storage success, exact byte count, owner recovery, and allocation-only policy",
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_allocation_only_no_write_no_platform_no_fallback") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_start_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_step_three_runs_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_completion_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_no_reader_no_platform_no_fallback"),
+    "F5cj/F5ck row tile RLE storage focused doctest must cover storage and writer cursor source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

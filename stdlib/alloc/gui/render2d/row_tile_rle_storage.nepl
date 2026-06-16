@@ -1,5 +1,5 @@
 //: # alloc/gui/render2d/row_tile_rle_storage
-//: RGBA8888 row tile RLE encoded storage allocation boundary
+//: RGBA8888 row tile RLE encoded storage and run writer boundary
 //:
 //: ### [目的/もくてき]
 //: - writer plan owner が[持/も]つ exact encoded byte capacity に[従/したが]い、RLE writer が[後続/こうぞく]で[使/つか]う owned byte storage を[確保/かくほ]します。
@@ -11,8 +11,9 @@
 //: - 成功時だけ writer plan owner を[閉/と]じ、continuation cursor と exact encoded storage を storage owner に[移/うつ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - この module は allocation / reservation だけを[担当/たんとう]します。RLE run drain、payload byte read、encoded byte write、Vec、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
-//: - storage の byte 内容は後続 writer が[初期化/しょきか]するまで[読/よ]めません。この phase では byte reader を public API として[提供/ていきょう]しません。
+//: - この module は storage allocation と exact run writer cursor だけを[担当/たんとう]します。payload byte read、encoded byte reader、Vec、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - writer は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` の 12 byte record を[書/か]きます。
+//: - storage の public byte reader は提供しません。write [失敗/しっぱい]時の slot は uncommitted であり、retry は同じ 12 byte を[上書/うわが]きします。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -24,7 +25,9 @@
 #import "alloc/gui/render2d/row_byte_storage" as *
 #import "alloc/gui/render2d/row_tile_rle" as *
 #import "alloc/gui/render2d/row_tile_rle_writer_plan" as *
+#import "core/cast" as *
 #import "core/field" as field
+#import "core/gui/color" as *
 #import "core/gui/error" as *
 #import "core/math" as *
 #import "core/mem" as *
@@ -59,6 +62,62 @@ impl Copy for GuiRgba8888RowTileRleStorageFinishErrorKind:
     fn copy_mark %fn GuiRgba8888RowTileRleStorageFinishErrorKind GuiRgba8888RowTileRleStorageFinishErrorKind \kind:
         kind
 
+pub enum GuiRgba8888RowTileRleWriteCursorStartErrorKind:
+    EncodedByteCountInvalid
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+
+impl Clone for GuiRgba8888RowTileRleWriteCursorStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleWriteCursorStartErrorKind GuiRgba8888RowTileRleWriteCursorStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleWriteCursorStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleWriteCursorStartErrorKind GuiRgba8888RowTileRleWriteCursorStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleWriteStepStatus:
+    WroteRun
+    Completed
+
+impl Clone for GuiRgba8888RowTileRleWriteStepStatus:
+    fn clone %fn &GuiRgba8888RowTileRleWriteStepStatus GuiRgba8888RowTileRleWriteStepStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowTileRleWriteStepStatus:
+    fn copy_mark %fn GuiRgba8888RowTileRleWriteStepStatus GuiRgba8888RowTileRleWriteStepStatus \status:
+        status
+
+pub enum GuiRgba8888RowTileRleWriteStepErrorKind:
+    EncodedByteCountInvalid
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    WrittenRunCountInvalid
+    WrittenByteCountInvalid
+    WrittenByteCountMismatch
+    WrittenRunCountOverflow
+    WrittenByteCountOverflow
+    WrittenByteCapacityExceeded
+    CursorStatusInvalid %GuiRgba8888RowTileRleStepErrorKind
+    CursorCompleteBeforeExpectedRun
+    RunCountExhaustedBeforeCursorComplete
+    PeekRunFailed %GuiRgba8888RowTileRleStepErrorKind
+    RunValueNegative
+    ByteOffsetOverflow
+    ByteIndexOutOfBounds
+    ByteProjectionFailed
+    ByteStoreFailed
+    CursorAdvanceFailed %GuiRgba8888RowTileRleStepErrorKind
+
+impl Clone for GuiRgba8888RowTileRleWriteStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleWriteStepErrorKind GuiRgba8888RowTileRleWriteStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleWriteStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleWriteStepErrorKind GuiRgba8888RowTileRleWriteStepErrorKind \kind:
+        kind
+
 pub struct GuiRgba8888RowTileRleStorageOwner:
     cursor %GuiRgba8888RowTileRleCursorOwner
     total_run_count %i32
@@ -74,8 +133,36 @@ pub struct GuiRgba8888RowTileRleStorageFinishError:
     kind %GuiRgba8888RowTileRleStorageFinishErrorKind
     cursor %GuiRgba8888RowTileRleCursorOwner
 
+pub struct GuiRgba8888RowTileRleWriteCursorOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    total_run_count %i32
+    encoded_byte_count %i32
+    storage %RegionToken u8
+    written_run_count %i32
+    written_byte_count %i32
+
+pub struct GuiRgba8888RowTileRleWriteCursorStartError:
+    kind %GuiRgba8888RowTileRleWriteCursorStartErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowTileRleStorageOwner
+
+pub struct GuiRgba8888RowTileRleWriteStep:
+    owner %GuiRgba8888RowTileRleWriteCursorOwner
+    status %GuiRgba8888RowTileRleWriteStepStatus
+
+pub struct GuiRgba8888RowTileRleWriteStepError:
+    kind %GuiRgba8888RowTileRleWriteStepErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowTileRleWriteCursorOwner
+
 fn gui_rgba8888_row_tile_rle_storage_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 fn i32 fn RegionToken u8 GuiRgba8888RowTileRleStorageOwner \cursor\total_run_count\encoded_byte_count\storage:
     GuiRgba8888RowTileRleStorageOwner cursor total_run_count encoded_byte_count storage
+
+fn gui_rgba8888_row_tile_rle_write_cursor_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 fn i32 fn RegionToken u8 fn i32 fn i32 GuiRgba8888RowTileRleWriteCursorOwner \cursor\total_run_count\encoded_byte_count\storage\written_run_count\written_byte_count:
+    GuiRgba8888RowTileRleWriteCursorOwner cursor total_run_count encoded_byte_count storage written_run_count written_byte_count
+
+fn gui_rgba8888_row_tile_rle_write_step_new %fn GuiRgba8888RowTileRleWriteCursorOwner fn GuiRgba8888RowTileRleWriteStepStatus GuiRgba8888RowTileRleWriteStep \owner\status:
+    GuiRgba8888RowTileRleWriteStep owner status
 
 fn gui_rgba8888_row_tile_rle_storage_prepare_error_category %fn GuiRgba8888RowTileRleStoragePrepareErrorKind Option GuiError \kind:
     match kind:
@@ -97,6 +184,42 @@ fn gui_rgba8888_row_tile_rle_storage_prepare_error %fn GuiRgba8888RowTileRleStor
 fn gui_rgba8888_row_tile_rle_storage_finish_error %fn GuiRgba8888RowTileRleStorageFinishErrorKind fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStorageFinishError \kind\cursor:
     GuiRgba8888RowTileRleStorageFinishError kind cursor
 
+fn gui_rgba8888_row_tile_rle_write_cursor_start_error_category %fn GuiRgba8888RowTileRleWriteCursorStartErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleWriteCursorStartErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_write_step_error_category %fn GuiRgba8888RowTileRleWriteStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleWriteStepErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleWriteStepErrorKind::ByteProjectionFailed:
+            Option::Some GuiError::BackendFailure
+        GuiRgba8888RowTileRleWriteStepErrorKind::ByteStoreFailed:
+            Option::Some GuiError::BackendFailure
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_write_cursor_start_error %fn GuiRgba8888RowTileRleWriteCursorStartErrorKind fn GuiRgba8888RowTileRleStorageOwner GuiRgba8888RowTileRleWriteCursorStartError \kind\owner:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_write_cursor_start_error_category kind
+    GuiRgba8888RowTileRleWriteCursorStartError kind category owner
+
+fn gui_rgba8888_row_tile_rle_write_step_error %fn GuiRgba8888RowTileRleWriteStepErrorKind fn GuiRgba8888RowTileRleWriteCursorOwner GuiRgba8888RowTileRleWriteStepError \kind\owner:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_write_step_error_category kind
+    GuiRgba8888RowTileRleWriteStepError kind category owner
+
 fn gui_rgba8888_row_tile_rle_storage_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleStoragePrepareErrorKind Result i32 GuiRgba8888RowTileRleStoragePrepareErrorKind \left\right\overflow_kind:
     if or lt left 0 lt right 0:
         then Result::Err overflow_kind
@@ -109,6 +232,192 @@ fn gui_rgba8888_row_tile_rle_storage_checked_mul_nonnegative %fn i32 fn i32 fn G
                     if gt left max_left:
                         then Result::Err overflow_kind
                         else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_write_start_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleWriteCursorStartErrorKind Result i32 GuiRgba8888RowTileRleWriteCursorStartErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_write_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleWriteStepErrorKind Result i32 GuiRgba8888RowTileRleWriteStepErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowTileRleWriteStepErrorKind Result i32 GuiRgba8888RowTileRleWriteStepErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_write_cursor_start_validate %fn &GuiRgba8888RowTileRleStorageOwner Result unit GuiRgba8888RowTileRleWriteCursorStartErrorKind \owner:
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_storage_owner_encoded_byte_count owner
+    if le encoded_byte_count 0:
+        then Result::Err GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountInvalid
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_storage_owner_total_run_count owner
+            if le total_run_count 0:
+                then Result::Err GuiRgba8888RowTileRleWriteCursorStartErrorKind::TotalRunCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_write_start_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRleWriteCursorStartErrorKind::EncodedByteCountMismatch
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_write_cursor_validate_counts %fn &GuiRgba8888RowTileRleWriteCursorOwner Result unit GuiRgba8888RowTileRleWriteStepErrorKind \owner:
+    let encoded_byte_count %i32 *field::get_ref owner "encoded_byte_count"
+    if le encoded_byte_count 0:
+        then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountInvalid
+        else:
+            let total_run_count %i32 *field::get_ref owner "total_run_count"
+            if le total_run_count 0:
+                then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::TotalRunCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_write_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::EncodedByteCountMismatch
+                                else:
+                                    let written_run_count %i32 *field::get_ref owner "written_run_count"
+                                    if or lt written_run_count 0 gt written_run_count total_run_count:
+                                        then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::WrittenRunCountInvalid
+                                        else:
+                                            let written_byte_count %i32 *field::get_ref owner "written_byte_count"
+                                            if or lt written_byte_count 0 gt written_byte_count encoded_byte_count:
+                                                then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountInvalid
+                                                else:
+                                                    match gui_rgba8888_row_tile_rle_write_checked_mul_nonnegative written_run_count 12 GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountOverflow:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok expected_written_byte_count:
+                                                            if ne expected_written_byte_count written_byte_count:
+                                                                then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountMismatch
+                                                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_write_byte_index %fn i32 fn i32 Result i32 GuiRgba8888RowTileRleWriteStepErrorKind \index\encoded_byte_count:
+    if or lt index 0 ge index encoded_byte_count:
+        then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::ByteIndexOutOfBounds
+        else Result::Ok index
+
+fn gui_rgba8888_row_tile_rle_write_project_byte %fn &RegionToken u8 fn i32 Result MemPtr u8 GuiRgba8888RowTileRleWriteStepErrorKind \storage\index:
+    match region_ptr_at<u8,u8> storage index:
+        Result::Err _:
+            Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::ByteProjectionFailed
+        Result::Ok ptr:
+            Result::Ok ptr
+
+fn gui_rgba8888_row_tile_rle_write_store_byte %fn MemPtr u8 fn i32 Result unit GuiRgba8888RowTileRleWriteStepErrorKind \ptr\value:
+    match store_u8 ptr value:
+        Result::Err _:
+            Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::ByteStoreFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_write_byte_at_delta %fn &RegionToken u8 fn i32 fn i32 fn i32 fn i32 Result unit GuiRgba8888RowTileRleWriteStepErrorKind \storage\encoded_byte_count\base\delta\value:
+    match gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base delta GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok index:
+            match gui_rgba8888_row_tile_rle_write_byte_index index encoded_byte_count:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok checked_index:
+                    match gui_rgba8888_row_tile_rle_write_project_byte storage checked_index:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok ptr:
+                            gui_rgba8888_row_tile_rle_write_store_byte ptr value
+
+fn gui_rgba8888_row_tile_rle_write_i32_le %fn &RegionToken u8 fn i32 fn i32 fn i32 Result unit GuiRgba8888RowTileRleWriteStepErrorKind \storage\encoded_byte_count\base\value:
+    if lt value 0:
+        then Result::Err GuiRgba8888RowTileRleWriteStepErrorKind::RunValueNegative
+        else:
+            let byte0 %i32 and value 0xff
+            let byte1 %i32 and shr_u value 8 0xff
+            let byte2 %i32 and shr_u value 16 0xff
+            let byte3 %i32 and shr_u value 24 0xff
+            match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 0 byte0:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 1 byte1:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok _:
+                            match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 2 byte2:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok _:
+                                    gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 3 byte3
+
+fn gui_rgba8888_row_tile_rle_write_rgba8888_at %fn &RegionToken u8 fn i32 fn i32 fn Rgba8888 Result unit GuiRgba8888RowTileRleWriteStepErrorKind \storage\encoded_byte_count\base\color:
+    let r8 %u8 rgba8888_r &color
+    let g8 %u8 rgba8888_g &color
+    let b8 %u8 rgba8888_b &color
+    let a8 %u8 rgba8888_a &color
+    let r %i32 cast r8
+    let g %i32 cast g8
+    let b %i32 cast b8
+    let a %i32 cast a8
+    match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 0 r:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 1 g:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 2 b:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok _:
+                            gui_rgba8888_row_tile_rle_write_byte_at_delta storage encoded_byte_count base 3 a
+
+fn gui_rgba8888_row_tile_rle_write_run_record %fn &RegionToken u8 fn i32 fn i32 fn &GuiRgba8888RowTileRleRun Result unit GuiRgba8888RowTileRleWriteStepErrorKind \storage\encoded_byte_count\base\run:
+    let pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset run
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count run
+    let color %Rgba8888 gui_rgba8888_row_tile_rle_run_color run
+    match gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count base pixel_offset:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 4 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok count_base:
+                    match gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count count_base pixel_count:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok _:
+                            match gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 8 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok color_base:
+                                    gui_rgba8888_row_tile_rle_write_rgba8888_at storage encoded_byte_count color_base color
 
 pub fn gui_rgba8888_row_tile_rle_storage_owner_total_run_count %fn &GuiRgba8888RowTileRleStorageOwner i32 \owner:
     *field::get_ref owner "total_run_count"
@@ -140,6 +449,50 @@ pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_plan_encoded_byte_count %
 
 pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_finish_plan %fn GuiRgba8888RowTileRleStoragePrepareError GuiRgba8888RowTileRleWriterPlanOwner \error:
     field::get error "plan"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    *field::get_ref owner "encoded_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_written_run_count %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    *field::get_ref owner "written_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_written_byte_count %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    *field::get_ref owner "written_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_cursor_pixel_count %fn &GuiRgba8888RowTileRleWriteCursorOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_start_error_kind %fn &GuiRgba8888RowTileRleWriteCursorStartError GuiRgba8888RowTileRleWriteCursorStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_start_error_category_value %fn &GuiRgba8888RowTileRleWriteCursorStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_start_error_finish_owner %fn GuiRgba8888RowTileRleWriteCursorStartError GuiRgba8888RowTileRleStorageOwner \error:
+    field::get error "owner"
+
+pub fn gui_rgba8888_row_tile_rle_write_step_status %fn &GuiRgba8888RowTileRleWriteStep GuiRgba8888RowTileRleWriteStepStatus \step:
+    *field::get_ref step "status"
+
+pub fn gui_rgba8888_row_tile_rle_write_step_finish_owner %fn GuiRgba8888RowTileRleWriteStep GuiRgba8888RowTileRleWriteCursorOwner \step:
+    field::get step "owner"
+
+pub fn gui_rgba8888_row_tile_rle_write_step_error_kind %fn &GuiRgba8888RowTileRleWriteStepError GuiRgba8888RowTileRleWriteStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_write_step_error_category_value %fn &GuiRgba8888RowTileRleWriteStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_write_step_error_finish_owner %fn GuiRgba8888RowTileRleWriteStepError GuiRgba8888RowTileRleWriteCursorOwner \error:
+    field::get error "owner"
 
 //: gui_rgba8888_row_tile_rle_storage_prepare: writer plan から exact encoded byte storage を[確保/かくほ]する
 //:
@@ -206,3 +559,128 @@ pub fn gui_rgba8888_row_tile_rle_storage_owner_free %fn GuiRgba8888RowTileRleSto
                     Result::Err GuiRgba8888RowTileRleStorageFinishErrorKind::CursorFreeFailed kind
                 Result::Ok _:
                     Result::Ok unit
+
+//: gui_rgba8888_row_tile_rle_write_cursor_start: encoded storage owner を run writer cursor に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `total_run_count * 12 == encoded_byte_count` を[再検査/さいけんさ]し、成功時だけ storage owner を write cursor owner へ[移/うつ]します。
+//: - writer cursor はまだ run を[読/よ]まず、byte も[書/か]きません。
+pub fn gui_rgba8888_row_tile_rle_write_cursor_start %fn GuiRgba8888RowTileRleStorageOwner Result GuiRgba8888RowTileRleWriteCursorOwner GuiRgba8888RowTileRleWriteCursorStartError \owner:
+    match gui_rgba8888_row_tile_rle_write_cursor_start_validate &owner:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_write_cursor_start_error kind owner
+        Result::Ok _:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_storage_owner_total_run_count &owner
+            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_storage_owner_encoded_byte_count &owner
+            let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+            let storage %RegionToken u8 field::get owner "storage"
+            Result::Ok gui_rgba8888_row_tile_rle_write_cursor_owner_new cursor total_run_count encoded_byte_count storage 0 0
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_start_error_free %fn GuiRgba8888RowTileRleWriteCursorStartError Result unit GuiRgba8888RowTileRleStorageFinishErrorKind \error:
+    let owner %GuiRgba8888RowTileRleStorageOwner gui_rgba8888_row_tile_rle_write_cursor_start_error_finish_owner error
+    gui_rgba8888_row_tile_rle_storage_owner_free owner
+
+//: gui_rgba8888_row_tile_rle_write_cursor_finish_cursor: encoded storage を[破棄/はき]して continuation cursor を[返/かえ]す
+pub fn gui_rgba8888_row_tile_rle_write_cursor_finish_cursor %fn GuiRgba8888RowTileRleWriteCursorOwner Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStorageFinishError \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+    let storage %RegionToken u8 field::get owner "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _:
+            Result::Err gui_rgba8888_row_tile_rle_storage_finish_error GuiRgba8888RowTileRleStorageFinishErrorKind::StorageDeallocFailed cursor
+        Result::Ok _:
+            Result::Ok cursor
+
+pub fn gui_rgba8888_row_tile_rle_write_cursor_owner_free %fn GuiRgba8888RowTileRleWriteCursorOwner Result unit GuiRgba8888RowTileRleStorageFinishErrorKind \owner:
+    match gui_rgba8888_row_tile_rle_write_cursor_finish_cursor owner:
+        Result::Err error:
+            let kind %GuiRgba8888RowTileRleStorageFinishErrorKind gui_rgba8888_row_tile_rle_storage_finish_error_kind &error
+            let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_storage_finish_error_cursor error
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err _:
+                    Result::Err kind
+                Result::Ok _:
+                    Result::Err kind
+        Result::Ok cursor:
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err kind:
+                    Result::Err GuiRgba8888RowTileRleStorageFinishErrorKind::CursorFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit
+
+pub fn gui_rgba8888_row_tile_rle_write_step_error_free %fn GuiRgba8888RowTileRleWriteStepError Result unit GuiRgba8888RowTileRleStorageFinishErrorKind \error:
+    let owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_step_error_finish_owner error
+    gui_rgba8888_row_tile_rle_write_cursor_owner_free owner
+
+fn gui_rgba8888_row_tile_rle_write_cursor_step_completed %fn GuiRgba8888RowTileRleWriteCursorOwner Result GuiRgba8888RowTileRleWriteStep GuiRgba8888RowTileRleWriteStepError \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref &owner "cursor"
+    match gui_rgba8888_row_tile_rle_cursor_status cursor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::CursorStatusInvalid kind owner
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Ok gui_rgba8888_row_tile_rle_write_step_new owner GuiRgba8888RowTileRleWriteStepStatus::Completed
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::RunCountExhaustedBeforeCursorComplete owner
+
+fn gui_rgba8888_row_tile_rle_write_cursor_step_write_run %fn GuiRgba8888RowTileRleWriteCursorOwner fn GuiRgba8888RowTileRleRun fn i32 fn i32 Result GuiRgba8888RowTileRleWriteStep GuiRgba8888RowTileRleWriteStepError \owner\run\next_written_run_count\next_written_byte_count:
+    let total_run_count %i32 *field::get_ref &owner "total_run_count"
+    let encoded_byte_count %i32 *field::get_ref &owner "encoded_byte_count"
+    let written_run_count %i32 *field::get_ref &owner "written_run_count"
+    let written_byte_count %i32 *field::get_ref &owner "written_byte_count"
+    let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+    let storage %RegionToken u8 field::get owner "storage"
+    match gui_rgba8888_row_tile_rle_write_run_record &storage encoded_byte_count written_byte_count &run:
+        Result::Err kind:
+            let recovered_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_cursor_owner_new cursor total_run_count encoded_byte_count storage written_run_count written_byte_count
+            Result::Err gui_rgba8888_row_tile_rle_write_step_error kind recovered_owner
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_cursor_advance_by_run cursor &run:
+                Result::Err lower_error:
+                    let lower_kind %GuiRgba8888RowTileRleStepErrorKind gui_rgba8888_row_tile_rle_step_error_kind &lower_error
+                    let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_error_cursor lower_error
+                    let recovered_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_cursor_owner_new recovered_cursor total_run_count encoded_byte_count storage written_run_count written_byte_count
+                    Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::CursorAdvanceFailed lower_kind recovered_owner
+                Result::Ok next_cursor:
+                    let next_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_cursor_owner_new next_cursor total_run_count encoded_byte_count storage next_written_run_count next_written_byte_count
+                    Result::Ok gui_rgba8888_row_tile_rle_write_step_new next_owner GuiRgba8888RowTileRleWriteStepStatus::WroteRun
+
+//: gui_rgba8888_row_tile_rle_write_cursor_step_one: 次の run を 12 byte record として[書/か]く
+//:
+//: [契約/けいやく]:
+//: - cursor は storage への 12 byte write がすべて[成功/せいこう]した後でだけ[進/すす]みます。
+//: - write [失敗/しっぱい]は owner-bearing error を[返/かえ]し、`written_run_count` と `written_byte_count` は[進/すす]みません。
+//: - write [失敗/しっぱい]時に一部 byte が書かれていてもその slot は uncommitted です。この module は reader を提供せず、retry は同じ 12 byte を上書きします。
+pub fn gui_rgba8888_row_tile_rle_write_cursor_step_one %fn GuiRgba8888RowTileRleWriteCursorOwner Result GuiRgba8888RowTileRleWriteStep GuiRgba8888RowTileRleWriteStepError \owner:
+    match gui_rgba8888_row_tile_rle_write_cursor_validate_counts &owner:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_write_step_error kind owner
+        Result::Ok _:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count &owner
+            let written_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_run_count &owner
+            if eq written_run_count total_run_count:
+                then gui_rgba8888_row_tile_rle_write_cursor_step_completed owner
+                else:
+                    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count &owner
+                    let written_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_byte_count &owner
+                    match gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta written_byte_count 12 GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_tile_rle_write_step_error kind owner
+                        Result::Ok next_written_byte_count:
+                            if gt next_written_byte_count encoded_byte_count:
+                                then Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCapacityExceeded owner
+                                else:
+                                    match gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta written_run_count 1 GuiRgba8888RowTileRleWriteStepErrorKind::WrittenRunCountOverflow:
+                                        Result::Err kind:
+                                            Result::Err gui_rgba8888_row_tile_rle_write_step_error kind owner
+                                        Result::Ok next_written_run_count:
+                                            let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref &owner "cursor"
+                                            match gui_rgba8888_row_tile_rle_cursor_peek_run cursor:
+                                                Result::Err peek_kind:
+                                                    match peek_kind:
+                                                        GuiRgba8888RowTileRleStepErrorKind::CursorComplete:
+                                                            Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::CursorCompleteBeforeExpectedRun owner
+                                                        _:
+                                                            Result::Err gui_rgba8888_row_tile_rle_write_step_error GuiRgba8888RowTileRleWriteStepErrorKind::PeekRunFailed peek_kind owner
+                                                Result::Ok run:
+                                                    gui_rgba8888_row_tile_rle_write_cursor_step_write_run owner run next_written_run_count next_written_byte_count

@@ -1491,6 +1491,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5ck: render2d row tile RLE run writer cursor
+
+目的:
+
+- F5cj の encoded storage owner を exact run writer cursor へ変換する。
+- storage への 12 byte record write が全て成功した後でだけ lower RLE cursor を進める。
+- store / projection / advance failure では owner-bearing error により original cursor、storage、unchanged written counts を回収できるようにする。
+- encoded byte reader、payload byte reader、host present、tile transport ABI、platform API、fallback には進まない。
+
+plan review:
+
+- Descartes plan review 1 は `PLAN_BLOCKED`。当初案では consuming `cursor_next_run` を write 前に呼ぶため、store failure 時に pre-step cursor を正しく返せないと指摘された。
+- revised plan では `row_tile_rle` に borrowed `cursor_peek_run` と consuming `cursor_advance_by_run` を追加し、writer は peek、write、advance の順にする。
+- Descartes revised plan review は `PLAN_APPROVED`。write-success-before-advance、unchanged written counts、uncommitted slot、reader 禁止、little-endian layout、completion 明示を source policy と docs に固定する条件で承認された。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_peek_run` を追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を追加する。
+- `advance_by_run` 用に `RunPixelOffsetMismatch`、`RunPixelCountInvalid`、`RunEndOutOfBounds` を lower step error kind に追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` に `GuiRgba8888RowTileRleWriteCursorOwner`、start error、step status、step error を追加する。
+- `gui_rgba8888_row_tile_rle_write_cursor_start` は encoded byte count / total run count / `total_run_count * 12` を再検査し、成功時だけ storage owner を writer owner へ移す。
+- `gui_rgba8888_row_tile_rle_write_cursor_step_one` は stored counts / written counts、completion、`written_byte_count + 12`、`written_run_count + 1` を検査し、`peek_run`、12 byte write、`advance_by_run` の順に進む。
+- record layout は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` とする。
+- `region_ptr_at` と `store_u8` は byte projection / byte store helper に閉じ込める。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` は timeout を避けるため import smoke と source policy labels に絞る。writer の詳細契約は source policy で固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ck source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- import smoke、row tile RLE storage module doctest、source policy、`git diff --check` が通る。
+- implementation review で consuming `cursor_next_run` を使わず、write helper だけが raw byte storage に触れ、reader / payload read / host present / platform / fallback へ進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5ck.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

@@ -7738,6 +7738,64 @@ The allocation happens before `finish_cursor plan`. That order preserves owner r
 
 F5cj must not call `cursor_next_run`, drain the cursor, read payload bytes, call `load_u8` / `store_u8`, expose a raw storage accessor, allocate `Vec`, build `EncodedRleBuffer`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The later run writer must be a separate owner boundary that writes success before advancing the cursor.
 
+## Render2d row tile RLE run writer cursor boundary
+
+F5ck converts `GuiRgba8888RowTileRleStorageOwner` into `GuiRgba8888RowTileRleWriteCursorOwner`. This is the first phase that writes encoded RLE bytes, but it still does not expose the bytes to callers and does not publish a transport frame.
+
+```text
+GuiRgba8888RowTileRleWriteCursorOwner:
+    cursor GuiRgba8888RowTileRleCursorOwner
+    total_run_count i32
+    encoded_byte_count i32
+    storage RegionToken u8
+    written_run_count i32
+    written_byte_count i32
+
+GuiRgba8888RowTileRleWriteStepStatus:
+    WroteRun
+    Completed
+```
+
+`gui_rgba8888_row_tile_rle_write_cursor_start` revalidates `encoded_byte_count > 0`, `total_run_count > 0`, and `total_run_count * 12 == encoded_byte_count` before moving the cursor and storage into the writer owner. Start does not inspect payload bytes and does not write storage bytes.
+
+F5ck adds two lower cursor helpers to `row_tile_rle`:
+
+```text
+gui_rgba8888_row_tile_rle_cursor_peek_run
+    borrows cursor and returns Copy run metadata
+
+gui_rgba8888_row_tile_rle_cursor_advance_by_run
+    consumes cursor only after caller-side success
+```
+
+`peek_run` returns only `GuiRgba8888RowTileRleStepErrorKind` and does not move the owner. `advance_by_run` validates that the run starts at the current cursor position, has positive `pixel_count`, and ends within the pixel payload. Failure returns owner-bearing `GuiRgba8888RowTileRleStepError` with the original cursor.
+
+`gui_rgba8888_row_tile_rle_write_cursor_step_one` must follow this order:
+
+```text
+validate stored counts and written counts
+if written_run_count == total_run_count:
+    require lower cursor Complete
+else:
+    check written_byte_count + 12 <= encoded_byte_count
+    peek run by borrow
+    write 12 bytes to current slot
+    advance cursor by run
+    increment written_run_count and written_byte_count
+```
+
+The encoded layout is pinned:
+
+```text
+pixel_offset i32 little-endian
+pixel_count i32 little-endian
+Rgba8888 r,g,b,a
+```
+
+Store / projection failure returns an owner-bearing `GuiRgba8888RowTileRleWriteStepError` with unchanged `written_run_count` and `written_byte_count`. Some bytes in the target slot may have been written before the failure; that slot is uncommitted, has no public reader, and retry overwrites all 12 bytes. This is not a fallback path.
+
+F5ck must not call consuming `cursor_next_run`, read payload bytes directly, call `load_u8`, expose an encoded byte reader, allocate `Vec`, build a host frame, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. `region_ptr_at` and `store_u8` are confined to byte projection / byte store helpers inside the writer module.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

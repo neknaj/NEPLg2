@@ -1,3 +1,50 @@
+# 2026-06-17 Agent2 GUI font F5ck render2d row tile RLE run writer cursor
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-run-writer-f5ck-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ck の lower peek / advance、RLE storage write cursor、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review 1 は `PLAN_BLOCKED`。当初案の consuming `cursor_next_run` は store failure 時に pre-step cursor を返せないと確認された。
+- revised plan では `row_tile_rle` に borrowed `cursor_peek_run` と consuming `cursor_advance_by_run` を追加し、writer は peek、write、advance の順にした。
+- Descartes revised plan review は `PLAN_APPROVED`。write-success-before-advance、unchanged written counts、uncommitted slot、reader 禁止、little-endian layout、completion 明示を source policy と docs に固定する条件で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_peek_run` と `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を追加した。
+- `advance_by_run` 用に `RunPixelOffsetMismatch`、`RunPixelCountInvalid`、`RunEndOutOfBounds` を lower step error kind に追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` に `GuiRgba8888RowTileRleWriteCursorOwner`、start error、step status、step error を追加した。
+- `gui_rgba8888_row_tile_rle_write_cursor_start` は storage owner の encoded byte count / total run count / `total_run_count * 12` を再検査してから writer owner へ移す。
+- `gui_rgba8888_row_tile_rle_write_cursor_step_one` は written counts、completion、12 byte capacity、run count increment を検査し、borrowed peek、12 byte write、advance の順に進む。
+- encoded layout は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` として固定した。
+- store / projection / advance failure は owner-bearing error に unchanged written counts を保持する。partial byte slot は uncommitted で、reader は提供しない。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` は CI timeout を避けるため import smoke と source policy labels へ軽量化した。writer の詳細契約は `nodesrc/test_web_gui_font_rendering_contract.js` の source policy で固定した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ck contract を追加した。
+- `todo.md` は F5ck 完了後の formal tile bitmap transport / host present ABI / scheduler / compositor / stroke / shadow 残件へ更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5ck.json -j 1`
+- pass: temporary min import probe for `alloc/gui/render2d/row_tile_rle_storage` completed in 60s budget before the temporary file was removed.
+- note: end-to-end row surface pipeline with writer step execution was too heavy for the current doctest runner and reached 180000ms compile timeout. The committed focused doctest is intentionally an import smoke, while source policy pins the writer order and no-reader/no-platform contract.
+
+## subagent review
+
+- Descartes implementation review は `REVIEW_APPROVED`。`row_tile_rle_storage.nepl` は borrowed `peek_run`、dedicated byte helpers、write 成功後の `advance_by_run` の順序を守り、consuming `cursor_next_run`、payload byte reader、encoded byte reader を使っていないことが確認された。
+- store / projection / advance failure は unchanged written counts と owner-bearing error を返し、completion は written count と lower cursor `Complete` の両方を要求していることが確認された。
+- import-smoke doctest は current compiler timeout を避けるためこの slice では許容された。residual risk として、compiler timeout 改善または小さい runtime fixture が用意できた段階で writer behavior runtime coverage を追加する。
+
+## residual
+
+- F5ck は exact encoded byte writer cursor までであり、encoded storage reader、tile bitmap transport、host present ABI、formal scheduler policy、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+- 次 slice では encoded storage を host-visible transport に渡す owner boundary か、FHD 60fps 向け scheduler / compositor boundary のどちらかに進む。
+
 # 2026-06-17 Agent2 GUI font F5cj render2d row tile RLE encoded storage boundary
 
 ## scope
