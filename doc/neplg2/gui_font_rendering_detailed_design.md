@@ -7235,6 +7235,29 @@ The public surface is intentionally narrow. Width, height, stride, byte length, 
 
 F5bt must not allocate tile lists, publish bitmap payloads, present to a host, call Web/native APIs, integrate font/glyf rendering directly, write pixels, use `dirty_region_merge`, use `dirty_regions_push_unchecked`, or introduce fallback behavior. Those decisions remain in later formal transport and scheduler phases.
 
+## Render2d validated bitmap frame owner boundary
+
+F5bu is the first boundary that gives the later formal transport a single validated frame owner. It consumes the F5bt dirty owner and a small config, but still does not publish pixels. The resulting owner type is `GuiRgba8888BitmapFrameOwner`; it carries only validated frame metadata, the dirty set, and the software surface owner.
+
+```text
+Dirty surface owner
+    -> validate positive frame id
+    -> revalidate surface shape metadata
+    -> validate dirty rect bounds
+    -> finish_surface
+    -> Bitmap frame owner
+```
+
+The validation order is part of the design. `finish_surface` must not appear before `frame_id > 0`, shape, stride, byte length, and dirty bounds validation. This preserves the original dirty owner on every failure and prevents a forged public struct from becoming transport authority by construction alone.
+
+Surface validation recomputes `GuiRgba8888SoftwareSurfaceShape` from width and height. Shape construction failure maps to `SurfaceInvalidGeometry`; expected stride and byte length mismatches map to `SurfaceStrideMismatch` and `SurfaceByteLengthMismatch`. These are typed domain errors, not string diagnostics.
+
+Dirty validation treats `Empty` and `Full` as explicit valid states. `One` validates the first rect. `Two` validates the first and second rect. Rect validation requires non-negative origin, non-negative size, checked `x + width` / `y + height`, and containment in the surface bounds; containment failure maps to `DirtyRectOutOfBounds`. Zero-sized dirty rects remain valid metadata; deciding whether they generate host work belongs to the later transport scheduler, not to this owner boundary.
+
+The prepare error carries a typed `GuiRgba8888BitmapFramePrepareErrorKind`, an optional coarse `GuiError` category, and the original dirty owner. The `category` field is only a classification for callers that need a general GUI error; it is not evidence that a lower host API failed.
+
+F5bu deliberately does not expose surface raw storage, row copy helpers, byte payload builders, tile lists, video-memory calls, host present, Canvas, DOM, minifb, or fallback paths. Those choices remain in the formal transport and scheduler phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

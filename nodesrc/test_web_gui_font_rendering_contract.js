@@ -80,6 +80,8 @@ const allocRender2dSoftwareSurface = read("stdlib/alloc/gui/render2d/software_su
 const allocRender2dSoftwareSurfaceImpl = withoutComments(allocRender2dSoftwareSurface);
 const allocRender2dDirtySurface = read("stdlib/alloc/gui/render2d/dirty_surface.nepl");
 const allocRender2dDirtySurfaceImpl = withoutComments(allocRender2dDirtySurface);
+const allocRender2dBitmapFrame = read("stdlib/alloc/gui/render2d/bitmap_frame.nepl");
+const allocRender2dBitmapFrameImpl = withoutComments(allocRender2dBitmapFrame);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -105,6 +107,7 @@ const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_comm
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
+const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17375,6 +17378,157 @@ assert(
         guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_finish_surface_teardown_ok") &&
         guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_no_split_accessor_no_platform_no_fallback"),
     "F5bt dirty surface focused doctest must cover facade, clean owner, checked rect push, invalid recovery, Full escalation, finish teardown, and no split/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("validated bitmap frame owner") &&
+            doc.includes("GuiRgba8888BitmapFrameOwner") &&
+            doc.includes("frame_id > 0") &&
+            doc.includes("SurfaceStrideMismatch") &&
+            doc.includes("DirtyRectOutOfBounds") &&
+            doc.includes("finish_surface") &&
+            doc.includes("fallback"),
+        `F5bu ${name} must document validated bitmap frame owner, positive id, forged metadata validation, dirty bounds, finish_surface order, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5bu") &&
+        implementationPlan.includes("Planck plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Tesla plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`"),
+    "F5bu implementation plan must retain blocked initial review and revised subagent approvals",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/bitmap_frame" as *'), "alloc/gui/render2d facade must export F5bu bitmap frame owner");
+assert(
+    allocRender2dBitmapFrameImpl.includes("pub enum GuiRgba8888BitmapFramePrepareErrorKind:") &&
+        allocRender2dBitmapFrameImpl.includes("FrameIdInvalid") &&
+        allocRender2dBitmapFrameImpl.includes("SurfaceInvalidGeometry") &&
+        allocRender2dBitmapFrameImpl.includes("SurfaceStrideMismatch") &&
+        allocRender2dBitmapFrameImpl.includes("SurfaceByteLengthMismatch") &&
+        allocRender2dBitmapFrameImpl.includes("DirtyRectInvalidOrigin") &&
+        allocRender2dBitmapFrameImpl.includes("DirtyRectInvalidSize") &&
+        allocRender2dBitmapFrameImpl.includes("DirtyRectRightOverflow") &&
+        allocRender2dBitmapFrameImpl.includes("DirtyRectBottomOverflow") &&
+        allocRender2dBitmapFrameImpl.includes("DirtyRectOutOfBounds") &&
+        allocRender2dBitmapFrameImpl.includes("pub struct GuiRgba8888BitmapFrameOwner:") &&
+        allocRender2dBitmapFrameImpl.includes("dirty %DirtyRegionSet") &&
+        allocRender2dBitmapFrameImpl.includes("surface %GuiRgba8888SoftwareSurfaceOwner") &&
+        allocRender2dBitmapFrameImpl.includes("pub struct GuiRgba8888BitmapFramePrepareError:") &&
+        allocRender2dBitmapFrameImpl.includes("owner %GuiRgba8888SoftwareSurfaceDirtyOwner"),
+    "alloc/gui/render2d/bitmap_frame F5bu must define typed prepare errors, frame owner, and owner-bearing prepare error",
+);
+assertNoMatch(
+    allocRender2dBitmapFrameImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888BitmapFrameOwner|GuiRgba8888BitmapFramePrepareError)\b/,
+    "alloc/gui/render2d/bitmap_frame F5bu owner and owner-bearing error must not implement Clone or Copy",
+);
+const bitmapFrameConfigChecked = functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_config_checked");
+assertOrderedFragments(
+    bitmapFrameConfigChecked,
+    [
+        "if le frame_id 0:",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid",
+        "Result::Ok GuiRgba8888BitmapFrameConfig frame_id",
+    ],
+    "alloc/gui/render2d/bitmap_frame F5bu config must reject non-positive frame ids",
+);
+const bitmapFrameValidateSurfaceShape = functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_validate_surface_shape");
+assertOrderedFragments(
+    bitmapFrameValidateSurfaceShape,
+    [
+        "let width %i32 gui_rgba8888_software_surface_dirty_owner_width owner",
+        "let height %i32 gui_rgba8888_software_surface_dirty_owner_height owner",
+        "gui_rgba8888_software_surface_shape width height",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceInvalidGeometry",
+        "let expected_stride %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape",
+        "let actual_stride %i32 gui_rgba8888_software_surface_dirty_owner_stride_bytes owner",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceStrideMismatch",
+        "let expected_byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape",
+        "let actual_byte_len %i32 gui_rgba8888_software_surface_dirty_owner_byte_len owner",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceByteLengthMismatch",
+        "Result::Ok shape",
+    ],
+    "alloc/gui/render2d/bitmap_frame F5bu must revalidate forged surface metadata before finish_surface",
+);
+const bitmapFrameValidateDirtyRect = functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_validate_dirty_rect");
+assertOrderedFragments(
+    bitmapFrameValidateDirtyRect,
+    [
+        "let x %i32 gui_rect_x rect",
+        "let y %i32 gui_rect_y rect",
+        "let width %i32 gui_rect_width rect",
+        "let height %i32 gui_rect_height rect",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidOrigin",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidSize",
+        "gui_rgba8888_bitmap_frame_checked_extent x width GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectRightOverflow",
+        "gui_rgba8888_bitmap_frame_checked_extent y height GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectBottomOverflow",
+        "Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectOutOfBounds",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/render2d/bitmap_frame F5bu dirty rect validation must check origin, size, extents, and surface bounds",
+);
+const bitmapFrameValidateDirtySet = functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_validate_dirty_set");
+assertOrderedFragments(
+    bitmapFrameValidateDirtySet,
+    [
+        "DirtyRegionSetState::Empty:",
+        "Result::Ok unit",
+        "DirtyRegionSetState::Full:",
+        "Result::Ok unit",
+        "DirtyRegionSetState::One:",
+        "let first %GuiRect dirty_regions_first &dirty",
+        "DirtyRegionSetState::Two:",
+        "let first %GuiRect dirty_regions_first &dirty",
+        "let second %GuiRect dirty_regions_second &dirty",
+    ],
+    "alloc/gui/render2d/bitmap_frame F5bu dirty set validation must explicitly handle Empty, Full, One, and Two",
+);
+const bitmapFramePrepare = functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_prepare");
+assertOrderedFragments(
+    bitmapFramePrepare,
+    [
+        "let frame_id %i32 gui_rgba8888_bitmap_frame_config_frame_id &config",
+        "if le frame_id 0:",
+        "Result::Err gui_rgba8888_bitmap_frame_prepare_error GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid owner",
+        "gui_rgba8888_bitmap_frame_validate_surface_shape &owner",
+        "let dirty %DirtyRegionSet gui_rgba8888_software_surface_dirty_owner_dirty &owner",
+        "gui_rgba8888_bitmap_frame_validate_dirty_set dirty width height",
+        "let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_dirty_owner_finish_surface owner",
+        "Result::Ok gui_rgba8888_bitmap_frame_owner_new frame_id width height stride_bytes byte_len dirty surface",
+    ],
+    "alloc/gui/render2d/bitmap_frame F5bu prepare must validate id, surface shape, and dirty set before finish_surface",
+);
+assertNoMatch(
+    bitmapFramePrepare,
+    /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|tile|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/bitmap_frame F5bu prepare must not expose raw pixels, allocate transport payloads, call host/platform APIs, or fallback",
+);
+assertNoMatch(
+    bitmapFramePrepare,
+    /[()]/,
+    "alloc/gui/render2d/bitmap_frame F5bu prepare must preserve NEPL prefix style without parentheses",
+);
+assertNoMatch(
+    allocRender2dBitmapFrameImpl,
+    /\bgui_rgba8888_bitmap_frame_(?:surface|surface_mut|split_surface|raw|bytes|byte_copy|row_copy|present|publish|tile|video_memory)\b/,
+    "alloc/gui/render2d/bitmap_frame F5bu must not expose raw surface, byte, row, tile, present, or host video-memory APIs",
+);
+assert(
+    guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_facade_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_positive_id_config_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_prepare_metadata_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_invalid_frame_id_recovery_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_forged_stride_recovery_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_dirty_bounds_recovery_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_finish_surface_teardown_ok") &&
+        guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_no_platform_no_fallback"),
+    "F5bu bitmap frame focused doctest must cover facade, positive id, metadata success, invalid id recovery, forged stride recovery, dirty bounds recovery, finish teardown, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
