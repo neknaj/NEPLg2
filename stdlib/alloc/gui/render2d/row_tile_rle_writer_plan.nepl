@@ -1,0 +1,145 @@
+//: # alloc/gui/render2d/row_tile_rle_writer_plan
+//: RGBA8888 row tile RLE writer capacity plan boundary
+//:
+//: ### [目的/もくてき]
+//: - ready encode cursor owner から formal encoded RLE writer が[使/つか]う byte capacity evidence を[作/つく]ります。
+//: - RLE 1 run を `pixel_offset i32`、`pixel_count i32`、`Rgba8888` 4 bytes の 12 bytes として[数/かぞ]えます。
+//:
+//: ### [契約/けいやく]
+//: - total run count が 0 以下なら `TotalRunCountInvalid` として拒否し、original ready cursor owner を error で[返/かえ]します。
+//: - `total_run_count * 12` は checked multiplication で[検査/けんさ]し、overflow は `EncodedByteCountOverflow` として owner-bearing error にします。
+//: - 成功時だけ ready cursor owner を[閉/と]じ、underlying cursor owner と exact encoded byte count を writer plan owner に[移/うつ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は RLE run drain、payload byte read、encoded buffer allocation、Vec、raw storage、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - 実際の encoded byte writer と storage allocation は、この capacity evidence を[消費/しょうひ]する後続 phase で[定義/ていぎ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_writer_plan" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_cursor" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleWriterPlanErrorKind:
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+
+impl Clone for GuiRgba8888RowTileRleWriterPlanErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleWriterPlanErrorKind GuiRgba8888RowTileRleWriterPlanErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleWriterPlanErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleWriterPlanErrorKind GuiRgba8888RowTileRleWriterPlanErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleWriterPlanOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    total_run_count %i32
+    encoded_byte_count %i32
+
+pub struct GuiRgba8888RowTileRleWriterPlanError:
+    kind %GuiRgba8888RowTileRleWriterPlanErrorKind
+    category %Option GuiError
+    ready %GuiRgba8888RowTileRleEncodeCursorOwner
+    total_run_count %i32
+
+fn gui_rgba8888_row_tile_rle_writer_plan_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 fn i32 GuiRgba8888RowTileRleWriterPlanOwner \cursor\total_run_count\encoded_byte_count:
+    GuiRgba8888RowTileRleWriterPlanOwner cursor total_run_count encoded_byte_count
+
+fn gui_rgba8888_row_tile_rle_writer_plan_error_category %fn GuiRgba8888RowTileRleWriterPlanErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleWriterPlanErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleWriterPlanErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_rle_writer_plan_error %fn GuiRgba8888RowTileRleWriterPlanErrorKind fn GuiRgba8888RowTileRleEncodeCursorOwner fn i32 GuiRgba8888RowTileRleWriterPlanError \kind\ready\total_run_count:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_writer_plan_error_category kind
+    GuiRgba8888RowTileRleWriterPlanError kind category ready total_run_count
+
+fn gui_rgba8888_row_tile_rle_writer_plan_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleWriterPlanErrorKind Result i32 GuiRgba8888RowTileRleWriterPlanErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_total_run_count %fn &GuiRgba8888RowTileRleWriterPlanOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_encoded_byte_count %fn &GuiRgba8888RowTileRleWriterPlanOwner i32 \owner:
+    *field::get_ref owner "encoded_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleWriterPlanOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_cursor_pixel_count %fn &GuiRgba8888RowTileRleWriterPlanOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor %fn GuiRgba8888RowTileRleWriterPlanOwner GuiRgba8888RowTileRleCursorOwner \owner:
+    field::get owner "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_kind %fn &GuiRgba8888RowTileRleWriterPlanError GuiRgba8888RowTileRleWriterPlanErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_category_value %fn &GuiRgba8888RowTileRleWriterPlanError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_total_run_count %fn &GuiRgba8888RowTileRleWriterPlanError i32 \error:
+    *field::get_ref error "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleWriterPlanError i32 \error:
+    let ready %&GuiRgba8888RowTileRleEncodeCursorOwner field::get_ref error "ready"
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_next_pixel_index ready
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_cursor_pixel_count %fn &GuiRgba8888RowTileRleWriterPlanError i32 \error:
+    let ready %&GuiRgba8888RowTileRleEncodeCursorOwner field::get_ref error "ready"
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_pixel_count ready
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_finish_ready_owner %fn GuiRgba8888RowTileRleWriterPlanError GuiRgba8888RowTileRleEncodeCursorOwner \error:
+    field::get error "ready"
+
+//: gui_rgba8888_row_tile_rle_writer_plan_prepare: ready cursor から encoded byte capacity を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - transport capacity boundary として total run count を[再検査/さいけんさ]し、forged owner を fail-closed にします。
+//: - encoded byte count は 1 run 12 bytes として checked multiplication で[計算/けいさん]します。
+//: - 成功時だけ ready cursor owner を[閉/と]じ、cursor owner を writer plan owner へ[渡/わた]します。
+pub fn gui_rgba8888_row_tile_rle_writer_plan_prepare %fn GuiRgba8888RowTileRleEncodeCursorOwner Result GuiRgba8888RowTileRleWriterPlanOwner GuiRgba8888RowTileRleWriterPlanError \ready:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_encode_cursor_owner_total_run_count &ready
+    if le total_run_count 0:
+        then Result::Err gui_rgba8888_row_tile_rle_writer_plan_error GuiRgba8888RowTileRleWriterPlanErrorKind::TotalRunCountInvalid ready total_run_count
+        else:
+            match gui_rgba8888_row_tile_rle_writer_plan_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleWriterPlanErrorKind::EncodedByteCountOverflow:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_row_tile_rle_writer_plan_error kind ready total_run_count
+                Result::Ok encoded_byte_count:
+                    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encode_cursor_owner_finish_cursor ready
+                    Result::Ok gui_rgba8888_row_tile_rle_writer_plan_owner_new cursor total_run_count encoded_byte_count
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_owner_free %fn GuiRgba8888RowTileRleWriterPlanOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor owner
+    gui_rgba8888_row_tile_rle_cursor_free cursor
+
+pub fn gui_rgba8888_row_tile_rle_writer_plan_error_free %fn GuiRgba8888RowTileRleWriterPlanError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let ready %GuiRgba8888RowTileRleEncodeCursorOwner gui_rgba8888_row_tile_rle_writer_plan_error_finish_ready_owner error
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_free ready

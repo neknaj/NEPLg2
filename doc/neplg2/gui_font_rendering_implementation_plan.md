@@ -1390,6 +1390,56 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5ci: Render2d row tile RLE writer plan boundary
+
+目的:
+
+- F5ch の `GuiRgba8888RowTileRleEncodeCursorOwner` を、formal encoded RLE writer の capacity plan owner へ変換する。
+- fixed RLE run wire layout を `pixel_offset i32`、`pixel_count i32`、`Rgba8888` 4 bytes の 12 bytes として document し、`total_run_count * 12` を checked arithmetic で検査する。
+- invalid count / overflow は original ready cursor owner を保持する owner-bearing error とし、cursor owner を fake reconstruction しない。
+
+plan review:
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ci は ready cursor owner と future encoded writer/storage の間に置く capacity-only boundary として妥当である。
+- `total_run_count > 0` の再検査は、formal capacity boundary として forged / internal misuse を fail-closed にするため許容される。
+- invalid count / overflow の error は original `GuiRgba8888RowTileRleEncodeCursorOwner` を保持し、`finish_cursor` は success path だけで行う。
+- source policy では checked multiply by `12`、owner/error no Clone/Copy、no status / drain / next_run / payload read / raw storage / `Vec` / encoded buffer / platform / fallback / silent no-op / 括弧禁止を固定する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl` を追加する。
+- `GuiRgba8888RowTileRleWriterPlanErrorKind` に `TotalRunCountInvalid` と `EncodedByteCountOverflow` を定義する。
+- `GuiRgba8888RowTileRleWriterPlanOwner` は `cursor`、`total_run_count`、`encoded_byte_count` を持つ。
+- `GuiRgba8888RowTileRleWriterPlanError` は `ready` owner と `total_run_count` を保持する。
+- `gui_rgba8888_row_tile_rle_writer_plan_prepare` は total を読んで正値検査を行い、`total_run_count * 12` を checked multiply で検査してから success path だけで cursor owner を finish する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE writer plan を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` を追加し、facade、ready-to-capacity success、encoded byte count、owner recovery label、no status / drain / payload read / encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ci source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE writer plan module doctest、row tile RLE encode cursor / seed / completed count / count / drain / cursor / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で capacity-only boundary であり、allocation、RLE data write、payload byte read、host present、platform API、fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_writer_plan_f5ci.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_writer_plan_module_f5ci.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_cursor_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5ci_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5ci_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

@@ -7658,6 +7658,45 @@ F5ch also does not call `cursor_status`. The F5cc `cursor_start` contract alread
 
 `GuiRgba8888RowTileRleEncodeCursorErrorKind` is Copy metadata. `GuiRgba8888RowTileRleEncodeCursorOwner` and `GuiRgba8888RowTileRleEncodeCursorError` are owner-bearing values and must not implement Clone / Copy. F5ch remains cursor-only: it does not call `cursor_status`, drain, `cursor_next_run`, payload byte read, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
 
+## Render2d row tile RLE writer plan boundary
+
+F5ci converts the F5ch ready cursor owner into the first formal encoded RLE writer capacity plan. The boundary is deliberately still not a writer, not encoded storage, and not a host presentation object. Its only job is to derive exact byte capacity and preserve the cursor owner for the next phase.
+
+The fixed row-tile RLE run layout is:
+
+```text
+pixel_offset i32
+pixel_count  i32
+rgba8888      4 bytes
+```
+
+Therefore one encoded run is 12 bytes and the encoded payload capacity is:
+
+```text
+encoded_byte_count = total_run_count * 12
+```
+
+This multiplication is checked. A forged negative count, zero count, or overflowing byte count must not become a silent empty payload and must not fall back to an uncompressed transport.
+
+```text
+GuiRgba8888RowTileRleWriterPlanOwner:
+    cursor GuiRgba8888RowTileRleCursorOwner
+    total_run_count i32
+    encoded_byte_count i32
+
+GuiRgba8888RowTileRleWriterPlanError:
+    kind GuiRgba8888RowTileRleWriterPlanErrorKind
+    category Option GuiError
+    ready GuiRgba8888RowTileRleEncodeCursorOwner
+    total_run_count i32
+```
+
+`TotalRunCountInvalid` and `EncodedByteCountOverflow` both return the original `GuiRgba8888RowTileRleEncodeCursorOwner`. F5ci must validate and compute capacity before calling `gui_rgba8888_row_tile_rle_encode_cursor_owner_finish_cursor`. On success, the ready owner is consumed exactly once and the underlying cursor owner is moved into `GuiRgba8888RowTileRleWriterPlanOwner`.
+
+F5ci intentionally revalidates `total_run_count > 0`. F5cg already validates normal public construction, but F5ci is the transport capacity boundary. Revalidation keeps the later writer fail-closed if an internal constructor path or future refactor produces a forged owner.
+
+F5ci must not call `cursor_status`, drain the cursor, call `cursor_next_run`, read payload bytes, allocate `Vec`, allocate raw storage, build `EncodedRleBuffer`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The actual encoded byte writer and storage owner are separate later owner boundaries.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
