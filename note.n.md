@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font F5ci render2d row tile RLE writer plan boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-writer-plan-f5ci-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ci の writer capacity plan boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ci は F5ch ready cursor owner と future encoded writer/storage の間に置く capacity-only boundary として承認された。
+- `total_run_count > 0` の再検査は formal capacity boundary として forged / internal misuse を fail-closed にするため許容された。
+- invalid count / overflow の error は original `GuiRgba8888RowTileRleEncodeCursorOwner` を保持し、`finish_cursor` は success path だけで行う方針が承認された。
+- fixed run layout は `pixel_offset i32`、`pixel_count i32`、`Rgba8888` 4 bytes の 12 bytes として document し、source policy で checked multiply by `12` を固定することが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl` を追加した。
+- `GuiRgba8888RowTileRleWriterPlanErrorKind`、`GuiRgba8888RowTileRleWriterPlanOwner`、`GuiRgba8888RowTileRleWriterPlanError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_writer_plan_prepare` は ready cursor owner の total run count を再検査し、0 以下なら `TotalRunCountInvalid` の owner-bearing error で original ready owner を返す。
+- `total_run_count * 12` は checked multiplication で検査し、overflow は `EncodedByteCountOverflow` の owner-bearing error にする。
+- 成功時だけ ready cursor owner を finish して cursor owner を writer plan owner へ移し、exact `encoded_byte_count` を保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE writer plan を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ci の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ci source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl` 1 / 1 passed
+- pass: row tile RLE encode cursor / seed / completed count / count / drain / cursor / payload / plan regression 16 / 16 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。F5ci が capacity-only boundary であり、storage allocation や run writing に進んでいないことを確認した。
+- Ramanujan は invalid count / overflow が original `GuiRgba8888RowTileRleEncodeCursorOwner` を保持し、`finish_cursor` が success path だけで呼ばれることを確認した。
+- 12-byte layout が document され、checked multiplication by `12` で固定されていること、owner/error が Clone / Copy でなく、error kind だけが Copy metadata であることを確認した。
+- source policy と doctest が facade export、ready-to-capacity success、byte count preservation、owner recovery label、no status / drain / payload read / encoded buffer / platform / fallback / 括弧禁止を覆っていることを確認した。
+
+## remaining
+
+- F5ci は ready cursor owner から writer capacity plan を作るところまでであり、encoded storage allocation、run writer、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5ch render2d row tile RLE encode cursor boundary
 
 ## scope

@@ -6713,6 +6713,30 @@ GuiRgba8888RowTileRleEncodeSeedOwner
 
 この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。`cursor_start` は正で RGBA8888 に整列した payload を `next_pixel_index = 0` かつ正の `pixel_count` の cursor として返すため、成功結果を ready cursor として扱う。
 
+### Render2d row tile RLE writer plan boundary
+
+F5ci は `GuiRgba8888RowTileRleEncodeCursorOwner` を、formal encoded RLE writer が使う byte capacity plan へ変換する phase である。`GuiRgba8888RowTileRleWriterPlanOwner` は `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count` を保持する。これは encoded storage ではなく、future writer が確保前に capacity を検査できるようにする owner boundary である。
+
+```text
+GuiRgba8888RowTileRleEncodeCursorOwner
+    -> gui_rgba8888_row_tile_rle_writer_plan_prepare
+    -> Result GuiRgba8888RowTileRleWriterPlanOwner GuiRgba8888RowTileRleWriterPlanError
+```
+
+RLE transport の 1 run は固定 12 bytes である。
+
+```text
+pixel_offset i32
+pixel_count  i32
+rgba8888      4 bytes
+```
+
+`gui_rgba8888_row_tile_rle_writer_plan_prepare` は formal capacity boundary として `total_run_count > 0` を再検査する。F5cg で通常 path は正値になるが、future writer boundary では forged owner や internal misuse を fail-closed にする必要があるため、0 以下は `TotalRunCountInvalid` として original ready cursor owner を保持した error を返す。`total_run_count * 12` は checked multiplication で検査し、overflow は `EncodedByteCountOverflow` として同じく original ready cursor owner を保持する。
+
+成功時だけ ready cursor owner を閉じて underlying cursor owner を writer plan owner に移す。error path では cursor owner を再構成しない。caller は error から original ready cursor owner を finish / free して明示的に回収できる。
+
+この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer allocation、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual writer、encoded storage owner、tile transport ABI は後続 phase の owner boundary として定義する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
