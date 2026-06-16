@@ -8007,6 +8007,16 @@ The success shape is intentionally `RequestReady request plus post phase`. `GuiR
 
 All errors preserve previous dispatch state. F5ct errors wrap the lower schedule error kind and category. F5cr errors wrap the host request `GuiError` and do not adopt the schedule state that was computed in the same pure step, because no request was produced. F5cu must not call F5cs directly, bypass F5ct, call F5cp/F5co lower cursors, read raw packet storage, allocate queues, invoke timers, execute host imports, expose platform APIs, or fallback to a silent no-op path.
 
+## Std layer row tile RLE present dispatch loop outcome boundary
+
+F5cv introduces the std layer row tile RLE present dispatch loop outcome boundary. It sits immediately above F5cu and still does not execute a host import. Its job is to make the future Web, native, bare, or offscreen presenter interaction explicit: first create a pending request, then complete that pending request exactly once with the host outcome.
+
+`GuiRgba8888RowTileRlePresentDispatchLoopState` wraps only `GuiRgba8888RowTileRlePresentDispatchState`. `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` stores previous state, next state, `GuiRgba8888RowTileRlePresentHostImportRequest`, and post phase. The pending value is intentionally not Clone and not Copy. `complete_request consumes pending`, so a host outcome cannot be replayed by repeatedly completing a borrowed request. This keeps request submission as a one-shot state-machine boundary without adding a queue or scheduler.
+
+`dispatch_loop_step_record` calls only F5cu `gui_rgba8888_row_tile_rle_present_dispatch_step_record`. A dispatch error is wrapped with the lower error kind, category, and previous state. A success returns a pending request that contains both rollback information and the state that should become visible after the executor succeeds.
+
+`complete_request` consumes that pending value and a `Result unit GuiError` outcome supplied by a later platform executor. An Err outcome produces `HostImportExecutionFailed` and returns previous state in the error. An Ok outcome maps post phase to `Continue next state`, `Yield next state`, or `Completed next state`. F5cv must not call F5ct, F5cr, or F5cs directly, touch lower cursors, read raw packet storage, allocate queues, invoke timers or schedulers, execute host imports, expose platform APIs, or fallback to a silent no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

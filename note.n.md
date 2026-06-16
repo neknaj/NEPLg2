@@ -1,3 +1,50 @@
+# 2026-06-17 Agent2 GUI font F5cv std row tile RLE present dispatch loop outcome boundary
+
+## scope
+
+- F5cu の `RequestReady request plus post phase` を future platform executor の host outcome と接続する std layer loop boundary を追加する。
+- `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` は previous state、next state、request、post phase を保持し、Clone / Copy を実装しない。
+- `complete_request` は pending value を消費し、host outcome Err では previous state、Ok では post phase に対応した next state を返す。
+- actual host import execution、Web / native / bare presenter、queue、timer、scheduler、platform API、video memory、raw packet storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `complete_request` が pending を borrow するだけだと、同じ host outcome を複数回完了して next state の publish や failure を replay できると指摘された。
+- 修正版計画は `PLAN_APPROVED`。`complete_request` が pending value を消費し、pending が previous / next state と request / post phase を保持する一回限りの境界にする方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_dispatch_loop.nepl` を追加した。
+- dispatch loop state、pending request、step、completion enum、typed error enum/value を追加した。
+- pending request と step は Clone / Copy を実装せず、source policy でも禁止した。
+- `dispatch_loop_step_record` は F5cu `dispatch_step_record` だけを呼び、success path で previous / next state を持つ pending request を返す。
+- `dispatch_loop_complete_request` は pending value と `Result unit GuiError` を受け、Err では previous state 付き error、Ok では Continue / Yield / Completed の next state completion を返す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cv.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_loop_module_f5cv.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cv.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `DispatchLoopState` が F5cu dispatch state だけを wrap すること、pending request が previous / next / request / post phase を保持し Clone / Copy を持たないことが確認された。
+- `complete_request` が pending value を消費して host outcome を one-shot にし、Err は previous state、Ok は post phase に従う next state completion に写すことが確認された。
+- source policy と docs が host import execution、queue、timer、scheduler backend、platform / DOM / Canvas / minifb / video memory、raw packet access、fallback、silent no-op を禁止していることも確認された。
+
+## residual
+
+- F5cv は one-shot pending / host outcome state transition までであり、actual Web / native / bare presenter、formal host import execution implementation、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cu std row tile RLE present scheduled dispatch boundary
 
 ## scope
