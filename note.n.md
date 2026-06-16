@@ -1,3 +1,51 @@
+# 2026-06-17 Agent2 GUI font F5cp std row tile RLE present command cursor
+
+## scope
+
+- F5co の `GuiRgba8888RowTileRlePresentRunCursorOwner` を、host import 直前の std layer present command cursor に昇格する。
+- Web / native / bare / headless presenter が共有できる BeginFrame / Run / EndFrame の typed command stream を定義する。
+- actual host import、scheduler policy、2D compositor drain、platform presenter、video memory submit は後続 phase に残す。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。lower run cursor が `Completed` を返した時に public step が無出力になる計画は契約が曖昧であり、EndFrame を同じ public step で返すよう修正した。
+- start failure は lower start error から present owner を recover し、step failure は lower step error から run cursor owner を recover して command cursor owner に戻す必要があると指摘された。
+- 修正版計画は `APPROVED`。F5co cursor の上に typed frame command stream を作るのが summary drain より根本対処として妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_command_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentCommand` に BeginFrame / Run / EndFrame を定義した。
+- `GuiRgba8888RowTileRlePresentCommandCursorOwner` は lower run cursor owner、present descriptor copy、phase を保持する。owner-bearing 型は Clone / Copy を実装しない。
+- `gui_rgba8888_row_tile_rle_present_command_cursor_start` は descriptor をコピーしてから F5co start を 1 回だけ呼び、失敗時は original present owner を error に保持する。
+- `gui_rgba8888_row_tile_rle_present_command_cursor_step` は one typed output per public step を守る。BeginPending は BeginFrame、RunPending の lower RunReady は Run、lower Completed は同じ step で EndFrame、Completed phase は terminal Completed を返す。
+- lower step error は kind / category を保持しつつ lower owner を recover し、RunPending の command cursor owner に戻す。
+- `stdlib/std/gui.nepl` facade から command cursor boundary を再公開した。
+- `tests/stdlib/gui_std_tile_present_command_cursor.n.md` を追加し、source policy label と import smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cp source policy を追加し、F5co bypass、raw packet record access、host/platform/fallback を禁止した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cp contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cp.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5cp_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_tile_present_command_cursor_module_f5cp.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `tile_present_command_cursor.nepl` は F5co の上の std-layer cursor であり、packet record / raw storage / host / platform API に触れていないと確認された。
+- public step は BeginFrame、Run、EndFrame、terminal Completed のいずれか 1 output を返し、lower Completed と同じ step で EndFrame を返すため silent transition がないと確認された。
+- start failure は original present owner を recover し、step failure は lower run cursor owner を recover して RunPending command cursor owner に戻すと確認された。
+- source policy と docs / todo は F5cp の typed command stream と後続 host import / scheduler 残件を正しく分けていると確認された。
+
+## residual
+
+- F5cp は std layer typed command stream までであり、formal Web / native / headless host import ABI、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cn std row tile RLE present-frame owner
 
 ## scope
