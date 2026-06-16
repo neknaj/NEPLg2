@@ -7983,6 +7983,10 @@ F5cr introduces the std layer row tile RLE present host import request. It is st
 
 The target enum contains only `Window WindowId`, `Offscreen`, and `Device`. Headless is not a presentation target. Headless tests should inspect host-command records or a later explicit virtual drain, not receive a fake presentation target. Text grid is also rejected because RGBA8888 row tile RLE is a pixel transport. The constructor checks `GuiCapabilities.color_format` before selecting a target and accepts only `ColorFormat::FormatRgba8888`. This is required because `SurfaceKind::DevicePixel` can use non-RGBA formats such as RGB565. The request boundary must fail with `GuiError::Unsupported` rather than shifting a color-format mismatch to a platform layer.
 
+F5cs introduces the std layer row tile RLE present virtual drain. It is the explicit headless/test observation boundary for the F5cq host-command record stream. It does not present pixels, does not build a host import request, and does not consume F5cr.
+
+The virtual drain keeps `GuiRgba8888RowTileRlePresentVirtualDrain` state as a small Copy value: phase, optional surface id, optional frame id, expected run count, seen run count, expected pixel count, and seen pixel count. BeginFrame is valid only in the initial phase and stores expected counts through std-layer `tile_present` descriptor accessors. RunRecord is valid only in the frame phase and requires `run_pixel_offset == seen_pixel_count`; this rejects gaps, overlaps, and reordered runs even when total run count and total pixel count would otherwise match. EndFrame is valid only after all expected runs and pixels are observed. Failures return a concrete `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` plus the previous drain state so a test harness can inspect the exact invalid transition without falling back to a presenter.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

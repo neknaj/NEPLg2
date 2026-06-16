@@ -612,6 +612,8 @@ std layer row tile RLE present host-command record は F5cq の checkpoint で�
 
 std layer row tile RLE present host import request は F5cr の checkpoint である。`std/gui/tile_present_host_import` は F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` だけを消費し、`GuiRgba8888RowTileRlePresentHostImportRequest` に包む。request target は `GuiRgba8888RowTileRlePresentHostImportTarget` の `Window WindowId`、`Offscreen`、`Device` に限定する。Headless is not a presentation target。headless / text grid は `GuiError::Unsupported` とし、fallback target を選ばない。RGBA8888 row tile RLE 専用の境界なので `ColorFormat::FormatRgba8888` 以外の capability も `GuiError::Unsupported` として、この mismatch を platform backend に持ち越さない。
 
+std layer row tile RLE present virtual drain は F5cs の checkpoint である。`std/gui/tile_present_virtual_drain` は headless / test が F5cq host-command record を観測するための境界であり、presentation target ではないため does not consume F5cr。`GuiRgba8888RowTileRlePresentVirtualDrain` は Begin / Run / End の phase、optional surface / frame、expected / seen count を保持し、RunRecord では `run_pixel_offset == seen_pixel_count` を要求する。これにより total count だけでは見逃す gap / overlap / reorder を std layer で拒否できる。error は `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` と直前 drain state を保持し、silent no-op や fallback presenter へ逃げない。
+
 ## TUI Migration Contract
 
 既存 TUI は `features/tui` と `platforms/wasix/tui` に直接 helper が露出している。これを段階的に次へ移す。

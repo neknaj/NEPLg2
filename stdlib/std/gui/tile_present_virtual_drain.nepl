@@ -1,0 +1,372 @@
+//: # std/gui/tile_present_virtual_drain
+//: RGBA8888 row tile RLE present host-command record の headless/test drain
+//:
+//: ### [目的/もくてき]
+//: - F5cq の host-command record stream を、headless / test で deterministic に[検査/けんさ]するための virtual drain を[提供/ていきょう]します。
+//: - この module は presentation target、host import、platform presenter ではなく、Begin / Run / End の[順序/じゅんじょ]と count [整合/せいごう]を[検査/けんさ]するだけです。
+//:
+//: ### [契約/けいやく]
+//: - input は `GuiRgba8888RowTileRlePresentHostCommandRecord` だけです。
+//: - Headless を presentation target として[扱/あつか]わず、pixel present / screenshot の fallback も[行/おこな]いません。
+//: - run は `pixel_offset == seen_pixel_count` を[要求/ようきゅう]し、gap / overlap / reorder を[検出/けんしゅつ]します。
+//: - failure は enum kind と `Option GuiError` category と直前 drain state を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_virtual_drain" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/window" as *
+
+pub enum GuiRgba8888RowTileRlePresentVirtualDrainPhase:
+    WaitingBegin
+    InFrame
+    Ended
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualDrainPhase:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualDrainPhase GuiRgba8888RowTileRlePresentVirtualDrainPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualDrainPhase:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualDrainPhase GuiRgba8888RowTileRlePresentVirtualDrainPhase \phase:
+        phase
+
+pub enum GuiRgba8888RowTileRlePresentVirtualDrainErrorKind:
+    BeginAfterBegin
+    BeginAfterEnd
+    RunBeforeBegin
+    RunAfterEnd
+    EndBeforeBegin
+    EndAfterEnd
+    SurfaceMissing
+    FrameMissing
+    DescriptorSurfaceMismatch
+    DescriptorFrameMismatch
+    DescriptorExpectedRunCountMismatch
+    DescriptorExpectedPixelCountMismatch
+    ExpectedRunCountInvalid
+    ExpectedPixelCountInvalid
+    SeenRunCountInvalid
+    SeenPixelCountInvalid
+    RunPixelCountInvalid
+    RunPixelOffsetMismatch
+    RunEndOverflow
+    RunEndOutOfBounds
+    SeenRunCountOverflow
+    SeenRunCountExceeded
+    IncompleteRunCount
+    IncompletePixelCount
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualDrainErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualDrainErrorKind GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualDrainErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualDrainErrorKind GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentVirtualDrain:
+    phase %GuiRgba8888RowTileRlePresentVirtualDrainPhase
+    surface %Option SurfaceId
+    frame %Option FrameId
+    expected_run_count %i32
+    seen_run_count %i32
+    expected_pixel_count %i32
+    seen_pixel_count %i32
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualDrain:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrain \drain:
+        *drain
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualDrain:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrain \drain:
+        drain
+
+pub struct GuiRgba8888RowTileRlePresentVirtualDrainError:
+    kind %GuiRgba8888RowTileRlePresentVirtualDrainErrorKind
+    category %Option GuiError
+    drain %GuiRgba8888RowTileRlePresentVirtualDrain
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualDrainError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualDrainError GuiRgba8888RowTileRlePresentVirtualDrainError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualDrainError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualDrainError GuiRgba8888RowTileRlePresentVirtualDrainError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_new %fn GuiRgba8888RowTileRlePresentVirtualDrainPhase fn Option SurfaceId fn Option FrameId fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowTileRlePresentVirtualDrain \phase\surface\frame\expected_run_count\seen_run_count\expected_pixel_count\seen_pixel_count:
+    GuiRgba8888RowTileRlePresentVirtualDrain phase surface frame expected_run_count seen_run_count expected_pixel_count seen_pixel_count
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_error_category %fn GuiRgba8888RowTileRlePresentVirtualDrainErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::ExpectedRunCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::ExpectedPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_error %fn GuiRgba8888RowTileRlePresentVirtualDrainErrorKind fn GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \kind\drain:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_virtual_drain_error_category kind
+    GuiRgba8888RowTileRlePresentVirtualDrainError kind category drain
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_result_error %fn GuiRgba8888RowTileRlePresentVirtualDrainErrorKind fn GuiRgba8888RowTileRlePresentVirtualDrain Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \kind\drain:
+    Result::Err gui_rgba8888_row_tile_rle_present_virtual_drain_error kind drain
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_i32_max %fn void i32 \void:
+    2147483647
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_empty %fn void GuiRgba8888RowTileRlePresentVirtualDrain \void:
+    gui_rgba8888_row_tile_rle_present_virtual_drain_new:
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::WaitingBegin
+        none
+        none
+        0
+        0
+        0
+        0
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_phase %fn &GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainPhase \drain:
+    *field::get_ref drain "phase"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_surface %fn &GuiRgba8888RowTileRlePresentVirtualDrain Option SurfaceId \drain:
+    *field::get_ref drain "surface"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_frame %fn &GuiRgba8888RowTileRlePresentVirtualDrain Option FrameId \drain:
+    *field::get_ref drain "frame"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_expected_run_count %fn &GuiRgba8888RowTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "expected_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_seen_run_count %fn &GuiRgba8888RowTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "seen_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_expected_pixel_count %fn &GuiRgba8888RowTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "expected_pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_seen_pixel_count %fn &GuiRgba8888RowTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "seen_pixel_count"
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_expected_counts_from_descriptor %fn &GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRlePresentVirtualDrain Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \descriptor\drain:
+    let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count descriptor
+    if le expected_run_count 0:
+        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::ExpectedRunCountInvalid drain
+        else:
+            let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count descriptor
+            if le expected_pixel_count 0:
+                then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::ExpectedPixelCountInvalid drain
+                else:
+                    let surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface descriptor
+                    let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame descriptor
+                    Result::Ok:
+                        gui_rgba8888_row_tile_rle_present_virtual_drain_new:
+                            GuiRgba8888RowTileRlePresentVirtualDrainPhase::InFrame
+                            some surface
+                            some frame
+                            expected_run_count
+                            0
+                            expected_pixel_count
+                            0
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_surface_matches %fn &GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_surface drain:
+        Option::Some surface:
+            let descriptor_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface descriptor
+            let left %i32 surface_id_raw &surface
+            let right %i32 surface_id_raw &descriptor_surface
+            if eq left right:
+                then Result::Ok unit
+                else Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::DescriptorSurfaceMismatch
+        Option::None:
+            Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SurfaceMissing
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_frame_matches %fn &GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_frame drain:
+        Option::Some frame:
+            let descriptor_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame descriptor
+            let left %i32 frame_id_raw &frame
+            let right %i32 frame_id_raw &descriptor_frame
+            if eq left right:
+                then Result::Ok unit
+                else Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::DescriptorFrameMismatch
+        Option::None:
+            Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::FrameMissing
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_count_matches %fn &GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_run_count drain
+    let descriptor_run_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count descriptor
+    if ne expected_run_count descriptor_run_count:
+        then Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::DescriptorExpectedRunCountMismatch
+        else:
+            let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_pixel_count drain
+            let descriptor_pixel_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count descriptor
+            if ne expected_pixel_count descriptor_pixel_count:
+                then Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::DescriptorExpectedPixelCountMismatch
+                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_matches %fn &GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_surface_matches drain descriptor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_frame_matches drain descriptor:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_count_matches drain descriptor
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_begin %fn GuiRgba8888RowTileRlePresentVirtualDrain fn GuiRgba8888RowTileRlePresentDescriptor Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_expected_counts_from_descriptor &descriptor drain
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::BeginAfterBegin drain
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::BeginAfterEnd drain
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_checked_run_end %fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \run_pixel_offset\run_pixel_count:
+    let max_i32 %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_i32_max
+    let max_offset %i32 sub max_i32 run_pixel_count
+    if gt run_pixel_offset max_offset:
+        then Result::Err GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunEndOverflow
+        else Result::Ok add run_pixel_offset run_pixel_count
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_run_in_frame %fn GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\run_record:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor run_record
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_matches &drain &descriptor:
+        Result::Err kind:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error kind drain
+        Result::Ok _:
+            let seen_run_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_seen_run_count &drain
+            let seen_pixel_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_seen_pixel_count &drain
+            if lt seen_run_count 0:
+                then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SeenRunCountInvalid drain
+                else:
+                    if lt seen_pixel_count 0:
+                        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SeenPixelCountInvalid drain
+                        else:
+                            let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_host_command_run_record_run run_record
+                            let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+                            if le run_pixel_count 0:
+                                then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunPixelCountInvalid drain
+                                else:
+                                    let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+                                    if ne run_pixel_offset seen_pixel_count:
+                                        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunPixelOffsetMismatch drain
+                                        else:
+                                            match gui_rgba8888_row_tile_rle_present_virtual_drain_checked_run_end run_pixel_offset run_pixel_count:
+                                                Result::Err kind:
+                                                    gui_rgba8888_row_tile_rle_present_virtual_drain_result_error kind drain
+                                                Result::Ok run_end:
+                                                    let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_pixel_count &drain
+                                                    if gt run_end expected_pixel_count:
+                                                        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds drain
+                                                        else:
+                                                            let max_i32 %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_i32_max
+                                                            if ge seen_run_count max_i32:
+                                                                then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SeenRunCountOverflow drain
+                                                                else:
+                                                                    let next_seen_run_count %i32 add seen_run_count 1
+                                                                    let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_run_count &drain
+                                                                    if gt next_seen_run_count expected_run_count:
+                                                                        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SeenRunCountExceeded drain
+                                                                        else:
+                                                                            Result::Ok:
+                                                                                gui_rgba8888_row_tile_rle_present_virtual_drain_new:
+                                                                                    GuiRgba8888RowTileRlePresentVirtualDrainPhase::InFrame
+                                                                                    gui_rgba8888_row_tile_rle_present_virtual_drain_surface &drain
+                                                                                    gui_rgba8888_row_tile_rle_present_virtual_drain_frame &drain
+                                                                                    expected_run_count
+                                                                                    next_seen_run_count
+                                                                                    expected_pixel_count
+                                                                                    run_end
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_run %fn GuiRgba8888RowTileRlePresentVirtualDrain fn GuiRgba8888RowTileRlePresentHostCommandRunRecord Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\run_record:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunBeforeBegin drain
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_run_in_frame drain &run_record
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunAfterEnd drain
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_end_in_frame %fn GuiRgba8888RowTileRlePresentVirtualDrain fn &GuiRgba8888RowTileRlePresentDescriptor Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_matches &drain descriptor:
+        Result::Err kind:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error kind drain
+        Result::Ok _:
+            let seen_run_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_seen_run_count &drain
+            let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_run_count &drain
+            if ne seen_run_count expected_run_count:
+                then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::IncompleteRunCount drain
+                else:
+                    let seen_pixel_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_seen_pixel_count &drain
+                    let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_virtual_drain_expected_pixel_count &drain
+                    if ne seen_pixel_count expected_pixel_count:
+                        then gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::IncompletePixelCount drain
+                        else:
+                            Result::Ok:
+                                gui_rgba8888_row_tile_rle_present_virtual_drain_new:
+                                    GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended
+                                    gui_rgba8888_row_tile_rle_present_virtual_drain_surface &drain
+                                    gui_rgba8888_row_tile_rle_present_virtual_drain_frame &drain
+                                    expected_run_count
+                                    seen_run_count
+                                    expected_pixel_count
+                                    seen_pixel_count
+
+fn gui_rgba8888_row_tile_rle_present_virtual_drain_end %fn GuiRgba8888RowTileRlePresentVirtualDrain fn GuiRgba8888RowTileRlePresentDescriptor Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::EndBeforeBegin drain
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_end_in_frame drain &descriptor
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_result_error GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::EndAfterEnd drain
+
+//: gui_rgba8888_row_tile_rle_present_virtual_drain_step: F5cq record を headless/test drain に[流/なが]す
+//:
+//: [契約/けいやく]:
+//: - Begin / Run / End の[順序/じゅんじょ]を enum phase で[検査/けんさ]します。
+//: - Run は `pixel_offset == seen_pixel_count` を[要求/ようきゅう]し、gap / overlap / reorder を[拒否/きょひ]します。
+//: - End は expected run count と expected pixel count を[満/み]たした場合だけ success です。
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_step %fn GuiRgba8888RowTileRlePresentVirtualDrain fn GuiRgba8888RowTileRlePresentHostCommandRecord Result GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualDrainError \drain\record:
+    match record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_begin drain descriptor
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_run drain run_record
+        GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:
+            gui_rgba8888_row_tile_rle_present_virtual_drain_end drain descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_is_ended %fn &GuiRgba8888RowTileRlePresentVirtualDrain bool \drain:
+    match gui_rgba8888_row_tile_rle_present_virtual_drain_phase drain:
+        GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended:
+            true
+        _:
+            false
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_error_kind %fn &GuiRgba8888RowTileRlePresentVirtualDrainError GuiRgba8888RowTileRlePresentVirtualDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_error_category_value %fn &GuiRgba8888RowTileRlePresentVirtualDrainError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_drain_error_drain %fn &GuiRgba8888RowTileRlePresentVirtualDrainError GuiRgba8888RowTileRlePresentVirtualDrain \error:
+    *field::get_ref error "drain"

@@ -6961,6 +6961,8 @@ Font renderer と 2D renderer の出力は、最終的に Web / native / bare / 
 
 `std/gui/tile_present_host_import` は std layer row tile RLE present host import request であり、F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` を `GuiRgba8888RowTileRlePresentHostImportRequest` に包む。target は `GuiRgba8888RowTileRlePresentHostImportTarget` の `Window WindowId`、`Offscreen`、`Device` だけである。Headless is not a presentation target。headless / text grid は host-command record を test drain で検査する対象であり、presentation request construction では `GuiError::Unsupported` を返す。RGBA8888 row tile RLE 専用 request なので `GuiCapabilities.color_format` が `ColorFormat::FormatRgba8888` でない場合も `GuiError::Unsupported` とする。Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を同時に要求し、unsupported host から Offscreen / Device へ fallback しない。
 
+`std/gui/tile_present_virtual_drain` は std layer row tile RLE present virtual drain であり、headless / test が F5cq host-command record を deterministic に検査するための target-free drain である。`GuiRgba8888RowTileRlePresentVirtualDrain` は phase、surface / frame の `Option`、expected / seen run count、expected / seen pixel count を保持する。これは presentation request ではなく、does not consume F5cr。Begin は expected run / pixel count を std layer descriptor accessor から読み、Run は `run_pixel_offset == seen_pixel_count`、positive run pixel count、checked run end、expected bounds を検査する。End は seen run count と seen pixel count が expected に一致した場合だけ `Ended` へ進む。順序違反、descriptor mismatch、gap / overlap / reorder、incomplete count は `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` と直前 drain state を持つ error で返す。
+
 ## Error contract
 
 F1/F2 は既存の `GuiError` を返すが、font-specific error category を public enum として同時に定義する。
