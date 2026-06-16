@@ -8053,6 +8053,16 @@ The bridge owns validation before completion. It reads the request from `GuiRgba
 
 F5cz deliberately distinguishes two failure families. Unsupported target support and wrong action reports stop before completion, returning previous loop state from the pending value. A matching failed report is valid executor output; the bridge passes `report_outcome` into `complete_request`, and the resulting `HostImportExecutionFailed` carries rollback state from F5cv. F5cz must not call F5cu, F5ct, F5cs, F5cp, or F5co, must not construct F5cr requests, and must not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host execution driver boundary
+
+F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.
+
+`GuiRgba8888RowTileRlePresentHostExecutionDriverPending` is an owner-bearing one-shot pending value. It stores the original pending request and the decoded action, but it does not implement Clone or Copy. `prepare` reads the request through the F5cv pending request accessor, derives the F5cw action exactly once, and then moves the original pending value into the driver pending record.
+
+Executors read only `pending_action`. They return only `Result unit GuiError` to `complete_outcome`; they do not construct reports themselves. `complete_outcome` reads the stored action first, then moves the pending request out of the driver record, constructs an F5cx report, and delegates validation before completion to the F5cz bridge. The driver error wraps the F5cz bridge error as `BridgeFailed` while preserving category and dispatch loop state.
+
+F5da must not call F5cv `complete_request` directly, must not reimplement F5cy support or full action identity validation, and must not construct F5cr requests. It also must not touch F5cu, F5ct, F5cs, F5cp, F5co, raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

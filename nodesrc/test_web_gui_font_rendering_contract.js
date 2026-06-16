@@ -144,6 +144,8 @@ const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_exe
 const stdGuiTilePresentHostExecutorImpl = withoutComments(stdGuiTilePresentHostExecutor);
 const stdGuiTilePresentHostReportLoopBridge = read("stdlib/std/gui/tile_present_host_report_loop_bridge.nepl");
 const stdGuiTilePresentHostReportLoopBridgeImpl = withoutComments(stdGuiTilePresentHostReportLoopBridge);
+const stdGuiTilePresentHostExecutionDriver = read("stdlib/std/gui/tile_present_host_execution_driver.nepl");
+const stdGuiTilePresentHostExecutionDriverImpl = withoutComments(stdGuiTilePresentHostExecutionDriver);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -205,6 +207,7 @@ const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
+const guiStdTilePresentHostExecutionDriverTests = read("tests/stdlib/gui_std_tile_present_host_execution_driver.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -21016,6 +21019,82 @@ assert(
         guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_state_preserved_ok") &&
         guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_no_lower_no_platform_no_fallback"),
     "F5cz std tile present host-report-loop-bridge focused doctest must cover bridge source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host execution driver boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostExecutionDriverPending") &&
+            doc.includes("one-shot pending") &&
+            doc.includes("complete_outcome"),
+        `F5da ${name} must document host execution driver pending and one-shot outcome completion`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_execution_driver" as *'), "std/gui facade must export F5da tile present host execution driver boundary");
+assert(
+    stdGuiTilePresentHostExecutionDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutionDriverPending:") &&
+        stdGuiTilePresentHostExecutionDriver.includes("pending %GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest") &&
+        stdGuiTilePresentHostExecutionDriver.includes("action %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostExecutionDriver.includes("pub enum GuiRgba8888RowTileRlePresentHostExecutionDriverErrorKind:") &&
+        stdGuiTilePresentHostExecutionDriver.includes("BridgeFailed %GuiRgba8888RowTileRlePresentHostReportLoopBridgeError") &&
+        stdGuiTilePresentHostExecutionDriver.includes("state %GuiRgba8888RowTileRlePresentDispatchLoopState"),
+    "std/gui/tile_present_host_execution_driver F5da must define driver pending and typed bridge-wrapping error",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionDriver,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostExecutionDriverPending|impl Copy for GuiRgba8888RowTileRlePresentHostExecutionDriverPending/,
+    "std/gui/tile_present_host_execution_driver F5da driver pending must remain owner-bearing and non-Copy",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_dispatch_loop" as \*/, "std/gui/tile_present_host_execution_driver F5da must consume F5cv dispatch loop pending/completion types"],
+    [/#import "std\/gui\/tile_present_host_execution" as \*/, "std/gui/tile_present_host_execution_driver F5da must expose F5cw action"],
+    [/#import "std\/gui\/tile_present_host_execution_report" as \*/, "std/gui/tile_present_host_execution_driver F5da must construct F5cx reports"],
+    [/#import "std\/gui\/tile_present_host_executor" as \*/, "std/gui/tile_present_host_execution_driver F5da must carry F5cy support type"],
+    [/#import "std\/gui\/tile_present_host_report_loop_bridge" as \*/, "std/gui/tile_present_host_execution_driver F5da must complete through F5cz bridge"],
+]) {
+    assertMatch(stdGuiTilePresentHostExecutionDriverImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionDriverImpl, "gui_rgba8888_row_tile_rle_present_host_execution_driver_prepare"),
+    [
+        "gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_request &pending",
+        "gui_rgba8888_row_tile_rle_present_host_execution_action &request",
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_new pending action",
+    ],
+    "std/gui/tile_present_host_execution_driver F5da prepare must derive action before storing original pending value",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionDriverImpl, "gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver",
+        "field::get driver \"pending\"",
+        "gui_rgba8888_row_tile_rle_present_host_execution_report action outcome",
+        "gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete support pending report",
+    ],
+    "std/gui/tile_present_host_execution_driver F5da complete_outcome must build report from stored action and complete through F5cz",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionDriverImpl,
+    /\bgui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action\b|tile_present_dispatch(?!_loop)|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_execution_driver F5da must not bypass F5cz/F5cv or call lower dispatch/request/platform APIs",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionDriverImpl,
+    /[()]/,
+    "std/gui/tile_present_host_execution_driver F5da implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_facade_ok") &&
+        guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_pending_owner_ok") &&
+        guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_action_exposure_ok") &&
+        guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_f5cv_f5cw_f5cx_f5cz_ok") &&
+        guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_bridge_error_ok") &&
+        guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_no_direct_completion_no_platform_no_fallback"),
+    "F5da std tile present host-execution-driver focused doctest must cover driver source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

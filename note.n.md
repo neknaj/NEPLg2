@@ -1,3 +1,46 @@
+# 2026-06-17 Agent2 GUI font F5da std host execution driver boundary
+
+## scope
+
+- F5cv pending request と F5cw action decoding を、actual Web / native / bare / headless executor が読む one-shot driver pending に束ねる。
+- executor は `pending_action` で action だけを読み、actual outcome は `Result unit GuiError` として `complete_outcome` に返す。
+- `complete_outcome` は stored action と outcome から F5cx report を作り、F5cz bridge に validation before completion と loop completion を委譲する。
+- actual host import execution、F5cv `complete_request` direct call、F5cy validation reimplementation、F5cr request construction、F5cu / F5ct / F5cs / F5cp / F5co、raw storage、host API、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 条件は `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` が Clone / Copy を持たないこと、prepare が pending request を borrow して action を 1 回だけ導出することだった。
+- `complete_outcome` は action を読んでから `field::get driver "pending"` で pending を move し、F5cx report と F5cz bridge だけを呼ぶ方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` は pending と action を保持する owner-bearing struct とし、Clone / Copy を実装しない。
+- driver error は F5cz bridge error を `BridgeFailed` として包み、category と dispatch loop state を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution_driver.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5da.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_driver_module_f5da.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5da_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5da.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- Dirac は `DriverPending` が F5cv pending と F5cw action を所有し、Clone / Copy を持たないことを確認した。
+- Dirac は `prepare` の borrow-derived action、`complete_outcome` の action read -> `field::get driver "pending"` -> F5cx report -> F5cz bridge の順序、F5cv direct completion / F5cy reimplementation / F5cr construction / platform / raw / queue / timer / scheduler / fallback / silent no-op leakage なしを確認した。
+
+## residual
+
+- F5da は std driver boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cz std host report loop bridge boundary
 
 ## scope
