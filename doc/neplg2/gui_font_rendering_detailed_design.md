@@ -8017,6 +8017,14 @@ F5cv introduces the std layer row tile RLE present dispatch loop outcome boundar
 
 `complete_request` consumes that pending value and a `Result unit GuiError` outcome supplied by a later platform executor. An Err outcome produces `HostImportExecutionFailed` and returns previous state in the error. An Ok outcome maps post phase to `Continue next state`, `Yield next state`, or `Completed next state`. F5cv must not call F5ct, F5cr, or F5cs directly, touch lower cursors, read raw packet storage, allocate queues, invoke timers or schedulers, execute host imports, expose platform APIs, or fallback to a silent no-op path.
 
+## Std layer row tile RLE present host execution action boundary
+
+F5cw introduces the std layer row tile RLE present host execution action boundary. It sits above F5cr and below actual Web, native, bare, or offscreen executor code. It still does not execute host imports. Its job is to turn a validated `GuiRgba8888RowTileRlePresentHostImportRequest` into a `GuiRgba8888RowTileRlePresentHostExecutionAction` that a backend can match without interpreting nested request and record state itself.
+
+The action enum is a flat target x record action. It contains `WindowBegin`, `WindowRun`, `WindowEnd`, `OffscreenBegin`, `OffscreenRun`, `OffscreenEnd`, `DeviceBegin`, `DeviceRun`, and `DeviceEnd`. The window variants carry payload structs because they must preserve both `WindowId` and the descriptor or run record. Offscreen and Device encode the target in the variant name and carry the descriptor or run record directly.
+
+The mapping function reads only through F5cr request accessor functions and F5cq host-command record values. It returns an action directly because F5cr has already validated target capability and color format; adding a new `Result` here would imply a failure mode that this boundary does not own. Executor failure remains a `Result unit GuiError` returned by the backend and consumed by F5cv `complete_request`. F5cw must not call F5cv, F5cu, F5ct, F5cs, F5cp, or F5co, construct a new F5cr request, read raw packet storage, allocate a queue, invoke timers or schedulers, touch host execution APIs, expose platform APIs, or fallback to a silent no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
