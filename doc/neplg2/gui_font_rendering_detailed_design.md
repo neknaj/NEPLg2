@@ -7890,6 +7890,54 @@ The prepare function validates `surface_id_raw > 0`, `frame_id_raw > 0`, packet 
 
 F5cn explicitly does not extend `GuiSurfacePresentCommand`, does not build `PresentPixelFrame`, and does not create `GuiPixelBufferDescriptor`. Those values are the older pixel-frame command boundary, not the tile RLE host import boundary. The future Web/native/headless presenter must consume `GuiRgba8888RowTileRlePresentFrameOwner` and define the real host import shape there.
 
+## Row tile RLE packet typed record reader and present run cursor
+
+F5co introduces the first quarantined typed record reader for the row tile RLE transport. The row tile RLE packet typed record reader is `alloc/gui/render2d/row_tile_rle_packet_record`, not an extension of `row_tile_rle_packet` or `row_tile_rle_encoded`. This preserves the earlier no-reader contract of those owners while giving presenter code a formal typed drain path.
+
+```text
+GuiRgba8888RowTileRlePacketRecordReadErrorKind:
+    TotalRunCountInvalid
+    EncodedByteCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    PixelCountInvalid
+    RecordIndexNegative
+    RecordIndexOutOfBounds
+    RecordBaseOverflow
+    RecordByteOffsetOverflow
+    RecordByteOutOfBounds
+    PointerProjectionFailed
+    ByteLoadFailed
+    ByteValueOutOfRange
+    DecodedI32Negative
+    ChannelOutOfRange
+    RunPixelOffsetNegative
+    RunPixelCountInvalid
+    RunEndOverflow
+    RunEndOutOfBounds
+```
+
+The public read function borrows `&GuiRgba8888RowTileRlePacketOwner` and a record index, then returns `Result GuiRgba8888RowTileRleRun GuiRgba8888RowTileRlePacketRecordReadErrorKind`. It revalidates `total_run_count > 0`, `encoded_byte_count > 0`, `total_run_count * 12 == encoded_byte_count`, positive packet pixel count, record index range, record byte range, non-negative little-endian i32 values, RGBA channel range, and decoded run extent within packet pixel count.
+
+This is not a general byte reader. It is a quarantined typed record reader: raw `RegionToken u8`, `MemPtr`, `region_ptr_at`, and `load_u8` appear only in private helpers that convert one exact record into a typed run. There is no raw storage accessor, no public byte-at API, no `Vec`, no host present, no video memory call, no Canvas / DOM / minifb dependency, and no fallback behavior.
+
+F5co also adds `std/gui/tile_present_run_cursor` as the std-layer owner above `GuiRgba8888RowTileRlePresentFrameOwner`:
+
+```text
+GuiRgba8888RowTileRlePresentRunCursorOwner:
+    present GuiRgba8888RowTileRlePresentFrameOwner
+    next_record_index i32
+    total_run_count i32
+
+GuiRgba8888RowTileRlePresentRunCursorStepResult:
+    RunReady GuiRgba8888RowTileRleRun
+    Completed
+```
+
+The cursor start boundary revalidates the present descriptor count invariant and moves the present owner only on success. The step boundary treats `next_record_index == total_run_count` as explicit `Completed`, rejects `next_record_index > total_run_count` as `RecordIndexPastEnd`, and wraps lower packet-record read failures as `PacketRecordReadFailed`. A successful `RunReady` step advances `next_record_index` only after the typed record reader succeeds.
+
+The std cursor does not call host imports and does not touch raw memory. Web, native, bare, and headless presenters can later consume this cursor and choose their transport mechanism, but no presenter is allowed to bypass the typed record reader by reaching into packet storage directly.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

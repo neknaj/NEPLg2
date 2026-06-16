@@ -124,8 +124,12 @@ const allocRender2dRowTileRleEncoded = read("stdlib/alloc/gui/render2d/row_tile_
 const allocRender2dRowTileRleEncodedImpl = withoutComments(allocRender2dRowTileRleEncoded);
 const allocRender2dRowTileRlePacket = read("stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl");
 const allocRender2dRowTileRlePacketImpl = withoutComments(allocRender2dRowTileRlePacket);
+const allocRender2dRowTileRlePacketRecord = read("stdlib/alloc/gui/render2d/row_tile_rle_packet_record.nepl");
+const allocRender2dRowTileRlePacketRecordImpl = withoutComments(allocRender2dRowTileRlePacketRecord);
 const stdGuiTilePresent = read("stdlib/std/gui/tile_present.nepl");
 const stdGuiTilePresentImpl = withoutComments(stdGuiTilePresent);
+const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
+const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -169,7 +173,9 @@ const guiRender2dRowTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_row
 const guiRender2dRowTileRleStorageTests = read("tests/stdlib/gui_render2d_row_tile_rle_storage.n.md");
 const guiRender2dRowTileRleEncodedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md");
 const guiRender2dRowTileRlePacketTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet.n.md");
+const guiRender2dRowTileRlePacketRecordTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md");
 const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
+const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19790,6 +19796,196 @@ assert(
         guiStdTilePresentTests.includes("std_row_tile_rle_present_checked_geometry_ok") &&
         guiStdTilePresentTests.includes("std_row_tile_rle_present_no_surface_command_no_platform_no_fallback"),
     "F5cn std tile present focused doctest must cover present owner source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE packet typed record reader") &&
+            doc.includes("GuiRgba8888RowTileRlePacketRecordReadErrorKind") &&
+            doc.includes("GuiRgba8888RowTileRlePresentRunCursorOwner") &&
+            doc.includes("quarantined typed record reader"),
+        `F5co ${name} must document typed packet record reader and present run cursor`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_packet_record" as *'), "alloc/gui/render2d facade must export F5co row tile RLE packet typed record reader");
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_run_cursor" as *'), "std/gui facade must export F5co tile present run cursor");
+assert(
+    allocRender2dRowTileRlePacketRecord.includes("pub enum GuiRgba8888RowTileRlePacketRecordReadErrorKind:") &&
+        allocRender2dRowTileRlePacketRecord.includes("TotalRunCountInvalid") &&
+        allocRender2dRowTileRlePacketRecord.includes("EncodedByteCountMismatch") &&
+        allocRender2dRowTileRlePacketRecord.includes("RecordIndexOutOfBounds") &&
+        allocRender2dRowTileRlePacketRecord.includes("DecodedI32Negative") &&
+        allocRender2dRowTileRlePacketRecord.includes("RunEndOutOfBounds") &&
+        allocRender2dRowTileRlePacketRecord.includes("pub fn gui_rgba8888_row_tile_rle_packet_record_at") &&
+        allocRender2dRowTileRlePacketRecord.includes("Result GuiRgba8888RowTileRleRun GuiRgba8888RowTileRlePacketRecordReadErrorKind"),
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must define typed record reader and typed errors",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketRecordImpl,
+    /\bpub fn [^\n]*(?:RegionToken|MemPtr|storage_ref|load_byte|byte_at|read_i32)\b/,
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must not expose raw storage or byte reader functions publicly",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketRecordImpl,
+    /\bVec\b|\bstore_u8\b|\bmem_ptr_addr\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bGuiSurfacePresentCommand\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must only read typed records, without host/platform, writes, Vec, render targets, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketRecordImpl, "gui_rgba8888_row_tile_rle_packet_record_validate_counts"),
+    [
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count descriptor",
+        "if le total_run_count 0:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::TotalRunCountInvalid",
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count descriptor",
+        "if le encoded_byte_count 0:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountInvalid",
+        "gui_rgba8888_row_tile_rle_packet_record_checked_mul total_run_count 12 GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountOverflow",
+        "if ne expected_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountMismatch",
+        "let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count descriptor",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::PixelCountInvalid",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must revalidate descriptor count invariants",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketRecordImpl, "gui_rgba8888_row_tile_rle_packet_record_load_byte"),
+    [
+        "region_ptr_at<u8,u8> storage index",
+        "Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::PointerProjectionFailed",
+        "load_u8 ptr",
+        "Option::None:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::ByteLoadFailed",
+        "if or lt value 0 gt value 255:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::ByteValueOutOfRange",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must quarantine raw byte projection and load behind typed errors",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketRecordImpl, "gui_rgba8888_row_tile_rle_packet_record_read_i32_le"),
+    [
+        "gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 0",
+        "gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 1",
+        "gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 2",
+        "gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 3",
+        "if gt b3 127:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::DecodedI32Negative",
+        "Result::Ok add add add b0 part1 part2 part3",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must decode non-negative little-endian i32 values explicitly",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketRecordImpl, "gui_rgba8888_row_tile_rle_packet_record_validate_run_extent"),
+    [
+        "if lt pixel_offset 0:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunPixelOffsetNegative",
+        "if le pixel_count 0:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunPixelCountInvalid",
+        "gui_rgba8888_row_tile_rle_packet_record_checked_add pixel_offset pixel_count GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOverflow",
+        "let packet_pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count descriptor",
+        "if gt run_end packet_pixel_count:",
+        "GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOutOfBounds",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must validate decoded run extent against packet pixel count",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketRecordImpl, "gui_rgba8888_row_tile_rle_packet_record_at"),
+    [
+        "gui_rgba8888_row_tile_rle_packet_record_validate_counts &descriptor",
+        "gui_rgba8888_row_tile_rle_packet_record_validate_index &descriptor record_index",
+        "gui_rgba8888_row_tile_rle_packet_record_base record_index",
+        "let storage %&RegionToken u8 gui_rgba8888_row_tile_rle_packet_record_storage_ref packet",
+        "gui_rgba8888_row_tile_rle_packet_record_read_i32_le storage encoded_byte_count base",
+        "gui_rgba8888_row_tile_rle_packet_record_checked_add base 4 GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordByteOffsetOverflow",
+        "gui_rgba8888_row_tile_rle_packet_record_read_i32_le storage encoded_byte_count count_base",
+        "gui_rgba8888_row_tile_rle_packet_record_read_color storage encoded_byte_count base",
+        "gui_rgba8888_row_tile_rle_packet_record_validate_run_extent &descriptor pixel_offset pixel_count",
+        "let run %GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleRun pixel_offset pixel_count color",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co must return typed runs only after count, index, byte, color, and extent validation",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketRecordImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_packet_record F5co implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_facade_ok") &&
+        guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_typed_reader_ok") &&
+        guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_checked_counts_ok") &&
+        guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_checked_run_extent_ok") &&
+        guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_raw_read_quarantined_ok") &&
+        guiRender2dRowTileRlePacketRecordTests.includes("render2d_row_tile_rle_packet_record_no_platform_no_fallback"),
+    "F5co row tile RLE packet record focused doctest must cover typed reader source-policy labels",
+);
+assert(
+    stdGuiTilePresentRunCursor.includes("pub enum GuiRgba8888RowTileRlePresentRunCursorStepResult:") &&
+        stdGuiTilePresentRunCursor.includes("RunReady %GuiRgba8888RowTileRleRun") &&
+        stdGuiTilePresentRunCursor.includes("Completed") &&
+        stdGuiTilePresentRunCursor.includes("pub struct GuiRgba8888RowTileRlePresentRunCursorOwner:") &&
+        stdGuiTilePresentRunCursor.includes("present %GuiRgba8888RowTileRlePresentFrameOwner") &&
+        stdGuiTilePresentRunCursor.includes("next_record_index %i32") &&
+        stdGuiTilePresentRunCursor.includes("total_run_count %i32") &&
+        stdGuiTilePresentRunCursor.includes("PacketRecordReadFailed %GuiRgba8888RowTileRlePacketRecordReadErrorKind"),
+    "std/gui/tile_present_run_cursor F5co must define owner-bearing cursor, explicit completed result, and lower typed read error",
+);
+assertNoMatch(
+    stdGuiTilePresentRunCursorImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentRunCursorOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentRunCursorStartError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentRunCursorStep\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentRunCursorStepError\b/,
+    "std/gui/tile_present_run_cursor F5co owner-bearing values must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiTilePresentRunCursorImpl,
+    /\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bVec\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_run_cursor F5co must not expose bytes/storage, call host/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentRunCursorImpl, "gui_rgba8888_row_tile_rle_present_run_cursor_start"),
+    [
+        "let present_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor &present",
+        "let packet_descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &present_descriptor",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_validate_descriptor &packet_descriptor",
+        "Result::Err kind:",
+        "Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_start_error kind present",
+        "Result::Ok total_run_count:",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_run_cursor_owner_new present 0 total_run_count",
+    ],
+    "std/gui/tile_present_run_cursor F5co start must preserve present owner on error and move only after count validation",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentRunCursorImpl, "gui_rgba8888_row_tile_rle_present_run_cursor_step"),
+    [
+        "let next_record_index %i32 gui_rgba8888_row_tile_rle_present_run_cursor_owner_next_record_index &owner",
+        "if lt next_record_index 0:",
+        "GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexNegative",
+        "if gt next_record_index total_run_count:",
+        "GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexPastEnd",
+        "if eq next_record_index total_run_count:",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed",
+        "gui_rgba8888_row_tile_rle_packet_record_at packet next_record_index",
+        "GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::PacketRecordReadFailed kind",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_checked_add next_record_index 1",
+        "let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner \"present\"",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::RunReady run",
+    ],
+    "std/gui/tile_present_run_cursor F5co step must distinguish completed from invalid index, wrap read errors, and advance only after successful typed read",
+);
+assertNoMatch(
+    stdGuiTilePresentRunCursorImpl,
+    /[()]/,
+    "std/gui/tile_present_run_cursor F5co implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_facade_ok") &&
+        guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_owner_boundary_ok") &&
+        guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_owner_recovery_ok") &&
+        guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_completed_explicit_ok") &&
+        guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_typed_record_reader_ok") &&
+        guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_no_host_no_platform_no_fallback"),
+    "F5co std tile present run cursor focused doctest must cover cursor source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

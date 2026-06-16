@@ -6514,3 +6514,46 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5au.json -j 1
 git diff --check
 ```
+
+## Phase F5co: row tile RLE packet typed record reader and present run cursor
+
+目的:
+
+- F5cn の `GuiRgba8888RowTileRlePresentFrameOwner` を、host import へ飛ばす前に presenter-neutral な typed run cursor へ接続する。
+- `row_tile_rle_packet` と `row_tile_rle_encoded` の no-reader contract は維持し、raw storage read は `row_tile_rle_packet_record` の quarantined typed record reader にだけ閉じる。
+- Web / native / bare / headless presenter は後続 phase でこの cursor を消費し、packet storage へ直接到達しない。
+
+変更:
+
+- `alloc/gui/render2d/row_tile_rle_packet_record.nepl` を追加する。
+- `GuiRgba8888RowTileRlePacketRecordReadErrorKind` を追加し、count、index、byte offset、projection/load、decoded i32、channel、run extent の失敗を enum で分ける。
+- `gui_rgba8888_row_tile_rle_packet_record_at &packet record_index` を追加し、12 byte record を `GuiRgba8888RowTileRleRun` に戻す。
+- `std/gui/tile_present_run_cursor.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentRunCursorOwner` は present owner、next record index、total run count を保持し、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentRunCursorStepResult` は `RunReady run` と `Completed` を持つ Copy enum とする。
+- step は `record_index == total_run_count` を explicit completion とし、`>` は owner-bearing error にする。
+- lower record read failure は `PacketRecordReadFailed %GuiRgba8888RowTileRlePacketRecordReadErrorKind` として cursor owner を保持する。
+- `alloc/gui/render2d.nepl` と `std/gui.nepl` の facade に追加する。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md` と `tests/stdlib/gui_std_tile_present_run_cursor.n.md` を追加する。
+- source policy に F5co を追加し、typed record reader だけに raw projection / load を許し、std cursor に raw memory / host / platform が入らないことを固定する。
+- `note.n.md` と `todo.md` を更新する。
+
+完了条件:
+
+- `row_tile_rle_packet_record` は public raw storage accessor、public byte reader、`Vec`、host/platform、video memory、Canvas / DOM / minifb、fallback を持たない。
+- `tile_present_run_cursor` は host import、raw memory、surface command、video memory、fallback を持たない。
+- existing F5cl / F5cm / F5cn source policy は壊さない。
+- focused doctest、source policy、F5cn regression、`git diff --check` が通る。
+- subagent implementation review で raw read quarantine、owner recovery、Completed と invalid index の分離が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_record_f5co.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5co.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5co_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5co_regression.json -j 1
+git diff --check
+```

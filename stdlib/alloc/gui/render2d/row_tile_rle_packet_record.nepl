@@ -1,0 +1,301 @@
+//: # alloc/gui/render2d/row_tile_rle_packet_record
+//: RGBA8888 row tile RLE packet の typed record reader boundary
+//:
+//: ### [目的/もくてき]
+//: - validated packet owner が[保持/ほじ]する sealed encoded storage から、12 byte RLE record を `GuiRgba8888RowTileRleRun` に[戻/もど]します。
+//: - raw byte access はこの module 内の typed record 復元だけに[閉/と]じ、public API には raw pointer、storage、byte slice を[出/だ]しません。
+//:
+//: ### [契約/けいやく]
+//: - packet descriptor の `total_run_count * 12 == encoded_byte_count` を checked arithmetic で[再検査/さいけんさ]します。
+//: - record index、record byte range、decoded run extent はすべて `Result` で[検査/けんさ]します。
+//: - decoded record は `pixel_offset i32 little-endian`、`pixel_count i32 little-endian`、`Rgba8888 r,g,b,a` の順です。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は formal tiled transport の typed read 境界です。
+//: - `RegionToken` と `MemPtr` は private helper だけで[扱/あつか]い、host present、video memory、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_packet_record" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encoded" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRlePacketRecordReadErrorKind:
+    TotalRunCountInvalid
+    EncodedByteCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    PixelCountInvalid
+    RecordIndexNegative
+    RecordIndexOutOfBounds
+    RecordBaseOverflow
+    RecordByteOffsetOverflow
+    RecordByteOutOfBounds
+    PointerProjectionFailed
+    ByteLoadFailed
+    ByteValueOutOfRange
+    DecodedI32Negative
+    ChannelOutOfRange
+    RunPixelOffsetNegative
+    RunPixelCountInvalid
+    RunEndOverflow
+    RunEndOutOfBounds
+
+impl Clone for GuiRgba8888RowTileRlePacketRecordReadErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePacketRecordReadErrorKind GuiRgba8888RowTileRlePacketRecordReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePacketRecordReadErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePacketRecordReadErrorKind GuiRgba8888RowTileRlePacketRecordReadErrorKind \kind:
+        kind
+
+fn gui_rgba8888_row_tile_rle_packet_record_error_category %fn GuiRgba8888RowTileRlePacketRecordReadErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordBaseOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordByteOffsetOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::PointerProjectionFailed:
+            Option::Some GuiError::BackendFailure
+        GuiRgba8888RowTileRlePacketRecordReadErrorKind::ByteLoadFailed:
+            Option::Some GuiError::BackendFailure
+        _:
+            Option::Some GuiError::InvalidCommand
+
+pub fn gui_rgba8888_row_tile_rle_packet_record_error_category_value %fn GuiRgba8888RowTileRlePacketRecordReadErrorKind Option GuiError \kind:
+    gui_rgba8888_row_tile_rle_packet_record_error_category kind
+
+fn gui_rgba8888_row_tile_rle_packet_record_checked_mul %fn i32 fn i32 fn GuiRgba8888RowTileRlePacketRecordReadErrorKind Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_packet_record_checked_add %fn i32 fn i32 fn GuiRgba8888RowTileRlePacketRecordReadErrorKind Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_packet_record_validate_counts %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiRgba8888RowTileRlePacketRecordReadErrorKind \descriptor:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count descriptor
+    if le total_run_count 0:
+        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::TotalRunCountInvalid
+        else:
+            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count descriptor
+            if le encoded_byte_count 0:
+                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_packet_record_checked_mul total_run_count 12 GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::EncodedByteCountMismatch
+                                else:
+                                    let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count descriptor
+                                    if le pixel_count 0:
+                                        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::PixelCountInvalid
+                                        else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_record_validate_index %fn &GuiRgba8888RowTileRlePacketDescriptor fn i32 Result unit GuiRgba8888RowTileRlePacketRecordReadErrorKind \descriptor\record_index:
+    if lt record_index 0:
+        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordIndexNegative
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count descriptor
+            if ge record_index total_run_count:
+                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordIndexOutOfBounds
+                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_record_base %fn i32 Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \record_index:
+    gui_rgba8888_row_tile_rle_packet_record_checked_mul record_index 12 GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordBaseOverflow
+
+fn gui_rgba8888_row_tile_rle_packet_record_byte_index %fn i32 fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \base\delta\encoded_byte_count:
+    match gui_rgba8888_row_tile_rle_packet_record_checked_add base delta GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordByteOffsetOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok index:
+            if or lt index 0 ge index encoded_byte_count:
+                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordByteOutOfBounds
+                else Result::Ok index
+
+fn gui_rgba8888_row_tile_rle_packet_record_load_byte %fn &RegionToken u8 fn i32 Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \storage\index:
+    match region_ptr_at<u8,u8> storage index:
+        Result::Err _:
+            Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::ByteLoadFailed
+                Option::Some value:
+                    if or lt value 0 gt value 255:
+                        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::ByteValueOutOfRange
+                        else Result::Ok value
+
+fn gui_rgba8888_row_tile_rle_packet_record_byte_at %fn &RegionToken u8 fn i32 fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \storage\encoded_byte_count\base\delta:
+    match gui_rgba8888_row_tile_rle_packet_record_byte_index base delta encoded_byte_count:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok index:
+            gui_rgba8888_row_tile_rle_packet_record_load_byte storage index
+
+fn gui_rgba8888_row_tile_rle_packet_record_read_i32_le %fn &RegionToken u8 fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePacketRecordReadErrorKind \storage\encoded_byte_count\base:
+    match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 0:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok b0:
+            match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 1:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok b1:
+                    match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 2:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok b2:
+                            match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 3:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok b3:
+                                    if gt b3 127:
+                                        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::DecodedI32Negative
+                                        else:
+                                            let part1 %i32 shl b1 8
+                                            let part2 %i32 shl b2 16
+                                            let part3 %i32 shl b3 24
+                                            Result::Ok add add add b0 part1 part2 part3
+
+fn gui_rgba8888_row_tile_rle_packet_record_checked_channel %fn i32 Result u8 GuiRgba8888RowTileRlePacketRecordReadErrorKind \value:
+    if or lt value 0 gt value 255:
+        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::ChannelOutOfRange
+        else:
+            let channel %u8 cast value
+            Result::Ok channel
+
+fn gui_rgba8888_row_tile_rle_packet_record_read_color %fn &RegionToken u8 fn i32 fn i32 Result Rgba8888 GuiRgba8888RowTileRlePacketRecordReadErrorKind \storage\encoded_byte_count\base:
+    match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 8:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok r:
+            match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 9:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok g:
+                    match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 10:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok b:
+                            match gui_rgba8888_row_tile_rle_packet_record_byte_at storage encoded_byte_count base 11:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok a:
+                                    match gui_rgba8888_row_tile_rle_packet_record_checked_channel r:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok rr:
+                                            match gui_rgba8888_row_tile_rle_packet_record_checked_channel g:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok gg:
+                                                    match gui_rgba8888_row_tile_rle_packet_record_checked_channel b:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok bb:
+                                                            match gui_rgba8888_row_tile_rle_packet_record_checked_channel a:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok aa:
+                                                                    Result::Ok rgba8888_new rr gg bb aa
+
+fn gui_rgba8888_row_tile_rle_packet_record_validate_run_extent %fn &GuiRgba8888RowTileRlePacketDescriptor fn i32 fn i32 Result unit GuiRgba8888RowTileRlePacketRecordReadErrorKind \descriptor\pixel_offset\pixel_count:
+    if lt pixel_offset 0:
+        then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunPixelOffsetNegative
+        else:
+            if le pixel_count 0:
+                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunPixelCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_packet_record_checked_add pixel_offset pixel_count GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok run_end:
+                            let packet_pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count descriptor
+                            if gt run_end packet_pixel_count:
+                                then Result::Err GuiRgba8888RowTileRlePacketRecordReadErrorKind::RunEndOutOfBounds
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_record_storage_ref %fn &GuiRgba8888RowTileRlePacketOwner &RegionToken u8 \packet:
+    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref packet "encoded"
+    field::get_ref encoded "storage"
+
+//: gui_rgba8888_row_tile_rle_packet_record_at: packet 内の encoded record を typed run に[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - packet owner は[借用/しゃくよう]だけで[消費/しょうひ]しません。
+//: - record index が total run count の外なら `RecordIndexOutOfBounds` で[拒否/きょひ]します。
+//: - decoded run の範囲は packet descriptor の pixel count に[収/おさ]まる必要があります。
+pub fn gui_rgba8888_row_tile_rle_packet_record_at %fn &GuiRgba8888RowTileRlePacketOwner fn i32 Result GuiRgba8888RowTileRleRun GuiRgba8888RowTileRlePacketRecordReadErrorKind \packet\record_index:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_packet_descriptor packet
+    match gui_rgba8888_row_tile_rle_packet_record_validate_counts &descriptor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_packet_record_validate_index &descriptor record_index:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_rgba8888_row_tile_rle_packet_record_base record_index:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok base:
+                            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &descriptor
+                            let storage %&RegionToken u8 gui_rgba8888_row_tile_rle_packet_record_storage_ref packet
+                            match gui_rgba8888_row_tile_rle_packet_record_read_i32_le storage encoded_byte_count base:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok pixel_offset:
+                                    match gui_rgba8888_row_tile_rle_packet_record_checked_add base 4 GuiRgba8888RowTileRlePacketRecordReadErrorKind::RecordByteOffsetOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok count_base:
+                                            match gui_rgba8888_row_tile_rle_packet_record_read_i32_le storage encoded_byte_count count_base:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok pixel_count:
+                                                    match gui_rgba8888_row_tile_rle_packet_record_read_color storage encoded_byte_count base:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok color:
+                                                            match gui_rgba8888_row_tile_rle_packet_record_validate_run_extent &descriptor pixel_offset pixel_count:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok _:
+                                                                    let run %GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleRun pixel_offset pixel_count color
+                                                                    Result::Ok run
