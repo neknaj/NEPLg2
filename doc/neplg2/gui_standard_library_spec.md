@@ -298,6 +298,8 @@ platforms/gui/*
 
 `alloc/gui/render2d/dirty_surface` の `GuiRgba8888SoftwareSurfaceDirtyOwner` は、RGBA8888 software surface owner と `DirtyRegionSet` を同じ surface + dirty owner boundary に束ねる。dirty の更新は `dirty_regions_push_region_checked` を surface move より前に通し、失敗時は owner-bearing error で元 owner を返す。公開 API は shape / dirty の Copy metadata、`finish_surface`、free に限定し、raw surface accessor、mutable accessor、split accessor は出さない。`finish_surface` は dirty metadata を捨てる recovery / teardown API であり、transport / present / fallback ではない。
 
+`alloc/gui/render2d/bitmap_frame` の `GuiRgba8888BitmapFrameOwner` は、dirty surface owner を formal transport 前に validated bitmap frame owner へ変換する。`frame_id > 0`、surface width / height / stride / byte_len は `gui_rgba8888_software_surface_shape` で再検証した expected metadata と一致し、dirty rect は x/y、width/height、right/bottom overflow、surface containment を通過する必要がある。失敗は `GuiRgba8888BitmapFramePrepareErrorKind` と owner-bearing `GuiRgba8888BitmapFramePrepareError` で返し、代表 kind として `SurfaceStrideMismatch`、`SurfaceByteLengthMismatch`、`DirtyRectOutOfBounds` を持つ。`finish_surface` は全 validation 成功後だけ surface owner を move する recovery / teardown boundary であり、host present、video memory host call、row byte copy、tile list、Canvas / DOM / minifb、fallback はこの layer へ入れない。
+
 ## Text Model
 
 Text は platform 差が大きいため 3 層に分ける。

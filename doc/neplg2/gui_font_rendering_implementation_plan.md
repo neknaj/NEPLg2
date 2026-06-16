@@ -751,6 +751,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bu: Render2d validated bitmap frame owner boundary
+
+目的:
+
+- F5bt の `GuiRgba8888SoftwareSurfaceDirtyOwner` を formal tile / bitmap transport の前段で使う validated bitmap frame owner に変換する。
+- host present、video memory host import、Canvas / DOM / minifb、row byte copy、tile list、FHD batching、fallback には進まない。
+- public struct constructor で forged された dirty owner を前提に、`finish_surface` 前に frame id、surface shape metadata、dirty bounds を再検証する。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。当初案の `frame_id >= 0` は既存の positive id contract と衝突するため、`frame_id > 0` に変更する必要があると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。`GuiError::InvalidCommand` だけでは失敗分類が粗く、forged surface metadata と dirty bounds の再検証が不足していると指摘された。
+- revised plan では `GuiRgba8888BitmapFramePrepareErrorKind`、positive `frame_id`、shape / stride / byte_len 再検証、DirtyRegionSet state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、validation-before-`finish_surface` を追加する。
+- Tesla revised plan review は `PLAN_APPROVED`。`category` は lower API failure ではなく coarse `GuiError` classification として `Option GuiError` で保持する。
+- Planck revised plan review は `PLAN_APPROVED`。`frame_id > 0`、shape failure mapping、typed stride / byte length mismatch、dirty bounds validation、owner-bearing prepare error、no raw pixel / no host / no fallback が実装開始条件である。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/bitmap_frame.nepl` を追加する。
+- `GuiRgba8888BitmapFramePrepareErrorKind`、`GuiRgba8888BitmapFrameConfig`、`GuiRgba8888BitmapFrameOwner`、`GuiRgba8888BitmapFramePrepareError` を追加する。prepare error kind は `SurfaceStrideMismatch` と `DirtyRectOutOfBounds` を含み、shape mismatch と dirty containment failure を string ではなく typed state として保持する。
+- config checked constructor、frame metadata accessors、prepare error kind / category / owner recovery / free、frame `finish_surface` / free を追加する。
+- `prepare` は `frame_id > 0`、surface shape / stride / byte_len、dirty set state、dirty rect bounds を全て検査してから `gui_rgba8888_software_surface_dirty_owner_finish_surface` を呼ぶ。
+- `stdlib/alloc/gui/render2d.nepl` facade から bitmap frame owner を再公開する。
+- `tests/stdlib/gui_render2d_bitmap_frame.n.md` を追加し、positive id config、metadata success、invalid id recovery、forged stride recovery、dirty out-of-bounds recovery、finish teardown、no platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bu source policy を追加し、docs、subagent approval、facade export、owner no `Clone` / no `Copy`、validation-before-finish order、no raw pixel / no byte copy / no host / no fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が `GuiRgba8888BitmapFrameOwner`、typed prepare error kind、owner-bearing recovery、positive frame id、surface metadata revalidation、dirty bounds validation、facade export、focused doctest label を検査する。
+- focused doctest、source policy、dirty surface regression、software surface regression、dirty region set regression、`git diff --check` が通る。
+- implementation review で pre-transport frame owner 境界、validation-before-`finish_surface`、deferred host / platform / fallback scope が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_bitmap_frame.n.md --no-tree -o tmp_gui_render2d_bitmap_frame_f5bu.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5bu_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bu_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_dirty_region_set.n.md --no-tree -o tmp_gui_dirty_region_set_f5bu_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/bitmap_frame.nepl --no-tree -o tmp_gui_render2d_bitmap_frame_doc_f5bu.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font F5bu render2d bitmap frame owner boundary
+
+## scope
+
+- branch: `gui-render2d-bitmap-frame-f5bu-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bu の render2d bitmap frame owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。当初案の `frame_id >= 0` は positive id contract と衝突するため、`frame_id > 0` に変更する必要があると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。prepare error kind、forged public surface metadata の再検証、dirty rect bounds / overflow validation、`finish_surface` 前 validation、docs/source policy 固定が不足していると指摘された。
+- revised plan は Planck / Tesla ともに `PLAN_APPROVED`。`frame_id > 0`、surface shape / stride / byte_len 再検証、dirty set state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、owner-bearing prepare error、no raw pixel / no host / no fallback が実装開始条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/bitmap_frame.nepl` を追加した。
+- `GuiRgba8888BitmapFramePrepareErrorKind` を追加し、frame id、surface shape、stride / byte length mismatch、dirty rect origin / size / overflow / out-of-bounds を typed error kind として表した。
+- `GuiRgba8888BitmapFrameOwner` を追加し、positive frame id、width / height / stride / byte_len、`DirtyRegionSet`、`GuiRgba8888SoftwareSurfaceOwner` を formal transport 前の validated owner として束ねた。
+- `GuiRgba8888BitmapFramePrepareError` を owner-bearing error として追加し、失敗時に元の dirty owner を回収できるようにした。
+- `gui_rgba8888_bitmap_frame_prepare` は `frame_id > 0`、surface shape metadata、dirty set / dirty rect bounds をすべて検査してから `finish_surface` で surface owner を move する。
+- `stdlib/alloc/gui/render2d.nepl` facade から bitmap frame owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bu の validated bitmap frame owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bu source policy を追加した。
+- `tests/stdlib/gui_render2d_bitmap_frame.n.md` に F5bu focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 311s
+- pass: `tests/stdlib/gui_render2d_bitmap_frame.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `stdlib/alloc/gui/render2d/bitmap_frame.nepl` doctest 1 / 1 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。pre-transport boundary、validation-before-`finish_surface`、owner-bearing recovery、no `Clone` / `Copy`、no raw pixel / byte copy / tile / host / platform / fallback、public storage-token boundary doctest を確認済みである。
+- Tesla implementation review は初回 `REVIEW_BLOCKED`。code / content blocker はなく、指摘は新規 `bitmap_frame.nepl` / focused doctest が未追跡であることと、review request 時点の `note.n.md` が pending 表記だったことに限定された。note は実結果へ更新済みであり、staging は今回の intended files に限定して行う。
+- Tesla follow-up review は `REVIEW_APPROVED`。intended F5bu files が staged され、新 module と focused doctest が含まれ、`NUL` / `tmp_*` は未追跡のまま除外され、`git diff --cached --check` が通っていることを確認済みである。
+
+## remaining
+
+- F5bu は formal transport 前の validated bitmap frame owner boundary までであり、row / tile / RLE payload、host present、video memory import ABI、FHD 60fps batching、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bt render2d surface dirty owner boundary
 
 ## scope

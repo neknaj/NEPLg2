@@ -6459,6 +6459,34 @@ gui_rgba8888_software_surface_dirty_owner_push_region_checked:
 
 この phase は tile list、bitmap payload、row batch、host present、platform backend、font glyf との直接統合、pixel writing、fallback を実装しない。次の phase はこの owner を formal transport / scheduler / FHD 60fps batching に接続する。
 
+### Render2d validated bitmap frame owner boundary
+
+F5bu は F5bt の `GuiRgba8888SoftwareSurfaceDirtyOwner` を、formal tile / bitmap transport の前段で使う validated bitmap frame owner に変換する phase である。これは host present ではなく、platform API、video memory host import、Canvas / DOM / minifb、row byte copy、tile list はまだ使わない。
+
+```text
+GuiRgba8888SoftwareSurfaceDirtyOwner
+    + GuiRgba8888BitmapFrameConfig
+    -> Result GuiRgba8888BitmapFrameOwner GuiRgba8888BitmapFramePrepareError
+```
+
+`GuiRgba8888BitmapFrameConfig` は positive `frame_id` だけを持つ。`frame_id <= 0` は `FrameIdInvalid` として拒否する。`frame_id` は後続 transport が参照する host-facing metadata なので、0 を local sequence として許可しない。
+
+`prepare` は public struct constructor で forged された value を前提に防御的に検査する。順序は次で固定する。
+
+```text
+1. frame_id > 0 を検査する
+2. borrowed owner から width / height / stride_bytes / byte_len / dirty を読む
+3. gui_rgba8888_software_surface_shape width height で shape を再計算する
+4. expected stride_bytes / byte_len と owner metadata の完全一致を要求する
+5. DirtyRegionSet を Empty / Full / One / Two で match する
+6. Rect dirty は x/y >= 0、width/height >= 0、right/bottom overflow、surface bounds を検査する
+7. 全 validation 成功後だけ finish_surface で surface owner を move する
+```
+
+`GuiRgba8888BitmapFramePrepareErrorKind` は `FrameIdInvalid`、`SurfaceInvalidGeometry`、`SurfaceStrideMismatch`、`SurfaceByteLengthMismatch`、`DirtyRectInvalidOrigin`、`DirtyRectInvalidSize`、`DirtyRectRightOverflow`、`DirtyRectBottomOverflow`、`DirtyRectOutOfBounds` を持つ。prepare error は元 dirty owner を保持する owner-bearing error であり、失敗時に surface owner を失わない。
+
+`GuiRgba8888BitmapFrameOwner` は `frame_id`、width / height / stride_bytes / byte_len、`DirtyRegionSet`、`GuiRgba8888SoftwareSurfaceOwner` を保持する。raw pixel accessor、byte copy、tile list、host present、fallback / silent no-op は含めない。`finish_surface` は frame metadata を捨てて surface owner を返す recovery / teardown API である。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

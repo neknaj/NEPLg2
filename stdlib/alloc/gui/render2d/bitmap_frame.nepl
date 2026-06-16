@@ -1,0 +1,258 @@
+//: # alloc/gui/render2d/bitmap_frame
+//: RGBA8888 bitmap frame owner boundary
+//:
+//: ### [目的/もくてき]
+//: - dirty metadata [付/つ]き RGBA8888 software surface を、formal tile / bitmap transport の[前段/ぜんだん]で[検証済/けんしょうず]み frame owner に[束/たば]ねます。
+//: - host present、video memory host import、Canvas / DOM / minifb へは[進/すす]まず、NEPL [側/がわ]の ownership と metadata validation だけを[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - `frame_id` は 1 [以上/いじょう]です。0 や[負/ふ]の id は `FrameIdInvalid` として[拒否/きょひ]します。
+//: - public struct constructor で forged された owner も[受/う]けうるため、surface width / height / stride / byte_len と dirty rect bounds を `finish_surface` の[前/まえ]に[再検証/さいけんしょう]します。
+//: - dirty set の Empty / Full は[明示的/めいじてき]に[有効/ゆうこう]です。Rect は x/y、width/height、right/bottom overflow、surface bounds を[検査/けんさ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - pixel raw accessor、byte copy、tile list、host present、fallback / silent no-op はこの module に[含/ふく]めません。
+//: - `category` は coarse `GuiError` category であり、lower API が[失敗/しっぱい]したという[意味/いみ]ではありません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/bitmap_frame" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/dirty_surface" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/dirty_region_set" as *
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888BitmapFramePrepareErrorKind:
+    FrameIdInvalid
+    SurfaceInvalidGeometry
+    SurfaceStrideMismatch
+    SurfaceByteLengthMismatch
+    DirtyRectInvalidOrigin
+    DirtyRectInvalidSize
+    DirtyRectRightOverflow
+    DirtyRectBottomOverflow
+    DirtyRectOutOfBounds
+
+impl Clone for GuiRgba8888BitmapFramePrepareErrorKind:
+    fn clone %fn &GuiRgba8888BitmapFramePrepareErrorKind GuiRgba8888BitmapFramePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888BitmapFramePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888BitmapFramePrepareErrorKind GuiRgba8888BitmapFramePrepareErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888BitmapFrameConfig:
+    frame_id %i32
+
+impl Clone for GuiRgba8888BitmapFrameConfig:
+    fn clone %fn &GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFrameConfig \config:
+        *config
+
+impl Copy for GuiRgba8888BitmapFrameConfig:
+    fn copy_mark %fn GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFrameConfig \config:
+        config
+
+pub struct GuiRgba8888BitmapFrameOwner:
+    frame_id %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+    dirty %DirtyRegionSet
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+pub struct GuiRgba8888BitmapFramePrepareError:
+    kind %GuiRgba8888BitmapFramePrepareErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888SoftwareSurfaceDirtyOwner
+
+fn gui_rgba8888_bitmap_frame_prepare_error_category %fn GuiRgba8888BitmapFramePrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888BitmapFramePrepareErrorKind::SurfaceInvalidGeometry:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888BitmapFramePrepareErrorKind::SurfaceStrideMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888BitmapFramePrepareErrorKind::SurfaceByteLengthMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidOrigin:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidSize:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectRightOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectBottomOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_bitmap_frame_prepare_error %fn GuiRgba8888BitmapFramePrepareErrorKind fn GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888BitmapFramePrepareError \kind\owner:
+    let category %Option GuiError gui_rgba8888_bitmap_frame_prepare_error_category kind
+    GuiRgba8888BitmapFramePrepareError kind category owner
+
+fn gui_rgba8888_bitmap_frame_owner_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn DirtyRegionSet fn GuiRgba8888SoftwareSurfaceOwner GuiRgba8888BitmapFrameOwner \frame_id\width\height\stride_bytes\byte_len\dirty\surface:
+    GuiRgba8888BitmapFrameOwner frame_id width height stride_bytes byte_len dirty surface
+
+//: gui_rgba8888_bitmap_frame_config_checked: positive frame id を[持/も]つ config を[作/つく]る
+pub fn gui_rgba8888_bitmap_frame_config_checked %fn i32 Result GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFramePrepareErrorKind \frame_id:
+    if le frame_id 0:
+        then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid
+        else Result::Ok GuiRgba8888BitmapFrameConfig frame_id
+
+//: gui_rgba8888_bitmap_frame_config_frame_id: config の frame id を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_config_frame_id %fn &GuiRgba8888BitmapFrameConfig i32 \config:
+    *field::get_ref config "frame_id"
+
+//: gui_rgba8888_bitmap_frame_frame_id: frame owner の positive frame id を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_frame_id %fn &GuiRgba8888BitmapFrameOwner i32 \frame:
+    *field::get_ref frame "frame_id"
+
+//: gui_rgba8888_bitmap_frame_width: frame width metadata を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_width %fn &GuiRgba8888BitmapFrameOwner i32 \frame:
+    *field::get_ref frame "width"
+
+//: gui_rgba8888_bitmap_frame_height: frame height metadata を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_height %fn &GuiRgba8888BitmapFrameOwner i32 \frame:
+    *field::get_ref frame "height"
+
+//: gui_rgba8888_bitmap_frame_stride_bytes: frame stride metadata を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_stride_bytes %fn &GuiRgba8888BitmapFrameOwner i32 \frame:
+    *field::get_ref frame "stride_bytes"
+
+//: gui_rgba8888_bitmap_frame_byte_len: frame byte length metadata を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_byte_len %fn &GuiRgba8888BitmapFrameOwner i32 \frame:
+    *field::get_ref frame "byte_len"
+
+//: gui_rgba8888_bitmap_frame_dirty: frame dirty metadata を Copy value として[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_dirty %fn &GuiRgba8888BitmapFrameOwner DirtyRegionSet \frame:
+    *field::get_ref frame "dirty"
+
+//: gui_rgba8888_bitmap_frame_prepare_error_kind: prepare error の typed kind を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_prepare_error_kind %fn &GuiRgba8888BitmapFramePrepareError GuiRgba8888BitmapFramePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_bitmap_frame_prepare_error_category: prepare error の coarse GUI category を[読/よ]む
+pub fn gui_rgba8888_bitmap_frame_prepare_error_category_value %fn &GuiRgba8888BitmapFramePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_bitmap_frame_prepare_error_owner: prepare error から dirty owner を[回収/かいしゅう]する
+pub fn gui_rgba8888_bitmap_frame_prepare_error_owner %fn GuiRgba8888BitmapFramePrepareError GuiRgba8888SoftwareSurfaceDirtyOwner \error:
+    field::get error "owner"
+
+fn gui_rgba8888_bitmap_frame_checked_extent %fn i32 fn i32 fn GuiRgba8888BitmapFramePrepareErrorKind Result i32 GuiRgba8888BitmapFramePrepareErrorKind \origin\extent\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_origin %i32 sub max_i32 extent
+    if gt origin max_origin:
+        then Result::Err overflow_kind
+        else Result::Ok add origin extent
+
+fn gui_rgba8888_bitmap_frame_validate_dirty_rect %fn &GuiRect fn i32 fn i32 Result unit GuiRgba8888BitmapFramePrepareErrorKind \rect\surface_width\surface_height:
+    let x %i32 gui_rect_x rect
+    let y %i32 gui_rect_y rect
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
+    if or lt x 0 lt y 0:
+        then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidOrigin
+        else:
+            if or lt width 0 lt height 0:
+                then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectInvalidSize
+                else:
+                    match gui_rgba8888_bitmap_frame_checked_extent x width GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectRightOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok right:
+                            match gui_rgba8888_bitmap_frame_checked_extent y height GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectBottomOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok bottom:
+                                    if or gt right surface_width gt bottom surface_height:
+                                        then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::DirtyRectOutOfBounds
+                                        else Result::Ok unit
+
+fn gui_rgba8888_bitmap_frame_validate_dirty_set %fn DirtyRegionSet fn i32 fn i32 Result unit GuiRgba8888BitmapFramePrepareErrorKind \dirty\surface_width\surface_height:
+    match dirty_regions_state &dirty:
+        DirtyRegionSetState::Empty:
+            Result::Ok unit
+        DirtyRegionSetState::Full:
+            Result::Ok unit
+        DirtyRegionSetState::One:
+            let first %GuiRect dirty_regions_first &dirty
+            gui_rgba8888_bitmap_frame_validate_dirty_rect &first surface_width surface_height
+        DirtyRegionSetState::Two:
+            let first %GuiRect dirty_regions_first &dirty
+            match gui_rgba8888_bitmap_frame_validate_dirty_rect &first surface_width surface_height:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    let second %GuiRect dirty_regions_second &dirty
+                    gui_rgba8888_bitmap_frame_validate_dirty_rect &second surface_width surface_height
+
+fn gui_rgba8888_bitmap_frame_validate_surface_shape %fn &GuiRgba8888SoftwareSurfaceDirtyOwner Result GuiRgba8888SoftwareSurfaceShape GuiRgba8888BitmapFramePrepareErrorKind \owner:
+    let width %i32 gui_rgba8888_software_surface_dirty_owner_width owner
+    let height %i32 gui_rgba8888_software_surface_dirty_owner_height owner
+    match gui_rgba8888_software_surface_shape width height:
+        Result::Err _shape_kind:
+            Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceInvalidGeometry
+        Result::Ok shape:
+            let expected_stride %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+            let actual_stride %i32 gui_rgba8888_software_surface_dirty_owner_stride_bytes owner
+            if ne actual_stride expected_stride:
+                then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceStrideMismatch
+                else:
+                    let expected_byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+                    let actual_byte_len %i32 gui_rgba8888_software_surface_dirty_owner_byte_len owner
+                    if ne actual_byte_len expected_byte_len:
+                        then Result::Err GuiRgba8888BitmapFramePrepareErrorKind::SurfaceByteLengthMismatch
+                        else Result::Ok shape
+
+//: gui_rgba8888_bitmap_frame_prepare: dirty surface owner を[検証済/けんしょうず]み bitmap frame owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - frame id、surface shape、dirty bounds をすべて[検査/けんさ]してから `finish_surface` を[呼/よ]びます。
+//: - [失敗/しっぱい]時は元の dirty owner を `GuiRgba8888BitmapFramePrepareError` で[返/かえ]します。
+pub fn gui_rgba8888_bitmap_frame_prepare %fn GuiRgba8888SoftwareSurfaceDirtyOwner fn GuiRgba8888BitmapFrameConfig Result GuiRgba8888BitmapFrameOwner GuiRgba8888BitmapFramePrepareError \owner\config:
+    let frame_id %i32 gui_rgba8888_bitmap_frame_config_frame_id &config
+    if le frame_id 0:
+        then:
+            Result::Err gui_rgba8888_bitmap_frame_prepare_error GuiRgba8888BitmapFramePrepareErrorKind::FrameIdInvalid owner
+        else:
+            match gui_rgba8888_bitmap_frame_validate_surface_shape &owner:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_bitmap_frame_prepare_error kind owner
+                Result::Ok shape:
+                    let width %i32 gui_rgba8888_software_surface_shape_width &shape
+                    let height %i32 gui_rgba8888_software_surface_shape_height &shape
+                    let stride_bytes %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+                    let byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+                    let dirty %DirtyRegionSet gui_rgba8888_software_surface_dirty_owner_dirty &owner
+                    match gui_rgba8888_bitmap_frame_validate_dirty_set dirty width height:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_bitmap_frame_prepare_error kind owner
+                        Result::Ok _:
+                            let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_dirty_owner_finish_surface owner
+                            Result::Ok gui_rgba8888_bitmap_frame_owner_new frame_id width height stride_bytes byte_len dirty surface
+
+//: gui_rgba8888_bitmap_frame_finish_surface: frame metadata を[捨/す]てて surface owner を[返/かえ]す
+pub fn gui_rgba8888_bitmap_frame_finish_surface %fn GuiRgba8888BitmapFrameOwner GuiRgba8888SoftwareSurfaceOwner \frame:
+    field::get frame "surface"
+
+//: gui_rgba8888_bitmap_frame_free: frame owner が[持/も]つ surface storage を[解放/かいほう]する
+pub fn gui_rgba8888_bitmap_frame_free %fn GuiRgba8888BitmapFrameOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \frame:
+    let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_bitmap_frame_finish_surface frame
+    gui_rgba8888_software_surface_free surface
+
+//: gui_rgba8888_bitmap_frame_prepare_error_free: prepare error が[保持/ほじ]する dirty owner を[解放/かいほう]する
+pub fn gui_rgba8888_bitmap_frame_prepare_error_free %fn GuiRgba8888BitmapFramePrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_bitmap_frame_prepare_error_owner error
+    gui_rgba8888_software_surface_dirty_owner_free owner
