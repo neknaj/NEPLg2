@@ -7629,6 +7629,35 @@ This boundary intentionally does not call `cursor_start`. Restarting the cursor 
 
 F5cg remains payload-seed-only. It does not restart the cursor, call the drain, call `cursor_next_run`, read payload bytes, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
 
+## Render2d row tile RLE encode cursor boundary
+
+F5ch adds `GuiRgba8888RowTileRleEncodeCursorOwner` above the F5cg payload seed. It consumes a `GuiRgba8888RowTileRleEncodeSeedOwner`, preserves the seed's exact `total_run_count`, extracts the payload owner, and restarts the lower RLE cursor exactly once:
+
+```text
+encode_cursor_start seed:
+    total = encode_seed_total_run_count seed
+    payload = encode_seed_finish_payload seed
+    cursor_start payload
+        Err start_error -> CursorStartFailed lower_kind with start_error and total
+        Ok cursor       -> EncodeCursorOwner cursor total
+```
+
+The success owner is intentionally small. It contains only the ready `GuiRgba8888RowTileRleCursorOwner` and the total run count that a future encoded writer will use as capacity evidence. It is not an encoded RLE buffer, not a run table, and not a host presentation object.
+
+F5ch does not revalidate `total_run_count`. F5cg is the evidence boundary that rejects non-positive totals, and normal application code cannot call the seed owner constructor directly. Adding a second invalid-total path here would mix two recovery shapes: invalid total would recover the seed owner, while cursor start failure recovers the lower start error that owns the payload. F5ch therefore has a single owner-bearing failure shape for restart failure:
+
+```text
+GuiRgba8888RowTileRleEncodeCursorError:
+    kind CursorStartFailed lower_start_kind
+    category Option GuiError
+    start_error GuiRgba8888RowTileRleStartError
+    total_run_count i32
+```
+
+F5ch also does not call `cursor_status`. The F5cc `cursor_start` contract already checks that payload byte count is positive and RGBA8888-aligned, then constructs `next_pixel_index = 0` and a positive `pixel_count`. Under that contract the returned cursor is a ready cursor. A separate status validation phase can be added later if a future writer needs to validate a cursor received from a less restricted source.
+
+`GuiRgba8888RowTileRleEncodeCursorErrorKind` is Copy metadata. `GuiRgba8888RowTileRleEncodeCursorOwner` and `GuiRgba8888RowTileRleEncodeCursorError` are owner-bearing values and must not implement Clone / Copy. F5ch remains cursor-only: it does not call `cursor_status`, drain, `cursor_next_run`, payload byte read, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

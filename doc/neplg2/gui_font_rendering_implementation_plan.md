@@ -1342,6 +1342,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5ch: Render2d row tile RLE encode cursor boundary
+
+目的:
+
+- F5cg の `GuiRgba8888RowTileRleEncodeSeedOwner` を、formal encoded RLE writer 前の ready cursor owner へ変換する。
+- `GuiRgba8888RowTileRleEncodeCursorOwner` に `GuiRgba8888RowTileRleCursorOwner` と exact `total_run_count` を保持させる。
+- cursor restart failure は lower start error を owner-bearing error として返し、seed owner を曖昧に再構成しない。
+
+plan review:
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ch は seed-to-ready-cursor ownership transfer だけを行い、encoded transport には進まない。
+- `cursor_start` は positive aligned payload を `next_pixel_index = 0` と positive `pixel_count` の cursor にするため、`cursor_status` の追加検査は不要である。
+- start failure recovery は lower `GuiRgba8888RowTileRleStartError` と `total_run_count` を保持する形でよく、seed owner を再構成しない。
+- source policy では `cursor_start` がちょうど 1 回であること、`cursor_status`、`cursor_next_run`、drain、payload read、raw storage、`Vec`、encoded buffer、host / platform、fallback、silent no-op、括弧を禁止する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl` を追加する。
+- `GuiRgba8888RowTileRleEncodeCursorErrorKind` に `CursorStartFailed %GuiRgba8888RowTileRleStartErrorKind` を定義する。
+- `GuiRgba8888RowTileRleEncodeCursorOwner` と `GuiRgba8888RowTileRleEncodeCursorError` は owner-bearing value とし、Clone / Copy を実装しない。
+- `gui_rgba8888_row_tile_rle_encode_cursor_start` は seed の total count を読んでから payload を finish し、`gui_rgba8888_row_tile_rle_cursor_start` に 1 回だけ委譲する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encode cursor を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` を追加し、facade、seed-to-ready-cursor success、total count preservation、start error owner recovery label、no status / drain / encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ch source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE encode cursor module doctest、row tile RLE encode seed / completed count / count / drain / cursor / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で encode cursor が ready cursor boundary であり、`cursor_status`、drain、`cursor_next_run`、payload byte read、encoded buffer、`Vec`、raw storage、host present、platform、fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_cursor_f5ch.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encode_cursor_module_f5ch.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5ch_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5ch_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

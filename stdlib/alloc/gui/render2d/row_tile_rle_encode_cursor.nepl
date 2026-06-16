@@ -1,0 +1,118 @@
+//: # alloc/gui/render2d/row_tile_rle_encode_cursor
+//: RGBA8888 row tile RLE encode cursor restart boundary
+//:
+//: ### [目的/もくてき]
+//: - payload seed owner から formal encoded RLE writer が[使/つか]う ready cursor owner を[作/つく]ります。
+//: - exact total run count を cursor owner と[同/おな]じ owner boundary に[保持/ほじ]し、後続 encoded storage の capacity evidence を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - seed owner が[保持/ほじ]する total run count は F5cg で[検査/けんさ]済みなので、この boundary では再検査しません。
+//: - payload cursor restart に失敗した場合は `CursorStartFailed lower_kind` として lower start error を[保持/ほじ]します。
+//: - 成功時は seed owner から payload owner を[取/と]り[出/だ]し、`gui_rgba8888_row_tile_rle_cursor_start` を 1 回だけ[呼/よ]びます。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は cursor status 再検査、RLE run drain、payload byte read、encoded buffer、Vec、raw storage、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - `cursor_start` は正で RGBA8888 に[整列/せいれつ]した payload を next pixel index 0 の cursor として[返/かえ]すため、成功時の cursor は ready cursor として[扱/あつか]えます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_encode_cursor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_seed" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleEncodeCursorErrorKind:
+    CursorStartFailed %GuiRgba8888RowTileRleStartErrorKind
+
+impl Clone for GuiRgba8888RowTileRleEncodeCursorErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleEncodeCursorErrorKind GuiRgba8888RowTileRleEncodeCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleEncodeCursorErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleEncodeCursorErrorKind GuiRgba8888RowTileRleEncodeCursorErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleEncodeCursorOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    total_run_count %i32
+
+pub struct GuiRgba8888RowTileRleEncodeCursorError:
+    kind %GuiRgba8888RowTileRleEncodeCursorErrorKind
+    category %Option GuiError
+    start_error %GuiRgba8888RowTileRleStartError
+    total_run_count %i32
+
+fn gui_rgba8888_row_tile_rle_encode_cursor_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 GuiRgba8888RowTileRleEncodeCursorOwner \cursor\total_run_count:
+    GuiRgba8888RowTileRleEncodeCursorOwner cursor total_run_count
+
+fn gui_rgba8888_row_tile_rle_encode_cursor_error_category %fn GuiRgba8888RowTileRleEncodeCursorErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleEncodeCursorErrorKind::CursorStartFailed _:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_rle_encode_cursor_error %fn GuiRgba8888RowTileRleEncodeCursorErrorKind fn GuiRgba8888RowTileRleStartError fn i32 GuiRgba8888RowTileRleEncodeCursorError \kind\start_error\total_run_count:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encode_cursor_error_category kind
+    GuiRgba8888RowTileRleEncodeCursorError kind category start_error total_run_count
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_owner_total_run_count %fn &GuiRgba8888RowTileRleEncodeCursorOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleEncodeCursorOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_pixel_count %fn &GuiRgba8888RowTileRleEncodeCursorOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_owner_finish_cursor %fn GuiRgba8888RowTileRleEncodeCursorOwner GuiRgba8888RowTileRleCursorOwner \owner:
+    field::get owner "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_kind %fn &GuiRgba8888RowTileRleEncodeCursorError GuiRgba8888RowTileRleEncodeCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_category_value %fn &GuiRgba8888RowTileRleEncodeCursorError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_total_run_count %fn &GuiRgba8888RowTileRleEncodeCursorError i32 \error:
+    *field::get_ref error "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_start_kind %fn &GuiRgba8888RowTileRleEncodeCursorError GuiRgba8888RowTileRleStartErrorKind \error:
+    let start_error %&GuiRgba8888RowTileRleStartError field::get_ref error "start_error"
+    gui_rgba8888_row_tile_rle_start_error_kind start_error
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_finish_start_error %fn GuiRgba8888RowTileRleEncodeCursorError GuiRgba8888RowTileRleStartError \error:
+    field::get error "start_error"
+
+//: gui_rgba8888_row_tile_rle_encode_cursor_start: payload seed から ready encode cursor を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - seed owner から total run count を[読/よ]んでから payload owner を[取/と]り[出/だ]します。
+//: - payload cursor restart は `gui_rgba8888_row_tile_rle_cursor_start` だけに[委譲/いじょう]します。
+//: - start error は lower error owner を[保持/ほじ]し、seed owner を[再構成/さいこうせい]しません。
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_start %fn GuiRgba8888RowTileRleEncodeSeedOwner Result GuiRgba8888RowTileRleEncodeCursorOwner GuiRgba8888RowTileRleEncodeCursorError \seed:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_encode_seed_owner_total_run_count &seed
+    let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload seed
+    match gui_rgba8888_row_tile_rle_cursor_start payload:
+        Result::Err start_error:
+            let start_kind %GuiRgba8888RowTileRleStartErrorKind gui_rgba8888_row_tile_rle_start_error_kind &start_error
+            Result::Err gui_rgba8888_row_tile_rle_encode_cursor_error GuiRgba8888RowTileRleEncodeCursorErrorKind::CursorStartFailed start_kind start_error total_run_count
+        Result::Ok cursor:
+            Result::Ok gui_rgba8888_row_tile_rle_encode_cursor_owner_new cursor total_run_count
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_owner_free %fn GuiRgba8888RowTileRleEncodeCursorOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encode_cursor_owner_finish_cursor owner
+    gui_rgba8888_row_tile_rle_cursor_free cursor
+
+pub fn gui_rgba8888_row_tile_rle_encode_cursor_error_free %fn GuiRgba8888RowTileRleEncodeCursorError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let start_error %GuiRgba8888RowTileRleStartError gui_rgba8888_row_tile_rle_encode_cursor_error_finish_start_error error
+    gui_rgba8888_row_tile_rle_start_error_free start_error
