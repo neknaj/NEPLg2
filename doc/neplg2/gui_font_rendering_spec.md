@@ -6316,7 +6316,7 @@ F5bp は raw `RenderCommand` accessor、`&RenderCommand` accessor、command call
 
 ### SourceOver alpha-mask software drain-step boundary
 
-F5bq は F5bp の drain owner を消費し、bounded work slice として RGBA8888 software surface へ alpha-mask pixel を SourceOver 合成する境界である。この phase は Web / Native / bare / headless の backend へ present しない。dirty region、tile / bitmap transport、FHD 60fps batching、stroke、shadow は後続 phase の責務である。
+F5bq は F5bp の drain owner を消費し、bounded work slice として RGBA8888 software surface へ alpha-mask pixel を SourceOver 合成する境界である。この phase は Web / Native / bare / headless の backend へ present しない。dirty region completion metadata、tile / bitmap transport、FHD 60fps batching、stroke、shadow は後続 phase の責務である。
 
 SourceOver 算術は font/glyf 固有ではなく `alloc/gui/render2d/composite` の純粋 helper とする。
 
@@ -6385,6 +6385,35 @@ drain は次の順で進む。
 read / composite failure は元の owner を unchanged で返す。write failure は lower error kind を読み、surface owner を回収し、同じ `cell_index` で drain owner を復元して返す。成功した write の前に `cell_index` を進めてはいけない。
 
 F5bq は F5bj の per-sample `FillRect` bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / backend API、font fallback、zero-fill fallback、silent no-op、alpha Vec clone / copy、byte-backed lookup、old traversal、unchecked rect extent helper を使わない。
+
+### SourceOver alpha-mask dirty-region completion boundary
+
+F5br は F5bq の completed authority に、present / tile transport へ進むための dirty metadata を追加する境界である。この phase でも Web / Native / bare / headless backend へ present しない。正式な tile / bitmap transport、複数 dirty region の集約、FHD 60fps batching、host present は後続 phase の責務である。
+
+completed owner は prepared owner、surface owner、dirty region を同時に保持する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
+```
+
+`dirty` は `DirtyRegion` の Copy metadata であるため、borrowed accessor で読むことを許す。一方で `prepared` と `surface` の split accessor は引き続き禁止する。surface が必要な場合は completed owner を消費し、prepared owner を free して surface owner を返す finish helper を使う。presentation に dirty region が必要な caller は、finish helper の前に dirty accessor で value を読む。
+
+dirty region は record rect から `dirty_region_rect_checked` で作る。F5bp/F5bq の start validation により rect / surface containment はすでに検査済みだが、dirty metadata の authority は `core/gui/dirty_region` の checked constructor である。`dirty_region_rect_checked` が失敗した場合、Full や Empty へ silent conversion せず、`DirtyRegionInvalid` の owner-bearing step error として元の drain owner を返す。
+
+completion branch の順序は次とする。
+
+```text
+1. prepared / surface / command / record / rect / bounds を再検証する
+2. cell_index == cell_count を確認する
+3. record rect から dirty_region_rect_checked で DirtyRegion を作る
+4. dirty 作成が成功した後だけ owner から prepared / surface を取り出す
+5. prepared + surface + dirty を completed owner に入れる
+```
+
+F5br は old FillRect bridge、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、tile / bitmap publish、font fallback、zero-fill fallback、silent no-op、unchecked dirty region fallback を使わない。
 
 ### Supported font containers
 

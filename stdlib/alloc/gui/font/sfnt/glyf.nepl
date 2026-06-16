@@ -28,6 +28,7 @@
 #import "core/field" as field
 #import "core/gui/font" as *
 #import "core/gui/geometry" as *
+#import "core/gui/dirty_region" as *
 #import "core/gui/render_command" as *
 #import "core/gui/render_style" as *
 #import "core/math" as *
@@ -18709,6 +18710,7 @@ enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
     SurfaceReadFailed %GuiRgba8888SoftwareSurfaceErrorKind
     SurfaceWriteFailed %GuiRgba8888SoftwareSurfaceErrorKind
     SourceOverFailed %GuiRgba8888SourceOverAlphaMaskErrorKind
+    DirtyRegionInvalid
     ProgressInvariantInvalid
     SurfaceFreeFailed
 
@@ -18732,6 +18734,7 @@ struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
 struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
     prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
     surface %GuiRgba8888SoftwareSurfaceOwner
+    dirty %DirtyRegion
 
 enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
     Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
@@ -18744,8 +18747,8 @@ struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner \prepared\surface\cell_index:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner prepared surface cell_index
 
-fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner \prepared\surface:
-    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner prepared surface
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn DirtyRegion GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner \prepared\surface\dirty:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner prepared surface dirty
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \kind\owner:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError kind owner
@@ -18975,6 +18978,14 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_position %fn &Gui
                 Result::Ok y:
                     Result::Ok gui_point_new x y
 
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord Result DirtyRegion GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \record:
+    let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record
+    match dirty_region_rect_checked rect:
+        Result::Err _error:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::DirtyRegionInvalid
+        Result::Ok dirty:
+            Result::Ok dirty
+
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \owner:
     let prepared_ref %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get_ref &owner "prepared"
     let surface_ref %&GuiRgba8888SoftwareSurfaceOwner field::get_ref &owner "surface"
@@ -19040,6 +19051,9 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_f
     gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_free prepared
     surface
 
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner DirtyRegion \completed:
+    *field::get_ref completed "dirty"
+
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \completed:
     let surface %GuiRgba8888SoftwareSurfaceOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface completed
     match gui_rgba8888_software_surface_free surface:
@@ -19069,10 +19083,14 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budge
                                 else:
                                     if eq cell_index cell_count:
                                         then:
-                                            let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
-                                            let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
-                                            let completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner prepared surface
-                                            Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::Completed completed
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region &record:
+                                                Result::Err kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+                                                Result::Ok dirty:
+                                                    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
+                                                    let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+                                                    let completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner prepared surface dirty
+                                                    Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::Completed completed
                                         else:
                                             if le remaining_steps 0:
                                                 then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidBudget owner

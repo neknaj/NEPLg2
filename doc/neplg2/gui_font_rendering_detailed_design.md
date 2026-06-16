@@ -7089,7 +7089,7 @@ F5bp must not call `gui_rgba8888_software_surface_write_pixel`, read or write ra
 
 ## SourceOver alpha-mask software drain-step boundary
 
-F5bq turns the F5bp cursor owner into the first real software compositing slice. The slice still stays in `alloc`: it mutates an owned RGBA8888 software surface, but it does not present to Web, native, mobile, bare display hardware, or a headless screenshot transport. Presentation, dirty region aggregation, tile transport, command batching, stroke, and shadow are separate boundaries.
+F5bq turns the F5bp cursor owner into the first real software compositing slice. The slice still stays in `alloc`: it mutates an owned RGBA8888 software surface, but it does not present to Web, native, mobile, bare display hardware, or a headless screenshot transport. Dirty metadata, presentation, dirty region aggregation, tile transport, command batching, stroke, and shadow are separate boundaries.
 
 The reusable alpha compositing rule is located in `alloc/gui/render2d/composite.nepl`, not in `alloc/gui/font/sfnt/glyf.nepl`. The glyph module owns the sealed prepared command and alpha-mask resource. Render2d owns the reusable pixel math.
 
@@ -7140,6 +7140,41 @@ Failures before write return the unchanged owner. Write failure recovers the sur
 Positive budget exhaustion is `StepBudgetExhausted`, not completion and not failure. `remaining_steps <= 0` on a non-completed owner is invalid caller scheduling and returns `InvalidBudget`.
 
 F5bq may call `gui_rgba8888_software_surface_read_pixel`, the checked `gui_rgba8888_software_surface_write_pixel`, and `gui_rgba8888_source_over_alpha_mask`. It must not call F5bj sample command bridge, `render_command_fill_rect`, raw `RenderCommand` accessors, DrawTarget, RenderTarget, backend APIs, platform APIs, Canvas, DOM, minifb, byte-backed lookup helpers, old traversal helpers, font fallback, zero-fill fallback, alpha Vec clone/copy, or unchecked rect extent helpers.
+
+## SourceOver alpha-mask dirty-region completion boundary
+
+F5br attaches a `DirtyRegion` value to the F5bq completed owner. This is intentionally narrower than a general render2d `surface + dirty` owner. The next transport slice still has to decide whether multiple glyph drains are merged as a single `DirtyRegion`, a fixed-capacity `DirtyRegionSet`, or a tile list. Putting a generic render2d owner in this slice would force those aggregation choices too early.
+
+The completed owner shape becomes:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
+```
+
+The owner remains non-Clone and non-Copy. `dirty` is Copy metadata and may be returned by a borrowed accessor. `prepared` and `surface` are still not exposed as split accessors. The only way to take the surface is still the consuming finish helper that frees the prepared/resource side first. Callers that need both dirty metadata and surface ownership must read the dirty value before calling the finish helper.
+
+The dirty value is created from the rederived resource record rect through `dirty_region_rect_checked`. This is not a fallback or a duplicate workaround. It gives `core/gui/dirty_region` authority over the dirty metadata contract. Even though earlier start validation already checked rect geometry and surface containment, the dirty value is still constructed through the checked dirty-region constructor. Failure is mapped to `DirtyRegionInvalid` and returned as an owner-bearing step error; it is not converted to Full, Empty, or a silent no-op.
+
+The completion branch order is fixed:
+
+```text
+validate existing prepared/surface pair
+rederive resource record
+read cell_index
+if cell_index == cell_count:
+    dirty = dirty_region_rect_checked record.rect
+    if dirty fails:
+        return owner-bearing DirtyRegionInvalid
+    move prepared and surface out of owner
+    return Completed prepared surface dirty
+```
+
+This order avoids losing the prepared/surface owners on dirty construction failure. It also preserves the F5bq rule that owner fields are moved only after all value-level checks needed for the terminal have succeeded.
+
+F5br must not call Web/native host APIs, video-memory publish helpers, tile or bitmap transport helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, the old per-sample FillRect bridge, raw `RenderCommand` accessors, fallback paths, or unchecked dirty-region fallback helpers.
 
 ## Metrics fixed-point
 

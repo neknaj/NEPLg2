@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5br SourceOver alpha-mask dirty-region completion boundary
+
+## scope
+
+- branch: `gui-font-alpha-mask-dirty-region-f5br-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5br の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest label、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、owner-bearing failure、source policy による静的検査を守る。
+
+## plan review
+
+- Tesla plan review は `PLAN_APPROVED`。`dirty_region_rect_checked` を使うこと、dirty construction failure を owner-bearing `StepError` にすること、dirty accessor だけを追加して prepared / surface split accessor を増やさないこと、finish 前に dirty を読む contract を docs/source policy に固定することが条件である。
+- Planck plan review も `PLAN_APPROVED`。`DirtyRegion` を completed owner の Copy metadata として持たせる境界は妥当で、render2d surface + dirty owner は tile / bitmap transport / present 境界まで defer してよいとされた。completion branch では owner を分解する前に `dirty_region_rect_checked` を呼ぶこと、fallback しないことが条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `core/gui/dirty_region` import を追加した。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind` に `DirtyRegionInvalid` を追加した。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner` に `dirty DirtyRegion` を追加し、owner-bearing type の no `Clone` / no `Copy` を維持した。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region` を追加し、record rect から `dirty_region_rect_checked` で dirty metadata を作るようにした。
+- completion branch は dirty construction 成功後だけ `prepared` / `surface` を owner から取り出し、failure では元の owner を `StepError` に保持する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty` を追加した。prepared / surface split accessor は追加していない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5br の contract、詳細設計、実装順序、subagent approval 条件を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5br source policy を追加し、checked dirty construction、completion branch order、dirty accessor、no platform / no present / no tile / no bitmap / no fallback を検査するようにした。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5br source policy label を追加した。
+- `todo.md` は F5br 後の formal tile / bitmap transport、dirty merge policy、FHD 60fps batching、host present、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest 1138 / 1138 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Tesla implementation review は `REVIEW_APPROVED`。`dirty_region_rect_checked` が completion branch で owner 分解前に呼ばれ、失敗時は `DirtyRegionInvalid` の owner-bearing `StepError` として元 owner を保持していること、dirty accessor だけを追加し prepared / surface split accessor を増やしていないこと、docs/source policy/focused labels/todo が F5br の範囲に合うことを確認済みである。
+- Planck implementation review も `REVIEW_APPROVED`。completed owner が `prepared + surface + dirty` を保持し no `Clone` / no `Copy` であること、dirty helper が `dirty_region_rect_checked` を使い fail-closed にすること、completion branch が dirty 作成後だけ prepared / surface を取り出すこと、platform / present / tile / bitmap / RenderTarget / DrawTarget / old FillRect bridge に進んでいないことを確認済みである。
+- commit hygiene として、未追跡の `NUL` と `tmp_*` は stage しない。
+
+## remaining
+
+- F5br は completed owner の dirty metadata までであり、formal tile / bitmap transport、dirty merge policy、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bq SourceOver alpha-mask software drain-step boundary
 
 ## scope
