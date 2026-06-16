@@ -1,0 +1,108 @@
+//: # alloc/gui/render2d/row_tile_rle_encode_seed
+//: RGBA8888 row tile RLE encode payload seed boundary
+//:
+//: ### [目的/もくてき]
+//: - completed count evidence から、future formal encoded RLE transport が[使/つか]う payload seed と exact run count を[切/き]り[出/だ]します。
+//: - encoded buffer を[確保/かくほ]する前に、payload owner と total run count の[所有/しょゆう]境界を[分/わ]けます。
+//:
+//: ### [契約/けいやく]
+//: - total run count が 0 以下なら `TotalRunCountInvalid` として拒否し、original completed owner を error で[返/かえ]します。
+//: - 成功時は completed owner を count owner、cursor owner、payload owner の[順/じゅん]に[消費/しょうひ]し、payload seed owner を[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は cursor restart、RLE run drain、payload byte read、encoded buffer、Vec、raw storage、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - cursor restart の error 形は payload seed owner を[受/う]け[取/と]る後続 phase で[定義/ていぎ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_encode_seed" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_count" as *
+#import "alloc/gui/render2d/row_tile_rle_count_completed" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleEncodeSeedErrorKind:
+    TotalRunCountInvalid
+
+impl Clone for GuiRgba8888RowTileRleEncodeSeedErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleEncodeSeedErrorKind GuiRgba8888RowTileRleEncodeSeedErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleEncodeSeedErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleEncodeSeedErrorKind GuiRgba8888RowTileRleEncodeSeedErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleEncodeSeedOwner:
+    payload %GuiRgba8888RowTilePayloadOwner
+    total_run_count %i32
+
+pub struct GuiRgba8888RowTileRleEncodeSeedError:
+    kind %GuiRgba8888RowTileRleEncodeSeedErrorKind
+    category %Option GuiError
+    completed %GuiRgba8888RowTileRleCountCompletedOwner
+    total_run_count %i32
+
+fn gui_rgba8888_row_tile_rle_encode_seed_owner_new %fn GuiRgba8888RowTilePayloadOwner fn i32 GuiRgba8888RowTileRleEncodeSeedOwner \payload\total_run_count:
+    GuiRgba8888RowTileRleEncodeSeedOwner payload total_run_count
+
+fn gui_rgba8888_row_tile_rle_encode_seed_error_category %fn GuiRgba8888RowTileRleEncodeSeedErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleEncodeSeedErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_encode_seed_error %fn GuiRgba8888RowTileRleEncodeSeedErrorKind fn GuiRgba8888RowTileRleCountCompletedOwner fn i32 GuiRgba8888RowTileRleEncodeSeedError \kind\completed\total_run_count:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encode_seed_error_category kind
+    GuiRgba8888RowTileRleEncodeSeedError kind category completed total_run_count
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_owner_total_run_count %fn &GuiRgba8888RowTileRleEncodeSeedOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload %fn GuiRgba8888RowTileRleEncodeSeedOwner GuiRgba8888RowTilePayloadOwner \owner:
+    field::get owner "payload"
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_error_kind %fn &GuiRgba8888RowTileRleEncodeSeedError GuiRgba8888RowTileRleEncodeSeedErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_error_category_value %fn &GuiRgba8888RowTileRleEncodeSeedError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_error_total_run_count %fn &GuiRgba8888RowTileRleEncodeSeedError i32 \error:
+    *field::get_ref error "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_error_finish_completed_owner %fn GuiRgba8888RowTileRleEncodeSeedError GuiRgba8888RowTileRleCountCompletedOwner \error:
+    field::get error "completed"
+
+//: gui_rgba8888_row_tile_rle_encode_seed_prepare: completed evidence から payload seed を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - completed owner の total run count を[再検査/さいけんさ]し、0 以下なら owner-bearing error を[返/かえ]します。
+//: - 成功時は completed count owner を[閉/と]じ、underlying payload owner と exact run count だけを seed owner に[残/のこ]します。
+//: - cursor restart と encoded storage allocation はこの boundary では[行/おこな]いません。
+pub fn gui_rgba8888_row_tile_rle_encode_seed_prepare %fn GuiRgba8888RowTileRleCountCompletedOwner Result GuiRgba8888RowTileRleEncodeSeedOwner GuiRgba8888RowTileRleEncodeSeedError \completed:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_count_completed_owner_total_run_count &completed
+    if le total_run_count 0:
+        then Result::Err gui_rgba8888_row_tile_rle_encode_seed_error GuiRgba8888RowTileRleEncodeSeedErrorKind::TotalRunCountInvalid completed total_run_count
+        else:
+            let count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_completed_owner_finish_count_owner completed
+            let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_count_owner_finish_cursor count
+            let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload cursor
+            Result::Ok gui_rgba8888_row_tile_rle_encode_seed_owner_new payload total_run_count
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_owner_free %fn GuiRgba8888RowTileRleEncodeSeedOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload owner
+    gui_rgba8888_row_tile_payload_free payload
+
+pub fn gui_rgba8888_row_tile_rle_encode_seed_error_free %fn GuiRgba8888RowTileRleEncodeSeedError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let completed %GuiRgba8888RowTileRleCountCompletedOwner gui_rgba8888_row_tile_rle_encode_seed_error_finish_completed_owner error
+    gui_rgba8888_row_tile_rle_count_completed_owner_free completed

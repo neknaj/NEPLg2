@@ -112,6 +112,8 @@ const allocRender2dRowTileRleCount = read("stdlib/alloc/gui/render2d/row_tile_rl
 const allocRender2dRowTileRleCountImpl = withoutComments(allocRender2dRowTileRleCount);
 const allocRender2dRowTileRleCountCompleted = read("stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl");
 const allocRender2dRowTileRleCountCompletedImpl = withoutComments(allocRender2dRowTileRleCountCompleted);
+const allocRender2dRowTileRleEncodeSeed = read("stdlib/alloc/gui/render2d/row_tile_rle_encode_seed.nepl");
+const allocRender2dRowTileRleEncodeSeedImpl = withoutComments(allocRender2dRowTileRleEncodeSeed);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -149,6 +151,7 @@ const guiRender2dRowTileRleTests = read("tests/stdlib/gui_render2d_row_tile_rle.
 const guiRender2dRowTileRleDrainTests = read("tests/stdlib/gui_render2d_row_tile_rle_drain.n.md");
 const guiRender2dRowTileRleCountTests = read("tests/stdlib/gui_render2d_row_tile_rle_count.n.md");
 const guiRender2dRowTileRleCountCompletedTests = read("tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md");
+const guiRender2dRowTileRleEncodeSeedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18926,6 +18929,73 @@ assert(
         guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_error_recovers_owner_ok") &&
         guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_no_encoded_buffer_no_platform_no_fallback"),
     "F5cf row tile RLE completed count focused doctest must cover facade, success, pending rejection, owner recovery, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE encode seed") &&
+            doc.includes("GuiRgba8888RowTileRleEncodeSeedOwner") &&
+            doc.includes("TotalRunCountInvalid") &&
+            doc.includes("payload seed"),
+        `F5cg ${name} must document encode seed ownership, invalid count rejection, and payload seed boundary`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_encode_seed" as *'), "alloc/gui/render2d facade must export F5cg row tile RLE encode seed");
+assert(
+    allocRender2dRowTileRleEncodeSeed.includes("pub enum GuiRgba8888RowTileRleEncodeSeedErrorKind:") &&
+        allocRender2dRowTileRleEncodeSeed.includes("TotalRunCountInvalid") &&
+        allocRender2dRowTileRleEncodeSeed.includes("pub struct GuiRgba8888RowTileRleEncodeSeedOwner:") &&
+        allocRender2dRowTileRleEncodeSeed.includes("payload %GuiRgba8888RowTilePayloadOwner") &&
+        allocRender2dRowTileRleEncodeSeed.includes("total_run_count %i32") &&
+        allocRender2dRowTileRleEncodeSeed.includes("pub struct GuiRgba8888RowTileRleEncodeSeedError:") &&
+        allocRender2dRowTileRleEncodeSeed.includes("completed %GuiRgba8888RowTileRleCountCompletedOwner"),
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg must define typed payload seed owner and owner-bearing error",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodeSeedImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleEncodeSeedOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleEncodeSeedError\b/,
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg owner and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodeSeedImpl,
+    /\bgui_rgba8888_row_tile_rle_cursor_start\b|\bgui_rgba8888_row_tile_rle_drain_budget\b|\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_rle_read_pixel\b|\bgui_rgba8888_row_tile_payload_byte_at\b/,
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg must not restart the cursor, rescan runs, or read payload bytes",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodeSeedImpl,
+    /\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bEncodedRleBuffer\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg must remain payload-seed-only without allocation, encoded storage, host/platform, or fallback",
+);
+const rowTileRleEncodeSeedPrepare = functionSlice(allocRender2dRowTileRleEncodeSeedImpl, "gui_rgba8888_row_tile_rle_encode_seed_prepare");
+assertOrderedFragments(
+    rowTileRleEncodeSeedPrepare,
+    [
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_count_completed_owner_total_run_count &completed",
+        "if le total_run_count 0:",
+        "GuiRgba8888RowTileRleEncodeSeedErrorKind::TotalRunCountInvalid completed total_run_count",
+        "let count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_completed_owner_finish_count_owner completed",
+        "let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_count_owner_finish_cursor count",
+        "let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload cursor",
+        "Result::Ok gui_rgba8888_row_tile_rle_encode_seed_owner_new payload total_run_count",
+    ],
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg prepare must validate total before consuming and finish completed -> count -> cursor -> payload in order",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodeSeedImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_encode_seed F5cg implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleEncodeSeedTests.includes("render2d_row_tile_rle_encode_seed_facade_ok") &&
+        guiRender2dRowTileRleEncodeSeedTests.includes("render2d_row_tile_rle_encode_seed_completed_to_seed_total_ok") &&
+        guiRender2dRowTileRleEncodeSeedTests.includes("render2d_row_tile_rle_encode_seed_payload_restarts_at_zero") &&
+        guiRender2dRowTileRleEncodeSeedTests.includes("render2d_row_tile_rle_encode_seed_error_recovers_completed_owner_ok") &&
+        guiRender2dRowTileRleEncodeSeedTests.includes("render2d_row_tile_rle_encode_seed_no_cursor_start_no_encoded_buffer_no_platform_no_fallback"),
+    "F5cg row tile RLE encode seed focused doctest must cover facade, completed-to-seed success, test-side restart, owner recovery, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

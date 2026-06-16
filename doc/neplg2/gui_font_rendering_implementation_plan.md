@@ -1296,6 +1296,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5cg: Render2d row tile RLE encode seed boundary
+
+目的:
+
+- F5cf の `GuiRgba8888RowTileRleCountCompletedOwner` を、formal encoded RLE transport 前の payload seed owner へ変換する。
+- `GuiRgba8888RowTileRleEncodeSeedOwner` に `GuiRgba8888RowTilePayloadOwner` と exact `total_run_count` を保持させ、後続 encoded writer が capacity evidence を失わないようにする。
+- internal misuse や将来の constructor 変更に備え、`total_run_count <= 0` は `TotalRunCountInvalid` の owner-bearing error として拒否する。
+- この phase は cursor restart、RLE run drain、payload byte read、encoded RLE buffer、`Vec`、raw storage、host present、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- subagent review で、F5cg は cursor restart まで進まず、completed evidence から payload seed へ所有権を移す境界に留める方針を確認する。
+- `prepare` は total count を検査してから completed owner を消費し、成功時は `completed -> count -> cursor -> payload` の順に finish する。
+- cursor restart の start error は payload owner を保持し、invalid total error は completed owner を保持するため、mixed owner error を避ける目的で restart は後続 phase に分離する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encode_seed.nepl` を追加する。
+- `GuiRgba8888RowTileRleEncodeSeedErrorKind` に `TotalRunCountInvalid` を定義する。
+- `GuiRgba8888RowTileRleEncodeSeedOwner` と `GuiRgba8888RowTileRleEncodeSeedError` は owner-bearing value とし、Clone / Copy を実装しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encode seed を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md` を追加し、facade、completed-to-seed success total、test-side payload restart、error owner recovery label、no cursor restart / encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cg source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE encode seed module doctest、row tile RLE completed count / count / drain / cursor / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で encode seed が payload-seed-only boundary であり、`cursor_start`、drain、`cursor_next_run`、payload byte read、encoded buffer、`Vec`、raw storage、host present、platform、fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5cg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encode_seed.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_module_f5cg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5cg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5cg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5cg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5cg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5cg_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
