@@ -7337,6 +7337,26 @@ F5bx is progress-only. It calls `next_batch` to prove cursor progress, but it do
 
 After `next_batch`, the drain reads the Copy descriptor metadata and recovers the continuation cursor. It rejects any mismatch between the descriptor batch index and the previous cursor index, and also rejects any continuation cursor index other than `previous + 1`. The expected next index and emitted count are computed through checked arithmetic; failures are owner-bearing `ProgressInvariantInvalid` or `EmittedCountOverflow`.
 
+## Render2d row batch range metadata boundary
+
+F5by adds a row batch range metadata boundary above the cursor batch owner. The concrete success type is `GuiRgba8888RowBatchRangeOwner`. It is owner-bearing because it keeps the original `GuiRgba8888RowBatchCursorBatchOwner`; the Copy metadata value inside it is `GuiRgba8888RowBatchRange`.
+
+```text
+Row batch cursor batch owner
+    -> validate descriptor authority against embedded plan
+    -> validate descriptor row and byte range
+    -> validate continuation cursor
+    -> Row batch range owner
+```
+
+Descriptor authority belongs to `row_batch_cursor`, not to `row_batch_range`. The helper `gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` borrows the embedded continuation cursor and embedded plan, calls the existing plan invariant path, recomputes the expected descriptor for `continuation_index - 1`, and compares every field: frame_id, batch_index, row_start, row_count, width, height, stride_bytes, and byte_len. A mismatch becomes `BatchDescriptorMismatch`, and a malformed embedded plan remains `PlanInvariant lower_kind`. This prevents a forged descriptor that is internally valid but not plan-derived from becoming later transport authority.
+
+`gui_rgba8888_row_batch_range_prepare` calls that authority helper before it performs its own range arithmetic. The range arithmetic checks `width > 0`, `height > 0`, `width * 4 == stride_bytes`, `height * stride_bytes == byte_len`, nonnegative `row_start`, positive `row_count`, `row_start + row_count <= height`, `start_byte_offset = row_start * stride_bytes`, `byte_count = row_count * stride_bytes`, and `start_byte_offset + byte_count <= byte_len`. All multiplication and addition are checked and return typed enum errors such as `StrideOverflow`, `ByteLengthMismatch`, `RowExtentOutOfBounds`, `RangeOffsetOverflow`, and `RangeEndOutOfBounds`.
+
+Range prepare keeps lower cursor errors visible. Descriptor / plan authority failures are wrapped as `BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind`; invalid continuation cursor status is wrapped separately as `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind`. Continuation index mismatch is its own domain error. This split matters because an application or test harness can distinguish forged metadata, stale continuation, and local range arithmetic failure with `match`.
+
+F5by remains range-metadata-only. It does not allocate a `Vec`, expose raw storage, create row bytes, create tiles or RLE, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior. Success and error paths both retain the original batch owner until the caller explicitly finishes or frees it.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

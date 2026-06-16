@@ -1,3 +1,56 @@
+# 2026-06-16 Agent2 GUI font F5by render2d row batch range metadata boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-range-f5by-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5by の render2d row batch range metadata boundary、F5bw prerequisite helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Franklin plan review 1 は `PLAN_BLOCKED`。metadata-only phase に payload 名を使うと actual byte authority と混ざるため、`row_batch_range` / `GuiRgba8888RowBatchRangeOwner` に改める必要があると指摘された。
+- Helmholtz plan review 1 は `PLAN_BLOCKED`。continuation cursor を検査するには batch owner を消費しない borrowed cursor accessor が必要であり、range prepare 内で `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼んではならないと指摘された。
+- Franklin plan review 2 は `PLAN_BLOCKED`。descriptor が内部的に整合していても embedded plan 由来か分からないため、cursor 側に descriptor authority helper が必要だと指摘された。
+- Franklin plan review 3 は `PLAN_BLOCKED`。embedded plan も forged されうるため、authority helper は plan invariant path を通し、`PlanInvariant lower_kind` を保持する必要があると指摘された。
+- Helmholtz revised review は `PLAN_APPROVED`。Franklin は plan invariant validation を追加する条件で実装開始を認めた。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` に `BatchDescriptorMismatch`、`gui_rgba8888_row_batch_cursor_batch_cursor_ref`、`gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` を追加した。
+- authority helper は continuation cursor と embedded plan を借用し、plan invariant を再検査してから `continuation_index - 1` の descriptor を再計算し、全 descriptor field を比較する。
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` を追加した。
+- `GuiRgba8888RowBatchRangePrepareErrorKind` は `BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind` と `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` を分ける。
+- `GuiRgba8888RowBatchRange` は `start_byte_offset` と `byte_count` を含む Copy metadata とし、`GuiRgba8888RowBatchRangeOwner` と prepare error は batch owner を保持するため `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_range_prepare` は authority validation、checked descriptor range validation、continuation validation の順に進め、検査中に batch owner を消費しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch range を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_range.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5by の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5by source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_range.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `git diff --check` CRLF warning のみ
+- note: partial batch offset の full runtime doctest は compile timeout を避けるため削除し、`row_start * stride_bytes` / `row_count * stride_bytes` の checked arithmetic は source policy で固定した。
+
+## subagent review
+
+- Franklin implementation review 1 は `REVIEW_BLOCKED` だが、content blocker はない。残指摘はこの note の verification / subagent review が `pending` のままだったことであり、この section で修正した。
+- Helmholtz implementation review 1 は `REVIEW_BLOCKED` だが、content blocker はない。残指摘はこの note の verification `pending` と新規 `row_batch_range` files が未追跡だったことである。note は修正済みであり、checkpoint commit 前に intended new files を staging に含める。
+- Franklin implementation review 2 は `REVIEW_APPROVED`。verification 記録と staged new files を確認し、content blocker がないことを再確認した。
+- Helmholtz implementation review 2 は `REVIEW_APPROVED`。verification 記録、partial-offset runtime coverage tradeoff、staged file set、unrelated untracked temp files の分離を確認した。
+
+## remaining
+
+- F5by は row range metadata までであり、actual row byte storage / writer、tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bx render2d row batch scheduler drain boundary
 
 ## scope

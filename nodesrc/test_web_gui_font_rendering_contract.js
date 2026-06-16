@@ -88,6 +88,8 @@ const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cu
 const allocRender2dRowBatchCursorImpl = withoutComments(allocRender2dRowBatchCursor);
 const allocRender2dRowBatchDrain = read("stdlib/alloc/gui/render2d/row_batch_drain.nepl");
 const allocRender2dRowBatchDrainImpl = withoutComments(allocRender2dRowBatchDrain);
+const allocRender2dRowBatchRange = read("stdlib/alloc/gui/render2d/row_batch_range.nepl");
+const allocRender2dRowBatchRangeImpl = withoutComments(allocRender2dRowBatchRange);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -117,6 +119,7 @@ const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
+const guiRender2dRowBatchRangeTests = read("tests/stdlib/gui_render2d_row_batch_range.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17873,6 +17876,32 @@ assert(
         guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_no_platform_no_fallback"),
     "F5bw row batch cursor focused doctest must cover facade, start revalidation, empty complete status, first descriptor, owner constructor restriction, and no platform/fallback policy",
 );
+assert(
+    allocRender2dRowBatchCursor.includes("BatchDescriptorMismatch") &&
+        allocRender2dRowBatchCursor.includes("pub fn gui_rgba8888_row_batch_cursor_batch_cursor_ref") &&
+        allocRender2dRowBatchCursor.includes("pub fn gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority"),
+    "alloc/gui/render2d/row_batch_cursor F5by prerequisite must expose borrowed cursor ref and descriptor authority validation",
+);
+const rowBatchCursorDescriptorAuthority = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority");
+assertOrderedFragments(
+    rowBatchCursorDescriptorAuthority,
+    [
+        "let continuation %&GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_cursor_ref batch",
+        "let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref continuation \"plan\"",
+        "match gui_rgba8888_row_batch_cursor_validate_plan plan:",
+        "GuiRgba8888RowBatchCursorErrorKind::BatchDescriptorMismatch",
+        "let previous_index %i32 sub continuation_index 1",
+        "match gui_rgba8888_row_batch_cursor_descriptor_from_plan plan previous_index:",
+        "let actual %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor batch",
+        "if gui_rgba8888_row_batch_cursor_descriptor_equal &actual &expected:",
+    ],
+    "alloc/gui/render2d/row_batch_cursor F5by authority helper must borrow cursor/plan, revalidate plan, recompute descriptor, and compare all fields",
+);
+assertNoMatch(
+    rowBatchCursorDescriptorAuthority,
+    /\bgui_rgba8888_row_batch_cursor_batch_finish_cursor\b/,
+    "alloc/gui/render2d/row_batch_cursor F5by authority helper must not consume the batch owner",
+);
 for (const [name, doc] of [
     ["spec", spec],
     ["detailed design", detailedDesign],
@@ -17977,6 +18006,114 @@ assert(
         guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_progress_invariant_checked_ok") &&
         guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_no_platform_no_fallback"),
     "F5bx row batch drain focused doctest must cover facade, complete-before-budget, negative/zero budget, progress, completion count, progress invariant, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row batch range") &&
+            doc.includes("GuiRgba8888RowBatchRangeOwner") &&
+            doc.includes("BatchAuthorityInvalid") &&
+            doc.includes("ContinuationCursorInvalid") &&
+            doc.includes("start_byte_offset") &&
+            doc.includes("byte_count"),
+        `F5by ${name} must document row batch range owner, authority validation, continuation validation, and offset metadata`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_batch_range" as *'), "alloc/gui/render2d facade must export F5by row batch range");
+assert(
+    allocRender2dRowBatchRange.includes("pub enum GuiRgba8888RowBatchRangePrepareErrorKind:") &&
+        allocRender2dRowBatchRange.includes("BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dRowBatchRange.includes("ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dRowBatchRange.includes("pub struct GuiRgba8888RowBatchRange:") &&
+        allocRender2dRowBatchRange.includes("start_byte_offset %i32") &&
+        allocRender2dRowBatchRange.includes("byte_count %i32") &&
+        allocRender2dRowBatchRange.includes("pub struct GuiRgba8888RowBatchRangeOwner:") &&
+        allocRender2dRowBatchRange.includes("batch %GuiRgba8888RowBatchCursorBatchOwner") &&
+        allocRender2dRowBatchRange.includes("pub struct GuiRgba8888RowBatchRangePrepareError:") &&
+        allocRender2dRowBatchRange.includes("batch %GuiRgba8888RowBatchCursorBatchOwner"),
+    "alloc/gui/render2d/row_batch_range F5by must define typed range metadata, owner-bearing success, and owner-bearing error",
+);
+assertNoMatch(
+    allocRender2dRowBatchRangeImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowBatchRangeOwner|impl (?:Clone|Copy) for GuiRgba8888RowBatchRangePrepareError\b/,
+    "alloc/gui/render2d/row_batch_range F5by owner and owner-bearing error must not implement Clone or Copy",
+);
+const rowBatchRangePrepare = functionSlice(allocRender2dRowBatchRangeImpl, "gui_rgba8888_row_batch_range_prepare");
+assertOrderedFragments(
+    rowBatchRangePrepare,
+    [
+        "match gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority &batch:",
+        "BatchAuthorityInvalid cursor_kind batch",
+        "let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor &batch",
+        "match gui_rgba8888_row_batch_range_validate_descriptor &descriptor:",
+        "match gui_rgba8888_row_batch_range_validate_continuation &batch &descriptor:",
+        "Result::Ok gui_rgba8888_row_batch_range_owner_new batch range",
+    ],
+    "alloc/gui/render2d/row_batch_range F5by prepare must validate authority before descriptor range and continuation",
+);
+assertNoMatch(
+    rowBatchRangePrepare,
+    /\bgui_rgba8888_row_batch_cursor_batch_finish_cursor\b/,
+    "alloc/gui/render2d/row_batch_range F5by prepare must not consume the batch owner while validating",
+);
+const rowBatchRangeValidateDescriptor = functionSlice(allocRender2dRowBatchRangeImpl, "gui_rgba8888_row_batch_range_validate_descriptor");
+assertOrderedFragments(
+    rowBatchRangeValidateDescriptor,
+    [
+        "if le frame_id 0:",
+        "if lt batch_index 0:",
+        "if le width 0:",
+        "if le height 0:",
+        "gui_rgba8888_row_batch_range_checked_mul_nonnegative width 4 GuiRgba8888RowBatchRangePrepareErrorKind::StrideOverflow",
+        "if ne stride_bytes expected_stride:",
+        "gui_rgba8888_row_batch_range_checked_mul_nonnegative height stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::ByteLengthOverflow",
+        "if ne byte_len expected_byte_len:",
+        "if lt row_start 0:",
+        "if le row_count 0:",
+        "gui_rgba8888_row_batch_range_checked_add_nonnegative_delta row_start row_count GuiRgba8888RowBatchRangePrepareErrorKind::RowExtentOverflow",
+        "if gt row_bottom height:",
+        "gui_rgba8888_row_batch_range_checked_mul_nonnegative row_start stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::RangeOffsetOverflow",
+        "gui_rgba8888_row_batch_range_checked_mul_nonnegative row_count stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::RangeLengthOverflow",
+        "gui_rgba8888_row_batch_range_checked_add_nonnegative_delta start_byte_offset byte_count GuiRgba8888RowBatchRangePrepareErrorKind::RangeEndOverflow",
+        "if gt range_end byte_len:",
+    ],
+    "alloc/gui/render2d/row_batch_range F5by descriptor validation must use checked stride, byte length, row bounds, and byte range arithmetic",
+);
+const rowBatchRangeValidateContinuation = functionSlice(allocRender2dRowBatchRangeImpl, "gui_rgba8888_row_batch_range_validate_continuation");
+assertOrderedFragments(
+    rowBatchRangeValidateContinuation,
+    [
+        "let continuation %&GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_cursor_ref batch",
+        "gui_rgba8888_row_batch_range_checked_add_nonnegative_delta descriptor_batch_index 1 GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexOverflow",
+        "if ne actual_next_index expected_next_index:",
+        "match gui_rgba8888_row_batch_cursor_status continuation:",
+        "ContinuationCursorInvalid cursor_kind",
+    ],
+    "alloc/gui/render2d/row_batch_range F5by continuation validation must preserve index mismatch and lower cursor status errors separately",
+);
+assertNoMatch(
+    allocRender2dRowBatchRangeImpl,
+    /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|row_payload|payload|row_copy|byte_copy|tile|transport|fallback|silent no-op|finish_surface|RLE|rle)\b/,
+    "alloc/gui/render2d/row_batch_range F5by must remain range-metadata-only without byte storage, host/platform, or fallback",
+);
+assertNoMatch(
+    allocRender2dRowBatchRangeImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_batch_range F5by implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_facade_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_first_batch_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_partial_batch_offset_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_descriptor_authority_error_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_plan_authority_error_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_continuation_status_error_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_no_platform_no_fallback"),
+    "F5by row batch range focused doctest must cover facade, offsets, descriptor authority, plan authority, continuation status, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

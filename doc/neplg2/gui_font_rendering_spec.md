@@ -6542,6 +6542,22 @@ drain は status を budget より先に読む。すでに complete な cursor �
 
 positive budget では `gui_rgba8888_row_batch_cursor_next_batch` を 1 回ずつ呼ぶ。成功後は Copy descriptor の batch index が step 前 cursor index と一致すること、continuation cursor index が checked arithmetic で `previous + 1` になることを検査し、破れた場合は `ProgressInvariantInvalid` を返す。`emitted_count` の加算も checked であり、overflow は `EmittedCountOverflow` で owner-bearing error になる。`emitted_count` はこの call で進めた batch descriptor 数であり、transport payload 数や row bytes 数ではない。
 
+### Render2d row batch range metadata boundary
+
+F5by は F5bw の `GuiRgba8888RowBatchCursorBatchOwner` を、byte storage / host present の前段で使う row batch range metadata owner へ変換する phase である。これは row byte copy、tile / RLE 作成、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchCursorBatchOwner
+    -> gui_rgba8888_row_batch_range_prepare
+    -> Result GuiRgba8888RowBatchRangeOwner GuiRgba8888RowBatchRangePrepareError
+```
+
+`GuiRgba8888RowBatchRangeOwner` は元の batch owner と Copy metadata の `GuiRgba8888RowBatchRange` を保持する。range metadata は `frame_id`、`batch_index`、`row_start`、`row_count`、width、height、stride_bytes、byte_len、`start_byte_offset`、`byte_count` を持つ。`start_byte_offset` は `row_start * stride_bytes`、`byte_count` は `row_count * stride_bytes` であり、どちらも checked arithmetic で計算する。`width * 4 == stride_bytes`、`height * stride_bytes == byte_len`、`row_start + row_count <= height`、`start_byte_offset + byte_count <= byte_len` を満たさない場合は typed error で止める。
+
+F5by は descriptor を単独の authority として信頼しない。`gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` が batch owner 内の continuation cursor と embedded plan を借用し、plan invariant を再検査してから正規 descriptor を再計算する。descriptor が embedded plan 由来の正規値と一致しない場合は `GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid` に lower `GuiRgba8888RowBatchCursorErrorKind` を保持し、元の batch owner を error から回収できる。
+
+continuation cursor の検査も range prepare の責務である。descriptor の batch_index に checked `+ 1` を行い、embedded continuation cursor の index と一致することを確認する。index mismatch は `ContinuationIndexMismatch`、cursor status 自体が invalid な場合は `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` として lower error を保持する。`gui_rgba8888_row_batch_range_prepare` は検査中に `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼ばず、success owner の `finish_cursor` / `free` だけが batch owner を消費する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

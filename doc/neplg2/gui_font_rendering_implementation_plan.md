@@ -932,6 +932,55 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5by: Render2d row batch range metadata boundary
+
+目的:
+
+- F5bw の `GuiRgba8888RowBatchCursorBatchOwner` を authority とし、row batch が参照する row span と byte offset range の Copy metadata を作る。
+- `GuiRgba8888RowBatchRangeOwner` は元の batch owner を保持し、`start_byte_offset` と `byte_count` は checked arithmetic で導出する。
+- この phase は byte storage / row copy / tile / RLE / host present / video memory / platform API / fallback へ進まない。
+
+plan review:
+
+- Franklin plan review 1 は `PLAN_BLOCKED`。metadata-only なのに payload 名を使うと後続の actual byte authority と混ざるため、`row_batch_range` / `GuiRgba8888RowBatchRangeOwner` へ改名する必要があると指摘された。
+- Helmholtz plan review 1 は `PLAN_BLOCKED`。continuation cursor を検査するには `GuiRgba8888RowBatchCursorBatchOwner` を消費しない borrowed accessor が必要であり、range prepare 内で `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼んではならないと指摘された。
+- Franklin plan review 2 は `PLAN_BLOCKED`。descriptor が内部的に正しくても embedded plan 由来か分からないため、cursor 側に borrowed descriptor authority helper を置き、batch owner 内の plan から正規 descriptor を再計算して比較する必要があると指摘された。
+- Franklin plan review 3 は `PLAN_BLOCKED`。embedded plan も forged されうるため、authority helper は plan invariant path を先に通し、`PlanInvariant lower_kind` を保持する必要があると指摘された。
+- revised plan では `gui_rgba8888_row_batch_cursor_batch_cursor_ref` と `gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` を F5bw prerequisite として追加し、F5by prepare は authority validation、descriptor range validation、continuation validation の順にする。
+- Helmholtz revised plan は `PLAN_APPROVED`。Franklin は plan invariant validation を加える条件で implementation start を認めた。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` に `BatchDescriptorMismatch`、borrowed cursor accessor、borrowed descriptor authority validator を追加する。
+- authority validator は continuation cursor と embedded plan を借用し、plan invariant を再検査し、`continuation_index - 1` の descriptor を再計算して frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len を比較する。
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` を追加する。
+- `GuiRgba8888RowBatchRangePrepareErrorKind` は `BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind` と `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` を分ける。
+- `GuiRgba8888RowBatchRange` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len、`start_byte_offset`、`byte_count` を持つ Copy metadata とする。
+- `GuiRgba8888RowBatchRangeOwner` と `GuiRgba8888RowBatchRangePrepareError` は batch owner を保持するため `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_range_prepare` は authority validation の後に checked stride / byte_len / row extent / offset range / continuation index / continuation status を検査する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch range を再公開する。
+- `tests/stdlib/gui_render2d_row_batch_range.n.md` を追加し、facade、first batch metadata、partial batch offset、forged owner constructor restriction、no platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5by source policy を追加し、docs、cursor helper、facade export、owner no `Clone` / no `Copy`、authority-before-range、checked arithmetic、continuation lower error preservation、forbidden byte storage / host / platform / fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row batch cursor / drain / plan regression、source policy、module doctest、`git diff --check` が通る。
+- implementation review で descriptor authority validation が plan invariant を通すこと、range prepare が batch owner を検査中に消費しないこと、`BatchAuthorityInvalid` と `ContinuationCursorInvalid` が lower cursor error を保持すること、row byte storage / tile / RLE / host present / fallback に進んでいないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_range.n.md --no-tree -o tmp_gui_render2d_row_batch_range_f5by.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_batch_range.nepl --no-tree -o tmp_gui_render2d_row_batch_range_module_f5by.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5by_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5by_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5by_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
