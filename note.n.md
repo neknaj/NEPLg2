@@ -1,3 +1,51 @@
+# 2026-06-17 Agent2 GUI font F5cz std host report loop bridge boundary
+
+## scope
+
+- F5cv pending request、F5cw action decoding、F5cx report outcome、F5cy executor validation を、dispatch loop completion の手前で接続する。
+- validation before completion を contract とし、support / full action identity の検査が通った場合だけ pending value を F5cv `complete_request` へ渡す。
+- validation failure は previous state を保持し、F5cv completion を呼ばない。
+- matching action の failed report は validation failure にせず、F5cv `HostImportExecutionFailed` へ進める。
+- actual host import execution、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 条件は pending を value として消費すること、pending request / previous state を completion 前に読むこと、F5cw action decode、F5cy validation、F5cx `report_outcome`、F5cv `complete_request` の順序を固定することだった。
+- validation failure では F5cv completion を呼ばず、completion failure では F5cv error kind / category / state を wrapper に保持する方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_report_loop_bridge.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind` と `GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` を追加した。
+- `gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete` は pending request から expected action を作り、F5cy validation 成功後だけ F5cx `report_outcome` と F5cv `complete_request` を呼ぶ。
+- focused doctest で F5cv `step_pending` が non-Copy pending を shared borrow から動かしていた root cause を検出したため、`field::get step "pending"` に修正し、source policy へ regression guard を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_report_loop_bridge.nepl stdlib/std/gui/tile_present_dispatch_loop.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5cz.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_module_f5cz.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_loop_module_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cz.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。code / source-policy blocker はなく、`note.n.md` の review status が pending のままだったことだけが blocking finding だった。
+- 指摘に従い、`subagent_review` を実際のレビュー結果へ更新した。
+- Dirac は、pending previous/request -> F5cw action -> F5cy validation -> F5cx `report_outcome` -> F5cv `complete_request` の順序、validation failure before completion、previous state preservation、F5cv `step_pending` の owned `field::get step "pending"` 修正、platform / raw / queue / timer / scheduler / fallback leakage なしを確認した。
+
+## residual
+
+- F5cz は report-to-loop bridge までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cy std row tile RLE present host executor validation boundary
 
 ## scope

@@ -142,6 +142,8 @@ const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_h
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
 const stdGuiTilePresentHostExecutorImpl = withoutComments(stdGuiTilePresentHostExecutor);
+const stdGuiTilePresentHostReportLoopBridge = read("stdlib/std/gui/tile_present_host_report_loop_bridge.nepl");
+const stdGuiTilePresentHostReportLoopBridgeImpl = withoutComments(stdGuiTilePresentHostReportLoopBridge);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -202,6 +204,7 @@ const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
+const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -20661,6 +20664,18 @@ assertOrderedFragments(
     ],
     "std/gui/tile_present_dispatch_loop F5cv complete_request must consume pending and map host outcome exactly",
 );
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentDispatchLoopImpl, "gui_rgba8888_row_tile_rle_present_dispatch_loop_step_pending"),
+    [
+        'field::get step "pending"',
+    ],
+    "std/gui/tile_present_dispatch_loop F5cv step_pending must consume Step and move pending as an owned field",
+);
+assertNoMatch(
+    functionSlice(stdGuiTilePresentDispatchLoopImpl, "gui_rgba8888_row_tile_rle_present_dispatch_loop_step_pending"),
+    /get_ref\s+&step\s+"pending"/,
+    "std/gui/tile_present_dispatch_loop F5cv step_pending must not move non-Copy pending from a shared borrow",
+);
 assertNoMatch(
     stdGuiTilePresentDispatchLoopImpl,
     /[()]/,
@@ -20934,6 +20949,73 @@ assert(
         guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_failed_report_preserved_ok") &&
         guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_no_f5cv_no_platform_no_fallback"),
     "F5cy std tile present host-executor focused doctest must cover support, typed error, action equality, and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host report loop bridge boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostReportLoopBridgeError") &&
+            doc.includes("validation before completion") &&
+            doc.includes("report_outcome") &&
+            doc.includes("complete_request"),
+        `F5cz ${name} must document host report loop bridge boundary, validation-before-completion, and completion mapping`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_report_loop_bridge" as *'), "std/gui facade must export F5cz tile present host report loop bridge boundary");
+assert(
+    stdGuiTilePresentHostReportLoopBridge.includes("pub enum GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind:") &&
+        stdGuiTilePresentHostReportLoopBridge.includes("ExecutorValidationFailed %GuiRgba8888RowTileRlePresentHostExecutorError") &&
+        stdGuiTilePresentHostReportLoopBridge.includes("LoopCompletionFailed %GuiRgba8888RowTileRlePresentDispatchLoopError") &&
+        stdGuiTilePresentHostReportLoopBridge.includes("pub struct GuiRgba8888RowTileRlePresentHostReportLoopBridgeError:") &&
+        stdGuiTilePresentHostReportLoopBridge.includes("category %Option GuiError") &&
+        stdGuiTilePresentHostReportLoopBridge.includes("state %GuiRgba8888RowTileRlePresentDispatchLoopState"),
+    "std/gui/tile_present_host_report_loop_bridge F5cz must define typed bridge error with lower error and loop state",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_dispatch_loop" as \*/, "std/gui/tile_present_host_report_loop_bridge F5cz must consume F5cv dispatch loop pending/completion"],
+    [/#import "std\/gui\/tile_present_host_execution" as \*/, "std/gui/tile_present_host_report_loop_bridge F5cz must consume F5cw action decoding"],
+    [/#import "std\/gui\/tile_present_host_execution_report" as \*/, "std/gui/tile_present_host_report_loop_bridge F5cz must consume F5cx reports"],
+    [/#import "std\/gui\/tile_present_host_executor" as \*/, "std/gui/tile_present_host_report_loop_bridge F5cz must consume F5cy validation"],
+]) {
+    assertMatch(stdGuiTilePresentHostReportLoopBridgeImpl, pattern, message);
+}
+assertNoMatch(
+    stdGuiTilePresentHostReportLoopBridgeImpl,
+    /tile_present_dispatch(?!_loop)|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_report_loop_bridge F5cz must not call lower dispatch/schedule/cursor/request constructors/raw/platform APIs or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostReportLoopBridgeImpl, "gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete"),
+    [
+        "gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_previous &pending",
+        "gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_request &pending",
+        "gui_rgba8888_row_tile_rle_present_host_execution_action &request",
+        "gui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action support expected report",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_validation_error lower previous",
+        "Result::Ok validated:",
+        "gui_rgba8888_row_tile_rle_present_host_execution_report_outcome &validated",
+        "gui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request pending outcome",
+    ],
+    "std/gui/tile_present_host_report_loop_bridge F5cz must validate before report_outcome and complete_request",
+);
+assertNoMatch(
+    stdGuiTilePresentHostReportLoopBridgeImpl,
+    /[()]/,
+    "std/gui/tile_present_host_report_loop_bridge F5cz implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_facade_ok") &&
+        guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_f5cv_f5cw_f5cx_f5cy_ok") &&
+        guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_validation_before_completion_ok") &&
+        guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_failed_report_completion_error_ok") &&
+        guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_state_preserved_ok") &&
+        guiStdTilePresentHostReportLoopBridgeTests.includes("std_row_tile_rle_present_host_report_loop_bridge_no_lower_no_platform_no_fallback"),
+    "F5cz std tile present host-report-loop-bridge focused doctest must cover bridge source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -121,7 +121,7 @@ pub fn gui_rgba8888_row_tile_rle_present_dispatch_loop_state_dispatch %fn &GuiRg
     *field::get_ref state "dispatch"
 
 pub fn gui_rgba8888_row_tile_rle_present_dispatch_loop_step_pending %fn GuiRgba8888RowTileRlePresentDispatchLoopStep GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest \step:
-    *field::get_ref &step "pending"
+    field::get step "pending"
 
 pub fn gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_previous %fn &GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest GuiRgba8888RowTileRlePresentDispatchLoopState \pending:
     *field::get_ref pending "previous"

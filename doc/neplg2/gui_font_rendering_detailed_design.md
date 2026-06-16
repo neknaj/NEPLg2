@@ -8043,6 +8043,16 @@ Report validation uses `validate_report_for_action`. The function first requires
 
 F5cy deliberately accepts a matching failed report. Association validation and executor outcome interpretation are separate contracts: failed reports are valid if they refer to the same action, and callers continue to use F5cx `report_outcome` before F5cv completion. F5cy does not call F5cv, F5cu, F5ct, F5cs, F5cp, F5co, does not construct F5cr requests, and does not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host report loop bridge boundary
+
+F5cz introduces the std layer row tile RLE present host report loop bridge boundary. It sits above F5cv/F5cw/F5cx/F5cy and still below the actual Web, native, bare, or offscreen executor implementation. Its job is not to execute a host import; its job is to make the return path from an executor report to the dispatch loop explicit and one-shot.
+
+The bridge owns validation before completion. It reads the request from `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest`, derives the expected `GuiRgba8888RowTileRlePresentHostExecutionAction` with F5cw, validates the returned `GuiRgba8888RowTileRlePresentHostExecutionReport` with F5cy, and only after successful validation extracts F5cx `report_outcome` and consumes the pending value with F5cv `complete_request`.
+
+`GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` carries `GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind`, category, and loop state. The error kind preserves the lower value: `ExecutorValidationFailed` holds the F5cy executor error, and `LoopCompletionFailed` holds the F5cv dispatch loop error. This keeps expected/reported action context available for validation failures while also preserving F5cv rollback state for executor failures.
+
+F5cz deliberately distinguishes two failure families. Unsupported target support and wrong action reports stop before completion, returning previous loop state from the pending value. A matching failed report is valid executor output; the bridge passes `report_outcome` into `complete_request`, and the resulting `HostImportExecutionFailed` carries rollback state from F5cv. F5cz must not call F5cu, F5ct, F5cs, F5cp, or F5co, must not construct F5cr requests, and must not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
