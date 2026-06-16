@@ -1,3 +1,47 @@
+# 2026-06-16 Agent2 GUI font F5bs SourceOver dirty region set aggregation boundary
+
+## scope
+
+- branch: `gui-dirty-region-set-aggregation-f5bs-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bs の core no_alloc helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review は `PLAN_APPROVED`。`Rect` branch で `dirty_regions_push_unchecked` を使わないこと、Empty を silent no-op ではなく dirty なしの明示状態として doc 化すること、source policy で allocator / platform / present / tile / bitmap / transport / fallback と unchecked push direct use を禁止することが条件である。
+- Tesla plan review も `PLAN_APPROVED`。`DirtyRegion::Full` では必ず `dirty_regions_full` を返すこと、`DirtyRegion::Rect` では必ず `dirty_regions_push_checked` を使うこと、`dirty_region_merge` を使わないこと、`doc/neplg2/gui_standard_library_spec.md` も更新することが条件である。
+
+## implementation
+
+- `stdlib/core/gui/dirty_region_set.nepl` に `core/gui/dirty_region` import を追加した。
+- `dirty_regions_push_region_checked` を追加し、`DirtyRegion::Empty` / `Full` / `Rect` を `match` で明示した。
+- `DirtyRegion::Rect` は `dirty_regions_push_checked` に通し、unchecked constructor 由来の invalid rect を `Result::Err GuiError::InvalidGeometry` として拒否する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bs の pre-transport dirty aggregation contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bs source policy を追加した。
+- `tests/stdlib/gui_dirty_region_set.n.md` に F5bs focused doctest label と runnable case を追加した。
+- `todo.md` は F5bs 後の formal tile / bitmap transport、host present、FHD 60fps batching、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `tests/stdlib/gui_dirty_region.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `stdlib/core/gui/dirty_region_set.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_core.n.md` 9 / 9 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。Empty label を `empty_explicit_no_dirty` に改めたことで、silent no-op ではなく明示的な dirty なし合成として contract が読み取れること、source policy / focused doctest / `git diff --check` rerun が通っていることを確認済みである。
+- Tesla implementation review も `REVIEW_APPROVED`。`DirtyRegion::Empty` の wording risk は解消され、F5bs は merge-ready とされた。
+
+## remaining
+
+- F5bs は `DirtyRegion` から `DirtyRegionSet` への no_alloc aggregation helper までであり、formal tile / bitmap transport、generic `surface+dirty owner`、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5br SourceOver alpha-mask dirty-region completion boundary
 
 ## scope

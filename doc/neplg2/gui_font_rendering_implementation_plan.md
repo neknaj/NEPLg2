@@ -667,6 +667,47 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bs: SourceOver dirty region set aggregation boundary
+
+目的:
+
+- F5br の completed dirty metadata を、正式な tile / bitmap transport より前に no_alloc fixed-capacity `DirtyRegionSet` へ取り込める contract を作る。
+- render2d の generic `surface+dirty owner` はこの phase では作らない。複数 surface owner、tile list、bitmap payload、host present、scheduler policy は後続で設計する。
+- `dirty_regions_push_region_checked` は `DirtyRegion::Empty`、`DirtyRegion::Full`、`DirtyRegion::Rect` を `match` で明示し、fallback や silent no-op にしない。
+- `DirtyRegion::Rect` は `dirty_regions_push_checked` へ通し、`dirty_region_rect_unchecked` 由来の invalid rect も `GuiError::InvalidGeometry` で拒否する。
+- fixed-capacity 2 rect policy を維持し、3 つ目の rect は existing push contract と同じく Full へ昇格する。
+
+plan review:
+
+- Planck plan review は `PLAN_APPROVED`。条件は `Rect` branch で `dirty_regions_push_unchecked` を使わないこと、Empty を silent no-op ではなく dirty なしの明示状態として doc 化すること、source policy で allocator / platform / present / tile / bitmap / transport / fallback と unchecked push direct use を禁止することである。
+- Tesla plan review は `PLAN_APPROVED`。条件は `#import "core/gui/dirty_region" as *` を追加し、`DirtyRegion::Full` では必ず `dirty_regions_full` を返すこと、`DirtyRegion::Rect` では必ず `dirty_regions_push_checked` を使うこと、`dirty_region_merge` を使わないこと、`doc/neplg2/gui_standard_library_spec.md` も更新することである。
+
+変更:
+
+- `stdlib/core/gui/dirty_region_set.nepl` に `core/gui/dirty_region` import を追加する。
+- `dirty_regions_push_region_checked` を追加する。
+- `tests/stdlib/gui_dirty_region_set.n.md` に Empty / Rect / Full / invalid unchecked rect / no alloc-platform-fallback source policy labels と focused doctest を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bs source policy を追加し、checked push 経由、no `dirty_region_merge`、no unchecked push、no platform / present / tile / bitmap / transport / fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- docs が `DirtyRegionSet` aggregation、`dirty_regions_push_region_checked`、fixed-capacity no_alloc policy、no fallback を説明する。
+- source policy が helper の explicit match、checked push、`dirty_region_merge` 非使用、platform / transport 非使用、focused label を検査する。
+- dirty region set focused doctest、source policy、core GUI regressions、`git diff --check` が通る。
+- implementation review で aggregation policy、invalid unchecked rect rejection、deferred surface+dirty owner scope が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_dirty_region_set.n.md --no-tree -o tmp_gui_dirty_region_set_f5bs.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_dirty_region.n.md --no-tree -o tmp_gui_dirty_region_f5bs_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bs_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

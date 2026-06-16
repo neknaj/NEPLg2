@@ -6415,6 +6415,25 @@ completion branch の順序は次とする。
 
 F5br は old FillRect bridge、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、tile / bitmap publish、font fallback、zero-fill fallback、silent no-op、unchecked dirty region fallback を使わない。
 
+### SourceOver dirty region set aggregation boundary
+
+F5bs は F5br の 1 glyph completed dirty metadata と、後続の formal tile / bitmap transport の間に置く pre-transport dirty aggregation contract である。この phase は render2d の generic `surface+dirty owner`、tile list、bitmap payload、host present、platform backend、FHD batching を実装しない。複数 glyph / widget draw が返す dirty を no_alloc の fixed-capacity `DirtyRegionSet` に取り込むための最小 API だけを `core/gui/dirty_region_set` に追加する。
+
+```text
+dirty_regions_push_region_checked:
+    regions DirtyRegionSet
+    region DirtyRegion
+    -> Result DirtyRegionSet GuiError
+```
+
+`DirtyRegion::Empty` は dirty なしという明示状態であり、既存 set をそのまま返す。これは fallback や silent no-op ではなく、合成単位が「dirty なし」を返したという contract である。
+
+`DirtyRegion::Full` は surface 全体 dirty を意味するため、既存 set の内容に関係なく `dirty_regions_full` を返す。
+
+`DirtyRegion::Rect rect` は必ず `dirty_regions_push_checked` に通す。`dirty_region_rect_unchecked` で作られた invalid rect が混入しても、width / height が負なら `GuiError::InvalidGeometry` として拒否する。`dirty_regions_push_unchecked` や `dirty_region_merge` は使わない。F5bs は bounding rect merge ではなく、fixed-capacity dirty rect set への checked aggregation boundary である。
+
+この phase は allocator、Vec、DOM、Canvas、minifb、DrawTarget、RenderTarget、platform API、present、publish、tile / bitmap transport、fallback を使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -54,6 +54,7 @@
 #indent 4
 
 #import "core/field" as field
+#import "core/gui/dirty_region" as *
 #import "core/gui/error" as *
 #import "core/gui/geometry" as *
 #import "core/math" as *
@@ -213,6 +214,26 @@ pub fn dirty_regions_push_checked %fn DirtyRegionSet fn GuiRect Result DirtyRegi
             let next %DirtyRegionSet dirty_regions_push_unchecked regions rect
             Result::Ok next
         else Result::Err GuiError::InvalidGeometry
+
+//: dirty_regions_push_region_checked: DirtyRegion を fixed-capacity set に[取/と]り[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - glyph、widget、offscreen renderer が[返/かえ]す 1 個の `DirtyRegion` を、複数 dirty rect を[扱/あつか]う `DirtyRegionSet` に[合成/ごうせい]します。
+//: - Empty は dirty なしという[明示/めいじ][状態/じょうたい]なので、既存 set をそのまま[返/かえ]します。
+//: - Full は surface [全体/ぜんたい] dirty を[表/あらわ]すため、既存 set の[内容/ないよう]に[関係/かんけい]なく Full set へ[昇格/しょうかく]します。
+//:
+//: [契約/けいやく]:
+//: - Rect は `dirty_regions_push_checked` を[経由/けいゆ]し、width/height が[負/ふ]の rect を `GuiError::InvalidGeometry` として[拒否/きょひ]します。
+//: - fixed capacity 2 の policy を[維持/いじ]し、3 個[目/め]の rect は既存の push contract と[同/おな]じく Full へ[昇格/しょうかく]します。
+//: - allocator、platform API、present、tile transport は[使/つか]いません。
+pub fn dirty_regions_push_region_checked %fn DirtyRegionSet fn DirtyRegion Result DirtyRegionSet GuiError \regions\region:
+    match region:
+        DirtyRegion::Empty:
+            Result::Ok regions
+        DirtyRegion::Full:
+            Result::Ok dirty_regions_full
+        DirtyRegion::Rect rect:
+            dirty_regions_push_checked regions rect
 
 //: dirty_regions_rect_at: index で rect を[読/よ]む
 //:
