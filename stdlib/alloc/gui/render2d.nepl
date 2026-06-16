@@ -6,7 +6,7 @@
 //: - font rasterizer、widget renderer、offscreen screenshot が同じ surface owner contract を使えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、row batch plan / cursor / drain owner、SourceOver alpha-mask 合成 helper を公開します。
+//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、row batch plan / cursor / drain / range owner、SourceOver alpha-mask 合成 helper を公開します。
 //: - platform surface、window、DrawTarget、RenderTarget への接続は含めません。
 //:
 //: ### [注意/ちゅうい]
@@ -26,4 +26,5 @@ pub #import "./render2d/bitmap_frame" as *
 pub #import "./render2d/row_batch_plan" as *
 pub #import "./render2d/row_batch_cursor" as *
 pub #import "./render2d/row_batch_drain" as *
+pub #import "./render2d/row_batch_range" as *
 pub #import "./render2d/composite" as *

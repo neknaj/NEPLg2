@@ -1,0 +1,296 @@
+//: # alloc/gui/render2d/row_batch_range
+//: RGBA8888 row batch range metadata boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowBatchCursorBatchOwner` を authority とし、1 batch が参照する row range と byte offset range の metadata owner を[作/つく]ります。
+//: - この module は byte storage を[読/よ]まず、row range と offset range の整合だけを[検査/けんさ]します。
+//:
+//: ### [契約/けいやく]
+//: - batch owner の descriptor は、cursor 側の borrowed authority helper で embedded plan から再計算した descriptor と一致することを[必須/ひっす]にします。
+//: - range metadata は Copy ですが、success owner と error は元の batch owner を[保持/ほじ]するため Clone / Copy を[実装/じっそう]しません。
+//: - unsupported target や CLI-only target であっても、この層は platform API を呼ばず、typed `Result` だけで失敗を[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - video memory、host present、platform surface、tile、RLE、actual byte transfer は後続 phase の責務です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_batch_range" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowBatchRangePrepareErrorKind:
+    BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind
+    FrameIdInvalid
+    BatchIndexInvalid
+    WidthInvalid
+    HeightInvalid
+    StrideOverflow
+    StrideMismatch
+    ByteLengthOverflow
+    ByteLengthMismatch
+    RowStartInvalid
+    RowCountInvalid
+    RowExtentOverflow
+    RowExtentOutOfBounds
+    RangeOffsetOverflow
+    RangeLengthOverflow
+    RangeEndOverflow
+    RangeEndOutOfBounds
+    ContinuationIndexOverflow
+    ContinuationIndexMismatch
+    ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind
+
+impl Clone for GuiRgba8888RowBatchRangePrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowBatchRangePrepareErrorKind GuiRgba8888RowBatchRangePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowBatchRangePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowBatchRangePrepareErrorKind GuiRgba8888RowBatchRangePrepareErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowBatchRange:
+    frame_id %i32
+    batch_index %i32
+    row_start %i32
+    row_count %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+    start_byte_offset %i32
+    byte_count %i32
+
+impl Clone for GuiRgba8888RowBatchRange:
+    fn clone %fn &GuiRgba8888RowBatchRange GuiRgba8888RowBatchRange \range:
+        *range
+
+impl Copy for GuiRgba8888RowBatchRange:
+    fn copy_mark %fn GuiRgba8888RowBatchRange GuiRgba8888RowBatchRange \range:
+        range
+
+pub struct GuiRgba8888RowBatchRangeOwner:
+    batch %GuiRgba8888RowBatchCursorBatchOwner
+    range %GuiRgba8888RowBatchRange
+
+pub struct GuiRgba8888RowBatchRangePrepareError:
+    kind %GuiRgba8888RowBatchRangePrepareErrorKind
+    category %Option GuiError
+    batch %GuiRgba8888RowBatchCursorBatchOwner
+
+fn gui_rgba8888_row_batch_range_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowBatchRange \frame_id\batch_index\row_start\row_count\width\height\stride_bytes\byte_len\start_byte_offset\byte_count:
+    GuiRgba8888RowBatchRange frame_id batch_index row_start row_count width height stride_bytes byte_len start_byte_offset byte_count
+
+fn gui_rgba8888_row_batch_range_owner_new %fn GuiRgba8888RowBatchCursorBatchOwner fn GuiRgba8888RowBatchRange GuiRgba8888RowBatchRangeOwner \batch\range:
+    GuiRgba8888RowBatchRangeOwner batch range
+
+fn gui_rgba8888_row_batch_range_error_category %fn GuiRgba8888RowBatchRangePrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::FrameIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::BatchIndexInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexOverflow:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationCursorInvalid _:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_batch_range_prepare_error %fn GuiRgba8888RowBatchRangePrepareErrorKind fn GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchRangePrepareError \kind\batch:
+    let category %Option GuiError gui_rgba8888_row_batch_range_error_category kind
+    GuiRgba8888RowBatchRangePrepareError kind category batch
+
+fn gui_rgba8888_row_batch_range_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowBatchRangePrepareErrorKind Result i32 GuiRgba8888RowBatchRangePrepareErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_batch_range_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowBatchRangePrepareErrorKind Result i32 GuiRgba8888RowBatchRangePrepareErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_batch_range_validate_descriptor %fn &GuiRgba8888RowBatchDescriptor Result GuiRgba8888RowBatchRange GuiRgba8888RowBatchRangePrepareErrorKind \descriptor:
+    let frame_id %i32 gui_rgba8888_row_batch_descriptor_frame_id descriptor
+    if le frame_id 0:
+        then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::FrameIdInvalid
+        else:
+            let batch_index %i32 gui_rgba8888_row_batch_descriptor_batch_index descriptor
+            if lt batch_index 0:
+                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::BatchIndexInvalid
+                else:
+                    let width %i32 gui_rgba8888_row_batch_descriptor_width descriptor
+                    if le width 0:
+                        then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::WidthInvalid
+                        else:
+                            let height %i32 gui_rgba8888_row_batch_descriptor_height descriptor
+                            if le height 0:
+                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::HeightInvalid
+                                else:
+                                    match gui_rgba8888_row_batch_range_checked_mul_nonnegative width 4 GuiRgba8888RowBatchRangePrepareErrorKind::StrideOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_stride:
+                                            let stride_bytes %i32 gui_rgba8888_row_batch_descriptor_stride_bytes descriptor
+                                            if ne stride_bytes expected_stride:
+                                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::StrideMismatch
+                                                else:
+                                                    match gui_rgba8888_row_batch_range_checked_mul_nonnegative height stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::ByteLengthOverflow:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok expected_byte_len:
+                                                            let byte_len %i32 gui_rgba8888_row_batch_descriptor_byte_len descriptor
+                                                            if ne byte_len expected_byte_len:
+                                                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::ByteLengthMismatch
+                                                                else:
+                                                                    let row_start %i32 gui_rgba8888_row_batch_descriptor_row_start descriptor
+                                                                    if lt row_start 0:
+                                                                        then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::RowStartInvalid
+                                                                        else:
+                                                                            let row_count %i32 gui_rgba8888_row_batch_descriptor_row_count descriptor
+                                                                            if le row_count 0:
+                                                                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::RowCountInvalid
+                                                                                else:
+                                                                                    match gui_rgba8888_row_batch_range_checked_add_nonnegative_delta row_start row_count GuiRgba8888RowBatchRangePrepareErrorKind::RowExtentOverflow:
+                                                                                        Result::Err kind:
+                                                                                            Result::Err kind
+                                                                                        Result::Ok row_bottom:
+                                                                                            if gt row_bottom height:
+                                                                                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::RowExtentOutOfBounds
+                                                                                                else:
+                                                                                                    match gui_rgba8888_row_batch_range_checked_mul_nonnegative row_start stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::RangeOffsetOverflow:
+                                                                                                        Result::Err kind:
+                                                                                                            Result::Err kind
+                                                                                                        Result::Ok start_byte_offset:
+                                                                                                            match gui_rgba8888_row_batch_range_checked_mul_nonnegative row_count stride_bytes GuiRgba8888RowBatchRangePrepareErrorKind::RangeLengthOverflow:
+                                                                                                                Result::Err kind:
+                                                                                                                    Result::Err kind
+                                                                                                                Result::Ok byte_count:
+                                                                                                                    match gui_rgba8888_row_batch_range_checked_add_nonnegative_delta start_byte_offset byte_count GuiRgba8888RowBatchRangePrepareErrorKind::RangeEndOverflow:
+                                                                                                                        Result::Err kind:
+                                                                                                                            Result::Err kind
+                                                                                                                        Result::Ok range_end:
+                                                                                                                            if gt range_end byte_len:
+                                                                                                                                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::RangeEndOutOfBounds
+                                                                                                                                else Result::Ok gui_rgba8888_row_batch_range_new frame_id batch_index row_start row_count width height stride_bytes byte_len start_byte_offset byte_count
+
+fn gui_rgba8888_row_batch_range_validate_continuation %fn &GuiRgba8888RowBatchCursorBatchOwner fn &GuiRgba8888RowBatchDescriptor Result unit GuiRgba8888RowBatchRangePrepareErrorKind \batch\descriptor:
+    let continuation %&GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_cursor_ref batch
+    let descriptor_batch_index %i32 gui_rgba8888_row_batch_descriptor_batch_index descriptor
+    match gui_rgba8888_row_batch_range_checked_add_nonnegative_delta descriptor_batch_index 1 GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok expected_next_index:
+            let actual_next_index %i32 gui_rgba8888_row_batch_cursor_batch_index continuation
+            if ne actual_next_index expected_next_index:
+                then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexMismatch
+                else:
+                    match gui_rgba8888_row_batch_cursor_status continuation:
+                        Result::Err cursor_kind:
+                            Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationCursorInvalid cursor_kind
+                        Result::Ok _status:
+                            Result::Ok unit
+
+//: gui_rgba8888_row_batch_range_prepare: validated batch owner から row range metadata owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - まず cursor 側の authority helper で、descriptor と embedded plan の一致を[検査/けんさ]します。
+//: - 続けて descriptor の row / byte range と continuation cursor を[検査/けんさ]します。
+//: - 失敗時は元の batch owner を error 内に保持し、caller が回収または free できます。
+pub fn gui_rgba8888_row_batch_range_prepare %fn GuiRgba8888RowBatchCursorBatchOwner Result GuiRgba8888RowBatchRangeOwner GuiRgba8888RowBatchRangePrepareError \batch:
+    match gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority &batch:
+        Result::Err cursor_kind:
+            Result::Err gui_rgba8888_row_batch_range_prepare_error GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid cursor_kind batch
+        Result::Ok _:
+            let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor &batch
+            match gui_rgba8888_row_batch_range_validate_descriptor &descriptor:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_row_batch_range_prepare_error kind batch
+                Result::Ok range:
+                    match gui_rgba8888_row_batch_range_validate_continuation &batch &descriptor:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_batch_range_prepare_error kind batch
+                        Result::Ok _:
+                            Result::Ok gui_rgba8888_row_batch_range_owner_new batch range
+
+pub fn gui_rgba8888_row_batch_range_frame_id %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "frame_id"
+
+pub fn gui_rgba8888_row_batch_range_batch_index %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "batch_index"
+
+pub fn gui_rgba8888_row_batch_range_row_start %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "row_start"
+
+pub fn gui_rgba8888_row_batch_range_row_count %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "row_count"
+
+pub fn gui_rgba8888_row_batch_range_width %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "width"
+
+pub fn gui_rgba8888_row_batch_range_height %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "height"
+
+pub fn gui_rgba8888_row_batch_range_stride_bytes %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "stride_bytes"
+
+pub fn gui_rgba8888_row_batch_range_byte_len %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "byte_len"
+
+pub fn gui_rgba8888_row_batch_range_start_byte_offset %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "start_byte_offset"
+
+pub fn gui_rgba8888_row_batch_range_byte_count %fn &GuiRgba8888RowBatchRange i32 \range:
+    *field::get_ref range "byte_count"
+
+pub fn gui_rgba8888_row_batch_range_owner_range %fn &GuiRgba8888RowBatchRangeOwner GuiRgba8888RowBatchRange \owner:
+    *field::get_ref owner "range"
+
+pub fn gui_rgba8888_row_batch_range_owner_finish_cursor %fn GuiRgba8888RowBatchRangeOwner GuiRgba8888RowBatchCursorOwner \owner:
+    let batch %GuiRgba8888RowBatchCursorBatchOwner field::get owner "batch"
+    gui_rgba8888_row_batch_cursor_batch_finish_cursor batch
+
+pub fn gui_rgba8888_row_batch_range_owner_free %fn GuiRgba8888RowBatchRangeOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
+    let batch %GuiRgba8888RowBatchCursorBatchOwner field::get owner "batch"
+    gui_rgba8888_row_batch_cursor_batch_free batch
+
+pub fn gui_rgba8888_row_batch_range_prepare_error_kind %fn &GuiRgba8888RowBatchRangePrepareError GuiRgba8888RowBatchRangePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_batch_range_prepare_error_category_value %fn &GuiRgba8888RowBatchRangePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_batch_range_prepare_error_batch %fn GuiRgba8888RowBatchRangePrepareError GuiRgba8888RowBatchCursorBatchOwner \error:
+    field::get error "batch"
+
+pub fn gui_rgba8888_row_batch_range_prepare_error_free %fn GuiRgba8888RowBatchRangePrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let batch %GuiRgba8888RowBatchCursorBatchOwner gui_rgba8888_row_batch_range_prepare_error_batch error
+    gui_rgba8888_row_batch_cursor_batch_free batch

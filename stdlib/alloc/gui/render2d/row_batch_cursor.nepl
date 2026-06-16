@@ -36,6 +36,7 @@ pub enum GuiRgba8888RowBatchCursorErrorKind:
     BatchOffsetOverflow
     BatchBoundsInvalid
     NextCursorIndexOverflow
+    BatchDescriptorMismatch
 
 impl Clone for GuiRgba8888RowBatchCursorErrorKind:
     fn clone %fn &GuiRgba8888RowBatchCursorErrorKind GuiRgba8888RowBatchCursorErrorKind \kind:
@@ -110,6 +111,8 @@ fn gui_rgba8888_row_batch_cursor_error_category %fn GuiRgba8888RowBatchCursorErr
             Option::Some GuiError::InvalidGeometry
         GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid:
             Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchCursorErrorKind::BatchDescriptorMismatch:
+            Option::Some GuiError::InvalidCommand
         _:
             Option::Some GuiError::InvalidCommand
 
@@ -168,6 +171,9 @@ pub fn gui_rgba8888_row_batch_cursor_step_error_cursor %fn GuiRgba8888RowBatchCu
 
 pub fn gui_rgba8888_row_batch_cursor_batch_descriptor %fn &GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchDescriptor \batch:
     *field::get_ref batch "descriptor"
+
+pub fn gui_rgba8888_row_batch_cursor_batch_cursor_ref %fn &GuiRgba8888RowBatchCursorBatchOwner &GuiRgba8888RowBatchCursorOwner \batch:
+    field::get_ref batch "cursor"
 
 pub fn gui_rgba8888_row_batch_cursor_batch_finish_cursor %fn GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchCursorOwner \batch:
     field::get batch "cursor"
@@ -258,6 +264,50 @@ fn gui_rgba8888_row_batch_cursor_descriptor_from_plan %fn &GuiRgba8888RowBatchPl
                                                                     let byte_len %i32 gui_rgba8888_row_batch_plan_byte_len plan
                                                                     let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_descriptor_new frame_id batch_index batch_row_start batch_row_count frame_width frame_height stride_bytes byte_len
                                                                     Result::Ok descriptor
+
+fn gui_rgba8888_row_batch_cursor_descriptor_equal %fn &GuiRgba8888RowBatchDescriptor fn &GuiRgba8888RowBatchDescriptor bool \left\right:
+    and:
+        eq gui_rgba8888_row_batch_descriptor_frame_id left gui_rgba8888_row_batch_descriptor_frame_id right
+        and:
+            eq gui_rgba8888_row_batch_descriptor_batch_index left gui_rgba8888_row_batch_descriptor_batch_index right
+            and:
+                eq gui_rgba8888_row_batch_descriptor_row_start left gui_rgba8888_row_batch_descriptor_row_start right
+                and:
+                    eq gui_rgba8888_row_batch_descriptor_row_count left gui_rgba8888_row_batch_descriptor_row_count right
+                    and:
+                        eq gui_rgba8888_row_batch_descriptor_width left gui_rgba8888_row_batch_descriptor_width right
+                        and:
+                            eq gui_rgba8888_row_batch_descriptor_height left gui_rgba8888_row_batch_descriptor_height right
+                            and:
+                                eq gui_rgba8888_row_batch_descriptor_stride_bytes left gui_rgba8888_row_batch_descriptor_stride_bytes right
+                                eq gui_rgba8888_row_batch_descriptor_byte_len left gui_rgba8888_row_batch_descriptor_byte_len right
+
+//: gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority: batch owner 内の descriptor が embedded plan から再計算した metadata と一致するかを[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - batch owner は「descriptor と、その descriptor を消費した後の continuation cursor」を保持します。
+//: - continuation cursor 内の plan をまず invariant 検査し、その plan と continuation index から正規 descriptor を再計算します。
+//: - 一致しない descriptor は `BatchDescriptorMismatch` として拒否します。
+pub fn gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority %fn &GuiRgba8888RowBatchCursorBatchOwner Result unit GuiRgba8888RowBatchCursorErrorKind \batch:
+    let continuation %&GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_cursor_ref batch
+    let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref continuation "plan"
+    match gui_rgba8888_row_batch_cursor_validate_plan plan:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            let continuation_index %i32 gui_rgba8888_row_batch_cursor_batch_index continuation
+            if le continuation_index 0:
+                then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchDescriptorMismatch
+                else:
+                    let previous_index %i32 sub continuation_index 1
+                    match gui_rgba8888_row_batch_cursor_descriptor_from_plan plan previous_index:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected:
+                            let actual %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor batch
+                            if gui_rgba8888_row_batch_cursor_descriptor_equal &actual &expected:
+                                then Result::Ok unit
+                                else Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchDescriptorMismatch
 
 //: gui_rgba8888_row_batch_cursor_start: row batch plan owner から batch cursor owner を[開始/かいし]する
 pub fn gui_rgba8888_row_batch_cursor_start %fn GuiRgba8888RowBatchPlanOwner Result GuiRgba8888RowBatchCursorOwner GuiRgba8888RowBatchCursorStartError \plan:
