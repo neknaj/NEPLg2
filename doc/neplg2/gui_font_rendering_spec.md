@@ -6669,6 +6669,22 @@ GuiRgba8888RowTileRleCountOwner
 
 この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal encoded RLE transport は、この count owner が produced した total run count を capacity evidence として別 phase で消費する。
 
+### Render2d row tile RLE completed count boundary
+
+F5cf は F5ce の `GuiRgba8888RowTileRleCountOwner` を、formal encoded RLE transport へ渡せる completed count evidence へ昇格する boundary である。`GuiRgba8888RowTileRleCountCompletedOwner` は元の count owner と `total_run_count` を保持し、cursor が `Complete` で total run count が正の場合だけ作られる。
+
+```text
+GuiRgba8888RowTileRleCountOwner
+    -> gui_rgba8888_row_tile_rle_count_completed_prepare
+    -> Result GuiRgba8888RowTileRleCountCompletedOwner GuiRgba8888RowTileRleCountCompletedError
+```
+
+`prepare` は cursor status を先に検査する。cursor status の検査に失敗した場合は `CursorInvalid %GuiRgba8888RowTileRleStepErrorKind`、cursor が `Ready` の場合は `CountNotCompleted` を返す。cursor が `Complete` の場合だけ `accumulated_run_count` を total run count として読み、0 以下なら `TotalRunCountInvalid` を返す。
+
+error は元の count owner を保持する owner-bearing error であり、caller は `error_finish_count_owner` または `error_free` によって明示的に回収する。silent no-op と fallback は行わない。
+
+この layer は encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。completed count は後続 transport allocation の exact capacity evidence であり、transport storage そのものではない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

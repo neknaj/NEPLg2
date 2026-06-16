@@ -109,6 +109,10 @@ pub fn gui_rgba8888_row_tile_rle_count_owner_cursor_next_pixel_index %fn &GuiRgb
     let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
     gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
 
+pub fn gui_rgba8888_row_tile_rle_count_owner_cursor_status %fn &GuiRgba8888RowTileRleCountOwner Result GuiRgba8888RowTileRleCursorStatus GuiRgba8888RowTileRleStepErrorKind \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_status cursor
+
 pub fn gui_rgba8888_row_tile_rle_count_owner_finish_cursor %fn GuiRgba8888RowTileRleCountOwner GuiRgba8888RowTileRleCursorOwner \owner:
     field::get owner "cursor"
 

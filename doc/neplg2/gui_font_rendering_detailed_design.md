@@ -7587,6 +7587,28 @@ count_step_budget owner remaining_steps:
 
 F5ce remains count-only. It does not rescan runs with `next_run`, read payload bytes, allocate a `Vec`, build an encoded RLE buffer, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The future encoded RLE transport must consume a successfully completed total run count as capacity evidence in a separate owner boundary.
 
+## Render2d row tile RLE completed count boundary
+
+F5cf adds `GuiRgba8888RowTileRleCountCompletedOwner` as that separate owner boundary. It consumes a `GuiRgba8888RowTileRleCountOwner`, borrows its cursor status through `gui_rgba8888_row_tile_rle_count_owner_cursor_status`, and only then publishes the total run count as completed evidence.
+
+The validation order is part of the contract:
+
+```text
+count_completed_prepare count:
+    count_owner_cursor_status count
+        Err lower_kind -> CursorInvalid lower_kind with count owner
+        Ready          -> CountNotCompleted with count owner
+        Complete       -> validate accumulated_run_count > 0
+            false      -> TotalRunCountInvalid with count owner
+            true       -> CountCompletedOwner count total_run_count
+```
+
+The completed module does not access the count owner cursor or accumulated count through direct field inspection. `row_tile_rle_count.nepl` owns that representation and exposes borrowed helpers for status, cursor index, and accumulated count. This prevents later encoded transport code from depending on private count layout.
+
+`GuiRgba8888RowTileRleCountCompletedErrorKind` is Copy metadata. `GuiRgba8888RowTileRleCountCompletedOwner` and `GuiRgba8888RowTileRleCountCompletedError` are owner-bearing values and must not implement Clone / Copy. The error keeps the original count owner so failed completion can be freed or inspected explicitly.
+
+F5cf remains evidence-only. It does not call the drain, call `cursor_next_run`, read payload bytes, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

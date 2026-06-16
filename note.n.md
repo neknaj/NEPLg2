@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5cf render2d row tile RLE completed count boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-count-completed-f5cf-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cf の completed count evidence、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。formal encoded RLE transport へ直接進まず、F5ce の count owner を completed count evidence に昇格する境界を置く方針が承認された。
+- 実装条件として、completed module は count owner の private field を直接読まず、borrowed helper を通すこと、status first で `Ready -> CountNotCompleted`、status error -> `CursorInvalid`、Complete 後に `total_run_count > 0` を検査すること、drain / next_run / payload read / raw storage / `Vec` / encoded buffer / host / platform / fallback に進まないことが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` に `gui_rgba8888_row_tile_rle_count_owner_cursor_status` を追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl` を追加した。
+- `GuiRgba8888RowTileRleCountCompletedErrorKind`、`GuiRgba8888RowTileRleCountCompletedOwner`、`GuiRgba8888RowTileRleCountCompletedError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_count_completed_prepare` は count owner の cursor status を先に検査し、pending count を `CountNotCompleted`、status error を `CursorInvalid lower_kind`、Complete だが total が 0 以下の count を `TotalRunCountInvalid` として owner-bearing error で返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE completed count を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cf の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cf source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。`prepare` が status first であり、borrowed count-owner cursor status helper を使い、Ready を owner-bearing `CountNotCompleted`、status error を `CursorInvalid` として返し、Complete かつ正の total count だけを completed evidence にすることを確認した。
+- Ramanujan は completed implementation body に drain / `next_run` / payload byte read、raw storage、`Vec`、encoded transport、host / platform、fallback、silent no-op、括弧、completed module からの count owner internals 直接読みに該当する漏れがないこと、docs / facade / doctest labels / source policy が contract と aligned であることを確認した。
+
+## remaining
+
+- F5cf は completed count evidence までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5ce render2d row tile RLE count boundary
 
 ## scope
