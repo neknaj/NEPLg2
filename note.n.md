@@ -1,3 +1,47 @@
+# 2026-06-17 Agent2 GUI font F5cy std row tile RLE present host executor validation boundary
+
+## scope
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と F5cx の `GuiRgba8888RowTileRlePresentHostExecutionReport` を、actual executor の手前で検査する。
+- `GuiRgba8888RowTileRlePresentHostExecutorSupport` は空 support を表現しない enum とし、unsupported target は typed error の `Result` で返す。
+- report validation は variant だけでなく full action identity を比較し、window、surface、frame、packet metadata、run offset、run count、RGBA channel の差異を検出する。
+- matching action の failed report は association として valid とし、execution outcome の解釈は F5cx `report_outcome` と F5cv completion に残す。
+
+## plan_review
+
+- Dirac の initial plan review は `PLAN_BLOCKED`。理由は loose bool support では supports-nothing state を表現でき、report/action 検査も variant 一致だけに弱まる危険があるため。
+- 修正版では non-empty support enum、typed executor error、full action equality、`validate_report_for_action` の順序を明確化し、Dirac plan review で `PLAN_APPROVED`。
+- `UnsupportedAction` は `reported = None`、`ReportActionMismatch` は `reported = Some reported_action` とする方針が承認された。
+- F5cv pending completion は caller-owned のまま残し、F5cy は F5cw action と F5cx report だけを消費する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_executor.nepl` を追加した。
+- non-empty support enum、action kind enum、typed executor error、support validation、full action equality、`validate_report_for_action` を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_executor.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cy.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_executor.nepl --no-tree -o tmp_gui_std_tile_present_host_executor_module_f5cy.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cy_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cy_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cy.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。code / source-policy blocker はなく、`note.n.md` の status が実際の完了状態に追従していないことだけが blocking finding だった。
+- 指摘に従い、implementation と verification_current と subagent_review を実際の完了状態へ更新した。
+- Dirac は F5cy code について、non-empty support enum、typed error、`reported = None` / `Some reported` の使い分け、descriptor / run / color / window payload の public-accessor-based equality、F5cv / platform / raw / fallback leakage の禁止が approved plan を満たすと確認した。
+
+## residual
+
+- F5cy は pre-executor validation boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cx std row tile RLE present host execution report boundary
 
 ## scope
