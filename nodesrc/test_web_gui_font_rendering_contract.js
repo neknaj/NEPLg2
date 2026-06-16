@@ -104,6 +104,8 @@ const allocRender2dRowTilePlan = read("stdlib/alloc/gui/render2d/row_tile_plan.n
 const allocRender2dRowTilePlanImpl = withoutComments(allocRender2dRowTilePlan);
 const allocRender2dRowTilePayload = read("stdlib/alloc/gui/render2d/row_tile_payload.nepl");
 const allocRender2dRowTilePayloadImpl = withoutComments(allocRender2dRowTilePayload);
+const allocRender2dRowTileRle = read("stdlib/alloc/gui/render2d/row_tile_rle.nepl");
+const allocRender2dRowTileRleImpl = withoutComments(allocRender2dRowTileRle);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -137,6 +139,7 @@ const guiRender2dRowBatchRangeTests = read("tests/stdlib/gui_render2d_row_batch_
 const guiRender2dRowByteStorageTests = read("tests/stdlib/gui_render2d_row_byte_storage.n.md");
 const guiRender2dRowTilePlanTests = read("tests/stdlib/gui_render2d_row_tile_plan.n.md");
 const guiRender2dRowTilePayloadTests = read("tests/stdlib/gui_render2d_row_tile_payload.n.md");
+const guiRender2dRowTileRleTests = read("tests/stdlib/gui_render2d_row_tile_rle.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18532,6 +18535,123 @@ assert(
         guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_no_raw_storage_escape") &&
         guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_no_platform_no_fallback"),
     "F5cb row tile payload focused doctest must cover facade, descriptor authority, existing-storage view, tile-relative reads, typed bounds error, owner recovery, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row tile RLE cursor") &&
+            doc.includes("GuiRgba8888RowTileRleCursorOwner") &&
+            doc.includes("streaming") &&
+            doc.includes("CursorComplete") &&
+            doc.includes("PayloadReadFailed"),
+        `F5cc ${name} must document row tile RLE cursor, streaming runs, complete typed error, and payload read wrapping`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle" as *'), "alloc/gui/render2d facade must export F5cc row tile RLE cursor");
+assert(
+    allocRender2dRowTileRle.includes("pub enum GuiRgba8888RowTileRleStartErrorKind:") &&
+        allocRender2dRowTileRle.includes("PayloadByteCountInvalid") &&
+        allocRender2dRowTileRle.includes("PayloadByteCountNotRgbaAligned") &&
+        allocRender2dRowTileRle.includes("pub enum GuiRgba8888RowTileRleStepErrorKind:") &&
+        allocRender2dRowTileRle.includes("CursorComplete") &&
+        allocRender2dRowTileRle.includes("PayloadReadFailed %GuiRgba8888RowTilePayloadReadErrorKind") &&
+        allocRender2dRowTileRle.includes("pub enum GuiRgba8888RowTileRleCursorStatus:") &&
+        allocRender2dRowTileRle.includes("pub struct GuiRgba8888RowTileRleRun:") &&
+        allocRender2dRowTileRle.includes("pixel_offset %i32") &&
+        allocRender2dRowTileRle.includes("pixel_count %i32") &&
+        allocRender2dRowTileRle.includes("color %Rgba8888") &&
+        allocRender2dRowTileRle.includes("pub struct GuiRgba8888RowTileRleCursorOwner:") &&
+        allocRender2dRowTileRle.includes("payload %GuiRgba8888RowTilePayloadOwner") &&
+        allocRender2dRowTileRle.includes("pub struct GuiRgba8888RowTileRleStepError:") &&
+        allocRender2dRowTileRle.includes("cursor %GuiRgba8888RowTileRleCursorOwner"),
+    "alloc/gui/render2d/row_tile_rle F5cc must define typed RLE cursor status, run metadata, owner-bearing errors, and payload read wrapping",
+);
+assertNoMatch(
+    allocRender2dRowTileRleImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleCursorOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStartError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStep\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStepError\b/,
+    "alloc/gui/render2d/row_tile_rle F5cc owner-bearing cursor, step, and errors must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleImpl,
+    /\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle F5cc must remain streaming-only without raw storage, allocation, host/platform, or fallback",
+);
+const rowTileRleStart = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_cursor_start");
+assertOrderedFragments(
+    rowTileRleStart,
+    [
+        "let byte_count %i32 gui_rgba8888_row_tile_payload_byte_count &payload",
+        "GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountInvalid payload",
+        "let remainder %i32 rem_s byte_count 4",
+        "GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountNotRgbaAligned payload",
+        "let pixel_count %i32 div_s byte_count 4",
+        "Result::Ok gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count 0",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5cc start must validate positive RGBA-aligned byte count and preserve owner on error",
+);
+const rowTileRleReadPixel = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_read_pixel");
+assertOrderedFragments(
+    rowTileRleReadPixel,
+    [
+        "match gui_rgba8888_row_tile_rle_pixel_byte_offset pixel_index:",
+        "gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 1 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow",
+        "gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 2 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow",
+        "gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 3 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow",
+        "match gui_rgba8888_row_tile_rle_payload_byte_at payload byte_offset:",
+        "match gui_rgba8888_row_tile_rle_payload_byte_at payload g_offset:",
+        "match gui_rgba8888_row_tile_rle_payload_byte_at payload b_offset:",
+        "match gui_rgba8888_row_tile_rle_payload_byte_at payload a_offset:",
+        "let r_channel %u8 cast r",
+        "let g_channel %u8 cast g",
+        "let b_channel %u8 cast b",
+        "let a_channel %u8 cast a",
+        "Result::Ok rgba8888_new r_channel g_channel b_channel a_channel",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5cc read_pixel must checked-mul and checked-add all RGBA channel offsets before typed payload reads",
+);
+const rowTileRlePayloadByteAt = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_payload_byte_at");
+assertOrderedFragments(
+    rowTileRlePayloadByteAt,
+    [
+        "match gui_rgba8888_row_tile_payload_byte_at payload index:",
+        "Result::Err GuiRgba8888RowTileRleStepErrorKind::PayloadReadFailed kind",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5cc payload read failures must be wrapped as lower typed kind",
+);
+const rowTileRleNextRun = functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_cursor_next_run");
+assertOrderedFragments(
+    rowTileRleNextRun,
+    [
+        "match gui_rgba8888_row_tile_rle_cursor_status &cursor:",
+        "GuiRgba8888RowTileRleCursorStatus::Complete:",
+        "GuiRgba8888RowTileRleStepErrorKind::CursorComplete cursor",
+        "let payload %GuiRgba8888RowTilePayloadOwner field::get cursor \"payload\"",
+        "match gui_rgba8888_row_tile_rle_read_pixel &payload start_pixel_index:",
+        "match gui_rgba8888_row_tile_rle_scan_run &payload start_pixel_index pixel_count color:",
+        "match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta start_pixel_index run_count GuiRgba8888RowTileRleStepErrorKind::NextPixelIndexOverflow:",
+        "Result::Ok gui_rgba8888_row_tile_rle_step_new next_cursor run",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5cc next_run must make complete a typed owner-bearing error and return continuation cursor plus Copy run",
+);
+assertNoMatch(
+    allocRender2dRowTileRleImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle F5cc implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_facade_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_streaming_cursor_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_pixel_run_sequence_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_complete_error_owner_recovery_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_checked_pixel_channel_offsets_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_payload_read_error_wrapped_ok") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_no_encoded_buffer_no_vec") &&
+        guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_no_platform_no_fallback"),
+    "F5cc row tile RLE focused doctest must cover facade, streaming cursor, run sequence, complete recovery, checked channel offsets, wrapped payload read errors, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

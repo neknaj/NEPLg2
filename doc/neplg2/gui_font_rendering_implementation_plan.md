@@ -1121,6 +1121,48 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5cc: Render2d row tile RLE cursor boundary
+
+目的:
+
+- F5cb の `GuiRgba8888RowTilePayloadOwner` を、tile 内 RGBA8888 pixel run を streaming で返す `GuiRgba8888RowTileRleCursorOwner` へ変換する。
+- `GuiRgba8888RowTileRleRun` は `pixel_offset`、`pixel_count`、`Rgba8888 color` だけを持つ Copy metadata とする。
+- cursor / step / error は owner-bearing value とし、payload owner を確実に回収できるようにする。
+- この phase は encoded RLE buffer、`Vec`、raw storage、host present、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。`next_run` に complete cursor が渡された時に status / finish だけで扱える設計では public contract が弱く、owner-bearing typed error が必要だと指摘された。
+- revised plan は `PLAN_APPROVED`。`CursorComplete` を `GuiRgba8888RowTileRleStepErrorKind` の明示 variant とし、`GuiRgba8888RowTileRleStepError` が cursor owner を保持すること、`pixel_index * 4` と channel offset `+1` / `+2` / `+3` をすべて checked にすること、payload read failure を `PayloadReadFailed lower_kind` に包むことが実装条件である。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` を追加する。
+- `GuiRgba8888RowTileRleStartErrorKind`、`GuiRgba8888RowTileRleStepErrorKind`、`GuiRgba8888RowTileRleCursorStatus`、`GuiRgba8888RowTileRleRun`、`GuiRgba8888RowTileRleCursorOwner`、`GuiRgba8888RowTileRleStep`、owner-bearing error を定義する。
+- `gui_rgba8888_row_tile_rle_cursor_start` は payload byte count の正値と RGBA8888 alignment を検査する。
+- `gui_rgba8888_row_tile_rle_cursor_next_run` は Ready cursor の同色 pixel run を走査し、Complete cursor では `CursorComplete` owner-bearing error を返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE cursor を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle.n.md` を追加し、facade、streaming cursor、pixel run sequence、complete error owner recovery、checked channel offsets、payload read error wrapping、no encoded buffer / no Vec、platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cc source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE module doctest、row tile payload / row tile plan regression、source policy、`git diff --check` が通る。
+- implementation review で `CursorComplete` が owner-bearing typed error であること、offset math が全て checked であること、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進んでいないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5cc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_module_f5cc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cc_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5cc_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
