@@ -6685,6 +6685,20 @@ error は元の count owner を保持する owner-bearing error であり、call
 
 この layer は encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。completed count は後続 transport allocation の exact capacity evidence であり、transport storage そのものではない。
 
+### Render2d row tile RLE encode seed boundary
+
+F5cg は `GuiRgba8888RowTileRleCountCompletedOwner` を、formal encoded RLE transport へ直接渡す前の payload seed に変換する boundary である。`GuiRgba8888RowTileRleEncodeSeedOwner` は underlying `GuiRgba8888RowTilePayloadOwner` と `total_run_count` だけを保持する。これは encoded storage ではなく、次 phase が cursor restart や encoded writer を始めるための所有 seed である。
+
+```text
+GuiRgba8888RowTileRleCountCompletedOwner
+    -> gui_rgba8888_row_tile_rle_encode_seed_prepare
+    -> Result GuiRgba8888RowTileRleEncodeSeedOwner GuiRgba8888RowTileRleEncodeSeedError
+```
+
+`prepare` は completed owner の `total_run_count` を再検査する。F5cf の public constructor path では正の値だけが到達するが、internal misuse や将来の constructor 変更を silent no-op にしないため、0 以下なら `TotalRunCountInvalid` として original completed owner を保持した error を返す。成功時は completed owner を count owner、cursor owner、payload owner の順に閉じ、payload seed owner を返す。
+
+この layer は cursor restart、RLE run drain、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。cursor restart の start error、exact encoded buffer allocation、row tile transport ABI は後続 phase の owner boundary として定義する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

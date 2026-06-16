@@ -7609,6 +7609,26 @@ The completed module does not access the count owner cursor or accumulated count
 
 F5cf remains evidence-only. It does not call the drain, call `cursor_next_run`, read payload bytes, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
 
+## Render2d row tile RLE encode seed boundary
+
+F5cg adds `GuiRgba8888RowTileRleEncodeSeedOwner` as the next payload seed ownership boundary after completed count evidence. It consumes a `GuiRgba8888RowTileRleCountCompletedOwner`, validates that `total_run_count > 0`, and then closes the ownership chain back to the original payload:
+
+```text
+encode_seed_prepare completed:
+    total = completed_total_run_count completed
+    total <= 0 -> TotalRunCountInvalid with completed owner
+    count   = completed_finish_count_owner completed
+    cursor  = count_owner_finish_cursor count
+    payload = cursor_finish_payload cursor
+    EncodeSeedOwner payload total
+```
+
+This boundary intentionally does not call `cursor_start`. Restarting the cursor can fail with a start error that owns the payload, while the invalid-total path owns the completed owner. Mixing those two recovery owners in one slice would force a weaker error shape. F5cg therefore keeps a single owner-bearing error kind for invalid completed evidence and leaves cursor restart to the next encode-cursor or encode-writer boundary.
+
+`GuiRgba8888RowTileRleEncodeSeedErrorKind` is Copy metadata. `GuiRgba8888RowTileRleEncodeSeedOwner` and `GuiRgba8888RowTileRleEncodeSeedError` are owner-bearing values and must not implement Clone / Copy. The error returns the original completed owner so caller recovery remains explicit.
+
+F5cg remains payload-seed-only. It does not restart the cursor, call the drain, call `cursor_next_run`, read payload bytes, allocate `Vec`, build encoded RLE storage, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
