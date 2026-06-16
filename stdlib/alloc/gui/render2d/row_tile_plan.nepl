@@ -1,0 +1,519 @@
+//: # alloc/gui/render2d/row_tile_plan
+//: RGBA8888 row tile plan metadata boundary
+//:
+//: ### [目的/もくてき]
+//: - copied row byte storage を、後続の formal tile payload / RLE / host present に[渡/わた]す[前段/ぜんだん]の tile metadata plan へ[変換/へんかん]します。
+//: - tile descriptor は storage-relative byte offset と frame-absolute row range だけを[持/も]ち、byte payload や platform transport は[作/つく]りません。
+//:
+//: ### [契約/けいやく]
+//: - prepare は byte storage owner authority を[借用/しゃくよう]で[再検証/さいけんしょう]してから tile metadata を[作/つく]ります。
+//: - descriptor 取得時にも plan invariant を[再検証/さいけんしょう]し、forged metadata を typed error として[止/と]めます。
+//: - owner-bearing success / error は copied byte storage owner を保持するため Clone / Copy を[実装/じっそう]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は tile metadata だけを[扱/あつか]います。byte 分割、RLE、video memory、host present、Canvas、DOM、minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_plan" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_batch_range" as *
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTilePlanPrepareErrorKind:
+    ByteStorageAuthorityInvalid %GuiRgba8888RowByteStorageAuthorityErrorKind
+    TileRowsInvalid
+    RowCountInvalid
+    StrideInvalid
+    ByteCountOverflow
+    ByteCountMismatch
+    TileCountOverflow
+
+impl Clone for GuiRgba8888RowTilePlanPrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowTilePlanPrepareErrorKind GuiRgba8888RowTilePlanPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTilePlanPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTilePlanPrepareErrorKind GuiRgba8888RowTilePlanPrepareErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTilePlanInvariantErrorKind:
+    ByteStorageAuthorityInvalid %GuiRgba8888RowByteStorageAuthorityErrorKind
+    FrameIdMismatch
+    BatchIndexMismatch
+    RowStartMismatch
+    RowCountMismatch
+    WidthMismatch
+    HeightMismatch
+    StrideMismatch
+    ByteCountMismatch
+    TileRowsInvalid
+    RowExtentOverflow
+    RowExtentOutOfBounds
+    ExpectedStrideOverflow
+    ExpectedByteCountOverflow
+    TileCountOverflow
+    TileCountMismatch
+
+impl Clone for GuiRgba8888RowTilePlanInvariantErrorKind:
+    fn clone %fn &GuiRgba8888RowTilePlanInvariantErrorKind GuiRgba8888RowTilePlanInvariantErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTilePlanInvariantErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTilePlanInvariantErrorKind GuiRgba8888RowTilePlanInvariantErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTilePlanDescriptorErrorKind:
+    PlanInvariantInvalid %GuiRgba8888RowTilePlanInvariantErrorKind
+    TileIndexNegative
+    TileIndexOutOfBounds
+    TileRowOffsetOverflow
+    TileRowOffsetOutOfBounds
+    TileRowCountInvalid
+    TileRowStartOverflow
+    TileByteOffsetOverflow
+    TileByteCountOverflow
+    TileByteEndOverflow
+    TileByteEndOutOfBounds
+
+impl Clone for GuiRgba8888RowTilePlanDescriptorErrorKind:
+    fn clone %fn &GuiRgba8888RowTilePlanDescriptorErrorKind GuiRgba8888RowTilePlanDescriptorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTilePlanDescriptorErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTilePlanDescriptorErrorKind GuiRgba8888RowTilePlanDescriptorErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTilePlanConfig:
+    tile_rows %i32
+
+impl Clone for GuiRgba8888RowTilePlanConfig:
+    fn clone %fn &GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig \config:
+        *config
+
+impl Copy for GuiRgba8888RowTilePlanConfig:
+    fn copy_mark %fn GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanConfig \config:
+        config
+
+pub struct GuiRgba8888RowTilePlan:
+    frame_id %i32
+    batch_index %i32
+    row_start %i32
+    row_count %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_count %i32
+    tile_rows %i32
+    tile_count %i32
+
+impl Clone for GuiRgba8888RowTilePlan:
+    fn clone %fn &GuiRgba8888RowTilePlan GuiRgba8888RowTilePlan \plan:
+        *plan
+
+impl Copy for GuiRgba8888RowTilePlan:
+    fn copy_mark %fn GuiRgba8888RowTilePlan GuiRgba8888RowTilePlan \plan:
+        plan
+
+pub struct GuiRgba8888RowTileDescriptor:
+    tile_index %i32
+    row_start %i32
+    row_count %i32
+    byte_offset %i32
+    byte_count %i32
+
+impl Clone for GuiRgba8888RowTileDescriptor:
+    fn clone %fn &GuiRgba8888RowTileDescriptor GuiRgba8888RowTileDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiRgba8888RowTileDescriptor:
+    fn copy_mark %fn GuiRgba8888RowTileDescriptor GuiRgba8888RowTileDescriptor \descriptor:
+        descriptor
+
+pub struct GuiRgba8888RowTilePlanOwner:
+    storage %GuiRgba8888RowByteStorageOwner
+    plan %GuiRgba8888RowTilePlan
+
+pub struct GuiRgba8888RowTilePlanPrepareError:
+    kind %GuiRgba8888RowTilePlanPrepareErrorKind
+    category %Option GuiError
+    storage %GuiRgba8888RowByteStorageOwner
+
+fn gui_rgba8888_row_tile_plan_owner_new %fn GuiRgba8888RowByteStorageOwner fn GuiRgba8888RowTilePlan GuiRgba8888RowTilePlanOwner \storage\plan:
+    GuiRgba8888RowTilePlanOwner storage plan
+
+fn gui_rgba8888_row_tile_plan_prepare_error_category %fn GuiRgba8888RowTilePlanPrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTilePlanPrepareErrorKind::ByteStorageAuthorityInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTilePlanPrepareErrorKind::TileRowsInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTilePlanPrepareErrorKind::RowCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTilePlanPrepareErrorKind::StrideInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTilePlanPrepareErrorKind::ByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTilePlanPrepareErrorKind::ByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTilePlanPrepareErrorKind::TileCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_plan_prepare_error %fn GuiRgba8888RowTilePlanPrepareErrorKind fn GuiRgba8888RowByteStorageOwner GuiRgba8888RowTilePlanPrepareError \kind\storage:
+    let category %Option GuiError gui_rgba8888_row_tile_plan_prepare_error_category kind
+    GuiRgba8888RowTilePlanPrepareError kind category storage
+
+fn gui_rgba8888_row_tile_plan_checked_mul_prepare %fn i32 fn i32 fn GuiRgba8888RowTilePlanPrepareErrorKind Result i32 GuiRgba8888RowTilePlanPrepareErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_plan_tile_count_checked_prepare %fn i32 fn i32 Result i32 GuiRgba8888RowTilePlanPrepareErrorKind \row_count\tile_rows:
+    if le row_count 0:
+        then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::RowCountInvalid
+        else:
+            if le tile_rows 0:
+                then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::TileRowsInvalid
+                else:
+                    let quotient %i32 div_s row_count tile_rows
+                    let remainder %i32 rem_s row_count tile_rows
+                    let tile_count %i32 if eq remainder 0 quotient add quotient 1
+                    if le tile_count 0:
+                        then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::TileCountOverflow
+                        else Result::Ok tile_count
+
+fn gui_rgba8888_row_tile_plan_checked_mul_invariant %fn i32 fn i32 fn GuiRgba8888RowTilePlanInvariantErrorKind Result i32 GuiRgba8888RowTilePlanInvariantErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_plan_checked_add_invariant %fn i32 fn i32 fn GuiRgba8888RowTilePlanInvariantErrorKind Result i32 GuiRgba8888RowTilePlanInvariantErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_plan_tile_count_checked_invariant %fn i32 fn i32 Result i32 GuiRgba8888RowTilePlanInvariantErrorKind \row_count\tile_rows:
+    if le row_count 0:
+        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::RowCountMismatch
+        else:
+            if le tile_rows 0:
+                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::TileRowsInvalid
+                else:
+                    let quotient %i32 div_s row_count tile_rows
+                    let remainder %i32 rem_s row_count tile_rows
+                    let tile_count %i32 if eq remainder 0 quotient add quotient 1
+                    if le tile_count 0:
+                        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::TileCountOverflow
+                        else Result::Ok tile_count
+
+fn gui_rgba8888_row_tile_plan_checked_mul_descriptor %fn i32 fn i32 fn GuiRgba8888RowTilePlanDescriptorErrorKind Result i32 GuiRgba8888RowTilePlanDescriptorErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_plan_checked_add_descriptor %fn i32 fn i32 fn GuiRgba8888RowTilePlanDescriptorErrorKind Result i32 GuiRgba8888RowTilePlanDescriptorErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_plan_from_range %fn &GuiRgba8888RowBatchRange fn i32 fn i32 Result GuiRgba8888RowTilePlan GuiRgba8888RowTilePlanPrepareErrorKind \range\tile_rows\storage_byte_count:
+    let row_count %i32 gui_rgba8888_row_batch_range_row_count range
+    let stride_bytes %i32 gui_rgba8888_row_batch_range_stride_bytes range
+    if le stride_bytes 0:
+        then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::StrideInvalid
+        else:
+            match gui_rgba8888_row_tile_plan_checked_mul_prepare row_count stride_bytes GuiRgba8888RowTilePlanPrepareErrorKind::ByteCountOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok expected_byte_count:
+                    let range_byte_count %i32 gui_rgba8888_row_batch_range_byte_count range
+                    if or ne range_byte_count expected_byte_count ne storage_byte_count expected_byte_count:
+                        then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::ByteCountMismatch
+                        else:
+                            match gui_rgba8888_row_tile_plan_tile_count_checked_prepare row_count tile_rows:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok tile_count:
+                                    let frame_id %i32 gui_rgba8888_row_batch_range_frame_id range
+                                    let batch_index %i32 gui_rgba8888_row_batch_range_batch_index range
+                                    let row_start %i32 gui_rgba8888_row_batch_range_row_start range
+                                    let width %i32 gui_rgba8888_row_batch_range_width range
+                                    let height %i32 gui_rgba8888_row_batch_range_height range
+                                    Result::Ok GuiRgba8888RowTilePlan frame_id batch_index row_start row_count width height stride_bytes expected_byte_count tile_rows tile_count
+
+pub fn gui_rgba8888_row_tile_plan_config_checked %fn i32 Result GuiRgba8888RowTilePlanConfig GuiRgba8888RowTilePlanPrepareErrorKind \tile_rows:
+    if le tile_rows 0:
+        then Result::Err GuiRgba8888RowTilePlanPrepareErrorKind::TileRowsInvalid
+        else Result::Ok GuiRgba8888RowTilePlanConfig tile_rows
+
+pub fn gui_rgba8888_row_tile_plan_config_tile_rows %fn &GuiRgba8888RowTilePlanConfig i32 \config:
+    *field::get_ref config "tile_rows"
+
+pub fn gui_rgba8888_row_tile_plan_prepare %fn GuiRgba8888RowByteStorageOwner fn GuiRgba8888RowTilePlanConfig Result GuiRgba8888RowTilePlanOwner GuiRgba8888RowTilePlanPrepareError \storage\config:
+    match gui_rgba8888_row_byte_storage_validate_authority &storage:
+        Result::Err authority_kind:
+            Result::Err gui_rgba8888_row_tile_plan_prepare_error GuiRgba8888RowTilePlanPrepareErrorKind::ByteStorageAuthorityInvalid authority_kind storage
+        Result::Ok _:
+            let tile_rows %i32 gui_rgba8888_row_tile_plan_config_tile_rows &config
+            if le tile_rows 0:
+                then Result::Err gui_rgba8888_row_tile_plan_prepare_error GuiRgba8888RowTilePlanPrepareErrorKind::TileRowsInvalid storage
+                else:
+                    let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range &storage
+                    let storage_byte_count %i32 gui_rgba8888_row_byte_storage_byte_count &storage
+                    match gui_rgba8888_row_tile_plan_from_range &range tile_rows storage_byte_count:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_tile_plan_prepare_error kind storage
+                        Result::Ok plan:
+                            Result::Ok gui_rgba8888_row_tile_plan_owner_new storage plan
+
+pub fn gui_rgba8888_row_tile_plan_plan %fn &GuiRgba8888RowTilePlanOwner GuiRgba8888RowTilePlan \owner:
+    *field::get_ref owner "plan"
+
+pub fn gui_rgba8888_row_tile_plan_frame_id %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "frame_id"
+
+pub fn gui_rgba8888_row_tile_plan_batch_index %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "batch_index"
+
+pub fn gui_rgba8888_row_tile_plan_row_start %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "row_start"
+
+pub fn gui_rgba8888_row_tile_plan_row_count %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "row_count"
+
+pub fn gui_rgba8888_row_tile_plan_width %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "width"
+
+pub fn gui_rgba8888_row_tile_plan_height %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "height"
+
+pub fn gui_rgba8888_row_tile_plan_stride_bytes %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "stride_bytes"
+
+pub fn gui_rgba8888_row_tile_plan_byte_count %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "byte_count"
+
+pub fn gui_rgba8888_row_tile_plan_tile_rows %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "tile_rows"
+
+pub fn gui_rgba8888_row_tile_plan_tile_count %fn &GuiRgba8888RowTilePlan i32 \plan:
+    *field::get_ref plan "tile_count"
+
+fn gui_rgba8888_row_tile_plan_validate_range_metadata %fn &GuiRgba8888RowTilePlan fn &GuiRgba8888RowBatchRange Result unit GuiRgba8888RowTilePlanInvariantErrorKind \plan\range:
+    if ne gui_rgba8888_row_tile_plan_frame_id plan gui_rgba8888_row_batch_range_frame_id range:
+        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::FrameIdMismatch
+        else:
+            if ne gui_rgba8888_row_tile_plan_batch_index plan gui_rgba8888_row_batch_range_batch_index range:
+                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::BatchIndexMismatch
+                else:
+                    if ne gui_rgba8888_row_tile_plan_row_start plan gui_rgba8888_row_batch_range_row_start range:
+                        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::RowStartMismatch
+                        else:
+                            if ne gui_rgba8888_row_tile_plan_row_count plan gui_rgba8888_row_batch_range_row_count range:
+                                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::RowCountMismatch
+                                else:
+                                    if ne gui_rgba8888_row_tile_plan_width plan gui_rgba8888_row_batch_range_width range:
+                                        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::WidthMismatch
+                                        else:
+                                            if ne gui_rgba8888_row_tile_plan_height plan gui_rgba8888_row_batch_range_height range:
+                                                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::HeightMismatch
+                                                else:
+                                                    if ne gui_rgba8888_row_tile_plan_stride_bytes plan gui_rgba8888_row_batch_range_stride_bytes range:
+                                                        then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::StrideMismatch
+                                                        else:
+                                                            if ne gui_rgba8888_row_tile_plan_byte_count plan gui_rgba8888_row_batch_range_byte_count range:
+                                                                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::ByteCountMismatch
+                                                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_plan_validate_shape_metadata %fn &GuiRgba8888RowTilePlan Result unit GuiRgba8888RowTilePlanInvariantErrorKind \plan:
+    let width %i32 gui_rgba8888_row_tile_plan_width plan
+    match gui_rgba8888_row_tile_plan_checked_mul_invariant width 4 GuiRgba8888RowTilePlanInvariantErrorKind::ExpectedStrideOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok expected_stride:
+            let stride_bytes %i32 gui_rgba8888_row_tile_plan_stride_bytes plan
+            if ne stride_bytes expected_stride:
+                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::StrideMismatch
+                else:
+                    let row_start %i32 gui_rgba8888_row_tile_plan_row_start plan
+                    let row_count %i32 gui_rgba8888_row_tile_plan_row_count plan
+                    match gui_rgba8888_row_tile_plan_checked_add_invariant row_start row_count GuiRgba8888RowTilePlanInvariantErrorKind::RowExtentOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok row_bottom:
+                            let height %i32 gui_rgba8888_row_tile_plan_height plan
+                            if gt row_bottom height:
+                                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::RowExtentOutOfBounds
+                                else:
+                                    match gui_rgba8888_row_tile_plan_checked_mul_invariant row_count stride_bytes GuiRgba8888RowTilePlanInvariantErrorKind::ExpectedByteCountOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_byte_count:
+                                            if ne gui_rgba8888_row_tile_plan_byte_count plan expected_byte_count:
+                                                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::ByteCountMismatch
+                                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_plan_validate_tile_metadata %fn &GuiRgba8888RowTilePlan Result unit GuiRgba8888RowTilePlanInvariantErrorKind \plan:
+    let row_count %i32 gui_rgba8888_row_tile_plan_row_count plan
+    let tile_rows %i32 gui_rgba8888_row_tile_plan_tile_rows plan
+    match gui_rgba8888_row_tile_plan_tile_count_checked_invariant row_count tile_rows:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok expected_tile_count:
+            let actual_tile_count %i32 gui_rgba8888_row_tile_plan_tile_count plan
+            if ne actual_tile_count expected_tile_count:
+                then Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::TileCountMismatch
+                else Result::Ok unit
+
+//: gui_rgba8888_row_tile_plan_validate_invariants: tile plan owner の copied storage authority と metadata を[借用/しゃくよう]で[再検証/さいけんしょう]する
+pub fn gui_rgba8888_row_tile_plan_validate_invariants %fn &GuiRgba8888RowTilePlanOwner Result unit GuiRgba8888RowTilePlanInvariantErrorKind \owner:
+    let storage %&GuiRgba8888RowByteStorageOwner field::get_ref owner "storage"
+    match gui_rgba8888_row_byte_storage_validate_authority storage:
+        Result::Err authority_kind:
+            Result::Err GuiRgba8888RowTilePlanInvariantErrorKind::ByteStorageAuthorityInvalid authority_kind
+        Result::Ok authority_ok:
+            let plan %GuiRgba8888RowTilePlan gui_rgba8888_row_tile_plan_plan owner
+            let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range storage
+            match gui_rgba8888_row_tile_plan_validate_range_metadata &plan &range:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok range_ok:
+                    match gui_rgba8888_row_tile_plan_validate_shape_metadata &plan:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok shape_ok:
+                            gui_rgba8888_row_tile_plan_validate_tile_metadata &plan
+
+pub fn gui_rgba8888_row_tile_descriptor_tile_index %fn &GuiRgba8888RowTileDescriptor i32 \descriptor:
+    *field::get_ref descriptor "tile_index"
+
+pub fn gui_rgba8888_row_tile_descriptor_row_start %fn &GuiRgba8888RowTileDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_start"
+
+pub fn gui_rgba8888_row_tile_descriptor_row_count %fn &GuiRgba8888RowTileDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_count"
+
+pub fn gui_rgba8888_row_tile_descriptor_byte_offset %fn &GuiRgba8888RowTileDescriptor i32 \descriptor:
+    *field::get_ref descriptor "byte_offset"
+
+pub fn gui_rgba8888_row_tile_descriptor_byte_count %fn &GuiRgba8888RowTileDescriptor i32 \descriptor:
+    *field::get_ref descriptor "byte_count"
+
+//: gui_rgba8888_row_tile_plan_descriptor_at: tile index から storage-relative byte descriptor を[借用/しゃくよう]で[得/え]る
+//:
+//: [契約/けいやく]:
+//: - `row_start` は frame-absolute row、`byte_offset` は copied row byte storage 先頭からの storage-relative offset です。
+//: - descriptor 計算前に plan invariant を[再検証/さいけんしょう]します。
+pub fn gui_rgba8888_row_tile_plan_descriptor_at %fn &GuiRgba8888RowTilePlanOwner fn i32 Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePlanDescriptorErrorKind \owner\tile_index:
+    match gui_rgba8888_row_tile_plan_validate_invariants owner:
+        Result::Err invariant_kind:
+            Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::PlanInvariantInvalid invariant_kind
+        Result::Ok _:
+            let plan %GuiRgba8888RowTilePlan gui_rgba8888_row_tile_plan_plan owner
+            if lt tile_index 0:
+                then Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::TileIndexNegative
+                else:
+                    let tile_count %i32 gui_rgba8888_row_tile_plan_tile_count &plan
+                    if ge tile_index tile_count:
+                        then Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::TileIndexOutOfBounds
+                        else:
+                            let tile_rows %i32 gui_rgba8888_row_tile_plan_tile_rows &plan
+                            match gui_rgba8888_row_tile_plan_checked_mul_descriptor tile_index tile_rows GuiRgba8888RowTilePlanDescriptorErrorKind::TileRowOffsetOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok local_row_start:
+                                    let plan_row_count %i32 gui_rgba8888_row_tile_plan_row_count &plan
+                                    if ge local_row_start plan_row_count:
+                                        then Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::TileRowOffsetOutOfBounds
+                                        else:
+                                            let remaining_rows %i32 sub plan_row_count local_row_start
+                                            let descriptor_row_count %i32 if gt remaining_rows tile_rows tile_rows remaining_rows
+                                            if le descriptor_row_count 0:
+                                                then Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::TileRowCountInvalid
+                                                else:
+                                                    let frame_row_start %i32 gui_rgba8888_row_tile_plan_row_start &plan
+                                                    match gui_rgba8888_row_tile_plan_checked_add_descriptor frame_row_start local_row_start GuiRgba8888RowTilePlanDescriptorErrorKind::TileRowStartOverflow:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok descriptor_row_start:
+                                                            let stride_bytes %i32 gui_rgba8888_row_tile_plan_stride_bytes &plan
+                                                            match gui_rgba8888_row_tile_plan_checked_mul_descriptor local_row_start stride_bytes GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteOffsetOverflow:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok byte_offset:
+                                                                    match gui_rgba8888_row_tile_plan_checked_mul_descriptor descriptor_row_count stride_bytes GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteCountOverflow:
+                                                                        Result::Err kind:
+                                                                            Result::Err kind
+                                                                        Result::Ok byte_count:
+                                                                            match gui_rgba8888_row_tile_plan_checked_add_descriptor byte_offset byte_count GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteEndOverflow:
+                                                                                Result::Err kind:
+                                                                                    Result::Err kind
+                                                                                Result::Ok byte_end:
+                                                                                    let plan_byte_count %i32 gui_rgba8888_row_tile_plan_byte_count &plan
+                                                                                    if gt byte_end plan_byte_count:
+                                                                                        then Result::Err GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteEndOutOfBounds
+                                                                                        else Result::Ok GuiRgba8888RowTileDescriptor tile_index descriptor_row_start descriptor_row_count byte_offset byte_count
+
+pub fn gui_rgba8888_row_tile_plan_prepare_error_kind %fn &GuiRgba8888RowTilePlanPrepareError GuiRgba8888RowTilePlanPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_plan_prepare_error_category_value %fn &GuiRgba8888RowTilePlanPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_plan_prepare_error_storage %fn GuiRgba8888RowTilePlanPrepareError GuiRgba8888RowByteStorageOwner \error:
+    field::get error "storage"
+
+pub fn gui_rgba8888_row_tile_plan_prepare_error_free %fn GuiRgba8888RowTilePlanPrepareError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let storage %GuiRgba8888RowByteStorageOwner gui_rgba8888_row_tile_plan_prepare_error_storage error
+    gui_rgba8888_row_byte_storage_free storage
+
+pub fn gui_rgba8888_row_tile_plan_finish_byte_storage %fn GuiRgba8888RowTilePlanOwner GuiRgba8888RowByteStorageOwner \owner:
+    field::get owner "storage"
+
+pub fn gui_rgba8888_row_tile_plan_free %fn GuiRgba8888RowTilePlanOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let storage %GuiRgba8888RowByteStorageOwner gui_rgba8888_row_tile_plan_finish_byte_storage owner
+    gui_rgba8888_row_byte_storage_free storage

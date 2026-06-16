@@ -7378,6 +7378,42 @@ Copy failure is typed. `SourceOffsetOverflow`, `DestinationIndexInvalid`, projec
 
 The read helper on `GuiRgba8888RowByteStorageOwner` is a destination-copy verifier. It checks byte bounds and reads from copied storage only. It is not a source-surface escape hatch and does not make fallback behavior available.
 
+## Render2d row tile plan boundary
+
+F5ca introduces a metadata-only tile plan above `GuiRgba8888RowByteStorageOwner`. The success owner is `GuiRgba8888RowTilePlanOwner`. It contains the exact copied byte storage owner and a Copy `GuiRgba8888RowTilePlan`; it is explicitly no RLE / host present and does not split bytes, build payload buffers, encode RLE, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior.
+
+```text
+Row byte storage owner
+    -> borrowed byte storage authority validation
+    -> checked tile_rows and checked ceil tile_count
+    -> Row tile plan owner
+```
+
+The byte storage authority helper is a prerequisite. F5bz stores a continuation cursor and copied range, not the original batch owner. Therefore the helper recomputes the previous batch by reading the continuation cursor index, subtracting one, validating the embedded row batch plan invariants, deriving the expected row range, and comparing every stored range field. This borrowed helper never calls `finish_cursor`, `free`, the byte reader, raw pointer helpers, or storage reads.
+
+`descriptor_at` is intentionally borrowed:
+
+```text
+gui_rgba8888_row_tile_plan_descriptor_at:
+    &GuiRgba8888RowTilePlanOwner
+    -> i32
+    -> Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePlanDescriptorErrorKind
+```
+
+Borrowing matters because an application or scheduler may inspect several tile descriptors before deciding whether to pass the owner to a later payload phase. Consuming the owner during descriptor lookup would also make `finish_byte_storage` recovery impossible. Before descriptor computation, `gui_rgba8888_row_tile_plan_validate_invariants` revalidates the byte storage authority, compares plan metadata against the copied range, checks `stride_bytes == width * 4`, checks `row_start + row_count <= height`, checks `byte_count == row_count * stride_bytes`, and recomputes `tile_count == ceil(row_count / tile_rows)`.
+
+Descriptor offsets are explicitly storage-relative:
+
+```text
+local_row_start = tile_index * tile_rows
+descriptor.row_start = plan.row_start + local_row_start
+descriptor.byte_offset = local_row_start * plan.stride_bytes
+descriptor.byte_count = descriptor.row_count * plan.stride_bytes
+descriptor.byte_offset + descriptor.byte_count <= plan.byte_count
+```
+
+The frame-absolute row start and storage-relative byte offset are both needed. Rendering diagnostics and dirty-region accounting care about frame rows, while later payload phases need offsets into the copied row storage. This boundary carries both without exposing raw storage or reading byte values.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

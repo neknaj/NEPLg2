@@ -1,3 +1,56 @@
+# 2026-06-16 Agent2 GUI font F5ca render2d row tile plan metadata boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-plan-f5ca-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ca の row byte storage authority helper、row tile plan metadata boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Nietzsche plan review 1 は `PLAN_BLOCKED`。F5ca 自体は妥当だが、F5bz storage owner は original batch owner を保持しないため、先に borrowed byte storage authority helper が必要だと指摘された。descriptor offset は storage-relative、row_start は frame-absolute と明記し、error taxonomy と source policy の禁止事項を具体化する必要があるとされた。
+- Beauvoir plan review 1 は `PLAN_BLOCKED`。`descriptor_at` は owner を消費せず借用 API にし、descriptor 計算前に `GuiRgba8888RowTilePlanInvariantErrorKind` と borrowed invariant validation を通す必要があると指摘された。
+- revised plan は Nietzsche / Beauvoir とも `PLAN_APPROVED`。byte storage authority helper は continuation cursor の `batch_index - 1` から expected range を再計算し、`row_tile_plan` は byte reader、raw memory、allocation、RLE、host / platform、fallback に進まない方針で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` に `GuiRgba8888RowByteStorageAuthorityErrorKind` と borrowed `gui_rgba8888_row_byte_storage_validate_authority` を追加した。
+- authority helper は continuation cursor status、plan invariant、previous batch index、expected range metadata、stored copied range metadata を再検証し、owner を消費せず copied byte storage の中身も読まない。
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` を追加した。
+- `GuiRgba8888RowTilePlanPrepareErrorKind`、`GuiRgba8888RowTilePlanInvariantErrorKind`、`GuiRgba8888RowTilePlanDescriptorErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowTilePlanOwner` は exact byte storage owner と Copy `GuiRgba8888RowTilePlan` metadata を保持し、owner-bearing success / error は `Clone` / `Copy` を実装しない。
+- prepare は byte storage authority、positive `tile_rows`、`byte_count == row_count * stride_bytes`、quotient / remainder による checked ceil `tile_count` を検査し、失敗時は byte storage owner を prepare error に保持する。
+- `gui_rgba8888_row_tile_plan_validate_invariants` は storage authority、range metadata、shape / byte count / tile count を descriptor 計算前に再検証する。
+- `gui_rgba8888_row_tile_plan_descriptor_at` は owner を借用し、`byte_offset` を copied row byte storage 内の storage-relative offset、`row_start` を frame-absolute row として checked arithmetic で返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile plan を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_plan.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ca の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ca source policy を追加した。
+- implementation review で指摘された既存 source policy の全文 `[\s\S]*` regex 長時間化を修正し、`assertMatch` で順序検査用の any-pattern を lazy に正規化するようにした。あわせて F4h / F5a の特に重い検査を bounded section slice / ordered fragment 検査へ寄せた。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 0.78 seconds after source policy regex fix
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_plan.nepl` 1 / 1 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_byte_storage.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Nietzsche implementation review は `REVIEW_BLOCKED`。ただし code path に blocker はなく、byte storage authority helper、row tile plan metadata-only 方針、descriptor invariant validation、storage-relative byte offset、owner recovery は妥当と確認された。blocking correction は `note.n.md` の verification / implementation review が未実行のまま stale だったことのみで、この更新で対応した。
+- Beauvoir implementation review は `REVIEW_BLOCKED`。F5ca 実装本体には blocker はないが、source policy が既存 F4h regex で長時間化し merge-safe ではないと指摘された。`assertMatch` の lazy 正規化と bounded section slice 化で対応し、source policy は 0.78 seconds で pass した。
+- Nietzsche follow-up review は `REVIEW_APPROVED`。note blocker は解消済みと確認された。
+- Nietzsche source policy follow-up review は `REVIEW_APPROVED`。`assertMatch` の lazy 正規化、F4h / F5a の bounded section slice、contract test 0.796 seconds、CRLF warning のみを確認し、mergeable と判断された。
+
+## remaining
+
+- F5ca は row tile plan metadata までであり、formal tile byte payload、RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bz render2d row byte storage boundary
 
 ## scope

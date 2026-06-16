@@ -1028,6 +1028,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5ca: Render2d row tile plan metadata boundary
+
+目的:
+
+- F5bz の `GuiRgba8888RowByteStorageOwner` を、formal tile payload / RLE / host present の前段となる `GuiRgba8888RowTilePlanOwner` へ変換する。
+- `GuiRgba8888RowByteStorageOwner` が保持する continuation cursor と copied range から byte storage authority を借用で再検証する。
+- tile descriptor は frame-absolute row range と storage-relative byte offset を持つ metadata に限定する。
+- この phase は no RLE / host present とし、byte payload split、RLE encode、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Nietzsche plan review 1 は `PLAN_BLOCKED`。F5ca の抽象度自体は正しいが、先に byte storage owner の borrowed authority helper が必要であり、descriptor offset semantics と error taxonomy と source policy の禁止事項を明記する必要があると指摘された。
+- Beauvoir plan review 1 は `PLAN_BLOCKED`。`descriptor_at` は owner を消費せず借用 API にすること、descriptor 計算前に `GuiRgba8888RowTilePlanInvariantErrorKind` と invariant validation を通すこと、`PlanInvariantInvalid lower_kind` を descriptor error に保持することが必要だと指摘された。
+- revised plan は Nietzsche / Beauvoir とも `PLAN_APPROVED`。byte storage authority helper は original batch owner に頼れないため、continuation cursor の `batch_index - 1` から expected range を再計算すること、`row_tile_plan` では byte reader、raw memory、allocation、RLE、host/platform/fallback に進まないことが実装条件である。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` に `GuiRgba8888RowByteStorageAuthorityErrorKind` と borrowed `gui_rgba8888_row_byte_storage_validate_authority` を追加する。
+- authority helper は continuation cursor status、plan invariant、previous batch index、expected range metadata、stored copied range metadata の一致を再検証し、owner を消費しない。
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` を追加する。
+- `GuiRgba8888RowTilePlanPrepareErrorKind`、`GuiRgba8888RowTilePlanInvariantErrorKind`、`GuiRgba8888RowTilePlanDescriptorErrorKind` を enum として分ける。
+- `GuiRgba8888RowTilePlanOwner` と prepare error は owner-bearing なので `Clone` / `Copy` を実装しない。`GuiRgba8888RowTilePlan` と `GuiRgba8888RowTileDescriptor` は Copy metadata とする。
+- prepare は byte storage authority を再検証し、`tile_rows > 0`、`byte_count == row_count * stride_bytes`、checked ceil `tile_count` を通して owner を作る。失敗時は byte storage owner を prepare error に保持する。
+- `gui_rgba8888_row_tile_plan_validate_invariants` は storage authority、range metadata 一致、`stride_bytes == width * 4`、`row_start + row_count <= height`、`byte_count == row_count * stride_bytes`、`tile_count == ceil(row_count / tile_rows)` を再検証する。
+- `gui_rgba8888_row_tile_plan_descriptor_at` は owner を借用し、invariant validation 後に storage-relative `byte_offset` と frame-absolute `row_start` を checked arithmetic で計算する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile plan を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_plan.n.md` を追加し、facade、positive config、storage authority、checked ceil、last partial tile、descriptor offsets、owner recovery、invariant revalidation、raw storage escape 禁止、platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ca source policy を追加し、docs、facade export、owner no `Clone` / no `Copy`、borrowed authority、borrowed descriptor_at、checked ceil、no byte reader / raw memory / allocation / RLE / host / platform / fallback、括弧なし実装を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile plan module doctest、row byte storage / row batch range regression、source policy、`git diff --check` が通る。
+- implementation review で byte storage authority helper が borrowed metadata-only であること、descriptor offsets が storage-relative であること、owner recovery が壊れていないこと、no RLE / host present / fallback が守られていることを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5ca.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_plan.nepl --no-tree -o tmp_gui_render2d_row_tile_plan_module_f5ca.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_byte_storage.nepl --no-tree -o tmp_gui_render2d_row_byte_storage_f5ca_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_byte_storage.n.md --no-tree -o tmp_gui_render2d_row_byte_storage_test_f5ca_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

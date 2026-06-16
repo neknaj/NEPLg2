@@ -41,8 +41,16 @@ function assert(condition, message) {
     }
 }
 
+function optimizedOrderedAnyPattern(pattern) {
+    if (!pattern.source.includes("[\\s\\S]*")) {
+        return pattern;
+    }
+    return new RegExp(pattern.source.replace(/\[\\s\\S\]\*/g, "[\\s\\S]*?"), pattern.flags);
+}
+
 function assertMatch(text, pattern, message) {
-    assert(pattern.test(text), `${message}: expected ${pattern}`);
+    const optimized = optimizedOrderedAnyPattern(pattern);
+    assert(optimized.test(text), `${message}: expected ${pattern}`);
 }
 
 function assertNoMatch(text, pattern, message) {
@@ -92,6 +100,8 @@ const allocRender2dRowBatchRange = read("stdlib/alloc/gui/render2d/row_batch_ran
 const allocRender2dRowBatchRangeImpl = withoutComments(allocRender2dRowBatchRange);
 const allocRender2dRowByteStorage = read("stdlib/alloc/gui/render2d/row_byte_storage.nepl");
 const allocRender2dRowByteStorageImpl = withoutComments(allocRender2dRowByteStorage);
+const allocRender2dRowTilePlan = read("stdlib/alloc/gui/render2d/row_tile_plan.nepl");
+const allocRender2dRowTilePlanImpl = withoutComments(allocRender2dRowTilePlan);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -123,6 +133,7 @@ const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
 const guiRender2dRowBatchRangeTests = read("tests/stdlib/gui_render2d_row_batch_range.n.md");
 const guiRender2dRowByteStorageTests = read("tests/stdlib/gui_render2d_row_byte_storage.n.md");
+const guiRender2dRowTilePlanTests = read("tests/stdlib/gui_render2d_row_tile_plan.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -447,9 +458,31 @@ assertMatch(
     /SFNT simple glyph point stream[\s\S]*GuiSfntSimpleGlyphPointStream:[\s\S]*flag_data_offset i32[\s\S]*flag_data_length i32[\s\S]*x_data_offset i32[\s\S]*x_data_length i32[\s\S]*y_data_offset i32[\s\S]*y_data_length i32[\s\S]*trailing_data_offset i32[\s\S]*trailing_data_length i32[\s\S]*gui_sfnt_lookup_simple_glyph_point_stream:[\s\S]*Result GuiSfntSimpleGlyphPointStream GuiSfntParseError[\s\S]*flag_data_length[\s\S]*raw flag stream[\s\S]*repeat_count = 0[\s\S]*x_data_offset = flag_data_offset \+ flag_data_length[\s\S]*trailing_data_length < 0[\s\S]*MalformedGlyfRecord/,
     "font spec must define F4g simple glyph point stream ranges, raw repeat semantics, and trailing data policy",
 );
-assertMatch(
-    spec,
-    /SFNT simple glyph single point decode[\s\S]*GuiSfntSimpleGlyphPoint:[\s\S]*glyph GuiGlyphId[\s\S]*point_index i32[\s\S]*x i32[\s\S]*y i32[\s\S]*on_curve bool[\s\S]*end_of_contour bool[\s\S]*gui_sfnt_lookup_simple_glyph_point:[\s\S]*Result GuiSfntSimpleGlyphPoint GuiSfntParseError[\s\S]*point_index < 0[\s\S]*MissingGlyphOutline[\s\S]*flag repeat byte[\s\S]*MalformedGlyfRecord[\s\S]*F4g[\s\S]*x_delta = i16be[\s\S]*end_of_contour/,
+const specF4hStart = spec.indexOf("SFNT simple glyph single point decode");
+const specF4hEnd = spec.indexOf("SFNT simple glyph contour span lookup", specF4hStart + 1);
+assert(specF4hStart >= 0 && specF4hEnd > specF4hStart, "font spec must contain bounded F4h single point decode section");
+const specF4h = spec.slice(specF4hStart, specF4hEnd);
+assertOrderedFragments(
+    specF4h,
+    [
+        "SFNT simple glyph single point decode",
+        "GuiSfntSimpleGlyphPoint:",
+        "glyph GuiGlyphId",
+        "point_index i32",
+        "x i32",
+        "y i32",
+        "on_curve bool",
+        "end_of_contour bool",
+        "gui_sfnt_lookup_simple_glyph_point:",
+        "Result GuiSfntSimpleGlyphPoint GuiSfntParseError",
+        "point_index < 0",
+        "MissingGlyphOutline",
+        "flag repeat byte",
+        "MalformedGlyfRecord",
+        "F4g",
+        "x_delta = i16be",
+        "end_of_contour",
+    ],
     "font spec must define F4h single point decode contract, typed errors, F4g dependency, and endpoint state",
 );
 assertMatch(
@@ -4170,24 +4203,57 @@ assertMatch(
     /Phase F5a: sfnt simple glyph outline storage capacity and owner recovery contract[\s\S]*先に source policy[\s\S]*gui_sfnt_simple_glyph_outline_storage_capacity_from_topology[\s\S]*gui_sfnt_simple_glyph_outline_storage_capacity_check_limit/,
     "font implementation plan must define F5a source policy first and pure capacity helpers",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /pub\s+struct\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*contour_count\s+%i32[\s\S]*point_count\s+%i32[\s\S]*edge_count\s+%i32[\s\S]*path_command_pair_count\s+%i32[\s\S]*path_command_count\s+%i32[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineStorageLimit:/,
+const glyfF5aCapacityTypesStart = allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlineStorageCapacity:");
+const glyfF5aCapacityTypesEnd = allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_storage_capacity_from_topology", glyfF5aCapacityTypesStart + 1);
+assert(glyfF5aCapacityTypesStart >= 0 && glyfF5aCapacityTypesEnd > glyfF5aCapacityTypesStart, "alloc/gui/font/sfnt/glyf F5a must contain bounded capacity type section");
+const glyfF5aCapacityTypes = allocFontSfntGlyfImpl.slice(glyfF5aCapacityTypesStart, glyfF5aCapacityTypesEnd);
+assertOrderedFragments(
+    glyfF5aCapacityTypes,
+    [
+        "pub struct GuiSfntSimpleGlyphOutlineStorageCapacity:",
+        "glyph %GuiGlyphId",
+        "contour_count %i32",
+        "point_count %i32",
+        "edge_count %i32",
+        "path_command_pair_count %i32",
+        "path_command_count %i32",
+        "pub struct GuiSfntSimpleGlyphOutlineStorageLimit:",
+    ],
     "alloc/gui/font/sfnt/glyf F5a must expose outline storage capacity and limit value types",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineCapacityRejectReason:\s+ContourCapacityExceeded\s+PointCapacityExceeded\s+EdgeCapacityExceeded\s+CommandCapacityExceeded[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineCapacityRejected:/,
+assertOrderedFragments(
+    glyfF5aCapacityTypes,
+    [
+        "pub enum GuiSfntSimpleGlyphOutlineCapacityRejectReason:",
+        "ContourCapacityExceeded",
+        "PointCapacityExceeded",
+        "EdgeCapacityExceeded",
+        "CommandCapacityExceeded",
+        "pub struct GuiSfntSimpleGlyphOutlineCapacityRejected:",
+    ],
     "alloc/gui/font/sfnt/glyf F5a reject reasons must be limit-only and expose rejected payload",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineCapacityCheck:[\s\S]*Fits\s+%GuiSfntSimpleGlyphOutlineStorageCapacity[\s\S]*InvalidTopology\s+%GuiSfntSimpleGlyphTopology[\s\S]*CommandCountOverflow\s+%GuiSfntSimpleGlyphTopology[\s\S]*Rejected\s+%GuiSfntSimpleGlyphOutlineCapacityRejected/,
+assertOrderedFragments(
+    glyfF5aCapacityTypes,
+    [
+        "pub enum GuiSfntSimpleGlyphOutlineCapacityCheck:",
+        "Fits %GuiSfntSimpleGlyphOutlineStorageCapacity",
+        "InvalidTopology %GuiSfntSimpleGlyphTopology",
+        "CommandCountOverflow %GuiSfntSimpleGlyphTopology",
+        "Rejected %GuiSfntSimpleGlyphOutlineCapacityRejected",
+    ],
     "alloc/gui/font/sfnt/glyf F5a must expose capacity check enum with explicit non-success states",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineStorageLimit:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineStorageLimit:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineCapacityCheck:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineCapacityCheck:/,
+assertOrderedFragments(
+    glyfF5aCapacityTypes,
+    [
+        "impl Clone for GuiSfntSimpleGlyphOutlineStorageCapacity:",
+        "impl Copy for GuiSfntSimpleGlyphOutlineStorageCapacity:",
+        "impl Clone for GuiSfntSimpleGlyphOutlineStorageLimit:",
+        "impl Copy for GuiSfntSimpleGlyphOutlineStorageLimit:",
+        "impl Clone for GuiSfntSimpleGlyphOutlineCapacityCheck:",
+        "impl Copy for GuiSfntSimpleGlyphOutlineCapacityCheck:",
+    ],
     "alloc/gui/font/sfnt/glyf F5a values must implement Clone and Copy",
 );
 assert(
@@ -18244,6 +18310,129 @@ assert(
         guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_no_raw_source_escape") &&
         guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_no_platform_no_fallback"),
     "F5bz row byte storage focused doctest must cover facade, authority, exact copy, checked byte reader, scratch cleanup policy, raw source escape, and no platform/fallback",
+);
+const rowByteStorageAuthority = functionSlice(allocRender2dRowByteStorageImpl, "gui_rgba8888_row_byte_storage_validate_authority");
+assertOrderedFragments(
+    rowByteStorageAuthority,
+    [
+        'let cursor %&GuiRgba8888RowBatchCursorOwner field::get_ref owner "cursor"',
+        "match gui_rgba8888_row_batch_cursor_status cursor:",
+        "ContinuationCursorInvalid cursor_kind",
+        "let previous_index %i32 sub continuation_index 1",
+        'let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref cursor "plan"',
+        "match gui_rgba8888_row_batch_plan_validate_invariants plan:",
+        "ContinuationPlanInvalid plan_kind",
+        "match gui_rgba8888_row_byte_storage_authority_expected_range plan previous_index:",
+        "let stored_range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range owner",
+        "RangeMetadataMismatch",
+    ],
+    "alloc/gui/render2d/row_byte_storage F5ca authority helper must recompute previous batch range from continuation cursor without consuming owner",
+);
+assertNoMatch(
+    rowByteStorageAuthority,
+    /\bgui_rgba8888_row_byte_storage_byte_at\b|\bfinish_cursor\b|\bfree\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b/,
+    "alloc/gui/render2d/row_byte_storage F5ca authority helper must be borrowed metadata-only with no byte reads or teardown",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row tile plan") &&
+            doc.includes("GuiRgba8888RowTilePlanOwner") &&
+            doc.includes("storage-relative byte offset") &&
+            doc.includes("descriptor_at") &&
+            doc.includes("no RLE / host present"),
+        `F5ca ${name} must document row tile plan owner, storage-relative descriptors, invariant validation, and no RLE/host fallback`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_plan" as *'), "alloc/gui/render2d facade must export F5ca row tile plan");
+assert(
+    allocRender2dRowTilePlan.includes("pub enum GuiRgba8888RowTilePlanPrepareErrorKind:") &&
+        allocRender2dRowTilePlan.includes("ByteStorageAuthorityInvalid %GuiRgba8888RowByteStorageAuthorityErrorKind") &&
+        allocRender2dRowTilePlan.includes("pub enum GuiRgba8888RowTilePlanInvariantErrorKind:") &&
+        allocRender2dRowTilePlan.includes("pub enum GuiRgba8888RowTilePlanDescriptorErrorKind:") &&
+        allocRender2dRowTilePlan.includes("PlanInvariantInvalid %GuiRgba8888RowTilePlanInvariantErrorKind") &&
+        allocRender2dRowTilePlan.includes("pub struct GuiRgba8888RowTilePlanOwner:") &&
+        allocRender2dRowTilePlan.includes("storage %GuiRgba8888RowByteStorageOwner") &&
+        allocRender2dRowTilePlan.includes("plan %GuiRgba8888RowTilePlan") &&
+        allocRender2dRowTilePlan.includes("byte_offset %i32"),
+    "alloc/gui/render2d/row_tile_plan F5ca must define typed prepare/invariant/descriptor errors and owner-bearing tile plan metadata",
+);
+assertNoMatch(
+    allocRender2dRowTilePlanImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTilePlanOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTilePlanPrepareError\b/,
+    "alloc/gui/render2d/row_tile_plan F5ca owner-bearing types must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTilePlanImpl,
+    /\bgui_rgba8888_row_byte_storage_byte_at\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bRLE\b|\brle\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_plan F5ca must remain metadata-only without byte reads, raw storage, allocation, RLE, host/platform, or fallback",
+);
+const rowTilePlanPrepare = functionSlice(allocRender2dRowTilePlanImpl, "gui_rgba8888_row_tile_plan_prepare");
+assertOrderedFragments(
+    rowTilePlanPrepare,
+    [
+        "match gui_rgba8888_row_byte_storage_validate_authority &storage:",
+        "ByteStorageAuthorityInvalid authority_kind storage",
+        "let tile_rows %i32 gui_rgba8888_row_tile_plan_config_tile_rows &config",
+        "let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range &storage",
+        "let storage_byte_count %i32 gui_rgba8888_row_byte_storage_byte_count &storage",
+        "match gui_rgba8888_row_tile_plan_from_range &range tile_rows storage_byte_count:",
+        "Result::Ok gui_rgba8888_row_tile_plan_owner_new storage plan",
+    ],
+    "alloc/gui/render2d/row_tile_plan F5ca prepare must validate byte storage authority before metadata and preserve owner on error",
+);
+const rowTilePlanInvariants = functionSlice(allocRender2dRowTilePlanImpl, "gui_rgba8888_row_tile_plan_validate_invariants");
+assertOrderedFragments(
+    rowTilePlanInvariants,
+    [
+        'let storage %&GuiRgba8888RowByteStorageOwner field::get_ref owner "storage"',
+        "match gui_rgba8888_row_byte_storage_validate_authority storage:",
+        "ByteStorageAuthorityInvalid authority_kind",
+        "let plan %GuiRgba8888RowTilePlan gui_rgba8888_row_tile_plan_plan owner",
+        "let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range storage",
+        "gui_rgba8888_row_tile_plan_validate_range_metadata &plan &range",
+        "gui_rgba8888_row_tile_plan_validate_shape_metadata &plan",
+        "gui_rgba8888_row_tile_plan_validate_tile_metadata &plan",
+    ],
+    "alloc/gui/render2d/row_tile_plan F5ca invariants must revalidate storage authority, copied range metadata, shape, byte count, and tile count",
+);
+const rowTileDescriptorAt = functionSlice(allocRender2dRowTilePlanImpl, "gui_rgba8888_row_tile_plan_descriptor_at");
+assertOrderedFragments(
+    rowTileDescriptorAt,
+    [
+        "match gui_rgba8888_row_tile_plan_validate_invariants owner:",
+        "PlanInvariantInvalid invariant_kind",
+        "TileIndexNegative",
+        "TileIndexOutOfBounds",
+        "gui_rgba8888_row_tile_plan_checked_mul_descriptor tile_index tile_rows GuiRgba8888RowTilePlanDescriptorErrorKind::TileRowOffsetOverflow",
+        "let descriptor_row_count %i32 if gt remaining_rows tile_rows tile_rows remaining_rows",
+        "gui_rgba8888_row_tile_plan_checked_mul_descriptor local_row_start stride_bytes GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteOffsetOverflow",
+        "gui_rgba8888_row_tile_plan_checked_mul_descriptor descriptor_row_count stride_bytes GuiRgba8888RowTilePlanDescriptorErrorKind::TileByteCountOverflow",
+        "GuiRgba8888RowTileDescriptor tile_index descriptor_row_start descriptor_row_count byte_offset byte_count",
+    ],
+    "alloc/gui/render2d/row_tile_plan F5ca descriptor_at must borrow owner, validate invariants, and compute storage-relative byte offsets with checked arithmetic",
+);
+assertNoMatch(
+    allocRender2dRowTilePlanImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_plan F5ca implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_facade_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_positive_config_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_storage_authority_revalidated_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_checked_ceil_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_last_partial_tile_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_descriptor_offsets_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_owner_recovery_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_invariant_revalidated_ok") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_no_raw_storage_escape") &&
+        guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_no_platform_no_fallback"),
+    "F5ca row tile plan focused doctest must cover facade, config, authority, ceil count, partial tile, descriptor offsets, owner recovery, invariants, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
