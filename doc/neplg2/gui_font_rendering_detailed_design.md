@@ -7987,6 +7987,16 @@ F5cs introduces the std layer row tile RLE present virtual drain. It is the expl
 
 The virtual drain keeps `GuiRgba8888RowTileRlePresentVirtualDrain` state as a small Copy value: phase, optional surface id, optional frame id, expected run count, seen run count, expected pixel count, and seen pixel count. BeginFrame is valid only in the initial phase and stores expected counts through std-layer `tile_present` descriptor accessors. RunRecord is valid only in the frame phase and requires `run_pixel_offset == seen_pixel_count`; this rejects gaps, overlaps, and reordered runs even when total run count and total pixel count would otherwise match. EndFrame is valid only after all expected runs and pixels are observed. Failures return a concrete `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` plus the previous drain state so a test harness can inspect the exact invalid transition without falling back to a presenter.
 
+## Std layer row tile RLE present schedule boundary
+
+F5ct introduces the std layer row tile RLE present schedule boundary. It sits above F5cq host-command records and F5cs virtual drain, and below actual Web / native / bare host import dispatch. The purpose is not to execute timers or enqueue commands. The purpose is to make a deterministic time-slice decision from a checked record stream before a platform presenter receives the record.
+
+`GuiRgba8888RowTileRlePresentScheduleState` contains the F5cs virtual drain value plus two slice-local counters: command count and pixel count. F5ct deliberately uses F5cs virtual drain as the single stream-validation authority. Begin / Run / End ordering, descriptor consistency, expected count completion, and `run_pixel_offset == seen_pixel_count` are not reimplemented in the scheduler. This prevents the scheduler from becoming a second, weaker validator.
+
+`GuiRgba8888RowTileRlePresentSchedulePolicy` carries `max_commands_per_slice` and `max_pixels_per_slice`. Both are positive values. Invalid policy values return `Result::Err` with enum kinds; the constructor must not clamp or infer defaults. `Yield means exact slice budget`: if the current valid record is consumed and the updated command count or pixel count is exactly equal to the policy budget, the step returns `Yield` with the updated state. If the updated counts exceed a budget, over-budget is a typed error and the previous schedule state is preserved. A single RunRecord whose pixel count is larger than `max_pixels_per_slice` is also a typed error; it must not be converted into a yielded slice because that would make the pixel budget non-authoritative.
+
+The `Completed` decision is returned when F5cs reaches `Ended`. Completion wins over budget comparison for that record because EndFrame represents stream termination, not more pixel work. The implementation still uses checked arithmetic before producing the updated state. `resume_slice` resets only slice-local counters and preserves the F5cs drain state. F5ct must not allocate a queue, call a timer, construct F5cr requests, read raw packet storage, call host imports, expose platform API, or fallback to a silent no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

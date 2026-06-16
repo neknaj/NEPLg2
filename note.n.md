@@ -1,3 +1,50 @@
+# 2026-06-17 Agent2 GUI font F5ct std row tile RLE present schedule boundary
+
+## scope
+
+- F5cq host-command record stream を、actual presenter / host import dispatch の前で deterministic slice budget に区切る std layer schedule boundary を追加する。
+- stream validation は F5cs virtual drain を single authority とし、F5ct は slice counter、exact-budget yield、over-budget typed error、explicit resume slice だけを担当する。
+- timer、queue、F5cr request、host import call、platform API、raw packet storage、video memory、Canvas / DOM / minifb には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- budget 超過を `Yield` にすると `max_pixels_per_slice` / `max_commands_per_slice` が権威を失うため、over-budget は typed error にする必要があると指摘された。
+- 修正版計画は `PLAN_APPROVED`。F5ct は F5cq record だけを消費し、F5cs `virtual_drain_step` を validation authority とし、`Yield` は exact budget、`Completed` は F5cs ended state、`resume_slice` は slice counter reset のみとする方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_schedule.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentSchedulePolicy`、policy error enum、schedule state、schedule phase、schedule step、step error enum/value を追加した。
+- policy constructor は positive command / pixel budget だけを `Result::Ok` にし、zero / negative budget を enum error にする。
+- schedule state は F5cs virtual drain value と slice-local command / pixel counters だけを保持する。
+- step は record pixel cost、single-run pixel budget、F5cs virtual drain step、checked slice counter add、Completed / over-budget / exact-budget Yield / Continue の順で判定する。
+- `resume_slice` は F5cs drain を保持したまま slice counters だけを 0 に戻す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5ct_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_schedule.nepl --no-tree -o tmp_gui_std_tile_present_schedule_module_f5ct_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5ct.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5ct は F5cs state を wrap し、F5cq record だけを消費し、host import / platform work から budget decision を分離できていると確認された。
+- single-run pixel over-budget が F5cs 前に error になり、F5cs lower error が lower kind / category と previous schedule state を失わず包まれることが確認された。
+- checked counter add、Completed-before-budget、exact-budget Yield、over-budget typed error、resume slice counter reset、source policy の禁止依存も確認された。
+
+## residual
+
+- F5ct は schedule decision value までであり、actual Web / native / bare presenter、formal host import execution boundary、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cs std row tile RLE present virtual drain
 
 ## scope
