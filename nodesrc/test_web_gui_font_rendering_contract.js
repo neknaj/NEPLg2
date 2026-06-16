@@ -82,6 +82,8 @@ const allocRender2dDirtySurface = read("stdlib/alloc/gui/render2d/dirty_surface.
 const allocRender2dDirtySurfaceImpl = withoutComments(allocRender2dDirtySurface);
 const allocRender2dBitmapFrame = read("stdlib/alloc/gui/render2d/bitmap_frame.nepl");
 const allocRender2dBitmapFrameImpl = withoutComments(allocRender2dBitmapFrame);
+const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
+const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -108,6 +110,7 @@ const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
+const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17529,6 +17532,205 @@ assert(
         guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_finish_surface_teardown_ok") &&
         guiRender2dBitmapFrameTests.includes("render2d_bitmap_frame_no_platform_no_fallback"),
     "F5bu bitmap frame focused doctest must cover facade, positive id, metadata success, invalid id recovery, forged stride recovery, dirty bounds recovery, finish teardown, and no platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("row batch plan owner") &&
+            doc.includes("GuiRgba8888RowBatchPlanOwner") &&
+            doc.includes("MaxRowsPerBatchInvalid") &&
+            doc.includes("FrameStrideMismatch") &&
+            doc.includes("DirtyRectBottomOverflow") &&
+            doc.includes("contiguous row span") &&
+            doc.includes("finish_frame") &&
+            doc.includes("fallback"),
+        `F5bv ${name} must document row batch plan owner, forged frame revalidation, dirty bounds, contiguous row span, finish_frame, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5bv") &&
+        implementationPlan.includes("Planck plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Tesla plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`"),
+    "F5bv implementation plan must retain blocked initial review and revised subagent approvals",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_batch_plan" as *'), "alloc/gui/render2d facade must export F5bv row batch plan owner");
+assert(
+    allocRender2dRowBatchPlanImpl.includes("pub enum GuiRgba8888RowBatchPlanPrepareErrorKind:") &&
+        allocRender2dRowBatchPlanImpl.includes("MaxRowsPerBatchInvalid") &&
+        allocRender2dRowBatchPlanImpl.includes("FrameIdInvalid") &&
+        allocRender2dRowBatchPlanImpl.includes("FrameInvalidGeometry") &&
+        allocRender2dRowBatchPlanImpl.includes("FrameStrideMismatch") &&
+        allocRender2dRowBatchPlanImpl.includes("FrameByteLengthMismatch") &&
+        allocRender2dRowBatchPlanImpl.includes("DirtyRectInvalidOrigin") &&
+        allocRender2dRowBatchPlanImpl.includes("DirtyRectInvalidSize") &&
+        allocRender2dRowBatchPlanImpl.includes("DirtyRectRightOverflow") &&
+        allocRender2dRowBatchPlanImpl.includes("DirtyRectBottomOverflow") &&
+        allocRender2dRowBatchPlanImpl.includes("DirtyRectOutOfBounds") &&
+        allocRender2dRowBatchPlanImpl.includes("RowSpanInvalid") &&
+        allocRender2dRowBatchPlanImpl.includes("pub struct GuiRgba8888RowBatchPlanOwner:") &&
+        allocRender2dRowBatchPlanImpl.includes("frame %GuiRgba8888BitmapFrameOwner") &&
+        allocRender2dRowBatchPlanImpl.includes("dirty %DirtyRegionSet") &&
+        allocRender2dRowBatchPlanImpl.includes("row_start %i32") &&
+        allocRender2dRowBatchPlanImpl.includes("row_count %i32") &&
+        allocRender2dRowBatchPlanImpl.includes("batch_count %i32") &&
+        allocRender2dRowBatchPlanImpl.includes("pub struct GuiRgba8888RowBatchPlanPrepareError:") &&
+        allocRender2dRowBatchPlanImpl.includes("frame %GuiRgba8888BitmapFrameOwner"),
+    "alloc/gui/render2d/row_batch_plan F5bv must define typed prepare errors, frame-owning plan owner, and owner-bearing prepare error",
+);
+assertNoMatch(
+    allocRender2dRowBatchPlanImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888RowBatchPlanOwner|GuiRgba8888RowBatchPlanPrepareError)\b/,
+    "alloc/gui/render2d/row_batch_plan F5bv owner and owner-bearing error must not implement Clone or Copy",
+);
+const rowBatchPlanConfigChecked = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_config_checked");
+assertOrderedFragments(
+    rowBatchPlanConfigChecked,
+    [
+        "if le max_rows_per_batch 0:",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid",
+        "Result::Ok GuiRgba8888RowBatchPlanConfig max_rows_per_batch",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv config must reject non-positive max rows",
+);
+const rowBatchValidateFrameShape = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_validate_frame_shape");
+assertOrderedFragments(
+    rowBatchValidateFrameShape,
+    [
+        "let width %i32 gui_rgba8888_bitmap_frame_width frame",
+        "let height %i32 gui_rgba8888_bitmap_frame_height frame",
+        "gui_rgba8888_software_surface_shape width height",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameInvalidGeometry",
+        "let expected_stride %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape",
+        "let actual_stride %i32 gui_rgba8888_bitmap_frame_stride_bytes frame",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameStrideMismatch",
+        "let expected_byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape",
+        "let actual_byte_len %i32 gui_rgba8888_bitmap_frame_byte_len frame",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameByteLengthMismatch",
+        "Result::Ok shape",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv must revalidate public bitmap frame metadata before row planning",
+);
+const rowBatchDirtyRectSpanChecked = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_dirty_rect_span_checked");
+assertOrderedFragments(
+    rowBatchDirtyRectSpanChecked,
+    [
+        "let x %i32 gui_rect_x rect",
+        "let y %i32 gui_rect_y rect",
+        "let width %i32 gui_rect_width rect",
+        "let height %i32 gui_rect_height rect",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidOrigin",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidSize",
+        "gui_rgba8888_row_batch_plan_checked_extent x width GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectRightOverflow",
+        "gui_rgba8888_row_batch_plan_checked_extent y height GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectBottomOverflow",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectOutOfBounds",
+        "Result::Ok gui_rgba8888_row_batch_dirty_rect_span_new y bottom",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv dirty rect validation must check origin, size, extents, and bounds before row span use",
+);
+const rowBatchValidateDirtySet = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_validate_dirty_set");
+assertOrderedFragments(
+    rowBatchValidateDirtySet,
+    [
+        "DirtyRegionSetState::Empty:",
+        "Result::Ok unit",
+        "DirtyRegionSetState::Full:",
+        "Result::Ok unit",
+        "DirtyRegionSetState::One:",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height",
+        "DirtyRegionSetState::Two:",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &second frame_width frame_height",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv dirty set validation must explicitly handle Empty, Full, One, and Two",
+);
+const rowBatchDirtyRowSpan = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_dirty_row_span");
+assertOrderedFragments(
+    rowBatchDirtyRowSpan,
+    [
+        "DirtyRegionSetState::Empty:",
+        "gui_rgba8888_row_batch_span_new 0 0",
+        "DirtyRegionSetState::Full:",
+        "gui_rgba8888_row_batch_span_new 0 frame_height",
+        "DirtyRegionSetState::One:",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height",
+        "gui_rgba8888_row_batch_span_from_bounds y bottom frame_height",
+        "DirtyRegionSetState::Two:",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height",
+        "gui_rgba8888_row_batch_plan_dirty_rect_span_checked &second frame_width frame_height",
+        "let row_start %i32 gui_rgba8888_row_batch_i32_min first_y second_y",
+        "let row_bottom %i32 gui_rgba8888_row_batch_i32_max first_bottom second_bottom",
+        "gui_rgba8888_row_batch_span_from_bounds row_start row_bottom frame_height",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv row span must compute explicit Empty/Full/One and Two contiguous row spans from checked rect bottoms",
+);
+const rowBatchCountChecked = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_batch_count_checked");
+assertOrderedFragments(
+    rowBatchCountChecked,
+    [
+        "if lt row_count 0:",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid",
+        "if le max_rows_per_batch 0:",
+        "Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid",
+        "if eq row_count 0:",
+        "Result::Ok 0",
+        "let quotient %i32 div_s row_count max_rows_per_batch",
+        "let remainder %i32 rem_s row_count max_rows_per_batch",
+        "let batch_count %i32 if eq remainder 0 quotient add quotient 1",
+        "Result::Ok batch_count",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv batch count must use quotient/remainder ceil without row_count plus max_rows overflow",
+);
+const rowBatchPrepare = functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_prepare");
+assertOrderedFragments(
+    rowBatchPrepare,
+    [
+        "let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_config_max_rows_per_batch &config",
+        "if le max_rows_per_batch 0:",
+        "Result::Err gui_rgba8888_row_batch_plan_prepare_error GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid frame",
+        "let frame_id %i32 gui_rgba8888_bitmap_frame_frame_id &frame",
+        "if le frame_id 0:",
+        "Result::Err gui_rgba8888_row_batch_plan_prepare_error GuiRgba8888RowBatchPlanPrepareErrorKind::FrameIdInvalid frame",
+        "gui_rgba8888_row_batch_plan_validate_frame_shape &frame",
+        "let dirty %DirtyRegionSet gui_rgba8888_bitmap_frame_dirty &frame",
+        "gui_rgba8888_row_batch_plan_validate_dirty_set dirty width height",
+        "gui_rgba8888_row_batch_plan_dirty_row_span dirty width height",
+        "gui_rgba8888_row_batch_plan_batch_count_checked row_count max_rows_per_batch",
+        "Result::Ok gui_rgba8888_row_batch_plan_owner_new frame frame_id width height stride_bytes byte_len dirty row_start row_count batch_count max_rows_per_batch",
+    ],
+    "alloc/gui/render2d/row_batch_plan F5bv prepare must validate config, frame, and dirty set before row span and batch count",
+);
+assertNoMatch(
+    rowBatchPrepare,
+    /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|row_payload|row_copy|byte_copy|tile|transport|fallback|silent no-op|finish_surface)\b/,
+    "alloc/gui/render2d/row_batch_plan F5bv prepare must not expose raw pixels, allocate payloads, call host/platform APIs, finish_surface, or fallback",
+);
+assertNoMatch(
+    rowBatchPrepare,
+    /[()]/,
+    "alloc/gui/render2d/row_batch_plan F5bv prepare must preserve NEPL prefix style without parentheses",
+);
+assertNoMatch(
+    allocRender2dRowBatchPlanImpl,
+    /\bgui_rgba8888_(?:bitmap_frame_finish_surface|software_surface_dirty_owner_finish_surface|row_batch_plan_(?:surface|surface_mut|split_frame|raw|bytes|byte_copy|row_copy|row_payload|present|publish|tile|video_memory))\b/,
+    "alloc/gui/render2d/row_batch_plan F5bv must not expose raw surface, byte payload, tile, present, or finish_surface APIs",
+);
+assert(
+    guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_facade_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_positive_config_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_empty_dirty_zero_rows_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_full_dirty_batches_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_two_rect_contiguous_span_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_forged_stride_recovery_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_dirty_bounds_recovery_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_finish_frame_teardown_ok") &&
+        guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_no_platform_no_fallback"),
+    "F5bv row batch plan focused doctest must cover facade, config, Empty/Full/Two row spans, forged metadata, dirty bounds, finish teardown, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

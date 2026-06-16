@@ -1,0 +1,394 @@
+//: # alloc/gui/render2d/row_batch_plan
+//: RGBA8888 bitmap frame row-batch planning boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888BitmapFrameOwner` を formal byte payload / host present の[前/まえ]に、row batch scheduler が[読/よ]める metadata owner へ[変換/へんかん]します。
+//: - dirty region から contiguous row span と batch count を[計算/けいさん]し、pixel storage や platform API には[触/ふ]れません。
+//:
+//: ### [契約/けいやく]
+//: - compiler memory boundary や trusted producer から forged frame owner が[来/き]てもよい前提で、frame id、surface shape、stride、byte length、dirty bounds をこの boundary でも[再検証/さいけんしょう]します。通常の application code による owner aggregate 直 constructor は compiler が[拒否/きょひ]します。
+//: - `Empty` dirty は row count 0 の明示的な clean-frame plan です。これは fallback や silent no-op ではありません。
+//: - `Two` dirty は fixed-capacity set の 2 rect を、それらを覆う contiguous row span として[計画/けいかく]します。tile list や byte payload は後続 phase の責務です。
+//:
+//: ### [注意/ちゅうい]
+//: - `finish_surface`、raw storage accessor、byte copy、tile list、host present、video memory、Canvas / DOM / minifb はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_batch_plan" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/bitmap_frame" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/dirty_region_set" as *
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowBatchPlanPrepareErrorKind:
+    MaxRowsPerBatchInvalid
+    FrameIdInvalid
+    FrameInvalidGeometry
+    FrameStrideMismatch
+    FrameByteLengthMismatch
+    DirtyRectInvalidOrigin
+    DirtyRectInvalidSize
+    DirtyRectRightOverflow
+    DirtyRectBottomOverflow
+    DirtyRectOutOfBounds
+    RowSpanInvalid
+
+impl Clone for GuiRgba8888RowBatchPlanPrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowBatchPlanPrepareErrorKind GuiRgba8888RowBatchPlanPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowBatchPlanPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowBatchPlanPrepareErrorKind GuiRgba8888RowBatchPlanPrepareErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowBatchPlanConfig:
+    max_rows_per_batch %i32
+
+impl Clone for GuiRgba8888RowBatchPlanConfig:
+    fn clone %fn &GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanConfig \config:
+        *config
+
+impl Copy for GuiRgba8888RowBatchPlanConfig:
+    fn copy_mark %fn GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanConfig \config:
+        config
+
+pub struct GuiRgba8888RowBatchPlanOwner:
+    frame %GuiRgba8888BitmapFrameOwner
+    frame_id %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+    dirty %DirtyRegionSet
+    row_start %i32
+    row_count %i32
+    batch_count %i32
+    max_rows_per_batch %i32
+
+pub struct GuiRgba8888RowBatchPlanPrepareError:
+    kind %GuiRgba8888RowBatchPlanPrepareErrorKind
+    category %Option GuiError
+    frame %GuiRgba8888BitmapFrameOwner
+
+struct GuiRgba8888RowBatchDirtyRectSpan:
+    y %i32
+    bottom %i32
+
+struct GuiRgba8888RowBatchSpan:
+    row_start %i32
+    row_count %i32
+
+fn gui_rgba8888_row_batch_plan_prepare_error_category %fn GuiRgba8888RowBatchPlanPrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameInvalidGeometry:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameStrideMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameByteLengthMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidOrigin:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidSize:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectRightOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectBottomOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_batch_plan_prepare_error %fn GuiRgba8888RowBatchPlanPrepareErrorKind fn GuiRgba8888BitmapFrameOwner GuiRgba8888RowBatchPlanPrepareError \kind\frame:
+    let category %Option GuiError gui_rgba8888_row_batch_plan_prepare_error_category kind
+    GuiRgba8888RowBatchPlanPrepareError kind category frame
+
+fn gui_rgba8888_row_batch_plan_owner_new %fn GuiRgba8888BitmapFrameOwner fn i32 fn i32 fn i32 fn i32 fn i32 fn DirtyRegionSet fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowBatchPlanOwner \frame\frame_id\width\height\stride_bytes\byte_len\dirty\row_start\row_count\batch_count\max_rows_per_batch:
+    GuiRgba8888RowBatchPlanOwner frame frame_id width height stride_bytes byte_len dirty row_start row_count batch_count max_rows_per_batch
+
+fn gui_rgba8888_row_batch_dirty_rect_span_new %fn i32 fn i32 GuiRgba8888RowBatchDirtyRectSpan \y\bottom:
+    GuiRgba8888RowBatchDirtyRectSpan y bottom
+
+fn gui_rgba8888_row_batch_dirty_rect_span_y %fn &GuiRgba8888RowBatchDirtyRectSpan i32 \span:
+    *field::get_ref span "y"
+
+fn gui_rgba8888_row_batch_dirty_rect_span_bottom %fn &GuiRgba8888RowBatchDirtyRectSpan i32 \span:
+    *field::get_ref span "bottom"
+
+fn gui_rgba8888_row_batch_span_new %fn i32 fn i32 GuiRgba8888RowBatchSpan \row_start\row_count:
+    GuiRgba8888RowBatchSpan row_start row_count
+
+fn gui_rgba8888_row_batch_span_row_start %fn &GuiRgba8888RowBatchSpan i32 \span:
+    *field::get_ref span "row_start"
+
+fn gui_rgba8888_row_batch_span_row_count %fn &GuiRgba8888RowBatchSpan i32 \span:
+    *field::get_ref span "row_count"
+
+fn gui_rgba8888_row_batch_i32_min %fn i32 fn i32 i32 \a\b:
+    if lt a b a b
+
+fn gui_rgba8888_row_batch_i32_max %fn i32 fn i32 i32 \a\b:
+    if gt a b a b
+
+//: gui_rgba8888_row_batch_plan_config_checked: positive row batch size を[持/も]つ config を[作/つく]る
+pub fn gui_rgba8888_row_batch_plan_config_checked %fn i32 Result GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanPrepareErrorKind \max_rows_per_batch:
+    if le max_rows_per_batch 0:
+        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid
+        else Result::Ok GuiRgba8888RowBatchPlanConfig max_rows_per_batch
+
+//: gui_rgba8888_row_batch_plan_config_max_rows_per_batch: config の batch height を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_config_max_rows_per_batch %fn &GuiRgba8888RowBatchPlanConfig i32 \config:
+    *field::get_ref config "max_rows_per_batch"
+
+//: gui_rgba8888_row_batch_plan_frame_id: plan の frame id を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_frame_id %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "frame_id"
+
+//: gui_rgba8888_row_batch_plan_width: plan の frame width を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_width %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "width"
+
+//: gui_rgba8888_row_batch_plan_height: plan の frame height を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_height %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "height"
+
+//: gui_rgba8888_row_batch_plan_stride_bytes: plan の stride metadata を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_stride_bytes %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "stride_bytes"
+
+//: gui_rgba8888_row_batch_plan_byte_len: plan の byte length metadata を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_byte_len %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "byte_len"
+
+//: gui_rgba8888_row_batch_plan_dirty: plan の dirty set を Copy value として[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_dirty %fn &GuiRgba8888RowBatchPlanOwner DirtyRegionSet \plan:
+    *field::get_ref plan "dirty"
+
+//: gui_rgba8888_row_batch_plan_row_start: dirty row span の[開始/かいし] row を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_row_start %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "row_start"
+
+//: gui_rgba8888_row_batch_plan_row_count: dirty row span の row count を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_row_count %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "row_count"
+
+//: gui_rgba8888_row_batch_plan_batch_count: configured height で[分割/ぶんかつ]した batch count を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_batch_count %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "batch_count"
+
+//: gui_rgba8888_row_batch_plan_max_rows_per_batch: plan に[固定/こてい]された batch height を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_max_rows_per_batch %fn &GuiRgba8888RowBatchPlanOwner i32 \plan:
+    *field::get_ref plan "max_rows_per_batch"
+
+//: gui_rgba8888_row_batch_plan_prepare_error_kind: prepare error の typed kind を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_prepare_error_kind %fn &GuiRgba8888RowBatchPlanPrepareError GuiRgba8888RowBatchPlanPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_row_batch_plan_prepare_error_category_value: prepare error の coarse GUI category を[読/よ]む
+pub fn gui_rgba8888_row_batch_plan_prepare_error_category_value %fn &GuiRgba8888RowBatchPlanPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_row_batch_plan_prepare_error_frame: prepare error から frame owner を[回収/かいしゅう]する
+pub fn gui_rgba8888_row_batch_plan_prepare_error_frame %fn GuiRgba8888RowBatchPlanPrepareError GuiRgba8888BitmapFrameOwner \error:
+    field::get error "frame"
+
+fn gui_rgba8888_row_batch_plan_checked_extent %fn i32 fn i32 fn GuiRgba8888RowBatchPlanPrepareErrorKind Result i32 GuiRgba8888RowBatchPlanPrepareErrorKind \origin\extent\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_origin %i32 sub max_i32 extent
+    if gt origin max_origin:
+        then Result::Err overflow_kind
+        else Result::Ok add origin extent
+
+fn gui_rgba8888_row_batch_plan_validate_frame_shape %fn &GuiRgba8888BitmapFrameOwner Result GuiRgba8888SoftwareSurfaceShape GuiRgba8888RowBatchPlanPrepareErrorKind \frame:
+    let width %i32 gui_rgba8888_bitmap_frame_width frame
+    let height %i32 gui_rgba8888_bitmap_frame_height frame
+    match gui_rgba8888_software_surface_shape width height:
+        Result::Err _shape_kind:
+            Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameInvalidGeometry
+        Result::Ok shape:
+            let expected_stride %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+            let actual_stride %i32 gui_rgba8888_bitmap_frame_stride_bytes frame
+            if ne actual_stride expected_stride:
+                then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameStrideMismatch
+                else:
+                    let expected_byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+                    let actual_byte_len %i32 gui_rgba8888_bitmap_frame_byte_len frame
+                    if ne actual_byte_len expected_byte_len:
+                        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::FrameByteLengthMismatch
+                        else Result::Ok shape
+
+fn gui_rgba8888_row_batch_plan_dirty_rect_span_checked %fn &GuiRect fn i32 fn i32 Result GuiRgba8888RowBatchDirtyRectSpan GuiRgba8888RowBatchPlanPrepareErrorKind \rect\frame_width\frame_height:
+    let x %i32 gui_rect_x rect
+    let y %i32 gui_rect_y rect
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
+    if or lt x 0 lt y 0:
+        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidOrigin
+        else:
+            if or lt width 0 lt height 0:
+                then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidSize
+                else:
+                    match gui_rgba8888_row_batch_plan_checked_extent x width GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectRightOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok right:
+                            match gui_rgba8888_row_batch_plan_checked_extent y height GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectBottomOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok bottom:
+                                    if or gt right frame_width gt bottom frame_height:
+                                        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectOutOfBounds
+                                        else Result::Ok gui_rgba8888_row_batch_dirty_rect_span_new y bottom
+
+fn gui_rgba8888_row_batch_plan_validate_dirty_set %fn DirtyRegionSet fn i32 fn i32 Result unit GuiRgba8888RowBatchPlanPrepareErrorKind \dirty\frame_width\frame_height:
+    match dirty_regions_state &dirty:
+        DirtyRegionSetState::Empty:
+            Result::Ok unit
+        DirtyRegionSetState::Full:
+            Result::Ok unit
+        DirtyRegionSetState::One:
+            let first %GuiRect dirty_regions_first &dirty
+            match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _span:
+                    Result::Ok unit
+        DirtyRegionSetState::Two:
+            let first %GuiRect dirty_regions_first &dirty
+            match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _first_span:
+                    let second %GuiRect dirty_regions_second &dirty
+                    match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &second frame_width frame_height:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok _second_span:
+                            Result::Ok unit
+
+fn gui_rgba8888_row_batch_span_from_bounds %fn i32 fn i32 fn i32 Result GuiRgba8888RowBatchSpan GuiRgba8888RowBatchPlanPrepareErrorKind \row_start\row_bottom\frame_height:
+    if:
+        or lt row_start 0 or lt row_bottom row_start gt row_bottom frame_height
+        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid
+        else:
+            let row_count %i32 sub row_bottom row_start
+            Result::Ok gui_rgba8888_row_batch_span_new row_start row_count
+
+fn gui_rgba8888_row_batch_plan_dirty_row_span %fn DirtyRegionSet fn i32 fn i32 Result GuiRgba8888RowBatchSpan GuiRgba8888RowBatchPlanPrepareErrorKind \dirty\frame_width\frame_height:
+    match dirty_regions_state &dirty:
+        DirtyRegionSetState::Empty:
+            Result::Ok gui_rgba8888_row_batch_span_new 0 0
+        DirtyRegionSetState::Full:
+            Result::Ok gui_rgba8888_row_batch_span_new 0 frame_height
+        DirtyRegionSetState::One:
+            let first %GuiRect dirty_regions_first &dirty
+            match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok first_span:
+                    let y %i32 gui_rgba8888_row_batch_dirty_rect_span_y &first_span
+                    let bottom %i32 gui_rgba8888_row_batch_dirty_rect_span_bottom &first_span
+                    gui_rgba8888_row_batch_span_from_bounds y bottom frame_height
+        DirtyRegionSetState::Two:
+            let first %GuiRect dirty_regions_first &dirty
+            match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &first frame_width frame_height:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok first_span:
+                    let second %GuiRect dirty_regions_second &dirty
+                    match gui_rgba8888_row_batch_plan_dirty_rect_span_checked &second frame_width frame_height:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok second_span:
+                            let first_y %i32 gui_rgba8888_row_batch_dirty_rect_span_y &first_span
+                            let second_y %i32 gui_rgba8888_row_batch_dirty_rect_span_y &second_span
+                            let first_bottom %i32 gui_rgba8888_row_batch_dirty_rect_span_bottom &first_span
+                            let second_bottom %i32 gui_rgba8888_row_batch_dirty_rect_span_bottom &second_span
+                            let row_start %i32 gui_rgba8888_row_batch_i32_min first_y second_y
+                            let row_bottom %i32 gui_rgba8888_row_batch_i32_max first_bottom second_bottom
+                            gui_rgba8888_row_batch_span_from_bounds row_start row_bottom frame_height
+
+fn gui_rgba8888_row_batch_plan_batch_count_checked %fn i32 fn i32 Result i32 GuiRgba8888RowBatchPlanPrepareErrorKind \row_count\max_rows_per_batch:
+    if lt row_count 0:
+        then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid
+        else:
+            if le max_rows_per_batch 0:
+                then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid
+                else:
+                    if eq row_count 0:
+                        then Result::Ok 0
+                        else:
+                            let quotient %i32 div_s row_count max_rows_per_batch
+                            let remainder %i32 rem_s row_count max_rows_per_batch
+                            let batch_count %i32 if eq remainder 0 quotient add quotient 1
+                            if lt batch_count 0:
+                                then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid
+                                else Result::Ok batch_count
+
+//: gui_rgba8888_row_batch_plan_prepare: validated bitmap frame owner から row batch plan owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - frame metadata と dirty bounds をこの boundary でも[再検証/さいけんしょう]し、成功後に row span と batch count を[計算/けいさん]します。
+//: - `GuiRgba8888BitmapFrameOwner` は move せず plan owner に[保持/ほじ]します。surface へ戻すときは `finish_frame` を[使/つか]います。
+pub fn gui_rgba8888_row_batch_plan_prepare %fn GuiRgba8888BitmapFrameOwner fn GuiRgba8888RowBatchPlanConfig Result GuiRgba8888RowBatchPlanOwner GuiRgba8888RowBatchPlanPrepareError \frame\config:
+    let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_config_max_rows_per_batch &config
+    if le max_rows_per_batch 0:
+        then Result::Err gui_rgba8888_row_batch_plan_prepare_error GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid frame
+        else:
+            let frame_id %i32 gui_rgba8888_bitmap_frame_frame_id &frame
+            if le frame_id 0:
+                then Result::Err gui_rgba8888_row_batch_plan_prepare_error GuiRgba8888RowBatchPlanPrepareErrorKind::FrameIdInvalid frame
+                else:
+                    match gui_rgba8888_row_batch_plan_validate_frame_shape &frame:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_batch_plan_prepare_error kind frame
+                        Result::Ok shape:
+                            let width %i32 gui_rgba8888_software_surface_shape_width &shape
+                            let height %i32 gui_rgba8888_software_surface_shape_height &shape
+                            let stride_bytes %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+                            let byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+                            let dirty %DirtyRegionSet gui_rgba8888_bitmap_frame_dirty &frame
+                            match gui_rgba8888_row_batch_plan_validate_dirty_set dirty width height:
+                                Result::Err kind:
+                                    Result::Err gui_rgba8888_row_batch_plan_prepare_error kind frame
+                                Result::Ok _:
+                                    match gui_rgba8888_row_batch_plan_dirty_row_span dirty width height:
+                                        Result::Err kind:
+                                            Result::Err gui_rgba8888_row_batch_plan_prepare_error kind frame
+                                        Result::Ok span:
+                                            let row_start %i32 gui_rgba8888_row_batch_span_row_start &span
+                                            let row_count %i32 gui_rgba8888_row_batch_span_row_count &span
+                                            match gui_rgba8888_row_batch_plan_batch_count_checked row_count max_rows_per_batch:
+                                                Result::Err kind:
+                                                    Result::Err gui_rgba8888_row_batch_plan_prepare_error kind frame
+                                                Result::Ok batch_count:
+                                                    Result::Ok gui_rgba8888_row_batch_plan_owner_new frame frame_id width height stride_bytes byte_len dirty row_start row_count batch_count max_rows_per_batch
+
+//: gui_rgba8888_row_batch_plan_finish_frame: row plan metadata を[捨/す]てて bitmap frame owner を[返/かえ]す
+pub fn gui_rgba8888_row_batch_plan_finish_frame %fn GuiRgba8888RowBatchPlanOwner GuiRgba8888BitmapFrameOwner \plan:
+    field::get plan "frame"
+
+//: gui_rgba8888_row_batch_plan_free: plan owner が[保持/ほじ]する frame storage を[解放/かいほう]する
+pub fn gui_rgba8888_row_batch_plan_free %fn GuiRgba8888RowBatchPlanOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \plan:
+    let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_finish_frame plan
+    gui_rgba8888_bitmap_frame_free frame
+
+//: gui_rgba8888_row_batch_plan_prepare_error_free: prepare error が[保持/ほじ]する frame owner を[解放/かいほう]する
+pub fn gui_rgba8888_row_batch_plan_prepare_error_free %fn GuiRgba8888RowBatchPlanPrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_prepare_error_frame error
+    gui_rgba8888_bitmap_frame_free frame

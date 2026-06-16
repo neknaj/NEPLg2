@@ -6487,6 +6487,26 @@ GuiRgba8888SoftwareSurfaceDirtyOwner
 
 `GuiRgba8888BitmapFrameOwner` は `frame_id`、width / height / stride_bytes / byte_len、`DirtyRegionSet`、`GuiRgba8888SoftwareSurfaceOwner` を保持する。raw pixel accessor、byte copy、tile list、host present、fallback / silent no-op は含めない。`finish_surface` は frame metadata を捨てて surface owner を返す recovery / teardown API である。
 
+### Render2d row batch plan owner boundary
+
+F5bv は F5bu の `GuiRgba8888BitmapFrameOwner` を、formal byte payload / host present の前段で row batch scheduler が読める row batch plan owner に変換する phase である。これは byte payload 作成、tile list 作成、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888BitmapFrameOwner
+    + GuiRgba8888RowBatchPlanConfig
+    -> Result GuiRgba8888RowBatchPlanOwner GuiRgba8888RowBatchPlanPrepareError
+```
+
+`GuiRgba8888RowBatchPlanConfig` は `max_rows_per_batch` だけを持ち、`max_rows_per_batch <= 0` は `MaxRowsPerBatchInvalid` として拒否する。row count と batch count は scheduler が time slice を決めるための metadata であり、この phase では row bytes や platform queue を作らない。
+
+`GuiRgba8888RowBatchPlanOwner` は元の `GuiRgba8888BitmapFrameOwner`、frame id、width / height / stride_bytes / byte_len、`DirtyRegionSet`、row_start、row_count、batch_count、max_rows_per_batch を保持する。通常の application code による owner aggregate 直 constructor は compiler が拒否するが、compiler memory boundary や trusted producer から forged frame owner が来てもよい前提にし、row planning 前に `frame_id > 0`、`gui_rgba8888_software_surface_shape` による width / height / stride / byte_len 再検証、dirty rect origin / size / right-bottom overflow / surface containment を再検査する。
+
+dirty state は `Empty` / `Full` / `One` / `Two` を明示 `match` で扱う。`Empty` は row_start 0、row_count 0、batch_count 0 の clean-frame plan であり、fallback や silent no-op ではない。`Full` は surface 全体を contiguous row span とする。`One` は checked rect の y..bottom を row span とし、`Two` は 2 個の checked rect を覆う contiguous row span として計画する。固定容量 dirty set の 2 rect を row span に畳むだけであり、tile 分割や byte transport policy は後続 phase に残す。
+
+`GuiRgba8888RowBatchPlanPrepareErrorKind` は `MaxRowsPerBatchInvalid`、`FrameIdInvalid`、`FrameInvalidGeometry`、`FrameStrideMismatch`、`FrameByteLengthMismatch`、`DirtyRectInvalidOrigin`、`DirtyRectInvalidSize`、`DirtyRectRightOverflow`、`DirtyRectBottomOverflow`、`DirtyRectOutOfBounds`、`RowSpanInvalid` を持つ。prepare error は元の bitmap frame owner を保持する owner-bearing error であり、失敗時に surface / frame owner を失わない。
+
+batch count は `row_count + max_rows_per_batch - 1` のような overflow しやすい式を使わず、signed quotient / remainder による ceil division で計算する。`finish_frame` は row plan metadata を捨てて bitmap frame owner を返す recovery / teardown API であり、`finish_surface` とは異なる境界である。この phase は host present、row byte copy、tile list、video memory、Canvas / DOM / minifb、fallback を実装しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -7258,6 +7258,31 @@ The prepare error carries a typed `GuiRgba8888BitmapFramePrepareErrorKind`, an o
 
 F5bu deliberately does not expose surface raw storage, row copy helpers, byte payload builders, tile lists, video-memory calls, host present, Canvas, DOM, minifb, or fallback paths. Those choices remain in the formal transport and scheduler phases.
 
+## Render2d row batch plan owner boundary
+
+F5bv turns the validated bitmap frame owner into a row batch plan owner. The purpose is to give the later scheduler and transport layer a validated contiguous row span and batch count without exposing pixel storage or calling a host. The owner type is `GuiRgba8888RowBatchPlanOwner`; it carries the original `GuiRgba8888BitmapFrameOwner`, revalidated frame metadata, dirty metadata, row_start, row_count, batch_count, and max_rows_per_batch.
+
+```text
+Bitmap frame owner
+    -> validate positive max_rows_per_batch
+    -> revalidate frame_id
+    -> revalidate frame shape metadata
+    -> validate dirty rect bounds
+    -> compute contiguous row span
+    -> compute quotient/remainder batch count
+    -> Row batch plan owner
+```
+
+The validation order is part of the design. Normal application code cannot directly forge an owner-backed aggregate because the compiler rejects owner aggregate constructors outside the memory boundary. F5bv still repeats the checks that matter for row planning because a compiler memory boundary or trusted producer can hand it malformed metadata: `frame_id > 0`, width / height shape construction, stride mismatch, byte length mismatch, dirty rect origin, dirty rect size, checked right / bottom extents, and surface containment. Representative typed errors include `MaxRowsPerBatchInvalid`, `FrameStrideMismatch`, `DirtyRectBottomOverflow`, and `DirtyRectOutOfBounds`.
+
+Dirty state is mapped to a contiguous row span, not a payload. `Empty` becomes row_start 0 and row_count 0. `Full` becomes row_start 0 and row_count equal to frame height. `One` uses the checked rect y and bottom. `Two` validates both rects and uses min y plus max bottom to create one contiguous row span. This keeps the fixed-capacity dirty set deterministic while deferring tile splitting, byte copying, and queue scheduling to later phases.
+
+Batch count uses quotient and remainder rather than `row_count + max_rows_per_batch - 1`, so the calculation does not introduce a new overflow path. A zero row span has zero batches. Non-zero row spans require positive max rows per batch and return a typed error otherwise.
+
+The prepare error carries a typed `GuiRgba8888RowBatchPlanPrepareErrorKind`, an optional coarse `GuiError` category, and the original bitmap frame owner. `finish_frame` is the only consuming recovery path from a successful plan back to the bitmap frame owner. `finish_frame` is intentionally distinct from `finish_surface`; the row planner is not allowed to bypass the frame boundary and recover the underlying surface directly.
+
+F5bv deliberately does not expose raw storage, allocate row bytes, create tile lists, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior. Those choices remain in the formal byte payload, transport, and scheduler phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
