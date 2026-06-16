@@ -1,3 +1,54 @@
+# 2026-06-16 Agent2 GUI font F5ch render2d row tile RLE encode cursor boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-encode-cursor-f5ch-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ch の encode cursor restart boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ch では F5cg payload seed から ready cursor owner へ ownership transfer する境界に留め、encoded transport には進まない方針が承認された。
+- `cursor_start` の成功結果は positive aligned payload から `next_pixel_index = 0` と positive `pixel_count` を持つため、`cursor_status` の追加検査は不要であることが確認された。
+- start failure は lower `GuiRgba8888RowTileRleStartError` を owner-bearing recovery として保持し、seed owner を再構成しない方針が承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRleEncodeCursorErrorKind`、`GuiRgba8888RowTileRleEncodeCursorOwner`、`GuiRgba8888RowTileRleEncodeCursorError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_encode_cursor_start` は seed の total run count を読み、payload owner を finish してから `gui_rgba8888_row_tile_rle_cursor_start` を 1 回だけ呼ぶ。
+- start failure では `CursorStartFailed lower_kind` と lower start error と total run count を owner-bearing error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encode cursor を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ch の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ch source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。success は cursor と `total_run_count` を返し、failure は lower `GuiRgba8888RowTileRleStartError` と count metadata を保持して seed を再構成しないため、owner/error recovery shape が正しいことを確認した。
+- Ramanujan は F5cc の `cursor_start` contract により `cursor_status` を省略できること、source policy が exactly-one `cursor_start` と status / drain / next_run / payload read / raw storage / `Vec` / encoded buffer / platform / fallback / silent no-op / 括弧禁止を固定していることを確認した。
+- start-error path は public construction で invalid seed を作りにくいため、source policy による structural pinning で許容された。
+
+## remaining
+
+- F5ch は payload seed から ready cursor owner を作るところまでであり、writer seed、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5cg render2d row tile RLE encode seed boundary
 
 ## scope

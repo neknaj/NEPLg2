@@ -6699,6 +6699,20 @@ GuiRgba8888RowTileRleCountCompletedOwner
 
 この layer は cursor restart、RLE run drain、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。cursor restart の start error、exact encoded buffer allocation、row tile transport ABI は後続 phase の owner boundary として定義する。
 
+### Render2d row tile RLE encode cursor boundary
+
+F5ch は `GuiRgba8888RowTileRleEncodeSeedOwner` を、formal encoded RLE writer が使う ready cursor boundary へ変換する phase である。`GuiRgba8888RowTileRleEncodeCursorOwner` は `GuiRgba8888RowTileRleCursorOwner` と exact `total_run_count` を保持する。これは encoded storage ではなく、payload seed を再度 cursor 化し、後続 writer が run count evidence を失わないようにするための owner boundary である。
+
+```text
+GuiRgba8888RowTileRleEncodeSeedOwner
+    -> gui_rgba8888_row_tile_rle_encode_cursor_start
+    -> Result GuiRgba8888RowTileRleEncodeCursorOwner GuiRgba8888RowTileRleEncodeCursorError
+```
+
+`gui_rgba8888_row_tile_rle_encode_cursor_start` は seed owner の `total_run_count` を読んでから payload owner を取り出し、`gui_rgba8888_row_tile_rle_cursor_start` を 1 回だけ呼ぶ。F5cg で seed の `total_run_count` は正値として検査済みであり、direct constructor は public application surface ではないため、この boundary では invalid count branch を追加しない。start failure は `CursorStartFailed %GuiRgba8888RowTileRleStartErrorKind` とし、`GuiRgba8888RowTileRleStartError` と `total_run_count` を owner-bearing error に保持する。caller は lower start error を finish / free して payload owner を明示的に回収できる。
+
+この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。`cursor_start` は正で RGBA8888 に整列した payload を `next_pixel_index = 0` かつ正の `pixel_count` の cursor として返すため、成功結果を ready cursor として扱う。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
