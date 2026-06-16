@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5cn std row tile RLE present-frame owner
+
+## scope
+
+- F5cm の `GuiRgba8888RowTileRlePacketOwner` を、host import 直前の std layer present-frame owner に昇格する。
+- existing `GuiSurfacePresentCommand` / `PresentPixelFrame` には接続せず、packet owner と `SurfaceId` / `FrameId` の対応検査だけを std layer に置く。
+- Web / native / headless presenter、actual host import、byte reader、video memory、scheduler は後続 phase に残す。
+
+## plan_review
+
+- Descartes plan review は `PLAN_APPROVED`。
+- 条件として、`GuiSurfacePresentCommand` の拡張禁止、platform / host module import 禁止、`GuiSurfacePresentCommand` / `PresentPixelFrame` / `GuiPixelBufferDescriptor` / host import / video memory / raw bytes / fallback 禁止を source policy で固定することが挙げられた。
+- validation は id、frame mismatch、positive geometry/counts、`width * 4`、`row_count * width`、`total_run_count * 12`、derived tile count を owner move 前に行う。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` の packet descriptor に `plan_row_start` / `plan_row_count` を追加した。std layer が tile count を再導出するには tile 自身の row range だけでは不十分なためである。
+- `stdlib/std/gui/tile_present.nepl` を追加し、`GuiRgba8888RowTileRlePresentDescriptor`、`GuiRgba8888RowTileRlePresentFrameOwner`、owner-bearing prepare error、free / recovery helper を追加した。
+- `gui_rgba8888_row_tile_rle_present_frame_prepare` は packet descriptor を借用で読み、surface/frame id、packet frame id、positive shape/counts、row extent、stride、derived tile count、pixel count、encoded byte count を検査したあとでだけ packet owner を success owner に移す。
+- `stdlib/std/gui.nepl` facade から tile present boundary を再公開した。
+- `tests/stdlib/gui_std_tile_present.n.md` を追加し、source policy label と import smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cn source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cn contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5cn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present.nepl --no-tree -o tmp_gui_std_tile_present_module_f5cn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_module_f5cn.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Descartes implementation review は `REVIEW_APPROVED`。
+- `tile_present.nepl` は `GuiSurfacePresentCommand` を拡張せず、`PresentPixelFrame` / `GuiPixelBufferDescriptor` を作らず、host / platform import と fallback path を持たないと確認された。
+- success / error owner は owner-bearing で Clone / Copy を持たず、prepare failure が packet owner を保持することが確認された。
+- validation は owner move 前に id、frame mismatch、positive shape/counts、row extent、stride、derived tile count、pixel count、encoded byte count を検査していると確認された。
+- packet descriptor に `plan_row_start` / `plan_row_count` を追加した根本対処と docs / source policy の反映も承認された。
+
+## residual
+
+- F5cn は std layer present-frame owner までであり、Web / native / headless presenter host import、formal tiled transport bytes handoff、queue / scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cm render2d row tile RLE packet owner
 
 ## scope

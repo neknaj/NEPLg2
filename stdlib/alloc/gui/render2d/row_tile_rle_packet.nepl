@@ -70,6 +70,8 @@ pub struct GuiRgba8888RowTileRlePacketDescriptor:
     frame_id %i32
     batch_index %i32
     tile_index %i32
+    plan_row_start %i32
+    plan_row_count %i32
     row_start %i32
     row_count %i32
     width %i32
@@ -98,8 +100,8 @@ pub struct GuiRgba8888RowTileRlePacketPrepareError:
     category %Option GuiError
     encoded %GuiRgba8888RowTileRleEncodedOwner
 
-fn gui_rgba8888_row_tile_rle_packet_descriptor_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowTileRlePacketDescriptor \frame_id\batch_index\tile_index\row_start\row_count\width\height\stride_bytes\tile_rows\tile_count\pixel_count\total_run_count\encoded_byte_count:
-    GuiRgba8888RowTileRlePacketDescriptor frame_id batch_index tile_index row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+fn gui_rgba8888_row_tile_rle_packet_descriptor_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowTileRlePacketDescriptor \frame_id\batch_index\tile_index\plan_row_start\plan_row_count\row_start\row_count\width\height\stride_bytes\tile_rows\tile_count\pixel_count\total_run_count\encoded_byte_count:
+    GuiRgba8888RowTileRlePacketDescriptor frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
 
 fn gui_rgba8888_row_tile_rle_packet_owner_new %fn GuiRgba8888RowTileRleEncodedOwner fn GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketOwner \encoded\descriptor:
     GuiRgba8888RowTileRlePacketOwner encoded descriptor
@@ -272,6 +274,8 @@ fn gui_rgba8888_row_tile_rle_packet_descriptor_from_metadata %fn &GuiRgba8888Row
     let frame_id %i32 gui_rgba8888_row_tile_plan_frame_id plan
     let batch_index %i32 gui_rgba8888_row_tile_plan_batch_index plan
     let tile_index %i32 gui_rgba8888_row_tile_descriptor_tile_index tile_descriptor
+    let plan_row_start %i32 gui_rgba8888_row_tile_plan_row_start plan
+    let plan_row_count %i32 gui_rgba8888_row_tile_plan_row_count plan
     let row_start %i32 gui_rgba8888_row_tile_descriptor_row_start tile_descriptor
     let row_count %i32 gui_rgba8888_row_tile_descriptor_row_count tile_descriptor
     let width %i32 gui_rgba8888_row_tile_plan_width plan
@@ -282,7 +286,7 @@ fn gui_rgba8888_row_tile_rle_packet_descriptor_from_metadata %fn &GuiRgba8888Row
     let pixel_count %i32 gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded
     let total_run_count %i32 gui_rgba8888_row_tile_rle_encoded_total_run_count encoded
     let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_encoded_byte_count encoded
-    gui_rgba8888_row_tile_rle_packet_descriptor_new frame_id batch_index tile_index row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+    gui_rgba8888_row_tile_rle_packet_descriptor_new frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
 
 fn gui_rgba8888_row_tile_rle_packet_validate %fn &GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketPrepareErrorKind \encoded:
     match gui_rgba8888_row_tile_rle_packet_validate_encoded_counts encoded:
@@ -338,6 +342,12 @@ pub fn gui_rgba8888_row_tile_rle_packet_descriptor_batch_index %fn &GuiRgba8888R
 
 pub fn gui_rgba8888_row_tile_rle_packet_descriptor_tile_index %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
     *field::get_ref descriptor "tile_index"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "plan_row_start"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "plan_row_count"
 
 pub fn gui_rgba8888_row_tile_rle_packet_descriptor_row_start %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
     *field::get_ref descriptor "row_start"
