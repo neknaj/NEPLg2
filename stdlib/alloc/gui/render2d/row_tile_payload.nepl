@@ -53,6 +53,22 @@ impl Copy for GuiRgba8888RowTilePayloadReadErrorKind:
     fn copy_mark %fn GuiRgba8888RowTilePayloadReadErrorKind GuiRgba8888RowTilePayloadReadErrorKind \kind:
         kind
 
+pub enum GuiRgba8888RowTilePayloadAuthorityErrorKind:
+    DescriptorInvalid %GuiRgba8888RowTilePlanDescriptorErrorKind
+    TileIndexMismatch
+    RowStartMismatch
+    RowCountMismatch
+    ByteOffsetMismatch
+    ByteCountMismatch
+
+impl Clone for GuiRgba8888RowTilePayloadAuthorityErrorKind:
+    fn clone %fn &GuiRgba8888RowTilePayloadAuthorityErrorKind GuiRgba8888RowTilePayloadAuthorityErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTilePayloadAuthorityErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTilePayloadAuthorityErrorKind GuiRgba8888RowTilePayloadAuthorityErrorKind \kind:
+        kind
+
 pub struct GuiRgba8888RowTilePayloadOwner:
     plan %GuiRgba8888RowTilePlanOwner
     descriptor %GuiRgba8888RowTileDescriptor
@@ -98,6 +114,53 @@ pub fn gui_rgba8888_row_tile_payload_prepare %fn GuiRgba8888RowTilePlanOwner fn 
 
 pub fn gui_rgba8888_row_tile_payload_descriptor %fn &GuiRgba8888RowTilePayloadOwner GuiRgba8888RowTileDescriptor \owner:
     *field::get_ref owner "descriptor"
+
+fn gui_rgba8888_row_tile_payload_compare_descriptor %fn &GuiRgba8888RowTileDescriptor fn &GuiRgba8888RowTileDescriptor Result unit GuiRgba8888RowTilePayloadAuthorityErrorKind \actual\expected:
+    if ne gui_rgba8888_row_tile_descriptor_tile_index actual gui_rgba8888_row_tile_descriptor_tile_index expected:
+        then Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::TileIndexMismatch
+        else:
+            if ne gui_rgba8888_row_tile_descriptor_row_start actual gui_rgba8888_row_tile_descriptor_row_start expected:
+                then Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::RowStartMismatch
+                else:
+                    if ne gui_rgba8888_row_tile_descriptor_row_count actual gui_rgba8888_row_tile_descriptor_row_count expected:
+                        then Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::RowCountMismatch
+                        else:
+                            if ne gui_rgba8888_row_tile_descriptor_byte_offset actual gui_rgba8888_row_tile_descriptor_byte_offset expected:
+                                then Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::ByteOffsetMismatch
+                                else:
+                                    if ne gui_rgba8888_row_tile_descriptor_byte_count actual gui_rgba8888_row_tile_descriptor_byte_count expected:
+                                        then Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::ByteCountMismatch
+                                        else Result::Ok unit
+
+//: gui_rgba8888_row_tile_payload_validate_descriptor_authority: payload descriptor が plan 由来であることを[再検証/さいけんしょう]する
+//:
+//: [契約/けいやく]:
+//: - payload が[保持/ほじ]する descriptor の tile index で plan descriptor を[再計算/さいけいさん]します。
+//: - raw storage や byte pointer は[返/かえ]さず、metadata の[同一性/どういつせい]だけを[検査/けんさ]します。
+pub fn gui_rgba8888_row_tile_payload_validate_descriptor_authority %fn &GuiRgba8888RowTilePayloadOwner Result unit GuiRgba8888RowTilePayloadAuthorityErrorKind \owner:
+    let descriptor %GuiRgba8888RowTileDescriptor gui_rgba8888_row_tile_payload_descriptor owner
+    let tile_index %i32 gui_rgba8888_row_tile_descriptor_tile_index &descriptor
+    let plan %&GuiRgba8888RowTilePlanOwner field::get_ref owner "plan"
+    match gui_rgba8888_row_tile_plan_descriptor_at plan tile_index:
+        Result::Err kind:
+            Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::DescriptorInvalid kind
+        Result::Ok expected:
+            gui_rgba8888_row_tile_payload_compare_descriptor &descriptor &expected
+
+pub fn gui_rgba8888_row_tile_payload_descriptor_checked %fn &GuiRgba8888RowTilePayloadOwner Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePayloadAuthorityErrorKind \owner:
+    match gui_rgba8888_row_tile_payload_validate_descriptor_authority owner:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            Result::Ok gui_rgba8888_row_tile_payload_descriptor owner
+
+pub fn gui_rgba8888_row_tile_payload_plan_metadata_checked %fn &GuiRgba8888RowTilePayloadOwner Result GuiRgba8888RowTilePlan GuiRgba8888RowTilePayloadAuthorityErrorKind \owner:
+    match gui_rgba8888_row_tile_payload_validate_descriptor_authority owner:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            let plan_owner %&GuiRgba8888RowTilePlanOwner field::get_ref owner "plan"
+            Result::Ok gui_rgba8888_row_tile_plan_plan plan_owner
 
 pub fn gui_rgba8888_row_tile_payload_byte_count %fn &GuiRgba8888RowTilePayloadOwner i32 \owner:
     let descriptor %GuiRgba8888RowTileDescriptor gui_rgba8888_row_tile_payload_descriptor owner

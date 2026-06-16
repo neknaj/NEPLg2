@@ -6809,6 +6809,35 @@ sealed owner は encoded byte reader、storage pointer accessor、raw byte acces
 
 この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal tile transport ABI、host present ABI、dirty tile aggregation、FHD 60fps scheduler policy は後続 phase の責務である。
 
+### Render2d row tile RLE packet owner boundary
+
+F5cm は F5cl の `GuiRgba8888RowTileRleEncodedOwner` を、formal tile / bitmap transport の直前で使う row tile RLE packet owner に昇格する phase である。`GuiRgba8888RowTileRlePacketOwner` は sealed encoded owner と `GuiRgba8888RowTileRlePacketDescriptor` を保持するが、encoded byte reader、storage pointer、host present command は持たない。
+
+packet descriptor は frame id、batch index、tile index、frame-absolute row range、surface width / height、stride bytes、tile rows、tile count、cursor pixel count、total run count、encoded byte count を持つ Copy metadata である。これは host ABI へ渡す data shape を固定するための metadata authority であり、Web / native / headless / bare のどれかに依存した transport object ではない。
+
+`gui_rgba8888_row_tile_rle_packet_prepare` は次の順で検査する。
+
+```text
+encoded_byte_count > 0
+total_run_count > 0
+total_run_count * 12 == encoded_byte_count
+cursor pixel count > 0
+cursor next pixel index == cursor pixel count
+payload descriptor is recomputed from its plan
+descriptor byte count == cursor pixel count * 4
+width > 0
+height > 0
+width * 4 == stride_bytes
+descriptor row count * stride_bytes == descriptor byte count
+descriptor row_start + row_count <= height
+tile index is in derived tile count
+derived tile count == stored plan tile count
+```
+
+payload descriptor authority failure is `PayloadDescriptorInvalid %GuiRgba8888RowTilePayloadAuthorityErrorKind` で表す。prepare failure は original sealed encoded owner を owner-bearing `GuiRgba8888RowTileRlePacketPrepareError` に保持し、fake packet owner を作らない。success path だけが sealed owner を packet owner へ move する。
+
+この layer は formal tile / bitmap transport の descriptor sealing までで止まる。byte reader、raw storage、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual host ABI、queueing、scheduler、Web/native/headless presenter は後続 phase の責務である。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -122,6 +122,8 @@ const allocRender2dRowTileRleStorage = read("stdlib/alloc/gui/render2d/row_tile_
 const allocRender2dRowTileRleStorageImpl = withoutComments(allocRender2dRowTileRleStorage);
 const allocRender2dRowTileRleEncoded = read("stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl");
 const allocRender2dRowTileRleEncodedImpl = withoutComments(allocRender2dRowTileRleEncoded);
+const allocRender2dRowTileRlePacket = read("stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl");
+const allocRender2dRowTileRlePacketImpl = withoutComments(allocRender2dRowTileRlePacket);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -164,6 +166,7 @@ const guiRender2dRowTileRleEncodeCursorTests = read("tests/stdlib/gui_render2d_r
 const guiRender2dRowTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md");
 const guiRender2dRowTileRleStorageTests = read("tests/stdlib/gui_render2d_row_tile_rle_storage.n.md");
 const guiRender2dRowTileRleEncodedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md");
+const guiRender2dRowTileRlePacketTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19481,6 +19484,158 @@ assert(
         guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_owner_recovery_ok") &&
         guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_no_reader_no_platform_no_fallback"),
     "F5cl row tile RLE encoded focused doctest must cover sealed owner source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE packet owner") &&
+            doc.includes("GuiRgba8888RowTileRlePacketOwner") &&
+            doc.includes("GuiRgba8888RowTileRlePacketDescriptor") &&
+            doc.includes("PayloadDescriptorInvalid") &&
+            doc.includes("formal tile / bitmap transport"),
+        `F5cm ${name} must document packet owner, descriptor authority, and deferred host present`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_packet" as *'), "alloc/gui/render2d facade must export F5cm row tile RLE packet owner");
+assert(
+    allocRender2dRowTilePayload.includes("pub enum GuiRgba8888RowTilePayloadAuthorityErrorKind:") &&
+        allocRender2dRowTilePayload.includes("DescriptorInvalid %GuiRgba8888RowTilePlanDescriptorErrorKind") &&
+        allocRender2dRowTilePayload.includes("pub fn gui_rgba8888_row_tile_payload_validate_descriptor_authority") &&
+        allocRender2dRowTilePayload.includes("pub fn gui_rgba8888_row_tile_payload_descriptor_checked") &&
+        allocRender2dRowTilePayload.includes("pub fn gui_rgba8888_row_tile_payload_plan_metadata_checked"),
+    "alloc/gui/render2d/row_tile_payload F5cm must expose metadata-only checked descriptor authority helpers",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTilePayloadImpl, "gui_rgba8888_row_tile_payload_validate_descriptor_authority"),
+    [
+        "let descriptor %GuiRgba8888RowTileDescriptor gui_rgba8888_row_tile_payload_descriptor owner",
+        "let tile_index %i32 gui_rgba8888_row_tile_descriptor_tile_index &descriptor",
+        "let plan %&GuiRgba8888RowTilePlanOwner field::get_ref owner \"plan\"",
+        "match gui_rgba8888_row_tile_plan_descriptor_at plan tile_index:",
+        "Result::Err GuiRgba8888RowTilePayloadAuthorityErrorKind::DescriptorInvalid kind",
+        "Result::Ok expected:",
+        "gui_rgba8888_row_tile_payload_compare_descriptor &descriptor &expected",
+    ],
+    "alloc/gui/render2d/row_tile_payload F5cm must validate descriptor authority through plan descriptor recomputation",
+);
+assert(
+    allocRender2dRowTileRle.includes("pub fn gui_rgba8888_row_tile_rle_cursor_payload_descriptor_checked") &&
+        allocRender2dRowTileRle.includes("pub fn gui_rgba8888_row_tile_rle_cursor_payload_plan_metadata_checked") &&
+        allocRender2dRowTileRleEncoded.includes("pub fn gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked") &&
+        allocRender2dRowTileRleEncoded.includes("pub fn gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked"),
+    "alloc/gui/render2d F5cm must carry checked descriptor metadata helpers through cursor and sealed encoded owner",
+);
+assert(
+    allocRender2dRowTileRlePacket.includes("pub enum GuiRgba8888RowTileRlePacketPrepareErrorKind:") &&
+        allocRender2dRowTileRlePacket.includes("PayloadDescriptorInvalid %GuiRgba8888RowTilePayloadAuthorityErrorKind") &&
+        allocRender2dRowTileRlePacket.includes("pub struct GuiRgba8888RowTileRlePacketDescriptor:") &&
+        allocRender2dRowTileRlePacket.includes("pub struct GuiRgba8888RowTileRlePacketOwner:") &&
+        allocRender2dRowTileRlePacket.includes("encoded %GuiRgba8888RowTileRleEncodedOwner") &&
+        allocRender2dRowTileRlePacket.includes("descriptor %GuiRgba8888RowTileRlePacketDescriptor") &&
+        allocRender2dRowTileRlePacket.includes("pub struct GuiRgba8888RowTileRlePacketPrepareError:") &&
+        allocRender2dRowTileRlePacket.includes("encoded %GuiRgba8888RowTileRleEncodedOwner"),
+    "alloc/gui/render2d/row_tile_rle_packet F5cm must define packet descriptor, packet owner, and owner-bearing prepare error",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRlePacketOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePacketPrepareError\b/,
+    "alloc/gui/render2d/row_tile_rle_packet F5cm owner-bearing packet and errors must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketImpl,
+    /\bVec\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_packet F5cm must not expose bytes, raw storage, platform present, video memory, Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketImpl, "gui_rgba8888_row_tile_rle_packet_validate"),
+    [
+        "gui_rgba8888_row_tile_rle_packet_validate_encoded_counts encoded",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_packet_validate_cursor_completion encoded",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked encoded",
+        "Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PayloadDescriptorInvalid payload_kind",
+        "Result::Ok tile_descriptor:",
+        "gui_rgba8888_row_tile_rle_packet_validate_descriptor_byte_count encoded &tile_descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked encoded",
+        "Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PayloadDescriptorInvalid payload_kind",
+        "Result::Ok plan:",
+        "gui_rgba8888_row_tile_rle_packet_validate_plan_shape &plan &tile_descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_packet_validate_tile_metadata &plan &tile_descriptor",
+        "Result::Ok _:",
+        "Result::Ok gui_rgba8888_row_tile_rle_packet_descriptor_from_metadata encoded &plan &tile_descriptor",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet F5cm must validate counts, cursor completion, descriptor authority, byte counts, plan shape, and tile metadata before descriptor creation",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketImpl, "gui_rgba8888_row_tile_rle_packet_validate_descriptor_byte_count"),
+    [
+        "let row_count %i32 gui_rgba8888_row_tile_descriptor_row_count descriptor",
+        "if le row_count 0:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorRowCountInvalid",
+        "let byte_count %i32 gui_rgba8888_row_tile_descriptor_byte_count descriptor",
+        "if le byte_count 0:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorByteCountInvalid",
+        "let pixel_count %i32 gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded",
+        "gui_rgba8888_row_tile_rle_packet_checked_mul pixel_count 4 GuiRgba8888RowTileRlePacketPrepareErrorKind::PixelByteCountOverflow",
+        "if ne expected_byte_count byte_count:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::PixelByteCountMismatch",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet F5cm must check descriptor byte count against cursor pixel count",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketImpl, "gui_rgba8888_row_tile_rle_packet_validate_plan_shape"),
+    [
+        "let width %i32 gui_rgba8888_row_tile_plan_width plan",
+        "if le width 0:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::PlanWidthInvalid",
+        "let height %i32 gui_rgba8888_row_tile_plan_height plan",
+        "if le height 0:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::PlanHeightInvalid",
+        "gui_rgba8888_row_tile_rle_packet_checked_mul width 4 GuiRgba8888RowTileRlePacketPrepareErrorKind::StrideOverflow",
+        "if ne expected_stride stride_bytes:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::StrideMismatch",
+        "gui_rgba8888_row_tile_rle_packet_checked_mul row_count stride_bytes GuiRgba8888RowTileRlePacketPrepareErrorKind::TileByteCountOverflow",
+        "if ne expected_tile_byte_count descriptor_byte_count:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::TileByteCountMismatch",
+        "if lt row_start 0:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorRowStartInvalid",
+        "gui_rgba8888_row_tile_rle_packet_checked_add row_start row_count GuiRgba8888RowTileRlePacketPrepareErrorKind::RowExtentOverflow",
+        "if gt row_bottom height:",
+        "GuiRgba8888RowTileRlePacketPrepareErrorKind::RowExtentOutOfBounds",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet F5cm must check plan shape and descriptor row extent with checked arithmetic",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRlePacketImpl, "gui_rgba8888_row_tile_rle_packet_prepare"),
+    [
+        "gui_rgba8888_row_tile_rle_packet_validate &encoded",
+        "Result::Err kind:",
+        "Result::Err gui_rgba8888_row_tile_rle_packet_prepare_error kind encoded",
+        "Result::Ok descriptor:",
+        "Result::Ok gui_rgba8888_row_tile_rle_packet_owner_new encoded descriptor",
+    ],
+    "alloc/gui/render2d/row_tile_rle_packet F5cm prepare must preserve original sealed owner on error and move only after validation",
+);
+assertNoMatch(
+    allocRender2dRowTileRlePacketImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_packet F5cm implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_facade_ok") &&
+        guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_prepare_owner_ok") &&
+        guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_descriptor_authority_ok") &&
+        guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_checked_geometry_ok") &&
+        guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_owner_recovery_ok") &&
+        guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_no_reader_no_platform_no_fallback"),
+    "F5cm row tile RLE packet focused doctest must cover packet owner source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

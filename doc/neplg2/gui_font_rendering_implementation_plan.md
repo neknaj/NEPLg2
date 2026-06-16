@@ -1576,6 +1576,45 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5cm: render2d row tile RLE packet owner
+
+目的:
+
+- F5cl の `GuiRgba8888RowTileRleEncodedOwner` を、formal tile / bitmap transport の直前で使う packet owner へ昇格する。
+- packet descriptor に frame / tile geometry と encoded RLE metadata を閉じ込め、host ABI 側が private cursor layout を再解釈しないようにする。
+- byte reader、raw storage accessor、host present、video memory import、platform API、fallback には進まない。
+
+plan review:
+
+- Descartes plan review は `PLAN_APPROVED`。条件は、payload descriptor を plan から再計算して authority を検証すること、validation order を encoded counts、cursor completion、descriptor authority、pixel byte count、plan shape、tile metadata の順に source policy で固定すること、すべての descriptor arithmetic を checked にすること。
+- required: prepare failure は original sealed encoded owner を owner-bearing error に保持し、validation success 後だけ packet owner に move する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` に metadata-only descriptor authority helper を追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` と `row_tile_rle_encoded.nepl` に checked descriptor / plan metadata helper を追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` を追加し、`GuiRgba8888RowTileRlePacketDescriptor`、`GuiRgba8888RowTileRlePacketOwner`、`GuiRgba8888RowTileRlePacketPrepareErrorKind`、owner-bearing prepare error を定義する。
+- descriptor authority failure は `PayloadDescriptorInvalid` として lower authority error を包む。
+- `gui_rgba8888_row_tile_rle_packet_prepare` は encoded count、cursor completion、payload descriptor authority、descriptor byte count、plan shape、tile metadata を検査し、成功時だけ sealed owner を packet owner に move する。
+- `stdlib/alloc/gui/render2d.nepl` facade から packet owner を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet.n.md` は import smoke と source policy labels に絞る。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cm source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- import smoke、source policy、`git diff --check` が通る。
+- implementation review で descriptor authority、checked arithmetic、owner recovery、no byte reader、no host present、no fallback を確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cm.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

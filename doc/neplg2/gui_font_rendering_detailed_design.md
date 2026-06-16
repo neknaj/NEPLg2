@@ -7828,6 +7828,47 @@ Every seal failure returns the original writer owner in `GuiRgba8888RowTileRleEn
 
 F5cl must not expose storage pointer, read encoded bytes, call `region_ptr_at`, call `load_u8`, call `store_u8`, allocate `Vec`, build a host frame, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal tile transport and host present remain later boundaries.
 
+## Render2d row tile RLE packet owner boundary
+
+F5cm introduces the first packet-shaped owner after the sealed encoded owner. `GuiRgba8888RowTileRlePacketOwner` is still an alloc/render2d owner, not a platform surface and not a host call. It keeps `GuiRgba8888RowTileRleEncodedOwner` together with `GuiRgba8888RowTileRlePacketDescriptor`.
+
+```text
+GuiRgba8888RowTileRlePacketDescriptor:
+    frame_id i32
+    batch_index i32
+    tile_index i32
+    row_start i32
+    row_count i32
+    width i32
+    height i32
+    stride_bytes i32
+    tile_rows i32
+    tile_count i32
+    pixel_count i32
+    total_run_count i32
+    encoded_byte_count i32
+```
+
+The packet descriptor is a transport contract seed. Later Web, native, bare, and headless backends can map it to a formal tile / bitmap transport without reinterpreting private cursor or payload layout. The descriptor does not contain a pointer, byte slice, JavaScript object handle, native handle, or video-memory id.
+
+The important new authority boundary is payload descriptor validation. F5cm adds metadata-only helpers so that packet construction does not poke at private layout ad hoc:
+
+```text
+gui_rgba8888_row_tile_payload_validate_descriptor_authority
+gui_rgba8888_row_tile_payload_descriptor_checked
+gui_rgba8888_row_tile_payload_plan_metadata_checked
+gui_rgba8888_row_tile_rle_cursor_payload_descriptor_checked
+gui_rgba8888_row_tile_rle_cursor_payload_plan_metadata_checked
+gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked
+gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked
+```
+
+`gui_rgba8888_row_tile_payload_validate_descriptor_authority` recomputes the descriptor from `GuiRgba8888RowTilePlanOwner` by calling `gui_rgba8888_row_tile_plan_descriptor_at` with the stored tile index and then compares tile index, row start, row count, byte offset, and byte count. This keeps forged payload descriptors from becoming packet authority.
+
+Packet prepare validates in a fixed order: encoded count, total run count, checked `total_run_count * 12`, cursor completion, descriptor authority, `cursor_pixel_count * 4 == descriptor_byte_count`, `width * 4 == stride_bytes`, `row_count * stride_bytes == descriptor_byte_count`, checked row extent inside surface height, derived tile count, and tile index range. `PayloadDescriptorInvalid` wraps the lower authority error. All failure paths return the original sealed owner in `GuiRgba8888RowTileRlePacketPrepareError`; the owner moves into `GuiRgba8888RowTileRlePacketOwner` only after every check succeeds.
+
+F5cm must not expose encoded bytes, call raw memory projection, allocate `Vec`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The later formal transport phase must consume the packet owner rather than rebuild packet metadata from private lower owners.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

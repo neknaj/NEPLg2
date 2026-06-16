@@ -239,6 +239,14 @@ pub fn gui_rgba8888_row_tile_rle_cursor_pixel_count %fn &GuiRgba8888RowTileRleCu
 pub fn gui_rgba8888_row_tile_rle_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCursorOwner i32 \cursor:
     *field::get_ref cursor "next_pixel_index"
 
+pub fn gui_rgba8888_row_tile_rle_cursor_payload_descriptor_checked %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePayloadAuthorityErrorKind \cursor:
+    let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref cursor "payload"
+    gui_rgba8888_row_tile_payload_descriptor_checked payload
+
+pub fn gui_rgba8888_row_tile_rle_cursor_payload_plan_metadata_checked %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTilePlan GuiRgba8888RowTilePayloadAuthorityErrorKind \cursor:
+    let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref cursor "payload"
+    gui_rgba8888_row_tile_payload_plan_metadata_checked payload
+
 pub fn gui_rgba8888_row_tile_rle_start_error_kind %fn &GuiRgba8888RowTileRleStartError GuiRgba8888RowTileRleStartErrorKind \error:
     *field::get_ref error "kind"
 
