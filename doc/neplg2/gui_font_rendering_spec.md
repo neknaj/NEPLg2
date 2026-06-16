@@ -6434,6 +6434,31 @@ dirty_regions_push_region_checked:
 
 この phase は allocator、Vec、DOM、Canvas、minifb、DrawTarget、RenderTarget、platform API、present、publish、tile / bitmap transport、fallback を使わない。
 
+### Render2d surface + dirty owner boundary
+
+F5bt は F5bo の `GuiRgba8888SoftwareSurfaceOwner` と F5bs の `DirtyRegionSet` を、`alloc/gui/render2d` の共有 ownership boundary として束ねる phase である。これは formal tile / bitmap transport でも host present でもなく、描画済み surface と dirty metadata を同じ owner として次の transport 設計へ渡すための前段階である。
+
+```text
+GuiRgba8888SoftwareSurfaceDirtyOwner:
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegionSet
+```
+
+dirty region の追加 API は次の形にする。
+
+```text
+gui_rgba8888_software_surface_dirty_owner_push_region_checked:
+    owner GuiRgba8888SoftwareSurfaceDirtyOwner
+    region DirtyRegion
+    -> Result GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888SoftwareSurfaceDirtyPushError
+```
+
+`GuiRgba8888SoftwareSurfaceDirtyPushError` は `GuiError` と元の `GuiRgba8888SoftwareSurfaceDirtyOwner` を持つ owner-bearing error である。`dirty_regions_push_region_checked` が失敗した場合、surface を owner から取り出さず、元 owner をそのまま回収できるようにする。成功時だけ surface を move し、更新済み `DirtyRegionSet` と一緒に新しい owner を返す。
+
+公開 accessor は width / height / stride_bytes / byte_len / dirty の Copy metadata だけである。surface の raw accessor、mutable accessor、split accessor は公開しない。`finish_surface` は recovery / teardown 向けに dirty metadata を捨てて surface だけを返す API であり、dirty metadata が必要な caller は `finish_surface` の前に borrowed dirty accessor で読む。
+
+この phase は tile list、bitmap payload、row batch、host present、platform backend、font glyf との直接統合、pixel writing、fallback を実装しない。次の phase はこの owner を formal transport / scheduler / FHD 60fps batching に接続する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

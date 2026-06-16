@@ -78,6 +78,8 @@ const allocGuiFacade = read("stdlib/alloc/gui.nepl");
 const allocRender2dFacade = read("stdlib/alloc/gui/render2d.nepl");
 const allocRender2dSoftwareSurface = read("stdlib/alloc/gui/render2d/software_surface.nepl");
 const allocRender2dSoftwareSurfaceImpl = withoutComments(allocRender2dSoftwareSurface);
+const allocRender2dDirtySurface = read("stdlib/alloc/gui/render2d/dirty_surface.nepl");
+const allocRender2dDirtySurfaceImpl = withoutComments(allocRender2dDirtySurface);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -102,6 +104,7 @@ const guiDirtyRegionSetTests = read("tests/stdlib/gui_dirty_region_set.n.md");
 const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
+const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17297,6 +17300,81 @@ assert(
         guiDirtyRegionSetTests.includes("dirty_region_set_push_region_invalid_unchecked_rect_rejected_ok") &&
         guiDirtyRegionSetTests.includes("dirty_region_set_push_region_no_alloc_no_platform_no_fallback_ok"),
     "F5bs dirty region set focused doctest must cover empty, rect, full, invalid unchecked rect rejection, and no alloc/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+]) {
+    assert(
+        doc.includes("surface + dirty owner boundary") &&
+            doc.includes("GuiRgba8888SoftwareSurfaceDirtyOwner") &&
+            doc.includes("finish_surface") &&
+            doc.includes("dirty_regions_push_region_checked") &&
+            doc.includes("fallback"),
+        `F5bt ${name} must document render2d surface + dirty owner boundary, finish_surface teardown, checked aggregation, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5bt") &&
+        implementationPlan.includes("Planck plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Tesla plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("surface の raw accessor、mutable accessor、split accessor は追加しない"),
+    "F5bt implementation plan must retain subagent approval and no raw/mutable/split surface accessor policy",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/dirty_surface" as *'), "alloc/gui/render2d facade must export F5bt dirty surface owner");
+assert(
+    allocRender2dDirtySurfaceImpl.includes("pub struct GuiRgba8888SoftwareSurfaceDirtyOwner:") &&
+        allocRender2dDirtySurfaceImpl.includes("surface %GuiRgba8888SoftwareSurfaceOwner") &&
+        allocRender2dDirtySurfaceImpl.includes("dirty %DirtyRegionSet") &&
+        allocRender2dDirtySurfaceImpl.includes("pub struct GuiRgba8888SoftwareSurfaceDirtyPushError:") &&
+        allocRender2dDirtySurfaceImpl.includes("error %GuiError") &&
+        allocRender2dDirtySurfaceImpl.includes("owner %GuiRgba8888SoftwareSurfaceDirtyOwner"),
+    "alloc/gui/render2d/dirty_surface F5bt must define surface+dirty owner and owner-bearing dirty push error",
+);
+assertNoMatch(
+    allocRender2dDirtySurfaceImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888SoftwareSurfaceDirtyOwner|GuiRgba8888SoftwareSurfaceDirtyPushError)\b/,
+    "alloc/gui/render2d/dirty_surface F5bt owner and owner-bearing error must not implement Clone or Copy",
+);
+const dirtySurfacePushRegionChecked = functionSlice(allocRender2dDirtySurfaceImpl, "gui_rgba8888_software_surface_dirty_owner_push_region_checked");
+assertOrderedFragments(
+    dirtySurfacePushRegionChecked,
+    [
+        "let dirty %DirtyRegionSet gui_rgba8888_software_surface_dirty_owner_dirty &owner",
+        "dirty_regions_push_region_checked dirty region",
+        "Result::Err error:",
+        "Result::Err gui_rgba8888_software_surface_dirty_push_error error owner",
+        "Result::Ok next_dirty:",
+        'let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"',
+        "Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty",
+    ],
+    "alloc/gui/render2d/dirty_surface F5bt push helper must check dirty before moving surface and must preserve owner on failure",
+);
+assertNoMatch(
+    dirtySurfacePushRegionChecked,
+    /\b(?:dirty_regions_push_unchecked|dirty_region_merge|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|tile|bitmap|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/dirty_surface F5bt push helper must not use unchecked dirty push, merge, platform, transport, or fallback APIs",
+);
+assertNoMatch(
+    dirtySurfacePushRegionChecked,
+    /[()]/,
+    "alloc/gui/render2d/dirty_surface F5bt push helper must preserve NEPL prefix style without parentheses",
+);
+assertNoMatch(
+    allocRender2dDirtySurfaceImpl,
+    /\bgui_rgba8888_software_surface_dirty_owner_(?:surface|split_surface|surface_mut|mut_surface)\b/,
+    "alloc/gui/render2d/dirty_surface F5bt must not expose raw, mutable, or split surface accessors",
+);
+assert(
+    guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_facade_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_clean_owner_empty_dirty_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_push_rect_checked_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_invalid_unchecked_rect_recovery_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_full_region_escalates_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_finish_surface_teardown_ok") &&
+        guiRender2dDirtySurfaceTests.includes("render2d_dirty_surface_no_split_accessor_no_platform_no_fallback"),
+    "F5bt dirty surface focused doctest must cover facade, clean owner, checked rect push, invalid recovery, Full escalation, finish teardown, and no split/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

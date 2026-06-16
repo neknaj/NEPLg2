@@ -1,0 +1,109 @@
+//: # alloc/gui/render2d/dirty_surface
+//: RGBA8888 software surface dirty owner
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888SoftwareSurfaceOwner` と `DirtyRegionSet` を同じ ownership boundary に[束/たば]ねます。
+//: - font rasterizer、widget renderer、offscreen renderer が、描画済み surface と dirty metadata を[分離/ぶんり]して[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - dirty region の[追加/ついか]は必ず `dirty_regions_push_region_checked` を[経由/けいゆ]します。
+//: - dirty region の[追加/ついか]に[失敗/しっぱい]したときは、元の surface と dirty set を owner-bearing error として[返/かえ]します。
+//: - surface の raw accessor、mutable accessor、split accessor は[公開/こうかい]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - `finish_surface` は recovery や teardown [向/む]けに dirty metadata を[捨/す]てて surface だけを[返/かえ]す API です。
+//: - dirty metadata が[必要/ひつよう]な caller は `finish_surface` の[前/まえ]に `gui_rgba8888_software_surface_dirty_owner_dirty` で[読/よ]みます。
+//: - tile / bitmap transport、host present、platform backend、fallback path はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/dirty_surface" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/dirty_region" as *
+#import "core/gui/dirty_region_set" as *
+#import "core/gui/error" as *
+#import "core/result" as *
+
+pub struct GuiRgba8888SoftwareSurfaceDirtyOwner:
+    surface %GuiRgba8888SoftwareSurfaceOwner
+    dirty %DirtyRegionSet
+
+pub struct GuiRgba8888SoftwareSurfaceDirtyPushError:
+    error %GuiError
+    owner %GuiRgba8888SoftwareSurfaceDirtyOwner
+
+fn gui_rgba8888_software_surface_dirty_push_error %fn GuiError fn GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888SoftwareSurfaceDirtyPushError \error\owner:
+    GuiRgba8888SoftwareSurfaceDirtyPushError error owner
+
+//: gui_rgba8888_software_surface_dirty_owner_from_surface: surface owner に empty dirty set を[付/つ]ける
+pub fn gui_rgba8888_software_surface_dirty_owner_from_surface %fn GuiRgba8888SoftwareSurfaceOwner GuiRgba8888SoftwareSurfaceDirtyOwner \surface:
+    let dirty %DirtyRegionSet dirty_regions_empty
+    GuiRgba8888SoftwareSurfaceDirtyOwner surface dirty
+
+//: gui_rgba8888_software_surface_dirty_owner_width: surface width metadata を[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_owner_width %fn &GuiRgba8888SoftwareSurfaceDirtyOwner i32 \owner:
+    let surface %&GuiRgba8888SoftwareSurfaceOwner field::get_ref owner "surface"
+    gui_rgba8888_software_surface_width surface
+
+//: gui_rgba8888_software_surface_dirty_owner_height: surface height metadata を[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_owner_height %fn &GuiRgba8888SoftwareSurfaceDirtyOwner i32 \owner:
+    let surface %&GuiRgba8888SoftwareSurfaceOwner field::get_ref owner "surface"
+    gui_rgba8888_software_surface_height surface
+
+//: gui_rgba8888_software_surface_dirty_owner_stride_bytes: surface stride metadata を[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_owner_stride_bytes %fn &GuiRgba8888SoftwareSurfaceDirtyOwner i32 \owner:
+    let surface %&GuiRgba8888SoftwareSurfaceOwner field::get_ref owner "surface"
+    gui_rgba8888_software_surface_stride_bytes surface
+
+//: gui_rgba8888_software_surface_dirty_owner_byte_len: surface byte length metadata を[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_owner_byte_len %fn &GuiRgba8888SoftwareSurfaceDirtyOwner i32 \owner:
+    let surface %&GuiRgba8888SoftwareSurfaceOwner field::get_ref owner "surface"
+    gui_rgba8888_software_surface_byte_len surface
+
+//: gui_rgba8888_software_surface_dirty_owner_dirty: dirty metadata を Copy value として[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_owner_dirty %fn &GuiRgba8888SoftwareSurfaceDirtyOwner DirtyRegionSet \owner:
+    *field::get_ref owner "dirty"
+
+//: gui_rgba8888_software_surface_dirty_push_error_error: dirty push [失敗/しっぱい]の GUI error を[読/よ]む
+pub fn gui_rgba8888_software_surface_dirty_push_error_error %fn &GuiRgba8888SoftwareSurfaceDirtyPushError GuiError \error:
+    *field::get_ref error "error"
+
+//: gui_rgba8888_software_surface_dirty_push_error_owner: dirty push [失敗/しっぱい]から owner を[回収/かいしゅう]する
+pub fn gui_rgba8888_software_surface_dirty_push_error_owner %fn GuiRgba8888SoftwareSurfaceDirtyPushError GuiRgba8888SoftwareSurfaceDirtyOwner \error:
+    field::get error "owner"
+
+//: gui_rgba8888_software_surface_dirty_push_error_free: dirty push [失敗/しっぱい] error が[保持/ほじ]する owner を[解放/かいほう]する
+pub fn gui_rgba8888_software_surface_dirty_push_error_free %fn GuiRgba8888SoftwareSurfaceDirtyPushError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_software_surface_dirty_push_error_owner error
+    gui_rgba8888_software_surface_dirty_owner_free owner
+
+//: gui_rgba8888_software_surface_dirty_owner_push_region_checked: checked dirty region を owner に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `DirtyRegion::Rect` は `dirty_regions_push_region_checked` [内/ない]で width / height を[検査/けんさ]します。
+//: - dirty [更新/こうしん]に[失敗/しっぱい]したときは surface を move せず、元 owner を error に[保持/ほじ]します。
+pub fn gui_rgba8888_software_surface_dirty_owner_push_region_checked %fn GuiRgba8888SoftwareSurfaceDirtyOwner fn DirtyRegion Result GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888SoftwareSurfaceDirtyPushError \owner\region:
+    let dirty %DirtyRegionSet gui_rgba8888_software_surface_dirty_owner_dirty &owner
+    match dirty_regions_push_region_checked dirty region:
+        Result::Err error:
+            Result::Err gui_rgba8888_software_surface_dirty_push_error error owner
+        Result::Ok next_dirty:
+            let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+            Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty
+
+//: gui_rgba8888_software_surface_dirty_owner_finish_surface: dirty metadata を[捨/す]てて surface owner を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - dirty metadata が[必要/ひつよう]な caller は、この[関数/かんすう]を[呼/よ]ぶ[前/まえ]に borrowed accessor で[読/よ]みます。
+pub fn gui_rgba8888_software_surface_dirty_owner_finish_surface %fn GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888SoftwareSurfaceOwner \owner:
+    field::get owner "surface"
+
+//: gui_rgba8888_software_surface_dirty_owner_free: dirty owner が[持/も]つ surface storage を[解放/かいほう]する
+pub fn gui_rgba8888_software_surface_dirty_owner_free %fn GuiRgba8888SoftwareSurfaceDirtyOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
+    let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_dirty_owner_finish_surface owner
+    gui_rgba8888_software_surface_free surface
