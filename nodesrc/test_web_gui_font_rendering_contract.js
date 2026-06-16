@@ -62,6 +62,7 @@ const spec = read("doc/neplg2/gui_font_rendering_spec.md");
 const detailedDesign = read("doc/neplg2/gui_font_rendering_detailed_design.md");
 const implementationPlan = read("doc/neplg2/gui_font_rendering_implementation_plan.md");
 const redesignPlan = read("doc/neplg2/gui_redesign_implementation_plan.md");
+const guiStandardLibrarySpec = read("doc/neplg2/gui_standard_library_spec.md");
 
 const coreFont = read("stdlib/core/gui/font.nepl");
 const coreFontImpl = withoutComments(coreFont);
@@ -69,6 +70,8 @@ const renderStyle = read("stdlib/core/gui/render_style.nepl");
 const renderStyleImpl = withoutComments(renderStyle);
 const renderCommandCore = read("stdlib/core/gui/render_command.nepl");
 const renderCommandCoreImpl = withoutComments(renderCommandCore);
+const coreGuiDirtyRegionSet = read("stdlib/core/gui/dirty_region_set.nepl");
+const coreGuiDirtyRegionSetImpl = withoutComments(coreGuiDirtyRegionSet);
 const fontResource = read("stdlib/std/gui/font_resource.nepl");
 const fontResourceImpl = withoutComments(fontResource);
 const allocGuiFacade = read("stdlib/alloc/gui.nepl");
@@ -95,6 +98,7 @@ const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
+const guiDirtyRegionSetTests = read("tests/stdlib/gui_dirty_region_set.n.md");
 const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
@@ -17238,6 +17242,61 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_old_fillrect_bridge_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_target_platform_fallback"),
     "F5bq/F5br render fill alpha mask software drain focused doctest must cover completed pair, dirty metadata, checked dirty construction, budget, alpha borrow, SourceOver, write recovery, post-write advance, and no old bridge/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("DirtyRegionSet") &&
+            doc.includes("dirty_regions_push_region_checked") &&
+            doc.includes("fixed-capacity") &&
+            doc.includes("no_alloc") &&
+            doc.includes("fallback"),
+        `F5bs ${name} must document pre-transport DirtyRegionSet aggregation and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5bs") &&
+        implementationPlan.includes("Planck plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Tesla plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("dirty_region_merge") &&
+        implementationPlan.includes("surface+dirty owner"),
+    "F5bs implementation plan must retain subagent approval, no dirty_region_merge policy, and deferred surface+dirty owner scope",
+);
+const dirtyRegionsPushRegionChecked = functionSlice(coreGuiDirtyRegionSetImpl, "dirty_regions_push_region_checked");
+assertOrderedFragments(
+    dirtyRegionsPushRegionChecked,
+    [
+        "match region:",
+        "DirtyRegion::Empty:",
+        "Result::Ok regions",
+        "DirtyRegion::Full:",
+        "Result::Ok dirty_regions_full",
+        "DirtyRegion::Rect rect:",
+        "dirty_regions_push_checked regions rect",
+    ],
+    "core/gui/dirty_region_set F5bs push-region helper must explicitly handle Empty, Full, and Rect through checked push",
+);
+assertNoMatch(
+    dirtyRegionsPushRegionChecked,
+    /\b(?:dirty_regions_push_unchecked|dirty_region_merge|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|tile|bitmap|transport|fallback|silent no-op)\b/,
+    "core/gui/dirty_region_set F5bs push-region helper must stay no_alloc and must not use unchecked push, bounding merge, platform, transport, or fallback APIs",
+);
+assertNoMatch(
+    dirtyRegionsPushRegionChecked,
+    /[()]/,
+    "core/gui/dirty_region_set F5bs push-region helper must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiDirtyRegionSetTests.includes("dirty_region_set_push_region_empty_explicit_no_dirty_ok") &&
+        guiDirtyRegionSetTests.includes("dirty_region_set_push_region_rect_checked_ok") &&
+        guiDirtyRegionSetTests.includes("dirty_region_set_push_region_full_escalates_ok") &&
+        guiDirtyRegionSetTests.includes("dirty_region_set_push_region_invalid_unchecked_rect_rejected_ok") &&
+        guiDirtyRegionSetTests.includes("dirty_region_set_push_region_no_alloc_no_platform_no_fallback_ok"),
+    "F5bs dirty region set focused doctest must cover empty, rect, full, invalid unchecked rect rejection, and no alloc/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

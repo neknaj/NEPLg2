@@ -7176,6 +7176,35 @@ This order avoids losing the prepared/surface owners on dirty construction failu
 
 F5br must not call Web/native host APIs, video-memory publish helpers, tile or bitmap transport helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, the old per-sample FillRect bridge, raw `RenderCommand` accessors, fallback paths, or unchecked dirty-region fallback helpers.
 
+## SourceOver dirty region set aggregation boundary
+
+F5bs chooses the first aggregation shape after F5br without committing to formal transport. The completed glyph drain still exposes one `DirtyRegion`; the pre-transport collector can now fold that value into a no_alloc fixed-capacity `DirtyRegionSet` by calling `dirty_regions_push_region_checked`.
+
+The helper has one responsibility:
+
+```text
+DirtyRegion + DirtyRegionSet -> Result DirtyRegionSet GuiError
+```
+
+The variant policy is explicit.
+
+```text
+Empty
+    return the existing set unchanged
+
+Full
+    return dirty_regions_full
+
+Rect rect
+    pass rect through dirty_regions_push_checked
+```
+
+This is not a fallback path. `Empty` is a valid source state meaning no pixels changed, and `Full` is a valid source state meaning all pixels are dirty. `Rect` still goes through checked insertion so a rect built by `dirty_region_rect_unchecked` is rejected if width or height is negative.
+
+The helper deliberately does not use `dirty_region_merge`. A bounding `DirtyRegion` would discard the fixed-capacity two-rect policy too early. It also does not allocate a `Vec`, create a generic render2d `surface+dirty owner`, construct tile lists, publish bitmap payloads, or call a host present API. Those choices belong to later transport and scheduler slices.
+
+F5bs source policy checks the new helper, its checked insertion path, the absence of unchecked push and `dirty_region_merge`, and the absence of allocator / platform / present / tile / bitmap / transport / fallback APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
