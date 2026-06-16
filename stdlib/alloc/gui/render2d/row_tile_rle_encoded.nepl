@@ -22,6 +22,7 @@
 #indent 4
 
 #import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
 #import "alloc/gui/render2d/row_tile_rle" as *
 #import "alloc/gui/render2d/row_tile_rle_storage" as *
 #import "core/field" as field
@@ -195,6 +196,14 @@ pub fn gui_rgba8888_row_tile_rle_encoded_cursor_next_pixel_index %fn &GuiRgba888
 pub fn gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count %fn &GuiRgba8888RowTileRleEncodedOwner i32 \owner:
     let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
     gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked %fn &GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePayloadAuthorityErrorKind \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_payload_descriptor_checked cursor
+
+pub fn gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked %fn &GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTilePlan GuiRgba8888RowTilePayloadAuthorityErrorKind \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_payload_plan_metadata_checked cursor
 
 pub fn gui_rgba8888_row_tile_rle_encoded_seal_error_kind %fn &GuiRgba8888RowTileRleEncodedSealError GuiRgba8888RowTileRleEncodedSealErrorKind \error:
     *field::get_ref error "kind"

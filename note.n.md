@@ -1,3 +1,42 @@
+# 2026-06-17 Agent2 GUI font F5cm render2d row tile RLE packet owner
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-packet-f5cm-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cm の packet owner、metadata authority helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。条件付きで、payload descriptor を plan から再計算して authority を検証すること、validation order を source policy で固定すること、descriptor arithmetic を checked にすることが求められた。
+- required: packet owner は alloc-layer descriptor sealing に留め、byte reader、raw storage、host present、video memory、platform API、fallback に進まない。
+- required: prepare failure は original sealed encoded owner を owner-bearing error に保持し、validation success 後だけ packet owner に move する。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` に `GuiRgba8888RowTilePayloadAuthorityErrorKind` と descriptor authority validation helper を追加した。
+- `row_tile_rle.nepl` と `row_tile_rle_encoded.nepl` に checked descriptor / plan metadata helper を追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` を追加し、`GuiRgba8888RowTileRlePacketDescriptor`、`GuiRgba8888RowTileRlePacketOwner`、owner-bearing prepare error を追加した。
+- `gui_rgba8888_row_tile_rle_packet_prepare` は encoded count、cursor completion、payload descriptor authority、descriptor byte count、plan shape、tile metadata を検査し、成功時だけ sealed owner を packet owner に移す。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet.n.md` は import smoke と source policy labels にした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cm contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_module_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_payload.nepl --no-tree -o tmp_gui_render2d_row_tile_payload_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_module_f5cm.json -j 1`
+- pass: `git diff --check` CRLF warning のみ。
+
+## residual
+
+- F5cm は alloc-layer packet descriptor owner までであり、formal std/gui host present ABI、Web/native/headless presenter、FHD 60fps scheduler policy、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cl render2d row tile RLE sealed encoded owner
 
 ## scope

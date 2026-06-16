@@ -1,0 +1,390 @@
+//: # alloc/gui/render2d/row_tile_rle_packet
+//: RGBA8888 row tile RLE packet owner boundary
+//:
+//: ### [目的/もくてき]
+//: - sealed encoded RLE owner を、formal tile / bitmap transport が[後続/こうぞく]で[消費/しょうひ]できる packet owner に[変換/へんかん]します。
+//: - packet descriptor は frame / tile geometry と encoded RLE count metadata だけを[持/も]ち、encoded byte reader や host present は[提供/ていきょう]しません。
+//:
+//: ### [契約/けいやく]
+//: - encoded count、cursor completion、payload descriptor authority、pixel byte count、plan shape、tile count を checked arithmetic で[再検証/さいけんしょう]します。
+//: - [失敗/しっぱい]時は original sealed encoded owner を owner-bearing error に[保持/ほじ]します。
+//: - [成功/せいこう]時だけ sealed owner を packet owner に[移/うつ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は transport-ready metadata owner までで止まります。byte reader、raw storage、host present、video memory、Canvas / DOM / minifb、fallback は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_packet" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_plan" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle_encoded" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRlePacketPrepareErrorKind:
+    EncodedByteCountInvalid
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    CursorPixelCountInvalid
+    CursorNextPixelIndexMismatch
+    PayloadDescriptorInvalid %GuiRgba8888RowTilePayloadAuthorityErrorKind
+    DescriptorRowStartInvalid
+    DescriptorRowCountInvalid
+    DescriptorByteCountInvalid
+    PixelByteCountOverflow
+    PixelByteCountMismatch
+    PlanWidthInvalid
+    PlanHeightInvalid
+    StrideOverflow
+    StrideMismatch
+    TileByteCountOverflow
+    TileByteCountMismatch
+    RowExtentOverflow
+    RowExtentOutOfBounds
+    TileIndexNegative
+    TileIndexOutOfBounds
+    PlanRowCountInvalid
+    TileRowsInvalid
+    TileCountOverflow
+    TileCountMismatch
+
+impl Clone for GuiRgba8888RowTileRlePacketPrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePacketPrepareErrorKind GuiRgba8888RowTileRlePacketPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePacketPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePacketPrepareErrorKind GuiRgba8888RowTileRlePacketPrepareErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePacketDescriptor:
+    frame_id %i32
+    batch_index %i32
+    tile_index %i32
+    row_start %i32
+    row_count %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    tile_rows %i32
+    tile_count %i32
+    pixel_count %i32
+    total_run_count %i32
+    encoded_byte_count %i32
+
+impl Clone for GuiRgba8888RowTileRlePacketDescriptor:
+    fn clone %fn &GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiRgba8888RowTileRlePacketDescriptor:
+    fn copy_mark %fn GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketDescriptor \descriptor:
+        descriptor
+
+pub struct GuiRgba8888RowTileRlePacketOwner:
+    encoded %GuiRgba8888RowTileRleEncodedOwner
+    descriptor %GuiRgba8888RowTileRlePacketDescriptor
+
+pub struct GuiRgba8888RowTileRlePacketPrepareError:
+    kind %GuiRgba8888RowTileRlePacketPrepareErrorKind
+    category %Option GuiError
+    encoded %GuiRgba8888RowTileRleEncodedOwner
+
+fn gui_rgba8888_row_tile_rle_packet_descriptor_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowTileRlePacketDescriptor \frame_id\batch_index\tile_index\row_start\row_count\width\height\stride_bytes\tile_rows\tile_count\pixel_count\total_run_count\encoded_byte_count:
+    GuiRgba8888RowTileRlePacketDescriptor frame_id batch_index tile_index row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+
+fn gui_rgba8888_row_tile_rle_packet_owner_new %fn GuiRgba8888RowTileRleEncodedOwner fn GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketOwner \encoded\descriptor:
+    GuiRgba8888RowTileRlePacketOwner encoded descriptor
+
+fn gui_rgba8888_row_tile_rle_packet_prepare_error_category %fn GuiRgba8888RowTileRlePacketPrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::EncodedByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::PixelByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::StrideOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::TileByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::RowExtentOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePacketPrepareErrorKind::TileCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_packet_prepare_error %fn GuiRgba8888RowTileRlePacketPrepareErrorKind fn GuiRgba8888RowTileRleEncodedOwner GuiRgba8888RowTileRlePacketPrepareError \kind\encoded:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_packet_prepare_error_category kind
+    GuiRgba8888RowTileRlePacketPrepareError kind category encoded
+
+fn gui_rgba8888_row_tile_rle_packet_checked_mul %fn i32 fn i32 fn GuiRgba8888RowTileRlePacketPrepareErrorKind Result i32 GuiRgba8888RowTileRlePacketPrepareErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_packet_checked_add %fn i32 fn i32 fn GuiRgba8888RowTileRlePacketPrepareErrorKind Result i32 GuiRgba8888RowTileRlePacketPrepareErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_packet_tile_count_checked %fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePacketPrepareErrorKind \row_count\tile_rows:
+    if le row_count 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PlanRowCountInvalid
+        else:
+            if le tile_rows 0:
+                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileRowsInvalid
+                else:
+                    let quotient %i32 div_s row_count tile_rows
+                    let remainder %i32 rem_s row_count tile_rows
+                    let tile_count %i32 if eq remainder 0 quotient add quotient 1
+                    if le tile_count 0:
+                        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileCountOverflow
+                        else Result::Ok tile_count
+
+fn gui_rgba8888_row_tile_rle_packet_validate_encoded_counts %fn &GuiRgba8888RowTileRleEncodedOwner Result unit GuiRgba8888RowTileRlePacketPrepareErrorKind \encoded:
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_encoded_byte_count encoded
+    if le encoded_byte_count 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::EncodedByteCountInvalid
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_encoded_total_run_count encoded
+            if le total_run_count 0:
+                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TotalRunCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_packet_checked_mul total_run_count 12 GuiRgba8888RowTileRlePacketPrepareErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::EncodedByteCountMismatch
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_validate_cursor_completion %fn &GuiRgba8888RowTileRleEncodedOwner Result unit GuiRgba8888RowTileRlePacketPrepareErrorKind \encoded:
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded
+    if le pixel_count 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::CursorPixelCountInvalid
+        else:
+            let next_pixel_index %i32 gui_rgba8888_row_tile_rle_encoded_cursor_next_pixel_index encoded
+            if ne next_pixel_index pixel_count:
+                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::CursorNextPixelIndexMismatch
+                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_validate_descriptor_byte_count %fn &GuiRgba8888RowTileRleEncodedOwner fn &GuiRgba8888RowTileDescriptor Result unit GuiRgba8888RowTileRlePacketPrepareErrorKind \encoded\descriptor:
+    let row_count %i32 gui_rgba8888_row_tile_descriptor_row_count descriptor
+    if le row_count 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorRowCountInvalid
+        else:
+            let byte_count %i32 gui_rgba8888_row_tile_descriptor_byte_count descriptor
+            if le byte_count 0:
+                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorByteCountInvalid
+                else:
+                    let pixel_count %i32 gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded
+                    match gui_rgba8888_row_tile_rle_packet_checked_mul pixel_count 4 GuiRgba8888RowTileRlePacketPrepareErrorKind::PixelByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count byte_count:
+                                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PixelByteCountMismatch
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_validate_plan_shape %fn &GuiRgba8888RowTilePlan fn &GuiRgba8888RowTileDescriptor Result unit GuiRgba8888RowTileRlePacketPrepareErrorKind \plan\descriptor:
+    let width %i32 gui_rgba8888_row_tile_plan_width plan
+    if le width 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PlanWidthInvalid
+        else:
+            let height %i32 gui_rgba8888_row_tile_plan_height plan
+            if le height 0:
+                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PlanHeightInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_packet_checked_mul width 4 GuiRgba8888RowTileRlePacketPrepareErrorKind::StrideOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_stride:
+                            let stride_bytes %i32 gui_rgba8888_row_tile_plan_stride_bytes plan
+                            if ne expected_stride stride_bytes:
+                                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::StrideMismatch
+                                else:
+                                    let row_count %i32 gui_rgba8888_row_tile_descriptor_row_count descriptor
+                                    let descriptor_byte_count %i32 gui_rgba8888_row_tile_descriptor_byte_count descriptor
+                                    match gui_rgba8888_row_tile_rle_packet_checked_mul row_count stride_bytes GuiRgba8888RowTileRlePacketPrepareErrorKind::TileByteCountOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_tile_byte_count:
+                                            if ne expected_tile_byte_count descriptor_byte_count:
+                                                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileByteCountMismatch
+                                                else:
+                                                    let row_start %i32 gui_rgba8888_row_tile_descriptor_row_start descriptor
+                                                    if lt row_start 0:
+                                                        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::DescriptorRowStartInvalid
+                                                        else:
+                                                            match gui_rgba8888_row_tile_rle_packet_checked_add row_start row_count GuiRgba8888RowTileRlePacketPrepareErrorKind::RowExtentOverflow:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok row_bottom:
+                                                                    if gt row_bottom height:
+                                                                        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::RowExtentOutOfBounds
+                                                                        else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_validate_tile_metadata %fn &GuiRgba8888RowTilePlan fn &GuiRgba8888RowTileDescriptor Result unit GuiRgba8888RowTileRlePacketPrepareErrorKind \plan\descriptor:
+    let tile_index %i32 gui_rgba8888_row_tile_descriptor_tile_index descriptor
+    if lt tile_index 0:
+        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileIndexNegative
+        else:
+            let plan_row_count %i32 gui_rgba8888_row_tile_plan_row_count plan
+            let tile_rows %i32 gui_rgba8888_row_tile_plan_tile_rows plan
+            match gui_rgba8888_row_tile_rle_packet_tile_count_checked plan_row_count tile_rows:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok expected_tile_count:
+                    let actual_tile_count %i32 gui_rgba8888_row_tile_plan_tile_count plan
+                    if ne expected_tile_count actual_tile_count:
+                        then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileCountMismatch
+                        else:
+                            if ge tile_index actual_tile_count:
+                                then Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::TileIndexOutOfBounds
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_packet_descriptor_from_metadata %fn &GuiRgba8888RowTileRleEncodedOwner fn &GuiRgba8888RowTilePlan fn &GuiRgba8888RowTileDescriptor GuiRgba8888RowTileRlePacketDescriptor \encoded\plan\tile_descriptor:
+    let frame_id %i32 gui_rgba8888_row_tile_plan_frame_id plan
+    let batch_index %i32 gui_rgba8888_row_tile_plan_batch_index plan
+    let tile_index %i32 gui_rgba8888_row_tile_descriptor_tile_index tile_descriptor
+    let row_start %i32 gui_rgba8888_row_tile_descriptor_row_start tile_descriptor
+    let row_count %i32 gui_rgba8888_row_tile_descriptor_row_count tile_descriptor
+    let width %i32 gui_rgba8888_row_tile_plan_width plan
+    let height %i32 gui_rgba8888_row_tile_plan_height plan
+    let stride_bytes %i32 gui_rgba8888_row_tile_plan_stride_bytes plan
+    let tile_rows %i32 gui_rgba8888_row_tile_plan_tile_rows plan
+    let tile_count %i32 gui_rgba8888_row_tile_plan_tile_count plan
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_encoded_total_run_count encoded
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_encoded_byte_count encoded
+    gui_rgba8888_row_tile_rle_packet_descriptor_new frame_id batch_index tile_index row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+
+fn gui_rgba8888_row_tile_rle_packet_validate %fn &GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTileRlePacketDescriptor GuiRgba8888RowTileRlePacketPrepareErrorKind \encoded:
+    match gui_rgba8888_row_tile_rle_packet_validate_encoded_counts encoded:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_row_tile_rle_packet_validate_cursor_completion encoded:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked encoded:
+                        Result::Err payload_kind:
+                            Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PayloadDescriptorInvalid payload_kind
+                        Result::Ok tile_descriptor:
+                            match gui_rgba8888_row_tile_rle_packet_validate_descriptor_byte_count encoded &tile_descriptor:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok _:
+                                    match gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked encoded:
+                                        Result::Err payload_kind:
+                                            Result::Err GuiRgba8888RowTileRlePacketPrepareErrorKind::PayloadDescriptorInvalid payload_kind
+                                        Result::Ok plan:
+                                            match gui_rgba8888_row_tile_rle_packet_validate_plan_shape &plan &tile_descriptor:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok _:
+                                                    match gui_rgba8888_row_tile_rle_packet_validate_tile_metadata &plan &tile_descriptor:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok _:
+                                                            Result::Ok gui_rgba8888_row_tile_rle_packet_descriptor_from_metadata encoded &plan &tile_descriptor
+
+//: gui_rgba8888_row_tile_rle_packet_prepare: sealed encoded owner を transport-ready packet owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - すべての metadata 検査が[成功/せいこう]したあとでだけ owner を packet owner に[移/うつ]します。
+//: - [失敗/しっぱい]時は original sealed owner を error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_packet_prepare %fn GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTileRlePacketOwner GuiRgba8888RowTileRlePacketPrepareError \encoded:
+    match gui_rgba8888_row_tile_rle_packet_validate &encoded:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_packet_prepare_error kind encoded
+        Result::Ok descriptor:
+            Result::Ok gui_rgba8888_row_tile_rle_packet_owner_new encoded descriptor
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor %fn &GuiRgba8888RowTileRlePacketOwner GuiRgba8888RowTileRlePacketDescriptor \owner:
+    *field::get_ref owner "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_frame_id %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "frame_id"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_batch_index %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "batch_index"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_tile_index %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "tile_index"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_row_start %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_start"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_row_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_count"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_width %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "width"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_height %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "height"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "stride_bytes"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "tile_rows"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_tile_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "tile_count"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count %fn &GuiRgba8888RowTileRlePacketDescriptor i32 \descriptor:
+    *field::get_ref descriptor "encoded_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_packet_prepare_error_kind %fn &GuiRgba8888RowTileRlePacketPrepareError GuiRgba8888RowTileRlePacketPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_packet_prepare_error_category_value %fn &GuiRgba8888RowTileRlePacketPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded %fn GuiRgba8888RowTileRlePacketPrepareError GuiRgba8888RowTileRleEncodedOwner \error:
+    field::get error "encoded"
+
+pub fn gui_rgba8888_row_tile_rle_packet_finish_encoded %fn GuiRgba8888RowTileRlePacketOwner GuiRgba8888RowTileRleEncodedOwner \owner:
+    field::get owner "encoded"
+
+pub fn gui_rgba8888_row_tile_rle_packet_prepare_error_free %fn GuiRgba8888RowTileRlePacketPrepareError Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    let encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded error
+    gui_rgba8888_row_tile_rle_encoded_owner_free encoded
+
+pub fn gui_rgba8888_row_tile_rle_packet_owner_free %fn GuiRgba8888RowTileRlePacketOwner Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \owner:
+    let encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_finish_encoded owner
+    gui_rgba8888_row_tile_rle_encoded_owner_free encoded
