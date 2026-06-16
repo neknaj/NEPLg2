@@ -106,6 +106,8 @@ const allocRender2dRowTilePayload = read("stdlib/alloc/gui/render2d/row_tile_pay
 const allocRender2dRowTilePayloadImpl = withoutComments(allocRender2dRowTilePayload);
 const allocRender2dRowTileRle = read("stdlib/alloc/gui/render2d/row_tile_rle.nepl");
 const allocRender2dRowTileRleImpl = withoutComments(allocRender2dRowTileRle);
+const allocRender2dRowTileRleDrain = read("stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl");
+const allocRender2dRowTileRleDrainImpl = withoutComments(allocRender2dRowTileRleDrain);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -140,6 +142,7 @@ const guiRender2dRowByteStorageTests = read("tests/stdlib/gui_render2d_row_byte_
 const guiRender2dRowTilePlanTests = read("tests/stdlib/gui_render2d_row_tile_plan.n.md");
 const guiRender2dRowTilePayloadTests = read("tests/stdlib/gui_render2d_row_tile_payload.n.md");
 const guiRender2dRowTileRleTests = read("tests/stdlib/gui_render2d_row_tile_rle.n.md");
+const guiRender2dRowTileRleDrainTests = read("tests/stdlib/gui_render2d_row_tile_rle_drain.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18652,6 +18655,91 @@ assert(
         guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_no_encoded_buffer_no_vec") &&
         guiRender2dRowTileRleTests.includes("render2d_row_tile_rle_no_platform_no_fallback"),
     "F5cc row tile RLE focused doctest must cover facade, streaming cursor, run sequence, complete recovery, checked channel offsets, wrapped payload read errors, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row tile RLE drain") &&
+            doc.includes("GuiRgba8888RowTileRleDrainTerminal") &&
+            doc.includes("StepBudgetExhausted") &&
+            doc.includes("emitted_run_count"),
+        `F5cd ${name} must document row tile RLE drain terminal, bounded exhaustion, and run count`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_drain" as *'), "alloc/gui/render2d facade must export F5cd row tile RLE drain");
+assert(
+    allocRender2dRowTileRleDrain.includes("pub enum GuiRgba8888RowTileRleDrainErrorKind:") &&
+        allocRender2dRowTileRleDrain.includes("CursorStepFailed %GuiRgba8888RowTileRleStepErrorKind") &&
+        allocRender2dRowTileRleDrain.includes("InvalidBudget") &&
+        allocRender2dRowTileRleDrain.includes("ProgressInvariantInvalid") &&
+        allocRender2dRowTileRleDrain.includes("EmittedCountOverflow") &&
+        allocRender2dRowTileRleDrain.includes("pub enum GuiRgba8888RowTileRleDrainStatus:") &&
+        allocRender2dRowTileRleDrain.includes("Completed") &&
+        allocRender2dRowTileRleDrain.includes("StepBudgetExhausted") &&
+        allocRender2dRowTileRleDrain.includes("pub struct GuiRgba8888RowTileRleDrainTerminal:") &&
+        allocRender2dRowTileRleDrain.includes("cursor %GuiRgba8888RowTileRleCursorOwner") &&
+        allocRender2dRowTileRleDrain.includes("emitted_run_count %i32") &&
+        allocRender2dRowTileRleDrain.includes("pub struct GuiRgba8888RowTileRleDrainError:"),
+    "alloc/gui/render2d/row_tile_rle_drain F5cd must define typed drain status, owner-bearing terminal/error, and lower step error wrapping",
+);
+assertNoMatch(
+    allocRender2dRowTileRleDrainImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleDrainTerminal\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleDrainError\b/,
+    "alloc/gui/render2d/row_tile_rle_drain F5cd terminal and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleDrainImpl,
+    /\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_drain F5cd must remain scheduler/progress-only without raw storage, allocation, host/platform, or fallback",
+);
+const rowTileRleDrainBudget = functionSlice(allocRender2dRowTileRleDrainImpl, "gui_rgba8888_row_tile_rle_drain_budget");
+assertOrderedFragments(
+    rowTileRleDrainBudget,
+    [
+        "match gui_rgba8888_row_tile_rle_cursor_status &current_cursor:",
+        "GuiRgba8888RowTileRleCursorStatus::Complete:",
+        "if lt current_remaining_steps 0:",
+        "if eq current_remaining_steps 0:",
+        "match gui_rgba8888_row_tile_rle_cursor_next_run current_cursor:",
+    ],
+    "alloc/gui/render2d/row_tile_rle_drain F5cd must check status before budget and only step after positive budget",
+);
+assertOrderedFragments(
+    rowTileRleDrainBudget,
+    [
+        "let previous_next_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index &current_cursor",
+        "let previous_pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count &current_cursor",
+        "let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_step_run &step",
+        "let next_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_finish_cursor step",
+        "let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run",
+        "let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run",
+        "if ne run_pixel_offset previous_next_pixel_index:",
+        "if le run_pixel_count 0:",
+        "gui_rgba8888_row_tile_rle_drain_checked_add_nonnegative_delta previous_next_pixel_index run_pixel_count GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid",
+        "let actual_next_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index &next_cursor",
+        "if or ne actual_next_pixel_index expected_next_pixel_index gt actual_next_pixel_index previous_pixel_count:",
+    ],
+    "alloc/gui/render2d/row_tile_rle_drain F5cd must validate discarded run metadata and continuation cursor progress",
+);
+assertNoMatch(
+    allocRender2dRowTileRleDrainImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_drain F5cd implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_facade_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_complete_before_budget_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_negative_budget_error_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_zero_budget_exhausted_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_partial_budget_progress_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_completion_count_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_run_progress_invariant_checked_ok") &&
+        guiRender2dRowTileRleDrainTests.includes("render2d_row_tile_rle_drain_no_encoded_buffer_no_platform_no_fallback"),
+    "F5cd row tile RLE drain focused doctest must cover facade, complete-before-budget, budget errors/exhaustion, bounded progress, completion count, run progress invariant, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
