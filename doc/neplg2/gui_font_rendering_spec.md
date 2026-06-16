@@ -6556,7 +6556,23 @@ GuiRgba8888RowBatchCursorBatchOwner
 
 F5by は descriptor を単独の authority として信頼しない。`gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` が batch owner 内の continuation cursor と embedded plan を借用し、plan invariant を再検査してから正規 descriptor を再計算する。descriptor が embedded plan 由来の正規値と一致しない場合は `GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid` に lower `GuiRgba8888RowBatchCursorErrorKind` を保持し、元の batch owner を error から回収できる。
 
+後続の byte storage boundary は range owner を再検証する必要があるため、`gui_rgba8888_row_batch_range_owner_validate_authority` は owner を消費せずに descriptor authority と stored range metadata を再計算して照合する。stored range が正規 range と一致しない場合は `RangeMetadataMismatch` を返す。
+
 continuation cursor の検査も range prepare の責務である。descriptor の batch_index に checked `+ 1` を行い、embedded continuation cursor の index と一致することを確認する。index mismatch は `ContinuationIndexMismatch`、cursor status 自体が invalid な場合は `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` として lower error を保持する。`gui_rgba8888_row_batch_range_prepare` は検査中に `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼ばず、success owner の `finish_cursor` / `free` だけが batch owner を消費する。
+
+### Render2d row byte storage boundary
+
+F5bz は F5by の `GuiRgba8888RowBatchRangeOwner` を、formal tile / RLE / host present の前段で使う row byte storage owner へ変換する phase である。これは copied row bytes を作る境界であり、no tile / RLE / host present のまま止める。Canvas / DOM / minifb、video memory host call、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowBatchRangeOwner
+    -> gui_rgba8888_row_byte_storage_prepare
+    -> Result GuiRgba8888RowByteStorageOwner GuiRgba8888RowByteStoragePrepareError
+```
+
+`GuiRgba8888RowByteStorageOwner` は continuation cursor、Copy metadata の `GuiRgba8888RowBatchRange`、exact `byte_count` で確保した copied byte storage を所有する。source surface storage は private sealed copy helper だけが借用し、public API は source `RegionToken` や `MemPtr` を返さない。prepare は最初に `gui_rgba8888_row_batch_range_owner_validate_authority` を呼び、range owner の descriptor authority、stored range metadata、continuation cursor status を再検証する。再検証が失敗した場合は `RangeAuthorityInvalid %GuiRgba8888RowBatchRangePrepareErrorKind` を返し、元の range owner を owner-bearing error に保持する。
+
+copy は `start_byte_offset + index` と destination index を checked arithmetic で検査し、source projection、source load、destination projection、destination store の失敗を `GuiRgba8888RowByteStorageCopyErrorKind` へ分ける。copy が完全に成功するまでは `gui_rgba8888_row_batch_range_owner_finish_cursor` を呼ばない。copy 失敗後は scratch storage を dealloc し、dealloc 自体が失敗した場合は `ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind` として original copy failure と区別する。
 
 ### Supported font containers
 

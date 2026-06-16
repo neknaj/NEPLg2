@@ -90,6 +90,8 @@ const allocRender2dRowBatchDrain = read("stdlib/alloc/gui/render2d/row_batch_dra
 const allocRender2dRowBatchDrainImpl = withoutComments(allocRender2dRowBatchDrain);
 const allocRender2dRowBatchRange = read("stdlib/alloc/gui/render2d/row_batch_range.nepl");
 const allocRender2dRowBatchRangeImpl = withoutComments(allocRender2dRowBatchRange);
+const allocRender2dRowByteStorage = read("stdlib/alloc/gui/render2d/row_byte_storage.nepl");
+const allocRender2dRowByteStorageImpl = withoutComments(allocRender2dRowByteStorage);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -120,6 +122,7 @@ const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_p
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
 const guiRender2dRowBatchRangeTests = read("tests/stdlib/gui_render2d_row_batch_range.n.md");
+const guiRender2dRowByteStorageTests = read("tests/stdlib/gui_render2d_row_byte_storage.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18018,9 +18021,10 @@ for (const [name, doc] of [
             doc.includes("GuiRgba8888RowBatchRangeOwner") &&
             doc.includes("BatchAuthorityInvalid") &&
             doc.includes("ContinuationCursorInvalid") &&
+            doc.includes("RangeMetadataMismatch") &&
             doc.includes("start_byte_offset") &&
             doc.includes("byte_count"),
-        `F5by ${name} must document row batch range owner, authority validation, continuation validation, and offset metadata`,
+        `F5by ${name} must document row batch range owner, authority validation, continuation validation, range metadata mismatch, and offset metadata`,
     );
 }
 assert(allocRender2dFacade.includes('pub #import "./render2d/row_batch_range" as *'), "alloc/gui/render2d facade must export F5by row batch range");
@@ -18028,6 +18032,7 @@ assert(
     allocRender2dRowBatchRange.includes("pub enum GuiRgba8888RowBatchRangePrepareErrorKind:") &&
         allocRender2dRowBatchRange.includes("BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind") &&
         allocRender2dRowBatchRange.includes("ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dRowBatchRange.includes("RangeMetadataMismatch") &&
         allocRender2dRowBatchRange.includes("pub struct GuiRgba8888RowBatchRange:") &&
         allocRender2dRowBatchRange.includes("start_byte_offset %i32") &&
         allocRender2dRowBatchRange.includes("byte_count %i32") &&
@@ -18095,6 +18100,27 @@ assertOrderedFragments(
     ],
     "alloc/gui/render2d/row_batch_range F5by continuation validation must preserve index mismatch and lower cursor status errors separately",
 );
+const rowBatchRangeOwnerValidateAuthority = functionSlice(allocRender2dRowBatchRangeImpl, "gui_rgba8888_row_batch_range_owner_validate_authority");
+assertOrderedFragments(
+    rowBatchRangeOwnerValidateAuthority,
+    [
+        'let batch %&GuiRgba8888RowBatchCursorBatchOwner field::get_ref owner "batch"',
+        "match gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority batch:",
+        "BatchAuthorityInvalid cursor_kind",
+        "let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor batch",
+        "match gui_rgba8888_row_batch_range_validate_descriptor &descriptor:",
+        "let stored_range %GuiRgba8888RowBatchRange gui_rgba8888_row_batch_range_owner_range owner",
+        "if not gui_rgba8888_row_batch_range_equal &stored_range &expected_range:",
+        "RangeMetadataMismatch",
+        "gui_rgba8888_row_batch_range_validate_continuation batch &descriptor",
+    ],
+    "alloc/gui/render2d/row_batch_range F5bz prerequisite must revalidate owner metadata without consuming the owner",
+);
+assertNoMatch(
+    rowBatchRangeOwnerValidateAuthority,
+    /\bgui_rgba8888_row_batch_range_owner_finish_cursor\b|\bgui_rgba8888_row_batch_cursor_batch_finish_cursor\b/,
+    "alloc/gui/render2d/row_batch_range owner authority helper must not consume range or batch owner",
+);
 assertNoMatch(
     allocRender2dRowBatchRangeImpl,
     /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|row_payload|payload|row_copy|byte_copy|tile|transport|fallback|silent no-op|finish_surface|RLE|rle)\b/,
@@ -18112,8 +18138,112 @@ assert(
         guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_descriptor_authority_error_ok") &&
         guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_plan_authority_error_ok") &&
         guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_continuation_status_error_ok") &&
+        guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_metadata_mismatch_error_ok") &&
         guiRender2dRowBatchRangeTests.includes("render2d_row_batch_range_no_platform_no_fallback"),
     "F5by row batch range focused doctest must cover facade, offsets, descriptor authority, plan authority, continuation status, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row byte storage") &&
+            doc.includes("GuiRgba8888RowByteStorageOwner") &&
+            doc.includes("exact `byte_count`") &&
+            doc.includes("ScratchDeallocFailed") &&
+            doc.includes("no tile / RLE / host present"),
+        `F5bz ${name} must document row byte storage owner, exact allocation, scratch cleanup, and no tile/RLE/host fallback`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_byte_storage" as *'), "alloc/gui/render2d facade must export F5bz row byte storage");
+assert(
+    allocRender2dRowByteStorage.includes("pub enum GuiRgba8888RowByteStorageCopyErrorKind:") &&
+        allocRender2dRowByteStorage.includes("SourceOffsetOverflow") &&
+        allocRender2dRowByteStorage.includes("DestinationIndexInvalid") &&
+        allocRender2dRowByteStorage.includes("pub enum GuiRgba8888RowByteStoragePrepareErrorKind:") &&
+        allocRender2dRowByteStorage.includes("RangeAuthorityInvalid %GuiRgba8888RowBatchRangePrepareErrorKind") &&
+        allocRender2dRowByteStorage.includes("ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind") &&
+        allocRender2dRowByteStorage.includes("pub struct GuiRgba8888RowByteStorageOwner:") &&
+        allocRender2dRowByteStorage.includes("cursor %GuiRgba8888RowBatchCursorOwner") &&
+        allocRender2dRowByteStorage.includes("storage %RegionToken u8") &&
+        allocRender2dRowByteStorage.includes("pub struct GuiRgba8888RowByteStoragePrepareError:") &&
+        allocRender2dRowByteStorage.includes("owner %GuiRgba8888RowBatchRangeOwner"),
+    "alloc/gui/render2d/row_byte_storage F5bz must define typed copy/prepare errors and owner-bearing byte storage",
+);
+assertNoMatch(
+    allocRender2dRowByteStorageImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowByteStorageOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowByteStoragePrepareError\b|impl (?:Clone|Copy) for GuiRgba8888RowByteStorageFinishError\b/,
+    "alloc/gui/render2d/row_byte_storage F5bz owner-bearing types must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowByteStorageImpl,
+    /\bpub fn\b[^\n]*(?:RegionToken|MemPtr)/,
+    "alloc/gui/render2d/row_byte_storage F5bz must not expose source or destination raw storage/pointer public APIs",
+);
+assertNoMatch(
+    allocRender2dRowByteStorageImpl,
+    /\b(?:surface_finish|finish_surface|split_surface|pub fn .*source|raw|ByteBuf|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|tile|transport|fallback|silent no-op|RLE|rle)\b/,
+    "alloc/gui/render2d/row_byte_storage F5bz must not expose raw source storage, host/platform, tile/RLE, or fallback behavior",
+);
+const rowByteStoragePrepare = functionSlice(allocRender2dRowByteStorageImpl, "gui_rgba8888_row_byte_storage_prepare");
+assertOrderedFragments(
+    rowByteStoragePrepare,
+    [
+        "match gui_rgba8888_row_batch_range_owner_validate_authority &owner:",
+        "RangeAuthorityInvalid range_kind owner",
+        "let range %GuiRgba8888RowBatchRange gui_rgba8888_row_batch_range_owner_range &owner",
+        "let byte_count %i32 gui_rgba8888_row_batch_range_byte_count &range",
+        "match alloc_region_bytes<u8> byte_count:",
+        "match gui_rgba8888_row_byte_storage_copy_range &owner &scratch start_byte_offset byte_count:",
+        "gui_rgba8888_row_byte_storage_cleanup_scratch_after_copy_error scratch copy_kind",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_range_owner_finish_cursor owner",
+        "Result::Ok gui_rgba8888_row_byte_storage_owner_new cursor range scratch",
+    ],
+    "alloc/gui/render2d/row_byte_storage F5bz prepare must validate before allocation/copy and finish cursor only after full copy success",
+);
+assertNoMatch(
+    rowByteStoragePrepare.slice(0, rowByteStoragePrepare.indexOf("Result::Ok _:\n                            let cursor %GuiRgba8888RowBatchCursorOwner")),
+    /\bgui_rgba8888_row_batch_range_owner_finish_cursor\b/,
+    "alloc/gui/render2d/row_byte_storage F5bz prepare must not consume the range owner before full copy success",
+);
+const rowByteStorageCopyByte = functionSlice(allocRender2dRowByteStorageImpl, "gui_rgba8888_row_byte_storage_copy_byte");
+assertOrderedFragments(
+    rowByteStorageCopyByte,
+    [
+        "gui_rgba8888_row_byte_storage_checked_add_nonnegative_delta start_byte_offset index GuiRgba8888RowByteStorageCopyErrorKind::SourceOffsetOverflow",
+        "gui_rgba8888_row_byte_storage_destination_index index byte_count",
+        "gui_rgba8888_row_byte_storage_load_source_byte_at owner source_offset",
+        "gui_rgba8888_row_byte_storage_project_destination_byte destination destination_offset",
+        "gui_rgba8888_row_byte_storage_store_destination_byte destination_ptr value",
+    ],
+    "alloc/gui/render2d/row_byte_storage F5bz copy must use checked source offset, destination index, projection, load, and store",
+);
+const rowByteStorageCleanup = functionSlice(allocRender2dRowByteStorageImpl, "gui_rgba8888_row_byte_storage_cleanup_scratch_after_copy_error");
+assertOrderedFragments(
+    rowByteStorageCleanup,
+    [
+        "match dealloc_region<u8> scratch:",
+        "GuiRgba8888RowByteStoragePrepareErrorKind::ScratchDeallocFailed copy_kind",
+        "GuiRgba8888RowByteStoragePrepareErrorKind::CopyFailed copy_kind",
+    ],
+    "alloc/gui/render2d/row_byte_storage F5bz cleanup must type scratch dealloc failure separately from original copy failure",
+);
+assertNoMatch(
+    allocRender2dRowByteStorageImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_byte_storage F5bz implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_facade_ok") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_authority_revalidated_ok") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_exact_copy_ok") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_checked_byte_reader_ok") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_scratch_cleanup_error_typed_ok") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_no_raw_source_escape") &&
+        guiRender2dRowByteStorageTests.includes("render2d_row_byte_storage_no_platform_no_fallback"),
+    "F5bz row byte storage focused doctest must cover facade, authority, exact copy, checked byte reader, scratch cleanup policy, raw source escape, and no platform/fallback",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -1,0 +1,326 @@
+//: # alloc/gui/render2d/row_byte_storage
+//: RGBA8888 row byte storage boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowBatchRangeOwner` を、formal tile / RLE / host present の[前段/ぜんだん]となる owned row byte storage へ[変換/へんかん]します。
+//: - source surface の storage はこの module の sealed copy helper 内だけで[借用/しゃくよう]し、public API として raw pointer や source `RegionToken` を[公開/こうかい]しません。
+//:
+//: ### [契約/けいやく]
+//: - prepare は range owner authority を[再検証/さいけんしょう]してから exact `byte_count` の scratch storage を[確保/かくほ]します。
+//: - copy は `start_byte_offset + index` と destination index を検査し、projection / load / store の[失敗/しっぱい]を typed enum として[返/かえ]します。
+//: - copy [失敗/しっぱい]後は scratch storage の dealloc を[試/こころ]み、dealloc [失敗/しっぱい]は `ScratchDeallocFailed` として original copy error と[分/わ]けます。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は row byte storage だけを[作/つく]ります。tile、RLE、video memory、host present、Canvas、DOM、minifb、DrawTarget、RenderTarget、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_byte_storage" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/bitmap_frame" as *
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/row_batch_plan" as *
+#import "alloc/gui/render2d/row_batch_range" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowByteStorageCopyErrorKind:
+    SourceOffsetOverflow
+    DestinationIndexInvalid
+    SourceProjectionFailed
+    DestinationProjectionFailed
+    SourceLoadFailed
+    DestinationStoreFailed
+
+impl Clone for GuiRgba8888RowByteStorageCopyErrorKind:
+    fn clone %fn &GuiRgba8888RowByteStorageCopyErrorKind GuiRgba8888RowByteStorageCopyErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowByteStorageCopyErrorKind:
+    fn copy_mark %fn GuiRgba8888RowByteStorageCopyErrorKind GuiRgba8888RowByteStorageCopyErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowByteStoragePrepareErrorKind:
+    RangeAuthorityInvalid %GuiRgba8888RowBatchRangePrepareErrorKind
+    AllocationFailed
+    CopyFailed %GuiRgba8888RowByteStorageCopyErrorKind
+    ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind
+
+impl Clone for GuiRgba8888RowByteStoragePrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowByteStoragePrepareErrorKind GuiRgba8888RowByteStoragePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowByteStoragePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowByteStoragePrepareErrorKind GuiRgba8888RowByteStoragePrepareErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowByteStorageReadErrorKind:
+    ByteIndexOutOfBounds
+    PointerProjectionFailed
+    LoadFailed
+
+impl Clone for GuiRgba8888RowByteStorageReadErrorKind:
+    fn clone %fn &GuiRgba8888RowByteStorageReadErrorKind GuiRgba8888RowByteStorageReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowByteStorageReadErrorKind:
+    fn copy_mark %fn GuiRgba8888RowByteStorageReadErrorKind GuiRgba8888RowByteStorageReadErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowByteStorageFinishErrorKind:
+    StorageDeallocFailed
+    CursorFreeFailed %GuiRgba8888SoftwareSurfaceErrorKind
+
+impl Clone for GuiRgba8888RowByteStorageFinishErrorKind:
+    fn clone %fn &GuiRgba8888RowByteStorageFinishErrorKind GuiRgba8888RowByteStorageFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowByteStorageFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888RowByteStorageFinishErrorKind GuiRgba8888RowByteStorageFinishErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowByteStorageOwner:
+    cursor %GuiRgba8888RowBatchCursorOwner
+    range %GuiRgba8888RowBatchRange
+    storage %RegionToken u8
+
+pub struct GuiRgba8888RowByteStoragePrepareError:
+    kind %GuiRgba8888RowByteStoragePrepareErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowBatchRangeOwner
+
+pub struct GuiRgba8888RowByteStorageFinishError:
+    kind %GuiRgba8888RowByteStorageFinishErrorKind
+    cursor %GuiRgba8888RowBatchCursorOwner
+
+fn gui_rgba8888_row_byte_storage_owner_new %fn GuiRgba8888RowBatchCursorOwner fn GuiRgba8888RowBatchRange fn RegionToken u8 GuiRgba8888RowByteStorageOwner \cursor\range\storage:
+    GuiRgba8888RowByteStorageOwner cursor range storage
+
+fn gui_rgba8888_row_byte_storage_prepare_error_category %fn GuiRgba8888RowByteStoragePrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowByteStoragePrepareErrorKind::RangeAuthorityInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowByteStoragePrepareErrorKind::AllocationFailed:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888RowByteStoragePrepareErrorKind::CopyFailed _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowByteStoragePrepareErrorKind::ScratchDeallocFailed _:
+            Option::Some GuiError::BackendFailure
+
+fn gui_rgba8888_row_byte_storage_prepare_error %fn GuiRgba8888RowByteStoragePrepareErrorKind fn GuiRgba8888RowBatchRangeOwner GuiRgba8888RowByteStoragePrepareError \kind\owner:
+    let category %Option GuiError gui_rgba8888_row_byte_storage_prepare_error_category kind
+    GuiRgba8888RowByteStoragePrepareError kind category owner
+
+fn gui_rgba8888_row_byte_storage_finish_error %fn GuiRgba8888RowByteStorageFinishErrorKind fn GuiRgba8888RowBatchCursorOwner GuiRgba8888RowByteStorageFinishError \kind\cursor:
+    GuiRgba8888RowByteStorageFinishError kind cursor
+
+fn gui_rgba8888_row_byte_storage_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowByteStorageCopyErrorKind Result i32 GuiRgba8888RowByteStorageCopyErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_byte_storage_destination_index %fn i32 fn i32 Result i32 GuiRgba8888RowByteStorageCopyErrorKind \index\byte_count:
+    if or lt index 0 ge index byte_count:
+        then Result::Err GuiRgba8888RowByteStorageCopyErrorKind::DestinationIndexInvalid
+        else Result::Ok index
+
+fn gui_rgba8888_row_byte_storage_load_source_byte_at %fn &GuiRgba8888RowBatchRangeOwner fn i32 Result i32 GuiRgba8888RowByteStorageCopyErrorKind \owner\source_offset:
+    let batch %&GuiRgba8888RowBatchCursorBatchOwner field::get_ref owner "batch"
+    let cursor %&GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_cursor_ref batch
+    let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref cursor "plan"
+    let frame %&GuiRgba8888BitmapFrameOwner field::get_ref plan "frame"
+    let surface %&GuiRgba8888SoftwareSurfaceOwner field::get_ref frame "surface"
+    let storage %&RegionToken u8 field::get_ref surface "storage"
+    match gui_rgba8888_row_byte_storage_project_source_byte storage source_offset:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok ptr:
+            gui_rgba8888_row_byte_storage_load_source_byte ptr
+
+fn gui_rgba8888_row_byte_storage_project_source_byte %fn &RegionToken u8 fn i32 Result MemPtr u8 GuiRgba8888RowByteStorageCopyErrorKind \source\source_offset:
+    match region_ptr_at<u8,u8> source source_offset:
+        Result::Err _:
+            Result::Err GuiRgba8888RowByteStorageCopyErrorKind::SourceProjectionFailed
+        Result::Ok ptr:
+            Result::Ok ptr
+
+fn gui_rgba8888_row_byte_storage_project_destination_byte %fn &RegionToken u8 fn i32 Result MemPtr u8 GuiRgba8888RowByteStorageCopyErrorKind \destination\destination_offset:
+    match region_ptr_at<u8,u8> destination destination_offset:
+        Result::Err _:
+            Result::Err GuiRgba8888RowByteStorageCopyErrorKind::DestinationProjectionFailed
+        Result::Ok ptr:
+            Result::Ok ptr
+
+fn gui_rgba8888_row_byte_storage_load_source_byte %fn MemPtr u8 Result i32 GuiRgba8888RowByteStorageCopyErrorKind \ptr:
+    match load_u8 ptr:
+        Option::None:
+            Result::Err GuiRgba8888RowByteStorageCopyErrorKind::SourceLoadFailed
+        Option::Some value:
+            Result::Ok value
+
+fn gui_rgba8888_row_byte_storage_store_destination_byte %fn MemPtr u8 fn i32 Result unit GuiRgba8888RowByteStorageCopyErrorKind \ptr\value:
+    match store_u8 ptr value:
+        Result::Err _:
+            Result::Err GuiRgba8888RowByteStorageCopyErrorKind::DestinationStoreFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_rgba8888_row_byte_storage_copy_byte %fn &GuiRgba8888RowBatchRangeOwner fn &RegionToken u8 fn i32 fn i32 fn i32 Result unit GuiRgba8888RowByteStorageCopyErrorKind \owner\destination\start_byte_offset\byte_count\index:
+    match gui_rgba8888_row_byte_storage_checked_add_nonnegative_delta start_byte_offset index GuiRgba8888RowByteStorageCopyErrorKind::SourceOffsetOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok source_offset:
+            match gui_rgba8888_row_byte_storage_destination_index index byte_count:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok destination_offset:
+                    match gui_rgba8888_row_byte_storage_load_source_byte_at owner source_offset:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok value:
+                            match gui_rgba8888_row_byte_storage_project_destination_byte destination destination_offset:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok destination_ptr:
+                                    gui_rgba8888_row_byte_storage_store_destination_byte destination_ptr value
+
+fn gui_rgba8888_row_byte_storage_copy_range %fn &GuiRgba8888RowBatchRangeOwner fn &RegionToken u8 fn i32 fn i32 Result unit GuiRgba8888RowByteStorageCopyErrorKind \owner\destination\start_byte_offset\byte_count:
+    let mut index %i32 0
+    let mut done %bool false
+    let mut output %Result unit GuiRgba8888RowByteStorageCopyErrorKind Result::Ok unit
+    while not done:
+        do:
+            if ge index byte_count:
+                then:
+                    set done true
+                else:
+                    match gui_rgba8888_row_byte_storage_copy_byte owner destination start_byte_offset byte_count index:
+                        Result::Err kind:
+                            set output Result::Err kind
+                            set done true
+                        Result::Ok _:
+                            set index add index 1
+    output
+
+fn gui_rgba8888_row_byte_storage_cleanup_scratch_after_copy_error %fn RegionToken u8 fn GuiRgba8888RowByteStorageCopyErrorKind GuiRgba8888RowByteStoragePrepareErrorKind \scratch\copy_kind:
+    match dealloc_region<u8> scratch:
+        Result::Err _:
+            GuiRgba8888RowByteStoragePrepareErrorKind::ScratchDeallocFailed copy_kind
+        Result::Ok _:
+            GuiRgba8888RowByteStoragePrepareErrorKind::CopyFailed copy_kind
+
+//: gui_rgba8888_row_byte_storage_prepare: validated row range owner から exact-size row byte storage owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - range owner authority を[再検証/さいけんしょう]するまでは allocator に[進/すす]みません。
+//: - copy が完全に[成功/せいこう]するまでは range owner を[消費/しょうひ]せず、失敗時は owner-bearing error で[回収/かいしゅう]できます。
+//: - 成功時だけ range owner を[消費/しょうひ]し、continuation cursor と copied byte storage を同じ owner に[束/たば]ねます。
+pub fn gui_rgba8888_row_byte_storage_prepare %fn GuiRgba8888RowBatchRangeOwner Result GuiRgba8888RowByteStorageOwner GuiRgba8888RowByteStoragePrepareError \owner:
+    match gui_rgba8888_row_batch_range_owner_validate_authority &owner:
+        Result::Err range_kind:
+            Result::Err gui_rgba8888_row_byte_storage_prepare_error GuiRgba8888RowByteStoragePrepareErrorKind::RangeAuthorityInvalid range_kind owner
+        Result::Ok _:
+            let range %GuiRgba8888RowBatchRange gui_rgba8888_row_batch_range_owner_range &owner
+            let byte_count %i32 gui_rgba8888_row_batch_range_byte_count &range
+            let start_byte_offset %i32 gui_rgba8888_row_batch_range_start_byte_offset &range
+            match alloc_region_bytes<u8> byte_count:
+                Result::Err _:
+                    Result::Err gui_rgba8888_row_byte_storage_prepare_error GuiRgba8888RowByteStoragePrepareErrorKind::AllocationFailed owner
+                Result::Ok scratch:
+                    match gui_rgba8888_row_byte_storage_copy_range &owner &scratch start_byte_offset byte_count:
+                        Result::Err copy_kind:
+                            let prepare_kind %GuiRgba8888RowByteStoragePrepareErrorKind gui_rgba8888_row_byte_storage_cleanup_scratch_after_copy_error scratch copy_kind
+                            Result::Err gui_rgba8888_row_byte_storage_prepare_error prepare_kind owner
+                        Result::Ok _:
+                            let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_range_owner_finish_cursor owner
+                            Result::Ok gui_rgba8888_row_byte_storage_owner_new cursor range scratch
+
+pub fn gui_rgba8888_row_byte_storage_range %fn &GuiRgba8888RowByteStorageOwner GuiRgba8888RowBatchRange \owner:
+    *field::get_ref owner "range"
+
+pub fn gui_rgba8888_row_byte_storage_byte_count %fn &GuiRgba8888RowByteStorageOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range owner
+    gui_rgba8888_row_batch_range_byte_count &range
+
+fn gui_rgba8888_row_byte_storage_read_destination_byte %fn &RegionToken u8 fn i32 Result i32 GuiRgba8888RowByteStorageReadErrorKind \storage\index:
+    match region_ptr_at<u8,u8> storage index:
+        Result::Err _:
+            Result::Err GuiRgba8888RowByteStorageReadErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiRgba8888RowByteStorageReadErrorKind::LoadFailed
+                Option::Some value:
+                    Result::Ok value
+
+//: gui_rgba8888_row_byte_storage_byte_at: copied byte storage から 1 byte を checked read する
+//:
+//: [注意/ちゅうい]:
+//: - これは destination copy の[検査/けんさ]用 API です。source surface storage、raw pointer、source `RegionToken` は[公開/こうかい]しません。
+pub fn gui_rgba8888_row_byte_storage_byte_at %fn &GuiRgba8888RowByteStorageOwner fn i32 Result i32 GuiRgba8888RowByteStorageReadErrorKind \owner\index:
+    let byte_count %i32 gui_rgba8888_row_byte_storage_byte_count owner
+    if or lt index 0 ge index byte_count:
+        then Result::Err GuiRgba8888RowByteStorageReadErrorKind::ByteIndexOutOfBounds
+        else:
+            let storage %&RegionToken u8 field::get_ref owner "storage"
+            gui_rgba8888_row_byte_storage_read_destination_byte storage index
+
+pub fn gui_rgba8888_row_byte_storage_prepare_error_kind %fn &GuiRgba8888RowByteStoragePrepareError GuiRgba8888RowByteStoragePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_byte_storage_prepare_error_category_value %fn &GuiRgba8888RowByteStoragePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_byte_storage_prepare_error_owner %fn GuiRgba8888RowByteStoragePrepareError GuiRgba8888RowBatchRangeOwner \error:
+    field::get error "owner"
+
+pub fn gui_rgba8888_row_byte_storage_prepare_error_free %fn GuiRgba8888RowByteStoragePrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let owner %GuiRgba8888RowBatchRangeOwner gui_rgba8888_row_byte_storage_prepare_error_owner error
+    gui_rgba8888_row_batch_range_owner_free owner
+
+pub fn gui_rgba8888_row_byte_storage_finish_error_kind %fn &GuiRgba8888RowByteStorageFinishError GuiRgba8888RowByteStorageFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_byte_storage_finish_error_cursor %fn GuiRgba8888RowByteStorageFinishError GuiRgba8888RowBatchCursorOwner \error:
+    field::get error "cursor"
+
+//: gui_rgba8888_row_byte_storage_finish_cursor: copied bytes を[破棄/はき]して continuation cursor を[返/かえ]す
+pub fn gui_rgba8888_row_byte_storage_finish_cursor %fn GuiRgba8888RowByteStorageOwner Result GuiRgba8888RowBatchCursorOwner GuiRgba8888RowByteStorageFinishError \owner:
+    let cursor %GuiRgba8888RowBatchCursorOwner field::get owner "cursor"
+    let storage %RegionToken u8 field::get owner "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _:
+            Result::Err gui_rgba8888_row_byte_storage_finish_error GuiRgba8888RowByteStorageFinishErrorKind::StorageDeallocFailed cursor
+        Result::Ok _:
+            Result::Ok cursor
+
+pub fn gui_rgba8888_row_byte_storage_free %fn GuiRgba8888RowByteStorageOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    match gui_rgba8888_row_byte_storage_finish_cursor owner:
+        Result::Err error:
+            let kind %GuiRgba8888RowByteStorageFinishErrorKind gui_rgba8888_row_byte_storage_finish_error_kind &error
+            let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_byte_storage_finish_error_cursor error
+            match gui_rgba8888_row_batch_cursor_free cursor:
+                Result::Err _:
+                    Result::Err kind
+                Result::Ok _:
+                    Result::Err kind
+        Result::Ok cursor:
+            match gui_rgba8888_row_batch_cursor_free cursor:
+                Result::Err kind:
+                    Result::Err GuiRgba8888RowByteStorageFinishErrorKind::CursorFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit
