@@ -7938,6 +7938,26 @@ The cursor start boundary revalidates the present descriptor count invariant and
 
 The std cursor does not call host imports and does not touch raw memory. Web, native, bare, and headless presenters can later consume this cursor and choose their transport mechanism, but no presenter is allowed to bypass the typed record reader by reaching into packet storage directly.
 
+## Std layer row tile RLE present command cursor
+
+F5cp introduces the std layer row tile RLE present command cursor. It is still not a host import. It is the presenter-facing frame stream that sits above the F5co run cursor and below Web / native / bare / headless host presenters.
+
+```text
+GuiRgba8888RowTileRlePresentCommand:
+    BeginFrame GuiRgba8888RowTileRlePresentDescriptor
+    Run GuiRgba8888RowTileRleRun
+    EndFrame GuiRgba8888RowTileRlePresentDescriptor
+
+GuiRgba8888RowTileRlePresentCommandCursorOwner:
+    run_cursor GuiRgba8888RowTileRlePresentRunCursorOwner
+    descriptor GuiRgba8888RowTileRlePresentDescriptor
+    phase GuiRgba8888RowTileRlePresentCommandCursorPhase
+```
+
+The cursor keeps one typed output per public step. `BeginPending` emits `GuiRgba8888RowTileRlePresentCommand::BeginFrame` and moves to `RunPending`. `RunPending` calls F5co exactly through `gui_rgba8888_row_tile_rle_present_run_cursor_step`. Lower `RunReady` emits `Run` and keeps `RunPending`. Lower `Completed` emits `GuiRgba8888RowTileRlePresentCommand::EndFrame` in the same public step and moves to `Completed`. A later step in `Completed` returns terminal `Completed`.
+
+Start and step errors are owner-bearing. Lower start failure recovers the present owner through the F5co start error finish helper. Lower step failure recovers the lower run cursor owner, rebuilds `GuiRgba8888RowTileRlePresentCommandCursorOwner` with the saved descriptor and `RunPending`, and returns an owner-bearing command cursor error. The command cursor does not bypass F5co: it must not call the packet record reader, packet storage, `RegionToken`, `MemPtr`, byte load helpers, host imports, platform APIs, or fallback paths directly.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

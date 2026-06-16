@@ -130,6 +130,8 @@ const stdGuiTilePresent = read("stdlib/std/gui/tile_present.nepl");
 const stdGuiTilePresentImpl = withoutComments(stdGuiTilePresent);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
+const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
+const stdGuiTilePresentCommandCursorImpl = withoutComments(stdGuiTilePresentCommandCursor);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -176,6 +178,7 @@ const guiRender2dRowTileRlePacketTests = read("tests/stdlib/gui_render2d_row_til
 const guiRender2dRowTileRlePacketRecordTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md");
 const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
+const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19986,6 +19989,109 @@ assert(
         guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_typed_record_reader_ok") &&
         guiStdTilePresentRunCursorTests.includes("std_row_tile_rle_present_run_cursor_no_host_no_platform_no_fallback"),
     "F5co std tile present run cursor focused doctest must cover cursor source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present command cursor") &&
+            doc.includes("GuiRgba8888RowTileRlePresentCommandCursorOwner") &&
+            doc.includes("GuiRgba8888RowTileRlePresentCommand::BeginFrame") &&
+            doc.includes("GuiRgba8888RowTileRlePresentCommand::EndFrame") &&
+            doc.includes("one typed output per public step") &&
+            doc.includes("does not bypass F5co"),
+        `F5cp ${name} must document present command cursor, command stream, and F5co-only dependency`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_command_cursor" as *'), "std/gui facade must export F5cp tile present command cursor");
+assert(
+    stdGuiTilePresentCommandCursor.includes("pub enum GuiRgba8888RowTileRlePresentCommand:") &&
+        stdGuiTilePresentCommandCursor.includes("BeginFrame %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentCommandCursor.includes("Run %GuiRgba8888RowTileRleRun") &&
+        stdGuiTilePresentCommandCursor.includes("EndFrame %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentCommandCursor.includes("pub enum GuiRgba8888RowTileRlePresentCommandCursorPhase:") &&
+        stdGuiTilePresentCommandCursor.includes("BeginPending") &&
+        stdGuiTilePresentCommandCursor.includes("RunPending") &&
+        stdGuiTilePresentCommandCursor.includes("Completed") &&
+        stdGuiTilePresentCommandCursor.includes("pub enum GuiRgba8888RowTileRlePresentCommandCursorStepResult:") &&
+        stdGuiTilePresentCommandCursor.includes("Command %GuiRgba8888RowTileRlePresentCommand") &&
+        stdGuiTilePresentCommandCursor.includes("pub struct GuiRgba8888RowTileRlePresentCommandCursorOwner:") &&
+        stdGuiTilePresentCommandCursor.includes("run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner") &&
+        stdGuiTilePresentCommandCursor.includes("descriptor %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentCommandCursor.includes("RunCursorStartFailed %GuiRgba8888RowTileRlePresentRunCursorStartErrorKind") &&
+        stdGuiTilePresentCommandCursor.includes("RunCursorStepFailed %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind"),
+    "std/gui/tile_present_command_cursor F5cp must define command stream, phase state, descriptor copy, and lower error wrappers",
+);
+assertNoMatch(
+    stdGuiTilePresentCommandCursorImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentCommandCursorOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentCommandCursorStartError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentCommandCursorStep\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentCommandCursorStepError\b/,
+    "std/gui/tile_present_command_cursor F5cp owner-bearing values must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiTilePresentCommandCursorImpl,
+    /\bgui_rgba8888_row_tile_rle_packet_record_at\b|\brow_tile_rle_packet_record\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_command_cursor F5cp must not bypass F5co, expose raw storage, call host/platform APIs, allocate Vec, or fallback",
+);
+assertMatch(
+    stdGuiTilePresentCommandCursorImpl,
+    /#import "std\/gui\/tile_present_run_cursor" as \*/,
+    "std/gui/tile_present_command_cursor F5cp must depend on the F5co present run cursor",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentCommandCursorImpl, "gui_rgba8888_row_tile_rle_present_command_cursor_start"),
+    [
+        "let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor &present",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_start present",
+        "Result::Err lower_error:",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_start_error_kind &lower_error",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_start_error_category_value &lower_error",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_start_error_finish_present lower_error",
+        "GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind::RunCursorStartFailed lower_kind",
+        "Result::Ok run_cursor:",
+        "gui_rgba8888_row_tile_rle_present_command_cursor_owner_new run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::BeginPending",
+    ],
+    "std/gui/tile_present_command_cursor F5cp start must preserve descriptor, call F5co once, and recover present owner on lower start failure",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentCommandCursorImpl, "gui_rgba8888_row_tile_rle_present_command_cursor_step"),
+    [
+        "let phase %GuiRgba8888RowTileRlePresentCommandCursorPhase gui_rgba8888_row_tile_rle_present_command_cursor_owner_phase &owner",
+        "GuiRgba8888RowTileRlePresentCommandCursorPhase::BeginPending:",
+        "GuiRgba8888RowTileRlePresentCommand::BeginFrame descriptor",
+        "GuiRgba8888RowTileRlePresentCommandCursorPhase::RunPending",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_step run_cursor",
+        "Result::Err lower_error:",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_step_error_kind &lower_error",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category_value &lower_error",
+        "gui_rgba8888_row_tile_rle_present_run_cursor_step_error_finish_owner lower_error",
+        "GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind::RunCursorStepFailed lower_kind",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::RunReady run:",
+        "GuiRgba8888RowTileRlePresentCommand::Run run",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentCommandCursorPhase::Completed",
+        "GuiRgba8888RowTileRlePresentCommand::EndFrame descriptor",
+        "GuiRgba8888RowTileRlePresentCommandCursorPhase::Completed:",
+        "GuiRgba8888RowTileRlePresentCommandCursorStepResult::Completed",
+    ],
+    "std/gui/tile_present_command_cursor F5cp step must emit BeginFrame, Run, EndFrame, recover lower owner errors, and return explicit terminal Completed",
+);
+assertNoMatch(
+    stdGuiTilePresentCommandCursorImpl,
+    /[()]/,
+    "std/gui/tile_present_command_cursor F5cp implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_facade_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_command_stream_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_owner_boundary_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_owner_recovery_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_one_output_step_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_uses_f5co_ok") &&
+        guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_no_raw_no_host_no_platform_no_fallback"),
+    "F5cp std tile present command cursor focused doctest must cover command cursor source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -6557,3 +6557,41 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5co_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cp: std row tile RLE present command cursor
+
+目的:
+
+- F5co の `GuiRgba8888RowTileRlePresentRunCursorOwner` を、Web / native / bare / headless presenter が共通に消費できる std layer row tile RLE present command cursor へ昇格する。
+- host import へ進む前に `BeginFrame`、`Run`、`EndFrame` の typed command stream を固定する。
+- command cursor は F5co does not bypass F5co の境界であり、packet storage や raw record reader を再読しない。
+
+変更:
+
+- `std/gui/tile_present_command_cursor.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentCommand` に `GuiRgba8888RowTileRlePresentCommand::BeginFrame`、`Run`、`GuiRgba8888RowTileRlePresentCommand::EndFrame` を定義する。
+- `GuiRgba8888RowTileRlePresentCommandCursorOwner` は lower run cursor owner、descriptor copy、phase を保持し、Clone / Copy を実装しない。
+- `BeginPending`、`RunPending`、`Completed` の phase enum を定義する。
+- public step は one typed output per public step を守り、lower `Completed` を同じ step の EndFrame command として返す。
+- lower start / step failure は owner-bearing error に包み、present owner または command cursor owner を失わない。
+- `std/gui.nepl` facade に再公開を追加する。
+- `tests/stdlib/gui_std_tile_present_command_cursor.n.md` と source policy を追加する。
+- `note.n.md` と `todo.md` を更新する。
+
+完了条件:
+
+- command cursor は F5co の present run cursor だけに依存する。
+- command cursor は `gui_rgba8888_row_tile_rle_packet_record_at`、packet storage、`RegionToken`、`MemPtr`、byte load helper、host import、platform API、video memory、Canvas / DOM / minifb、fallback、silent no-op を使わない。
+- start failure と step failure は lower owner を recover し、caller が recovery または free を選べる。
+- focused doctest、source policy、F5co regression、`git diff --check` が通る。
+- subagent implementation review で command stream 契約、owner recovery、raw boundary bypass 禁止が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cp.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5cp_regression.json -j 1
+git diff --check
+```
