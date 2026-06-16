@@ -1075,6 +1075,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5cb: Render2d row tile payload view boundary
+
+目的:
+
+- F5ca の `GuiRgba8888RowTilePlanOwner` と tile index から `GuiRgba8888RowTilePayloadOwner` を作る。
+- `GuiRgba8888RowTilePayloadOwner` は owned payload buffer ではなく、existing copied row storage 上の tile-scoped byte payload view とする。
+- tile-relative byte read を typed boundary にし、descriptor offset から storage-relative index へ checked add する。
+- この phase は no RLE / host present とし、追加 allocation、追加 copy、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Cicero plan review は `PLAN_APPROVED`。`gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず `&GuiRgba8888RowByteStorageOwner` の borrowed read-only authority に留めるなら許容された。
+- `payload` という名前は owned payload buffer ではなく tile-scoped byte payload view / formal payload owner over existing copied row storage と docs に明記する条件で承認された。
+- prepare failure は tile plan owner を owner-bearing error で返し、`byte_at` は tile-relative bounds と checked add の両方を通して lower storage read error を包むことを source policy と focused doctest で固定する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` に `gui_rgba8888_row_tile_plan_storage_ref` を追加する。
+- `storage_ref` は raw storage、raw pointer、byte read を公開せず、`&GuiRgba8888RowByteStorageOwner` だけを返す。
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` を追加する。
+- `GuiRgba8888RowTilePayloadPrepareErrorKind` と `GuiRgba8888RowTilePayloadReadErrorKind` を enum として分ける。
+- `GuiRgba8888RowTilePayloadOwner` と prepare error は owner-bearing なので `Clone` / `Copy` を実装しない。
+- prepare は `gui_rgba8888_row_tile_plan_descriptor_at &plan tile_index` を呼び、descriptor invalid なら `DescriptorInvalid lower_kind` と original plan owner を保持する。
+- `gui_rgba8888_row_tile_payload_byte_at` は tile-relative index bounds、`descriptor.byte_offset + index` の checked add、`gui_rgba8888_row_byte_storage_byte_at`、lower error wrapping の順に進む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile payload を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_payload.n.md` を追加し、facade、descriptor authority、existing-storage view、tile-relative read、typed bounds error、owner recovery、raw storage escape 禁止、platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cb source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile payload module doctest、row tile plan / row byte storage regression、source policy、`git diff --check` が通る。
+- implementation review で storage_ref が typed borrowed authority だけを返すこと、payload が existing copied storage view であること、byte_at が tile-relative bounds / checked add / lower error wrap を守ること、no RLE / host present / fallback が守られていることを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_payload.nepl --no-tree -o tmp_gui_render2d_row_tile_payload_module_f5cb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5cb_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_byte_storage.nepl --no-tree -o tmp_gui_render2d_row_byte_storage_f5cb_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

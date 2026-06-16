@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5cb render2d row tile payload view boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-payload-f5cb-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cb の row tile payload view、row tile plan storage_ref、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `PLAN_APPROVED`。`gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず、`&GuiRgba8888RowByteStorageOwner` の borrowed authority に留めるなら抽象境界として許容されると確認された。
+- `payload` という名前は owned payload buffer ではなく tile-scoped byte payload view / formal payload owner over existing copied row storage と docs に明記する条件で承認された。
+- prepare failure は tile plan owner を owner-bearing error で返し、`byte_at` は tile-relative bounds、checked add、lower storage read error wrapping を通すことを source policy と focused doctest で固定するよう指摘された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` に `gui_rgba8888_row_tile_plan_storage_ref` を追加した。
+- `storage_ref` は raw storage や pointer を返さず、`&GuiRgba8888RowByteStorageOwner` だけを返す。
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` を追加した。
+- `GuiRgba8888RowTilePayloadPrepareErrorKind` と `GuiRgba8888RowTilePayloadReadErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowTilePayloadOwner` は tile plan owner と Copy descriptor を保持し、owner-bearing success / error は `Clone` / `Copy` を実装しない。
+- prepare は `gui_rgba8888_row_tile_plan_descriptor_at &plan tile_index` を通し、descriptor invalid は owner-bearing `DescriptorInvalid lower_kind` として返す。
+- `byte_at` は tile-relative index bounds、descriptor byte offset との checked add、`gui_rgba8888_row_byte_storage_byte_at`、lower read error wrapping の順で進む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile payload を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_payload.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cb の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cb source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_payload.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` 1 / 1 passed
+
+## subagent review
+
+- Kuhn implementation review は `REVIEW_APPROVED`。`storage_ref` が `&GuiRgba8888RowByteStorageOwner` の借用だけを返し raw storage / pointer / byte read を公開しないこと、payload 命名が owned buffer ではなく existing copied row storage 上の tile-scoped byte payload view と固定されていること、prepare が descriptor authority を再検証して owner-bearing error を返すこと、`byte_at` が tile-relative bounds / checked add / lower read error wrap の順であることを確認した。
+- Kuhn は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_payload.n.md`、`stdlib/alloc/gui/render2d/row_tile_payload.nepl`、`git diff --check` を再実行し、すべて pass、CRLF warning のみと確認した。
+
+## remaining
+
+- F5cb は tile-scoped byte payload view までであり、RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5ca render2d row tile plan metadata boundary
 
 ## scope

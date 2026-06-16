@@ -313,6 +313,14 @@ pub fn gui_rgba8888_row_tile_plan_prepare %fn GuiRgba8888RowByteStorageOwner fn 
 pub fn gui_rgba8888_row_tile_plan_plan %fn &GuiRgba8888RowTilePlanOwner GuiRgba8888RowTilePlan \owner:
     *field::get_ref owner "plan"
 
+//: gui_rgba8888_row_tile_plan_storage_ref: tile plan owner が[保持/ほじ]する copied row byte storage owner を[借用/しゃくよう]する
+//:
+//: [契約/けいやく]:
+//: - raw `RegionToken` や `MemPtr` は[返/かえ]しません。
+//: - 後続の tile payload view が byte storage の checked reader を[使/つか]うための型付き authority だけを[渡/わた]します。
+pub fn gui_rgba8888_row_tile_plan_storage_ref %fn &GuiRgba8888RowTilePlanOwner &GuiRgba8888RowByteStorageOwner \owner:
+    field::get_ref owner "storage"
+
 pub fn gui_rgba8888_row_tile_plan_frame_id %fn &GuiRgba8888RowTilePlan i32 \plan:
     *field::get_ref plan "frame_id"
 
