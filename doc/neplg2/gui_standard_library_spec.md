@@ -614,6 +614,8 @@ std layer row tile RLE present host import request は F5cr の checkpoint で�
 
 std layer row tile RLE present virtual drain は F5cs の checkpoint である。`std/gui/tile_present_virtual_drain` は headless / test が F5cq host-command record を観測するための境界であり、presentation target ではないため does not consume F5cr。`GuiRgba8888RowTileRlePresentVirtualDrain` は Begin / Run / End の phase、optional surface / frame、expected / seen count を保持し、RunRecord では `run_pixel_offset == seen_pixel_count` を要求する。これにより total count だけでは見逃す gap / overlap / reorder を std layer で拒否できる。error は `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` と直前 drain state を保持し、silent no-op や fallback presenter へ逃げない。
 
+std layer row tile RLE present schedule boundary は F5ct の checkpoint である。`std/gui/tile_present_schedule` は F5cq host-command record stream を platform host dispatch の前で deterministic slice budget に区切る。`GuiRgba8888RowTileRlePresentScheduleState` は F5cs virtual drain state と slice-local command / pixel counters だけを保持し、stream validation は F5cs virtual drain に委譲する。`Yield means exact slice budget` であり、valid record を消費した後に command budget または pixel budget へちょうど到達したときだけ `Yield` を返す。over-budget is a typed error であり、budget 超過、single RunRecord の pixel budget 超過、checked arithmetic overflow、lower F5cs failure は previous schedule state を持つ error で返す。この layer は queue、timer、F5cr request、host import call、raw packet storage、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op を提供しない。
+
 ## TUI Migration Contract
 
 既存 TUI は `features/tui` と `platforms/wasix/tui` に直接 helper が露出している。これを段階的に次へ移す。

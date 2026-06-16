@@ -6705,3 +6705,44 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cs_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5ct: std row tile RLE present schedule boundary
+
+目的:
+
+- F5cq host-command record stream を、platform host へ渡す前の deterministic slice budget で区切る std layer row tile RLE present schedule boundary を追加する。
+- `GuiRgba8888RowTileRlePresentScheduleState` は F5cs virtual drain state と slice-local counters だけを保持する。
+- Begin / Run / End の順序、descriptor consistency、run offset continuity は F5cs virtual drain を single authority とし、scheduler は再実装しない。
+- `Yield means exact slice budget` とし、over-budget is a typed error として扱う。
+
+変更:
+
+- `std/gui/tile_present_schedule.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentSchedulePolicy` を追加し、`max_commands_per_slice` と `max_pixels_per_slice` を positive `Result` constructor で検査する。
+- `GuiRgba8888RowTileRlePresentScheduleState` を追加し、F5cs drain と `slice_command_count` / `slice_pixel_count` を保持する。
+- `GuiRgba8888RowTileRlePresentSchedulePhase` を `Continue` / `Yield` / `Completed` として定義する。
+- `GuiRgba8888RowTileRlePresentScheduleStepErrorKind` を追加し、policy invalid、slice counter invalid、checked add overflow、single run over pixel budget、command / pixel over-budget、lower F5cs failure を enum で分ける。
+- step は record cost を読み、single run が pixel budget を超える場合は F5cs に渡す前に typed error にする。
+- step は F5cs `gui_rgba8888_row_tile_rle_present_virtual_drain_step` を呼び、lower error は lower kind / category を保持した schedule error に包む。
+- checked add 後、F5cs drain が ended なら `Completed`、budget 超過なら error、budget ちょうどなら `Yield`、それ以外は `Continue` を返す。
+- `resume_slice` は slice counters だけを 0 に戻し、F5cs drain state を保持する。
+- `std/gui.nepl` facade、focused doctest、source policy、note / todo を更新する。
+
+完了条件:
+
+- F5ct は F5cq host-command record だけを消費し、F5cs virtual drain を validation authority とする。
+- F5ct は F5cr request、F5cp / F5co cursor、packet record / storage / owner、old `GuiSurfacePresentCommand`、timer、queue、platform API、video memory、Canvas / DOM / minifb、fallback、silent no-op に触れない。
+- `Yield` は exact budget に限定し、budget 超過は `GuiRgba8888RowTileRlePresentScheduleStepErrorKind` と previous schedule state を返す。
+- focused doctest、source policy、F5cs / F5cr / F5cq regression、`git diff --check` が通る。
+- subagent implementation review で F5cs authority、over-budget error、resume slice semantics、禁止依存が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5ct.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_schedule.nepl --no-tree -o tmp_gui_std_tile_present_schedule_module_f5ct.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5ct_regression.json -j 1
+git diff --check
+```

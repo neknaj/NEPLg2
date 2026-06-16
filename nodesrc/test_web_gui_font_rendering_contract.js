@@ -138,6 +138,8 @@ const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_impor
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
+const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
+const stdGuiTilePresentScheduleImpl = withoutComments(stdGuiTilePresentSchedule);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -188,6 +190,7 @@ const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
+const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -20359,6 +20362,119 @@ assert(
         guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_run_offset_continuity_ok") &&
         guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_no_f5cr_no_raw_no_platform_no_fallback"),
     "F5cs std tile present virtual-drain focused doctest must cover virtual-drain source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present schedule boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentScheduleState") &&
+            doc.includes("F5cs virtual drain") &&
+            doc.includes("Yield means exact slice budget") &&
+            doc.includes("over-budget is a typed error"),
+        `F5ct ${name} must document schedule boundary, F5cs authority, and exact-budget yield semantics`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_schedule" as *'), "std/gui facade must export F5ct tile present schedule boundary");
+assert(
+    stdGuiTilePresentSchedule.includes("pub struct GuiRgba8888RowTileRlePresentSchedulePolicy:") &&
+        stdGuiTilePresentSchedule.includes("max_commands_per_slice %i32") &&
+        stdGuiTilePresentSchedule.includes("max_pixels_per_slice %i32") &&
+        stdGuiTilePresentSchedule.includes("pub enum GuiRgba8888RowTileRlePresentSchedulePolicyErrorKind:") &&
+        stdGuiTilePresentSchedule.includes("MaxCommandsPerSliceInvalid") &&
+        stdGuiTilePresentSchedule.includes("MaxPixelsPerSliceInvalid"),
+    "std/gui/tile_present_schedule F5ct must define explicit policy value and validation errors",
+);
+assert(
+    stdGuiTilePresentSchedule.includes("pub struct GuiRgba8888RowTileRlePresentScheduleState:") &&
+        stdGuiTilePresentSchedule.includes("drain %GuiRgba8888RowTileRlePresentVirtualDrain") &&
+        stdGuiTilePresentSchedule.includes("slice_command_count %i32") &&
+        stdGuiTilePresentSchedule.includes("slice_pixel_count %i32") &&
+        stdGuiTilePresentSchedule.includes("pub enum GuiRgba8888RowTileRlePresentSchedulePhase:") &&
+        stdGuiTilePresentSchedule.includes("Continue") &&
+        stdGuiTilePresentSchedule.includes("Yield") &&
+        stdGuiTilePresentSchedule.includes("Completed"),
+    "std/gui/tile_present_schedule F5ct must wrap F5cs state and expose explicit schedule phases",
+);
+assert(
+    stdGuiTilePresentSchedule.includes("pub enum GuiRgba8888RowTileRlePresentScheduleStepErrorKind:") &&
+        stdGuiTilePresentSchedule.includes("RunPixelBudgetExceeded") &&
+        stdGuiTilePresentSchedule.includes("CommandBudgetExceeded") &&
+        stdGuiTilePresentSchedule.includes("PixelBudgetExceeded") &&
+        stdGuiTilePresentSchedule.includes("VirtualDrainFailed %GuiRgba8888RowTileRlePresentVirtualDrainErrorKind") &&
+        stdGuiTilePresentSchedule.includes("pub struct GuiRgba8888RowTileRlePresentScheduleStepError:") &&
+        stdGuiTilePresentSchedule.includes("state %GuiRgba8888RowTileRlePresentScheduleState"),
+    "std/gui/tile_present_schedule F5ct must define typed over-budget and lower-drain errors with previous state",
+);
+assertMatch(
+    stdGuiTilePresentScheduleImpl,
+    /#import "std\/gui\/tile_present_host_command" as \*/,
+    "std/gui/tile_present_schedule F5ct must consume F5cq host-command records",
+);
+assertMatch(
+    stdGuiTilePresentScheduleImpl,
+    /#import "std\/gui\/tile_present_virtual_drain" as \*/,
+    "std/gui/tile_present_schedule F5ct must depend on F5cs virtual drain authority",
+);
+assertNoMatch(
+    stdGuiTilePresentScheduleImpl,
+    /tile_present_host_import|#import "std\/gui\/tile_present_command_cursor"|\btile_present_command_cursor\b|#import "std\/gui\/tile_present_run_cursor"|\btile_present_run_cursor\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_schedule F5ct must not consume F5cr, bypass F5cs/F5cq, use queues/timers/raw/platform APIs, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentScheduleImpl, "gui_rgba8888_row_tile_rle_present_schedule_step_record"),
+    [
+        "gui_rgba8888_row_tile_rle_present_schedule_record_pixel_cost &record",
+        "if gt pixel_cost max_pixels:",
+        "GuiRgba8888RowTileRlePresentScheduleStepErrorKind::RunPixelBudgetExceeded",
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_step previous_drain record",
+        "GuiRgba8888RowTileRlePresentScheduleStepErrorKind::VirtualDrainFailed lower_kind",
+        "gui_rgba8888_row_tile_rle_present_schedule_count_result policy state next_drain pixel_cost",
+    ],
+    "std/gui/tile_present_schedule F5ct must reject single-run over budget before F5cs and wrap lower F5cs errors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentScheduleImpl, "gui_rgba8888_row_tile_rle_present_schedule_count_result"),
+    [
+        "gui_rgba8888_row_tile_rle_present_schedule_checked_add slice_command_count 1",
+        "gui_rgba8888_row_tile_rle_present_schedule_checked_add slice_pixel_count pixel_cost",
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_is_ended &next_drain",
+        "GuiRgba8888RowTileRlePresentSchedulePhase::Completed",
+        "if gt next_command_count max_commands:",
+        "GuiRgba8888RowTileRlePresentScheduleStepErrorKind::CommandBudgetExceeded",
+        "if gt next_pixel_count max_pixels:",
+        "GuiRgba8888RowTileRlePresentScheduleStepErrorKind::PixelBudgetExceeded",
+        "if or eq next_command_count max_commands eq next_pixel_count max_pixels:",
+        "GuiRgba8888RowTileRlePresentSchedulePhase::Yield",
+        "GuiRgba8888RowTileRlePresentSchedulePhase::Continue",
+    ],
+    "std/gui/tile_present_schedule F5ct must treat Completed before over-budget and Yield only on exact budget",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentScheduleImpl, "gui_rgba8888_row_tile_rle_present_schedule_state_resume_slice"),
+    [
+        "let drain %GuiRgba8888RowTileRlePresentVirtualDrain",
+        "gui_rgba8888_row_tile_rle_present_schedule_state_new drain 0 0",
+    ],
+    "std/gui/tile_present_schedule F5ct resume must reset only slice counters",
+);
+assertNoMatch(
+    stdGuiTilePresentScheduleImpl,
+    /[()]/,
+    "std/gui/tile_present_schedule F5ct implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_facade_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_policy_result_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_state_wraps_f5cs_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_yield_exact_budget_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_over_budget_error_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_resume_slice_ok") &&
+        guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_no_f5cr_no_raw_no_platform_no_fallback"),
+    "F5ct std tile present schedule focused doctest must cover schedule source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
