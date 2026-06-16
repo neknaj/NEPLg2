@@ -6949,6 +6949,12 @@ GuiShadowRunId:
 
 `core/gui` の F1 実装は `NoShadow` と `SingleShadow` を O(1) value として扱う。複数 shadow は `alloc/gui/render2d` が owns する `Vec GuiShadow` を `GuiShadowRunId` で参照する。したがって high-level design の `shadows Vec Shadow` と no_alloc core の `GuiShadowRef` は矛盾しない。
 
+## Current GUI transport checkpoint
+
+Font renderer と 2D renderer の出力は、最終的に Web / native / bare / headless の共通 presentation contract へ流れる必要がある。現 checkpoint の row tile RLE packet typed record reader は、この接続点の最小 typed read boundary である。
+
+`alloc/gui/render2d/row_tile_rle_packet_record` は `GuiRgba8888RowTileRlePacketRecordReadErrorKind` を返す quarantined typed record reader とし、12 byte RLE record だけを `GuiRgba8888RowTileRleRun` に戻す。raw storage、raw pointer、byte slice は public API に出さない。`std/gui/tile_present_run_cursor` は `GuiRgba8888RowTileRlePresentRunCursorOwner` を持ち、`RunReady` と `Completed` を enum で明示する。font glyph mask や text fill / stroke / shadow の tile 出力は、将来この typed cursor と同じ Result / enum contract へ接続する。
+
 ## Error contract
 
 F1/F2 は既存の `GuiError` を返すが、font-specific error category を public enum として同時に定義する。

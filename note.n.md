@@ -66719,3 +66719,54 @@ MERGE_APPROVED
 ### residual
 
 - F5bn は prepared owner までであり、prepared owner を formal transport / drain owner へ移す境界、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+
+## 2026-06-17 GUI font rendering F5co row tile RLE typed transport reader
+
+### scope
+
+- F5co は F5cn の `GuiRgba8888RowTileRlePresentFrameOwner` から、Web / native / headless presenter が共通に消費できる typed run cursor へ進める slice である。
+- `row_tile_rle_packet` と `row_tile_rle_encoded` の no-reader contract は維持し、raw storage read は `row_tile_rle_packet_record` の quarantined typed record reader 内だけに閉じる。
+- host import、video memory、platform API、scheduler policy、2D compositor drain はこの slice では実装しない。
+
+### plan_review
+
+- Pauli plan review は `PLAN_APPROVED`。F5cn は present-frame owner で止まっているため、typed record reader と std run cursor は正式 host import へ飛ぶ前の root-cause slice として妥当とされた。
+- 条件は raw read を `row_tile_rle_packet_record` に隔離すること、public raw storage / byte reader を出さないこと、`std/gui/tile_present*` に raw memory / host import を入れないこと、既存 F5cm/F5cn source policy を壊さないことである。
+
+### implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet_record.nepl` を追加した。
+- `GuiRgba8888RowTileRlePacketRecordReadErrorKind` は count、index、byte offset、projection/load、decoded i32、channel、run extent の失敗を enum で分ける。
+- `gui_rgba8888_row_tile_rle_packet_record_at` は packet owner を借用し、12 byte record を `GuiRgba8888RowTileRleRun` に戻す。`total_run_count * 12 == encoded_byte_count`、record range、non-negative LE i32、channel、run extent を検査する。
+- `stdlib/std/gui/tile_present_run_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentRunCursorOwner` は present owner、next record index、total run count を保持し、step は `RunReady run` または explicit `Completed` を返す。
+- `record_index > total_run_count` は owner-bearing `RecordIndexPastEnd` error、lower record reader failure は `PacketRecordReadFailed` として cursor owner を保持する。
+- `stdlib/alloc/gui/render2d.nepl` と `stdlib/std/gui.nepl` の facade に追加した。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md` と `tests/stdlib/gui_std_tile_present_run_cursor.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5co source policy を追加し、typed reader だけの raw read quarantine と std cursor の no raw / no host / no fallback を固定した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5co を追加した。
+- `todo.md` は F5co 後の正式 Web / native / headless host import ABI、FHD 60fps scheduler policy、2D compositor drain などの残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_record_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet_record.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_record_module_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_run_cursor.nepl --no-tree -o tmp_gui_std_tile_present_run_cursor_module_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5co_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5co_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d.nepl --no-tree -o tmp_gui_render2d_facade_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5co.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Pauli plan review は `PLAN_APPROVED`。F5cn の present-frame owner から typed record reader と std run cursor へ進む計画は、正式 host import へ飛ぶ前の根本的な transport 境界として承認された。
+- Dirac implementation review は `REVIEW_APPROVED`。raw read は private helper に隔離され、public output は検証済み `GuiRgba8888RowTileRleRun` だけであり、std cursor は raw memory / host / platform API に触れていないことが確認された。
+- 残留 risk として、新規 `.n.md` doctest は import smoke と source-policy label が中心である。ただし、source policy が実装構造を直接検査しているため、この slice の merge blocker ではないと判断された。
+
+### residual
+
+- F5co は typed record reader と std present run cursor までであり、Web / native / headless の host import ABI、real scheduler policy、FHD 60fps 実測、formal event loop integration、2D compositor drain、stroke / shadow rasterization は未実装である。

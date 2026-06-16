@@ -1,0 +1,258 @@
+//: # std/gui/tile_present_run_cursor
+//: RGBA8888 row tile RLE present-frame の typed run cursor
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRlePresentFrameOwner` を Web / native / headless presenter が[共通/きょうつう]で[消費/しょうひ]できる typed run cursor に[変換/へんかん]します。
+//: - host import はまだ[呼/よ]ばず、packet record を 1 件ずつ `GuiRgba8888RowTileRleRun` として[取/と]り[出/だ]すだけです。
+//:
+//: ### [契約/けいやく]
+//: - start は present descriptor の total run count と encoded byte count を checked arithmetic で[再検査/さいけんさ]します。
+//: - step は `record_index == total_run_count` を `Completed` として[返/かえ]し、`record_index > total_run_count` は owner-bearing error にします。
+//: - record read failure は lower error を包み、cursor owner を[失/うしな]いません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は host import、raw memory、video memory、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_run_cursor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "alloc/gui/render2d/row_tile_rle_packet_record" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+
+pub enum GuiRgba8888RowTileRlePresentRunCursorStartErrorKind:
+    TotalRunCountInvalid
+    EncodedByteCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+
+impl Clone for GuiRgba8888RowTileRlePresentRunCursorStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunCursorStartErrorKind GuiRgba8888RowTileRlePresentRunCursorStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentRunCursorStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunCursorStartErrorKind GuiRgba8888RowTileRlePresentRunCursorStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentRunCursorStepErrorKind:
+    RecordIndexNegative
+    RecordIndexPastEnd
+    RecordIndexAdvanceOverflow
+    PacketRecordReadFailed %GuiRgba8888RowTileRlePacketRecordReadErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentRunCursorStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunCursorStepErrorKind GuiRgba8888RowTileRlePresentRunCursorStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentRunCursorStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunCursorStepErrorKind GuiRgba8888RowTileRlePresentRunCursorStepErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentRunCursorStepResult:
+    RunReady %GuiRgba8888RowTileRleRun
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentRunCursorStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentRunCursorStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStepResult \result:
+        result
+
+pub struct GuiRgba8888RowTileRlePresentRunCursorOwner:
+    present %GuiRgba8888RowTileRlePresentFrameOwner
+    next_record_index %i32
+    total_run_count %i32
+
+pub struct GuiRgba8888RowTileRlePresentRunCursorStartError:
+    kind %GuiRgba8888RowTileRlePresentRunCursorStartErrorKind
+    category %Option GuiError
+    present %GuiRgba8888RowTileRlePresentFrameOwner
+
+pub struct GuiRgba8888RowTileRlePresentRunCursorStep:
+    owner %GuiRgba8888RowTileRlePresentRunCursorOwner
+    result %GuiRgba8888RowTileRlePresentRunCursorStepResult
+
+pub struct GuiRgba8888RowTileRlePresentRunCursorStepError:
+    kind %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowTileRlePresentRunCursorOwner
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_owner_new %fn GuiRgba8888RowTileRlePresentFrameOwner fn i32 fn i32 GuiRgba8888RowTileRlePresentRunCursorOwner \present\next_record_index\total_run_count:
+    GuiRgba8888RowTileRlePresentRunCursorOwner present next_record_index total_run_count
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_step_new %fn GuiRgba8888RowTileRlePresentRunCursorOwner fn GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStep \owner\result:
+    GuiRgba8888RowTileRlePresentRunCursorStep owner result
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error_category %fn GuiRgba8888RowTileRlePresentRunCursorStartErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category %fn GuiRgba8888RowTileRlePresentRunCursorStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexAdvanceOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::PacketRecordReadFailed lower:
+            gui_rgba8888_row_tile_rle_packet_record_error_category_value lower
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error %fn GuiRgba8888RowTileRlePresentRunCursorStartErrorKind fn GuiRgba8888RowTileRlePresentFrameOwner GuiRgba8888RowTileRlePresentRunCursorStartError \kind\present:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_cursor_start_error_category kind
+    GuiRgba8888RowTileRlePresentRunCursorStartError kind category present
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error %fn GuiRgba8888RowTileRlePresentRunCursorStepErrorKind fn GuiRgba8888RowTileRlePresentRunCursorOwner GuiRgba8888RowTileRlePresentRunCursorStepError \kind\owner:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category kind
+    GuiRgba8888RowTileRlePresentRunCursorStepError kind category owner
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_checked_mul %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentRunCursorStartErrorKind Result i32 GuiRgba8888RowTileRlePresentRunCursorStartErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_checked_add %fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePresentRunCursorStepErrorKind \base\delta:
+    if or lt base 0 lt delta 0:
+        then Result::Err GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexAdvanceOverflow
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexAdvanceOverflow
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_validate_descriptor %fn &GuiRgba8888RowTileRlePacketDescriptor Result i32 GuiRgba8888RowTileRlePresentRunCursorStartErrorKind \descriptor:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count descriptor
+    if le total_run_count 0:
+        then Result::Err GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::TotalRunCountInvalid
+        else:
+            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count descriptor
+            if le encoded_byte_count 0:
+                then Result::Err GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::EncodedByteCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_present_run_cursor_checked_mul total_run_count 12 GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRlePresentRunCursorStartErrorKind::EncodedByteCountMismatch
+                                else Result::Ok total_run_count
+
+fn gui_rgba8888_row_tile_rle_present_run_cursor_packet_ref %fn &GuiRgba8888RowTileRlePresentRunCursorOwner &GuiRgba8888RowTileRlePacketOwner \owner:
+    let present %&GuiRgba8888RowTileRlePresentFrameOwner field::get_ref owner "present"
+    field::get_ref present "packet"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_owner_next_record_index %fn &GuiRgba8888RowTileRlePresentRunCursorOwner i32 \owner:
+    *field::get_ref owner "next_record_index"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_owner_total_run_count %fn &GuiRgba8888RowTileRlePresentRunCursorOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error_kind %fn &GuiRgba8888RowTileRlePresentRunCursorStartError GuiRgba8888RowTileRlePresentRunCursorStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error_category_value %fn &GuiRgba8888RowTileRlePresentRunCursorStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error_finish_present %fn GuiRgba8888RowTileRlePresentRunCursorStartError GuiRgba8888RowTileRlePresentFrameOwner \error:
+    field::get error "present"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_result %fn &GuiRgba8888RowTileRlePresentRunCursorStep GuiRgba8888RowTileRlePresentRunCursorStepResult \step:
+    *field::get_ref step "result"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_finish_owner %fn GuiRgba8888RowTileRlePresentRunCursorStep GuiRgba8888RowTileRlePresentRunCursorOwner \step:
+    field::get step "owner"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error_kind %fn &GuiRgba8888RowTileRlePresentRunCursorStepError GuiRgba8888RowTileRlePresentRunCursorStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category_value %fn &GuiRgba8888RowTileRlePresentRunCursorStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error_finish_owner %fn GuiRgba8888RowTileRlePresentRunCursorStepError GuiRgba8888RowTileRlePresentRunCursorOwner \error:
+    field::get error "owner"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_finish_present %fn GuiRgba8888RowTileRlePresentRunCursorOwner GuiRgba8888RowTileRlePresentFrameOwner \owner:
+    field::get owner "present"
+
+//: gui_rgba8888_row_tile_rle_present_run_cursor_start: present-frame owner を typed run cursor に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - present owner は host へ[渡/わた]さず、この cursor owner に[移/うつ]します。
+//: - count invariant が[壊/こわ]れている場合は original present owner を error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_start %fn GuiRgba8888RowTileRlePresentFrameOwner Result GuiRgba8888RowTileRlePresentRunCursorOwner GuiRgba8888RowTileRlePresentRunCursorStartError \present:
+    let present_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor &present
+    let packet_descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &present_descriptor
+    match gui_rgba8888_row_tile_rle_present_run_cursor_validate_descriptor &packet_descriptor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_start_error kind present
+        Result::Ok total_run_count:
+            Result::Ok gui_rgba8888_row_tile_rle_present_run_cursor_owner_new present 0 total_run_count
+
+//: gui_rgba8888_row_tile_rle_present_run_cursor_step: present cursor から 1 run を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `next_record_index == total_run_count` は `Completed` です。
+//: - record read が[失敗/しっぱい]した場合は cursor owner を error に[保持/ほじ]します。
+//: - success path だけが `next_record_index` を 1 [進/すす]めます。
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step %fn GuiRgba8888RowTileRlePresentRunCursorOwner Result GuiRgba8888RowTileRlePresentRunCursorStep GuiRgba8888RowTileRlePresentRunCursorStepError \owner:
+    let next_record_index %i32 gui_rgba8888_row_tile_rle_present_run_cursor_owner_next_record_index &owner
+    if lt next_record_index 0:
+        then Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_step_error GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexNegative owner
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_present_run_cursor_owner_total_run_count &owner
+            if gt next_record_index total_run_count:
+                then Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_step_error GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::RecordIndexPastEnd owner
+                else:
+                    if eq next_record_index total_run_count:
+                        then:
+                            let result %GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed
+                            Result::Ok gui_rgba8888_row_tile_rle_present_run_cursor_step_new owner result
+                        else:
+                            let packet %&GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_run_cursor_packet_ref &owner
+                            match gui_rgba8888_row_tile_rle_packet_record_at packet next_record_index:
+                                Result::Err kind:
+                                    Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_step_error GuiRgba8888RowTileRlePresentRunCursorStepErrorKind::PacketRecordReadFailed kind owner
+                                Result::Ok run:
+                                    match gui_rgba8888_row_tile_rle_present_run_cursor_checked_add next_record_index 1:
+                                        Result::Err kind:
+                                            Result::Err gui_rgba8888_row_tile_rle_present_run_cursor_step_error kind owner
+                                        Result::Ok next_index:
+                                            let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"
+                                            let next_owner %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_owner_new present next_index total_run_count
+                                            let result %GuiRgba8888RowTileRlePresentRunCursorStepResult GuiRgba8888RowTileRlePresentRunCursorStepResult::RunReady run
+                                            Result::Ok gui_rgba8888_row_tile_rle_present_run_cursor_step_new next_owner result
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_owner_free %fn GuiRgba8888RowTileRlePresentRunCursorOwner Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \owner:
+    let present %GuiRgba8888RowTileRlePresentFrameOwner gui_rgba8888_row_tile_rle_present_run_cursor_finish_present owner
+    gui_rgba8888_row_tile_rle_present_frame_owner_free present
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_start_error_free %fn GuiRgba8888RowTileRlePresentRunCursorStartError Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    let present %GuiRgba8888RowTileRlePresentFrameOwner gui_rgba8888_row_tile_rle_present_run_cursor_start_error_finish_present error
+    gui_rgba8888_row_tile_rle_present_frame_owner_free present
+
+pub fn gui_rgba8888_row_tile_rle_present_run_cursor_step_error_free %fn GuiRgba8888RowTileRlePresentRunCursorStepError Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    let owner %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_error_finish_owner error
+    gui_rgba8888_row_tile_rle_present_run_cursor_owner_free owner
