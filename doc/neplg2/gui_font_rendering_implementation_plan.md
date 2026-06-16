@@ -708,6 +708,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5bt: Render2d surface + dirty owner boundary
+
+目的:
+
+- F5bo の `GuiRgba8888SoftwareSurfaceOwner` と F5bs の `DirtyRegionSet` を `alloc/gui/render2d` の surface + dirty owner boundary として束ねる。
+- tile / bitmap transport、host present、app effect conversion、Web / native backend、font glyf integration、row batching、pixel writing には進まない。
+- dirty metadata の更新は `dirty_regions_push_region_checked` だけを経由し、invalid unchecked rect では元 owner を owner-bearing error で返す。
+- `finish_surface` は dirty metadata を捨てる recovery / teardown API として明記し、dirty が必要な caller は finish 前に borrowed dirty accessor で読む。
+- surface の raw accessor、mutable accessor、split accessor は追加しない。
+
+plan review:
+
+- Planck plan review は `PLAN_APPROVED`。条件は `dirty_regions_push_region_checked` を `field::get owner "surface"` より前に呼ぶこと、失敗時に元 owner を owner-bearing error に入れること、owner / owner-bearing error に `Clone` / `Copy` を実装しないこと、surface の raw / mutable / split accessor を追加しないこと、`finish_surface` を recovery / teardown API として docs/source policy に明記することである。
+- Tesla plan review は `PLAN_APPROVED`。条件は dirty を Copy metadata として読み、surface move 前に checked push を適用すること、`finish_surface` 前に dirty を読む contract を固定すること、free は typed `GuiRgba8888SoftwareSurfaceErrorKind` を返して silent drop しないこと、facade export と no `dirty_region_merge` / no unchecked push / no platform / no present / no tile / no bitmap / no transport / no fallback を source policy に入れることである。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/dirty_surface.nepl` を追加する。
+- `GuiRgba8888SoftwareSurfaceDirtyOwner` と `GuiRgba8888SoftwareSurfaceDirtyPushError` を追加する。
+- clean owner constructor、shape / dirty borrowed metadata accessor、checked dirty push、error accessor / owner recovery / free、`finish_surface`、dirty owner free を追加する。
+- `stdlib/alloc/gui/render2d.nepl` facade から dirty surface owner を再公開する。
+- `tests/stdlib/gui_render2d_dirty_surface.n.md` を追加し、clean owner、checked rect push、invalid unchecked rect recovery、Full escalation、finish teardown、no split / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bt source policy を追加し、facade export、owner no `Clone` / `Copy`、checked push before surface move、no raw / mutable / split accessor、no platform / transport / fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が `GuiRgba8888SoftwareSurfaceDirtyOwner`、owner-bearing dirty push error、facade export、`dirty_regions_push_region_checked` 経由、surface move 順序、no split accessor、focused doctest label を検査する。
+- focused doctest、source policy、software surface regression、dirty region set regression、`git diff --check` が通る。
+- implementation review で surface + dirty owner の所有境界、finish_surface teardown contract、deferred transport scope が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5bt.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_dirty_region_set.n.md --no-tree -o tmp_gui_dirty_region_set_f5bt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/dirty_surface.nepl --no-tree -o tmp_gui_render2d_dirty_surface_doc_f5bt.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5bt render2d surface dirty owner boundary
+
+## scope
+
+- branch: `gui-render2d-surface-dirty-owner-f5bt-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bt の render2d dirty surface owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review は `PLAN_APPROVED`。`dirty_regions_push_region_checked` を `field::get owner "surface"` より前に呼ぶこと、失敗時に元 owner を owner-bearing error に入れること、owner / owner-bearing error に `Clone` / `Copy` を実装しないこと、surface の raw / mutable / split accessor を追加しないこと、`finish_surface` を recovery / teardown API として docs/source policy に明記することが条件である。
+- Tesla plan review は `PLAN_APPROVED`。dirty を Copy metadata として読み、surface move 前に checked push を適用すること、`finish_surface` 前に dirty を読む contract を固定すること、free は typed `GuiRgba8888SoftwareSurfaceErrorKind` を返して silent drop しないこと、facade export と no `dirty_region_merge` / no unchecked push / no platform / no present / no tile / no bitmap / no transport / no fallback を source policy に入れることが条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/dirty_surface.nepl` を追加した。
+- `GuiRgba8888SoftwareSurfaceDirtyOwner` で `GuiRgba8888SoftwareSurfaceOwner` と `DirtyRegionSet` を同じ所有境界に束ねた。
+- `GuiRgba8888SoftwareSurfaceDirtyPushError` を owner-bearing error として追加し、dirty push 失敗時に元 owner を回収できるようにした。
+- borrowed metadata accessor は width / height / stride_bytes / byte_len / dirty に限定した。
+- `gui_rgba8888_software_surface_dirty_owner_push_region_checked` は dirty を Copy metadata として読み、`dirty_regions_push_region_checked` 成功後だけ surface を move する。
+- `finish_surface` は dirty metadata を捨てる recovery / teardown API として追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade から dirty surface owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bt の surface + dirty owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bt source policy を追加した。
+- `tests/stdlib/gui_render2d_dirty_surface.n.md` に F5bt focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 368.8s
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `stdlib/alloc/gui/render2d/dirty_surface.nepl` doctest 1 / 1 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。render2d 共通 boundary に留まり、font/glyf、platform、present、tile / bitmap transport に踏み込んでいないこと、dirty checked push が surface move より前にあり owner loss がないこと、owner / owner-bearing error に `Clone` / `Copy` がなく、raw / mutable / split surface accessor がないことを確認済みである。
+- Tesla implementation review は初回 `REVIEW_BLOCKED`。code-level blocker はなく、blocker は新規 `dirty_surface.nepl` / focused doctest が未追跡であることと、review request 送信時点の `note.n.md` verification が pending 表記だったことに限定された。verification は pass 表記へ更新済みであり、staging は今回の intended files に限定して行う。
+- Tesla follow-up review は `REVIEW_APPROVED`。intended F5bt files が staged され、新 module と focused doctest が含まれ、`NUL` / `tmp_*` は未追跡のまま除外され、`git diff --cached --check` が通っていることを確認済みである。
+
+## remaining
+
+- F5bt は surface owner と dirty set を同じ render2d owner 境界へ束ねるところまでであり、formal tile / bitmap transport、host present、FHD 60fps batching、row / tile batching、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bs SourceOver dirty region set aggregation boundary
 
 ## scope

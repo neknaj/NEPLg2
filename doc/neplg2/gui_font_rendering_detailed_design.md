@@ -7205,6 +7205,36 @@ The helper deliberately does not use `dirty_region_merge`. A bounding `DirtyRegi
 
 F5bs source policy checks the new helper, its checked insertion path, the absence of unchecked push and `dirty_region_merge`, and the absence of allocator / platform / present / tile / bitmap / transport / fallback APIs.
 
+## Render2d surface + dirty owner boundary
+
+F5bt creates the shared render2d surface + dirty owner boundary that F5br deliberately deferred. The authority of this phase is the already-owned `GuiRgba8888SoftwareSurfaceOwner` from F5bo and the fixed-capacity `DirtyRegionSet` contract from F5bs.
+
+```text
+GuiRgba8888SoftwareSurfaceOwner
+    + DirtyRegionSet
+    -> GuiRgba8888SoftwareSurfaceDirtyOwner
+```
+
+The owner is not a platform surface and not a transport payload. It is an alloc/render2d ownership boundary that keeps pixel memory and dirty metadata together until a later tile / bitmap transport phase consumes both.
+
+The update rule is ordered:
+
+```text
+read dirty Copy metadata from owner
+call dirty_regions_push_region_checked dirty region
+if error:
+    return owner-bearing dirty push error with the original owner
+if ok:
+    move surface out of owner
+    return new owner with surface and next_dirty
+```
+
+This order is the important part of the contract. `dirty_regions_push_region_checked` must happen before `field::get owner "surface"` so an invalid unchecked dirty rect cannot lose the surface owner. The error type carries both the `GuiError` and the original `GuiRgba8888SoftwareSurfaceDirtyOwner`.
+
+The public surface is intentionally narrow. Width, height, stride, byte length, and dirty set are exposed as borrowed Copy metadata. There is no raw surface accessor, mutable surface accessor, or split accessor. `finish_surface` exists only as a recovery / teardown function that discards dirty metadata and returns the surface owner. A caller that needs dirty metadata must read it before `finish_surface`.
+
+F5bt must not allocate tile lists, publish bitmap payloads, present to a host, call Web/native APIs, integrate font/glyf rendering directly, write pixels, use `dirty_region_merge`, use `dirty_regions_push_unchecked`, or introduce fallback behavior. Those decisions remain in later formal transport and scheduler phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
