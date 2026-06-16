@@ -134,6 +134,8 @@ const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command
 const stdGuiTilePresentCommandCursorImpl = withoutComments(stdGuiTilePresentCommandCursor);
 const stdGuiTilePresentHostCommand = read("stdlib/std/gui/tile_present_host_command.nepl");
 const stdGuiTilePresentHostCommandImpl = withoutComments(stdGuiTilePresentHostCommand);
+const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_import.nepl");
+const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -182,6 +184,7 @@ const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
+const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -20173,6 +20176,84 @@ assert(
         guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_uses_f5cp_accessor_ok") &&
         guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_no_raw_no_host_no_platform_no_fallback"),
     "F5cq std tile present host-command focused doctest must cover host-command source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host import request") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostImportRequest") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostImportTarget") &&
+            doc.includes("Headless is not a presentation target") &&
+            doc.includes("FormatRgba8888"),
+        `F5cr ${name} must document host import request targets, headless rejection, and RGBA8888 capability validation`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_import" as *'), "std/gui facade must export F5cr tile present host import request boundary");
+assert(
+    stdGuiTilePresentHostImport.includes("pub enum GuiRgba8888RowTileRlePresentHostImportTarget:") &&
+        stdGuiTilePresentHostImport.includes("Window %WindowId") &&
+        stdGuiTilePresentHostImport.includes("Offscreen") &&
+        stdGuiTilePresentHostImport.includes("Device") &&
+        stdGuiTilePresentHostImport.includes("pub struct GuiRgba8888RowTileRlePresentHostImportRequest:") &&
+        stdGuiTilePresentHostImport.includes("target %GuiRgba8888RowTileRlePresentHostImportTarget") &&
+        stdGuiTilePresentHostImport.includes("record %GuiRgba8888RowTileRlePresentHostCommandRecord"),
+    "std/gui/tile_present_host_import F5cr must define explicit target enum and request record over F5cq host-command record",
+);
+assertMatch(
+    stdGuiTilePresentHostImportImpl,
+    /#import "std\/gui\/tile_present_host_command" as \*/,
+    "std/gui/tile_present_host_import F5cr must depend on F5cq host-command records",
+);
+assertNoMatch(
+    stdGuiTilePresentHostImportImpl,
+    /#import "std\/gui\/tile_present_command_cursor"|\btile_present_command_cursor\b|#import "std\/gui\/tile_present_run_cursor"|\btile_present_run_cursor\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_import F5cr must not bypass F5cq, use old pixel-frame present, call host/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostImportImpl, "gui_rgba8888_row_tile_rle_present_host_import_request"),
+    [
+        "gui_host_capabilities host",
+        "gui_rgba8888_row_tile_rle_present_host_import_color_format_ok &capabilities",
+        "gui_rgba8888_row_tile_rle_present_host_import_target_from_host host &capabilities",
+        "Result::Ok target:",
+        "gui_rgba8888_row_tile_rle_present_host_import_request_new target record",
+        "Result::Err error:",
+        "Result::Err error",
+        "else Result::Err GuiError::Unsupported",
+    ],
+    "std/gui/tile_present_host_import F5cr must validate RGBA8888 before target selection and preserve explicit Result errors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostImportImpl, "gui_rgba8888_row_tile_rle_present_host_import_target_from_host"),
+    [
+        "SurfaceKind::WindowPixel:",
+        "gui_rgba8888_row_tile_rle_present_host_import_window_target host capabilities",
+        "SurfaceKind::OffscreenPixel:",
+        "Result::Ok GuiRgba8888RowTileRlePresentHostImportTarget::Offscreen",
+        "SurfaceKind::DevicePixel:",
+        "Result::Ok GuiRgba8888RowTileRlePresentHostImportTarget::Device",
+        "_:",
+        "Result::Err GuiError::Unsupported",
+    ],
+    "std/gui/tile_present_host_import F5cr target selection must reject headless/text-grid instead of falling back",
+);
+assertNoMatch(
+    stdGuiTilePresentHostImportImpl,
+    /[()]/,
+    "std/gui/tile_present_host_import F5cr implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_facade_ok") &&
+        guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_target_enum_ok") &&
+        guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_rgba8888_capability_ok") &&
+        guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_headless_unsupported_ok") &&
+        guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_consumes_f5cq_only_ok") &&
+        guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_no_raw_no_host_call_no_platform_no_fallback"),
+    "F5cr std tile present host-import focused doctest must cover host-import source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

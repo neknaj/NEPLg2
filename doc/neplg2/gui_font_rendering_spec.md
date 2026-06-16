@@ -6959,6 +6959,8 @@ Font renderer と 2D renderer の出力は、最終的に Web / native / bare / 
 
 `std/gui/tile_present_host_command` は std layer row tile RLE present host-command record であり、F5cp の public step descriptor accessor と step result accessor だけから `GuiRgba8888RowTileRlePresentHostCommandRecord` を作る。`GuiRgba8888RowTileRlePresentHostCommandStepResult` は `Record` と `Completed` を enum で分け、record 側は `BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` のみを持つ。`run_record` は descriptor と `GuiRgba8888RowTileRleRun` の両方を保持する。この shape は does not flatten to kind plus optional run。不正な Run-without-run や run payload 付き EndFrame を表現できない形にするためである。この layer does not bypass F5cp。packet record reader、raw storage、host import、platform API、fallback は使わず、actual Web / native / bare / headless presenter ABI は後続 phase に置く。
 
+`std/gui/tile_present_host_import` は std layer row tile RLE present host import request であり、F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` を `GuiRgba8888RowTileRlePresentHostImportRequest` に包む。target は `GuiRgba8888RowTileRlePresentHostImportTarget` の `Window WindowId`、`Offscreen`、`Device` だけである。Headless is not a presentation target。headless / text grid は host-command record を test drain で検査する対象であり、presentation request construction では `GuiError::Unsupported` を返す。RGBA8888 row tile RLE 専用 request なので `GuiCapabilities.color_format` が `ColorFormat::FormatRgba8888` でない場合も `GuiError::Unsupported` とする。Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を同時に要求し、unsupported host から Offscreen / Device へ fallback しない。
+
 ## Error contract
 
 F1/F2 は既存の `GuiError` を返すが、font-specific error category を public enum として同時に定義する。

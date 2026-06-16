@@ -6633,3 +6633,39 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cq_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cr: std row tile RLE present host import request
+
+目的:
+
+- F5cq の host-command record を formal host import request へ写す std layer boundary を追加する。
+- actual Web / native / bare presenter や host import call には進まず、request target と capability validation を固定する。
+- F5cr は std layer row tile RLE present host import request の checkpoint であり、後続 presenter が受け取る request value の形だけを固定する。
+- Headless is not a presentation target。headless / text grid は presentation request では `GuiError::Unsupported` とし、検査は host-command record drain で行う。
+
+変更:
+
+- `std/gui/tile_present_host_import.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostImportTarget` を定義し、target は `Window WindowId`、`Offscreen`、`Device` に限定する。
+- `GuiRgba8888RowTileRlePresentHostImportRequest` を定義し、target と `GuiRgba8888RowTileRlePresentHostCommandRecord` を保持する。
+- `gui_rgba8888_row_tile_rle_present_host_import_request` は `GuiHost` capability を検査し、`ColorFormat::FormatRgba8888` でない host を `GuiError::Unsupported` にする。
+- Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を同時に要求する。
+- `std/gui.nepl` facade、focused doctest、source policy、note / todo を更新する。
+
+完了条件:
+
+- F5cr は `std/gui/tile_present_host_command` の F5cq record だけを消費し、F5cp / F5co cursor、packet record / storage、old `GuiSurfacePresentCommand`、platform API、video memory、Canvas / DOM / minifb、fallback、silent no-op に触れない。
+- `GuiRgba8888RowTileRlePresentHostImportTarget` は headless target を持たない。
+- `FormatRgba8888` の検査は target selection より前に行う。
+- focused doctest、source policy、F5cq regression、`git diff --check` が通る。
+- subagent implementation review で target model、headless rejection、RGBA8888 validation、F5cq-only dependency が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cr.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cr_regression.json -j 1
+git diff --check
+```

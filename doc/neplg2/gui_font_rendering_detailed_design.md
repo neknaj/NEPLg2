@@ -7979,6 +7979,10 @@ GuiRgba8888RowTileRlePresentHostCommandStepResult:
 
 The record shape does not flatten to kind plus optional run. A host presenter can pattern-match a single enum and cannot observe an invalid state such as a `RunRecord` without a run payload or an `EndFrame` with one. The mapping function reads the descriptor through F5cp's public step descriptor accessor and the step output through F5cp's public step result accessor. It does not access the F5cp step owner field directly and does not bypass F5cp by reading F5co, packet records, raw storage, host imports, platform APIs, or fallback paths.
 
+F5cr introduces the std layer row tile RLE present host import request. It is still not the Web, native, or bare presenter implementation. It wraps an F5cq `GuiRgba8888RowTileRlePresentHostCommandRecord` into `GuiRgba8888RowTileRlePresentHostImportRequest` and selects an explicit `GuiRgba8888RowTileRlePresentHostImportTarget`.
+
+The target enum contains only `Window WindowId`, `Offscreen`, and `Device`. Headless is not a presentation target. Headless tests should inspect host-command records or a later explicit virtual drain, not receive a fake presentation target. Text grid is also rejected because RGBA8888 row tile RLE is a pixel transport. The constructor checks `GuiCapabilities.color_format` before selecting a target and accepts only `ColorFormat::FormatRgba8888`. This is required because `SurfaceKind::DevicePixel` can use non-RGBA formats such as RGB565. The request boundary must fail with `GuiError::Unsupported` rather than shifting a color-format mismatch to a platform layer.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
