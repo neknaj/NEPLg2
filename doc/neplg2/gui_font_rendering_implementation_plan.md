@@ -155,6 +155,45 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5cz: std row tile RLE present host report loop bridge boundary
+
+目的:
+
+- F5cv の `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest`、F5cw の action decoding、F5cx の report outcome、F5cy の executor validation を接続する std layer row tile RLE present host report loop bridge boundary を追加する。
+- validation before completion を contract とし、support / full action identity の検査が通った場合だけ pending value を F5cv `complete_request` へ渡す。
+- validation failure は pending の previous state を保持し、F5cv completion を呼ばない。
+- matching action の failed report は validation failure にせず、F5cx `report_outcome` から F5cv `HostImportExecutionFailed` へ進める。
+- wrong action report と unsupported target は `GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` の `ExecutorValidationFailed` として止める。
+- F5cz は actual host import execution、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、Canvas / DOM / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 承認条件は pending を value として消費すること、pending request / previous state を completion 前に読むこと、F5cw action decode、F5cy validation、F5cx `report_outcome`、F5cv `complete_request` の順序を固定することだった。
+- validation failure では F5cv completion を呼ばず、completion failure では F5cv error kind / category / state を wrapper に保持する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_report_loop_bridge.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind` は `ExecutorValidationFailed lower_executor_error` と `LoopCompletionFailed lower_loop_error` を持つ。
+- `GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` は kind、category、loop state を保持する。
+- `gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete` は pending request から expected action を作り、F5cy validation 成功後だけ F5cx `report_outcome` と F5cv `complete_request` を呼ぶ。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md` を追加し、success report、failed report completion error、unsupported support、wrong action report を検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cz source policy を追加し、F5cv/F5cw/F5cx/F5cy import、validation before completion、F5cu/F5ct/F5cs/F5cp/F5co 禁止、F5cr request construction 禁止、raw / platform / host / queue / timer / scheduler / fallback 禁止、NEPL parentheses 禁止を固定する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5cz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_module_f5cz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cz_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

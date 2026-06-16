@@ -1,0 +1,98 @@
+//: # std/gui/tile_present_host_report_loop_bridge
+//: RGBA8888 row tile RLE present host report と dispatch loop completion の std layer bridge
+//:
+//: ### [目的/もくてき]
+//: - F5cv の pending request、F5cw の action decoding、F5cx の execution report、F5cy の executor validation を 1 つの[安全/あんぜん]な[戻/もど]し[境界/きょうかい]に[束/たば]ねます。
+//: - platform executor が[返/かえ]した report を loop state に[反映/はんえい]する[前/まえ]に、support と full action identity を[検証/けんしょう]します。
+//:
+//: ### [契約/けいやく]
+//: - `pending` は value として[消費/しょうひ]され、successful validation の[後/あと]だけ F5cv `complete_request` に[渡/わた]されます。
+//: - validation failure では F5cv completion を[呼/よ]ばず、pending の previous state を error に[保持/ほじ]します。
+//: - execution failure report は action が[一致/いっち]していれば validation success とし、F5cx `report_outcome` を F5cv completion へ[渡/わた]します。
+//: - actual host import、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_report_loop_bridge" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_dispatch_loop" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_execution_report" as *
+#import "std/gui/tile_present_host_executor" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind:
+    ExecutorValidationFailed %GuiRgba8888RowTileRlePresentHostExecutorError
+    LoopCompletionFailed %GuiRgba8888RowTileRlePresentDispatchLoopError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostReportLoopBridgeError:
+    kind %GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind
+    category %Option GuiError
+    state %GuiRgba8888RowTileRlePresentDispatchLoopState
+
+impl Clone for GuiRgba8888RowTileRlePresentHostReportLoopBridgeError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostReportLoopBridgeError GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostReportLoopBridgeError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostReportLoopBridgeError GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_new %fn GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentDispatchLoopState GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \kind\category\state:
+    GuiRgba8888RowTileRlePresentHostReportLoopBridgeError kind category state
+
+fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_validation_error %fn GuiRgba8888RowTileRlePresentHostExecutorError fn GuiRgba8888RowTileRlePresentDispatchLoopState GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \lower\previous:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_executor_error_category_value &lower
+    let kind %GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind::ExecutorValidationFailed lower
+    gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_new kind category previous
+
+fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_completion_error %fn GuiRgba8888RowTileRlePresentDispatchLoopError GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_dispatch_loop_error_category_value &lower
+    let state %GuiRgba8888RowTileRlePresentDispatchLoopState gui_rgba8888_row_tile_rle_present_dispatch_loop_error_state &lower
+    let kind %GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind::LoopCompletionFailed lower
+    gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_new kind category state
+
+//: gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete: validated report を loop completion に[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - pending request から expected action を[作/つく]り、report の action と full identity で[比較/ひかく]します。
+//: - validation failure では pending を completion に[渡/わた]しません。
+//: - validation success の[場合/ばあい]だけ report outcome を F5cv `complete_request` へ[渡/わた]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest fn GuiRgba8888RowTileRlePresentHostExecutionReport Result GuiRgba8888RowTileRlePresentDispatchLoopCompletion GuiRgba8888RowTileRlePresentHostReportLoopBridgeError \support\pending\report:
+    let previous %GuiRgba8888RowTileRlePresentDispatchLoopState gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_previous &pending
+    let request gui_rgba8888_row_tile_rle_present_dispatch_loop_pending_request &pending
+    let expected %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_execution_action &request
+    match gui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action support expected report:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_validation_error lower previous
+        Result::Ok validated:
+            let outcome %Result unit GuiError gui_rgba8888_row_tile_rle_present_host_execution_report_outcome &validated
+            match gui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request pending outcome:
+                Result::Ok completion:
+                    Result::Ok completion
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_completion_error lower
+
+pub fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_kind %fn &GuiRgba8888RowTileRlePresentHostReportLoopBridgeError GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_category_value %fn &GuiRgba8888RowTileRlePresentHostReportLoopBridgeError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_error_state %fn &GuiRgba8888RowTileRlePresentHostReportLoopBridgeError GuiRgba8888RowTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
