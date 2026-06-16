@@ -194,6 +194,44 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5da: std row tile RLE present host execution driver boundary
+
+目的:
+
+- F5cv の `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` を、actual Web / native / bare / headless executor が読む action と one-shot pending value の組へ束ねる std layer row tile RLE present host execution driver boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` は pending value と F5cw action を保持し、platform executor は `pending_action` だけを読んで実行する。
+- executor は `Result unit GuiError` だけを返し、F5da は F5cx report construction と F5cz bridge を通して validation / completion に戻す。
+- completion は F5cz を authority とし、F5cv `complete_request`、F5cy `validate_report_for_action`、F5cr request construction は直接呼ばない。
+- F5da は actual platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、F5cu / F5ct / F5cs / F5cp / F5co、raw storage、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 承認条件は `DriverPending` が Clone / Copy を持たないこと、prepare が pending request を borrow して action を 1 回だけ導出すること、complete_outcome が action を読んでから `field::get driver "pending"` で pending を move し、F5cx report と F5cz bridge だけを呼ぶことだった。
+- source policy で direct F5cv completion、F5cy validation reimplementation、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、platform / raw / fallback leakage を禁止する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_execution_driver.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` は pending と action を持つ owner-bearing struct とし、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentHostExecutionDriverErrorKind` は `BridgeFailed lower_bridge_error` を持ち、driver error は category と loop state を保持する。
+- `gui_rgba8888_row_tile_rle_present_host_execution_driver_prepare` は F5cv pending request accessor と F5cw action decoding だけで driver pending を作る。
+- `gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome` は stored action と executor outcome から F5cx report を作り、F5cz bridge へ渡す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md` を追加し、action exposure、success completion、failed outcome、unsupported support を検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5da source policy を追加する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5da.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_driver_module_f5da.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5da_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
