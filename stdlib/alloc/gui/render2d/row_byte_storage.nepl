@@ -88,6 +88,28 @@ impl Copy for GuiRgba8888RowByteStorageFinishErrorKind:
     fn copy_mark %fn GuiRgba8888RowByteStorageFinishErrorKind GuiRgba8888RowByteStorageFinishErrorKind \kind:
         kind
 
+pub enum GuiRgba8888RowByteStorageAuthorityErrorKind:
+    ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind
+    ContinuationIndexInvalid
+    ContinuationPlanInvalid %GuiRgba8888RowBatchPlanInvariantErrorKind
+    BatchIndexOutOfBounds
+    BatchRowOffsetOverflow
+    BatchRowStartOverflow
+    BatchBoundsInvalid
+    RangeOffsetOverflow
+    RangeLengthOverflow
+    RangeEndOverflow
+    RangeEndOutOfBounds
+    RangeMetadataMismatch
+
+impl Clone for GuiRgba8888RowByteStorageAuthorityErrorKind:
+    fn clone %fn &GuiRgba8888RowByteStorageAuthorityErrorKind GuiRgba8888RowByteStorageAuthorityErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowByteStorageAuthorityErrorKind:
+    fn copy_mark %fn GuiRgba8888RowByteStorageAuthorityErrorKind GuiRgba8888RowByteStorageAuthorityErrorKind \kind:
+        kind
+
 pub struct GuiRgba8888RowByteStorageOwner:
     cursor %GuiRgba8888RowBatchCursorOwner
     range %GuiRgba8888RowBatchRange
@@ -122,6 +144,103 @@ fn gui_rgba8888_row_byte_storage_prepare_error %fn GuiRgba8888RowByteStoragePrep
 
 fn gui_rgba8888_row_byte_storage_finish_error %fn GuiRgba8888RowByteStorageFinishErrorKind fn GuiRgba8888RowBatchCursorOwner GuiRgba8888RowByteStorageFinishError \kind\cursor:
     GuiRgba8888RowByteStorageFinishError kind cursor
+
+fn gui_rgba8888_row_byte_storage_authority_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowByteStorageAuthorityErrorKind Result i32 GuiRgba8888RowByteStorageAuthorityErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_byte_storage_authority_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowByteStorageAuthorityErrorKind Result i32 GuiRgba8888RowByteStorageAuthorityErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_byte_storage_authority_expected_range %fn &GuiRgba8888RowBatchPlanOwner fn i32 Result GuiRgba8888RowBatchRange GuiRgba8888RowByteStorageAuthorityErrorKind \plan\batch_index:
+    let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+    if or lt batch_index 0 ge batch_index batch_count:
+        then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::BatchIndexOutOfBounds
+        else:
+            let max_rows %i32 gui_rgba8888_row_batch_plan_max_rows_per_batch plan
+            match gui_rgba8888_row_byte_storage_authority_checked_mul_nonnegative batch_index max_rows GuiRgba8888RowByteStorageAuthorityErrorKind::BatchRowOffsetOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok batch_row_offset:
+                    let plan_row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+                    if gt batch_row_offset plan_row_count:
+                        then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::BatchBoundsInvalid
+                        else:
+                            let remaining_rows %i32 sub plan_row_count batch_row_offset
+                            let batch_row_count %i32 if gt remaining_rows max_rows max_rows remaining_rows
+                            if le batch_row_count 0:
+                                then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::BatchBoundsInvalid
+                                else:
+                                    let plan_row_start %i32 gui_rgba8888_row_batch_plan_row_start plan
+                                    match gui_rgba8888_row_byte_storage_authority_checked_add_nonnegative_delta plan_row_start batch_row_offset GuiRgba8888RowByteStorageAuthorityErrorKind::BatchRowStartOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok batch_row_start:
+                                            let height %i32 gui_rgba8888_row_batch_plan_height plan
+                                            match gui_rgba8888_row_byte_storage_authority_checked_add_nonnegative_delta batch_row_start batch_row_count GuiRgba8888RowByteStorageAuthorityErrorKind::BatchBoundsInvalid:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok batch_row_bottom:
+                                                    if gt batch_row_bottom height:
+                                                        then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::BatchBoundsInvalid
+                                                        else:
+                                                            let stride_bytes %i32 gui_rgba8888_row_batch_plan_stride_bytes plan
+                                                            match gui_rgba8888_row_byte_storage_authority_checked_mul_nonnegative batch_row_start stride_bytes GuiRgba8888RowByteStorageAuthorityErrorKind::RangeOffsetOverflow:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok start_byte_offset:
+                                                                    match gui_rgba8888_row_byte_storage_authority_checked_mul_nonnegative batch_row_count stride_bytes GuiRgba8888RowByteStorageAuthorityErrorKind::RangeLengthOverflow:
+                                                                        Result::Err kind:
+                                                                            Result::Err kind
+                                                                        Result::Ok byte_count:
+                                                                            match gui_rgba8888_row_byte_storage_authority_checked_add_nonnegative_delta start_byte_offset byte_count GuiRgba8888RowByteStorageAuthorityErrorKind::RangeEndOverflow:
+                                                                                Result::Err kind:
+                                                                                    Result::Err kind
+                                                                                Result::Ok range_end:
+                                                                                    let byte_len %i32 gui_rgba8888_row_batch_plan_byte_len plan
+                                                                                    if gt range_end byte_len:
+                                                                                        then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::RangeEndOutOfBounds
+                                                                                        else:
+                                                                                            let frame_id %i32 gui_rgba8888_row_batch_plan_frame_id plan
+                                                                                            let width %i32 gui_rgba8888_row_batch_plan_width plan
+                                                                                            Result::Ok GuiRgba8888RowBatchRange frame_id batch_index batch_row_start batch_row_count width height stride_bytes byte_len start_byte_offset byte_count
+
+fn gui_rgba8888_row_byte_storage_authority_range_equal %fn &GuiRgba8888RowBatchRange fn &GuiRgba8888RowBatchRange bool \left\right:
+    and:
+        eq gui_rgba8888_row_batch_range_frame_id left gui_rgba8888_row_batch_range_frame_id right
+        and:
+            eq gui_rgba8888_row_batch_range_batch_index left gui_rgba8888_row_batch_range_batch_index right
+            and:
+                eq gui_rgba8888_row_batch_range_row_start left gui_rgba8888_row_batch_range_row_start right
+                and:
+                    eq gui_rgba8888_row_batch_range_row_count left gui_rgba8888_row_batch_range_row_count right
+                    and:
+                        eq gui_rgba8888_row_batch_range_width left gui_rgba8888_row_batch_range_width right
+                        and:
+                            eq gui_rgba8888_row_batch_range_height left gui_rgba8888_row_batch_range_height right
+                            and:
+                                eq gui_rgba8888_row_batch_range_stride_bytes left gui_rgba8888_row_batch_range_stride_bytes right
+                                and:
+                                    eq gui_rgba8888_row_batch_range_byte_len left gui_rgba8888_row_batch_range_byte_len right
+                                    and:
+                                        eq gui_rgba8888_row_batch_range_start_byte_offset left gui_rgba8888_row_batch_range_start_byte_offset right
+                                        eq gui_rgba8888_row_batch_range_byte_count left gui_rgba8888_row_batch_range_byte_count right
 
 fn gui_rgba8888_row_byte_storage_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowByteStorageCopyErrorKind Result i32 GuiRgba8888RowByteStorageCopyErrorKind \base\delta\overflow_kind:
     if lt delta 0:
@@ -255,6 +374,37 @@ pub fn gui_rgba8888_row_byte_storage_range %fn &GuiRgba8888RowByteStorageOwner G
 pub fn gui_rgba8888_row_byte_storage_byte_count %fn &GuiRgba8888RowByteStorageOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range owner
     gui_rgba8888_row_batch_range_byte_count &range
+
+//: gui_rgba8888_row_byte_storage_validate_authority: copied row byte storage の metadata が continuation cursor 由来であることを[借用/しゃくよう]で[再検証/さいけんしょう]する
+//:
+//: [契約/けいやく]:
+//: - storage owner を[消費/しょうひ]せず、内部 cursor の plan と continuation index から直前 batch の range metadata を[再計算/さいけいさん]します。
+//: - stored range が再計算結果と一致しない場合は `RangeMetadataMismatch` を[返/かえ]します。
+//: - copied byte storage の中身は[読/よ]まず、raw pointer や destination byte reader にも[進/すす]みません。
+pub fn gui_rgba8888_row_byte_storage_validate_authority %fn &GuiRgba8888RowByteStorageOwner Result unit GuiRgba8888RowByteStorageAuthorityErrorKind \owner:
+    let cursor %&GuiRgba8888RowBatchCursorOwner field::get_ref owner "cursor"
+    match gui_rgba8888_row_batch_cursor_status cursor:
+        Result::Err cursor_kind:
+            Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::ContinuationCursorInvalid cursor_kind
+        Result::Ok _:
+            let continuation_index %i32 gui_rgba8888_row_batch_cursor_batch_index cursor
+            if le continuation_index 0:
+                then Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::ContinuationIndexInvalid
+                else:
+                    let previous_index %i32 sub continuation_index 1
+                    let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref cursor "plan"
+                    match gui_rgba8888_row_batch_plan_validate_invariants plan:
+                        Result::Err plan_kind:
+                            Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::ContinuationPlanInvalid plan_kind
+                        Result::Ok _:
+                            match gui_rgba8888_row_byte_storage_authority_expected_range plan previous_index:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok expected_range:
+                                    let stored_range %GuiRgba8888RowBatchRange gui_rgba8888_row_byte_storage_range owner
+                                    if gui_rgba8888_row_byte_storage_authority_range_equal &stored_range &expected_range:
+                                        then Result::Ok unit
+                                        else Result::Err GuiRgba8888RowByteStorageAuthorityErrorKind::RangeMetadataMismatch
 
 fn gui_rgba8888_row_byte_storage_read_destination_byte %fn &RegionToken u8 fn i32 Result i32 GuiRgba8888RowByteStorageReadErrorKind \storage\index:
     match region_ptr_at<u8,u8> storage index:

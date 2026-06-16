@@ -6574,6 +6574,23 @@ GuiRgba8888RowBatchRangeOwner
 
 copy は `start_byte_offset + index` と destination index を checked arithmetic で検査し、source projection、source load、destination projection、destination store の失敗を `GuiRgba8888RowByteStorageCopyErrorKind` へ分ける。copy が完全に成功するまでは `gui_rgba8888_row_batch_range_owner_finish_cursor` を呼ばない。copy 失敗後は scratch storage を dealloc し、dealloc 自体が失敗した場合は `ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind` として original copy failure と区別する。
 
+### Render2d row tile plan boundary
+
+F5ca は `GuiRgba8888RowByteStorageOwner` を、formal tile payload / RLE / host present の前段となる row tile plan metadata へ変換する phase である。success type は `GuiRgba8888RowTilePlanOwner` であり、exact copied storage owner と Copy metadata の `GuiRgba8888RowTilePlan` を同じ owner に束ねる。ここでは no RLE / host present とし、byte payload 分割、RLE encode、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowByteStorageOwner
+    -> gui_rgba8888_row_byte_storage_validate_authority
+    -> gui_rgba8888_row_tile_plan_prepare
+    -> Result GuiRgba8888RowTilePlanOwner GuiRgba8888RowTilePlanPrepareError
+```
+
+`gui_rgba8888_row_byte_storage_validate_authority` は copied storage owner を消費せず、continuation cursor の `batch_index - 1` から expected row range を再計算する。stored `GuiRgba8888RowBatchRange` が frame_id / batch_index / row_start / row_count / width / height / stride_bytes / byte_count のいずれかで一致しない場合は `RangeMetadataMismatch` を返す。byte reader や raw storage access は使わない。
+
+`GuiRgba8888RowTilePlan` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_count、tile_rows、tile_count を持つ。`tile_count` は `row_count / tile_rows` の quotient / remainder から checked ceil として計算し、`row_count + tile_rows - 1` のような overflow しやすい式を使わない。`descriptor_at` は `&GuiRgba8888RowTilePlanOwner` を借用し、まず `gui_rgba8888_row_tile_plan_validate_invariants` を通す。
+
+`GuiRgba8888RowTileDescriptor` の `row_start` は frame-absolute row であり、`byte_offset` は copied row byte storage 先頭からの storage-relative byte offset である。式は `local_row_start = tile_index * tile_rows`、`row_start = plan.row_start + local_row_start`、`byte_offset = local_row_start * stride_bytes`、`byte_count = descriptor.row_count * stride_bytes` とし、`byte_offset + byte_count <= plan.byte_count` を checked に検査する。この descriptor は payload ではなく、後続 phase が payload / RLE / host present へ進むための authority metadata である。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
