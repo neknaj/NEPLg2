@@ -6595,3 +6595,41 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5cp_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cq: std row tile RLE present host-command record
+
+目的:
+
+- F5cp の command cursor step を、Web / native / bare / headless presenter の formal ABI に渡せる std layer row tile RLE present host-command record へ写す。
+- actual host import には進まず、`BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` の invalid-state-free enum shape だけを固定する。
+- host-command record does not bypass F5cp。F5co run cursor、packet record reader、raw storage、host/platform/video memory API へ直接到達しない。
+
+変更:
+
+- `std/gui/tile_present_command_cursor.nepl` に public step descriptor accessor を追加する。
+- `std/gui/tile_present_host_command.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostCommandRunRecord` を定義し、descriptor と `GuiRgba8888RowTileRleRun` の両方を持たせる。
+- `GuiRgba8888RowTileRlePresentHostCommandRecord` を定義し、Run 用 variant は run record を 1 payload として持つ。
+- `GuiRgba8888RowTileRlePresentHostCommandStepResult` を定義し、record と terminal Completed を分ける。
+- `gui_rgba8888_row_tile_rle_present_host_command_step_result` は F5cp の public accessor だけから record を作る。
+- `std/gui.nepl` facade に再公開を追加する。
+- `tests/stdlib/gui_std_tile_present_host_command.n.md` と source policy を追加する。
+- `note.n.md` と `todo.md` を更新する。
+
+完了条件:
+
+- host-command record は does not flatten to kind plus optional run。
+- F5cq は `tile_present_run_cursor`、packet record reader、packet storage、`RegionToken`、`MemPtr`、byte load helper、host import、platform API、video memory、Canvas / DOM / minifb、fallback、silent no-op を使わない。
+- F5cq は F5cp step 内部の owner field を直接読まず、F5cp の public accessor を使う。
+- focused doctest、source policy、F5cp regression、`git diff --check` が通る。
+- subagent implementation review で record shape、F5cp-only dependency、owner field bypass 禁止が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cq_regression.json -j 1
+git diff --check
+```

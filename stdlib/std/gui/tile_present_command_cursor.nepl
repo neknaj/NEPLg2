@@ -139,6 +139,10 @@ pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error_finish_prese
 pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_result %fn &GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentCommandCursorStepResult \step:
     *field::get_ref step "result"
 
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor %fn &GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentDescriptor \step:
+    let owner %&GuiRgba8888RowTileRlePresentCommandCursorOwner field::get_ref step "owner"
+    gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor owner
+
 pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_finish_owner %fn GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentCommandCursorOwner \step:
     field::get step "owner"
 

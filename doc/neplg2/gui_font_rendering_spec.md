@@ -6957,6 +6957,8 @@ Font renderer と 2D renderer の出力は、最終的に Web / native / bare / 
 
 `std/gui/tile_present_command_cursor` は std layer row tile RLE present command cursor であり、`GuiRgba8888RowTileRlePresentCommandCursorOwner` が F5co の lower run cursor owner、descriptor copy、phase を保持する。command stream は `GuiRgba8888RowTileRlePresentCommand::BeginFrame`、`Run`、`GuiRgba8888RowTileRlePresentCommand::EndFrame` からなり、one typed output per public step を contract とする。lower run cursor が `Completed` を返した step は silent transition にせず、同じ public step で EndFrame を返して terminal phase に進む。この layer does not bypass F5co。raw packet storage、byte reader、host import、platform API、fallback は後続 presenter にも持ち込まない。
 
+`std/gui/tile_present_host_command` は std layer row tile RLE present host-command record であり、F5cp の public step descriptor accessor と step result accessor だけから `GuiRgba8888RowTileRlePresentHostCommandRecord` を作る。`GuiRgba8888RowTileRlePresentHostCommandStepResult` は `Record` と `Completed` を enum で分け、record 側は `BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` のみを持つ。`run_record` は descriptor と `GuiRgba8888RowTileRleRun` の両方を保持する。この shape は does not flatten to kind plus optional run。不正な Run-without-run や run payload 付き EndFrame を表現できない形にするためである。この layer does not bypass F5cp。packet record reader、raw storage、host import、platform API、fallback は使わず、actual Web / native / bare / headless presenter ABI は後続 phase に置く。
+
 ## Error contract
 
 F1/F2 は既存の `GuiError` を返すが、font-specific error category を public enum として同時に定義する。
