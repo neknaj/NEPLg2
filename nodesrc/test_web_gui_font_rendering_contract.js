@@ -140,6 +140,8 @@ const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
 const stdGuiTilePresentScheduleImpl = withoutComments(stdGuiTilePresentSchedule);
+const stdGuiTilePresentDispatch = read("stdlib/std/gui/tile_present_dispatch.nepl");
+const stdGuiTilePresentDispatchImpl = withoutComments(stdGuiTilePresentDispatch);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -191,6 +193,7 @@ const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_presen
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
+const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -20475,6 +20478,99 @@ assert(
         guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_resume_slice_ok") &&
         guiStdTilePresentScheduleTests.includes("std_row_tile_rle_present_schedule_no_f5cr_no_raw_no_platform_no_fallback"),
     "F5ct std tile present schedule focused doctest must cover schedule source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present scheduled dispatch boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentDispatchState") &&
+            doc.includes("RequestReady request plus post phase") &&
+            doc.includes("F5ct before F5cr") &&
+            doc.includes("previous dispatch state"),
+        `F5cu ${name} must document dispatch boundary, request/post phase shape, and error state preservation`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_dispatch" as *'), "std/gui facade must export F5cu tile present dispatch boundary");
+assert(
+    stdGuiTilePresentDispatch.includes("pub struct GuiRgba8888RowTileRlePresentDispatchState:") &&
+        stdGuiTilePresentDispatch.includes("schedule %GuiRgba8888RowTileRlePresentScheduleState") &&
+        stdGuiTilePresentDispatch.includes("pub enum GuiRgba8888RowTileRlePresentDispatchPostPhase:") &&
+        stdGuiTilePresentDispatch.includes("Continue") &&
+        stdGuiTilePresentDispatch.includes("Yield") &&
+        stdGuiTilePresentDispatch.includes("Completed"),
+    "std/gui/tile_present_dispatch F5cu must wrap F5ct state and expose post-record phase enum",
+);
+assert(
+    stdGuiTilePresentDispatch.includes("pub struct GuiRgba8888RowTileRlePresentDispatchReadyRequest:") &&
+        stdGuiTilePresentDispatch.includes("request %GuiRgba8888RowTileRlePresentHostImportRequest") &&
+        stdGuiTilePresentDispatch.includes("post_phase %GuiRgba8888RowTileRlePresentDispatchPostPhase") &&
+        stdGuiTilePresentDispatch.includes("pub enum GuiRgba8888RowTileRlePresentDispatchOutput:") &&
+        stdGuiTilePresentDispatch.includes("RequestReady %GuiRgba8888RowTileRlePresentDispatchReadyRequest"),
+    "std/gui/tile_present_dispatch F5cu must keep request delivery and post phase in one invalid-state-free value",
+);
+assert(
+    stdGuiTilePresentDispatch.includes("pub enum GuiRgba8888RowTileRlePresentDispatchStepErrorKind:") &&
+        stdGuiTilePresentDispatch.includes("ScheduleFailed %GuiRgba8888RowTileRlePresentScheduleStepErrorKind") &&
+        stdGuiTilePresentDispatch.includes("HostImportRequestFailed %GuiError") &&
+        stdGuiTilePresentDispatch.includes("pub struct GuiRgba8888RowTileRlePresentDispatchStepError:") &&
+        stdGuiTilePresentDispatch.includes("state %GuiRgba8888RowTileRlePresentDispatchState"),
+    "std/gui/tile_present_dispatch F5cu must define typed lower schedule/host-request errors with previous state",
+);
+assertMatch(
+    stdGuiTilePresentDispatchImpl,
+    /#import "std\/gui\/tile_present_schedule" as \*/,
+    "std/gui/tile_present_dispatch F5cu must import F5ct schedule boundary",
+);
+assertMatch(
+    stdGuiTilePresentDispatchImpl,
+    /#import "std\/gui\/tile_present_host_import" as \*/,
+    "std/gui/tile_present_dispatch F5cu must import F5cr host-import request boundary",
+);
+assertNoMatch(
+    stdGuiTilePresentDispatchImpl,
+    /tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_dispatch F5cu must not call F5cs directly, use lower cursors/raw storage, execute host/platform APIs, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentDispatchImpl, "gui_rgba8888_row_tile_rle_present_dispatch_step_record"),
+    [
+        "gui_rgba8888_row_tile_rle_present_schedule_step_record policy schedule_state record",
+        "GuiRgba8888RowTileRlePresentDispatchStepErrorKind::ScheduleFailed lower_kind",
+        "gui_rgba8888_row_tile_rle_present_dispatch_post_phase_from_schedule schedule_phase",
+        "gui_rgba8888_row_tile_rle_present_host_import_request host record",
+        "GuiRgba8888RowTileRlePresentDispatchStepErrorKind::HostImportRequestFailed host_error",
+        "gui_rgba8888_row_tile_rle_present_dispatch_ready_request_new request post_phase",
+        "GuiRgba8888RowTileRlePresentDispatchOutput::RequestReady ready",
+    ],
+    "std/gui/tile_present_dispatch F5cu must run F5ct before F5cr and return request plus post phase",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentDispatchImpl, "gui_rgba8888_row_tile_rle_present_dispatch_state_resume_slice"),
+    [
+        "let schedule %GuiRgba8888RowTileRlePresentScheduleState",
+        "gui_rgba8888_row_tile_rle_present_schedule_state_resume_slice schedule",
+        "gui_rgba8888_row_tile_rle_present_dispatch_state_new resumed",
+    ],
+    "std/gui/tile_present_dispatch F5cu resume must delegate only to F5ct schedule resume",
+);
+assertNoMatch(
+    stdGuiTilePresentDispatchImpl,
+    /[()]/,
+    "std/gui/tile_present_dispatch F5cu implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_facade_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_state_wraps_f5ct_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_ready_request_post_phase_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_f5ct_before_f5cr_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_preserves_request_and_post_phase_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_error_preserves_previous_state_ok") &&
+        guiStdTilePresentDispatchTests.includes("std_row_tile_rle_present_dispatch_no_f5cs_no_raw_no_platform_no_fallback"),
+    "F5cu std tile present dispatch focused doctest must cover dispatch source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
