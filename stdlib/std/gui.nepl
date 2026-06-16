@@ -30,6 +30,7 @@ pub #import "./gui/tile_present_schedule" as *
 pub #import "./gui/tile_present_dispatch" as *
 pub #import "./gui/tile_present_dispatch_loop" as *
 pub #import "./gui/tile_present_host_execution" as *
+pub #import "./gui/tile_present_host_execution_report" as *
 pub #import "./gui/offscreen" as *
 pub #import "./gui/timer" as *
 pub #import "./gui/text_measure" as *

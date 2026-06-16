@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5cx std row tile RLE present host execution report boundary
+
+## scope
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と executor outcome を action context を失わない typed report に束ねる。
+- `GuiRgba8888RowTileRlePresentHostExecutionReportKind` は `Succeeded` / `Failed GuiError` の enum とし、string / bool / silent no-op へ落とさない。
+- actual Web / native / bare executor、F5cv pending completion、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5cw が executor action、F5cx が action-retaining outcome envelope を担う分割は、platform executor の前に置く root-cause slice として妥当と確認された。
+- executor outcome は既に存在するため、report construction は direct value return とし、新しい `Result` failure mode は作らない。
+- F5cx は F5cv から独立させ、caller が `report_outcome` を F5cv `complete_request` へ渡す方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution_report.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostExecutionReportKind`、`GuiRgba8888RowTileRlePresentHostExecutionReport`、`report`、`report_for_request`、accessor、`report_outcome` を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution_report.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cx.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_report.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_report_module_f5cx.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cx.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5cx は approved boundary どおり report construction のみであり、F5cw / F5cr を使い、F5cv completion や actual host execution へ進んでいないことが確認された。
+- `report_for_request` は F5cw action decoding を 1 回だけ呼び、supplied executor outcome を action-retaining report に束ねていることが確認された。
+- `report_outcome` は `Succeeded` / `Failed GuiError` から元の `Result unit GuiError` shape へ roundtrip し、F5cv caller が exact outcome を渡せることが確認された。
+- source policy / docs は platform / DOM / Canvas / minifb / video memory、queue / timer / scheduler、raw storage、lower cursor、fallback、silent no-op、NEPL parentheses leakage を禁止していることも確認された。
+
+## residual
+
+- F5cx は executor report boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cw std row tile RLE present host execution action boundary
 
 ## scope

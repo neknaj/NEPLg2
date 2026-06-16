@@ -8025,6 +8025,14 @@ The action enum is a flat target x record action. It contains `WindowBegin`, `Wi
 
 The mapping function reads only through F5cr request accessor functions and F5cq host-command record values. It returns an action directly because F5cr has already validated target capability and color format; adding a new `Result` here would imply a failure mode that this boundary does not own. Executor failure remains a `Result unit GuiError` returned by the backend and consumed by F5cv `complete_request`. F5cw must not call F5cv, F5cu, F5ct, F5cs, F5cp, or F5co, construct a new F5cr request, read raw packet storage, allocate a queue, invoke timers or schedulers, touch host execution APIs, expose platform APIs, or fallback to a silent no-op path.
 
+## Std layer row tile RLE present host execution report boundary
+
+F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
+
+`GuiRgba8888RowTileRlePresentHostExecutionReport` contains the action and `GuiRgba8888RowTileRlePresentHostExecutionReportKind`. The kind is either `Succeeded` or `Failed GuiError`; failure never becomes a string code, bool, fallback, or silent no-op. Report construction wraps an executor-supplied `Result unit GuiError` and has no new failure mode, so it returns the report directly.
+
+F5cx is not actual execution and not pending completion. It does not call F5cv, F5cu, F5ct, F5cs, F5cp, or F5co, does not construct F5cr requests, and does not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, or schedulers. The only bridge back to the dispatch loop is `report_outcome`, which reconstitutes the original `Result unit GuiError` so a caller can pass it to F5cv `complete_request`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
