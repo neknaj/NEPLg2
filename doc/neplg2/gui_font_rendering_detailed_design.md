@@ -6973,6 +6973,67 @@ The error path keeps the registered resource owner and never stores a command. R
 
 F5bn must not call DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect bridge, sample cursor, resource table lookup, alpha Vec copy helpers, tile / bitmap transport, or a 2D compositor drain. It must not call `render_command_fill_rect`. It may call `render_command_alpha_mask_rect` only in the validated success path and only to store the command inside the prepared owner.
 
+## Software RGBA8888 surface owner boundary
+
+The software RGBA8888 surface owner is a render2d foundation, not a glyph parser detail. The first F5bo plan put a surface owner and SourceOver drain in `alloc/gui/font/sfnt/glyf.nepl`; review blocked that placement because a pixel buffer is shared by widget painting, offscreen rendering, screenshots, and future font raster output. The revised plan creates `alloc/gui/render2d` and keeps the first slice limited to storage ownership and checked pixel access.
+
+The owner layout is row-major RGBA8888:
+
+```text
+stride_bytes = width * 4
+byte_len = height * stride_bytes
+pixel_byte_offset = y * stride_bytes + x * 4
+channel order = r, g, b, a
+```
+
+`GuiRgba8888SoftwareSurfaceOwner` owns `RegionToken u8`. It is not Clone or Copy. The module must not export a raw pointer accessor, raw region accessor, or any helper that reveals `MemPtr` / raw address authority. Internal storage access goes through the safe `core/mem` facade only:
+
+```text
+alloc_region_bytes<u8>
+region_ptr_at<u8,u8>
+load_u8
+store_u8
+dealloc_region<u8>
+```
+
+The module must not import `core/mem/raw` or `core/mem/internal`.
+
+Construction validation order:
+
+```text
+1. width > 0 and height > 0
+2. width * height does not overflow i32
+3. width * 4 does not overflow i32
+4. height * stride_bytes does not overflow i32
+5. alloc_region_bytes<u8> succeeds
+6. zero initialization succeeds
+```
+
+The shape calculation returns `Result GuiRgba8888SoftwareSurfaceShape GuiRgba8888SoftwareSurfaceErrorKind`, so callers can inspect validation without allocating. Allocation failure is `OutOfMemory`. Pointer projection failure, load failure, and store failure are only produced after safe `core/mem` facade calls fail.
+
+Write access consumes the surface owner:
+
+```text
+gui_rgba8888_software_surface_write_pixel
+    owner x y color
+    -> Ok owner
+    -> Err GuiRgba8888SoftwareSurfaceWriteError
+```
+
+The write error carries the surface owner, so callers can recover, free, or retry. A write must validate bounds and byte offset before the first store. If a later safe store fails, the returned owner still represents the same allocation and must remain recoverable.
+
+Read access borrows the owner:
+
+```text
+gui_rgba8888_software_surface_read_pixel
+    &owner x y
+    -> Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind
+```
+
+Read may not consume or duplicate the `RegionToken u8` owner.
+
+F5bo deliberately does not consume the F5bn prepared command owner. It does not implement SourceOver, alpha-mask drain, DrawTarget fallback, RenderTarget backend, Canvas, DOM, minifb, or platform present. The next slice should define a compositor owner that consumes both the prepared alpha-mask command owner and a software surface owner and then returns exactly one updated surface owner plus released font/resource owners.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

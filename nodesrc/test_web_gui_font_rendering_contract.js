@@ -72,6 +72,9 @@ const renderCommandCoreImpl = withoutComments(renderCommandCore);
 const fontResource = read("stdlib/std/gui/font_resource.nepl");
 const fontResourceImpl = withoutComments(fontResource);
 const allocGuiFacade = read("stdlib/alloc/gui.nepl");
+const allocRender2dFacade = read("stdlib/alloc/gui/render2d.nepl");
+const allocRender2dSoftwareSurface = read("stdlib/alloc/gui/render2d/software_surface.nepl");
+const allocRender2dSoftwareSurfaceImpl = withoutComments(allocRender2dSoftwareSurface);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
@@ -92,6 +95,7 @@ const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
+const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
 const guiFontSfntOutlineStorageOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md");
@@ -16476,6 +16480,180 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_no_stream_no_platform_no_fallback"),
     "F5bn render fill alpha mask resource prepared command focused doctest must cover owner pair, no raw command escape, revalidation, equality, SourceOver, mismatch, recovery, free, and no stream/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "spec"],
+    [detailedDesign, "detailed design"],
+    [implementationPlan, "implementation plan"],
+]) {
+    assert(
+        doc.includes("Software RGBA8888 surface owner boundary") &&
+            doc.includes("GuiRgba8888SoftwareSurfaceOwner") &&
+            doc.includes("RegionToken u8") &&
+            doc.includes("alloc/gui/render2d") &&
+            doc.includes("SourceOver") &&
+            doc.includes("fallback") &&
+            doc.includes("DrawTarget") &&
+            doc.includes("RenderTarget"),
+        `F5bo ${name} must document render2d software surface owner boundary, no target/platform/fallback scope, and future SourceOver split`,
+    );
+}
+assert(
+    implementationPlan.includes("Planck plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("safe `core/mem` facade"),
+    "F5bo implementation plan must retain Planck blocked initial plan and approved revised plan",
+);
+assertMatch(allocGuiFacade, /pub\s+#import\s+"alloc\/gui\/render2d"\s+as\s+\*/, "alloc/gui facade must re-export render2d facade");
+assertMatch(allocRender2dFacade, /pub\s+#import\s+"\.\/render2d\/software_surface"\s+as\s+\*/, "alloc/gui/render2d facade must re-export software surface module");
+for (const fragment of [
+    "pub struct GuiRgba8888SoftwareSurfaceShape",
+    "pub struct GuiRgba8888SoftwareSurfaceOwner",
+    "storage %RegionToken u8",
+    "pub enum GuiRgba8888SoftwareSurfaceErrorKind",
+    "InvalidGeometry",
+    "PixelCountOverflow",
+    "StrideOverflow",
+    "ByteLengthOverflow",
+    "OutOfMemory",
+    "IndexOutOfBounds",
+    "ByteOffsetOverflow",
+    "PointerProjectionFailed",
+    "LoadFailed",
+    "StoreFailed",
+    "FreeFailed",
+    "pub struct GuiRgba8888SoftwareSurfaceCreateError",
+    "pub struct GuiRgba8888SoftwareSurfaceWriteError",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+]) {
+    assert(allocRender2dSoftwareSurface.includes(fragment), `alloc/gui/render2d/software_surface F5bo must include ${fragment}`);
+}
+assertNoMatch(
+    allocRender2dSoftwareSurfaceImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiRgba8888SoftwareSurfaceOwner\b|impl\s+(?:Clone|Copy)\s+for\s+GuiRgba8888SoftwareSurfaceWriteError\b/,
+    "alloc/gui/render2d/software_surface F5bo owner and owner-bearing write error must not implement Clone or Copy",
+);
+for (const fragment of [
+    "impl Clone for GuiRgba8888SoftwareSurfaceShape",
+    "impl Copy for GuiRgba8888SoftwareSurfaceShape",
+    "impl Clone for GuiRgba8888SoftwareSurfaceErrorKind",
+    "impl Copy for GuiRgba8888SoftwareSurfaceErrorKind",
+    "impl Clone for GuiRgba8888SoftwareSurfaceCreateError",
+    "impl Copy for GuiRgba8888SoftwareSurfaceCreateError",
+]) {
+    assert(allocRender2dSoftwareSurfaceImpl.includes(fragment), `alloc/gui/render2d/software_surface F5bo value-only type must implement ${fragment}`);
+}
+assertNoMatch(
+    allocRender2dSoftwareSurface,
+    /#import\s+"core\/mem\/(?:raw|internal)"|#import\s+"stdlib\/std\/gui\/surface"|#import\s+"std\/gui\/surface"|#import\s+"platforms\/gui|#import\s+"alloc\/gui\/font|#import\s+"alloc\/gui\/font\/sfnt|#import\s+"core\/gui\/render_command"/,
+    "alloc/gui/render2d/software_surface F5bo must use only safe core/mem facade and must not import std/platform/font/render command modules",
+);
+assertNoMatch(
+    allocRender2dSoftwareSurfaceImpl,
+    /\b(?:RenderTarget|DrawTarget|RenderCommand|AlphaMask|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|minifb|gui_sfnt|fallback|silent no-op|render_command_|fill_rect|stroke|shadow|SourceOver|source_over)\b/,
+    "alloc/gui/render2d/software_surface F5bo must not depend on target/platform/font/fallback/compositor APIs",
+);
+assertNoMatch(
+    allocRender2dSoftwareSurfaceImpl,
+    /pub\s+fn\s+\w*(?:ptr|pointer|region|storage)\w*[\s\S]{0,160}\b(?:MemPtr|RegionToken)\b|mem_ptr_addr|core\/mem\/raw|core\/mem\/internal/,
+    "alloc/gui/render2d/software_surface F5bo must not expose raw pointer or raw storage accessors",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_shape"),
+    [
+        "or le width 0 le height 0",
+        "GuiRgba8888SoftwareSurfaceErrorKind::InvalidGeometry",
+        "gt width div_s max_i32 height",
+        "GuiRgba8888SoftwareSurfaceErrorKind::PixelCountOverflow",
+        "gt width div_s max_i32 4",
+        "GuiRgba8888SoftwareSurfaceErrorKind::StrideOverflow",
+        "let stride_bytes %i32 mul width 4",
+        "gt height div_s max_i32 stride_bytes",
+        "GuiRgba8888SoftwareSurfaceErrorKind::ByteLengthOverflow",
+        "let byte_len %i32 mul height stride_bytes",
+        "Result::Ok gui_rgba8888_software_surface_shape_new",
+    ],
+    "alloc/gui/render2d/software_surface F5bo shape validation must fail closed before constructing byte layout",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_create"),
+    [
+        "gui_rgba8888_software_surface_shape width height",
+        "alloc_region_bytes<u8> byte_len",
+        "GuiRgba8888SoftwareSurfaceErrorKind::OutOfMemory",
+        "gui_rgba8888_software_surface_zero_region &storage byte_len",
+        "GuiRgba8888SoftwareSurfaceOwner width height stride_bytes byte_len storage",
+    ],
+    "alloc/gui/render2d/software_surface F5bo create must validate shape, allocate via safe core/mem facade, zero initialize, and return owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_pixel_offset"),
+    [
+        "or lt x 0 lt y 0",
+        "GuiRgba8888SoftwareSurfaceErrorKind::IndexOutOfBounds",
+        "or ge x width ge y height",
+        "GuiRgba8888SoftwareSurfaceErrorKind::IndexOutOfBounds",
+        "let row_offset %i32 mul y stride_bytes",
+        "let pixel_offset %i32 mul x 4",
+        "let byte_offset %i32 add row_offset pixel_offset",
+        "let end_offset %i32 add byte_offset 4",
+        "lt end_offset byte_offset",
+        "GuiRgba8888SoftwareSurfaceErrorKind::ByteOffsetOverflow",
+        "Result::Ok byte_offset",
+    ],
+    "alloc/gui/render2d/software_surface F5bo pixel offset must check bounds and overflow before returning byte offset",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_write_pixel"),
+    [
+        "gui_rgba8888_software_surface_pixel_offset &surface x y",
+        "Result::Err gui_rgba8888_software_surface_write_error kind surface",
+        "field::get_ref &surface \"storage\"",
+        "gui_rgba8888_software_surface_write_color storage byte_offset color",
+        "Result::Err gui_rgba8888_software_surface_write_error kind surface",
+        "Result::Ok surface",
+    ],
+    "alloc/gui/render2d/software_surface F5bo write must consume owner and return owner-bearing error on every failure",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_read_pixel"),
+    [
+        "%fn &GuiRgba8888SoftwareSurfaceOwner",
+        "gui_rgba8888_software_surface_pixel_offset surface x y",
+        "field::get_ref surface \"storage\"",
+        "gui_rgba8888_software_surface_read_color storage byte_offset",
+    ],
+    "alloc/gui/render2d/software_surface F5bo read must borrow owner and read through safe storage helper",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_free"),
+    [
+        "field::get surface \"storage\"",
+        "dealloc_region<u8> storage",
+        "GuiRgba8888SoftwareSurfaceErrorKind::FreeFailed",
+    ],
+    "alloc/gui/render2d/software_surface F5bo free must consume owner storage through safe core/mem facade",
+);
+for (const [slice, name] of [
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_shape"), "shape"],
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_create"), "create"],
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_pixel_offset"), "pixel offset"],
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_write_pixel"), "write pixel"],
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_read_pixel"), "read pixel"],
+    [functionSlice(allocRender2dSoftwareSurfaceImpl, "gui_rgba8888_software_surface_free"), "free"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/render2d/software_surface F5bo ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_facade_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_owner_region_token_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_create_validation_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_allocation_failure_mapping_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_read_write_roundtrip_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_write_failure_owner_recovery_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_free_ok") &&
+        guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_no_platform_no_font_no_fallback"),
+    "F5bo render2d software surface focused doctest must cover facade, owner token, validation, allocation mapping, roundtrip, recovery, free, and no platform/font/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

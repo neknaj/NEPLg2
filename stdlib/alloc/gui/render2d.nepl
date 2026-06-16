@@ -1,0 +1,23 @@
+//: # alloc/gui/render2d
+//: 2D software rendering の alloc layer facade
+//:
+//: ### [目的/もくてき]
+//: - GUI/TUI 共通 substrate のうち、pixel buffer や software compositor が共有する所有 storage API を公開します。
+//: - font rasterizer、widget renderer、offscreen screenshot が同じ surface owner contract を使えるようにします。
+//:
+//: ### [実装/じっそう]
+//: - 現 checkpoint では RGBA8888 software surface owner を公開します。
+//: - platform surface、window、DrawTarget、RenderTarget への接続は含めません。
+//:
+//: ### [注意/ちゅうい]
+//: - ここは `alloc/gui/font` の実装詳細ではなく、render2d 共通の pixel memory boundary です。
+//: - backend への present は `std/gui` と `platforms/gui/*` が担当します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d" as *
+//: ```
+
+#indent 4
+
+pub #import "./render2d/software_surface" as *

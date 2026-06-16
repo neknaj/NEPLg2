@@ -6219,6 +6219,61 @@ tile / bitmap transport
 2D compositor drain
 ```
 
+### Software RGBA8888 surface owner boundary
+
+F5bo は F5bn の prepared command を直接消費する compositor phase ではなく、2D renderer と font rasterizer が共有する software pixel memory boundary である。初回 plan review では、RGBA8888 surface owner と SourceOver compositor drain を `alloc/gui/font/sfnt/glyf.nepl` に置く案が block された。pixel buffer は font glyf 固有ではなく render2d 全体の基盤なので、F5bo は `alloc/gui/render2d` に切り出す。
+
+この boundary の最小 contract は次である。
+
+```text
+GuiRgba8888SoftwareSurfaceOwner:
+    width i32
+    height i32
+    stride_bytes i32
+    byte_len i32
+    storage RegionToken u8
+```
+
+`storage` は owner が保持する。owner は `Clone` / `Copy` を持たない。raw pointer、raw `RegionToken` accessor、platform surface、DrawTarget、RenderTarget、RenderCommand、Canvas、DOM、minifb、font glyf API は public contract に出さない。
+
+作成時の検査は fail-closed である。
+
+```text
+width <= 0 or height <= 0
+    -> InvalidGeometry
+
+width * height overflow
+    -> PixelCountOverflow
+
+width * 4 overflow
+    -> StrideOverflow
+
+height * stride_bytes overflow
+    -> ByteLengthOverflow
+
+allocation failure
+    -> OutOfMemory
+```
+
+pixel write は owner-consuming API とする。
+
+```text
+write_pixel owner x y color
+    -> Ok updated_owner
+    -> Err owner_bearing_write_error
+```
+
+pixel read は borrow-only API とする。
+
+```text
+read_pixel &owner x y
+    -> Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind
+```
+
+範囲外 index、byte offset overflow、pointer projection failure、load / store failure は enum error kind として返す。unsupported や fallback を silent no-op にしない。
+
+SourceOver alpha-mask drain は次 phase の責務であり、F5bo では実装しない。F5bo はあくまで surface owner の lifetime、bounds、byte layout を固定する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
