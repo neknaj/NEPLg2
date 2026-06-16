@@ -28,5 +28,6 @@ pub #import "alloc/gui/routing" as *
 pub #import "alloc/gui/diff" as *
 pub #import "alloc/gui/text" as *
 pub #import "alloc/gui/font" as *
+pub #import "alloc/gui/render2d" as *
 pub #import "alloc/gui/theme" as *
 pub #import "alloc/gui/accessibility" as *

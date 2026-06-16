@@ -1,3 +1,54 @@
+# 2026-06-16 Agent2 GUI render2d F5bo software RGBA8888 surface owner boundary
+
+## scope
+
+- branch: `gui-font-alpha-mask-software-compositor-f5bo-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bo の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。software RGBA8888 surface owner と SourceOver compositor drain を `alloc/gui/font/sfnt/glyf.nepl` に置くと、pixel buffer という render2d 共通基盤を font glyf 固有 detail に閉じ込めてしまうと指摘された。
+- 改訂計画では `alloc/gui/render2d.nepl` facade と `alloc/gui/render2d/software_surface.nepl` を追加し、F5bo は owner-bearing RGBA8888 software surface contract だけに限定した。
+- Planck revised plan review は `PLAN_APPROVED`。safe `core/mem` facade のみ、raw pointer accessor 禁止、constructor fail-closed、owner-consuming write、borrow-only read、no platform / no font / no fallback の source policy を条件に実装開始が承認された。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に Software RGBA8888 surface owner boundary を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に row-major RGBA layout、stride / byte length、safe `core/mem` facade、write owner recovery、read borrow-only、SourceOver drain を次 phase に残す方針を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bo の initial blocker、revised approval、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade と `stdlib/alloc/gui/render2d/software_surface.nepl` を追加し、`alloc/gui.nepl` から re-export した。
+- `GuiRgba8888SoftwareSurfaceShape`、`GuiRgba8888SoftwareSurfaceOwner`、`GuiRgba8888SoftwareSurfaceErrorKind`、create / write error を追加した。surface owner と write error は owner-bearing なので `Clone` / `Copy` を実装しない。
+- shape validation は invalid geometry、pixel count overflow、stride overflow、byte length overflow を allocation 前に `Result::Err` で返す。
+- create は shape validation 後に `alloc_region_bytes<u8>` で storage を確保し、safe store loop で zero initialize してから owner を返す。allocation failure は `OutOfMemory` に写像する。
+- read は `&GuiRgba8888SoftwareSurfaceOwner` を受け取り、bounds / offset 検査後に `region_ptr_at<u8,u8>` と `load_u8` で RGBA channel を読む。
+- write は owner を消費し、bounds / offset 検査後に `store_u8` で RGBA channel を書く。失敗時は surface owner を `GuiRgba8888SoftwareSurfaceWriteError` に戻す。
+- `tests/stdlib/gui_render2d_software_surface.n.md` を追加し、shape validation、allocation failure mapping、read/write roundtrip、write failure owner recovery、free、no platform/no font/no fallback label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bo source policy を追加した。
+- `todo.md` は F5bo 後の SourceOver alpha-mask drain owner、formal tile / bitmap transport、FHD 60fps batching へ進む残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` CRLF warning のみ
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 約 300 秒で pass
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bo.json -j 1` 2/2 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bo_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bo_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bo_regression.json -j 1` 1/1 passed
+
+## subagent review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。内容面では render2d boundary、raw accessor 禁止、safe `core/mem` facade、font/glyf 非依存、platform/target/compositor 非依存、owner-bearing write error no `Clone` / `Copy`、read/write/free shape は承認された。
+- commit blocker は `note.n.md` の verification と implementation review が pending のままだったことである。
+- 指摘を受け、検証結果と review blocker をこの note に記録した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、commit readiness は acceptable とされた。注意点として、既存 untracked tmp file と `NUL` は stage せず、F5bo 対象ファイルだけ stage することが確認された。
+
+## remaining
+
+- F5bo は software RGBA8888 surface owner までであり、F5bn prepared command owner を消費する SourceOver alpha-mask drain、formal tile / bitmap transport、host present、FHD 60fps batching、stroke / shadow rasterization は未実装である。
+
 # 2026-06-16 Agent2 GUI font alpha mask resource reservation checkpoint
 
 ## scope

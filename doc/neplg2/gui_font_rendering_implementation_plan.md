@@ -477,6 +477,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bo: Software RGBA8888 surface owner boundary
+
+目的:
+
+- F5bn prepared command の次に進む前に、font rasterizer、widget renderer、offscreen screenshot が共有する software RGBA8888 surface owner を `alloc/gui/render2d` に置く。
+- pixel storage は `RegionToken u8` owner とし、raw pointer / raw region accessor を public API に出さない。
+- write は owner-consuming、read は borrow-only として、失敗時にも owner を回収できる contract にする。
+- この phase では SourceOver drain、F5bn prepared owner consumption、RenderCommand emission、DrawTarget / RenderTarget backend、platform present は実装しない。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。surface owner と compositor drain を `alloc/gui/font/sfnt/glyf.nepl` に置く設計は、pixel buffer を font 固有 detail に閉じ込めてしまうため不適切と指摘された。
+- revised plan では `stdlib/alloc/gui/render2d.nepl` facade と `stdlib/alloc/gui/render2d/software_surface.nepl` を作り、F5bo は owner-bearing RGBA8888 software surface contract だけに限定する。
+- Planck revised plan review は `PLAN_APPROVED`。safe `core/mem` facade のみ、raw accessor 禁止、constructor fail-closed、write failure owner recovery、read borrow-only、source policy による no platform / no font / no fallback を条件に実装開始が承認された。
+
+変更:
+
+- `alloc/gui/render2d.nepl` facade を追加し、`alloc/gui.nepl` から re-export する。
+- `GuiRgba8888SoftwareSurfaceShape` を追加する。`width`、`height`、`stride_bytes`、`byte_len` を保持し、`Clone` / `Copy` を実装する。
+- `GuiRgba8888SoftwareSurfaceOwner` を追加する。`storage %RegionToken u8` を保持し、`Clone` / `Copy` は実装しない。
+- `GuiRgba8888SoftwareSurfaceErrorKind`、`GuiRgba8888SoftwareSurfaceCreateError`、`GuiRgba8888SoftwareSurfaceWriteError` を追加する。
+- `gui_rgba8888_software_surface_shape` と `gui_rgba8888_software_surface_create` は invalid geometry、pixel count overflow、stride overflow、byte length overflow、allocation failure を enum error で返す。
+- `gui_rgba8888_software_surface_write_pixel` は owner を消費し、失敗時は owner-bearing write error を返す。
+- `gui_rgba8888_software_surface_read_pixel` は owner を借用し、`Rgba8888` を返す。
+- `gui_rgba8888_software_surface_free` は surface owner を消費して storage を解放する。
+- `tests/stdlib/gui_render2d_software_surface.n.md` を追加し、focused doctest coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bo source policy を追加する。
+
+完了条件:
+
+- source policy が docs、Planck initial blocker / revised approval、render2d facade、alloc/gui facade re-export、owner no `Clone` / `Copy`、shape / error kind `Clone` / `Copy`、safe `core/mem` facade only、constructor validation order、bounds before offset、write owner recovery、read borrow-only、free、no SourceOver / no F5bn prepared owner consumption / no RenderTarget / no DrawTarget / no Canvas / no DOM / no minifb / no font glyf / no fallback / no silent no-op、focused doctest coverage label を検査する。
+- focused doctest と F5bn / F5bm / GUI core alpha mask 回帰、source policy が通る。
+- implementation review で pixel storage が render2d 共通 boundary に置かれていること、SourceOver drain を premature に実装していないこと、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bo 後の SourceOver alpha-mask drain owner、tile / bitmap transport、stroke / shadow 専用 raster boundary を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bo.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bo_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bo_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
