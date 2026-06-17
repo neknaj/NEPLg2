@@ -148,6 +148,8 @@ const stdGuiTilePresentHostSpanOperationAttempt = read("stdlib/std/gui/tile_pres
 const stdGuiTilePresentHostSpanOperationAttemptImpl = withoutComments(stdGuiTilePresentHostSpanOperationAttempt);
 const stdGuiTilePresentHostSpanOperationCompletion = read("stdlib/std/gui/tile_present_host_span_operation_completion.nepl");
 const stdGuiTilePresentHostSpanOperationCompletionImpl = withoutComments(stdGuiTilePresentHostSpanOperationCompletion);
+const stdGuiTilePresentHostSpanOperationPresenterStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterStep);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -227,6 +229,7 @@ const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_
 const guiStdTilePresentScheduledSpanOperationTests = read("tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md");
 const guiStdTilePresentHostSpanOperationAttemptTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md");
 const guiStdTilePresentHostSpanOperationCompletionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md");
+const guiStdTilePresentHostSpanOperationPresenterStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -21377,6 +21380,82 @@ assert(
         guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_no_completed_variant_ok") &&
         guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_no_scheduler_no_platform_no_fallback"),
     "F5dj std tile present host-span-operation-completion focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter step boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep") &&
+            doc.includes("F5di before F5dj") &&
+            doc.includes("presenter supplied attempt") &&
+            doc.includes("does not execute host imports"),
+        `F5dk ${name} must document presenter step composition and no execution policy`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_step" as *'), "std/gui facade must export F5dk tile present host span operation presenter step boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterStep.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep:") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("completion_step %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected:") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("support %GuiRgba8888RowTileRlePresentHostExecutorSupport") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("lower %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected:") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("attempt_step %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("lower %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("AttemptRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected") &&
+        stdGuiTilePresentHostSpanOperationPresenterStep.includes("CompletionRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected"),
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk must define presenter success and lower-error wrapping payloads",
+);
+assertMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterStepImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_error_category"),
+    /UnsupportedOperation payload:[\s\S]*attempt_unsupported_category_value &payload[\s\S]*AttemptOperationMismatch payload:[\s\S]*attempt_mismatch_category_value &payload/,
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk must derive attempt rejection category through F5di public accessors",
+);
+assertMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterStepImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_error_category"),
+    /HostOutcomeFailed failure:[\s\S]*completion_host_failed_category_value &failure/,
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk must derive completion rejection category through F5dj public accessors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterStepImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step support ready attempt",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_error support ready attempt lower",
+        "Result::Ok attempt_step:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step attempt_step",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_error attempt_step lower",
+        "Result::Ok completion_step:",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step_new completion_step",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk must call F5di before F5dj and stop at each typed lower error",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterStepImpl,
+    /\bCompleted\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_resume_slice\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_row_tile_rle_present_host_executor_action_same\b|\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk must not complete terminal state, rerun scheduling/span cursors, use host drivers, raw storage, platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterStepImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_step F5dk implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_f5di_before_f5dj_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_attempt_rejected_keeps_lower_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_completion_rejected_keeps_attempt_step_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_no_completed_variant_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_step_no_scheduler_no_platform_no_fallback"),
+    "F5dk std tile present host-span-operation-presenter-step focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

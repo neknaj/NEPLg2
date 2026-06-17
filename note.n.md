@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5dk std host span operation presenter step boundary
+
+## scope
+
+- F5dh scheduled ready と actual Web / native / bare / headless presenter supplied attempt を、F5di before F5dj の順序で 1 operation の completion step へ戻す std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep` は F5dj completion step だけを保持する success value とする。
+- F5di rejection は support、ready、attempt、lower F5di error、lower category を保持する `AttemptRejected` に写す。
+- F5dj rejection は attempt step、lower F5dj error、lower category を保持する `CompletionRejected` に写す。
+- host import、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op、Completed、F5dh start / step / resume、F5dg start / step、F5da-F5de driver へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dj の後続 boundary として妥当であり、platform execution や scheduling を早く結合しすぎていないと確認された。
+- F5di `attempt_step` は F5dj `completion_step` より先に呼び、F5dj は F5di `Ok attempt_step` branch でだけ呼ぶ。
+- `AttemptRejected` は support、original ready、original attempt、lower F5di error、public category accessor から得た category を保持する。
+- `CompletionRejected` は F5di AttemptStep と lower F5dj error を保持し、caller が ready / attempt context を復元するために lower variant を解析しなくてよい。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl` を追加した。
+- presenter step、attempt rejected payload、completion rejected payload、presenter step error enum、category mapping helper、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+- focused doctest は最初 no runnable doctests になったため、既存 GUI stdlib doctest 形式に合わせて `neplg2:test[stdio, normalize_newlines]` と expected stdout を追加した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dk focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md`。
+- pass: F5dk module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl`。
+- pass: F5dj regression `tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5dk が support、F5dh ready、presenter supplied attempt だけを受け、F5di を先に呼び、F5di `Ok` branch でだけ F5dj を呼ぶことが承認された。
+- F5di / F5dj lower error context と public accessor derived category、Completed を作らないこと、host outcome を合成しないこと、scheduler / platform / raw / fallback へ進まないことに blocker はなかった。
+
+## remaining
+
+- F5dk は actual presenter が作った attempt を completion boundary へ戻すだけであり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5dj std host span operation completion boundary
 
 ## scope

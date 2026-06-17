@@ -639,6 +639,58 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dk: std layer row tile RLE present host span operation presenter step boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter wrapper が 1 span operation を試行した後の戻り道を、F5di before F5dj の順序で固定する。
+- 入力は support set、F5dh ready、presenter supplied attempt だけにし、F5dk does not execute host imports を contract とする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep` は F5dj の completion step を保持する success value とする。
+- F5di rejection は `AttemptRejected` として support、ready、attempt、lower F5di error、lower category を保持する。
+- F5dj rejection は `CompletionRejected` として attempt step、lower F5dj error、lower category を保持する。
+- Completed、F5dh start / step / resume、F5dg start / step、F5cy / F5cw action validation、F5da-F5de action drivers、F5cs / F5ct / F5cu、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dj の後続 boundary として妥当であり、platform execution や scheduling を早く結合しすぎていない。
+- `presenter_step` は F5di `attempt_step` を先に呼び、F5di `Ok attempt_step` branch でだけ F5dj `completion_step` を呼ぶ。
+- `AttemptRejected` は support、original ready、original attempt、lower F5di error、public accessor から得た category を保持する。
+- `CompletionRejected` は F5di AttemptStep と lower F5dj error を保持する。caller が ready / attempt context を復元するために lower variant を解析しなくてよい。
+- source policy は F5di call、F5di Err wrap、F5di Ok branch、F5dj call、F5dj Err wrap、success step の順序を固定する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl` を追加する。
+- presenter step、attempt rejected、completion rejected、presenter step error enum、category mapping helper、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dk source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dk `presenter_step` が F5di attempt step を F5dj completion step より先に呼ぶ。
+- F5di error branch では F5dj を呼ばず、support / ready / attempt / lower / category を保持する。
+- F5dj error branch では attempt step / lower / category を保持する。
+- success path は F5dj completion step だけを F5dk success value に包む。
+- Completed variant、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op を持たない。
+- focused import smoke doctest、source policy、F5dj / F5di regression、`git diff --check` が通る。
+- subagent implementation review で no scheduler / no platform / no fallback と F5di-before-F5dj order が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_step_f5dk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_step_module_f5dk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_completion_f5dk_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_attempt_f5dk_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dk.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
