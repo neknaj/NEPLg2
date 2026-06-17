@@ -1,3 +1,53 @@
+# 2026-06-18 Agent2 GUI font F5dn std host span operation presenter driver boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dl start / request と F5dm outcome request / attempt / complete を直接ばらばらに呼ばず、DriverState / DriverRequestResult / DriverCompletion contract だけを扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState` は F5dl loop state を保持する non-Copy state とし、同じ state から複数 request を作る replay を避ける。
+- `request` は DriverState を value として消費し、F5dl request を 1 回だけ呼ぶ。
+- F5dm outcome request は F5dl `Request` branch でだけ呼び、F5dl `Completed` と F5dl request error では呼ばない。
+- `complete` は OutcomeRequest と caller supplied outcome を value として受け、F5dm outcome attempt と F5dm outcome complete を 1 回ずつ呼び、F5dl Continue / Yield を次の DriverState へ再包装する。
+- host import、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dn は presenter-facing driver として妥当だが、DriverState は non-Copy / non-Clone にする必要がある。Copy state は同じ F5dl state から複数 request を作る replay を許すため、F5dm の replay 防止と矛盾する。
+- `presenter_driver_request` は DriverState を value として消費し、F5dl request error だけ original DriverState を typed error に戻す。
+- DriverRequestResult は OutcomeRequest を含むため non-Copy / non-Clone にする。DriverCompletion も DriverState を含むため non-Copy / non-Clone にする。
+- `presenter_driver_request` は F5dl `Request` branch でだけ F5dm `outcome_request` を呼ぶ。F5dl `Completed` と F5dl request error では F5dm を呼ばない。
+- `presenter_driver_complete` の error は F5dm lower error と F5dm public accessor 由来 category だけを保持する。request / attempt context は lower F5dm error が既に保持している。
+- source policy は F5dl start / request と F5dm outcome_request / outcome_attempt / outcome_complete だけを許可し、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、`Result::Ok unit`、synthetic `Completed` creation、scheduler / platform / fallback を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl` を追加した。
+- DriverState、DriverRequestResult、DriverCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dn focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: F5dn module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl`。
+- pass: F5dm regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: F5dl regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- DriverState / request result / completion が non-Copy であること、`request` が driver state を消費して F5dl `Request` branch でだけ F5dm を呼ぶこと、`complete` が F5dm `outcome_attempt` / `outcome_complete` だけを通ることが承認された。
+- direct F5dl complete、F5di validation、platform / raw / scheduler / fallback leakage、synthetic `Result::Ok unit` / `GuiError`、括弧混入は見つからなかった。
+- docs / facade export / focused doctest labels / source policy / `todo.md` は実装と整合していると確認された。
+
+## remaining
+
+- F5dn は std layer の presenter driver boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dm std host span operation presenter outcome boundary
 
 ## scope

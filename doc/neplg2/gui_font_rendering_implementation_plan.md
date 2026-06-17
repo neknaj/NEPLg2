@@ -800,6 +800,62 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dn: std layer row tile RLE present host span operation presenter driver boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter loop が F5dl start / request と F5dm outcome request / attempt / complete を直接ばらばらに呼ばず、DriverState / DriverRequestResult / DriverCompletion の contract だけを扱えるようにする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState` は F5dl loop state を保持する non-Copy state とし、同じ state から複数 request を作る replay を避ける。
+- `request` は DriverState を value として消費し、F5dl request を 1 回だけ呼ぶ。
+- F5dm outcome request は F5dl `Request` branch でだけ呼ぶ。F5dl `Completed` と F5dl request error では呼ばない。
+- `complete` は OutcomeRequest と caller supplied outcome を value として受け、F5dm outcome attempt と F5dm outcome complete を 1 回ずつ呼んで F5dl Continue / Yield を次の DriverState へ再包装する。
+- host import、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、action drivers、queue、timer、real scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` creation へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dn は presenter-facing driver として妥当だが、`DriverState` は non-Copy / non-Clone にする必要がある。Copy state は同じ F5dl state から複数 request を作る replay を許すため、F5dm の replay 防止と矛盾する。
+- `presenter_driver_request` は DriverState を value として消費し、F5dl request error だけ original DriverState を typed error に戻す。
+- `DriverRequestResult` は OutcomeRequest を含むため non-Copy / non-Clone にする。`DriverCompletion` も DriverState を含むため non-Copy / non-Clone にする。
+- `presenter_driver_request` は F5dl `Request` branch でだけ F5dm `outcome_request` を呼ぶ。F5dl `Completed` と F5dl request error では F5dm を呼ばない。
+- `presenter_driver_complete` の error は F5dm lower error と F5dm public accessor 由来 category だけを保持すればよい。request / attempt の重複保存は lower F5dm error が既に持つ。
+- source policy は F5dl start / request と F5dm outcome_request / outcome_attempt / outcome_complete だけを許可し、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、`Result::Ok unit`、synthetic `Completed` creation、scheduler / platform / fallback を禁止する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl` を追加する。
+- DriverState、DriverRequestResult、DriverCompletion、start / request / complete error payload、start / request / complete functions、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dn source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dn `start` が F5dl start を 1 回だけ呼び、success path だけで DriverState を作る。
+- DriverState / DriverRequestResult / DriverCompletion / driver errors が Clone / Copy 実装を持たない。
+- F5dn `request` が DriverState を value として消費し、F5dl request error では original DriverState を typed error に戻す。
+- F5dn `request` は F5dl `Request` branch でだけ F5dm outcome request を呼び、F5dl `Completed` branch では driver `Completed` だけを返す。
+- F5dn `complete` が F5dm outcome attempt と F5dm outcome complete だけを呼び、F5dl Continue / Yield を DriverCompletion へ再包装する。
+- F5dn complete error は F5dm lower error と F5dm category accessor 由来 category だけを保持する。
+- host import、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、action drivers、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` creation を持たない。
+- focused import smoke doctest、source policy、F5dm / F5dl regression、`git diff --check` が通る。
+- subagent implementation review で value-consuming driver state、F5dl/F5dm exact bridge、no scheduler / no platform / no fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_driver_f5dn.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_driver_module_f5dn.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_outcome_f5dn_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_loop_f5dn_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dn.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
