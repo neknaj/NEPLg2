@@ -8194,6 +8194,16 @@ The bridge owns validation before completion. It reads the request from `GuiRgba
 
 F5cz deliberately distinguishes two failure families. Unsupported target support and wrong action reports stop before completion, returning previous loop state from the pending value. A matching failed report is valid executor output; the bridge passes `report_outcome` into `complete_request`, and the resulting `HostImportExecutionFailed` carries rollback state from F5cv. F5cz must not call F5cu, F5ct, F5cs, F5cp, or F5co, must not construct F5cr requests, and must not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation presenter executor session turn boundary
+
+F5ds introduces the std layer row tile RLE present host span operation presenter executor session turn boundary. It sits directly above F5dr and directly below any real scheduler, queue, timer, or platform executor. Its purpose is narrow: represent one scheduler turn as either an F5dr session state or an already-issued pending executor request.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState` has only `Session` and `Pending`. There is no separate `Completed` turn state, so the contract can be summarized as no separate Completed turn state. This is intentional: F5dr already owns terminal completion through `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` and F5dr session request. Adding a second terminal variant at F5ds would create two possible representations, so the boundary keeps completion inside F5dr and lets `turn_poll` return a transient `Completed` poll result instead.
+
+`turn_poll` consumes the turn state by value. When it receives `Pending`, it returns `Execute pending` and does not call F5dr session request. This is an owner transfer to the executor, not a silent no-op. When it receives `Session`, it calls F5dr session request exactly once and maps `Operation pending` to `Execute pending` and `Completed` to the transient poll result. F5ds does not inspect F5dr `SessionState::Ready` or `SessionState::Completed` directly.
+
+`turn_complete` consumes the pending request and executor attempt by calling F5dr session complete exactly once. F5dr remains the authority for request completion and Continue / Yield classification. F5ds only wraps the returned F5dr session state back into `TurnState::Session`. F5ds must not call F5dp or F5dq directly, must not create synthetic executor outcomes, and must not touch platform APIs, raw packet storage, video memory, DOM, Canvas, minifb, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.
