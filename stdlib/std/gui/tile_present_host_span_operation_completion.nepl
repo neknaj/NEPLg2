@@ -1,0 +1,131 @@
+//: # std/gui/tile_present_host_span_operation_completion
+//: RGBA8888 row tile RLE present host span operation completion の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5di で[検査/けんさ]された span operation attempt step の outcome を、scheduled state の completion value へ[写/うつ]します。
+//: - actual presenter が[返/かえ]した failure を、ready と attempt を[保持/ほじ]する typed error にし、成功 state と[混同/こんどう]しません。
+//:
+//: ### [契約/けいやく]
+//: - 入力は F5di の `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` だけです。この module では support validation や operation equality を[再実行/さいじっこう]しません。
+//: - caller supplied outcome が `Err` の[場合/ばあい]は state を publish せず、host error、scheduled ready、attempt を error payload に[保持/ほじ]します。
+//: - caller supplied outcome が `Ok` の[場合/ばあい]だけ、ready phase を `Continue` または `Yield` completion に[写/うつ]します。`Completed` は operation を[持/も]たない F5dh terminal なので、この per-operation boundary では[作/つく]りません。
+//: - resume、queue、timer、scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_completion" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_span_operation_attempt" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCompletion:
+    Continue %GuiRgba8888RowTileRlePresentScheduledSpanOperationState
+    Yield %GuiRgba8888RowTileRlePresentScheduledSpanOperationState
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCompletion:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletion GuiRgba8888RowTileRlePresentHostSpanOperationCompletion \completion:
+        *completion
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCompletion:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletion GuiRgba8888RowTileRlePresentHostSpanOperationCompletion \completion:
+        completion
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep:
+    attempt_step %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep
+    completion %GuiRgba8888RowTileRlePresentHostSpanOperationCompletion
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep \step:
+        step
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed:
+    category %Option GuiError
+    host_error %GuiError
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed \failure:
+        *failure
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed \failure:
+        failure
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError:
+    HostOutcomeFailed %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_new %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentHostSpanOperationCompletion \phase\state:
+    match phase:
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase::Continue:
+            GuiRgba8888RowTileRlePresentHostSpanOperationCompletion::Continue state
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase::Yield:
+            GuiRgba8888RowTileRlePresentHostSpanOperationCompletion::Yield state
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletion GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep \attempt_step\completion:
+    GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep attempt_step completion
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_new %fn GuiError fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed \host_error\ready\attempt:
+    let category %Option GuiError Option::Some host_error
+    GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed category host_error ready attempt
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_error %fn GuiError fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError \host_error\ready\attempt:
+    let failure %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_new host_error ready attempt
+    GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError::HostOutcomeFailed failure
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step: 検査済み attempt outcome を completion へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - F5di attempt step から ready と attempt を public accessor で[読/よ]みます。
+//: - attempt outcome が `Err` なら ready と attempt を error に[保持/ほじ]し、ready state を completion として[返/かえ]しません。
+//: - attempt outcome が `Ok` なら ready phase と ready state だけを[読/よ]み、Continue / Yield のどちらかに[写/うつ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep Result GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError \attempt_step:
+    let ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_ready &attempt_step
+    let attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_attempt &attempt_step
+    let outcome %Result unit GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_outcome &attempt
+    match outcome:
+        Result::Err host_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_error host_error ready attempt
+        Result::Ok _unit:
+            let phase %GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_phase &ready
+            let state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_state &ready
+            let completion %GuiRgba8888RowTileRlePresentHostSpanOperationCompletion gui_rgba8888_row_tile_rle_present_host_span_operation_completion_new phase state
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_new attempt_step completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_attempt_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep \step:
+    *field::get_ref step "attempt_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_completion %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationCompletion \step:
+    *field::get_ref step "completion"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed Option GuiError \failure:
+    *field::get_ref failure "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_host_error %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed GuiError \failure:
+    *field::get_ref failure "host_error"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \failure:
+    *field::get_ref failure "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \failure:
+    *field::get_ref failure "attempt"

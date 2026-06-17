@@ -8078,6 +8078,16 @@ The validation order is support before equality before success. Support uses the
 
 Unsupported and mismatch errors keep both the original scheduled ready and the attempted operation value. This preserves the F5dh next state and `Yield` phase for replay or diagnostics. Yield phase is data only in F5di. The boundary must not resume the scheduler, enqueue work, request timers, mutate a platform surface, call DOM, Canvas, minifb, video memory, raw storage, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation completion boundary
+
+F5dj introduces the std layer row tile RLE present host span operation completion boundary. It sits after F5di and before any real scheduler or platform presenter backend loop. Its input is AttemptStep only: a `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` already proves that support validation and operation identity association succeeded. F5dj therefore does not re-run F5di association validation and does not reinterpret F5cw actions.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationCompletion` has only `Continue state` and `Yield state`. F5dh `Completed` is a terminal result with no operation attached, so per-operation completion does not create Completed. This distinction prevents a successful single operation from being mistaken for end-of-stream completion.
+
+The completion order is outcome before phase publication. F5dj reads the attempt outcome through F5di public accessors. If the outcome is `Err host_error`, host outcome failure does not publish state. Instead, `GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed` keeps `Some host_error`, the original ready value, and the attempt value. If the outcome is `Ok`, F5dj reads ready phase and ready state through F5dh public accessors and maps the phase to `Continue state` or `Yield state`.
+
+F5dj must not call F5di `attempt_step`, F5dh `start`, `step`, or `resume_slice`, F5cs / F5ct / F5cu, F5cy action validation, F5cw action equality, F5da-F5de action drivers, host imports, platform APIs, DOM, Canvas, minifb, video memory, raw storage, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.

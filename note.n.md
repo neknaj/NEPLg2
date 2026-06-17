@@ -1,3 +1,48 @@
+# 2026-06-17 Agent2 GUI font F5dj std host span operation completion boundary
+
+## scope
+
+- F5di の検査済み `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` を AttemptStep only の入力として受け、caller supplied outcome と ready phase を completion value へ写す std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCompletion` は `Continue state` / `Yield state` だけを持ち、per-operation completion does not create Completed。
+- host outcome failure does not publish state とし、`Err host_error` は host error、scheduled ready、attempt、category `Some host_error` を typed error に保持する。
+- F5di association validation、F5dh step / start / resume、F5cs / F5ct / F5cu、F5cy action validation、F5cw action equality、F5da-F5de action driver、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を F5dj で作らない判断は正しい。F5dh `Completed` は operation なし terminal なので、per-operation completion が作ると successful operation completion と end-of-stream completion を混同する。
+- F5di errors を wrap せず `AttemptStep` only input にする判断は正しい。association failure は F5di の責務であり、F5dj は検査済み step の host outcome completion だけに絞る。
+- `completion_step` は F5di `step_ready` / `step_attempt`、F5di `attempt_outcome`、F5dh `ready_phase` / `ready_state` の public accessor だけを使う。
+- outcome が `Err host_error` の場合は `HostOutcomeFailed` を返し、Continue / Yield state を publish しない。category は `Some host_error` とし、通常 failure に `None` を使わない。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_completion.nepl` を追加した。
+- completion enum、completion step、host failed payload、completion error enum、completion step function、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_completion.nepl tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dj focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md`。
+- pass: F5dj module doctest `stdlib/std/gui/tile_present_host_span_operation_completion.nepl`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は最初 `CHANGES_REQUIRED`。
+- 指摘は `note.n.md` の `verification_current` と `subagent_review` が未実行 / 未実施のままで、実際の検証済み状態と矛盾していることだった。
+- 実装本体については、AttemptStep only、host failure 時に state を publish しない、`Some host_error` + ready + attempt 保持、Ok 時のみ Continue / Yield へ写す、Completed variant なし、F5di / F5dh 下位処理や platform / raw / scheduler / fallback へ戻らない点に blocker はないと確認された。
+- `note.n.md` を修正した後の再レビューは `REVIEW_APPROVED`。
+
+## remaining
+
+- F5dj は検査済み attempt outcome を scheduled state completion に写すだけであり、actual Web / native / bare / headless presenter backend、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5di std host span operation attempt boundary
 
 ## scope

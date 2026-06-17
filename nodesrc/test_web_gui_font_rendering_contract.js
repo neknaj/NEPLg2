@@ -146,6 +146,8 @@ const stdGuiTilePresentScheduledSpanOperation = read("stdlib/std/gui/tile_presen
 const stdGuiTilePresentScheduledSpanOperationImpl = withoutComments(stdGuiTilePresentScheduledSpanOperation);
 const stdGuiTilePresentHostSpanOperationAttempt = read("stdlib/std/gui/tile_present_host_span_operation_attempt.nepl");
 const stdGuiTilePresentHostSpanOperationAttemptImpl = withoutComments(stdGuiTilePresentHostSpanOperationAttempt);
+const stdGuiTilePresentHostSpanOperationCompletion = read("stdlib/std/gui/tile_present_host_span_operation_completion.nepl");
+const stdGuiTilePresentHostSpanOperationCompletionImpl = withoutComments(stdGuiTilePresentHostSpanOperationCompletion);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -224,6 +226,7 @@ const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_present_host_span_operation.n.md");
 const guiStdTilePresentScheduledSpanOperationTests = read("tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md");
 const guiStdTilePresentHostSpanOperationAttemptTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md");
+const guiStdTilePresentHostSpanOperationCompletionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -21288,6 +21291,92 @@ assert(
         guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_yield_is_data_only_ok") &&
         guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_no_action_driver_no_platform_no_fallback"),
     "F5di std tile present host-span-operation-attempt focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation completion boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationCompletion") &&
+            doc.includes("AttemptStep only") &&
+            doc.includes("host outcome failure does not publish state") &&
+            doc.includes("per-operation completion does not create Completed"),
+        `F5dj ${name} must document attempt-step-only completion and no completed variant semantics`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_completion" as *'), "std/gui facade must export F5dj tile present host span operation completion boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationCompletion.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCompletion:") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("Continue %GuiRgba8888RowTileRlePresentScheduledSpanOperationState") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("Yield %GuiRgba8888RowTileRlePresentScheduledSpanOperationState") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep:") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("attempt_step %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("completion %GuiRgba8888RowTileRlePresentHostSpanOperationCompletion"),
+    "std/gui/tile_present_host_span_operation_completion F5dj must define Continue/Yield completion and completion step payloads",
+);
+assertNoMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationCompletionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_new"),
+    /\bCompleted\b/,
+    "std/gui/tile_present_host_span_operation_completion F5dj per-operation completion must not create Completed",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationCompletion.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed:") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("category %Option GuiError") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("host_error %GuiError") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError:") &&
+        stdGuiTilePresentHostSpanOperationCompletion.includes("HostOutcomeFailed %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed"),
+    "std/gui/tile_present_host_span_operation_completion F5dj must keep host error, ready, and attempt in typed failure payload",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_span_operation_attempt" as \*/, "std/gui/tile_present_host_span_operation_completion F5dj must consume F5di attempt step accessors"],
+    [/#import "std\/gui\/tile_present_scheduled_span_operation" as \*/, "std/gui/tile_present_host_span_operation_completion F5dj must consume F5dh ready phase/state accessors"],
+]) {
+    assertMatch(stdGuiTilePresentHostSpanOperationCompletionImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationCompletionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_ready &attempt_step",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_attempt &attempt_step",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_outcome &attempt",
+        "Result::Err host_error:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_error host_error ready attempt",
+        "Result::Ok _unit:",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_phase &ready",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_state &ready",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_new phase state",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_new attempt_step completion",
+    ],
+    "std/gui/tile_present_host_span_operation_completion F5dj must stop on host error before publishing phase/state and map Ok outcome to Continue/Yield",
+);
+assertMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationCompletionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_new"),
+    /let category %Option GuiError Option::Some host_error[\s\S]*GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed category host_error ready attempt/,
+    "std/gui/tile_present_host_span_operation_completion F5dj host failure must use Some host_error and preserve ready/attempt",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationCompletionImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step\s|\bgui_rgba8888_row_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_row_tile_rle_present_host_executor_action_same\b|\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_resume_slice\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_completion F5dj must not re-run attempt validation, schedule/resume, call action drivers, raw storage, platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationCompletionImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_completion F5dj implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_facade_ok") &&
+        guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_attempt_step_only_ok") &&
+        guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_err_keeps_ready_attempt_ok") &&
+        guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_ok_maps_phase_ok") &&
+        guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_no_completed_variant_ok") &&
+        guiStdTilePresentHostSpanOperationCompletionTests.includes("std_row_tile_rle_present_host_span_operation_completion_no_scheduler_no_platform_no_fallback"),
+    "F5dj std tile present host-span-operation-completion focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

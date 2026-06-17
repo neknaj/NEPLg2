@@ -591,6 +591,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dj: std layer row tile RLE present host span operation completion boundary
+
+目的:
+
+- F5di の検査済み `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` を AttemptStep only の入力として受け、caller supplied outcome と ready phase を completion value へ写す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCompletion` は `Continue state` / `Yield state` だけを持つ。
+- F5dh `Completed` は operation を持たない terminal なので、per-operation completion does not create Completed。
+- host outcome failure does not publish state とし、`Err host_error` では host error、ready、attempt、category `Some host_error` を typed error に保持する。
+- F5di association validation、F5dh step / start / resume、F5cs / F5ct / F5cu、F5cy action validation、F5cw action equality、F5da-F5de action driver、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を F5dj で作らない判断は正しい。F5dh `Completed` は operation なし terminal なので、per-operation completion が作ると successful operation completion と end-of-stream completion を混同する。
+- F5di errors を wrap せず `AttemptStep` only input にする判断は正しい。association failure は F5di の責務であり、F5dj は検査済み step の host outcome completion だけに絞る。
+- `completion_step` は F5di `step_ready` / `step_attempt`、F5di `attempt_outcome`、F5dh `ready_phase` / `ready_state` の public accessor だけを使う。
+- outcome が `Err host_error` の場合は `HostOutcomeFailed` を返し、Continue / Yield state を publish しない。category は `Some host_error` とし、通常 failure に `None` を使わない。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_completion.nepl` を追加する。
+- completion enum、completion step、host failed payload、completion error enum、completion step function、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dj source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- `completion_step` が F5di `attempt_step` validation 関数を呼ばず、検査済み `AttemptStep` の accessor だけを読む。
+- `Err host_error` は ready / attempt / `Some host_error` を保持し、state を completion として返さない。
+- `Ok` の場合だけ ready phase / state を Continue / Yield へ写す。
+- `Completed` variant を per-operation completion に持たせない。
+- focused import smoke doctest、source policy、F5di import smoke、`git diff --check` が通る。
+- subagent implementation review で no scheduler / no platform / no fallback と AttemptStep only が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_completion_f5dj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_completion.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_completion_module_f5dj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_attempt_f5dj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dj.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
