@@ -8142,6 +8142,14 @@ Executor completion is attempt based. The executor returns `GuiRgba8888RowTileRl
 
 Only a matching request and attempt can reach F5dn complete. A mismatch returns `AttemptMismatch` and keeps the original request and attempt owners. A lower F5dn complete error is wrapped as `DriverCompleteRejected` with category derived from F5dn public accessors. F5do does not call F5dl complete, F5dm outcome attempt or complete, F5di attempt construction or validation, F5cw action mapping, host imports, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, silent no-op behavior, or synthetic `Result::Ok unit` / `GuiError` outcomes.
 
+F5dp introduces the std layer row tile RLE present host span operation presenter executor loop boundary. It composes F5dn and F5do into one value-consuming loop contract, but it is not actual Web / native / bare / headless execution and not real scheduler policy. Its `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState` owns the F5dn driver state.
+
+`presenter_executor_loop_start` delegates to F5dn start exactly once and wraps the resulting driver state as loop state. `presenter_executor_loop_request` consumes LoopState, extracts driver state, and delegates to F5dn request exactly once. A F5dn request error is wrapped with category while preserving the lower F5dn error, whose recovery path owns the original driver state. F5dn terminal `Completed` becomes loop `Completed` without calling F5do. Only F5dn `Operation` is converted through F5do executor request.
+
+`presenter_executor_loop_complete` consumes the F5do executor request and executor attempt, calls F5do complete exactly once, and rewraps F5dn DriverCompletion into Continue / Yield loop completion. This keeps F5do unsupported and mismatch semantics intact: F5dp does not synthesize `Err Unsupported`, does not synthesize `Ok unit`, and does not complete owner-bearing requests outside F5do.
+
+F5dp does not call F5dn complete directly, F5dm outcome request / attempt / complete, F5dl loop functions, F5di attempt construction / validation, F5dh scheduling, F5dk presenter step, F5dj completion, F5cw action mapping, action drivers, host imports, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
