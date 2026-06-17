@@ -1,0 +1,393 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor
+//: RGBA8888 row tile RLE present host span operation presenter executor の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter executor が F5dn request から operation を[受/う]け[取/と]り、executor supplied attempt を F5dn complete へ[戻/もど]す[直前/ちょくぜん]の[検証/けんしょう]を[行/おこな]います。
+//: - support は OutcomeRequest に[保持/ほじ]された F5dl request から[読/よ]み、caller から[別/べつ]の support を[受/う]け[取/と]りません。
+//: - attempt は expected operation と caller supplied outcome を[束/たば]ね、別 operation の outcome を[現在/げんざい]の request へ[適用/てきよう]する replay を[防/ふせ]ぎます。
+//:
+//: ### [契約/けいやく]
+//: - ExecutorRequest、ExecutorAttempt、owner-bearing error は Clone / Copy にしません。
+//: - unsupported operation では F5dn complete へ合成 outcome を[渡/わた]さず、request owner を error に[保持/ほじ]して[返/かえ]します。
+//: - complete は support [検査/けんさ]を[通/とお]った request と、同じ operation を[持/も]つ attempt のときだけ F5dn complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_host_span_operation_presenter_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_loop" as *
+#import "std/gui/tile_present_host_span_operation_presenter_outcome" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    outcome_request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    outcome %Result unit GuiError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    category %Option GuiError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt
+    expected %GuiRgba8888RowTileRlePresentHostSpanOperation
+    reported %GuiRgba8888RowTileRlePresentHostSpanOperation
+    category %Option GuiError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompleteError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError:
+    UnsupportedOperation %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError:
+    AttemptMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError
+    DriverCompleteRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \support\outcome_request\operation:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest support outcome_request operation
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError \request\support\operation:
+    let category %Option GuiError Option::Some GuiError::Unsupported
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError request support operation category
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError \request\attempt\expected\reported:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError request attempt expected reported category
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_driver_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_window %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_offscreen %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_device %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_operation_supported %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn &GuiRgba8888RowTileRlePresentHostSpanOperation bool \support\operation:
+    match *operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan _span:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_device support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan _span:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_device support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_supports_device support
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_color_same %fn &Rgba8888 fn &Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r left rgba8888_r right
+        and:
+            eq rgba8888_g left rgba8888_g right
+            and:
+                eq rgba8888_b left rgba8888_b right
+                eq rgba8888_a left rgba8888_a right
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_packet_descriptor_same %fn &GuiRgba8888RowTileRlePacketDescriptor fn &GuiRgba8888RowTileRlePacketDescriptor bool \left\right:
+    and:
+        eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id left gui_rgba8888_row_tile_rle_packet_descriptor_frame_id right
+        and:
+            eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index left gui_rgba8888_row_tile_rle_packet_descriptor_batch_index right
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index left gui_rgba8888_row_tile_rle_packet_descriptor_tile_index right
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start right
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count right
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_row_start right
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_row_count right
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_width left gui_rgba8888_row_tile_rle_packet_descriptor_width right
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_height left gui_rgba8888_row_tile_rle_packet_descriptor_height right
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes left gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes right
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows left gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows right
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count left gui_rgba8888_row_tile_rle_packet_descriptor_tile_count right
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count left gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count right
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count left gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count right
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count left gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count right
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count right
+                and:
+                    eq gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count right
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_packet_descriptor_same &left_packet &right_packet
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_span_same %fn &GuiRgba8888RowTileRlePresentRunRowSpan fn &GuiRgba8888RowTileRlePresentRunRowSpan bool \left\right:
+    let left_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color left
+    let right_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color right
+    and:
+        eq gui_rgba8888_row_tile_rle_present_run_row_span_x left gui_rgba8888_row_tile_rle_present_run_row_span_x right
+        and:
+            eq gui_rgba8888_row_tile_rle_present_run_row_span_y left gui_rgba8888_row_tile_rle_present_run_row_span_y right
+            and:
+                eq gui_rgba8888_row_tile_rle_present_run_row_span_width left gui_rgba8888_row_tile_rle_present_run_row_span_width right
+                and:
+                    eq gui_rgba8888_row_tile_rle_present_run_row_span_height left gui_rgba8888_row_tile_rle_present_run_row_span_height right
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_color_same &left_color &right_color
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_begin_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_run_span_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window right
+    let left_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span left
+    let right_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_span_same &left_span &right_span
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_end_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_operation_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperation fn &GuiRgba8888RowTileRlePresentHostSpanOperation bool \left\right:
+    match *left:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_begin_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_run_span_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_window_end_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan left_span:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan right_span:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_span_same &left_span &right_span
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan left_span:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan right_span:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_span_same &left_span &right_span
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError \outcome_request:
+    let loop_request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_request &outcome_request
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_support &loop_request
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_operation &outcome_request
+    let request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_new support outcome_request operation
+    if gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_operation_supported support &operation:
+        then Result::Ok request
+        else Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError::UnsupportedOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_new request support operation
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn Result unit GuiError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt \operation\outcome:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt operation outcome
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError \request\attempt:
+    let expected %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_operation &request
+    let reported %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_operation &attempt
+    if gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_operation_same &expected &reported:
+        then:
+            let outcome_request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_outcome_request request
+            let outcome %Result unit GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_outcome attempt
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_complete outcome_request outcome:
+                Result::Err lower:
+                    let error %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_driver_complete_error_new lower
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError::DriverCompleteRejected error
+                Result::Ok completion:
+                    Result::Ok completion
+        else:
+            let error %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_new request attempt expected reported
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError::AttemptMismatch error
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest GuiRgba8888RowTileRlePresentHostExecutorSupport \request:
+    *field::get_ref request "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest GuiRgba8888RowTileRlePresentHostSpanOperation \request:
+    *field::get_ref request "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_outcome_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest \request:
+    field::get request "outcome_request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt GuiRgba8888RowTileRlePresentHostSpanOperation \attempt:
+    *field::get_ref attempt "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_outcome %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result unit GuiError \attempt:
+    field::get attempt "outcome"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError Option GuiError \error:
+    match *error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError::UnsupportedOperation unsupported:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_category_value &unsupported
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError Option GuiError \error:
+    match *error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError::AttemptMismatch mismatch:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_category_value &mismatch
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError::DriverCompleteRejected driver_error:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_driver_complete_error_category_value &driver_error
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError GuiRgba8888RowTileRlePresentHostExecutorSupport \error:
+    *field::get_ref error "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError GuiRgba8888RowTileRlePresentHostSpanOperation \error:
+    *field::get_ref error "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_unsupported_error_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorUnsupportedOperationError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \error:
+    field::get error "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_expected %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError GuiRgba8888RowTileRlePresentHostSpanOperation \error:
+    *field::get_ref error "expected"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_reported %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError GuiRgba8888RowTileRlePresentHostSpanOperation \error:
+    *field::get_ref error "reported"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \error:
+    field::get error "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_mismatch_error_attempt %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptMismatchError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt \error:
+    field::get error "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_driver_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_driver_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorDriverCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompleteError \error:
+    field::get error "lower"

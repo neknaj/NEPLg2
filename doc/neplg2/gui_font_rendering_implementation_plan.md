@@ -856,6 +856,64 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5do: std layer row tile RLE present host span operation presenter executor boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter executor が F5dn OutcomeRequest を受け取り、executor supplied attempt を F5dn complete へ戻す直前の validation boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest` は OutcomeRequest、OutcomeRequest 由来 support、expected span operation を保持する。
+- support は caller 引数から受けず、OutcomeRequest に保持された F5dl request の public accessor から読む。
+- unsupported operation では F5dn complete へ合成 `Err Unsupported` を渡さず、request owner を保持した typed error を返す。
+- executor supplied attempt は span operation と caller supplied outcome を持ち、complete 前に expected operation と reported operation を payload まで比較する。
+- host import、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、fallback、silent no-op、old F5cw action mapping へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5do は `OutcomeRequest -> ExecutorRequest -> ExecutorAttempt -> F5dn complete` の value-consuming bridge に絞る。
+- support は新 enum を作らず、既存 `GuiRgba8888RowTileRlePresentHostExecutorSupport` を使う。
+- support は OutcomeRequest 内の F5dl request から public accessor 経由で読む。別引数にすると F5dn start 時の support と F5do support が食い違う。
+- support rejection では F5dn complete に合成 `Err Unsupported` を渡さない。`UnsupportedOperation` error に non-Copy request wrapper を保持して返す。
+- executor から戻る値は `Result unit GuiError` だけでなく、`operation + outcome` の typed attempt にする。stale or別 operation の outcome を現在 request に適用する事故を防ぐ。
+- action identity check は support check の後、F5dn complete の前に行う。
+- F5do から直接呼んでよいのは F5dm / F5dn の public accessors と F5dn complete、F5dl request support accessor、span operation public accessors に限る。
+- source policy は no platform / DOM / Canvas / minifb / video_memory / raw / queue / timer / scheduler / fallback / silent no-op、no F5dh / F5dk / F5dj direct calls、no F5dl complete direct、no F5di attempt constructor / validation direct、no F5cw action mapping、no F5da-F5de drivers、no `Result::Ok unit` / synthetic `Result::Err GuiError` outcome creation、no Clone / Copy for request / attempt / owner-bearing errors、no parentheses を固定する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl` を追加する。
+- ExecutorRequest、ExecutorAttempt、unsupported operation error、attempt mismatch error、driver complete error、request / complete error enum、request / attempt / complete functions、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5do source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5do `request` が OutcomeRequest 内の F5dl request から support を読み、別引数 support を受け取らない。
+- ExecutorRequest / ExecutorAttempt / owner-bearing errors が Clone / Copy 実装を持たない。
+- unsupported operation では F5dn complete、F5dm outcome attempt / complete、F5di constructor / validation を呼ばない。
+- F5do `complete` が request operation と attempt operation を span-operation payload まで比較し、一致した場合だけ F5dn complete を呼ぶ。
+- mismatch error は original request と attempt を保持する。
+- driver complete error は F5dn lower error と F5dn category accessor 由来 category だけを保持する。
+- host import、F5dl complete direct call、F5dm outcome attempt / complete direct call、F5di constructor / validation direct call、F5cw action mapping、action drivers、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation を持たない。
+- focused import smoke doctest、source policy、F5dn / F5dm regression、`git diff --check` が通る。
+- subagent implementation review で OutcomeRequest support source、unsupported owner retention、attempt identity check、F5dn-only completion が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_f5do.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_module_f5do.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_driver_f5do_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_outcome_f5do_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5do.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
