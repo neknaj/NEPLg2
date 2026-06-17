@@ -8073,6 +8073,14 @@ After support preflight succeeds, F5db maps the F5cw action into a F5cq `GuiRgba
 
 Drain success updates the virtual executor and then completes the driver through F5da `complete_outcome Ok`. Drain failure keeps the original executor as the recovery state, converts the drain category into a `GuiError`, and still completes the F5da driver pending with `Err`. Support rejection similarly calls F5da `complete_outcome Ok` intentionally so that F5cz records validation failure before completion. If either expected failure cleanup path returns `Ok`, F5db reports `InconsistentCompletion`.
 
+## Std layer row tile RLE present host action sink boundary
+
+F5dc introduces the std layer row tile RLE present host action sink boundary. It sits between F5cw/F5cy and actual Web, native, or bare presenter code. The boundary packages an executor-supplied outcome together with the action that was sent to the executor, but it does not perform platform execution itself.
+
+`GuiRgba8888RowTileRlePresentHostActionSinkStep` stores the F5cw action and the `Result unit GuiError` returned by the executor. This is deliberately not an accept/reject helper. F5dc does not manufacture success, and it does not turn unsupported work into a silent no-op. The only validation it owns is F5cy `require_supported support action` before step construction.
+
+The boundary does not own F5da driver pending and does not call F5da completion. It also does not build F5cx reports or call F5cz bridge. Those layers remain responsible for one-shot completion and report validation. F5dc therefore gives Web/native/bare wrappers a shared typed preflight and outcome packaging contract without duplicating the dispatch-loop completion path or depending on DOM, Canvas, minifb, video memory, queue, timer, scheduler, raw packet storage, or fallback behavior.
+
 `GuiRgba8888RowTileRlePresentVirtualExecutorError` carries `SupportRejected`, `DrainFailed`, `DriverFailed`, or `InconsistentCompletion`, plus category, recovery executor, and optional driver error. F5db must not call F5cv `complete_request` directly, must not call F5cz bridge directly, must not construct F5cr requests, and must not touch F5cu, F5ct, F5cp, F5co, raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
 ## Metrics fixed-point

@@ -1,3 +1,45 @@
+# 2026-06-17 Agent2 GUI font F5dc std host action sink boundary
+
+## scope
+
+- actual Web / native / bare presenter が返す executor-supplied outcome を、F5cw action と一緒に std layer の typed step へ包む。
+- F5cy `require_supported` を step construction より前に呼び、unsupported target は typed error にする。
+- F5dc does not manufacture success。std layer で `Result::Ok unit` や fallback success を作らない。
+- F5da driver pending ownership、F5da completion、F5cx report、F5cz bridge、F5cr request construction、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は `accept` / `reject` helper が std layer で success / failure を作ると silent no-op success path になり得るため、executor-supplied outcome だけを包む API に絞ることだった。
+- 修正版では `gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome` だけを public constructor とし、Dirac revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_sink.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionSinkStep` は action と caller-supplied `Result unit GuiError` outcome だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkErrorKind` は `UnsupportedAction` だけを持ち、lower F5cy support error を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dc focused doctest `tests/stdlib/gui_std_tile_present_host_action_sink.n.md`。
+- pass: F5dc module doctest `stdlib/std/gui/tile_present_host_action_sink.nepl`。
+- pass: F5db regression `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_sink.nepl` は no match。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5dc は actual executor outcome packaging までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5db std virtual host executor boundary
 
 ## scope

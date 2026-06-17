@@ -272,6 +272,42 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dc: std row tile RLE present host action sink boundary
+
+目的:
+
+- actual Web / native / bare presenter が返した executor-supplied outcome を、F5cw action と一緒に `GuiRgba8888RowTileRlePresentHostActionSinkStep` へ包む std layer row tile RLE present host action sink boundary を追加する。
+- F5dc は F5cy support validation を通過した action だけを step にし、unsupported target は typed error にする。
+- F5dc does not manufacture success。`Result::Ok unit` や fallback success は作らず、caller が渡した `Result unit GuiError` をそのまま保持する。
+- F5dc は actual platform execution、F5da pending ownership、F5da completion、F5cx report、F5cz bridge、F5cr request construction、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac initial plan review は `PLAN_CHANGES`。`accept` / `reject` helper が success / failure を std layer で作ると silent no-op success path になり得るため禁止された。
+- 修正版では `gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome` だけを public constructor とし、outcome は executor-supplied outcome として caller から受け取る。Dirac revised plan review は `PLAN_APPROVED`。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_action_sink.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkStep` は action と `Result unit GuiError` outcome だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkErrorKind` は `UnsupportedAction` だけを持ち、lower F5cy support error と category を保持する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_action_sink.n.md` を追加し、facade import smoke と coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dc source policy を追加する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_sink.n.md --no-tree -o tmp_gui_std_tile_present_host_action_sink_f5dc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_action_sink.nepl --no-tree -o tmp_gui_std_tile_present_host_action_sink_module_f5dc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_executor.n.md --no-tree -o tmp_gui_std_tile_present_virtual_executor_f5dc_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5dc_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dc.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
