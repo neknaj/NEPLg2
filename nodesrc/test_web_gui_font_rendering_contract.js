@@ -162,6 +162,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorLoop = read("stdlib/std
 const stdGuiTilePresentHostSpanOperationPresenterExecutorLoopImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorLoop);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorAttemptDriver = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorAttemptDriverImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorAttemptDriver);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSession = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSession);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -248,6 +250,7 @@ const guiStdTilePresentHostSpanOperationPresenterDriverTests = read("tests/stdli
 const guiStdTilePresentHostSpanOperationPresenterExecutorTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorLoopTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorAttemptDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -22133,6 +22136,136 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorAttemptDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_no_manufactured_outcome_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorAttemptDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_no_scheduler_no_platform_no_fallback"),
     "F5dq std tile present host-span-operation-presenter-executor-attempt-driver focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState") &&
+            doc.includes("sentinel / null") &&
+            doc.includes("Ready") &&
+            doc.includes("Completed") &&
+            doc.includes("F5dq attempt driver step"),
+        `F5dr ${name} must document executor session boundary, explicit terminal state, and F5dq completion authority`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session" as *'), "std/gui facade must export F5dr tile present host span operation presenter executor session boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("Ready %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("Completed") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("Operation %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSession.includes("Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must define session state, pending owner, request result, and completion result",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr owner-bearing session values and errors must be non-Copy and non-Clone",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_span_operation_presenter_executor_loop" as \*/, "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must call F5dp loop start/request"],
+    [/#import "std\/gui\/tile_present_host_span_operation_presenter_executor_attempt_driver" as \*/, "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must complete through F5dq attempt driver"],
+    [/#import "std\/gui\/tile_present_host_span_operation_presenter_executor" as \*/, "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must expose executor request/attempt types"],
+]) {
+    assertMatch(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start support policy action",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_new support policy action lower",
+        "Result::Ok loop_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr start must call F5dp start exactly once and return Ready state",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start support policy action/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr start must call F5dp start exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Completed:",
+        "Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Completed",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Ready loop_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request loop_state",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request_error_new lower",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Completed:",
+        "Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Completed",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Operation request:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_new request",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Operation pending",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr request must make Completed terminal explicit and call F5dp request only from Ready",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request loop_state/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr request must call F5dp request exactly once",
+);
+assert(
+    (stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl.match(/GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Completed/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must not manufacture Completed session states outside terminal request matching",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step request attempt",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete_error_new lower",
+        "Result::Ok step:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step_completion step",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_completion_new completion",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr complete must consume pending request and complete through F5dq once",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step request attempt/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr complete must call F5dq attempt driver exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_completion_new"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Continue loop_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion::Continue state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Yield loop_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion::Yield state",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr completion must map Continue/Yield to Ready session states",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_attempt\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_completion_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_resume_slice\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_row_tile_rle_present_host_executor_action_same\b|\bGuiRgba8888RowTileRlePresentHostExecutionAction::|\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_virtual_executor\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\bResult::Ok unit\b|\bResult::Err GuiError::|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr must not call lower presenter loops directly, use old action paths, raw/platform APIs, synthesize outcomes, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5dr implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_state_terminal_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_owner_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_start_request_complete_order_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_lower_recovery_authority_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_no_scheduler_no_platform_no_fallback"),
+    "F5dr std tile present host-span-operation-presenter-executor-session focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

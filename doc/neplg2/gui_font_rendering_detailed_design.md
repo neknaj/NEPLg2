@@ -8158,6 +8158,14 @@ F5dq failure is also lower-authoritative. `CompleteRejected` stores only the cat
 
 The F5dq step function calls F5dp `presenter_executor_loop_complete request attempt` exactly once. On `Ok`, it returns the completion-only step. On `Err`, it wraps the lower F5dp error and category. It does not call F5do request or complete directly, F5dn/F5dm/F5dl/F5di/F5dh/F5dk/F5dj directly, old action paths, virtual executor, virtual drain, host imports, platform APIs, DOM, Canvas, minifb, video memory, raw storage, queues, timers, schedulers, fallback paths, silent no-op behavior, or synthetic `Result::Ok unit` / `Result::Err GuiError` outcomes.
 
+F5dr introduces the std layer row tile RLE present host span operation presenter executor session boundary. It sits above F5dp and F5dq, but still below any actual Web, native, bare, or headless presenter loop. Its purpose is to give platform loops an explicit session state shape: ready state, pending executor request, completion result, and terminal completed state. No sentinel / null or fallback state is needed.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` is either `Ready` with an F5dp loop state or `Completed`. Requesting a `Completed` state returns the terminal `Completed` request result without calling F5dp again. This is an explicit terminal behavior, not silent no-op. Only `Ready` calls F5dp request exactly once.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending` owns the executor request while the actual backend performs the operation. `session_complete` consumes the pending request and executor attempt, calls the F5dq attempt driver step exactly once, then maps F5dp `Continue` / `Yield` loop completion into Ready session states. The lower F5dq error remains the recovery authority on completion failure.
+
+F5dr does not execute host imports, does not schedule timers, does not run a real scheduler, does not touch DOM, Canvas, minifb, video memory, raw storage, platform APIs, queues, timers, fallback paths, or silent no-op behavior. It also does not call F5dp complete directly, F5do/F5dn/F5dm/F5dl/F5di/F5dh/F5dk/F5dj directly, old action paths, virtual executor, or virtual drain.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
