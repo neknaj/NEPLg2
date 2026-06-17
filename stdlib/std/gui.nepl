@@ -37,6 +37,7 @@ pub #import "./gui/tile_present_host_execution_driver" as *
 pub #import "./gui/tile_present_virtual_executor" as *
 pub #import "./gui/tile_present_host_action_sink" as *
 pub #import "./gui/tile_present_host_action_sink_driver" as *
+pub #import "./gui/tile_present_host_action_attempt_driver" as *
 pub #import "./gui/offscreen" as *
 pub #import "./gui/timer" as *
 pub #import "./gui/text_measure" as *

@@ -347,6 +347,48 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5de: std row tile RLE present host action attempt driver boundary
+
+目的:
+
+- actual Web / native / bare executor が返した action attempt と F5da driver pending の action identity を、F5dd action sink driver completion の前に検査する std layer row tile RLE present host action attempt driver boundary を追加する。
+- driver pending の expected action と attempt の attempted action を F5cy full action equality で比較し、variant-only comparison を使わない。
+- action mismatch では F5dd を呼ばず、expected action、attempted action、`GuiError::InvalidCommand` category、original driver pending を `AttemptActionMismatch` owner-bearing error として返す。
+- action match の場合だけ、attempt outcome を F5dd `gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step` に委譲する。
+- F5de does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、actual executor から渡された `Result unit GuiError` だけを扱う。
+- F5de は F5dc direct call、actual platform execution、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- action 比較は F5cy `gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted` を使う。
+- mismatch は F5dd を呼ばず、original F5da driver pending を `AttemptActionMismatch` payload に保持する。category は `Some GuiError::InvalidCommand` とする。
+- `SinkDriverFailed` は lower F5dd error を丸ごと保持し、top-level error は Clone / Copy を実装しない。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_action_attempt_driver.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostActionAttempt` は attempted action と executor-supplied outcome を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep` は attempt と F5dd sink driver step を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptMismatch` は expected action、attempted action、category、driver pending を保持し、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptDriverError` は owner-bearing error なので Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md` を追加し、facade import smoke と coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5de source policy を追加する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_action_attempt_driver_f5de.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_action_attempt_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_action_attempt_driver_module_f5de.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_action_sink_driver_f5de_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5de_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5de.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

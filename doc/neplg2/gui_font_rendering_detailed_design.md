@@ -8093,6 +8093,16 @@ The ordering is fixed. F5dd first reads the action from `GuiRgba8888RowTileRlePr
 
 If F5dc accepts the action, F5dd calls F5da `complete_outcome support driver outcome` with the same caller-supplied outcome. If F5da succeeds, F5dd returns the sink step plus completion. If F5da fails, the driver pending has already been consumed, so `DriverCompletionFailed` stores the F5da driver error and the accepted sink step only. F5dd therefore does not manufacture executor outcome. It never builds `Result::Ok unit` or synthetic `Result::Err` on behalf of the executor, and it never calls F5cv direct completion, F5cz bridge directly, F5cx report construction, F5cr request construction, F5db virtual executor, lower dispatch cursors, platform APIs, raw packet storage, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host action attempt driver boundary
+
+F5de introduces the std layer row tile RLE present host action attempt driver boundary. It is the contract between an actual Web, native, bare, or headless executor and F5dd completion. The executor reports the action it attempted and the outcome it observed; F5de verifies that the reported attempt still matches the one-shot F5da driver pending before any completion authority is used.
+
+`GuiRgba8888RowTileRlePresentHostActionAttempt` stores the attempted F5cw action and the executor-supplied `Result unit GuiError`. It is a Copy value because it does not own the F5da driver pending. `GuiRgba8888RowTileRlePresentHostActionAttemptMismatch` owns the original F5da driver pending and therefore must not implement Clone or Copy. The mismatch payload also carries expected action, attempted action, and `GuiError::InvalidCommand` category for deterministic diagnostics.
+
+The ordering is fixed. F5de first reads expected action from `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` by shared borrow. It reads attempted action from the attempt value. It then calls F5cy `gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted`, not a variant-only comparison. If the comparison fails, F5de returns `AttemptActionMismatch` and does not call F5dd. This keeps the pending owner recoverable for the actual executor wrapper and prevents stale asynchronous outcomes from completing the wrong pending request.
+
+If the actions match, F5de reads the attempt outcome and calls F5dd `gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step support driver outcome`. F5de does not reimplement F5dc support preflight or F5da completion; lower `SinkRejected` and `DriverCompletionFailed` errors are wrapped as `SinkDriverFailed`. F5de therefore does not manufacture executor outcome, does not call F5dc directly, and never reaches F5cv direct completion, F5cz bridge directly, F5cx report construction, F5cr request construction, F5db virtual executor, lower dispatch cursors, platform APIs, raw packet storage, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

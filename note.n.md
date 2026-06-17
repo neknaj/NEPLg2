@@ -1,3 +1,47 @@
+# 2026-06-17 Agent2 GUI font F5de std host action attempt driver boundary
+
+## scope
+
+- actual Web / native / bare executor が返す attempted action と outcome を、F5dd action sink driver completion の前で F5da driver pending の expected action と照合する std layer boundary を追加した。
+- mismatch では F5dd を呼ばず、original driver pending を `AttemptActionMismatch` owner-bearing error へ戻す。
+- F5de does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` は作らない。
+- actual platform execution、F5dc direct call、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、lower dispatch cursor、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- action 比較は F5cy `gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted` を使う。
+- mismatch category は `Some GuiError::InvalidCommand` とし、driver owner を error payload へ保持する。
+- lower F5dd error を `SinkDriverFailed` に丸ごと保持し、top-level error と owner-bearing payload は Clone / Copy を実装しない。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_attempt_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionAttempt` は attempted action と caller-supplied `Result unit GuiError` outcome だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep` は attempt と F5dd sink driver step を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptMismatch` は expected action、attempted action、`Option GuiError` category、F5da driver pending owner を保持し、Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_attempt_driver.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5de focused doctest `tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md`。
+- pass: F5de module doctest `stdlib/std/gui/tile_present_host_action_attempt_driver.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5dd regression `tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md`。
+- pass: F5cy regression `tests/stdlib/gui_std_tile_present_host_executor.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## remaining
+
+- F5de は std identity guard までであり、actual Web / native / bare presenter host import execution、surface lifecycle state、packet owner transport、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5dd std host action sink driver boundary
 
 ## scope
