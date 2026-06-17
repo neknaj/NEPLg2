@@ -8098,6 +8098,18 @@ If F5dj rejects the attempt step, F5dk returns `CompletionRejected` with the att
 
 F5dk must not create Completed. F5dh `Completed` is an operation-less terminal and remains outside this per-operation presenter step. F5dk must not call F5dh `start`, `step`, or `resume_slice`, F5dg `start` or `step`, F5cy / F5cw action validation, F5da-F5de action drivers, F5cs / F5ct / F5cu, host imports, platform APIs, DOM, Canvas, minifb, video memory, raw storage, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation presenter loop boundary
+
+F5dl introduces the std layer row tile RLE present host span operation presenter loop boundary. This is still not an actual Web, native, bare, or headless presenter implementation. It is the shared loop state contract that keeps platform code from calling F5dh and F5dk directly. `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState` is the LoopState value. It carries the target support set, the F5dh scheduling policy, and the current scheduled state together so the next request does not depend on separate side state.
+
+`presenter_loop_start` calls F5dh `start` exactly once. It returns LoopState only after F5dh start succeeds. Start failure keeps support, policy, action, lower F5dh start error, and category from F5dh public accessors. It does not call F5dg start directly.
+
+`presenter_loop_request` accepts LoopState and calls F5dh step exactly once. If F5dh returns `OperationReady`, F5dl packages support, policy, and ready into a presenter request. If F5dh returns `Completed`, F5dl returns loop `Completed`. This `Completed` is allowed because it is the operation-less F5dh terminal, not a per-operation F5dk / F5dj completion. Request failure keeps the original LoopState, lower F5dh step error, and category from F5dh public accessors.
+
+`presenter_loop_complete` accepts a request and a presenter supplied attempt. It calls F5dk presenter step exactly once. If F5dk rejects the attempt or completion, F5dl keeps the request and lower F5dk error and does not publish next state. If F5dk succeeds, F5dl extracts the F5dj completion step, reads the completion enum, and rewraps Continue / Yield scheduled state into Continue / Yield LoopState with the same support and policy.
+
+F5dl does not execute host imports, synthesize presenter success or failure, call F5dh `resume_slice`, call F5di or F5dj direct validation / completion functions, call F5dg start / step, call F5cs / F5ct / F5cu, call F5da-F5de drivers, use F5cy / F5cw action validation, access raw packet storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, real schedulers, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
