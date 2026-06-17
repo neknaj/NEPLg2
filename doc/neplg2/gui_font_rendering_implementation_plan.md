@@ -490,6 +490,58 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dh: std layer row tile RLE present scheduled span operation boundary
+
+目的:
+
+- F5dg host span operation stream を actual presenter の手前で deterministic slice budget に区切る。
+- F5dh は F5dg operation stream に対して exact budget only の yield rule を適用し、`resume_slice` では F5dg cursor を保持する。
+- F5ct record scheduler は再利用しない。F5ct は F5cq record 単位、F5dh は F5dg operation stream 単位の scheduler であり、RunRecord と RunSpan の cost model は異なる。
+- `GuiRgba8888RowTileRlePresentScheduledSpanOperationState` は F5dg cursor と slice-local operation / pixel counters だけを持つ。
+- `OperationReady` は operation、post phase、next state を同時に保持し、exact budget 到達時にも operation を失わない。
+- Begin / End は operation cost 1、pixel cost 0 とし、RunSpan は F5df accessor で `span.width * span.height` を checked arithmetic で計算する。
+- actual host import execution、record scheduler direct call、action driver、raw storage、queue、timer、platform API、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘に従い、既存 `tile_present_schedule` の state / policy は再利用しない。
+- F5dg / F5df を stream authority とし、F5cs / F5ct / F5cu を再実行しない。
+- policy は `max_operations_per_slice` と `max_pixels_per_slice` を持つ新規 value にする。
+- `Yield` は valid operation 消費後の exact budget 到達だけを表し、ready payload が operation と phase と next state を同時に持つ。
+- `resume_slice` は cursor を保持し、slice counters だけを reset する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_scheduled_span_operation.nepl` を追加する。
+- scheduled span operation policy、state、ready、step result、start / step error を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md` を追加する。heavy action scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で実装構造を直接検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dh source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- `start` が F5dg start を 1 回だけ呼び、state の counter を 0 で初期化する。
+- `step` が F5dg step を最大 1 回だけ呼び、operation と post phase と next state を同時に返す。
+- exact budget 到達は `Yield`、budget 超過は typed error になる。
+- `resume_slice` が cursor continuation を保持し、counter だけ reset する。
+- focused import smoke doctest、source policy、F5dg / F5df regression、`git diff --check` が通る。
+- subagent implementation review で F5ct 再利用禁止、F5dg authority、禁止依存、budget error が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_f5dh.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_scheduled_span_operation.nepl --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_module_f5dh.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_f5dh_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_span.n.md --no-tree -o tmp_gui_std_tile_present_run_span_f5dh_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dh.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

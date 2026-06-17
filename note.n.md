@@ -67579,3 +67579,42 @@ MERGE_APPROVED
 ### residual
 
 - F5co は typed record reader と std present run cursor までであり、Web / native / headless の host import ABI、real scheduler policy、FHD 60fps 実測、formal event loop integration、2D compositor drain、stroke / shadow rasterization は未実装である。
+## 2026-06-17 GUI std F5dh scheduled span operation boundary
+
+### scope
+
+- F5dh は F5dg `GuiRgba8888RowTileRlePresentHostSpanOperation` stream を actual Web / native / bare / headless presenter の手前で deterministic slice budget に区切る std layer boundary である。
+- F5ct record scheduler は再利用しない。F5ct は F5cq record 単位、F5dh は F5dg operation stream 単位であり、RunRecord と RunSpan の cost model が異なる。
+- この slice は actual host import execution、platform API、DOM / Canvas / minifb、video memory、queue、timer、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘に従い、`tile_present_schedule` の state / policy を再利用する案を破棄し、新規 `max_operations_per_slice` / `max_pixels_per_slice` policy と F5dg cursor 所有 state に変更した。
+- F5dg / F5df を stream authority とし、F5cs / F5ct / F5cu を直接呼ばない方針にした。
+- `OperationReady` は operation、post phase、next state を同時に持ち、exact-budget yield で operation を落とさない形にした。
+
+### implementation
+
+- `stdlib/std/gui/tile_present_scheduled_span_operation.nepl` を追加した。
+- scheduled span operation policy、state、ready、step result、start error、step error を追加した。
+- Begin / End は operation cost 1 / pixel cost 0、RunSpan は `span.width * span.height` を checked arithmetic で計算する。
+- `step` は F5dg step を最大 1 回だけ呼び、F5dg lower error は previous state と lower error option を持つ typed error に包む。
+- `resume_slice` は F5dg cursor を保持し、slice counter だけ reset する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+- 初期 focused doctest は Begin / Run scenario を直接構築したが、compile timeout が 60 秒と 180 秒の両方で発生した。既存 GUI doctest の実運用に合わせ、focused doctest は import smoke に軽量化し、behavior order と禁止依存は `nodesrc/test_web_gui_font_rendering_contract.js` の source policy で直接検査する形へ変更した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_scheduled_span_operation.nepl tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md` は no match。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_f5dh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_scheduled_span_operation.nepl --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_module_f5dh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_f5dh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_span.n.md --no-tree -o tmp_gui_std_tile_present_run_span_f5dh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dh.json -j 1`
+
+### residual
+
+- F5dh は scheduled span operation boundary までであり、actual Web / native / bare / headless presenter operation sink、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。

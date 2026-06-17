@@ -142,6 +142,8 @@ const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_ex
 const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
 const stdGuiTilePresentHostSpanOperation = read("stdlib/std/gui/tile_present_host_span_operation.nepl");
 const stdGuiTilePresentHostSpanOperationImpl = withoutComments(stdGuiTilePresentHostSpanOperation);
+const stdGuiTilePresentScheduledSpanOperation = read("stdlib/std/gui/tile_present_scheduled_span_operation.nepl");
+const stdGuiTilePresentScheduledSpanOperationImpl = withoutComments(stdGuiTilePresentScheduledSpanOperation);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -218,6 +220,7 @@ const guiStdTilePresentRunSpanTests = read("tests/stdlib/gui_std_tile_present_ru
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_present_host_span_operation.n.md");
+const guiStdTilePresentScheduledSpanOperationTests = read("tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -21026,6 +21029,136 @@ assert(
         guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_f5cw_f5df_only_ok") &&
         guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_no_raw_no_platform_no_fallback"),
     "F5dg std tile present host-span-operation focused doctest must cover span operation source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present scheduled span operation boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentScheduledSpanOperationState") &&
+            doc.includes("F5dg operation stream") &&
+            doc.includes("exact budget") &&
+            doc.includes("resume_slice"),
+        `F5dh ${name} must document scheduled span operation boundary and exact-budget resume semantics`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_scheduled_span_operation" as *'), "std/gui facade must export F5dh tile present scheduled span operation boundary");
+assert(
+    stdGuiTilePresentScheduledSpanOperation.includes("pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("max_operations_per_slice %i32") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("max_pixels_per_slice %i32") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("MaxOperationsPerSliceInvalid") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("MaxPixelsPerSliceInvalid"),
+    "std/gui/tile_present_scheduled_span_operation F5dh must define explicit span operation policy and validation errors",
+);
+assert(
+    stdGuiTilePresentScheduledSpanOperation.includes("pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationState:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("slice_operation_count %i32") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("slice_pixel_count %i32") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("Continue") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("Yield"),
+    "std/gui/tile_present_scheduled_span_operation F5dh must wrap F5dg cursor and slice counters with explicit phases",
+);
+assert(
+    stdGuiTilePresentScheduledSpanOperation.includes("pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationReady:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("operation %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("phase %GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult:") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("OperationReady %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("Completed"),
+    "std/gui/tile_present_scheduled_span_operation F5dh must keep operation, post phase, and next state together",
+);
+assert(
+    stdGuiTilePresentScheduledSpanOperation.includes("SpanWidthInvalid") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("SpanHeightInvalid") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("SpanPixelCountOverflow") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("SpanPixelBudgetExceeded") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("OperationBudgetExceeded") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("PixelBudgetExceeded") &&
+        stdGuiTilePresentScheduledSpanOperation.includes("HostSpanOperationStepFailed %GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind"),
+    "std/gui/tile_present_scheduled_span_operation F5dh must expose typed span cost and budget errors",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_execution" as \*/, "std/gui/tile_present_scheduled_span_operation F5dh must keep original F5cw action in start errors"],
+    [/#import "std\/gui\/tile_present_host_span_operation" as \*/, "std/gui/tile_present_scheduled_span_operation F5dh must consume F5dg operation cursor"],
+    [/#import "std\/gui\/tile_present_run_span" as \*/, "std/gui/tile_present_scheduled_span_operation F5dh must measure F5df row spans through accessors"],
+]) {
+    assertMatch(stdGuiTilePresentScheduledSpanOperationImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentScheduledSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_start action",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_new action lower",
+        "Result::Ok cursor:",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new cursor 0 0",
+    ],
+    "std/gui/tile_present_scheduled_span_operation F5dh start must call F5dg start once and initialize only slice counters",
+);
+const scheduledSpanOperationStep = functionSlice(stdGuiTilePresentScheduledSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step");
+assertOrderedFragments(
+    scheduledSpanOperationStep,
+    [
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_validate_policy_for_step policy",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_cursor &state",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_step cursor",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_lower_step_error state lower",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult::Completed",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::OperationReady host_ready:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_ready_operation &host_ready",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_pixel_cost &operation",
+        "GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanPixelBudgetExceeded",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_ready_cursor &host_ready",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_count_result policy state operation next_cursor pixel_cost",
+    ],
+    "std/gui/tile_present_scheduled_span_operation F5dh step must call F5dg step once and produce operation plus post phase",
+);
+assert(
+    (scheduledSpanOperationStep.match(/gui_rgba8888_row_tile_rle_present_host_span_operation_step cursor/g) || []).length === 1,
+    "std/gui/tile_present_scheduled_span_operation F5dh public step must call F5dg step exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentScheduledSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_count_result"),
+    [
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_add slice_operation_count 1",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_add slice_pixel_count pixel_cost",
+        "GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::OperationBudgetExceeded",
+        "GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PixelBudgetExceeded",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new next_cursor next_operation_count next_pixel_count",
+        "GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase::Yield",
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_new operation phase next_state",
+    ],
+    "std/gui/tile_present_scheduled_span_operation F5dh count result must use checked counters and exact-budget yield",
+);
+assertNoMatch(
+    stdGuiTilePresentScheduledSpanOperationImpl,
+    /\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_scheduled_span_operation F5dh must not call record scheduler, host drivers, raw storage, platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentScheduledSpanOperationImpl,
+    /[()]/,
+    "std/gui/tile_present_scheduled_span_operation F5dh implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_facade_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_policy_result_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_uses_f5dg_authority_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_exact_yield_keeps_operation_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_resume_slice_keeps_cursor_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_over_budget_typed_error_ok") &&
+        guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_no_f5ct_no_raw_no_platform_no_fallback"),
+    "F5dh std tile present scheduled-span-operation focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
