@@ -1,0 +1,113 @@
+//: # std/gui/tile_present_host_span_operation_presenter_outcome
+//: RGBA8888 row tile RLE present host span operation presenter outcome の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5dl presenter loop request から actual presenter が[実行/じっこう]すべき operation を[取/と]り[出/だ]します。
+//: - actual presenter が[返/かえ]した caller supplied outcome を、F5di attempt value に[包/つつ]んで F5dl complete へ[戻/もど]せるようにします。
+//:
+//: ### [契約/けいやく]
+//: - OutcomeRequest と OutcomeAttempt は Clone / Copy にしません。同じ request / outcome bridge の[再利用/さいりよう]を static に[避/さ]けるためです。
+//: - outcome request は F5dl request ready と F5dh ready operation accessor だけを[読/よ]みます。
+//: - outcome attempt は caller supplied `Result unit GuiError` を F5di attempt constructor へ 1 [回/かい]だけ[渡/わた]します。
+//: - complete は F5dl presenter loop complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_outcome" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_host_span_operation_attempt" as *
+#import "std/gui/tile_present_host_span_operation_presenter_loop" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest \request\operation:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest request operation
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt \request\attempt:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt request attempt
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError \request\attempt\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError request attempt category lower
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request: F5dl request から presenter-facing request を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5dl request ready を[読/よ]み、F5dh ready operation accessor から expected operation を[取/と]り[出/だ]します。
+//: - host outcome や attempt はこの function では[作/つく]りません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest \request:
+    let ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_ready &request
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_operation &ready
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_new request operation
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt: caller supplied outcome を F5di attempt に[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - OutcomeRequest を value として[消費/しょうひ]します。
+//: - F5di attempt constructor だけを 1 [回/かい]だけ[呼/よ]び、F5di validation は[呼/よ]びません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest fn Result unit GuiError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt \outcome_request\outcome:
+    let request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_request &outcome_request
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_operation &outcome_request
+    let attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt gui_rgba8888_row_tile_rle_present_host_span_operation_attempt operation outcome
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_new request attempt
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete: outcome attempt を F5dl complete へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - OutcomeAttempt を value として[消費/しょうひ]します。
+//: - F5dl presenter loop complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower error は request、attempt、category と[一緒/いっしょ]に typed error へ[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError \outcome_attempt:
+    let request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_request &outcome_attempt
+    let attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_attempt &outcome_attempt
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete request attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_new request attempt lower
+        Result::Ok completion:
+            Result::Ok completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_request %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \outcome_request:
+    *field::get_ref outcome_request "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest GuiRgba8888RowTileRlePresentHostSpanOperation \outcome_request:
+    *field::get_ref outcome_request "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_request %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \outcome_attempt:
+    *field::get_ref outcome_attempt "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \outcome_attempt:
+    *field::get_ref outcome_attempt "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_request %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \error:
+    *field::get_ref error "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \error:
+    *field::get_ref error "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError \error:
+    field::get error "lower"

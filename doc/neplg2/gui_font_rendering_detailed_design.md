@@ -8110,6 +8110,16 @@ F5dl introduces the std layer row tile RLE present host span operation presenter
 
 F5dl does not execute host imports, synthesize presenter success or failure, call F5dh `resume_slice`, call F5di or F5dj direct validation / completion functions, call F5dg start / step, call F5cs / F5ct / F5cu, call F5da-F5de drivers, use F5cy / F5cw action validation, access raw packet storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, real schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation presenter outcome boundary
+
+F5dm introduces the std layer row tile RLE present host span operation presenter outcome boundary. This boundary still does not execute a Web, native, bare, or headless host operation. It only gives actual presenter glue a typed bridge between F5dl request and F5dl complete. `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` stores the F5dl request and the expected operation read from F5dh ready. The type is intentionally not Clone or Copy. It represents one presenter-facing operation request and should not be replayed accidentally.
+
+The flow is value-consuming. `presenter_outcome_request` reads F5dl request ready, then reads F5dh ready operation, and stores both the original request and operation. The actual presenter may borrow the OutcomeRequest to inspect the operation. After it obtains a caller supplied `Result unit GuiError`, `presenter_outcome_attempt` consumes the OutcomeRequest, calls the F5di attempt constructor exactly once, and stores the original F5dl request with the created attempt in `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt`. This type is also not Clone or Copy because it binds one outcome to one original request.
+
+`presenter_outcome_complete` consumes OutcomeAttempt and calls F5dl complete exactly once. On success it returns the F5dl loop completion unchanged. On failure it keeps the original request, the F5di attempt, the lower F5dl complete error, and the category obtained from the F5dl public category accessor. This keeps error reporting data available without letting the presenter parse F5dk / F5dj lower variants.
+
+F5dm does not execute host imports, synthesize host success or failure, call F5di validation, call F5dk presenter step, call F5dj completion step, call F5dh start / step / resume, call F5dg / F5cs / F5ct / F5cu / F5da-F5de / F5cy / F5cw, access raw storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, real schedulers, fallback paths, silent no-op behavior, or create loop `Completed`.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.

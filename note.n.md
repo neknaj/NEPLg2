@@ -1,3 +1,54 @@
+# 2026-06-18 Agent2 GUI font F5dm std host span operation presenter outcome boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter glue が F5dl request から operation を読み、caller supplied outcome を F5di attempt constructor へ渡して F5dl complete へ戻す typed bridge を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` は F5dl request と F5dh ready operation accessor から得た expected operation を保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt` は original F5dl request と F5di attempt を保持する。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError は Clone / Copy にしない。同じ request / outcome bridge の replay を static に避ける。
+- `outcome_request` は F5dl request ready と F5dh ready operation accessor だけを読む。
+- `outcome_attempt` は OutcomeRequest を value として消費し、F5di attempt constructor を 1 回だけ呼ぶ。
+- `outcome_complete` は OutcomeAttempt を value として消費し、F5dl complete を 1 回だけ呼ぶ。
+- host import、F5di validation、F5dk presenter step、F5dj completion step、F5dh start / step / resume、F5dg、F5da-F5de driver、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、loop `Completed` creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dm は F5dl request と F5dl complete の間に置く次 boundary として妥当だが、OutcomeRequest / OutcomeAttempt を Copy にすると same request / outcome bridge の replay が起きやすいため、non-Copy / non-Clone にする必要があると指摘された。
+- required flow は `F5dl request -> OutcomeRequest -> borrowed operation inspection -> consume OutcomeRequest + caller outcome -> OutcomeAttempt -> consume OutcomeAttempt -> F5dl complete`。
+- `presenter_outcome_attempt` は OutcomeRequest を value として消費し、F5di validation ではなく F5di attempt constructor だけを呼ぶ。
+- `presenter_outcome_complete` は OutcomeAttempt を value として消費し、lower error に original request、F5di attempt、F5dl lower error、F5dl public accessor 由来 category を保持する。
+- source policy は Clone / Copy 禁止、F5di attempt constructor のみ許可、F5dl complete exact call order、F5di validation / F5dk / F5dj / F5dh start-step-resume / scheduler / platform / fallback 禁止を固定する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl` を追加した。
+- OutcomeRequest、OutcomeAttempt、OutcomeCompleteError、request / attempt / complete functions、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dm focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: F5dm module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl`。
+- pass: F5dl regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError が non-Copy bridge value であること、`outcome_attempt` が F5di attempt constructor だけを呼ぶこと、`outcome_complete` が F5dl complete だけへ委譲し request / attempt / lower error context を保持することが承認された。
+- F5dh start / step / resume、F5di validation、F5dk / F5dj direct path、platform / raw / queue / timer / scheduler API、fallback / silent no-op、`Completed` construction への漏れは見つからなかった。
+- docs / source policy / todo は実装と整合していると確認された。
+
+## remaining
+
+- F5dm は presenter outcome request / attempt bridge であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dl std host span operation presenter loop boundary
 
 ## scope
