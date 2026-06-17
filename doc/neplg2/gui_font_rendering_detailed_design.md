@@ -8063,6 +8063,18 @@ Executors read only `pending_action`. They return only `Result unit GuiError` to
 
 F5da must not call F5cv `complete_request` directly, must not reimplement F5cy support or full action identity validation, and must not construct F5cr requests. It also must not touch F5cu, F5ct, F5cs, F5cp, F5co, raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present virtual host executor boundary
+
+F5db introduces the std layer row tile RLE present virtual host executor boundary. It is a deterministic headless/test executor over the same F5cw action shape that actual Web, native, and bare executors will consume later. It is not a fallback path, and it is not the actual platform presenter.
+
+`GuiRgba8888RowTileRlePresentVirtualExecutor` stores a F5cy support value and a F5cs virtual drain. Execution starts by reading the F5da pending action. The virtual executor then runs F5cy `require_supported` before any drain mutation. This ordering matters because an unsupported target should consume the F5da driver pending for one-shot cleanup while keeping the virtual executor recovery state unchanged.
+
+After support preflight succeeds, F5db maps the F5cw action into a F5cq `GuiRgba8888RowTileRlePresentHostCommandRecord`. The mapping is total over the nine target/record variants: Window / Offscreen / Device crossed with Begin / Run / End. Begin variants become `BeginFrame`, Run variants become `RunRecord`, and End variants become `EndFrame`.
+
+Drain success updates the virtual executor and then completes the driver through F5da `complete_outcome Ok`. Drain failure keeps the original executor as the recovery state, converts the drain category into a `GuiError`, and still completes the F5da driver pending with `Err`. Support rejection similarly calls F5da `complete_outcome Ok` intentionally so that F5cz records validation failure before completion. If either expected failure cleanup path returns `Ok`, F5db reports `InconsistentCompletion`.
+
+`GuiRgba8888RowTileRlePresentVirtualExecutorError` carries `SupportRejected`, `DrainFailed`, `DriverFailed`, or `InconsistentCompletion`, plus category, recovery executor, and optional driver error. F5db must not call F5cv `complete_request` directly, must not call F5cz bridge directly, must not construct F5cr requests, and must not touch F5cu, F5ct, F5cp, F5co, raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

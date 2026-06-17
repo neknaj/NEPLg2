@@ -1,0 +1,218 @@
+//: # std/gui/tile_present_virtual_executor
+//: RGBA8888 row tile RLE present action の deterministic virtual executor boundary
+//:
+//: ### [目的/もくてき]
+//: - F5da の one-shot driver pending を、headless / test 用の virtual executor で[実行/じっこう]したこととして[検査/けんさ]します。
+//: - actual Web / native / bare presenter と[同/おな]じ F5cw action shape を[消費/しょうひ]し、F5cs virtual drain と F5da completion へ[接続/せつぞく]します。
+//:
+//: ### [契約/けいやく]
+//: - support preflight が[成功/せいこう]するまで virtual drain は[更新/こうしん]しません。
+//: - support rejection と drain failure でも F5da `complete_outcome` を[呼/よ]び、driver pending を one-shot cleanup します。
+//: - drain failure の recovery executor は、失敗前の unchanged executor です。
+//: - platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_virtual_executor" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_dispatch_loop" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_execution_driver" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_virtual_drain" as *
+
+pub struct GuiRgba8888RowTileRlePresentVirtualExecutor:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    drain %GuiRgba8888RowTileRlePresentVirtualDrain
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualExecutor:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualExecutor GuiRgba8888RowTileRlePresentVirtualExecutor \executor:
+        *executor
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualExecutor:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualExecutor GuiRgba8888RowTileRlePresentVirtualExecutor \executor:
+        executor
+
+pub struct GuiRgba8888RowTileRlePresentVirtualExecutorStep:
+    executor %GuiRgba8888RowTileRlePresentVirtualExecutor
+    completion %GuiRgba8888RowTileRlePresentDispatchLoopCompletion
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualExecutorStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualExecutorStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorStep \step:
+        step
+
+pub enum GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind:
+    SupportRejected %GuiRgba8888RowTileRlePresentHostExecutorError
+    DrainFailed %GuiRgba8888RowTileRlePresentVirtualDrainError
+    DriverFailed %GuiRgba8888RowTileRlePresentHostExecutionDriverError
+    InconsistentCompletion
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentVirtualExecutorError:
+    kind %GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind
+    category %Option GuiError
+    executor %GuiRgba8888RowTileRlePresentVirtualExecutor
+    driver_error %Option GuiRgba8888RowTileRlePresentHostExecutionDriverError
+
+impl Clone for GuiRgba8888RowTileRlePresentVirtualExecutorError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentVirtualExecutorError GuiRgba8888RowTileRlePresentVirtualExecutorError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentVirtualExecutorError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentVirtualExecutorError GuiRgba8888RowTileRlePresentVirtualExecutorError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentVirtualDrain GuiRgba8888RowTileRlePresentVirtualExecutor \support\drain:
+    GuiRgba8888RowTileRlePresentVirtualExecutor support drain
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_step_new %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentDispatchLoopCompletion GuiRgba8888RowTileRlePresentVirtualExecutorStep \executor\completion:
+    GuiRgba8888RowTileRlePresentVirtualExecutorStep executor completion
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_error_new %fn GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentVirtualExecutor fn Option GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentVirtualExecutorError \kind\category\executor\driver_error:
+    GuiRgba8888RowTileRlePresentVirtualExecutorError kind category executor driver_error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_category_or_backend %fn Option GuiError GuiError \category:
+    match category:
+        Option::Some error:
+            error
+        Option::None:
+            GuiError::BackendFailure
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_inconsistent %fn GuiRgba8888RowTileRlePresentVirtualExecutor GuiRgba8888RowTileRlePresentVirtualExecutorError \executor:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    gui_rgba8888_row_tile_rle_present_virtual_executor_error_new GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind::InconsistentCompletion category executor Option::None
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_driver_error %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\driver_error:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_execution_driver_error_category_value &driver_error
+    let kind %GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind::DriverFailed driver_error
+    gui_rgba8888_row_tile_rle_present_virtual_executor_error_new kind category executor Option::Some driver_error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_support_error %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentHostExecutorError fn GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\support_error\driver_error:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_executor_error_category_value &support_error
+    let kind %GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind::SupportRejected support_error
+    gui_rgba8888_row_tile_rle_present_virtual_executor_error_new kind category executor Option::Some driver_error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_drain_error %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentVirtualDrainError fn GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\drain_error\driver_error:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_virtual_drain_error_category_value &drain_error
+    let kind %GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind::DrainFailed drain_error
+    gui_rgba8888_row_tile_rle_present_virtual_executor_error_new kind category executor Option::Some driver_error
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_empty %fn GuiRgba8888RowTileRlePresentHostExecutorSupport GuiRgba8888RowTileRlePresentVirtualExecutor \support:
+    gui_rgba8888_row_tile_rle_present_virtual_executor_new support gui_rgba8888_row_tile_rle_present_virtual_drain_empty
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_support %fn &GuiRgba8888RowTileRlePresentVirtualExecutor GuiRgba8888RowTileRlePresentHostExecutorSupport \executor:
+    *field::get_ref executor "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_drain %fn &GuiRgba8888RowTileRlePresentVirtualExecutor GuiRgba8888RowTileRlePresentVirtualDrain \executor:
+    *field::get_ref executor "drain"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_step_executor %fn &GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutor \step:
+    *field::get_ref step "executor"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_step_completion %fn &GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentDispatchLoopCompletion \step:
+    *field::get_ref step "completion"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_error_kind %fn &GuiRgba8888RowTileRlePresentVirtualExecutorError GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_error_category_value %fn &GuiRgba8888RowTileRlePresentVirtualExecutorError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_error_executor %fn &GuiRgba8888RowTileRlePresentVirtualExecutorError GuiRgba8888RowTileRlePresentVirtualExecutor \error:
+    *field::get_ref error "executor"
+
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_error_driver_error %fn &GuiRgba8888RowTileRlePresentVirtualExecutorError Option GuiRgba8888RowTileRlePresentHostExecutionDriverError \error:
+    *field::get_ref error "driver_error"
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_record_from_action %fn &GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostCommandRecord \action:
+    match *action:
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin payload:
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_begin_descriptor &payload
+            gui_rgba8888_row_tile_rle_present_host_command_record_begin descriptor
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun payload:
+            let run_record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_host_execution_window_run_record &payload
+            GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd payload:
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_end_descriptor &payload
+            gui_rgba8888_row_tile_rle_present_host_command_record_end descriptor
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+            gui_rgba8888_row_tile_rle_present_host_command_record_begin descriptor
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun run_record:
+            GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd descriptor:
+            gui_rgba8888_row_tile_rle_present_host_command_record_end descriptor
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin descriptor:
+            gui_rgba8888_row_tile_rle_present_host_command_record_begin descriptor
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun run_record:
+            GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd descriptor:
+            gui_rgba8888_row_tile_rle_present_host_command_record_end descriptor
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_complete_supported_rejection %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentHostExecutorError fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending Result GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\support_error\driver:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_virtual_executor_support &executor
+    match gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver Result::Ok unit:
+        Result::Ok _completion:
+            Result::Err gui_rgba8888_row_tile_rle_present_virtual_executor_inconsistent executor
+        Result::Err driver_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_virtual_executor_support_error executor support_error driver_error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_complete_drain_failure %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentVirtualDrainError fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending Result GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\drain_error\driver:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_virtual_executor_support &executor
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_virtual_drain_error_category_value &drain_error
+    let outcome_error %GuiError gui_rgba8888_row_tile_rle_present_virtual_executor_category_or_backend category
+    match gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver Result::Err outcome_error:
+        Result::Ok _completion:
+            Result::Err gui_rgba8888_row_tile_rle_present_virtual_executor_inconsistent executor
+        Result::Err driver_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_virtual_executor_drain_error executor drain_error driver_error
+
+fn gui_rgba8888_row_tile_rle_present_virtual_executor_complete_success %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending Result GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\driver:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_virtual_executor_support &executor
+    match gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver Result::Ok unit:
+        Result::Ok completion:
+            Result::Ok gui_rgba8888_row_tile_rle_present_virtual_executor_step_new executor completion
+        Result::Err driver_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_virtual_executor_driver_error executor driver_error
+
+//: gui_rgba8888_row_tile_rle_present_virtual_executor_execute: F5da pending を virtual executor で one-shot execution する
+//:
+//: [契約/けいやく]:
+//: - support preflight が[失敗/しっぱい]した[場合/ばあい]、virtual drain は[更新/こうしん]せず pending だけを F5da で cleanup します。
+//: - drain failure でも pending を F5da に Err outcome として[渡/わた]し、caller は同じ pending を[再利用/さいりよう]できません。
+//: - success path は updated executor と dispatch loop completion を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_virtual_executor_execute %fn GuiRgba8888RowTileRlePresentVirtualExecutor fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending Result GuiRgba8888RowTileRlePresentVirtualExecutorStep GuiRgba8888RowTileRlePresentVirtualExecutorError \executor\driver:
+    let action %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_virtual_executor_support &executor
+    match gui_rgba8888_row_tile_rle_present_host_executor_require_supported support action:
+        Result::Err support_error:
+            gui_rgba8888_row_tile_rle_present_virtual_executor_complete_supported_rejection executor support_error driver
+        Result::Ok _unit:
+            let record %GuiRgba8888RowTileRlePresentHostCommandRecord gui_rgba8888_row_tile_rle_present_virtual_executor_record_from_action &action
+            let drain %GuiRgba8888RowTileRlePresentVirtualDrain gui_rgba8888_row_tile_rle_present_virtual_executor_drain &executor
+            match gui_rgba8888_row_tile_rle_present_virtual_drain_step drain record:
+                Result::Err drain_error:
+                    gui_rgba8888_row_tile_rle_present_virtual_executor_complete_drain_failure executor drain_error driver
+                Result::Ok next_drain:
+                    let next_executor %GuiRgba8888RowTileRlePresentVirtualExecutor gui_rgba8888_row_tile_rle_present_virtual_executor_new support next_drain
+                    gui_rgba8888_row_tile_rle_present_virtual_executor_complete_success next_executor driver
