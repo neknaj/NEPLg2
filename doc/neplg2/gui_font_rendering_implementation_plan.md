@@ -1023,6 +1023,65 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dr: std layer row tile RLE present host span operation presenter executor session boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter loop が ready state、executor pending request、completion result、terminal completed state を sentinel / null なしで保持できる std layer session boundary を追加する。
+- F5dr は F5dp executor loop と F5dq attempt driver を session contract に包むが、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` は `Ready` と `Completed` を持つ。
+- `Completed` state への request は明示 terminal behavior として request result `Completed` を返し、F5dp request を呼ばない。
+- `Ready` state だけが F5dp request を 1 回だけ呼ぶ。
+- pending request は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending` に value として移す。
+- `session_complete` は pending request と executor attempt を value として消費し、F5dq attempt driver step を 1 回だけ呼ぶ。
+- Continue / Yield は Ready session state に写す。
+- request / complete error recovery は lower F5dp / F5dq error chain を authority とする。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を `SessionState` に含める設計は sentinel / null を避けるので妥当と判断された。
+- `session_request Completed -> Completed` は明示 terminal behavior として document すれば silent no-op ではない。
+- `session_request` は state を value 消費し、`Ready` だけで F5dp request を 1 回呼ぶ。
+- `session_complete` は F5dq `attempt_driver_step` だけを authority にし、F5dp / F5do / F5dn へ戻らない。
+- F5dq success step から completion を取り出し、Continue / Yield だけを Ready session state へ包む。
+- request / complete は lower error chain を recovery authority とし、private field 復元や consumed request / attempt 再構築を禁止する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl` を追加する。
+- SessionState、SessionPending、SessionRequestResult、SessionCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dr source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- `session_start` が F5dp start を 1 回だけ呼ぶ。
+- `session_request` は Ready branch だけで F5dp request を 1 回だけ呼ぶ。
+- `session_request` の Completed branch は F5dp request を呼ばず、terminal Completed result だけを返す。
+- `session_complete` が F5dq attempt driver step を 1 回だけ呼び、F5dp complete / F5do / F5dn を直接呼ばない。
+- SessionState / SessionPending / request result / completion / errors は Clone / Copy 実装を持たない。
+- `SessionState::Completed` は request mapping と enum definition 以外で作らない。
+- F5do / F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old F5cw / F5da-F5de action paths、F5db virtual executor、F5cs virtual drain、F5cu / F5ct / F5cr / F5cp / F5co、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation を持たない。
+- focused import smoke doctest、source policy、F5dq / F5dp regression、`git diff --check` が通る。
+- subagent implementation review で session state shape、terminal Completed behavior、pending owner transfer、F5dq authority、lower error recovery authority、no scheduler / platform / fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_f5dr.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_module_f5dr.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver_f5dr_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_loop_f5dr_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dr.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

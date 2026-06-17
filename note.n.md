@@ -1,3 +1,61 @@
+# 2026-06-18 Agent2 GUI font F5dr std host span operation presenter executor session boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が ready state、executor pending request、completion result、terminal completed state を sentinel / null なしで保持できる std layer session boundary を追加する。
+- F5dr は F5dp executor loop と F5dq attempt driver を session contract に包むが、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` は `Ready` と `Completed` を持つ。
+- `Completed` state への request は明示 terminal behavior として request result `Completed` を返し、F5dp request を呼ばない。
+- `Ready` state だけが F5dp request を 1 回だけ呼ぶ。
+- pending request は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending` に value として移す。
+- `session_complete` は pending request と executor attempt を value として消費し、F5dq attempt driver step を 1 回だけ呼ぶ。
+- Continue / Yield は Ready session state に写す。
+- request / complete error recovery は lower F5dp / F5dq error chain を authority とする。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を `SessionState` に含める設計は sentinel / null を避けるので妥当と判断された。
+- `session_request Completed -> Completed` は明示 terminal behavior として document すれば silent no-op ではない。
+- `session_request` は state を value 消費し、`Ready` だけで F5dp request を 1 回呼ぶ。
+- `session_complete` は F5dq `attempt_driver_step` だけを authority にし、F5dp / F5do / F5dn へ戻らない。
+- F5dq success step から completion を取り出し、Continue / Yield だけを Ready session state へ包む。
+- request / complete は lower error chain を recovery authority とし、private field 復元や consumed request / attempt 再構築を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl` を追加した。
+- SessionState、SessionPending、SessionRequestResult、SessionCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `session_start` は F5dp start を 1 回だけ呼び、success で Ready session state を返す。
+- `session_request` は Ready branch だけで F5dp request を 1 回だけ呼び、Completed branch は terminal Completed result を返す。
+- `session_complete` は pending request と attempt を消費し、F5dq attempt driver step を 1 回だけ呼び、Continue / Yield を Ready session state に写す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dr focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md`。
+- pass: F5dr module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl`。
+- pass: F5dq regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md`。
+- pass: F5dp regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5dr は F5dp start / request と F5dq attempt driver を意図した位置で呼んでいること、Completed session request が明示 terminal behavior で F5dp を呼ばないこと、consumed request / attempt reconstruction がないこと、synthetic outcome creation がないこと、forbidden platform / raw / scheduler / fallback dependency がないことが確認された。
+- 指摘は `note.n.md` の F5dr section に subagent review result を記録することだったため、この節を追加した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった `note.n.md` の F5dr `subagent_review` 欠落は解消され、記録内容も code / source-policy は clean で note 証跡だけが指摘だったことを正しく反映していると確認された。
+
+## remaining
+
+- F5dr は std layer session boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dq std host span operation presenter executor attempt driver boundary
 
 ## scope
