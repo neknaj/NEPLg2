@@ -1,3 +1,55 @@
+# 2026-06-18 Agent2 GUI font F5dq std host span operation presenter executor attempt driver boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter executor が返した executor supplied attempt を F5dp executor loop completion へ戻す std layer boundary を追加する。
+- F5dq は F5dp complete wrapper であり、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep` は completion-only success value とし、F5dp complete が value として消費した request / attempt を保持し直さない。
+- failure は category と lower F5dp error だけを持ち、lower F5dp error を recovery authority とする。
+- F5dq は `Result::Ok unit` / `Result::Err GuiError` を作らず、executor supplied attempt が持つ outcome を F5dp に渡すだけにする。
+- F5do direct complete / request、F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old F5cw / F5da-F5de action paths、F5db virtual executor、F5cs virtual drain、F5cu / F5ct / F5cr / F5cp / F5co、queue、timer、scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review 1 は `PLAN_BLOCKED`。
+- 初期案は success step と failure payload に request / attempt を保持しようとしていたが、F5dp complete が request / attempt を value 消費するため non-Copy ownership model と衝突すると指摘された。
+- 修正版では success step は completion-only、failure は category + lower F5dp error のみとし、lower F5dp error chain を recovery authority とした。
+- Dirac revised plan review は `PLAN_APPROVED`。
+- F5dq は F5dp の post-completion wrapper として妥当であり、request / attempt を再保持しないこと、F5dp complete exactly once、synthetic outcome 禁止、old action path / platform / raw / scheduler / fallback 禁止を source policy で固定する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep`、`CompleteRejected`、`Error`、step function、public accessors を追加した。
+- step function は `gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete request attempt` を 1 回だけ呼ぶ。
+- success は completion-only step、failure は lower F5dp error と category だけを返す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dq focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md`。
+- pass: F5dq module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl`。
+- pass: F5dp regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: F5do regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5dq module は success completion-only、failure lower-error-only、F5dp loop complete exactly once、consumed request / attempt の非保持、synthetic outcome 禁止、F5do / F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj / old action path / virtual drain / virtual executor / platform / raw / scheduler / fallback / parentheses の漏れなしが確認された。
+- 指摘は `note.n.md` の F5dq section に subagent review state と remaining boundary を記録することだったため、この節と remaining 節を追加した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- `note.n.md` の F5dq entry に subagent review と remaining が追加され、前回の note / status blocker は解消された。
+
+## remaining
+
+- F5dq は executor supplied attempt を F5dp loop completion へ戻す std layer boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dp std host span operation presenter executor loop boundary
 
 ## scope

@@ -8150,6 +8150,14 @@ F5dp introduces the std layer row tile RLE present host span operation presenter
 
 F5dp does not call F5dn complete directly, F5dm outcome request / attempt / complete, F5dl loop functions, F5di attempt construction / validation, F5dh scheduling, F5dk presenter step, F5dj completion, F5cw action mapping, action drivers, host imports, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+F5dq introduces the std layer row tile RLE present host span operation presenter executor attempt driver boundary. It is a completion wrapper over F5dp for actual Web, native, bare, and headless presenter executors that already produced an executor supplied attempt. It does not run the executor, does not build an attempt, and does not create a success or failure outcome.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep` is completion-only. F5dp complete consumes `ExecutorRequest` and `ExecutorAttempt` by value, so F5dq must not store those consumed values in the success step. This keeps owner movement explicit and prevents replay of the same attempt.
+
+F5dq failure is also lower-authoritative. `CompleteRejected` stores only the category and the lower F5dp error. If request or attempt recovery is needed, the recovery authority is the lower F5dp error chain. F5dq does not reach into lower private fields, does not duplicate request or attempt, and does not reconstruct attempts.
+
+The F5dq step function calls F5dp `presenter_executor_loop_complete request attempt` exactly once. On `Ok`, it returns the completion-only step. On `Err`, it wraps the lower F5dp error and category. It does not call F5do request or complete directly, F5dn/F5dm/F5dl/F5di/F5dh/F5dk/F5dj directly, old action paths, virtual executor, virtual drain, host imports, platform APIs, DOM, Canvas, minifb, video memory, raw storage, queues, timers, schedulers, fallback paths, silent no-op behavior, or synthetic `Result::Ok unit` / `Result::Err GuiError` outcomes.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
