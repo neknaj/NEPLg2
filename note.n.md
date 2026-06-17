@@ -1,3 +1,56 @@
+# 2026-06-18 Agent2 GUI font F5do std host span operation presenter executor boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter executor が F5dn OutcomeRequest から executor request を作り、executor supplied attempt を F5dn complete へ戻す直前の std layer validation boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest` は OutcomeRequest、OutcomeRequest 内の F5dl request から読んだ support、expected span operation を保持する non-Copy request とする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt` は executor が実行した span operation と caller supplied outcome を保持する。
+- unsupported operation では F5dn complete へ合成 `Err Unsupported` を渡さず、request owner を保持した typed error を返す。
+- complete は expected span operation と reported span operation を payload まで比較し、一致した場合だけ F5dn complete を 1 回だけ呼ぶ。
+- host import、F5dl complete direct call、F5dm outcome attempt / complete direct call、F5di constructor / validation direct call、F5cw action mapping、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5do は `OutcomeRequest -> ExecutorRequest -> ExecutorAttempt -> F5dn complete` の value-consuming bridge に絞る。
+- support は新 enum を作らず、既存 `GuiRgba8888RowTileRlePresentHostExecutorSupport` を使う。
+- support は OutcomeRequest 内の F5dl request から public accessor 経由で読む。別引数にすると F5dn start 時の support と F5do support が食い違う余地がある。
+- support rejection では F5dn complete に合成 `Err Unsupported` を渡さない。`UnsupportedOperation` error に non-Copy request wrapper を保持して返す。
+- executor から戻る値は `Result unit GuiError` だけでなく、`operation + outcome` の typed attempt にする。
+- action identity check は support check の後、F5dn complete の前に行う。
+- source policy は platform / DOM / Canvas / minifb / video_memory / raw / queue / timer / scheduler / fallback / silent no-op、F5dh / F5dk / F5dj direct call、F5dl complete direct、F5di constructor / validation direct、F5cw action mapping、F5da-F5de drivers、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation、owner-bearing value の Clone / Copy、括弧を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl` を追加した。
+- ExecutorRequest、ExecutorAttempt、unsupported operation error、attempt mismatch error、driver complete error、request / complete error enum、request / attempt / complete functions、public accessors を追加した。
+- span operation payload identity check を F5do 内に置き、F5cw run-record action equality へ戻らないようにした。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5do focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: F5do module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl`。
+- pass: F5dn regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: F5dm regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review 1 は `REVIEW_CHANGES`。
+- 指摘は `note.n.md` に F5do implementation / review / verification entry がないことのみ。
+- code / source-policy blocker はなし。support が OutcomeRequest / F5dl request 由来であること、unsupported が request を保持して F5dn complete しないこと、identity check が `presenter_driver_complete` 前にあること、owner-bearing types が Clone / Copy を持たないこと、platform / raw / scheduler / fallback leakage がないことは確認済み。
+- `note.n.md` に本節を追加した後の Dirac implementation review 2 は `REVIEW_APPROVED`。
+- 追加 blocker はない。
+
+## remaining
+
+- F5do は std layer の presenter executor validation boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dn std host span operation presenter driver boundary
 
 ## scope

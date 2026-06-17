@@ -8134,6 +8134,14 @@ F5dn introduces the std layer row tile RLE present host span operation presenter
 
 F5dn does not execute host imports, run real schedulers, call action drivers, access raw packet storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, fallback paths, or silent no-op behavior.
 
+F5do introduces the std layer row tile RLE present host span operation presenter executor boundary. It is the narrow bridge between F5dn OutcomeRequest and an actual presenter executor attempt, but it is still not a host backend, not a scheduler, and not a video memory presenter. Its request constructor consumes an OutcomeRequest, reads the F5dl request stored inside it through public accessors, derives support from that request, and stores the expected span operation with the OutcomeRequest in `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest`.
+
+Unsupported operation handling is value preserving. F5do does not call F5dn complete with a synthetic unsupported outcome. Instead it returns `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError::UnsupportedOperation`, whose payload keeps the executor request, support, expected operation, and `GuiError::Unsupported` category. The upper presenter loop or scheduler can then decide whether to recover, close, or report the request owner.
+
+Executor completion is attempt based. The executor returns `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt`, which contains the span operation it actually executed and the caller supplied outcome. F5do compares the request operation and the attempt operation at span-operation payload level before calling F5dn complete. This comparison intentionally does not map back to F5cw run-record actions. It uses public span operation, descriptor, row span, window id, frame id, surface id, packet descriptor, and color accessors.
+
+Only a matching request and attempt can reach F5dn complete. A mismatch returns `AttemptMismatch` and keeps the original request and attempt owners. A lower F5dn complete error is wrapped as `DriverCompleteRejected` with category derived from F5dn public accessors. F5do does not call F5dl complete, F5dm outcome attempt or complete, F5di attempt construction or validation, F5cw action mapping, host imports, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, silent no-op behavior, or synthetic `Result::Ok unit` / `GuiError` outcomes.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
