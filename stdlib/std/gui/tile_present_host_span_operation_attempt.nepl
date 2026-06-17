@@ -1,0 +1,374 @@
+//: # std/gui/tile_present_host_span_operation_attempt
+//: RGBA8888 row tile RLE present host span operation attempt の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5dh scheduled ready と actual Web / native / bare / headless presenter が[試行/しこう]した span operation outcome を、std layer で[対応/たいおう][検査/けんさ]します。
+//: - presenter outcome を[記録/きろく]する[前/まえ]に、target support と operation identity を[検査/けんさ]し、別 operation の outcome を[混入/こんにゅう]させません。
+//:
+//: ### [契約/けいやく]
+//: - attempt outcome は caller が[渡/わた]した `Result unit GuiError` をそのまま[保持/ほじ]し、この module では[作/つく]りません。
+//: - support validation は F5cy support enum を target support set として[読/よ]みますが、F5cy action validation や F5cw action へは[戻/もど]りません。
+//: - unsupported と mismatch は fallback や silent no-op にせず、scheduled ready と attempt を[保持/ほじ]する typed error として[返/かえ]します。
+//: - Yield phase は ready の data として[保持/ほじ]し、この boundary では resume、queue、timer、scheduler を[呼/よ]びません。
+//: - platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_attempt" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttempt:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    outcome %Result unit GuiError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationAttempt:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \attempt:
+        *attempt
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationAttempt:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \attempt:
+        attempt
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep:
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep \step:
+        step
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    category %Option GuiError
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch:
+    category %Option GuiError
+    expected %GuiRgba8888RowTileRlePresentHostSpanOperation
+    attempted %GuiRgba8888RowTileRlePresentHostSpanOperation
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError:
+    UnsupportedOperation %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported
+    AttemptOperationMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn Result unit GuiError GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \operation\outcome:
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttempt operation outcome
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_new %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep \ready\attempt:
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep ready attempt
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported \support\ready\attempt:
+    let category %Option GuiError Option::Some GuiError::Unsupported
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported support category ready attempt
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch \expected\attempted\ready\attempt:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch category expected attempted ready attempt
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_error %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError \support\ready\attempt:
+    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_new support ready attempt
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError::UnsupportedOperation payload
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_error %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError \expected\attempted\ready\attempt:
+    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_new expected attempted ready attempt
+    GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError::AttemptOperationMismatch payload
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_window %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_offscreen %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_device %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation_supported %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn &GuiRgba8888RowTileRlePresentHostSpanOperation bool \support\operation:
+    match *operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd _payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_window support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan _span:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_offscreen support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_device support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan _span:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_device support
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd _descriptor:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_supports_device support
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_color_same %fn &Rgba8888 fn &Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r left rgba8888_r right
+        and:
+            eq rgba8888_g left rgba8888_g right
+            and:
+                eq rgba8888_b left rgba8888_b right
+                eq rgba8888_a left rgba8888_a right
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_packet_descriptor_same %fn &GuiRgba8888RowTileRlePacketDescriptor fn &GuiRgba8888RowTileRlePacketDescriptor bool \left\right:
+    and:
+        eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id left gui_rgba8888_row_tile_rle_packet_descriptor_frame_id right
+        and:
+            eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index left gui_rgba8888_row_tile_rle_packet_descriptor_batch_index right
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index left gui_rgba8888_row_tile_rle_packet_descriptor_tile_index right
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start right
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count right
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_row_start right
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_row_count right
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_width left gui_rgba8888_row_tile_rle_packet_descriptor_width right
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_height left gui_rgba8888_row_tile_rle_packet_descriptor_height right
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes left gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes right
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows left gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows right
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count left gui_rgba8888_row_tile_rle_packet_descriptor_tile_count right
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count left gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count right
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count left gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count right
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count left gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count right
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count right
+                and:
+                    eq gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count right
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_packet_descriptor_same &left_packet &right_packet
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same %fn &GuiRgba8888RowTileRlePresentRunRowSpan fn &GuiRgba8888RowTileRlePresentRunRowSpan bool \left\right:
+    let left_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color left
+    let right_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color right
+    and:
+        eq gui_rgba8888_row_tile_rle_present_run_row_span_x left gui_rgba8888_row_tile_rle_present_run_row_span_x right
+        and:
+            eq gui_rgba8888_row_tile_rle_present_run_row_span_y left gui_rgba8888_row_tile_rle_present_run_row_span_y right
+            and:
+                eq gui_rgba8888_row_tile_rle_present_run_row_span_width left gui_rgba8888_row_tile_rle_present_run_row_span_width right
+                and:
+                    eq gui_rgba8888_row_tile_rle_present_run_row_span_height left gui_rgba8888_row_tile_rle_present_run_row_span_height right
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_color_same &left_color &right_color
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_begin_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_run_span_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window right
+    let left_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span left
+    let right_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same &left_span &right_span
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_end_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_same %fn &GuiRgba8888RowTileRlePresentHostSpanOperation fn &GuiRgba8888RowTileRlePresentHostSpanOperation bool \left\right:
+    match *left:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_begin_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_run_span_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_end_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan left_span:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan right_span:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same &left_span &right_span
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan left_span:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan right_span:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same &left_span &right_span
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn Result unit GuiError GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \operation\outcome:
+    gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_new operation outcome
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError \support\ready\attempt:
+    let expected %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_operation &ready
+    if gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation_supported support &expected:
+        then:
+            let attempted %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation &attempt
+            if gui_rgba8888_row_tile_rle_present_host_span_operation_same &expected &attempted:
+                then:
+                    let step %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_new ready attempt
+                    Result::Ok step
+                else:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_error expected attempted ready attempt
+        else:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_error support ready attempt
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttempt GuiRgba8888RowTileRlePresentHostSpanOperation \attempt:
+    *field::get_ref attempt "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_outcome %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttempt Result unit GuiError \attempt:
+    *field::get_ref attempt "outcome"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \step:
+    *field::get_ref step "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \step:
+    *field::get_ref step "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported GuiRgba8888RowTileRlePresentHostExecutorSupport \payload:
+    *field::get_ref payload "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported Option GuiError \payload:
+    *field::get_ref payload "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \payload:
+    *field::get_ref payload "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \payload:
+    *field::get_ref payload "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch Option GuiError \payload:
+    *field::get_ref payload "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_expected %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch GuiRgba8888RowTileRlePresentHostSpanOperation \payload:
+    *field::get_ref payload "expected"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_attempted %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch GuiRgba8888RowTileRlePresentHostSpanOperation \payload:
+    *field::get_ref payload "attempted"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \payload:
+    *field::get_ref payload "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \payload:
+    *field::get_ref payload "attempt"

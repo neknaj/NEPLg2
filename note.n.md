@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5di std host span operation attempt boundary
+
+## scope
+
+- F5dh scheduled ready と actual Web / native / bare / headless presenter が返した caller supplied outcome を、completion や queue へ進む前に対応検査する std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationAttempt` は attempted operation と `Result unit GuiError` だけを保持し、std layer では success / failure outcome を作らない。
+- `attempt_step` は support before equality を固定し、F5cy support enum を target support set としてだけ使う。F5cy action validation / action equality へは戻らない。
+- operation equality は 9 variants をすべて扱い、Window variants は `window_id_raw`、Begin / End は descriptor、RunSpan は x / y / width / height / RGBA channel を public accessor で比較する。
+- unsupported と mismatch は scheduled ready と attempt を保持する typed error にする。
+- Yield phase is data only とし、この boundary では resume、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、F5cy の `require_supported` は F5cw action 用なので使わず F5di 側で span operation target support helper を作ること、unsupported / mismatch error が scheduled ready と attempt を保持すること、attempt constructor と step が caller supplied outcome を生成しないこと、RunSpan equality では descriptor ではなく x / y / width / height / RGBA channel を比較することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_attempt.nepl` を追加した。
+- attempt、attempt step、unsupported payload、mismatch payload、attempt error enum を追加した。
+- F5cy support enum を exhaustive match する target support helper を追加した。
+- F5dg operation equality helper を追加し、descriptor / span / color comparison を public accessor で行う。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_attempt.nepl tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5di focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: F5di module doctest `stdlib/std/gui/tile_present_host_span_operation_attempt.nepl`。
+- pass: F5dh regression `tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `IMPLEMENTATION_APPROVED`。
+- 補足として OffscreenEnd / DeviceBegin / DeviceEnd の source policy 明示チェックを強化できる余地があったため、F5di operation equality の source policy に全 9 variants の断片を追加した。
+- 追加後に source policy、F5di focused doctest、`git diff --check` を再実行して pass した。
+
+## remaining
+
+- F5di は scheduled ready と presenter attempt の対応検査までであり、actual Web / native / bare / headless presenter completion、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5dg std host span operation boundary
 
 ## scope

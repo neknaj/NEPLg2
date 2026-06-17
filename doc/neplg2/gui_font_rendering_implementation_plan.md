@@ -542,6 +542,55 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5di: std layer row tile RLE present host span operation attempt boundary
+
+目的:
+
+- F5dh scheduled ready と actual Web / native / bare / headless presenter が返した caller supplied outcome を、completion や queue へ進む前に対応検査する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationAttempt` は attempted operation と `Result unit GuiError` だけを保持し、std layer では success / failure outcome を作らない。
+- `attempt_step` は support before equality を固定する。support は F5cy support enum を target support set としてだけ使い、F5cy action validation / action equality へ戻らない。
+- operation equality は 9 variants をすべて扱い、Window variants は `window_id_raw`、Begin / End は descriptor、RunSpan は x / y / width / height / RGBA channel を public accessor で比較する。
+- unsupported と mismatch は scheduled ready と attempt を保持する typed error にする。
+- Yield phase is data only とし、この boundary では resume、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5cy の `require_supported` は F5cw action 用なので使わず、F5di 側で span operation target support helper を exhaustive match で作る。
+- unsupported error は support context、category `Some GuiError::Unsupported`、scheduled ready、attempt を保持する。
+- mismatch error は category `Some GuiError::InvalidCommand`、expected operation、attempted operation、scheduled ready、attempt を保持する。
+- attempt constructor と step は caller supplied outcome をそのまま保持し、`Result::Ok unit` や synthetic `Result::Err GuiError` を作らない。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_attempt.nepl` を追加する。
+- attempt、attempt step、unsupported payload、mismatch payload、attempt error enum、target support helper、operation equality helper、attempt step を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5di source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- support validation が equality と success より前に実行される。
+- operation equality が Window / Offscreen / Device の Begin / RunSpan / End をすべて比較する。
+- unsupported と mismatch が scheduled ready と attempt を失わない。
+- attempt outcome は caller supplied outcome の passthrough であり、std layer で生成しない。
+- focused import smoke doctest、source policy、F5dh import smoke、`git diff --check` が通る。
+- subagent implementation review で F5cy action helper 不使用、F5dh ready preservation、no platform / no fallback が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_attempt_f5di.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_attempt.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_attempt_module_f5di.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_f5di_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5di.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

@@ -8068,6 +8068,16 @@ The stream authority is F5dg. `start action` calls F5dg start once and stores th
 
 Begin and End operations have operation cost 1 and pixel cost 0. RunSpan operations have operation cost 1 and pixel cost `span.width * span.height`, computed through F5df accessors with checked multiplication. A non-positive span extent, arithmetic overflow, single span exceeding the pixel budget, total counter overflow, total budget overflow, or lower F5dg failure is a typed error. `resume_slice` preserves the F5dg cursor and resets only the slice counters. F5dh must not call F5cs, F5ct, F5cu, F5da-F5de, host import constructors, raw packet readers, raw storage, platform APIs, DOM, Canvas, minifb, video memory, DrawTarget, RenderTarget, queues, timers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation attempt boundary
+
+F5di introduces the std layer row tile RLE present host span operation attempt boundary. It sits after F5dh and before any completion, queue, or platform specific presenter machinery. The actual presenter reports which span operation it attempted and the caller supplied outcome it observed. The std layer then checks that this attempt still belongs to the scheduled ready value that produced the work.
+
+The attempt value is deliberately small. `GuiRgba8888RowTileRlePresentHostSpanOperationAttempt` contains only the attempted `GuiRgba8888RowTileRlePresentHostSpanOperation` and a caller supplied outcome of type `Result unit GuiError`. F5di does not manufacture success, does not convert support failures into presenter failures, and does not synthesize platform errors. Unsupported target and mismatched operation are wrapper errors for the association boundary itself.
+
+The validation order is support before equality before success. Support uses the F5cy `GuiRgba8888RowTileRlePresentHostExecutorSupport` enum only as a target support set. F5di must not call F5cy action validation or action equality because F5di works on F5dg span operations, not F5cw actions. Operation equality covers all 9 variants. Window variants compare `window_id_raw`. Begin and End compare descriptor identity through public descriptor and packet accessors. RunSpan compares x, y, width, height, and RGBA channels through public span and color accessors. RunSpan has no descriptor payload, so descriptor comparison is not required for RunSpan.
+
+Unsupported and mismatch errors keep both the original scheduled ready and the attempted operation value. This preserves the F5dh next state and `Yield` phase for replay or diagnostics. Yield phase is data only in F5di. The boundary must not resume the scheduler, enqueue work, request timers, mutate a platform surface, call DOM, Canvas, minifb, video memory, raw storage, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.

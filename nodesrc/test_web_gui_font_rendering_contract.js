@@ -144,6 +144,8 @@ const stdGuiTilePresentHostSpanOperation = read("stdlib/std/gui/tile_present_hos
 const stdGuiTilePresentHostSpanOperationImpl = withoutComments(stdGuiTilePresentHostSpanOperation);
 const stdGuiTilePresentScheduledSpanOperation = read("stdlib/std/gui/tile_present_scheduled_span_operation.nepl");
 const stdGuiTilePresentScheduledSpanOperationImpl = withoutComments(stdGuiTilePresentScheduledSpanOperation);
+const stdGuiTilePresentHostSpanOperationAttempt = read("stdlib/std/gui/tile_present_host_span_operation_attempt.nepl");
+const stdGuiTilePresentHostSpanOperationAttemptImpl = withoutComments(stdGuiTilePresentHostSpanOperationAttempt);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -221,6 +223,7 @@ const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_present_host_span_operation.n.md");
 const guiStdTilePresentScheduledSpanOperationTests = read("tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md");
+const guiStdTilePresentHostSpanOperationAttemptTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -21159,6 +21162,132 @@ assert(
         guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_over_budget_typed_error_ok") &&
         guiStdTilePresentScheduledSpanOperationTests.includes("std_row_tile_rle_present_scheduled_span_operation_no_f5ct_no_raw_no_platform_no_fallback"),
     "F5dh std tile present scheduled-span-operation focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation attempt boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationAttempt") &&
+            doc.includes("caller supplied outcome") &&
+            doc.includes("support before equality") &&
+            doc.includes("Yield phase is data only"),
+        `F5di ${name} must document attempt boundary, support-before-equality, and yield-as-data semantics`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_attempt" as *'), "std/gui facade must export F5di tile present host span operation attempt boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationAttempt.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttempt:") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("operation %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("outcome %Result unit GuiError") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep:") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt"),
+    "std/gui/tile_present_host_span_operation_attempt F5di must define attempt and success step payloads",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationAttempt.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptUnsupported:") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("support %GuiRgba8888RowTileRlePresentHostExecutorSupport") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("category %Option GuiError") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationAttemptMismatch:") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("expected %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("attempted %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        stdGuiTilePresentHostSpanOperationAttempt.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError:"),
+    "std/gui/tile_present_host_span_operation_attempt F5di must keep ready and attempt in unsupported and mismatch errors",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_executor" as \*/, "std/gui/tile_present_host_span_operation_attempt F5di may use F5cy support enum"],
+    [/#import "std\/gui\/tile_present_host_span_operation" as \*/, "std/gui/tile_present_host_span_operation_attempt F5di must consume F5dg operations"],
+    [/#import "std\/gui\/tile_present_scheduled_span_operation" as \*/, "std/gui/tile_present_host_span_operation_attempt F5di must consume F5dh scheduled ready"],
+]) {
+    assertMatch(stdGuiTilePresentHostSpanOperationAttemptImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_operation &ready",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation_supported support &expected",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_operation &attempt",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_same &expected &attempted",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step_new ready attempt",
+        "Result::Ok step",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_error expected attempted ready attempt",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_error support ready attempt",
+    ],
+    "std/gui/tile_present_host_span_operation_attempt F5di step must check support before equality and equality before success",
+);
+assertNoMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt"),
+    /\bResult::Ok unit\b|\bResult::Err GuiError::/,
+    "std/gui/tile_present_host_span_operation_attempt F5di attempt constructor must only store caller supplied outcome",
+);
+assertNoMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step"),
+    /\bResult::Ok unit\b|\bResult::Err GuiError::/,
+    "std/gui/tile_present_host_span_operation_attempt F5di step must not manufacture presenter outcome",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_same"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin left_payload:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_begin_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan left_payload:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_run_span_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd left_payload:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_window_end_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin left_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan left_span:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd left_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin left_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan left_span:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same",
+        "GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd left_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same",
+    ],
+    "std/gui/tile_present_host_span_operation_attempt F5di operation equality must cover all target-qualified operation families",
+);
+assertMatch(
+    stdGuiTilePresentHostSpanOperationAttemptImpl,
+    /window_id_raw[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_descriptor_same/,
+    "std/gui/tile_present_host_span_operation_attempt F5di equality must compare window id and descriptors for begin/end",
+);
+assertMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_span_same"),
+    /gui_rgba8888_row_tile_rle_present_run_row_span_x[\s\S]*gui_rgba8888_row_tile_rle_present_run_row_span_y[\s\S]*gui_rgba8888_row_tile_rle_present_run_row_span_width[\s\S]*gui_rgba8888_row_tile_rle_present_run_row_span_height[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_color_same/,
+    "std/gui/tile_present_host_span_operation_attempt F5di equality must compare span x/y/width/height",
+);
+assertMatch(
+    functionSlice(stdGuiTilePresentHostSpanOperationAttemptImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_color_same"),
+    /rgba8888_r[\s\S]*rgba8888_g[\s\S]*rgba8888_b[\s\S]*rgba8888_a/,
+    "std/gui/tile_present_host_span_operation_attempt F5di equality must compare RGBA channels",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationAttemptImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_row_tile_rle_present_host_executor_action_same\b|\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_attempt F5di must not call action validation, host drivers, raw storage, platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationAttemptImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_attempt F5di implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_facade_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_outcome_passthrough_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_support_before_equality_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_mismatch_keeps_ready_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_operation_equality_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_yield_is_data_only_ok") &&
+        guiStdTilePresentHostSpanOperationAttemptTests.includes("std_row_tile_rle_present_host_span_operation_attempt_no_action_driver_no_platform_no_fallback"),
+    "F5di std tile present host-span-operation-attempt focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
