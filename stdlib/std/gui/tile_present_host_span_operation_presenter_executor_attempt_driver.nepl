@@ -1,0 +1,79 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver
+//: RGBA8888 row tile RLE present host span operation presenter executor attempt driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter executor が[返/かえ]した attempt を、F5dp executor loop completion へ[渡/わた]す[境界/きょうかい]を[提供/ていきょう]します。
+//: - executor supplied attempt を[受/う]け[取/と]るだけであり、この module では success / failure outcome を[作/つく]りません。
+//:
+//: ### [契約/けいやく]
+//: - request と attempt は F5dp complete に value として[消費/しょうひ]させます。
+//: - success step は completion だけを[保持/ほじ]し、request / attempt を[複製/ふくせい]して[返/かえ]しません。
+//: - failure は lower F5dp error を recovery authority とし、request / attempt を[再構築/さいこうちく]しません。
+//: - platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_loop" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep:
+    completion %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError:
+    CompleteRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep \completion:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep completion
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_error %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError \lower:
+    let rejection %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_new lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError::CompleteRejected rejection
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step: executor attempt を F5dp loop completion へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - F5dp loop complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path は completion だけを step に[包/つつ]みます。
+//: - failure path は lower F5dp error と category だけを[保持/ほじ]し、消費済み request / attempt を[復元/ふくげん]しません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError \request\attempt:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete request attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_error lower
+        Result::Ok completion:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step_new completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step_completion %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion \step:
+    field::get step "completion"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected Option GuiError \rejection:
+    *field::get_ref rejection "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError \rejection:
+    field::get rejection "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError Option GuiError \error:
+    match *error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError::CompleteRejected rejection:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_category_value &rejection
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError \error:
+    match error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError::CompleteRejected rejection:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_complete_rejected_lower rejection

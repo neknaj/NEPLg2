@@ -970,6 +970,59 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dq: std layer row tile RLE present host span operation presenter executor attempt driver boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter executor が返した executor supplied attempt を F5dp executor loop completion へ戻す std layer boundary を追加する。
+- F5dq は F5dp complete wrapper であり、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep` は completion-only success value とし、F5dp complete が value として消費した request / attempt を保持し直さない。
+- failure は category と lower F5dp error だけを持ち、lower F5dp error を recovery authority とする。
+- F5dq は `Result::Ok unit` / `Result::Err GuiError` を作らず、executor supplied attempt が持つ outcome を F5dp に渡すだけにする。
+
+plan review:
+
+- Dirac plan review 1 は `PLAN_BLOCKED`。
+- 初期案は success step と failure payload に request / attempt を保持しようとしていたが、F5dp complete が request / attempt を value 消費するため、non-Copy ownership model と衝突すると指摘された。
+- 修正版では success step は completion-only、failure は category + lower F5dp error のみとし、lower F5dp error chain を recovery authority とする。
+- Dirac revised plan review は `PLAN_APPROVED`。
+- F5dq は F5dp の post-completion wrapper として妥当であり、request / attempt を再保持しないこと、F5dp complete exactly once、synthetic outcome 禁止、old action path / platform / raw / scheduler / fallback 禁止を source policy で固定する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep`、`CompleteRejected`、`Error`、step function、public accessors を追加する。
+- step function は `gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete request attempt` を 1 回だけ呼ぶ。
+- success は completion-only step、failure は lower F5dp error と category だけを返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dq source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dq `step` が F5dp complete を 1 回だけ呼ぶ。
+- success step は completion だけを保持し、request / attempt を保持しない。
+- failure payload は category と lower F5dp error だけを保持し、request / attempt を保持しない。
+- Step / CompleteRejected / Error は Clone / Copy 実装を持たない。
+- F5do direct complete / request、F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old F5cw / F5da-F5de action paths、F5db virtual executor、F5cs virtual drain、F5cu / F5ct / F5cr / F5cp / F5co、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation を持たない。
+- focused import smoke doctest、source policy、F5dp / F5do regression、`git diff --check` が通る。
+- subagent implementation review で ownership correction、completion-only success、lower error recovery authority、no synthetic outcome、no scheduler / platform / fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver_f5dq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver_module_f5dq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_loop_f5dq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_f5dq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dq.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
