@@ -442,6 +442,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dg: std row tile RLE present host span operation boundary
+
+目的:
+
+- F5cw host execution action を、actual Web / native / bare presenter が 1 operation ずつ消費できる target-qualified operation stream に写す。
+- F5dg は std layer row tile RLE present host span operation boundary である。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCursor` は Begin / End を `SinglePending operation` として one-shot operation にし、Run を `RunPending target run_span_cursor` として F5df run-span cursor で保持する。
+- `start action` は Run action の場合だけ F5df `run_span_start` を 1 回呼び、失敗時は original F5cw action を保持する typed error を返す。
+- `step cursor` は F5df `run_span_step` を最大 1 回だけ呼び、SpanReady を WindowRunSpan / OffscreenRunSpan / DeviceRunSpan に target-qualified mapping する。
+- actual host import execution、F5da-F5de action driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record / raw storage、queue、scheduler、platform API、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘に従い、cursor phase は `SinglePending operation` / `RunPending target run_span_cursor` / `Completed` に固定する。
+- step result は `OperationReady operation next_cursor` / `Completed` とし、Begin / End は 1 回目で operation、2 回目で explicit Completed にする。
+- Run start failure は original action、Run step failure は current cursor を保持する error にする。
+- source policy で public step が F5df step を 1 回だけ呼び、F5df start を毎 step 呼び直さないことを固定する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperation`、operation cursor、ready、start / step error を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation.n.md` を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dg source policy を追加する。
+
+完了条件:
+
+- Begin / End action が one-shot operation と explicit Completed になる。
+- Run action が F5df cursor を保持し、row crossing run を target-qualified span operation に分解する。
+- F5df start / step error が action / cursor context と category を保持する。
+- focused doctest、source policy、F5df / F5cw regression、`git diff --check` が通る。
+- subagent implementation review で cursor phase、F5df call location、禁止依存が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_f5dg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_module_f5dg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_span.n.md --no-tree -o tmp_gui_std_tile_present_run_span_f5dg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5dg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dg.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
