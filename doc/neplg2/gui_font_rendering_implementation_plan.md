@@ -308,6 +308,45 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dd: std row tile RLE present host action sink driver boundary
+
+目的:
+
+- F5dc の support preflight / executor-supplied outcome packaging と F5da one-shot driver completion を接続する std layer row tile RLE present host action sink driver boundary を追加する。
+- F5dc が support rejection を返した場合、F5da completion を呼ばず、original driver pending を `SinkRejected` の owner-bearing error として返す。
+- F5dc が support success を返した場合だけ、同じ caller-supplied outcome を F5da `complete_outcome` へ渡し、sink step と dispatch loop completion を返す。
+- F5dd does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、actual executor から渡された `Result unit GuiError` だけを扱う。
+- F5dd は actual platform execution、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、F5cu / F5ct / F5cs / F5cp / F5co、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac initial plan review は `PLAN_CHANGES`。success payload を nested F5da completion result にせず、`Ok GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` / `Err GuiRgba8888RowTileRlePresentHostActionSinkDriverError` の単一 `Result` にするよう指摘された。
+- Dirac は support preflight failure で synthetic outcome を作らず、owner-bearing `SinkRejected` error に original driver pending を戻す方針を承認した。
+- 修正版では `SinkRejected` が F5dc sink error と driver pending を所有し、`DriverCompletionFailed` が F5da driver error と sink step だけを保持する。Dirac revised plan review は `PLAN_APPROVED`。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_action_sink_driver.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` は sink step と dispatch loop completion を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected` は sink error と driver pending を保持し、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverError` は owner-bearing error なので Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md` を追加し、facade import smoke と coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dd source policy を追加する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_action_sink_driver_f5dd.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_action_sink_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_action_sink_driver_module_f5dd.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_sink.n.md --no-tree -o tmp_gui_std_tile_present_host_action_sink_f5dd_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5dd_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dd.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

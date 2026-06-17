@@ -1,3 +1,47 @@
+# 2026-06-17 Agent2 GUI font F5dd std host action sink driver boundary
+
+## scope
+
+- F5dc action sink step と F5da one-shot driver completion を接続する std layer bridge を追加した。
+- F5dc support preflight rejection では F5da completion を呼ばず、original driver pending を owner-bearing `SinkRejected` error として caller に返す。
+- F5dc success の場合だけ、caller-supplied outcome を F5da `complete_outcome` に渡し、sink step と dispatch loop completion を返す。
+- F5dd does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` は作らない。
+- actual platform execution、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、lower dispatch cursor、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は、success payload を nested completion result にせず、`Ok Step` / typed `Err` の単一 `Result` にすること、`SinkRejected` は original driver pending を owner-bearing error として保持すること、`DriverCompletionFailed` は driver consumed 後なので sink step と F5da driver error だけを保持することだった。
+- 修正版では上記を反映し、Dirac revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_sink_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` は sink step と dispatch loop completion を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected` は sink error と driver pending を保持し、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverError` は owner-bearing error なので Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_sink_driver.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dd focused doctest `tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md`。
+- pass: F5dd module doctest `stdlib/std/gui/tile_present_host_action_sink_driver.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5dc regression `tests/stdlib/gui_std_tile_present_host_action_sink.n.md`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: F5db regression `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5dd は std bridge までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5dc std host action sink boundary
 
 ## scope

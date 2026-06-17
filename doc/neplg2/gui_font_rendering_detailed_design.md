@@ -8083,6 +8083,16 @@ The boundary does not own F5da driver pending and does not call F5da completion.
 
 `GuiRgba8888RowTileRlePresentVirtualExecutorError` carries `SupportRejected`, `DrainFailed`, `DriverFailed`, or `InconsistentCompletion`, plus category, recovery executor, and optional driver error. F5db must not call F5cv `complete_request` directly, must not call F5cz bridge directly, must not construct F5cr requests, and must not touch F5cu, F5ct, F5cp, F5co, raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host action sink driver boundary
+
+F5dd introduces the std layer row tile RLE present host action sink driver boundary. It is the shared bridge for actual Web, native, and bare executors after they have produced an executor-supplied `Result unit GuiError`. The bridge does not execute platform work. It coordinates ownership between F5dc outcome packaging and F5da one-shot completion.
+
+`GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` stores the F5dc `GuiRgba8888RowTileRlePresentHostActionSinkStep` and the F5da `GuiRgba8888RowTileRlePresentDispatchLoopCompletion`. This keeps diagnostic visibility into the action/outcome pair while returning the dispatch-loop completion that the runtime must continue from.
+
+The ordering is fixed. F5dd first reads the action from `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` by shared borrow. It then calls F5dc `gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome`. If F5dc rejects the action, F5dd does not call F5da completion. It returns `SinkRejected` as an owner-bearing error that contains the F5dc sink error and the original driver pending. This preserves recovery authority for the actual executor wrapper and avoids cleanup by fabricated success.
+
+If F5dc accepts the action, F5dd calls F5da `complete_outcome support driver outcome` with the same caller-supplied outcome. If F5da succeeds, F5dd returns the sink step plus completion. If F5da fails, the driver pending has already been consumed, so `DriverCompletionFailed` stores the F5da driver error and the accepted sink step only. F5dd therefore does not manufacture executor outcome. It never builds `Result::Ok unit` or synthetic `Result::Err` on behalf of the executor, and it never calls F5cv direct completion, F5cz bridge directly, F5cx report construction, F5cr request construction, F5db virtual executor, lower dispatch cursors, platform APIs, raw packet storage, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

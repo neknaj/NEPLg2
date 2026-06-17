@@ -150,6 +150,8 @@ const stdGuiTilePresentVirtualExecutor = read("stdlib/std/gui/tile_present_virtu
 const stdGuiTilePresentVirtualExecutorImpl = withoutComments(stdGuiTilePresentVirtualExecutor);
 const stdGuiTilePresentHostActionSink = read("stdlib/std/gui/tile_present_host_action_sink.nepl");
 const stdGuiTilePresentHostActionSinkImpl = withoutComments(stdGuiTilePresentHostActionSink);
+const stdGuiTilePresentHostActionSinkDriver = read("stdlib/std/gui/tile_present_host_action_sink_driver.nepl");
+const stdGuiTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiTilePresentHostActionSinkDriver);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -214,6 +216,7 @@ const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_ti
 const guiStdTilePresentHostExecutionDriverTests = read("tests/stdlib/gui_std_tile_present_host_execution_driver.n.md");
 const guiStdTilePresentVirtualExecutorTests = read("tests/stdlib/gui_std_tile_present_virtual_executor.n.md");
 const guiStdTilePresentHostActionSinkTests = read("tests/stdlib/gui_std_tile_present_host_action_sink.n.md");
+const guiStdTilePresentHostActionSinkDriverTests = read("tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -21260,6 +21263,79 @@ assert(
         guiStdTilePresentHostActionSinkTests.includes("std_row_tile_rle_present_host_action_sink_no_manufactured_success_ok") &&
         guiStdTilePresentHostActionSinkTests.includes("std_row_tile_rle_present_host_action_sink_no_driver_no_platform_no_fallback"),
     "F5dc std tile present host-action-sink focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host action sink driver boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostActionSinkDriverStep") &&
+            doc.includes("SinkRejected") &&
+            doc.includes("owner-bearing error") &&
+            doc.includes("does not manufacture executor outcome"),
+        `F5dd ${name} must document host action sink driver bridge and owner recovery contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_action_sink_driver" as *'), "std/gui facade must export F5dd tile present host action sink driver boundary");
+assert(
+    stdGuiTilePresentHostActionSinkDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostActionSinkDriverStep:") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("sink_step %GuiRgba8888RowTileRlePresentHostActionSinkStep") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("completion %GuiRgba8888RowTileRlePresentDispatchLoopCompletion") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected:") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("driver %GuiRgba8888RowTileRlePresentHostExecutionDriverPending") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("pub enum GuiRgba8888RowTileRlePresentHostActionSinkDriverError:") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("SinkRejected %GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected") &&
+        stdGuiTilePresentHostActionSinkDriver.includes("DriverCompletionFailed %GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed"),
+    "std/gui/tile_present_host_action_sink_driver F5dd must define sink step, completion, and owner-bearing rejection payloads",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_action_sink" as \*/, "std/gui/tile_present_host_action_sink_driver F5dd must consume F5dc sink boundary"],
+    [/#import "std\/gui\/tile_present_host_execution_driver" as \*/, "std/gui/tile_present_host_action_sink_driver F5dd must complete through F5da driver"],
+    [/#import "std\/gui\/tile_present_dispatch_loop" as \*/, "std/gui/tile_present_host_action_sink_driver F5dd must expose dispatch-loop completion type"],
+]) {
+    assertMatch(stdGuiTilePresentHostActionSinkDriverImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostActionSinkDriverImpl, "gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver",
+        "gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome",
+        "Result::Err sink_error:",
+        "gui_rgba8888_row_tile_rle_present_host_action_sink_driver_sink_error sink_error driver",
+        "Result::Ok sink_step:",
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver outcome",
+        "Result::Ok completion:",
+        "gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step_new sink_step completion",
+        "Result::Err driver_error:",
+        "gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_error sink_step driver_error",
+    ],
+    "std/gui/tile_present_host_action_sink_driver F5dd must package external outcome before one-shot driver completion and preserve rejection owner recovery",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionSinkDriverImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|\bgui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete\b|\btile_present_host_execution_report\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\btile_present_virtual_executor\b|tile_present_dispatch(?!_loop)|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_action_sink_driver F5dd must not manufacture executor outcome or call direct bridge/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionSinkDriverImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkDriverError\b|impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkDriverError\b|impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected\b|impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected\b/,
+    "std/gui/tile_present_host_action_sink_driver F5dd owner-bearing rejection and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionSinkDriverImpl,
+    /[()]/,
+    "std/gui/tile_present_host_action_sink_driver F5dd implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_facade_ok") &&
+        guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_owner_recovery_ok") &&
+        guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_sink_before_completion_ok") &&
+        guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_no_manufactured_outcome_ok") &&
+        guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_no_direct_bridge_no_platform_no_fallback"),
+    "F5dd std tile present host-action-sink-driver focused doctest must cover source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
