@@ -134,6 +134,8 @@ const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command
 const stdGuiTilePresentCommandCursorImpl = withoutComments(stdGuiTilePresentCommandCursor);
 const stdGuiTilePresentHostCommand = read("stdlib/std/gui/tile_present_host_command.nepl");
 const stdGuiTilePresentHostCommandImpl = withoutComments(stdGuiTilePresentHostCommand);
+const stdGuiTilePresentRunSpan = read("stdlib/std/gui/tile_present_run_span.nepl");
+const stdGuiTilePresentRunSpanImpl = withoutComments(stdGuiTilePresentRunSpan);
 const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_import.nepl");
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
 const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_execution.nepl");
@@ -210,6 +212,7 @@ const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
+const guiStdTilePresentRunSpanTests = read("tests/stdlib/gui_std_tile_present_run_span.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
@@ -20215,6 +20218,115 @@ assert(
         guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_uses_f5cp_accessor_ok") &&
         guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_no_raw_no_host_no_platform_no_fallback"),
     "F5cq std tile present host-command focused doctest must cover host-command source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present run-span boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentRunRowSpan") &&
+            doc.includes("tile-local linear pixel offset") &&
+            doc.includes("explicit Completed") &&
+            doc.includes("does not call platform import"),
+        `F5df ${name} must document run span splitting, tile-local offsets, explicit completion, and platform-free contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_run_span" as *'), "std/gui facade must export F5df tile present run-span boundary");
+assert(
+    stdGuiTilePresentRunSpan.includes("pub struct GuiRgba8888RowTileRlePresentRunRowSpan:") &&
+        stdGuiTilePresentRunSpan.includes("x %i32") &&
+        stdGuiTilePresentRunSpan.includes("y %i32") &&
+        stdGuiTilePresentRunSpan.includes("width %i32") &&
+        stdGuiTilePresentRunSpan.includes("color %Rgba8888") &&
+        stdGuiTilePresentRunSpan.includes("pub struct GuiRgba8888RowTileRlePresentRunSpanCursor:") &&
+        stdGuiTilePresentRunSpan.includes("record %GuiRgba8888RowTileRlePresentHostCommandRunRecord") &&
+        stdGuiTilePresentRunSpan.includes("next_pixel_offset %i32") &&
+        stdGuiTilePresentRunSpan.includes("remaining_pixel_count %i32") &&
+        stdGuiTilePresentRunSpan.includes("pub enum GuiRgba8888RowTileRlePresentRunSpanStepResult:") &&
+        stdGuiTilePresentRunSpan.includes("SpanReady %GuiRgba8888RowTileRlePresentRunSpanReady") &&
+        stdGuiTilePresentRunSpan.includes("Completed"),
+    "std/gui/tile_present_run_span F5df must define row-only span, cursor, ready payload, and explicit completion",
+);
+assert(
+    stdGuiTilePresentRunSpan.includes("pub enum GuiRgba8888RowTileRlePresentRunSpanStartErrorKind:") &&
+        stdGuiTilePresentRunSpan.includes("WidthInvalid") &&
+        stdGuiTilePresentRunSpan.includes("RowExtentOverflow") &&
+        stdGuiTilePresentRunSpan.includes("RowCountExceedsTileRows") &&
+        stdGuiTilePresentRunSpan.includes("PixelCountMismatch") &&
+        stdGuiTilePresentRunSpan.includes("RunEndOutOfBounds") &&
+        stdGuiTilePresentRunSpan.includes("pub enum GuiRgba8888RowTileRlePresentRunSpanStepErrorKind:") &&
+        stdGuiTilePresentRunSpan.includes("DescriptorInvalid %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind") &&
+        stdGuiTilePresentRunSpan.includes("CursorExtentMismatch") &&
+        stdGuiTilePresentRunSpan.includes("SpanWidthInvalid"),
+    "std/gui/tile_present_run_span F5df must expose separated descriptor/run/cursor error enums",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present" as \*/, "std/gui/tile_present_run_span F5df must read F5cn present descriptor metadata"],
+    [/#import "std\/gui\/tile_present_host_command" as \*/, "std/gui/tile_present_run_span F5df must consume F5cq host-command run records"],
+    [/#import "alloc\/gui\/render2d\/row_tile_rle" as \*/, "std/gui/tile_present_run_span F5df must use typed RLE run accessors"],
+    [/#import "alloc\/gui\/render2d\/row_tile_rle_packet" as \*/, "std/gui/tile_present_run_span F5df must read packet descriptor metadata only"],
+]) {
+    assertMatch(stdGuiTilePresentRunSpanImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentRunSpanImpl, "gui_rgba8888_row_tile_rle_present_run_span_start"),
+    [
+        "gui_rgba8888_row_tile_rle_present_run_span_validate_record &record",
+        "Result::Err kind:",
+        "gui_rgba8888_row_tile_rle_present_run_span_start_error kind record",
+        "Result::Ok _unit:",
+        "gui_rgba8888_row_tile_rle_present_run_span_record_run &record",
+        "gui_rgba8888_row_tile_rle_run_pixel_offset &run",
+        "gui_rgba8888_row_tile_rle_run_pixel_count &run",
+        "gui_rgba8888_row_tile_rle_present_run_span_cursor_new record run_offset run_count",
+    ],
+    "std/gui/tile_present_run_span F5df start must validate before constructing cursor",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentRunSpanImpl, "gui_rgba8888_row_tile_rle_present_run_span_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_run_span_validate_cursor &cursor",
+        "Result::Err kind:",
+        "gui_rgba8888_row_tile_rle_present_run_span_step_error kind cursor",
+        "Result::Ok _unit:",
+        "if eq remaining_pixel_count 0:",
+        "GuiRgba8888RowTileRlePresentRunSpanStepResult::Completed",
+        "gui_rgba8888_row_tile_rle_present_run_span_cursor_record &cursor",
+        "gui_rgba8888_row_tile_rle_packet_descriptor_width &packet",
+        "gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet",
+        "let local_row %i32 div_s next_pixel_offset width",
+        "let x %i32 rem_s next_pixel_offset width",
+        "let span_width %i32 if lt remaining_pixel_count row_remaining remaining_pixel_count row_remaining",
+        "gui_rgba8888_row_tile_rle_present_run_span_checked_add_step row_start local_row",
+        "gui_rgba8888_row_tile_rle_present_run_span_checked_add_step next_pixel_offset span_width",
+        "gui_rgba8888_row_tile_rle_run_color &run",
+        "gui_rgba8888_row_tile_rle_present_run_row_span_new x y span_width color",
+        "gui_rgba8888_row_tile_rle_present_run_span_cursor_new record next_offset next_remaining",
+        "GuiRgba8888RowTileRlePresentRunSpanStepResult::SpanReady ready",
+    ],
+    "std/gui/tile_present_run_span F5df step must split tile-local linear runs into row-contained spans and explicit completion",
+);
+assertNoMatch(
+    stdGuiTilePresentRunSpanImpl,
+    /\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_host_execution\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_run_span F5df must not call action drivers, lower cursors, packet records/storage, host/platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentRunSpanImpl,
+    /[()]/,
+    "std/gui/tile_present_run_span F5df implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_facade_ok") &&
+        guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_row_span_shape_ok") &&
+        guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_start_validates_descriptor_and_run_ok") &&
+        guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_cross_row_split_ok") &&
+        guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_explicit_completed_ok") &&
+        guiStdTilePresentRunSpanTests.includes("std_row_tile_rle_present_run_span_no_raw_no_platform_no_fallback"),
+    "F5df std tile present run-span focused doctest must cover run-span source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5df std run-span boundary
+
+## scope
+
+- F5cq host-command run record の tile-local linear run を、actual Web / native / bare / headless presenter が共通に消費できる 1 行 span stream へ分解する std layer boundary を追加した。
+- `GuiRgba8888RowTileRlePresentRunRowSpan` は x / y / width / color だけを持ち、height は accessor が 1 を返すため row-only invariant を保つ。
+- start で descriptor と run を checked arithmetic で検査し、invalid cursor を作らない。
+- step は `SpanReady` または explicit Completed を返し、empty span、silent no-op、fallback success は作らない。
+- F5df does not call platform import。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record reader、raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、start-time validation、専用 row span value、tile-local linear pixel offset の明文化、explicit Completed、descriptor / run bounds の enum error、禁止依存 source policy を追加することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_run_span.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentRunSpanCursor` は run record、next pixel offset、remaining pixel count を保持する。
+- `GuiRgba8888RowTileRlePresentRunSpanStepResult` は `SpanReady` と `Completed` を持つ。
+- `tests/stdlib/gui_std_tile_present_run_span.n.md` を追加し、row crossing run の 2 span 分解と 3 step 目の Completed を検査する。
+- `stdlib/std/gui.nepl` facade、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_run_span.nepl tests/stdlib/gui_std_tile_present_run_span.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5df focused doctest `tests/stdlib/gui_std_tile_present_run_span.n.md`。
+- pass: F5df module doctest `stdlib/std/gui/tile_present_run_span.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5cq regression `tests/stdlib/gui_std_tile_present_host_command.n.md`。
+- pass: F5de regression `tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- 指摘は実装ではなく、note/todo が「追加中」「更新中」「未完了」となっている状態記録の矛盾だった。
+- start-time validation、row crossing split、explicit Completed、禁止依存、source policy は承認済み。
+
+## remaining
+
+- F5df は実 presenter 直前の row-span 分解までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5de std host action attempt driver boundary
 
 ## scope

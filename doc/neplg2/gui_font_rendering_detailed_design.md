@@ -7979,6 +7979,31 @@ GuiRgba8888RowTileRlePresentHostCommandStepResult:
 
 The record shape does not flatten to kind plus optional run. A host presenter can pattern-match a single enum and cannot observe an invalid state such as a `RunRecord` without a run payload or an `EndFrame` with one. The mapping function reads the descriptor through F5cp's public step descriptor accessor and the step output through F5cp's public step result accessor. It does not access the F5cp step owner field directly and does not bypass F5cp by reading F5co, packet records, raw storage, host imports, platform APIs, or fallback paths.
 
+## Std layer row tile RLE present run-span boundary
+
+F5df introduces the std layer row tile RLE present run-span boundary. It consumes an F5cq `GuiRgba8888RowTileRlePresentHostCommandRunRecord` and converts its tile-local linear pixel offset into row-contained spans before any Web, native, bare, or headless presenter reaches platform import code.
+
+```text
+GuiRgba8888RowTileRlePresentRunRowSpan:
+    x i32
+    y i32
+    width i32
+    color Rgba8888
+
+GuiRgba8888RowTileRlePresentRunSpanCursor:
+    record GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    next_pixel_offset i32
+    remaining_pixel_count i32
+
+GuiRgba8888RowTileRlePresentRunSpanStepResult:
+    SpanReady GuiRgba8888RowTileRlePresentRunSpanReady
+    Completed
+```
+
+The span is a dedicated row value, not a platform rectangle. It does not store a height field; `gui_rgba8888_row_tile_rle_present_run_row_span_height` returns 1 so consumers can fill a one-row rectangle without weakening the invariant. The offset contract is tile-local linear pixel offset. For every emitted span, the cursor computes `local_row = offset / width`, `x = offset % width`, and `y = row_start + local_row`. The span width is the smaller of the remaining run pixels and the remaining pixels in that row, so a run crossing a row boundary is split instead of stretching a fill across rows.
+
+`start` performs descriptor and run validation before constructing the cursor. It rejects non-positive width or height, negative row start, non-positive row count, row extent overflow, row extent outside height, row count greater than tile rows, `row_count * width` overflow, descriptor pixel count mismatch, negative run offset, non-positive run count, run end overflow, and run end outside descriptor pixel count. All failures are enum `Result` values; no fallback or clamping is allowed. `step` revalidates cursor consistency enough to catch forged state, returns explicit Completed when the remaining count is zero, and otherwise returns exactly one span plus the next cursor. F5df does not call platform import and does not reach F5da-F5de action drivers, F5cs virtual drain, F5cp/F5co lower cursors, packet record readers, raw storage, queues, schedulers, DOM, Canvas, minifb, video memory, DrawTarget, RenderTarget, fallback paths, or silent no-op behavior.
+
 F5cr introduces the std layer row tile RLE present host import request. It is still not the Web, native, or bare presenter implementation. It wraps an F5cq `GuiRgba8888RowTileRlePresentHostCommandRecord` into `GuiRgba8888RowTileRlePresentHostImportRequest` and selects an explicit `GuiRgba8888RowTileRlePresentHostImportTarget`.
 
 The target enum contains only `Window WindowId`, `Offscreen`, and `Device`. Headless is not a presentation target. Headless tests should inspect host-command records or a later explicit virtual drain, not receive a fake presentation target. Text grid is also rejected because RGBA8888 row tile RLE is a pixel transport. The constructor checks `GuiCapabilities.color_format` before selecting a target and accepts only `ColorFormat::FormatRgba8888`. This is required because `SurfaceKind::DevicePixel` can use non-RGBA formats such as RGB565. The request boundary must fail with `GuiError::Unsupported` rather than shifting a color-format mismatch to a platform layer.

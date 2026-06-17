@@ -389,6 +389,59 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5df: std row tile RLE present run-span boundary
+
+目的:
+
+- F5cq host-command run record の tile-local linear pixel offset を、actual Web / native / bare / headless presenter が共通に消費できる 1 行 span stream に分解する std layer row tile RLE present run-span boundary を追加する。
+- platform rect、DrawTarget / RenderTarget、video memory、host import execution へ進む前に、run crossing row boundary を正しく分割する。
+- start は descriptor と run を checked arithmetic で検査し、invalid cursor を作らない。
+- step は `SpanReady span next_cursor` または explicit Completed を返し、empty span、silent no-op、fallback success を作らない。
+- F5df does not call platform import。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record reader、raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、fallback には進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- `start record` は必ず `Result Cursor Error` とし、検証を `step` へ遅らせない。
+- span は platform / renderer rect ではなく専用 value 型にする。高さを持たない row span とし、必要な accessor は 1 を返す。
+- run offset は tile-local linear pixel offset と明記する。座標変換は `local_row = offset / width`、`x = offset % width`、`y = row_start + local_row` とする。
+- step result は explicit Completed を持ち、remaining 0 を no-op として流さない。
+- width / height / row range / tile rows / pixel count / run bounds を enum error で分ける。
+- source policy は F5cq host command、F5cn descriptor accessor、RLE run accessor、packet descriptor metadata だけを許可する。
+
+実装:
+
+- `stdlib/std/gui/tile_present_run_span.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentRunRowSpan` は x、y、width、color を保持し、高さは accessor で 1 を返す。
+- `GuiRgba8888RowTileRlePresentRunSpanCursor` は F5cq run record、next pixel offset、remaining pixel count を保持する。
+- `GuiRgba8888RowTileRlePresentRunSpanStepResult` は `SpanReady` と `Completed` を持つ。
+- start error kind は width / height / row start / row count / row extent / row count vs tile rows / pixel count / run offset / run count / run end を分ける。
+- step error kind は descriptor invalid、cursor offset / remaining inconsistency、local row out of bounds、row y overflow、span advance overflow、span width invalid を分ける。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_run_span.n.md` を追加し、row crossing run が 2 span に分かれ、3 step 目で Completed になることを検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5df source policy を追加する。
+
+完了条件:
+
+- F5df は F5cq host-command run record と F5cn descriptor metadata を authority とし、F5cq を bypass しない。
+- row crossing run は `width - x` を超えて 1 span にしない。
+- start が invalid descriptor / run を拒否し、step は invalid cursor を typed error とする。
+- focused doctest、source policy、F5cq / F5de regression、`git diff --check` が通る。
+- subagent implementation review で start-time validation、row-span invariant、explicit Completed、禁止依存が承認される。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_span.n.md --no-tree -o tmp_gui_std_tile_present_run_span_f5df.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_run_span.nepl --no-tree -o tmp_gui_std_tile_present_run_span_module_f5df.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5df_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_action_attempt_driver_f5df_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5df.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
