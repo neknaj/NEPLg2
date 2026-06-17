@@ -152,6 +152,8 @@ const stdGuiTilePresentHostActionSink = read("stdlib/std/gui/tile_present_host_a
 const stdGuiTilePresentHostActionSinkImpl = withoutComments(stdGuiTilePresentHostActionSink);
 const stdGuiTilePresentHostActionSinkDriver = read("stdlib/std/gui/tile_present_host_action_sink_driver.nepl");
 const stdGuiTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiTilePresentHostActionSinkDriver);
+const stdGuiTilePresentHostActionAttemptDriver = read("stdlib/std/gui/tile_present_host_action_attempt_driver.nepl");
+const stdGuiTilePresentHostActionAttemptDriverImpl = withoutComments(stdGuiTilePresentHostActionAttemptDriver);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -217,6 +219,7 @@ const guiStdTilePresentHostExecutionDriverTests = read("tests/stdlib/gui_std_til
 const guiStdTilePresentVirtualExecutorTests = read("tests/stdlib/gui_std_tile_present_virtual_executor.n.md");
 const guiStdTilePresentHostActionSinkTests = read("tests/stdlib/gui_std_tile_present_host_action_sink.n.md");
 const guiStdTilePresentHostActionSinkDriverTests = read("tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md");
+const guiStdTilePresentHostActionAttemptDriverTests = read("tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -21336,6 +21339,82 @@ assert(
         guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_no_manufactured_outcome_ok") &&
         guiStdTilePresentHostActionSinkDriverTests.includes("std_row_tile_rle_present_host_action_sink_driver_no_direct_bridge_no_platform_no_fallback"),
     "F5dd std tile present host-action-sink-driver focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host action attempt driver boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostActionAttempt") &&
+            doc.includes("AttemptActionMismatch") &&
+            doc.includes("owner-bearing error") &&
+            doc.includes("does not manufacture executor outcome"),
+        `F5de ${name} must document host action attempt driver identity and owner recovery contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_action_attempt_driver" as *'), "std/gui facade must export F5de tile present host action attempt driver boundary");
+assert(
+    stdGuiTilePresentHostActionAttemptDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostActionAttempt:") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("action %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("outcome %Result unit GuiError") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostActionAttemptMismatch:") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("category %Option GuiError") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("driver %GuiRgba8888RowTileRlePresentHostExecutionDriverPending") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("pub enum GuiRgba8888RowTileRlePresentHostActionAttemptDriverError:") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("AttemptActionMismatch %GuiRgba8888RowTileRlePresentHostActionAttemptMismatch") &&
+        stdGuiTilePresentHostActionAttemptDriver.includes("SinkDriverFailed %GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed"),
+    "std/gui/tile_present_host_action_attempt_driver F5de must define attempt, mismatch owner, and lower sink-driver failure payloads",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_action_sink_driver" as \*/, "std/gui/tile_present_host_action_attempt_driver F5de must delegate completion through F5dd"],
+    [/#import "std\/gui\/tile_present_host_execution_driver" as \*/, "std/gui/tile_present_host_action_attempt_driver F5de must read F5da pending action"],
+    [/#import "std\/gui\/tile_present_host_executor" as \*/, "std/gui/tile_present_host_action_attempt_driver F5de must use F5cy full action equality"],
+]) {
+    assertMatch(stdGuiTilePresentHostActionAttemptDriverImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostActionAttemptDriverImpl, "gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver",
+        "gui_rgba8888_row_tile_rle_present_host_action_attempt_action &attempt",
+        "gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted",
+        "then:",
+        "gui_rgba8888_row_tile_rle_present_host_action_attempt_outcome &attempt",
+        "gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step support driver outcome",
+        "Result::Ok sink_driver_step:",
+        "gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step_new attempt sink_driver_step",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_error lower",
+        "else:",
+        "gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_error expected attempted driver",
+    ],
+    "std/gui/tile_present_host_action_attempt_driver F5de must validate attempt identity before F5dd completion and preserve mismatch owner recovery",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionAttemptDriverImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|\bgui_rgba8888_row_tile_rle_present_host_action_sink_step\b|\bstd\/gui\/tile_present_host_action_sink\b|\bgui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete\b|\btile_present_host_execution_report\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\btile_present_virtual_executor\b|tile_present_dispatch(?!_loop)|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_action_attempt_driver F5de must not manufacture executor outcome or call direct sink/bridge/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionAttemptDriverImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostActionAttemptDriverError\b|impl Copy for GuiRgba8888RowTileRlePresentHostActionAttemptDriverError\b|impl Clone for GuiRgba8888RowTileRlePresentHostActionAttemptMismatch\b|impl Copy for GuiRgba8888RowTileRlePresentHostActionAttemptMismatch\b|impl Clone for GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed\b|impl Copy for GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed\b/,
+    "std/gui/tile_present_host_action_attempt_driver F5de owner-bearing mismatch and lower failure must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiTilePresentHostActionAttemptDriverImpl,
+    /[()]/,
+    "std/gui/tile_present_host_action_attempt_driver F5de implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostActionAttemptDriverTests.includes("std_row_tile_rle_present_host_action_attempt_driver_facade_ok") &&
+        guiStdTilePresentHostActionAttemptDriverTests.includes("std_row_tile_rle_present_host_action_attempt_driver_action_identity_ok") &&
+        guiStdTilePresentHostActionAttemptDriverTests.includes("std_row_tile_rle_present_host_action_attempt_driver_mismatch_owner_recovery_ok") &&
+        guiStdTilePresentHostActionAttemptDriverTests.includes("std_row_tile_rle_present_host_action_attempt_driver_no_manufactured_outcome_ok") &&
+        guiStdTilePresentHostActionAttemptDriverTests.includes("std_row_tile_rle_present_host_action_attempt_driver_no_direct_platform_no_fallback"),
+    "F5de std tile present host-action-attempt-driver focused doctest must cover source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -1,0 +1,142 @@
+//: # std/gui/tile_present_host_action_attempt_driver
+//: RGBA8888 row tile RLE present host action attempt driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare executor が[試行/しこう]した action と outcome を、F5dd action sink driver へ[渡/わた]す[前/まえ]に[検査/けんさ]します。
+//: - scheduler や asynchronous presenter から[戻/もど]った outcome が、driver pending の action と[違/ちが]う action に[対応/たいおう]している[場合/ばあい]を owner-bearing error として[検出/けんしゅつ]します。
+//:
+//: ### [契約/けいやく]
+//: - driver pending の action と attempt action を F5cy full action equality で[比較/ひかく]します。
+//: - action mismatch では F5dd completion を[呼/よ]ばず、original driver pending を error payload に[保持/ほじ]します。
+//: - action match の[場合/ばあい]だけ、executor supplied outcome を F5dd action sink driver へ[委譲/いじょう]します。
+//: - platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_action_attempt_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_action_sink_driver" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_execution_driver" as *
+#import "std/gui/tile_present_host_executor" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostActionAttempt:
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    outcome %Result unit GuiError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionAttempt:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionAttempt GuiRgba8888RowTileRlePresentHostActionAttempt \attempt:
+        *attempt
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionAttempt:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionAttempt GuiRgba8888RowTileRlePresentHostActionAttempt \attempt:
+        attempt
+
+pub struct GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep:
+    attempt %GuiRgba8888RowTileRlePresentHostActionAttempt
+    sink_driver_step %GuiRgba8888RowTileRlePresentHostActionSinkDriverStep
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep \step:
+        step
+
+pub struct GuiRgba8888RowTileRlePresentHostActionAttemptMismatch:
+    expected %GuiRgba8888RowTileRlePresentHostExecutionAction
+    attempted %GuiRgba8888RowTileRlePresentHostExecutionAction
+    category %Option GuiError
+    driver %GuiRgba8888RowTileRlePresentHostExecutionDriverPending
+
+pub struct GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed:
+    lower %GuiRgba8888RowTileRlePresentHostActionSinkDriverError
+
+pub enum GuiRgba8888RowTileRlePresentHostActionAttemptDriverError:
+    AttemptActionMismatch %GuiRgba8888RowTileRlePresentHostActionAttemptMismatch
+    SinkDriverFailed %GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_new %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888RowTileRlePresentHostActionAttempt \action\outcome:
+    GuiRgba8888RowTileRlePresentHostActionAttempt action outcome
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step_new %fn GuiRgba8888RowTileRlePresentHostActionAttempt fn GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep \attempt\sink_driver_step:
+    GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep attempt sink_driver_step
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_new %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending GuiRgba8888RowTileRlePresentHostActionAttemptMismatch \expected\attempted\driver:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostActionAttemptMismatch expected attempted category driver
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_failed_new %fn GuiRgba8888RowTileRlePresentHostActionSinkDriverError GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed \lower:
+    GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed lower
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_error %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending GuiRgba8888RowTileRlePresentHostActionAttemptDriverError \expected\attempted\driver:
+    let mismatch %GuiRgba8888RowTileRlePresentHostActionAttemptMismatch gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_new expected attempted driver
+    GuiRgba8888RowTileRlePresentHostActionAttemptDriverError::AttemptActionMismatch mismatch
+
+fn gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_error %fn GuiRgba8888RowTileRlePresentHostActionSinkDriverError GuiRgba8888RowTileRlePresentHostActionAttemptDriverError \lower:
+    let failure %GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_failed_new lower
+    GuiRgba8888RowTileRlePresentHostActionAttemptDriverError::SinkDriverFailed failure
+
+//: gui_rgba8888_row_tile_rle_present_host_action_attempt: executor attempt を action と outcome の[値/あたい]として[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - outcome は caller が[渡/わた]した[値/あたい]をそのまま[保持/ほじ]し、この boundary では success / failure を[作/つく]りません。
+//: - attempt は driver pending を[所有/しょゆう]せず、driver step が action identity を[検査/けんさ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888RowTileRlePresentHostActionAttempt \action\outcome:
+    gui_rgba8888_row_tile_rle_present_host_action_attempt_new action outcome
+
+//: gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step: attempt action と pending action の[一致/いっち]を[検査/けんさ]してから F5dd へ[委譲/いじょう]する
+//:
+//: [契約/けいやく]:
+//: - pending action と attempt action は F5cy full action equality で[比較/ひかく]します。
+//: - mismatch では F5dd を[呼/よ]ばず、driver pending を error payload へ[移/うつ]します。
+//: - match した[場合/ばあい]だけ、attempt outcome を F5dd action sink driver step へ[渡/わた]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending fn GuiRgba8888RowTileRlePresentHostActionAttempt Result GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep GuiRgba8888RowTileRlePresentHostActionAttemptDriverError \support\driver\attempt:
+    let expected %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver
+    let attempted %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_action_attempt_action &attempt
+    if gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted:
+        then:
+            let outcome %Result unit GuiError gui_rgba8888_row_tile_rle_present_host_action_attempt_outcome &attempt
+            match gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step support driver outcome:
+                Result::Ok sink_driver_step:
+                    Result::Ok gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step_new attempt sink_driver_step
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_error lower
+        else:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_error expected attempted driver
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_action %fn &GuiRgba8888RowTileRlePresentHostActionAttempt GuiRgba8888RowTileRlePresentHostExecutionAction \attempt:
+    *field::get_ref attempt "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_outcome %fn &GuiRgba8888RowTileRlePresentHostActionAttempt Result unit GuiError \attempt:
+    *field::get_ref attempt "outcome"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step_attempt %fn &GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep GuiRgba8888RowTileRlePresentHostActionAttempt \step:
+    *field::get_ref step "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_driver_step_sink_driver_step %fn &GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep GuiRgba8888RowTileRlePresentHostActionSinkDriverStep \step:
+    *field::get_ref step "sink_driver_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_expected %fn &GuiRgba8888RowTileRlePresentHostActionAttemptMismatch GuiRgba8888RowTileRlePresentHostExecutionAction \mismatch:
+    *field::get_ref mismatch "expected"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_attempted %fn &GuiRgba8888RowTileRlePresentHostActionAttemptMismatch GuiRgba8888RowTileRlePresentHostExecutionAction \mismatch:
+    *field::get_ref mismatch "attempted"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostActionAttemptMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_mismatch_driver %fn GuiRgba8888RowTileRlePresentHostActionAttemptMismatch GuiRgba8888RowTileRlePresentHostExecutionDriverPending \mismatch:
+    field::get mismatch "driver"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_attempt_sink_driver_failed_lower %fn GuiRgba8888RowTileRlePresentHostActionAttemptSinkDriverFailed GuiRgba8888RowTileRlePresentHostActionSinkDriverError \failure:
+    field::get failure "lower"
