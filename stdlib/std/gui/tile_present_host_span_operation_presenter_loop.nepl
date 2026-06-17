@@ -1,0 +1,251 @@
+//: # std/gui/tile_present_host_span_operation_presenter_loop
+//: RGBA8888 row tile RLE present host span operation presenter loop の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter loop が F5dh scheduler step と F5dk presenter step を[直接/ちょくせつ][呼/よ]ばずに、typed loop state と request / completion だけを[扱/あつか]えるようにします。
+//: - support、policy、scheduled state を `LoopState` に[束/たば]ね、次 request に[必要/ひつよう]な state を side state へ[逃/に]がしません。
+//:
+//: ### [契約/けいやく]
+//: - `start` は F5dh start を 1 [回/かい]だけ[呼/よ]び、success path だけで support / policy / scheduled state を loop state に[束/たば]ねます。
+//: - `request` は F5dh step を 1 [回/かい]だけ[呼/よ]び、operation-ready を presenter request へ、operation-less terminal を `Completed` へ[写/うつ]します。
+//: - `complete` は F5dk presenter step を 1 [回/かい]だけ[呼/よ]び、F5dk success branch でだけ F5dj completion を Continue / Yield loop state へ[再包装/さいほうそう]します。
+//: - host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_loop" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_attempt" as *
+#import "std/gui/tile_present_host_span_operation_completion" as *
+#import "std/gui/tile_present_host_span_operation_presenter_step" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy
+    scheduled_state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState \state:
+        *state
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState \state:
+        state
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \request:
+        *request
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \request:
+        request
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult:
+    Request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult \result:
+        result
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion:
+    Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState
+    Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion \completion:
+        *completion
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion \completion:
+        completion
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError \error:
+        error
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError:
+    loop_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError \error:
+        error
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState \support\policy\scheduled_state:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState support policy scheduled_state
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \support\policy\ready:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest support policy ready
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError \support\policy\action\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError support policy action category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError \loop_state\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError loop_state category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_step_error_category %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError Option GuiError \lower:
+    match *lower:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError::AttemptRejected rejection:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_category_value &rejection
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError::CompletionRejected rejection:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_category_value &rejection
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError \request\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_step_error_category &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError request category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_completion_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion \request\completion:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_support &request
+    let policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_policy &request
+    match completion:
+        GuiRgba8888RowTileRlePresentHostSpanOperationCompletion::Continue scheduled_state:
+            let loop_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_new support policy scheduled_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion::Continue loop_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationCompletion::Yield scheduled_state:
+            let loop_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_new support policy scheduled_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion::Yield loop_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start: action から presenter loop state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5dh start を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path だけが support / policy / scheduled state を[束/たば]ねます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError \support\policy\action:
+    match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_new support policy action lower
+        Result::Ok scheduled_state:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_new support policy scheduled_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request: loop state から 1 operation request を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - F5dh step を 1 [回/かい]だけ[呼/よ]びます。
+//: - `OperationReady` は support / policy / ready を[保持/ほじ]する request へ[写/うつ]します。
+//: - F5dh `Completed` は operation-less terminal として loop `Completed` に[写/うつ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError \loop_state:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_support &loop_state
+    let policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_policy &loop_state
+    let scheduled_state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_scheduled_state &loop_state
+    match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step &policy scheduled_state:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_error_new loop_state lower
+        Result::Ok step_result:
+            match step_result:
+                GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult::Completed:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult::Completed
+                GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult::OperationReady ready:
+                    let request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_new support policy ready
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStepResult::Request request
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete: presenter attempt を loop completion へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - F5dk presenter step を 1 [回/かい]だけ[呼/よ]びます。
+//: - F5dk success branch でだけ F5dj completion step から Continue / Yield を[読/よ]み、support / policy / scheduled state を[持/も]つ loop state へ[再包装/さいほうそう]します。
+//: - F5dk error では next state を publish せず、request と lower error を typed error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError \request\attempt:
+    let support %GuiRgba8888RowTileRlePresentHostExecutorSupport gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_support &request
+    let ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_ready &request
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step support ready attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_new request lower
+        Result::Ok presenter_step:
+            let completion_step %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step_completion_step &presenter_step
+            let completion %GuiRgba8888RowTileRlePresentHostSpanOperationCompletion gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step_completion &completion_step
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_completion_new request completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentHostExecutorSupport \state:
+    *field::get_ref state "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_policy %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \state:
+    *field::get_ref state "policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_state_scheduled_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState GuiRgba8888RowTileRlePresentScheduledSpanOperationState \state:
+    *field::get_ref state "scheduled_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentHostExecutorSupport \request:
+    *field::get_ref request "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_policy %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \request:
+    *field::get_ref request "policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \request:
+    *field::get_ref request "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentHostExecutorSupport \error:
+    *field::get_ref error "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_policy %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \error:
+    *field::get_ref error "policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_action %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_error_loop_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState \error:
+    *field::get_ref error "loop_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequestError GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_request %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopRequest \error:
+    *field::get_ref error "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError \error:
+    field::get error "lower"

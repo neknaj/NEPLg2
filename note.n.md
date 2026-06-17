@@ -1,3 +1,51 @@
+# 2026-06-18 Agent2 GUI font F5dl std host span operation presenter loop boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dh step と F5dk presenter step を直接呼ばず、LoopState / request / completion contract だけを扱う std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState` は support、F5dh policy、scheduled state を同じ value に保持し、次 request に必要な context を side state へ逃がさない。
+- `presenter_loop_start` は F5dh start を 1 回だけ呼び、success path だけで support / policy / scheduled state を LoopState へ束ねる。
+- `presenter_loop_request` は F5dh step を 1 回だけ呼び、F5dh `OperationReady` を support / policy / ready 付き request、F5dh operation-less terminal を loop `Completed` へ写す。
+- `presenter_loop_complete` は F5dk presenter step を 1 回だけ呼び、F5dk success branch でだけ F5dj completion step から Continue / Yield を読み、support / policy / scheduled state 付き LoopState へ再包装する。
+- host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、F5dh `resume_slice`、F5di / F5dj direct call、F5dg start / step、F5da-F5de driver へ進まない。
+
+## plan_review
+
+- Dirac plan review は最初 `PLAN_CHANGES`。
+- F5dl の `Completed` は F5dh operation-less terminal を受ける場合に限り妥当であり、F5dk / F5dj の per-operation completion とは混同しない contract が必要と指摘された。
+- completion 後の次 request でも support / policy が必要なので、`Continue` / `Yield` は scheduled state だけではなく LoopState を返す必要がある。
+- request は ready だけではなく support / policy / ready を保持し、caller が support / policy を side state として別管理しない形にする必要がある。
+- F5dh start、F5dh step、F5dk presenter step の exact call order と、F5dh `resume_slice`、F5di / F5dj direct call、scheduler / platform / fallback 禁止を source policy で固定する必要がある。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl` を追加した。
+- LoopState、presenter request、loop step result、loop completion、start / request / complete error payload、category mapping helper、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dl focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: F5dl module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl`。
+- pass: F5dk regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md`。
+- pass: F5dh regression `tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- LoopState が support / policy / scheduled state を保持すること、F5dh `Completed` だけを loop `Completed` へ写すこと、F5dk success branch で F5dj Continue / Yield を LoopState へ再包装することが承認された。
+- host import execution、platform / raw leakage、queue / timer / scheduler、fallback、silent no-op、F5dh `resume_slice`、F5di / F5dj direct call は見つからなかった。
+- docs / source policy / todo は実装と整合しており、actual Web / native / bare / headless presenter や real scheduler readiness を過剰に主張していないと確認された。
+
+## remaining
+
+- F5dl は std layer の presenter loop state / request / completion boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5dk std host span operation presenter step boundary
 
 ## scope

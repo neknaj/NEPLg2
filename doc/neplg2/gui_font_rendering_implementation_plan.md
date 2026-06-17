@@ -691,6 +691,59 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dl: std layer row tile RLE present host span operation presenter loop boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter loop が F5dh step と F5dk presenter step を直接呼ばず、LoopState / request / completion contract だけを扱う境界を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState` は support、F5dh policy、scheduled state を同じ value に保持し、次 request に必要な context を side state へ逃がさない。
+- `presenter_loop_start` は F5dh start を 1 回だけ呼び、success path だけで support / policy / scheduled state を LoopState へ束ねる。
+- `presenter_loop_request` は F5dh step を 1 回だけ呼び、F5dh `OperationReady` を presenter request、F5dh operation-less terminal を loop `Completed` へ写す。
+- `presenter_loop_complete` は F5dk presenter step を 1 回だけ呼び、F5dk success branch でだけ F5dj completion step を読み、Continue / Yield scheduled state を support / policy 付き LoopState へ再包装する。
+- F5dh `resume_slice`、F5di / F5dj direct call、F5dg start / step、F5cs / F5ct / F5cu、F5da-F5de action drivers、F5cy / F5cw validation、queue、timer、real scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Dirac plan review は最初 `PLAN_CHANGES`。
+- F5dl の `Completed` は F5dh operation-less terminal を受ける場合に限り妥当であり、F5dk / F5dj の per-operation completion とは混同しない contract が必要と指摘された。
+- completion 後も次 request に support / policy が必要なので、`Continue` / `Yield` は scheduled state だけではなく LoopState を返す必要があると指摘された。
+- request は ready だけでなく support / policy / ready を保持し、caller が support / policy を side state として持たない形にする必要がある。
+- `start` を含め、F5dh start、F5dh step、F5dk presenter step の exact call order を source policy で固定する必要がある。
+- F5dh `resume_slice`、F5di / F5dj direct call、F5dg / F5cs / F5ct / F5cu / F5da-F5de / F5cy / F5cw、queue、timer、real scheduler、platform、fallback、silent no-op、per-operation `Completed` creation を禁止する必要がある。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl` を追加する。
+- LoopState、presenter request、loop step result、loop completion、start / request / complete error payload、category mapping helper、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dl source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dl `presenter_loop_start` が F5dh start を 1 回だけ呼び、support / policy / scheduled state を LoopState に保持する。
+- F5dl `presenter_loop_request` が F5dh step を 1 回だけ呼び、F5dh `Completed` だけを loop `Completed` へ写し、F5dh `OperationReady` から support / policy / ready を保持する request を作る。
+- F5dl `presenter_loop_complete` が F5dk presenter step を 1 回だけ呼び、success branch でだけ F5dj completion step から Continue / Yield を取り出して LoopState へ再包装する。
+- F5dk error では next state を publish せず、request、lower F5dk error、public accessor derived category を typed error に保持する。
+- F5dh `resume_slice`、F5di / F5dj direct call、F5dg start / step、action drivers、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、per-operation `Completed` creation を持たない。
+- focused import smoke doctest、source policy、F5dk / F5dh regression、`git diff --check` が通る。
+- subagent implementation review で LoopState preservation、F5dh / F5dk exact call order、no scheduler / no platform / no fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_loop_f5dl.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_loop_module_f5dl.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_step_f5dl_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_f5dl_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dl.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
