@@ -744,6 +744,62 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dm: std layer row tile RLE present host span operation presenter outcome boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter glue が F5dl request から operation を読み、caller supplied outcome を F5di attempt constructor へ渡して F5dl complete へ戻すための typed bridge を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` は F5dl request と F5dh ready operation accessor から得た expected operation を保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt` は original F5dl request と F5di attempt を保持する。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError は Clone / Copy にしない。同じ request / outcome bridge の replay を static に避ける。
+- `outcome_request` は F5dl request ready を読み、F5dh ready operation accessor を 1 回だけ使う。
+- `outcome_attempt` は OutcomeRequest を value として消費し、F5di attempt constructor を 1 回だけ呼ぶ。
+- `outcome_complete` は OutcomeAttempt を value として消費し、F5dl complete を 1 回だけ呼ぶ。
+- host import、F5di validation、F5dk presenter step、F5dj completion step、F5dh start / step / resume、F5dg、F5cs / F5ct / F5cu、F5da-F5de action drivers、F5cy / F5cw validation、queue、timer、real scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、loop `Completed` creation へ進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dm は次 boundary として妥当だが、OutcomeRequest / OutcomeAttempt を Copy にすると same request / outcome bridge の replay が起きやすいため、non-Copy / non-Clone にする必要があると指摘された。
+- required flow は `F5dl request -> OutcomeRequest -> borrowed operation inspection -> consume OutcomeRequest + caller outcome -> OutcomeAttempt -> consume OutcomeAttempt -> F5dl complete`。
+- `presenter_outcome_attempt` は OutcomeRequest を value として消費し、F5di validation ではなく F5di attempt constructor だけを呼ぶ。
+- `presenter_outcome_complete` は OutcomeAttempt を value として消費し、lower error に original request、F5di attempt、F5dl lower error、F5dl public accessor 由来 category を保持する。
+- source policy は Clone / Copy 禁止、F5di attempt constructor のみ許可、F5dl complete の exact call order、F5di validation / F5dk / F5dj / F5dh start-step-resume / scheduler / platform / fallback 禁止を固定する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl` を追加する。
+- OutcomeRequest、OutcomeAttempt、OutcomeCompleteError、request / attempt / complete functions、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dm source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dm `outcome_request` が F5dl request ready を読み、F5dh ready operation accessor から operation を得る。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError が Clone / Copy 実装を持たない。
+- F5dm `outcome_attempt` が OutcomeRequest を value として消費し、F5di attempt constructor を 1 回だけ呼ぶ。
+- F5dm `outcome_complete` が OutcomeAttempt を value として消費し、F5dl complete を 1 回だけ呼ぶ。
+- F5dl lower error は request / attempt / category / lower として typed error に保持される。
+- host import、F5di validation、F5dk presenter step、F5dj completion step、F5dh start / step / resume、action drivers、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、loop `Completed` creation を持たない。
+- focused import smoke doctest、source policy、F5dl / F5di regression、`git diff --check` が通る。
+- subagent implementation review で non-Copy bridge、value-consuming flow、no scheduler / no platform / no fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_outcome_f5dm.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_outcome_module_f5dm.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_loop_f5dm_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_attempt_f5dm_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dm.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
