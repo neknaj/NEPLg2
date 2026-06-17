@@ -1,0 +1,401 @@
+//: # std/gui/tile_present_scheduled_span_operation
+//: RGBA8888 row tile RLE present host span operation stream の scheduling boundary
+//:
+//: ### [目的/もくてき]
+//: - F5dg の host span operation cursor を、platform presenter に[渡/わた]す[前/まえ]に deterministic slice budget で[区切/くぎ]ります。
+//: - F5ct の record scheduler は[使/つか]わず、F5dg / F5df で[検査/けんさ]された operation stream だけを authority とします。
+//:
+//: ### [契約/けいやく]
+//: - `start` は F5dg start を 1 [回/かい]だけ[呼/よ]び、cursor と slice counter を state に[保持/ほじ]します。
+//: - `step` は F5dg step を[最大/さいだい] 1 [回/かい]だけ[呼/よ]び、operation を[失/うしな]わない ready value と post phase を[返/かえ]します。
+//: - Begin / End は operation cost 1、pixel cost 0 です。RunSpan は operation cost 1、pixel cost は `span.width * span.height` です。
+//: - exact budget [到達/とうたつ]は `Yield`、budget [超過/ちょうか]は typed error です。`resume_slice` は cursor を[保持/ほじ]し、slice counter だけを reset します。
+//: - host import、platform API、DOM、Canvas、minifb、video memory、queue、timer、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_scheduled_span_operation" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+
+pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy:
+    max_operations_per_slice %i32
+    max_pixels_per_slice %i32
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \policy:
+        *policy
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \policy:
+        policy
+
+pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind:
+    MaxOperationsPerSliceInvalid
+    MaxPixelsPerSliceInvalid
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase:
+    Continue
+    Yield
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase \phase:
+        phase
+
+pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationState:
+    cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor
+    slice_operation_count %i32
+    slice_pixel_count %i32
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationState:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationState \state:
+        *state
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationState:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationState \state:
+        state
+
+pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationReady:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    phase %GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase
+    state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationReady:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \ready:
+        *ready
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationReady:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \ready:
+        ready
+
+pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult:
+    OperationReady %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult \result:
+        result
+
+pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind:
+    HostSpanOperationStartFailed %GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind:
+    PolicyMaxOperationsInvalid
+    PolicyMaxPixelsInvalid
+    SliceOperationCountInvalid
+    SlicePixelCountInvalid
+    OperationCountOverflow
+    PixelCountOverflow
+    SpanWidthInvalid
+    SpanHeightInvalid
+    SpanPixelCountOverflow
+    SpanPixelBudgetExceeded
+    OperationBudgetExceeded
+    PixelBudgetExceeded
+    HostSpanOperationStepFailed %GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError:
+    kind %GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationStartError
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError \error:
+        error
+
+pub struct GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError:
+    kind %GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind
+    category %Option GuiError
+    state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState
+    lower %Option GuiRgba8888RowTileRlePresentHostSpanOperationStepError
+
+impl Clone for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_new %fn i32 fn i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \max_operations_per_slice\max_pixels_per_slice:
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy max_operations_per_slice max_pixels_per_slice
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor fn i32 fn i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationState \cursor\slice_operation_count\slice_pixel_count:
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationState cursor slice_operation_count slice_pixel_count
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \operation\phase\state:
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationReady operation phase state
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_new %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError \action\lower:
+    let lower_kind %GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_kind &lower
+    let kind %GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind::HostSpanOperationStartFailed lower_kind
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError kind category action lower
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_category %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanWidthInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanHeightInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanPixelCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanPixelBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::OperationBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PixelBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::HostSpanOperationStepFailed _:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \kind\state:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_category kind
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError kind category state Option::None
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_with_category %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \kind\category\state:
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError kind category state Option::None
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_lower_step_error %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState fn GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \state\lower:
+    let lower_kind %GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_kind &lower
+    let kind %GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::HostSpanOperationStepFailed lower_kind
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_category_value &lower
+    let lower_value %Option GuiRgba8888RowTileRlePresentHostSpanOperationStepError Option::Some lower
+    GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError kind category state lower_value
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_i32_max %fn void i32 \void:
+    2147483647
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_add %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind Result i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_i32_max
+            let max_left %i32 sub max_i32 right
+            if gt left max_left:
+                then Result::Err overflow_kind
+                else Result::Ok add left right
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_mul %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind Result i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_i32_max
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_validate_policy_for_step %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy Result unit GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \policy:
+    let max_operations %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_operations_per_slice policy
+    if le max_operations 0:
+        then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PolicyMaxOperationsInvalid
+        else:
+            let max_pixels %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_pixels_per_slice policy
+            if le max_pixels 0:
+                then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PolicyMaxPixelsInvalid
+                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_span_pixel_cost %fn &GuiRgba8888RowTileRlePresentRunRowSpan Result i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \span:
+    let width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width span
+    if le width 0:
+        then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanWidthInvalid
+        else:
+            let height %i32 gui_rgba8888_row_tile_rle_present_run_row_span_height span
+            if le height 0:
+                then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanHeightInvalid
+                else gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_mul width height GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanPixelCountOverflow
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_pixel_cost %fn &GuiRgba8888RowTileRlePresentHostSpanOperation Result i32 GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \operation:
+    match *operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan payload:
+            let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span &payload
+            gui_rgba8888_row_tile_rle_present_scheduled_span_operation_span_pixel_cost &span
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan span:
+            gui_rgba8888_row_tile_rle_present_scheduled_span_operation_span_pixel_cost &span
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan span:
+            gui_rgba8888_row_tile_rle_present_scheduled_span_operation_span_pixel_cost &span
+        _:
+            Result::Ok 0
+
+fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_count_result %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor fn i32 Result GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \policy\previous_state\operation\next_cursor\pixel_cost:
+    let slice_operation_count %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_slice_operation_count &previous_state
+    if lt slice_operation_count 0:
+        then Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SliceOperationCountInvalid previous_state
+        else:
+            let slice_pixel_count %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_slice_pixel_count &previous_state
+            if lt slice_pixel_count 0:
+                then Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SlicePixelCountInvalid previous_state
+                else:
+                    match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_add slice_operation_count 1 GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::OperationCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error kind previous_state
+                        Result::Ok next_operation_count:
+                            match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_checked_add slice_pixel_count pixel_cost GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PixelCountOverflow:
+                                Result::Err kind:
+                                    Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error kind previous_state
+                                Result::Ok next_pixel_count:
+                                    let max_operations %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_operations_per_slice policy
+                                    if gt next_operation_count max_operations:
+                                        then Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::OperationBudgetExceeded previous_state
+                                        else:
+                                            let max_pixels %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_pixels_per_slice policy
+                                            if gt next_pixel_count max_pixels:
+                                                then Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::PixelBudgetExceeded previous_state
+                                                else:
+                                                    let next_state %GuiRgba8888RowTileRlePresentScheduledSpanOperationState gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new next_cursor next_operation_count next_pixel_count
+                                                    let phase %GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase if or eq next_operation_count max_operations eq next_pixel_count max_pixels GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase::Yield GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase::Continue
+                                                    let ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_new operation phase next_state
+                                                    Result::Ok GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult::OperationReady ready
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy %fn i32 fn i32 Result GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind \max_operations_per_slice\max_pixels_per_slice:
+    if le max_operations_per_slice 0:
+        then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind::MaxOperationsPerSliceInvalid
+        else:
+            if le max_pixels_per_slice 0:
+                then Result::Err GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicyErrorKind::MaxPixelsPerSliceInvalid
+                else Result::Ok gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_new max_operations_per_slice max_pixels_per_slice
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_operations_per_slice %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy i32 \policy:
+    *field::get_ref policy "max_operations_per_slice"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_pixels_per_slice %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy i32 \policy:
+    *field::get_ref policy "max_pixels_per_slice"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start %fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError \action:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_start action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_new action lower
+        Result::Ok cursor:
+            Result::Ok gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new cursor 0 0
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_resume_slice %fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentScheduledSpanOperationState \state:
+    let cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_cursor &state
+    gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_new cursor 0 0
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_cursor %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationState GuiRgba8888RowTileRlePresentHostSpanOperationCursor \state:
+    *field::get_ref state "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_slice_operation_count %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationState i32 \state:
+    *field::get_ref state "slice_operation_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_slice_pixel_count %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationState i32 \state:
+    *field::get_ref state "slice_pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_operation %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperation \ready:
+    *field::get_ref ready "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_phase %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentScheduledSpanOperationPhase \ready:
+    *field::get_ref ready "phase"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_ready_state %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationReady GuiRgba8888RowTileRlePresentScheduledSpanOperationState \ready:
+    *field::get_ref ready "state"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_kind %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_category_value %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_action %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_start_error_lower %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStartError GuiRgba8888RowTileRlePresentHostSpanOperationStartError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_kind %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_category_value %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_state %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError GuiRgba8888RowTileRlePresentScheduledSpanOperationState \error:
+    *field::get_ref error "state"
+
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error_lower %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError Option GuiRgba8888RowTileRlePresentHostSpanOperationStepError \error:
+    *field::get_ref error "lower"
+
+//: gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step: operation stream を 1 operation だけ[進/すす]めて budget phase を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - F5dg step を[最大/さいだい] 1 [回/かい]だけ[呼/よ]びます。
+//: - `OperationReady` は operation、post phase、next state を同時に[保持/ほじ]します。
+//: - `Completed` は terminal result であり、budget counter は[増/ふ]やしません。
+pub fn gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step %fn &GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentScheduledSpanOperationState Result GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult GuiRgba8888RowTileRlePresentScheduledSpanOperationStepError \policy\state:
+    match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_validate_policy_for_step policy:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error kind state
+        Result::Ok _:
+            let cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor gui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_cursor &state
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_step cursor:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_lower_step_error state lower
+                Result::Ok result:
+                    match result:
+                        GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed:
+                            Result::Ok GuiRgba8888RowTileRlePresentScheduledSpanOperationStepResult::Completed
+                        GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::OperationReady host_ready:
+                            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_ready_operation &host_ready
+                            match gui_rgba8888_row_tile_rle_present_scheduled_span_operation_pixel_cost &operation:
+                                Result::Err kind:
+                                    Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error kind state
+                                Result::Ok pixel_cost:
+                                    let max_pixels %i32 gui_rgba8888_row_tile_rle_present_scheduled_span_operation_policy_max_pixels_per_slice policy
+                                    if gt pixel_cost max_pixels:
+                                        then Result::Err gui_rgba8888_row_tile_rle_present_scheduled_span_operation_step_error GuiRgba8888RowTileRlePresentScheduledSpanOperationStepErrorKind::SpanPixelBudgetExceeded state
+                                        else:
+                                            let next_cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor gui_rgba8888_row_tile_rle_present_host_span_operation_ready_cursor &host_ready
+                                            gui_rgba8888_row_tile_rle_present_scheduled_span_operation_count_result policy state operation next_cursor pixel_cost
