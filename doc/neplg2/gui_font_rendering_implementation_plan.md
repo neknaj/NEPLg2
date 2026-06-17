@@ -1082,6 +1082,47 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5ds: std layer row tile RLE present host span operation presenter executor session turn boundary
+
+目的:
+
+- F5dr の session state と pending executor request を、actual Web / native / bare / headless scheduler が 1 turn 分の owner-bearing state として扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState` は `Session` と `Pending` だけを持ち、no separate Completed turn state とする。
+- terminal completed state の authority は F5dr `SessionState` と F5dr session request に残し、F5ds は F5dr `Ready` / `Completed` variant を直接 match しない。
+- `turn_poll` は state を value として消費し、`Pending` なら executor へ owner transfer し、`Session` だけが F5dr session request を 1 回呼ぶ。
+- `turn_complete` は F5dr session complete を 1 回だけ呼び、Continue / Yield を `Session` turn state へ包む。
+- F5ds は real scheduler policy、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation に進まない。
+
+plan review:
+
+- Dirac plan review 1 は `PLAN_CHANGES`。`Ready %SessionState` と separate `Completed` turn variant では `TurnState::Ready SessionState::Completed` と `TurnState::Completed` が重複 terminal state になると指摘された。
+- revised plan では preferred shape として `TurnState::Session %F5drSessionState | Pending %F5drSessionPending` を採用し、terminal completion を F5dr のみへ集約する。
+- Dirac revised plan review は `PLAN_APPROVED`。`turn_poll` は state を value 消費すること、F5dr session variants を直接 match しないこと、F5dr start / request / complete だけを authority にすること、source policy で separate `TurnState::Completed` と lower bypass を禁止することが条件である。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState`、`SessionTurnPollResult`、`SessionTurnCompleteResult`、start / poll / complete errors を追加する。
+- `turn_start` は F5dr session start を 1 回だけ呼び、success で `Session` turn state を返す。
+- `turn_poll` は `Pending` branch で pending を executor へ渡し、`Session` branch だけで F5dr session request を 1 回呼ぶ。
+- `turn_complete` は F5dr session complete を 1 回だけ呼び、Continue / Yield を `Session` turn state に写す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md` を追加し、facade、state owner、no duplicate terminal state、pending owner transfer、start / poll / complete order、lower recovery authority、no scheduler / platform / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ds source policy を追加し、F5dr-only boundary、separate terminal state 禁止、F5dr session variant direct match 禁止、F5dp / F5dq direct bypass 禁止、raw / platform / scheduler / fallback leakage 禁止、括弧なし prefix style を固定する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_f5ds.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_module_f5ds.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_f5ds_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5ds.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

@@ -1,3 +1,54 @@
+# 2026-06-18 Agent2 GUI font F5ds std host span operation presenter executor session turn boundary
+
+## scope
+
+- actual Web / native / bare / headless scheduler が F5dr session state と executor pending request を 1 turn 分の owner-bearing state として扱える std layer session turn boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState` は `Session` と `Pending` だけを持ち、独自の `Completed` state は持たない。
+- terminal completed state の authority は F5dr `SessionState` と F5dr session request に残す。
+- `turn_poll` は state を value として消費し、`Pending` branch は pending request を executor へ移し、`Session` branch だけが F5dr session request を 1 回だけ呼ぶ。
+- `turn_complete` は pending request と executor attempt を value として消費し、F5dr session complete を 1 回だけ呼ぶ。
+- F5ds は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Dirac plan review 1 は `PLAN_CHANGES`。
+- 初期案の `Ready %SessionState` と separate `Completed` turn variant は、`TurnState::Ready SessionState::Completed` と `TurnState::Completed` の duplicate terminal state を作ると指摘された。
+- 修正版では `TurnState::Session %F5drSessionState | Pending %F5drSessionPending` を採用し、terminal completion を F5dr のみに集約した。
+- Dirac revised plan review は `PLAN_APPROVED`。
+- `turn_poll` が state を value 消費すること、F5dr session variants を直接 match しないこと、F5dr start / request / complete だけを authority にすること、source policy で separate `TurnState::Completed` と lower bypass を禁止することが承認条件だった。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl` を追加した。
+- SessionTurnState、SessionTurnPollResult、SessionTurnCompleteResult、start / poll / complete errors、start / poll / complete functions、public accessors を追加した。
+- `turn_start` は F5dr session start を 1 回だけ呼び、success で `Session` turn state を返す。
+- `turn_poll` は `Pending` branch で pending request を executor へ owner transfer し、`Session` branch だけで F5dr session request を 1 回だけ呼ぶ。
+- `turn_complete` は F5dr session complete を 1 回だけ呼び、Continue / Yield を `Session` turn state に写す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5ds focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md`。
+- pass: F5ds module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl`。
+- pass: F5dr regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5ds は `Session` / `Pending` だけの TurnState を持ち、duplicate `Completed` turn state がないこと、`turn_poll` が state を value 消費して pending ownership を明示的に transfer すること、F5dr start / request / complete だけに委譲し、F5dp / F5dq bypass、synthetic outcome、platform / raw / scheduler / fallback leakage がないことが確認された。
+- 指摘はこの `note.n.md` の F5ds section に subagent review result を記録することだったため、この節を更新した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった F5ds `subagent_review` 記録不足は解消され、code / source-policy は clean で note 証跡だけが指摘だったことも正しく記録された。
+
+## remaining
+
+- F5ds は std layer session turn boundary であり、actual Web / native / bare / headless scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dr std host span operation presenter executor session boundary
 
 ## scope
