@@ -1,3 +1,46 @@
+# 2026-06-17 Agent2 GUI font F5db std virtual host executor boundary
+
+## scope
+
+- F5da one-shot driver pending を deterministic virtual executor で消費し、F5cw action shape を F5cq host-command record と F5cs virtual drain に接続する。
+- support preflight は F5cy `require_supported` を使い、drain mutation より前に行う。
+- support rejection と drain failure でも F5da `complete_outcome` で pending を one-shot cleanup する。
+- drain failure の recovery executor は failed drain state ではなく original executor とする。
+- actual Web / native / bare presenter、F5cv direct completion、F5cz direct bridge、F5cr request construction、F5cu / F5ct / F5cp / F5co、raw storage、host API、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は `InconsistentCompletion` を明示すること、drain failure でも pending を消費すること、support rejection cleanup を明文化すること、F5cw action 9 variant から F5cq record への total mapping を固定することだった。
+- 修正版で `SupportRejected`、`DrainFailed`、`DriverFailed`、`InconsistentCompletion` と recovery executor / optional driver error を明確化し、Dirac plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_virtual_executor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentVirtualExecutor` は support と F5cs virtual drain を保持する。
+- execute は support preflight 後だけ virtual drain を更新し、support rejection / drain failure / success の全 path で F5da `complete_outcome` により pending を消費する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5db focused doctest `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+- pass: F5db module doctest `stdlib/std/gui/tile_present_virtual_executor.nepl`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_virtual_executor.nepl` は no match。
+- note: initial focused behavior doctest は dispatch-loop scenario 再構築で 180 秒 timeout したため、doctest は import smoke と coverage label に縮小した。behavior order と禁止依存は source policy と module doctest に責務を分けて固定した。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5db は deterministic std virtual executor までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5da std host execution driver boundary
 
 ## scope

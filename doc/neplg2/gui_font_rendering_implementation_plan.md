@@ -232,6 +232,46 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5db: std row tile RLE present virtual host executor boundary
+
+目的:
+
+- F5da の one-shot driver pending を、headless / test 用の deterministic virtual executor で実行する std layer row tile RLE present virtual host executor boundary を追加する。
+- `GuiRgba8888RowTileRlePresentVirtualExecutor` は F5cy support と F5cs virtual drain を保持し、actual Web / native / bare executor と同じ F5cw action shape を消費する。
+- virtual executor は fallback ではなく、platform host import を持たない deterministic validation backend である。
+- support rejection と drain failure でも F5da `complete_outcome` を呼び、pending を one-shot cleanup する。
+- F5db は actual platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、F5cv direct completion、F5cz direct bridge、F5cr request construction、F5cu / F5ct / F5cp / F5co、raw storage、fallback、silent no-op には進まない。
+
+plan review:
+
+- Dirac の initial plan review は `PLAN_CHANGES`。`InconsistentCompletion` の明示、drain failure pending consumption、support rejection cleanup、total action-to-record mapping、F5cq source policy、error recovery state の明確化が必要とされた。
+- 修正版では `SupportRejected`、`DrainFailed`、`DriverFailed`、`InconsistentCompletion` を typed error kind とし、error は category、recovery executor、optional driver error を保持する。
+- drain failure の recovery executor は failed drain state ではなく original executor とし、lower drain error 側に diagnostic drain state を保持する。
+- 修正版の Dirac plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `stdlib/std/gui/tile_present_virtual_executor.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentVirtualExecutor` は support と virtual drain を保持する Copy state とする。
+- action-to-record helper は F5cw の 9 action variant を F5cq `GuiRgba8888RowTileRlePresentHostCommandRecord` に total mapping する。
+- execute は F5cy `require_supported` を先に呼び、support preflight 成功後だけ F5cs `virtual_drain_step` を呼ぶ。
+- support rejection / drain failure / success のすべてで F5da `complete_outcome` を経由し、direct F5cv completion と direct F5cz bridge を使わない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_virtual_executor.n.md` を追加し、facade import smoke と coverage label を固定する。begin success、support preflight rejection、drain failure pending consumption、begin/run/end success sequence の順序契約は source policy と module doctest で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5db source policy を追加する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_executor.n.md --no-tree -o tmp_gui_std_tile_present_virtual_executor_f5db.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_virtual_executor.nepl --no-tree -o tmp_gui_std_tile_present_virtual_executor_module_f5db.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5db_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5db.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

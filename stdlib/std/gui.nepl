@@ -34,6 +34,7 @@ pub #import "./gui/tile_present_host_execution_report" as *
 pub #import "./gui/tile_present_host_executor" as *
 pub #import "./gui/tile_present_host_report_loop_bridge" as *
 pub #import "./gui/tile_present_host_execution_driver" as *
+pub #import "./gui/tile_present_virtual_executor" as *
 pub #import "./gui/offscreen" as *
 pub #import "./gui/timer" as *
 pub #import "./gui/text_measure" as *

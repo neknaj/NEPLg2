@@ -146,6 +146,8 @@ const stdGuiTilePresentHostReportLoopBridge = read("stdlib/std/gui/tile_present_
 const stdGuiTilePresentHostReportLoopBridgeImpl = withoutComments(stdGuiTilePresentHostReportLoopBridge);
 const stdGuiTilePresentHostExecutionDriver = read("stdlib/std/gui/tile_present_host_execution_driver.nepl");
 const stdGuiTilePresentHostExecutionDriverImpl = withoutComments(stdGuiTilePresentHostExecutionDriver);
+const stdGuiTilePresentVirtualExecutor = read("stdlib/std/gui/tile_present_virtual_executor.nepl");
+const stdGuiTilePresentVirtualExecutorImpl = withoutComments(stdGuiTilePresentVirtualExecutor);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -208,6 +210,7 @@ const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_til
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
 const guiStdTilePresentHostExecutionDriverTests = read("tests/stdlib/gui_std_tile_present_host_execution_driver.n.md");
+const guiStdTilePresentVirtualExecutorTests = read("tests/stdlib/gui_std_tile_present_virtual_executor.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -21095,6 +21098,104 @@ assert(
         guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_bridge_error_ok") &&
         guiStdTilePresentHostExecutionDriverTests.includes("std_row_tile_rle_present_host_execution_driver_no_direct_completion_no_platform_no_fallback"),
     "F5da std tile present host-execution-driver focused doctest must cover driver source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present virtual host executor boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentVirtualExecutor") &&
+            doc.includes("SupportRejected") &&
+            doc.includes("InconsistentCompletion"),
+        `F5db ${name} must document virtual host executor boundary and typed inconsistent completion`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_virtual_executor" as *'), "std/gui facade must export F5db tile present virtual executor boundary");
+assert(
+    stdGuiTilePresentVirtualExecutor.includes("pub struct GuiRgba8888RowTileRlePresentVirtualExecutor:") &&
+        stdGuiTilePresentVirtualExecutor.includes("support %GuiRgba8888RowTileRlePresentHostExecutorSupport") &&
+        stdGuiTilePresentVirtualExecutor.includes("drain %GuiRgba8888RowTileRlePresentVirtualDrain") &&
+        stdGuiTilePresentVirtualExecutor.includes("pub enum GuiRgba8888RowTileRlePresentVirtualExecutorErrorKind:") &&
+        stdGuiTilePresentVirtualExecutor.includes("SupportRejected %GuiRgba8888RowTileRlePresentHostExecutorError") &&
+        stdGuiTilePresentVirtualExecutor.includes("DrainFailed %GuiRgba8888RowTileRlePresentVirtualDrainError") &&
+        stdGuiTilePresentVirtualExecutor.includes("DriverFailed %GuiRgba8888RowTileRlePresentHostExecutionDriverError") &&
+        stdGuiTilePresentVirtualExecutor.includes("InconsistentCompletion") &&
+        stdGuiTilePresentVirtualExecutor.includes("driver_error %Option GuiRgba8888RowTileRlePresentHostExecutionDriverError"),
+    "std/gui/tile_present_virtual_executor F5db must define virtual executor state and typed errors",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_dispatch_loop" as \*/, "std/gui/tile_present_virtual_executor F5db must expose dispatch-loop completion type"],
+    [/#import "std\/gui\/tile_present_host_command" as \*/, "std/gui/tile_present_virtual_executor F5db must map F5cw actions to F5cq host-command records"],
+    [/#import "std\/gui\/tile_present_host_execution" as \*/, "std/gui/tile_present_virtual_executor F5db must consume F5cw actions"],
+    [/#import "std\/gui\/tile_present_host_execution_driver" as \*/, "std/gui/tile_present_virtual_executor F5db must complete through F5da driver"],
+    [/#import "std\/gui\/tile_present_host_executor" as \*/, "std/gui/tile_present_virtual_executor F5db must preflight support through F5cy"],
+    [/#import "std\/gui\/tile_present_virtual_drain" as \*/, "std/gui/tile_present_virtual_executor F5db must use F5cs virtual drain"],
+]) {
+    assertMatch(stdGuiTilePresentVirtualExecutorImpl, pattern, message);
+}
+const virtualExecutorRecordFromAction = functionSlice(stdGuiTilePresentVirtualExecutorImpl, "gui_rgba8888_row_tile_rle_present_virtual_executor_record_from_action");
+for (const fragment of [
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun",
+    "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd",
+]) {
+    assert(virtualExecutorRecordFromAction.includes(fragment), `std/gui/tile_present_virtual_executor F5db action mapping must cover ${fragment}`);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentVirtualExecutorImpl, "gui_rgba8888_row_tile_rle_present_virtual_executor_execute"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver",
+        "gui_rgba8888_row_tile_rle_present_host_executor_require_supported support action",
+        "Result::Err support_error:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_complete_supported_rejection executor support_error driver",
+        "Result::Ok _unit:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_record_from_action &action",
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_step drain record",
+        "Result::Err drain_error:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_complete_drain_failure executor drain_error driver",
+        "Result::Ok next_drain:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_complete_success next_executor driver",
+    ],
+    "std/gui/tile_present_virtual_executor F5db execute must preflight support before drain and consume pending on all paths",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentVirtualExecutorImpl, "gui_rgba8888_row_tile_rle_present_virtual_executor_complete_drain_failure"),
+    [
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_error_category_value &drain_error",
+        "gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver Result::Err outcome_error",
+        "Result::Ok _completion:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_inconsistent executor",
+        "Result::Err driver_error:",
+        "gui_rgba8888_row_tile_rle_present_virtual_executor_drain_error executor drain_error driver_error",
+    ],
+    "std/gui/tile_present_virtual_executor F5db drain failure must consume driver pending and keep typed inconsistent completion",
+);
+assertNoMatch(
+    stdGuiTilePresentVirtualExecutorImpl,
+    /\bgui_rgba8888_row_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete\b|tile_present_dispatch(?!_loop)|tile_present_schedule|tile_present_run_cursor|tile_present_command_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_virtual_executor F5db must not bypass F5da/F5cy or call lower request/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiTilePresentVirtualExecutorImpl,
+    /[()]/,
+    "std/gui/tile_present_virtual_executor F5db implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentVirtualExecutorTests.includes("std_row_tile_rle_present_virtual_executor_facade_ok") &&
+        guiStdTilePresentVirtualExecutorTests.includes("std_row_tile_rle_present_virtual_executor_support_preflight_ok") &&
+        guiStdTilePresentVirtualExecutorTests.includes("std_row_tile_rle_present_virtual_executor_drain_failure_consumes_pending_ok") &&
+        guiStdTilePresentVirtualExecutorTests.includes("std_row_tile_rle_present_virtual_executor_success_sequence_ok") &&
+        guiStdTilePresentVirtualExecutorTests.includes("std_row_tile_rle_present_virtual_executor_no_direct_completion_no_platform_no_fallback"),
+    "F5db std tile present virtual-executor focused doctest must cover source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
