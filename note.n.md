@@ -1,3 +1,57 @@
+# 2026-06-18 Agent2 GUI font F5dp std host span operation presenter executor loop boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dn request と F5do executor request / complete を手動で interleave せず、start / request / complete の std loop contract だけを扱えるようにする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState` は F5dn DriverState を保持する non-Copy loop state とする。
+- `request` は LoopState を value として消費し、F5dn driver request を 1 回だけ呼ぶ。
+- F5dn `Completed` branch では F5do を呼ばず、F5dn `Operation` branch でだけ F5do executor request を呼ぶ。
+- `complete` は F5do executor complete だけを 1 回呼び、F5dn DriverCompletion を Continue / Yield loop completion へ再包装する。
+- F5dp は actual Web / native / bare / headless execution でも real scheduler policy でもない。
+- host import、F5dn complete direct call、F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、F5cw action mapping、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dp は real scheduler / platform backend の前に置く正しい std boundary であり、F5dn request と F5do executor request / complete の残る manual interleaving を除く。
+- LoopState、request result、completion、owner-bearing errors は non-Copy / non-Clone にする。
+- request order は F5dn `driver_request` once、F5dn `Operation` の場合だけ F5do `executor_request` once とする。
+- Driver `Completed` は F5do を呼ばない。
+- complete は F5do `executor_complete` だけを 1 回呼ぶ。F5dn complete、F5dm、F5di、F5dl、F5dh を直接呼ばない。
+- F5do unsupported / mismatch semantics を維持し、synthetic `Err Unsupported`、synthetic `Ok unit`、owner loss を作らない。
+- source policy は F5dn start / request と F5do request / complete、public category accessors だけを許可し、F5dn complete direct、F5dm/F5dl/F5di/F5dh/F5dk/F5dj direct calls、F5cw/F5da-F5de paths、platform / raw / queue / timer / scheduler、fallback / silent no-op、括弧を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl` を追加した。
+- LoopState、RequestResult、LoopCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `request` は F5dn `Completed` branch で F5do executor request を作らず、F5dn `Operation` branch でだけ F5do に進む。
+- `complete` は F5do complete だけを呼び、F5dn DriverCompletion を LoopCompletion へ再包装する。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dp focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: F5dp module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl`。
+- pass: F5do regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: F5dn regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5dp は merge-ready と判断された。
+- non-Copy LoopState / result / completion / error、F5dn start only、F5dn request once and F5do only in Operation branch、F5do complete only、no F5dn complete direct、no F5dm/F5dl/F5di/F5dh/F5dk/F5dj direct call、no old action-driver path、no platform/raw/scheduler/fallback leakage、no synthetic outcome、no parentheses が確認された。
+- docs、source policy、focused doctest labels、`todo.md`、`note.n.md` は「not actual execution / not real scheduler」contract と整合している。
+
+## remaining
+
+- F5dp は std layer の presenter executor loop contract であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5do std host span operation presenter executor boundary
 
 ## scope

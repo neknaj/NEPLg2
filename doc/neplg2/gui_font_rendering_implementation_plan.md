@@ -914,6 +914,62 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dp: std layer row tile RLE present host span operation presenter executor loop boundary
+
+目的:
+
+- actual Web / native / bare / headless presenter loop が F5dn request と F5do executor request / complete を手動で interleave しないための std loop boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState` は F5dn DriverState を保持する non-Copy loop state とする。
+- request は LoopState を value として消費し、F5dn request を 1 回だけ呼ぶ。
+- F5dn `Completed` branch では F5do を呼ばず、F5dn `Operation` branch でだけ F5do executor request を呼ぶ。
+- complete は F5do executor complete だけを 1 回呼び、F5dn DriverCompletion を Continue / Yield loop completion へ再包装する。
+- F5dp is not actual Web / native / bare / headless execution であり、real scheduler policy でもない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dp は real scheduler / platform backend の前に置く正しい std boundary であり、F5dn request と F5do executor request / complete の残る manual interleaving を除く。
+- LoopState、request result、completion、owner-bearing errors は non-Copy / non-Clone にする。
+- request order は F5dn `driver_request` once、F5dn `Operation` の場合だけ F5do `executor_request` once とする。
+- Driver `Completed` は F5do を呼ばない。
+- complete は F5do `executor_complete` だけを 1 回呼ぶ。F5dn complete、F5dm、F5di、F5dl、F5dh を直接呼ばない。
+- F5do unsupported / mismatch semantics を維持し、synthetic `Err Unsupported`、synthetic `Ok unit`、owner loss を作らない。
+- source policy は F5dn start / request と F5do request / complete、public category accessors だけを許可し、F5dn complete direct、F5dm/F5dl/F5di/F5dh/F5dk/F5dj direct calls、F5cw/F5da-F5de paths、platform / raw / queue / timer / scheduler、fallback / silent no-op、括弧を禁止する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl` を追加する。
+- LoopState、RequestResult、LoopCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md` を追加する。heavy presenter scenario は compile timeout を避けるため import smoke に限定し、behavior は source policy で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dp source policy を追加する。
+- GUI / font rendering docs と `todo.md` / `note.n.md` を更新する。
+
+完了条件:
+
+- F5dp `start` が F5dn start を 1 回だけ呼び、success path だけで LoopState を作る。
+- LoopState / RequestResult / LoopCompletion / owner-bearing errors が Clone / Copy 実装を持たない。
+- F5dp `request` が LoopState を value として消費し、F5dn request を 1 回だけ呼ぶ。
+- F5dp `request` は F5dn `Operation` branch でだけ F5do executor request を呼び、F5dn `Completed` branch では F5do を呼ばない。
+- F5dp `complete` が F5do executor complete だけを呼び、F5dn DriverCompletion を LoopCompletion へ再包装する。
+- F5dn complete direct、F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、F5cw action mapping、action drivers、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation を持たない。
+- focused import smoke doctest、source policy、F5do / F5dn regression、`git diff --check` が通る。
+- subagent implementation review で F5dn/F5do exact bridge、no scheduler / no platform / no fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_loop_f5dp.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_loop_module_f5dp.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_f5dp_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_driver_f5dp_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dp.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:
