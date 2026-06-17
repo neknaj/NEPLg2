@@ -8120,6 +8120,20 @@ The flow is value-consuming. `presenter_outcome_request` reads F5dl request read
 
 F5dm does not execute host imports, synthesize host success or failure, call F5di validation, call F5dk presenter step, call F5dj completion step, call F5dh start / step / resume, call F5dg / F5cs / F5ct / F5cu / F5da-F5de / F5cy / F5cw, access raw storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, real schedulers, fallback paths, silent no-op behavior, or create loop `Completed`.
 
+## Std layer row tile RLE present host span operation presenter driver boundary
+
+F5dn introduces the std layer row tile RLE present host span operation presenter driver boundary. It is still not a host executor or scheduler. It gives actual Web, native, bare, and headless presenter loops one value-consuming driver API over F5dl and F5dm, so callers do not manually interleave F5dl start / request with F5dm outcome request / attempt / complete.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState` stores the F5dl loop state and is intentionally not Clone or Copy. A presenter request consumes this state by value, because two independent requests from the same state would replay the same scheduled operation. DriverRequestResult and DriverCompletion are also not Clone or Copy because they may carry an OutcomeRequest or a next DriverState.
+
+`presenter_driver_start` delegates to F5dl start exactly once. On success it wraps the F5dl loop state in DriverState. On failure it keeps support, policy, action, lower F5dl start error, and the lower category obtained from the F5dl public accessor.
+
+`presenter_driver_request` consumes DriverState, reads its F5dl loop state, and delegates to F5dl request exactly once. If F5dl returns a request error, F5dn keeps the original DriverState and lower request error; it does not call F5dm. If F5dl returns terminal `Completed`, F5dn returns driver `Completed` and still does not call F5dm. Only the F5dl `Request` branch is converted into `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` by F5dm outcome request.
+
+`presenter_driver_complete` consumes OutcomeRequest and a caller supplied host outcome. It calls F5dm outcome attempt and F5dm outcome complete exactly once. On success it rewraps F5dl Continue / Yield completion as DriverCompletion containing the next DriverState. On failure it keeps the F5dm lower complete error and category from the F5dm public accessor. F5dn does not call F5dl complete directly, does not call F5di constructor or validation directly, does not call F5dh start / step / resume directly, and does not synthesize `Result::Ok unit` or `GuiError`.
+
+F5dn does not execute host imports, run real schedulers, call action drivers, access raw packet storage, touch platform APIs, DOM, Canvas, minifb, video memory, queues, timers, fallback paths, or silent no-op behavior.
+
 ## Std layer row tile RLE present host execution report boundary
 
 F5cx introduces the std layer row tile RLE present host execution report boundary. It sits above F5cw and below the actual Web, native, bare, or offscreen executor implementation. The report preserves action context and executor outcome in one value, so diagnostics and logging can identify which `GuiRgba8888RowTileRlePresentHostExecutionAction` succeeded or failed without reinterpreting the request.
