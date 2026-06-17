@@ -140,6 +140,8 @@ const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_impor
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
 const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_execution.nepl");
 const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
+const stdGuiTilePresentHostSpanOperation = read("stdlib/std/gui/tile_present_host_span_operation.nepl");
+const stdGuiTilePresentHostSpanOperationImpl = withoutComments(stdGuiTilePresentHostSpanOperation);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -215,6 +217,7 @@ const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_presen
 const guiStdTilePresentRunSpanTests = read("tests/stdlib/gui_std_tile_present_run_span.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
+const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_present_host_span_operation.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -20900,6 +20903,129 @@ assert(
         guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_flat_target_record_mapping_ok") &&
         guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_no_f5cv_no_lower_no_platform_no_fallback"),
     "F5cw std tile present host-execution focused doctest must cover action mapping and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationCursor") &&
+            doc.includes("SinglePending operation") &&
+            doc.includes("RunPending target run_span_cursor") &&
+            doc.includes("F5df run-span cursor"),
+        `F5dg ${name} must document host span operation cursor phases and F5df ownership`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation" as *'), "std/gui facade must export F5dg tile present host span operation boundary");
+assert(
+    stdGuiTilePresentHostSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperation:") &&
+        stdGuiTilePresentHostSpanOperation.includes("WindowBegin %GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin") &&
+        stdGuiTilePresentHostSpanOperation.includes("WindowRunSpan %GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan") &&
+        stdGuiTilePresentHostSpanOperation.includes("WindowEnd %GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd") &&
+        stdGuiTilePresentHostSpanOperation.includes("OffscreenRunSpan %GuiRgba8888RowTileRlePresentRunRowSpan") &&
+        stdGuiTilePresentHostSpanOperation.includes("DeviceRunSpan %GuiRgba8888RowTileRlePresentRunRowSpan"),
+    "std/gui/tile_present_host_span_operation F5dg must define target-qualified begin/run-span/end operations",
+);
+assert(
+    stdGuiTilePresentHostSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase:") &&
+        stdGuiTilePresentHostSpanOperation.includes("SinglePending %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        stdGuiTilePresentHostSpanOperation.includes("RunPending %GuiRgba8888RowTileRlePresentHostSpanOperationRunPending") &&
+        stdGuiTilePresentHostSpanOperation.includes("Completed") &&
+        stdGuiTilePresentHostSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStepResult:") &&
+        stdGuiTilePresentHostSpanOperation.includes("OperationReady %GuiRgba8888RowTileRlePresentHostSpanOperationReady"),
+    "std/gui/tile_present_host_span_operation F5dg must define invalid-state-free cursor phase and explicit step result",
+);
+assert(
+    stdGuiTilePresentHostSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind:") &&
+        stdGuiTilePresentHostSpanOperation.includes("RunSpanStartFailed %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind") &&
+        stdGuiTilePresentHostSpanOperation.includes("action %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostSpanOperation.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind:") &&
+        stdGuiTilePresentHostSpanOperation.includes("RunSpanStepFailed %GuiRgba8888RowTileRlePresentRunSpanStepErrorKind") &&
+        stdGuiTilePresentHostSpanOperation.includes("cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor"),
+    "std/gui/tile_present_host_span_operation F5dg errors must wrap F5df errors with action or cursor context",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/tile_present_host_execution" as \*/, "std/gui/tile_present_host_span_operation F5dg must consume F5cw actions"],
+    [/#import "std\/gui\/tile_present_run_span" as \*/, "std/gui/tile_present_host_span_operation F5dg must consume F5df run-span cursor"],
+]) {
+    assertMatch(stdGuiTilePresentHostSpanOperationImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_start"),
+    [
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin payload:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun payload:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action target record",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun record:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen record",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun record:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device record",
+    ],
+    "std/gui/tile_present_host_span_operation F5dg start must map F5cw actions to one-shot or F5df-backed run cursor",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_start_run"),
+    [
+        "gui_rgba8888_row_tile_rle_present_run_span_start record",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_new action lower",
+        "Result::Ok run_span_cursor:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_run target run_span_cursor",
+    ],
+    "std/gui/tile_present_host_span_operation F5dg run start must call F5df start once and preserve action context on error",
+);
+const hostSpanOperationStep = functionSlice(stdGuiTilePresentHostSpanOperationImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_step");
+assertOrderedFragments(
+    hostSpanOperationStep,
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::SinglePending operation:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_completed",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::RunPending pending:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_cursor &pending",
+        "gui_rgba8888_row_tile_rle_present_run_span_step run_span_cursor",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_new cursor lower",
+        "GuiRgba8888RowTileRlePresentRunSpanStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed",
+        "GuiRgba8888RowTileRlePresentRunSpanStepResult::SpanReady span_ready:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_for_span target span",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_run target next_run_span_cursor",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::Completed:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed",
+    ],
+    "std/gui/tile_present_host_span_operation F5dg step must emit single operations, call F5df step, and preserve explicit completion",
+);
+assert(
+    (hostSpanOperationStep.match(/gui_rgba8888_row_tile_rle_present_run_span_step run_span_cursor/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation F5dg public step must call F5df step exactly once",
+);
+assertNoMatch(
+    hostSpanOperationStep,
+    /\bgui_rgba8888_row_tile_rle_present_run_span_start\b/,
+    "std/gui/tile_present_host_span_operation F5dg public step must not restart F5df run span cursor",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationImpl,
+    /\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation F5dg must not call action drivers, lower cursors, raw storage, host/platform APIs, queues, render targets, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation F5dg implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_facade_ok") &&
+        guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_operation_enum_ok") &&
+        guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_single_pending_ok") &&
+        guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_run_span_cursor_ok") &&
+        guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_f5cw_f5df_only_ok") &&
+        guiStdTilePresentHostSpanOperationTests.includes("std_row_tile_rle_present_host_span_operation_no_raw_no_platform_no_fallback"),
+    "F5dg std tile present host-span-operation focused doctest must cover span operation source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

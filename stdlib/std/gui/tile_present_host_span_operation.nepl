@@ -1,0 +1,396 @@
+//: # std/gui/tile_present_host_span_operation
+//: RGBA8888 row tile RLE present host action を span operation stream に[写/うつ]す std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cw の executor-facing action を、actual Web / native / bare presenter が 1 operation ずつ[消費/しょうひ]できる target-qualified stream に[変換/へんかん]します。
+//: - Run action は F5df の row-span cursor を[保持/ほじ]し、1 step で 1 row span だけを[発行/はっこう]します。
+//:
+//: ### [契約/けいやく]
+//: - Begin / End action は `SinglePending operation` として 1 回だけ operation を[返/かえ]し、次の step で explicit Completed を[返/かえ]します。
+//: - Run action は start で F5df `run_span_start` を 1 回だけ[呼/よ]び、以後は cursor に[保持/ほじ]した F5df cursor を step で[進/すす]めます。
+//: - F5df start / step error は action または cursor context を[保持/ほじ]する typed error に[包/つつ]みます。
+//: - platform import、DOM、Canvas、minifb、video memory、DrawTarget / RenderTarget、queue、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin:
+    window %WindowId
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin \payload:
+        payload
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan:
+    window %WindowId
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan \payload:
+        payload
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd:
+    window %WindowId
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd \payload:
+        payload
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationTarget:
+    Window %WindowId
+    Offscreen
+    Device
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationTarget:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationTarget GuiRgba8888RowTileRlePresentHostSpanOperationTarget \target:
+        *target
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationTarget:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget GuiRgba8888RowTileRlePresentHostSpanOperationTarget \target:
+        target
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperation:
+    WindowBegin %GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin
+    WindowRunSpan %GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan
+    WindowEnd %GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd
+    OffscreenBegin %GuiRgba8888RowTileRlePresentDescriptor
+    OffscreenRunSpan %GuiRgba8888RowTileRlePresentRunRowSpan
+    OffscreenEnd %GuiRgba8888RowTileRlePresentDescriptor
+    DeviceBegin %GuiRgba8888RowTileRlePresentDescriptor
+    DeviceRunSpan %GuiRgba8888RowTileRlePresentRunRowSpan
+    DeviceEnd %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperation:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation \operation:
+        *operation
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperation:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation \operation:
+        operation
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationRunPending:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    run_span_cursor %GuiRgba8888RowTileRlePresentRunSpanCursor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationRunPending:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationRunPending GuiRgba8888RowTileRlePresentHostSpanOperationRunPending \pending:
+        *pending
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationRunPending:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationRunPending GuiRgba8888RowTileRlePresentHostSpanOperationRunPending \pending:
+        pending
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase:
+    SinglePending %GuiRgba8888RowTileRlePresentHostSpanOperation
+    RunPending %GuiRgba8888RowTileRlePresentHostSpanOperationRunPending
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase \phase:
+        phase
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationCursor:
+    phase %GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationCursor:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationCursor \cursor:
+        *cursor
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationCursor:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationCursor \cursor:
+        cursor
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationReady:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationReady:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperationReady \ready:
+        *ready
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationReady:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperationReady \ready:
+        ready
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStepResult:
+    OperationReady %GuiRgba8888RowTileRlePresentHostSpanOperationReady
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepResult GuiRgba8888RowTileRlePresentHostSpanOperationStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationStepResult GuiRgba8888RowTileRlePresentHostSpanOperationStepResult \result:
+        result
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind:
+    RunSpanStartFailed %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind:
+    RunSpanStepFailed %GuiRgba8888RowTileRlePresentRunSpanStepErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationStartError:
+    kind %GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    lower %GuiRgba8888RowTileRlePresentRunSpanStartError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationStartError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentHostSpanOperationStartError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationStartError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentHostSpanOperationStartError \error:
+        error
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationStepError:
+    kind %GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor
+    lower %GuiRgba8888RowTileRlePresentRunSpanStepError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationStepError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentHostSpanOperationStepError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationStepError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentHostSpanOperationStepError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_new %fn WindowId fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin \window\descriptor:
+    GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin window descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_new %fn WindowId fn GuiRgba8888RowTileRlePresentRunRowSpan GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan \window\span:
+    GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan window span
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_new %fn WindowId fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd \window\descriptor:
+    GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd window descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentHostSpanOperationRunPending \target\run_span_cursor:
+    GuiRgba8888RowTileRlePresentHostSpanOperationRunPending target run_span_cursor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase GuiRgba8888RowTileRlePresentHostSpanOperationCursor \phase:
+    GuiRgba8888RowTileRlePresentHostSpanOperationCursor phase
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single %fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperationCursor \operation:
+    gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_new GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::SinglePending operation
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_run %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentHostSpanOperationCursor \target\run_span_cursor:
+    let pending %GuiRgba8888RowTileRlePresentHostSpanOperationRunPending gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_new target run_span_cursor
+    gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_new GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::RunPending pending
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_completed %fn void GuiRgba8888RowTileRlePresentHostSpanOperationCursor \void:
+    gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_new GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::Completed
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationReady \operation\cursor:
+    GuiRgba8888RowTileRlePresentHostSpanOperationReady operation cursor
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_new %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentRunSpanStartError GuiRgba8888RowTileRlePresentHostSpanOperationStartError \action\lower:
+    let lower_kind %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind gui_rgba8888_row_tile_rle_present_run_span_start_error_kind &lower
+    let kind %GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind::RunSpanStartFailed lower_kind
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_span_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationStartError kind category action lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor fn GuiRgba8888RowTileRlePresentRunSpanStepError GuiRgba8888RowTileRlePresentHostSpanOperationStepError \cursor\lower:
+    let lower_kind %GuiRgba8888RowTileRlePresentRunSpanStepErrorKind gui_rgba8888_row_tile_rle_present_run_span_step_error_kind &lower
+    let kind %GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind::RunSpanStepFailed lower_kind
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_span_step_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationStepError kind category cursor lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_for_span %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan GuiRgba8888RowTileRlePresentHostSpanOperation \target\span:
+    match target:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window:
+            let payload %GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_new window span
+            GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan payload
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan span
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan span
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_run %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostCommandRunRecord Result GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationStartError \action\target\record:
+    match gui_rgba8888_row_tile_rle_present_run_span_start record:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_new action lower
+        Result::Ok run_span_cursor:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_run target run_span_cursor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin GuiRgba8888RowTileRlePresentDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowRunSpan GuiRgba8888RowTileRlePresentRunRowSpan \payload:
+    *field::get_ref payload "span"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor %fn &GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd GuiRgba8888RowTileRlePresentDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_target %fn &GuiRgba8888RowTileRlePresentHostSpanOperationRunPending GuiRgba8888RowTileRlePresentHostSpanOperationTarget \pending:
+    *field::get_ref pending "target"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_cursor %fn &GuiRgba8888RowTileRlePresentHostSpanOperationRunPending GuiRgba8888RowTileRlePresentRunSpanCursor \pending:
+    *field::get_ref pending "run_span_cursor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_phase %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase \cursor:
+    *field::get_ref cursor "phase"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_ready_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperation \ready:
+    *field::get_ref ready "operation"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_ready_cursor %fn &GuiRgba8888RowTileRlePresentHostSpanOperationReady GuiRgba8888RowTileRlePresentHostSpanOperationCursor \ready:
+    *field::get_ref ready "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_kind %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentHostSpanOperationStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_action %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_start_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStartError GuiRgba8888RowTileRlePresentRunSpanStartError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_kind %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentHostSpanOperationStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_cursor %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentHostSpanOperationCursor \error:
+    *field::get_ref error "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationStepError GuiRgba8888RowTileRlePresentRunSpanStepError \error:
+    *field::get_ref error "lower"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_start: action から operation cursor を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - Begin / End は one-shot single operation cursor です。
+//: - Run は F5df start を start 時に 1 回だけ[呼/よ]び、失敗時は original action を保持した error を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_start %fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationCursor GuiRgba8888RowTileRlePresentHostSpanOperationStartError \action:
+    match action:
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_begin_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_begin_descriptor &payload
+            let operation_payload %GuiRgba8888RowTileRlePresentHostSpanOperationWindowBegin gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_new window descriptor
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin operation_payload
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_run_window &payload
+            let record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_host_execution_window_run_record &payload
+            let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window
+            gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action target record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_end_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_end_descriptor &payload
+            let operation_payload %GuiRgba8888RowTileRlePresentHostSpanOperationWindowEnd gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_new window descriptor
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd operation_payload
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin descriptor
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun record:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd descriptor:
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd descriptor
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin descriptor:
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin descriptor
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun record:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_start_run action GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device record
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd descriptor:
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd descriptor
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_single operation
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_step: cursor を 1 operation だけ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - SinglePending は operation と Completed cursor を[返/かえ]します。
+//: - RunPending は F5df step を最大 1 回だけ[呼/よ]び、row span を target-qualified operation に[写/うつ]します。
+//: - Completed cursor は explicit Completed を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_step %fn GuiRgba8888RowTileRlePresentHostSpanOperationCursor Result GuiRgba8888RowTileRlePresentHostSpanOperationStepResult GuiRgba8888RowTileRlePresentHostSpanOperationStepError \cursor:
+    let phase %GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_phase &cursor
+    match phase:
+        GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::SinglePending operation:
+            let next_cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_completed
+            let ready %GuiRgba8888RowTileRlePresentHostSpanOperationReady gui_rgba8888_row_tile_rle_present_host_span_operation_ready_new operation next_cursor
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::OperationReady ready
+        GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::RunPending pending:
+            let run_span_cursor %GuiRgba8888RowTileRlePresentRunSpanCursor gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_cursor &pending
+            match gui_rgba8888_row_tile_rle_present_run_span_step run_span_cursor:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_step_error_new cursor lower
+                Result::Ok lower_result:
+                    match lower_result:
+                        GuiRgba8888RowTileRlePresentRunSpanStepResult::Completed:
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed
+                        GuiRgba8888RowTileRlePresentRunSpanStepResult::SpanReady span_ready:
+                            let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_rgba8888_row_tile_rle_present_host_span_operation_run_pending_target &pending
+                            let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_run_span_ready_span &span_ready
+                            let next_run_span_cursor %GuiRgba8888RowTileRlePresentRunSpanCursor gui_rgba8888_row_tile_rle_present_run_span_ready_cursor &span_ready
+                            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_for_span target span
+                            let next_cursor %GuiRgba8888RowTileRlePresentHostSpanOperationCursor gui_rgba8888_row_tile_rle_present_host_span_operation_cursor_run target next_run_span_cursor
+                            let ready %GuiRgba8888RowTileRlePresentHostSpanOperationReady gui_rgba8888_row_tile_rle_present_host_span_operation_ready_new operation next_cursor
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::OperationReady ready
+        GuiRgba8888RowTileRlePresentHostSpanOperationCursorPhase::Completed:
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationStepResult::Completed

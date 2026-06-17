@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5dg std host span operation boundary
+
+## scope
+
+- F5cw host execution action を、actual Web / native / bare presenter が 1 operation ずつ消費できる target-qualified operation stream に写す std layer boundary を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCursor` は `SinglePending operation`、`RunPending target run_span_cursor`、`Completed` だけを phase として持つ。
+- Begin / End action は one-shot operation と explicit Completed にし、Run action は start で F5df run-span cursor を 1 回だけ作って step で進める。
+- F5df start error は original F5cw action、F5df step error は current operation cursor を保持する typed error に包む。
+- F5dg does not call actual host import execution。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record / raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、`start action` を明示すること、cursor phase を `SinglePending operation` / `RunPending target run_span_cursor` / `Completed` に固定すること、step result を `OperationReady operation next_cursor` / `Completed` にすること、F5df error に action / cursor context を保持すること、public step が F5df step を 1 回だけ呼ぶことを source policy で固定することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperation` は Window / Offscreen / Device の Begin / RunSpan / End を表す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCursor` と `GuiRgba8888RowTileRlePresentHostSpanOperationStepResult` を追加した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation.n.md` を追加し、Begin one-shot、Run row-span split、start error wrapping を 3 doctest に分けて検査する。
+- `stdlib/std/gui.nepl` facade、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation.nepl tests/stdlib/gui_std_tile_present_host_span_operation.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dg focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation.n.md`。
+- pass: F5dg module doctest `stdlib/std/gui/tile_present_host_span_operation.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5df regression `tests/stdlib/gui_std_tile_present_run_span.n.md`。
+- pass: F5cw regression `tests/stdlib/gui_std_tile_present_host_execution.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は最初 `REVIEW_CHANGES`。
+- 指摘は `todo.md` が F5dg を future work として残していた記録矛盾だけだった。
+- `todo.md` を未実装の Web / native / bare presenter、scheduler、FHD validation、compositor / stroke / shadow に限定し、再レビューで `REVIEW_APPROVED` を受けた。
+
+## remaining
+
+- F5dg は actual host import execution 直前の operation stream 正規化までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5df std run-span boundary
 
 ## scope
