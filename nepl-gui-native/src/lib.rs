@@ -718,6 +718,93 @@ pub fn native_pack_rgba8888_pixel(r: u8, g: u8, b: u8, a: u8) -> u32 {
     (u32::from(r) << 24) | (u32::from(g) << 16) | (u32::from(b) << 8) | u32::from(a)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeRgbColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeRgb0PresentBuffer {
+    width: i32,
+    height: i32,
+    pixels: Vec<u32>,
+}
+
+impl NativeRgb0PresentBuffer {
+    /// Converts a completed semantic RGBA8888 framebuffer into `0x00RRGGBB`.
+    ///
+    /// The conversion performs source-over alpha composition with an explicit
+    /// background color and does not expose a native-endian byte representation.
+    pub fn from_rgba8888_framebuffer(
+        frame_buffer: &NativeRgba8888FrameBuffer,
+        background: NativeRgbColor,
+    ) -> Result<Self, NativeSpanFramebufferError> {
+        if frame_buffer.active_sequence().is_some() {
+            return Err(NativeSpanFramebufferError::SequenceAlreadyActive);
+        }
+        let pixel_count = frame_buffer
+            .width
+            .checked_mul(frame_buffer.height)
+            .ok_or(NativeSpanFramebufferError::DimensionOverflow)?;
+        let pixel_count = usize::try_from(pixel_count)
+            .map_err(|_| NativeSpanFramebufferError::DimensionOverflow)?;
+        if pixel_count != frame_buffer.pixels.len() {
+            return Err(NativeSpanFramebufferError::InternalIndexOverflow);
+        }
+
+        let mut pixels = Vec::new();
+        pixels
+            .try_reserve_exact(pixel_count)
+            .map_err(|_| NativeSpanFramebufferError::ResourceExhausted)?;
+        for pixel in &frame_buffer.pixels {
+            pixels.push(native_rgba8888_to_rgb0_over_background(*pixel, background));
+        }
+
+        Ok(Self {
+            width: frame_buffer.width,
+            height: frame_buffer.height,
+            pixels,
+        })
+    }
+
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
+    pub fn height(&self) -> i32 {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &[u32] {
+        &self.pixels
+    }
+}
+
+pub fn native_pack_rgb0_pixel(r: u8, g: u8, b: u8) -> u32 {
+    (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)
+}
+
+pub fn native_rgba8888_to_rgb0_over_background(rgba8888: u32, background: NativeRgbColor) -> u32 {
+    let source_r = ((rgba8888 >> 24) & 0xff) as u8;
+    let source_g = ((rgba8888 >> 16) & 0xff) as u8;
+    let source_b = ((rgba8888 >> 8) & 0xff) as u8;
+    let source_a = (rgba8888 & 0xff) as u8;
+    native_pack_rgb0_pixel(
+        native_blend_rgba8888_channel(source_r, background.r, source_a),
+        native_blend_rgba8888_channel(source_g, background.g, source_a),
+        native_blend_rgba8888_channel(source_b, background.b, source_a),
+    )
+}
+
+fn native_blend_rgba8888_channel(source: u8, background: u8, alpha: u8) -> u8 {
+    let alpha = u32::from(alpha);
+    let inverse_alpha = 255 - alpha;
+    let blended = (u32::from(source) * alpha + u32::from(background) * inverse_alpha + 127) / 255;
+    blended as u8
+}
+
 fn native_span_framebuffer_index(
     frame_width: i32,
     x: i32,
@@ -1851,6 +1938,94 @@ mod tests {
         assert_eq!(
             frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
             GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+    }
+
+    #[test]
+    fn native_present_buffer_packs_rgb0_and_blends_alpha() {
+        let background = NativeRgbColor { r: 0, g: 0, b: 255 };
+        assert_eq!(native_pack_rgb0_pixel(1, 2, 3), 0x00010203);
+        assert_eq!(
+            native_rgba8888_to_rgb0_over_background(
+                native_pack_rgba8888_pixel(255, 0, 0, 255),
+                background,
+            ),
+            0x00ff0000
+        );
+        assert_eq!(
+            native_rgba8888_to_rgb0_over_background(
+                native_pack_rgba8888_pixel(255, 0, 0, 0),
+                background,
+            ),
+            0x000000ff
+        );
+        assert_eq!(
+            native_rgba8888_to_rgb0_over_background(
+                native_pack_rgba8888_pixel(255, 0, 0, 128),
+                background,
+            ),
+            0x0080007f
+        );
+    }
+
+    #[test]
+    fn native_present_buffer_converts_completed_framebuffer() {
+        let descriptor = native_framebuffer_descriptor(2);
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 0, 1, 255),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                NativeSpanOperationRunSpan {
+                    a: 0,
+                    ..native_framebuffer_run(1, 0, 1, 200)
+                },
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+
+        let present_buffer =
+            NativeRgb0PresentBuffer::from_rgba8888_framebuffer(&frame_buffer, background).unwrap();
+        assert_eq!(present_buffer.width(), 4);
+        assert_eq!(present_buffer.height(), 3);
+        assert_eq!(present_buffer.pixels().len(), 12);
+        assert_eq!(present_buffer.pixels()[0], 0x00ff141e);
+        assert_eq!(present_buffer.pixels()[1], native_pack_rgb0_pixel(1, 2, 3));
+    }
+
+    #[test]
+    fn native_present_buffer_rejects_active_framebuffer_sequence() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let background = NativeRgbColor { r: 0, g: 0, b: 0 };
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            NativeRgb0PresentBuffer::from_rgba8888_framebuffer(&frame_buffer, background)
+                .unwrap_err(),
+            NativeSpanFramebufferError::SequenceAlreadyActive
+        );
+        assert_eq!(
+            frame_buffer.active_sequence().unwrap(),
+            NativeSpanFramebufferActiveSequence {
+                descriptor,
+                seen_run_count: 0,
+            }
         );
     }
 }

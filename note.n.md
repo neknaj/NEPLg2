@@ -69617,3 +69617,39 @@ MERGE_APPROVED
 ### residual
 
 - F5ez は offscreen framebuffer sink までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fa RGB0 present buffer conversion
+
+### scope
+
+- F5fa は F5ez の completed semantic `0xRRGGBBAA` framebuffer を native presenter が受け取れる semantic `0x00RRGGBB` present buffer へ変換する Rust side boundary である。
+- この slice は pixel contract conversion のみを扱い、actual window loop、minifb `update_with_buffer`、scheduler loop、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+- alpha composition は caller が明示した `NativeRgbColor` background に対してだけ行い、default background や暗黙 fallback は持たない。
+
+### plan_review
+
+- Zeno the 2nd の plan review は `APPROVED`。completed framebuffer だけを入力にし、active sequence を拒否し、semantic `0x00RRGGBB` buffer を private field で保持し、byte / endian view を公開しない条件で実装開始が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgbColor`、`NativeRgb0PresentBuffer`、`native_pack_rgb0_pixel`、`native_rgba8888_to_rgb0_over_background` を追加した。
+- `NativeRgb0PresentBuffer::from_rgba8888_framebuffer` は active sequence を `SequenceAlreadyActive` として拒否し、source pixel length を検査し、checked arithmetic と `try_reserve_exact` を通してから semantic `0x00RRGGBB` pixels を作る。
+- alpha composition は `(source * alpha + background * (255 - alpha) + 127) / 255` の integer round-to-nearest contract として固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Zeno the 2nd implementation review は `APPROVED`。semantic `0xRRGGBBAA` から `0x00RRGGBB` への変換、明示 background での alpha composition、active sequence 拒否、private buffer field、byte / endian view 禁止、`main.rs` / minifb 未接続の境界維持が確認された。
+
+### residual
+
+- F5fa は completed framebuffer から presenter-ready buffer への conversion boundary までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
