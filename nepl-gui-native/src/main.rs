@@ -4,6 +4,8 @@ use std::process::ExitCode;
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 use nepl_gui_native::map_native_window_point_to_image;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+use nepl_gui_native::{NativePresenterFrame, NativeRgb0PresentBuffer};
 
 fn main() -> ExitCode {
     let options = match NativeGuiOptions::parse(env::args().skip(1)) {
@@ -108,6 +110,20 @@ fn print_headless_frame(demo: GuiDemo, counter_value: i32, scale: usize) {
     println!("pixels checksum = {}", checksum_pixels(&image.pixels));
 }
 
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn rasterize_demo_present_buffer(
+    frame: &nepl_gui_native::GuiFrame,
+    scale: usize,
+) -> Result<NativeRgb0PresentBuffer, String> {
+    let image = rasterize_frame(frame, scale);
+    NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(
+        image.width,
+        image.height,
+        image.pixels,
+    )
+    .map_err(|error| format!("native presenter RGB0 frame invalid: {error:?}"))
+}
+
 fn print_usage() {
     eprintln!(
         "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N]"
@@ -120,11 +136,13 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
     use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
 
     let mut frame = render_demo_frame(options.demo, options.counter_value);
-    let mut image = rasterize_frame(&frame, options.scale);
+    let mut present_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
+    let initial_present_frame = NativePresenterFrame::from_rgb0_present_buffer(&present_buffer)
+        .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
     let mut window = Window::new(
         "NEPLg2 GUI native preview",
-        image.width,
-        image.height,
+        initial_present_frame.width(),
+        initial_present_frame.height(),
         WindowOptions {
             resize: true,
             scale_mode: ScaleMode::AspectRatioStretch,
@@ -150,11 +168,15 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
             if mouse_down && !previous_mouse_down {
                 if let Some((mouse_x, mouse_y)) = window.get_unscaled_mouse_pos(MouseMode::Discard)
                 {
+                    let present_frame = NativePresenterFrame::from_rgb0_present_buffer(
+                        &present_buffer,
+                    )
+                    .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
                     if let Some((image_x, image_y)) = map_native_window_point_to_image(
                         current_size.0,
                         current_size.1,
-                        image.width,
-                        image.height,
+                        present_frame.width(),
+                        present_frame.height(),
                         mouse_x,
                         mouse_y,
                     ) {
@@ -163,15 +185,21 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
                         if nepl_gui_native::counter_hit(&frame, scene_x, scene_y) {
                             options.counter_value += 1;
                             frame = render_demo_frame(options.demo, options.counter_value);
-                            image = rasterize_frame(&frame, options.scale);
+                            present_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
                         }
                     }
                 }
             }
             previous_mouse_down = mouse_down;
         }
+        let present_frame = NativePresenterFrame::from_rgb0_present_buffer(&present_buffer)
+            .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
         window
-            .update_with_buffer(&image.pixels, image.width, image.height)
+            .update_with_buffer(
+                present_frame.pixels(),
+                present_frame.width(),
+                present_frame.height(),
+            )
             .map_err(|error| error.to_string())?;
     }
 

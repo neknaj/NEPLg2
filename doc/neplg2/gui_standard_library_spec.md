@@ -91,6 +91,12 @@ Begin は active sequence が無い場合だけ受け、descriptor と `seen_run
 
 変換は `0xRRGGBBAA` から shift / mask で channel を取り出し、caller supplied `NativeRgbColor` を explicit background として source-over alpha composition する。channel formula は `(source * alpha + background * (255 - alpha) + 127) / 255` で固定する。hidden default background、fallback background、native endian byte cast、minifb integration、window loop、scheduler loop、DOM、Canvas、video memory、fallback、silent no-op はこの checkpoint の責務ではない。
 
+## F5fb Native presenter frame adapter checkpoint
+
+2026-06-18 の F5fb では、`NativeRgb0PresentBuffer` を native presenter が消費できる immutable frame へ借用変換する adapter を追加する。adapter は minifb 型や OS handle を public type に含めず、checked `usize` width / height と immutable `&[u32]` pixels だけを公開する。minifb `update_with_buffer` 呼び出しは smoke runner の `main.rs` に閉じ込める。
+
+smoke runner の既存 demo rasterizer から来る pixels は `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` を通す。この import は `width > 0`、`height > 0`、checked `width * height == pixels.len`、every pixel の high byte が 0 の `0x00RRGGBB` であることを要求する。high byte がある pixel は mask せず、`Result` error とする。F5fb は正式 NEPL span path、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+
 ## 層構造
 
 依存方向は次に固定する。

@@ -86,6 +86,7 @@ pub const GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME: i32 = -6;
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW: i32 = 1;
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_OFFSCREEN: i32 = 2;
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_DEVICE: i32 = 3;
+pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeSpanOperationTarget {
@@ -732,6 +733,21 @@ pub struct NativeRgb0PresentBuffer {
     pixels: Vec<u32>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativePresenterFrameError {
+    InvalidDimensions,
+    DimensionOverflow,
+    PixelCountMismatch,
+    PixelFormatMismatch,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativePresenterFrame<'a> {
+    width: usize,
+    height: usize,
+    pixels: &'a [u32],
+}
+
 impl NativeRgb0PresentBuffer {
     /// Converts a completed semantic RGBA8888 framebuffer into `0x00RRGGBB`.
     ///
@@ -779,6 +795,87 @@ impl NativeRgb0PresentBuffer {
 
     pub fn pixels(&self) -> &[u32] {
         &self.pixels
+    }
+
+    /// Imports smoke/demo pixels that are already semantic `0x00RRGGBB`.
+    ///
+    /// This constructor is not the formal NEPL span presentation path. It exists
+    /// to keep the native smoke runner on the same presenter-side pixel contract
+    /// while the formal host import path is still being connected.
+    pub fn from_rgb0_pixels_for_smoke_demo(
+        width: usize,
+        height: usize,
+        pixels: Vec<u32>,
+    ) -> Result<Self, NativePresenterFrameError> {
+        if width == 0 || height == 0 {
+            return Err(NativePresenterFrameError::InvalidDimensions);
+        }
+        let pixel_count = width
+            .checked_mul(height)
+            .ok_or(NativePresenterFrameError::DimensionOverflow)?;
+        if pixels.len() != pixel_count {
+            return Err(NativePresenterFrameError::PixelCountMismatch);
+        }
+        if pixels
+            .iter()
+            .any(|pixel| pixel & NATIVE_RGB0_HIGH_BYTE_MASK != 0)
+        {
+            return Err(NativePresenterFrameError::PixelFormatMismatch);
+        }
+        let width =
+            i32::try_from(width).map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
+        let height =
+            i32::try_from(height).map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
+        Ok(Self {
+            width,
+            height,
+            pixels,
+        })
+    }
+}
+
+impl<'a> NativePresenterFrame<'a> {
+    /// Borrows a checked RGB0 buffer as a presenter-ready immutable frame.
+    pub fn from_rgb0_present_buffer(
+        buffer: &'a NativeRgb0PresentBuffer,
+    ) -> Result<Self, NativePresenterFrameError> {
+        if buffer.width <= 0 || buffer.height <= 0 {
+            return Err(NativePresenterFrameError::InvalidDimensions);
+        }
+        let width = usize::try_from(buffer.width)
+            .map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
+        let height = usize::try_from(buffer.height)
+            .map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
+        let pixel_count = width
+            .checked_mul(height)
+            .ok_or(NativePresenterFrameError::DimensionOverflow)?;
+        if buffer.pixels.len() != pixel_count {
+            return Err(NativePresenterFrameError::PixelCountMismatch);
+        }
+        if buffer
+            .pixels
+            .iter()
+            .any(|pixel| pixel & NATIVE_RGB0_HIGH_BYTE_MASK != 0)
+        {
+            return Err(NativePresenterFrameError::PixelFormatMismatch);
+        }
+        Ok(Self {
+            width,
+            height,
+            pixels: &buffer.pixels,
+        })
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &'a [u32] {
+        self.pixels
     }
 }
 
@@ -2026,6 +2123,72 @@ mod tests {
                 descriptor,
                 seen_run_count: 0,
             }
+        );
+    }
+
+    #[test]
+    fn native_presenter_frame_imports_smoke_rgb0_pixels() {
+        let present_buffer = NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(
+            2,
+            2,
+            vec![0x00010203, 0x00040506, 0x00070809, 0x000a0b0c],
+        )
+        .unwrap();
+        let present_frame =
+            NativePresenterFrame::from_rgb0_present_buffer(&present_buffer).unwrap();
+
+        assert_eq!(present_frame.width(), 2);
+        assert_eq!(present_frame.height(), 2);
+        assert_eq!(present_frame.pixels(), present_buffer.pixels());
+    }
+
+    #[test]
+    fn native_presenter_frame_rejects_invalid_rgb0_import() {
+        assert_eq!(
+            NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(0, 1, vec![]).unwrap_err(),
+            NativePresenterFrameError::InvalidDimensions
+        );
+        assert_eq!(
+            NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(2, 2, vec![0, 1, 2])
+                .unwrap_err(),
+            NativePresenterFrameError::PixelCountMismatch
+        );
+        assert_eq!(
+            NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(1, 1, vec![0xff000001])
+                .unwrap_err(),
+            NativePresenterFrameError::PixelFormatMismatch
+        );
+    }
+
+    #[test]
+    fn native_presenter_frame_revalidates_buffer_contract() {
+        let invalid_dimensions = NativeRgb0PresentBuffer {
+            width: 0,
+            height: 1,
+            pixels: vec![0],
+        };
+        let mismatched_pixels = NativeRgb0PresentBuffer {
+            width: 2,
+            height: 2,
+            pixels: vec![0, 1, 2],
+        };
+        let invalid_format = NativeRgb0PresentBuffer {
+            width: 1,
+            height: 1,
+            pixels: vec![0x01000000],
+        };
+
+        assert_eq!(
+            NativePresenterFrame::from_rgb0_present_buffer(&invalid_dimensions).unwrap_err(),
+            NativePresenterFrameError::InvalidDimensions
+        );
+        assert_eq!(
+            NativePresenterFrame::from_rgb0_present_buffer(&mismatched_pixels).unwrap_err(),
+            NativePresenterFrameError::PixelCountMismatch
+        );
+        assert_eq!(
+            NativePresenterFrame::from_rgb0_present_buffer(&invalid_format).unwrap_err(),
+            NativePresenterFrameError::PixelFormatMismatch
         );
     }
 }
