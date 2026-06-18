@@ -30,6 +30,20 @@
 - F5el real loop driver module を追加し、`NeedInput` / `Completed` / typed lower error を返す。
 - source policy と focused doctest で policy shape、start/after_step dispatch、zero-budget yield semantics、no backend / no fallback を固定する。
 
+## Phase F5em: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary
+
+2026-06-18 の F5em では、F5el `NeedInput` と caller supplied F5ek input を deterministic headless / offscreen test 用の 1 app-loop step として接続する。F5em は actual backend clock source、native / bare scheduler backend、queue、platform API、DOM / Canvas / minifb、video memory を実装しない。
+
+変更:
+
+- F5em headless app-loop step module を追加し、`NeedInput` / `Completed` / typed lower error を返す。
+- `HeadlessAppLoopStepPolicy` は F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持する。
+- `start` は F5el start を 1 回だけ呼ぶ。
+- `advance` は previous `NeedInput` と explicit input だけを受け、F5ek step を 1 回呼び、成功時だけ F5el after-step を 1 回呼ぶ。
+- F5ek error では F5el after-step を呼ばない。
+- `Completed` は terminal output だけであり、advance input にはしない。
+- F5em は `CompleteAck`、executor outcome、clock delta、fallback success、silent no-op を合成しない。
+
 ## Phase 1: documentation and policy
 
 変更:

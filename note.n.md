@@ -1,3 +1,36 @@
+# 2026-06-18 Agent2 GUI std F5em virtual scheduler headless app-loop step boundary
+
+## 目的
+
+- F5el `RealLoopDriverResult::NeedInput` と F5ek `RealLoopStepInput` を、headless / offscreen test が 1 app-loop step として進められる deterministic std boundary へ接続する。
+- `Completed` は terminal output だけにし、advance input として再投入しない。
+- `Complete` action は caller supplied `CompleteAck` を待ち、F5em が ack、executor outcome、clock delta、fallback success、silent no-op を合成しない。
+
+## subagent review
+
+- Plato plan review は `PLAN_APPROVED with conditions`。
+- 条件は、F5em policy が F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持すること、`advance` が F5ek step 成功時だけ F5el after-step を呼ぶこと、F5ek error では after-step を呼ばないことだった。
+- `Completed` を advance input にしないこと、`CompleteAck` を合成しないこと、`remaining_count == 0` を F5em で解釈せず F5el / F5ec の budget-yield semantics に任せることも条件として確認した。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.nepl` を追加した。
+- `HeadlessAppLoopStepPolicy` は F5el driver policy と F5ek step policy だけを保持する。
+- `headless_app_loop_step_start` は F5el `real_loop_driver_start` を 1 回呼び、driver result を F5em result へ写す。
+- `headless_app_loop_step_advance` は previous `NeedInput` action と caller supplied F5ek input を受け、F5ek `real_loop_step` を 1 回呼ぶ。成功時だけ F5el `real_loop_driver_after_step` を 1 回呼び、F5ek error は `RealStepFailed` として返す。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md -n 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_f5em.json -j 1`。
+
+## 残件
+
+- F5em は deterministic one-step boundary までであり、actual backend clock source、native / bare scheduler backend、long-running headless loop runner、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI std F5el virtual scheduler real loop driver boundary
 
 ## 目的
