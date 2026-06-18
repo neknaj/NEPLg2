@@ -1,0 +1,46 @@
+# GUI std row tile RLE present host span operation presenter executor session turn virtual scheduler loop timer advance doctests
+
+このファイルは、F5eh の std layer deterministic virtual scheduler loop timer advance boundary の public import surface を固定する。
+
+F5eh は F5eg `AwaitTimerAdvance` action を消費し、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ typed authority である。executor completion、yield-to-clock handling、actual loop、backend timer は実装しない。source policy は `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` が検査する。ここでは doctest timeout を避けるため import smoke だけを実行する。
+
+source policy labels:
+
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_facade_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_result_shape_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_imports_f5eg_f5ea_only_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_consumes_await_timer_action_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_one_f5ea_call_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_remaining_count_preserved_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_lower_error_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_no_wildcard_backend_queue_fallback
+
+## import smoke
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"std tile present host span operation presenter executor session turn virtual scheduler loop timer advance import\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance" as *
+#import "std/test" as test
+
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_facade_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_result_shape_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_imports_f5eg_f5ea_only_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_consumes_await_timer_action_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_one_f5ea_call_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_remaining_count_preserved_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_lower_error_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_no_wildcard_backend_queue_fallback
+
+fn main %impure fn void i32 \void:
+    let report:
+        test::test_report_new "gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance"
+        |> test::test_report_push test::assert_eq_i32 "std tile present host span operation presenter executor session turn virtual scheduler loop timer advance import" 0 0
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
+```

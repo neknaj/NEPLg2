@@ -1,3 +1,50 @@
+# 2026-06-18 Agent2 GUI font F5eh std deterministic virtual scheduler loop timer advance boundary
+
+## 目的
+
+- F5eg `AwaitTimerAdvance` action payload を consumed authority として受け、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- `remaining_count` を pending owner 消費前に保持し、成功 / 失敗のどちらでも scheduler loop 側が budget context を失わないようにする。
+- executor completion、yield-to-clock handling、actual loop、backend、queue、fallback へは踏み込まない。
+
+## subagent review
+
+- Aquinas に F5eh 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、F5eh は F5eg `AwaitTimerAdvance` payload と F5ea `virtual_scheduler_advance_timer` を接続する最初の typed timer authority として妥当だが、real scheduler loop や platform backend の代替にしてはならないことだった。
+- 必須 source policy は、F5eg / F5ea import、general `LoopAction` 非受け入れ、remaining_count-before-owner-consumption、F5ea advance exactly once、lower F5ea error wrapping、direct virtual timer / F5ef loop / lower scheduler / executor completion / backend / queue / fallback / silent no-op 禁止である。
+- Dirac に F5eh 実装レビューを依頼した。
+- implementation review は note 更新漏れ以外の blocker なしだった。F5eh は `AwaitTimerAdvance` payload、`&TurnTimerPolicy`、`delta_ms` だけを受け、`remaining_count` を owner 消費前に読み、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼び、lower F5ea error と original `remaining_count` を保持していると確認された。
+- F5ef / F5ee / F5ec / F5ed / F5eb、direct `virtual_timer_advance`、executor completion、queue / backend / platform / DOM / Canvas / minifb / video memory、fallback / silent no-op、wildcard、Clone / Copy、NEPL 括弧は見当たらないと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5eh loop timer advance boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5eh source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5eh checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5eh focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md`。
+- pass: F5eh module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl`。
+- pass: F5eg regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md`。
+- pass: F5ef regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md`。
+- pass: F5ea regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残り
+
+- F5eh の次は `ExecuteHostAction` を消費する executor completion authority、`YieldToClock` / `Complete` を含む real scheduler loop / headless app-loop integration、native・bare backend timer である。
+- これ以上の pure rename layer を増やさず、次 slice は F5eg action を実際の typed authority へ接続する。
+
 # 2026-06-18 Agent2 GUI font F5eg std deterministic virtual scheduler loop action boundary
 
 ## 目的
