@@ -272,6 +272,8 @@ const platformGuiBareFramebuffer = read("stdlib/platforms/gui/bare/framebuffer.n
 const platformGuiBareFramebufferImpl = withoutComments(platformGuiBareFramebuffer);
 const platformGuiBareDisplayStorage = read("stdlib/platforms/gui/bare/display_storage.nepl");
 const platformGuiBareDisplayStorageImpl = withoutComments(platformGuiBareDisplayStorage);
+const platformGuiBareDisplayMemory = read("stdlib/platforms/gui/bare/display_memory.nepl");
+const platformGuiBareDisplayMemoryImpl = withoutComments(platformGuiBareDisplayMemory);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -384,6 +386,7 @@ const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platf
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
+const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26617,6 +26620,171 @@ assert(
         "platform_bare_display_storage_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayStorageTests.includes(label)),
     "F5fm platform bare display storage focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["bare platform behavior notes", barePlatformBehaviorDoc],
+]) {
+    assert(
+        doc.includes("Bare display memory write plan boundary") &&
+            doc.includes("F5fn") &&
+            doc.includes("checked byte write plan") &&
+            doc.includes("GuiBareDisplayStorageStepApplied") &&
+            doc.includes("canonical storage state") &&
+            doc.includes("height * stride_bytes") &&
+            doc.includes("byte_end") &&
+            doc.includes("actual display driver") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fn ${name} must document bare display memory write plan boundary and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/display_memory" as @merge'),
+    "platforms/gui/bare facade must export F5fn bare display memory write plan boundary",
+);
+assert(
+    platformGuiBareDisplayMemory.includes("Bare display memory write plan boundary") &&
+        platformGuiBareDisplayMemory.includes("checked byte write plan") &&
+        platformGuiBareDisplayMemory.includes("canonical storage state") &&
+        platformGuiBareDisplayMemory.includes("actual bare display driver") &&
+        platformGuiBareDisplayMemory.includes("fallback") &&
+        platformGuiBareDisplayMemory.includes("silent no-op"),
+    "platforms/gui/bare/display_memory F5fn must document checked byte write plan and no fallback",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemory,
+    /#extern\s+"nepl_gui_bare"/,
+    "platforms/gui/bare/display_memory F5fn must not define new bare host imports",
+);
+assert(
+    platformGuiBareDisplayMemoryImpl.includes("pub struct GuiBareDisplayMemoryState") &&
+        platformGuiBareDisplayMemoryImpl.includes("storage_state %GuiBareDisplayStorageState") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub enum GuiBareDisplayMemoryPhase") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub struct GuiBareDisplayMemorySpanWritePlan") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub enum GuiBareDisplayMemoryAction") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub enum GuiBareDisplayMemoryErrorKind") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub struct GuiBareDisplayMemoryStepApplied") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub struct GuiBareDisplayMemoryStepError") &&
+        platformGuiBareDisplayMemoryImpl.includes("pub fn gui_bare_display_memory_apply"),
+    "platforms/gui/bare/display_memory F5fn must expose canonical storage state, byte write plan, action, error, and apply APIs",
+);
+assert(
+    platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::StorageApplyFailed") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::StorageStepStateMismatch") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::StorageStepEffectMismatch") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::MemoryPhaseMismatch") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::RowByteOffsetOverflow") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::XByteOffsetOverflow") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::SpanByteLengthOverflow") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::ByteStartOverflow") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::ByteEndOverflow") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::ByteOutOfBounds") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::PresentRunCountMismatch") &&
+        platformGuiBareDisplayMemoryImpl.includes("GuiBareDisplayMemoryErrorKind::PresentPixelCountMismatch"),
+    "platforms/gui/bare/display_memory F5fn must model storage mismatch, phase mismatch, checked byte arithmetic, OOB, and present completion errors explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryImpl, "gui_bare_display_memory_config_total_byte_count"),
+    [
+        "surface_id_raw &surface",
+        "gui_bare_framebuffer_config_width config",
+        "gui_bare_framebuffer_config_height config",
+        "gui_bare_framebuffer_config_stride_bytes config",
+        "gui_bare_display_memory_checked_mul width 4 GuiBareDisplayMemoryErrorKind::ConfigStrideOverflow",
+        "GuiBareDisplayMemoryErrorKind::ConfigStrideMismatch",
+        "gui_bare_display_memory_checked_mul height stride_bytes GuiBareDisplayMemoryErrorKind::SurfaceByteCountOverflow",
+    ],
+    "platforms/gui/bare/display_memory F5fn config validation must check surface, geometry, stride, and total byte count",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryImpl, "gui_bare_display_memory_span_write_plan_checked"),
+    [
+        "gui_bare_display_memory_config_total_byte_count &config",
+        "gui_rgba8888_row_tile_rle_present_run_row_span_x &span",
+        "gui_rgba8888_row_tile_rle_present_run_row_span_y &span",
+        "gui_rgba8888_row_tile_rle_present_run_row_span_width &span",
+        "gui_bare_display_memory_checked_add span_x span_width GuiBareDisplayMemoryErrorKind::SpanRightOverflow",
+        "gui_bare_display_memory_checked_mul span_y stride_bytes GuiBareDisplayMemoryErrorKind::RowByteOffsetOverflow",
+        "gui_bare_display_memory_checked_mul span_x 4 GuiBareDisplayMemoryErrorKind::XByteOffsetOverflow",
+        "gui_bare_display_memory_checked_add row_byte_start x_byte_offset GuiBareDisplayMemoryErrorKind::ByteStartOverflow",
+        "gui_bare_display_memory_checked_mul span_width 4 GuiBareDisplayMemoryErrorKind::SpanByteLengthOverflow",
+        "gui_bare_display_memory_checked_add byte_start byte_len GuiBareDisplayMemoryErrorKind::ByteEndOverflow",
+        "if gt byte_end surface_byte_count",
+        "gui_bare_display_memory_span_write_plan_new target span run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count color",
+    ],
+    "platforms/gui/bare/display_memory F5fn span helper must compute checked RGBA8888 byte range and reject OOB",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryImpl, "gui_bare_display_memory_action_span"),
+    [
+        "GuiBareDisplayMemoryPhase::Active active",
+        "gui_bare_display_memory_span_effect_target &effect",
+        "GuiBareDisplayMemoryErrorKind::RunIndexMismatch",
+        "GuiBareDisplayMemoryErrorKind::PixelStartMismatch",
+        "gui_bare_display_memory_checked_add effect_pixel_start span_width GuiBareDisplayMemoryErrorKind::PixelEndMismatch",
+        "GuiBareDisplayMemoryErrorKind::PixelEndMismatch",
+        "gui_bare_display_memory_span_write_plan_checked config effect",
+    ],
+    "platforms/gui/bare/display_memory F5fn span action must validate phase counters before creating byte plan",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryImpl, "gui_bare_display_memory_action_present"),
+    [
+        "GuiBareDisplayMemoryPhase::Active active",
+        "gui_bare_display_memory_present_effect_target &effect",
+        "gui_bare_display_memory_present_effect_descriptor &effect",
+        "GuiBareDisplayMemoryErrorKind::PresentRunCountMismatch",
+        "GuiBareDisplayMemoryErrorKind::PresentPixelCountMismatch",
+        "gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count &effect_descriptor",
+        "gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count &effect_descriptor",
+        "gui_bare_display_memory_present_plan_new effect_target effect_descriptor frame effect_run_count effect_pixel_count surface_byte_count",
+    ],
+    "platforms/gui/bare/display_memory F5fn present action must require active complete-frame evidence",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryImpl, "gui_bare_display_memory_apply"),
+    [
+        "gui_bare_display_memory_state_invariant &state",
+        "gui_bare_display_storage_step_applied_framebuffer_step &storage_step",
+        "gui_bare_display_memory_state_storage_state &state",
+        "gui_bare_display_storage_apply current_storage_state framebuffer_step",
+        "GuiBareDisplayMemoryErrorKind::StorageApplyFailed storage_kind",
+        "gui_bare_display_storage_step_applied_state &expected_storage_step",
+        "gui_bare_display_storage_step_applied_state &storage_step",
+        "GuiBareDisplayMemoryErrorKind::StorageStepStateMismatch",
+        "gui_bare_display_storage_step_applied_effect &expected_storage_step",
+        "gui_bare_display_storage_step_applied_effect &storage_step",
+        "GuiBareDisplayMemoryErrorKind::StorageStepEffectMismatch",
+        "gui_bare_display_memory_action_for_effect &state expected_effect",
+        "gui_bare_display_memory_phase_from_storage_state &expected_storage_state",
+        "gui_bare_display_memory_last_write_after_action last_write action",
+        "gui_bare_display_memory_state_new expected_storage_state next_phase total_byte_count next_write",
+    ],
+    "platforms/gui/bare/display_memory F5fn apply must reapply storage step from canonical state before advancing memory state",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+    "platforms/gui/bare/display_memory F5fn must not implement host imports, loops, queues, renderers, or fallback transports",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryImpl,
+    /fallback|silent|[()]/i,
+    "platforms/gui/bare/display_memory F5fn implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_memory_facade_ok",
+        "platform_bare_display_memory_byte_range_checked_ok",
+        "platform_bare_display_memory_source_policy_canonical_storage_reapply_ok",
+        "platform_bare_display_memory_source_policy_forged_storage_step_rejected_ok",
+        "platform_bare_display_memory_source_policy_phase_mismatch_ok",
+        "platform_bare_display_memory_source_policy_overflow_oob_ok",
+        "platform_bare_display_memory_source_policy_present_complete_evidence_ok",
+        "platform_bare_display_memory_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayMemoryTests.includes(label)),
+    "F5fn platform bare display memory focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
