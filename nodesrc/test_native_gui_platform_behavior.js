@@ -55,9 +55,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(mainSource, /while window\.is_open\(\) && !window\.is_key_down\(Key::Escape\)/);
     assert.match(mainSource, /window\.get_unscaled_mouse_pos\(MouseMode::Discard\)/);
     assert.match(mainSource, /map_native_window_point_to_image\(/);
-    assert.match(mainSource, /NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)/);
+    assert.match(mainSource, /NativeWindowPresenterState/);
+    assert.match(mainSource, /let mut presenter_state = NativeWindowPresenterState::new/);
+    assert.match(mainSource, /presenter_state[\s\S]*\.present_buffer\(presenter_frame_id, &initial_buffer\)/);
+    assert.match(mainSource, /presenter_state[\s\S]*\.resize_surface\(current_size\.0, current_size\.1\)/);
+    assert.match(mainSource, /presenter_frame_id = presenter_frame_id[\s\S]*\.checked_add\(1\)/);
+    assert.match(mainSource, /let present_frame = presenter_state[\s\S]*\.last_present_frame_required\(\)/);
     assert.match(mainSource, /update_with_buffer\(\s*present_frame\.pixels\(\),\s*present_frame\.width\(\),\s*present_frame\.height\(\),\s*\)/);
     assert.doesNotMatch(mainSource, /update_with_buffer\(&image\.pixels,\s*image\.width,\s*image\.height\)/);
+    assert.doesNotMatch(mainSource, /let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
     assert.doesNotMatch(mainSource, /get_mouse_pos\(MouseMode::Clamp\)/);
 
     assert.match(libSource, /pub struct NativeSurfacePlacement/);
@@ -120,7 +126,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub struct NativeRgb0PresentBuffer\s*\{[\s\S]*width: i32,[\s\S]*height: i32,[\s\S]*pixels: Vec<u32>/);
     assert.match(libSource, /pub struct NativeRgb0PresenterSink\s*\{[\s\S]*frame_buffer: NativeRgba8888FrameBuffer,[\s\S]*background: NativeRgbColor,[\s\S]*last_present_buffer: Option<NativeRgb0PresentBuffer>,[\s\S]*last_presented_frame_id: Option<i32>/);
     assert.match(libSource, /pub enum NativeWindowPresenterSurfaceState\s*\{[\s\S]*Drawable\s*\{\s*width: usize,\s*height: usize\s*\},[\s\S]*Unavailable/);
-    assert.match(libSource, /pub enum NativeWindowPresenterError\s*\{[\s\S]*InvalidSurfaceDimensions,[\s\S]*FrameMissing,[\s\S]*FrameIdMissing,[\s\S]*PresenterFrameValidationFailed\(NativePresenterFrameError\),[\s\S]*ResourceExhausted,[\s\S]*DimensionOverflow/);
+    assert.match(libSource, /pub enum NativeWindowPresenterError\s*\{[\s\S]*InvalidSurfaceDimensions,[\s\S]*FrameMissing,[\s\S]*FrameIdMissing,[\s\S]*InvalidFrameId,[\s\S]*PresenterFrameValidationFailed\(NativePresenterFrameError\),[\s\S]*ResourceExhausted,[\s\S]*DimensionOverflow/);
     assert.match(libSource, /pub struct NativeWindowPresenterState\s*\{[\s\S]*surface_state: NativeWindowPresenterSurfaceState,[\s\S]*last_frame_id: Option<i32>,[\s\S]*last_frame_width: usize,[\s\S]*last_frame_height: usize,[\s\S]*last_pixels: Vec<u32>/);
     assert.match(libSource, /pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;/);
     assert.match(libSource, /pub enum NativePresenterFrameError/);
@@ -143,9 +149,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /last_present_frame/);
     assert.match(nativeSpanOperationHelper, /last_presented_frame_id/);
     assert.match(nativeSpanOperationHelper, /fn native_presenter_frame_from_rgb0_parts/);
+    assert.match(nativeSpanOperationHelper, /pub fn last_present_frame_required/);
+    assert.match(nativeSpanOperationHelper, /pub fn present_buffer/);
+    assert.match(nativeSpanOperationHelper, /pub fn present_frame/);
+    assert.match(nativeSpanOperationHelper, /if frame_id <= 0[\s\S]*NativeWindowPresenterError::InvalidFrameId/);
     assert.match(nativeSpanOperationHelper, /pub fn present_sink_frame/);
     assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameMissing\)/);
     assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameIdMissing\)/);
+    assert.match(nativeSpanOperationHelper, /self\.present_frame\(frame_id, source_frame\)\?/);
     assert.match(nativeSpanOperationHelper, /try_reserve_exact\(pixel_count\)[\s\S]*self\.last_pixels = next_pixels/);
     assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSurfaceState::Unavailable/);
     assert.match(nativeSpanOperationHelper, /let source_r = \(\(rgba8888 >> 24\) & 0xff\) as u8/);
@@ -175,9 +186,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_span_framebuffer_end_semantics_still_close_sequence/);
     assert.match(libSource, /native_window_presenter_state_requires_positive_initial_surface/);
     assert.match(libSource, /native_window_presenter_state_presents_sink_frame_after_complete_sequence/);
+    assert.match(libSource, /native_window_presenter_state_presents_checked_buffer/);
+    assert.match(libSource, /native_window_presenter_state_requires_valid_frame_id/);
     assert.match(libSource, /native_window_presenter_state_rejects_missing_completed_frame/);
     assert.match(libSource, /native_window_presenter_state_rejects_missing_frame_id/);
+    assert.match(libSource, /native_window_presenter_state_rejects_invalid_sink_frame_id/);
     assert.match(libSource, /native_window_presenter_state_tracks_resize_without_stretching_last_frame/);
+    assert.match(libSource, /native_window_presenter_state_failed_buffer_present_keeps_previous_frame/);
     assert.match(libSource, /native_window_presenter_state_failed_present_keeps_previous_frame/);
     assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
@@ -249,6 +264,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native presenter frame adapter validates RGB0 pixels before minifb update",
             "Native RGB0 presenter sink converts complete span sequences into typed frames",
             "Native window presenter state keeps resize and frame ownership explicit",
+            "Native smoke runner presents and hit-tests through NativeWindowPresenterState",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

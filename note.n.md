@@ -69774,3 +69774,44 @@ MERGE_APPROVED
 ### residual
 
 - F5fd は native window presenter state boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fe window presenter smoke integration
+
+### scope
+
+- F5fe は native smoke runner の window loop を `NativeWindowPresenterState` 経由の present / hit-test path へ寄せる checkpoint である。
+- この slice は smoke window integration だけを扱い、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- minifb / OS window API は `main.rs` の call site に閉じ込め、`lib.rs` は platform-independent presenter state と validation boundary のままにする。
+
+### plan_review
+
+- Nietzsche the 2nd の plan review は `PLAN_APPROVED`。実装条件として、0 以下の frame id を `InvalidFrameId` で拒否すること、smoke frame id を `checked_add` で進めること、`present_buffer` と `present_sink_frame` を `present_frame` へ委譲すること、`last_present_frame_required` で blank fallback を禁止すること、resize を surface state へ通知して frame stretch / crop / clear をしないこと、source policy と tests で固定することが確認された。
+
+### implementation
+
+- `NativeWindowPresenterError` に `InvalidFrameId` を追加し、`NativeWindowPresenterState::present_frame` が positive frame id と checked typed frame だけを受け入れるようにした。
+- `present_buffer` は `NativeRgb0PresentBuffer` を typed presenter frame に変換して `present_frame` へ委譲し、`present_sink_frame` は completed frame と frame id を取り出した後で同じ `present_frame` を使う。
+- `last_present_frame_required` を追加し、frame missing を `FrameMissing` として返すようにした。
+- native smoke runner は初期 RGB0 frame を `NativeWindowPresenterState` に present し、window resize を `resize_surface` に通知し、counter hit test と `Window::update_with_buffer` の両方で state-held frame を読むようにした。
+- counter rerender 時の `counter_value` と smoke `presenter_frame_id` は `checked_add` で進め、overflow は error として返す。wrap、saturating、reset、silent reuse は行わない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Nietzsche the 2nd implementation review は `APPROVED`。`present_buffer` と `present_sink_frame` が `present_frame` へ委譲されていること、`InvalidFrameId` が explicit error であること、validation / reservation 後だけ replacement すること、`main.rs` が `NativeWindowPresenterState` を display / counter hit-test authority として使うこと、minifb が `main.rs` に閉じていることが確認された。
+- Nietzsche the 2nd は `node nodesrc\test_native_gui_platform_behavior.js`、`cargo test -p nepl-gui-native --features window native_window_presenter_state`、`cargo fmt --package nepl-gui-native -- --check` を再実行し、すべて pass した。
+- residual risk として、この slice は smoke presenter integration と static source-policy shape の検証までであり、interactive minifb window 上の実 OS resize / minimize behavior、formal `std/gui` host import、scheduler、timer / queue、compositor drain、performance behavior はまだ検証対象外であることが確認された。
+
+### residual
+
+- F5fe は native smoke runner の presenter state integration までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。

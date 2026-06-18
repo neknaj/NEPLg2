@@ -131,6 +131,14 @@ F5fd では completed RGB0 presenter frame を native window presenter state に
 
 `present_sink_frame` は `NativeRgb0PresenterSink` から completed typed frame と completed frame id の両方を要求する。frame missing、frame id missing、presenter frame validation failure、resource exhausted、dimension overflow は `NativeWindowPresenterError` の distinct variant で返す。replacement は temporary buffer の validation と reservation が成功した後だけ行うため、failure は previous frame、dimensions、frame id を保持する。
 
+## Native window presenter smoke integration checkpoint
+
+F5fe では native smoke runner の window loop が `NativeWindowPresenterState` を display / hit-test authority として使うようにする。この checkpoint は smoke window integration であり、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+
+`NativeWindowPresenterState::present_frame` は positive frame id と checked typed frame を受け取り、`present_buffer` は `NativeRgb0PresentBuffer` を typed frame に変換した後で `present_frame` に委譲する。`present_sink_frame` も completed frame と frame id を取り出した後は同じ `present_frame` を使う。frame id が 0 以下の場合は `InvalidFrameId` で失敗し、`wrapping`、`saturating`、reset、silent reuse は行わない。
+
+`nepl-gui-native` の window loop は初期 RGB0 frame を presenter state に present し、resize を `resize_surface` へ通知し、hit test と `Window::update_with_buffer` の両方で `last_present_frame_required` を読む。frame が無い場合は `FrameMissing` から error を返し、blank frame や fallback frame を合成しない。minifb / OS window API は引き続き `main.rs` のみに閉じ込める。
+
 ## 参考
 
 - Apple Developer Documentation: `NSApplication.run` https://developer.apple.com/documentation/appkit/nsapplication/run
