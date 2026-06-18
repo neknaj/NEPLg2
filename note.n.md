@@ -69653,3 +69653,45 @@ MERGE_APPROVED
 ### residual
 
 - F5fa は completed framebuffer から presenter-ready buffer への conversion boundary までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fb presenter frame adapter
+
+### scope
+
+- F5fb は F5fa の `NativeRgb0PresentBuffer` を native smoke runner が `update_with_buffer` に渡せる typed presenter frame へ借用変換する Rust side boundary である。
+- この slice は minifb 非依存の adapter と smoke runner call-site の typed frame 化だけを扱い、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- smoke demo rasterizer からの RGB0 import は正式 NEPL span path ではなく、formal host import path が native window loop へ接続されるまでの smoke source である。
+
+### plan_review
+
+- Poincare the 2nd の初回 plan review は `PLAN_BLOCKED`。smoke/demo RGB0 constructor でも every pixel の high byte が 0 であることを検査する必要、presenter frame を minifb 非依存にする必要、`main.rs` が typed frame 経由でだけ `update_with_buffer` へ到達することを regression で固定する必要、subagent review 記録を `note.n.md` に残す必要が指摘された。
+- 改訂 plan では high byte 検査、immutable slice + checked `usize` dimensions の minifb 非依存 typed presenter frame、raw `image.pixels` present 禁止 regression、blocked / approved / implementation review の記録を追加した。
+- Poincare the 2nd の改訂 plan review は `PLAN_APPROVED`。RGB0 high-byte validation、typed frame boundary、scope exclusions が確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NATIVE_RGB0_HIGH_BYTE_MASK`、`NativePresenterFrameError`、`NativePresenterFrame` を追加した。
+- `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` は positive dimensions、checked `width * height`、exact pixel length、every pixel の high byte zero を検査し、invalid pixel を mask せず `PixelFormatMismatch` として返す。
+- `NativePresenterFrame::from_rgb0_present_buffer` は `i32` dimensions を `usize` へ checked conversion し、pixel count と high byte を再検査した上で immutable `&[u32]` を公開する。lib 側には minifb 型、OS handle、byte / endian view を入れていない。
+- `nepl-gui-native/src/main.rs` は demo rasterizer output を `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` へ通し、`NativePresenterFrame` の `pixels` / `width` / `height` だけを `update_with_buffer` に渡すようにした。raw `&image.pixels, image.width, image.height` present は残していない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Poincare the 2nd implementation review 1 は `CHANGES_REQUESTED`。`note.n.md` に blocked plan review、revised approval、implementation review を記録していないこと、source-policy regression が smoke/demo import を正式 NEPL span path と区別する wording を検査していないことが指摘された。
+- 指摘に従い、`note.n.md` に F5fb 記録を追加し、`nodesrc/test_native_gui_platform_behavior.js` で `not the formal NEPL span presentation path` wording を検査するようにした。
+- Poincare the 2nd follow-up implementation review は `APPROVED`。typed presenter frame adapter、high-byte validation、minifb 非依存 lib boundary、raw image present 禁止、smoke/demo と正式 NEPL span path の分離が確認された。
+
+### residual
+
+- F5fb は typed presenter frame adapter と smoke runner call-site の境界までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
