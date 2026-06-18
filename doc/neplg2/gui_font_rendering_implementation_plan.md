@@ -100,6 +100,33 @@
 - focused doctest、source policy、F5ek / F5en regression、`git diff --check` が通る。
 - subagent implementation review で sample / state 再検査、owner recovery、no clamp、no fallback が承認される。
 
+## Phase F5ep: Web formal monotonic clock source backend boundary
+
+2026-06-18 の F5ep では、Web runtime の actual monotonic clock source を `platforms/gui/web/clock` へ接続する。これは Web platform boundary だけの変更であり、native / bare / headless clock source、sleep、scheduler loop、executor backend、queue、DOM / Canvas rendering、video memory presentation は実装しない。
+
+実装 target:
+
+- `stdlib/platforms/gui/web/clock.nepl`
+- `stdlib/platforms/gui/web.nepl`
+- `web/src/runtime/worker.ts`
+- `tests/stdlib/gui_platform_web_clock.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- `nepl_gui_web.monotonic_clock_ms` は単一 `i32` return ABI とし、0 以上を sample、-1 を unsupported、その他の負値を backend failure とする。
+- NEPL wrapper は negative sentinel を `GuiError` へ写し、成功値だけを F5eo `BackendClockSample` constructor へ渡す。
+- Web worker は `performance.now` だけを clock source として使う。
+- `performance.now` の結果は `Math.floor` で millisecond `i32` に変換し、`Number.isFinite`、0 以上、`i32::MAX` 以下、integer を検査する。
+- `i32::MAX` ms 超過は wrap / clamp せず `BackendFailure` sentinel として返す。
+- `Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、fallback、silent no-op は使わない。
+
+完了条件:
+
+- source policy が Web facade export、raw import、negative sentinel mapping、F5eo sample constructor bridge、worker `performance.now` validation、forbidden fallback を固定する。
+- focused doctest、source policy、F5eo regression、`git diff --check` が通る。
+- subagent implementation review で i32 range failure、no fallback、layer separation が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

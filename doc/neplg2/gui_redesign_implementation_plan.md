@@ -77,6 +77,19 @@
 - error payload は policy / state / sample / previous / current / delta / max を回収可能な形で保持する。
 - source policy が no platform / queue / fallback / silent no-op と `ExecutorOutcome` / `CompleteAck` 非生成を固定する。
 
+## Phase F5ep: Web formal monotonic clock source backend boundary
+
+2026-06-18 の F5ep では、Web runtime の actual monotonic clock source を `platforms/gui/web/clock` へ接続する。これは Web platform boundary だけの変更であり、native / bare / headless clock source、sleep、scheduler loop、executor backend、queue、DOM / Canvas rendering、video memory presentation は実装しない。
+
+変更:
+
+- `stdlib/platforms/gui/web/clock.nepl` を追加し、`nepl_gui_web.monotonic_clock_ms` を `Result BackendClockSample GuiError` に写す。
+- `stdlib/platforms/gui/web.nepl` から clock boundary を export する。
+- `web/src/runtime/worker.ts` に `monotonic_clock_ms` import を追加し、`performance.now` だけを source とする。
+- Worker は `Number.isFinite`、0 以上、`i32::MAX` 以下、integer を検査してから Wasm に返し、範囲外は `BackendFailure` sentinel にする。
+- `Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、fallback、silent no-op は使わない。
+- source policy と focused doctest で Web facade export、raw import、F5eo sample constructor bridge、i32 guard、forbidden fallback を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:
