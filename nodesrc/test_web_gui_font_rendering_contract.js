@@ -168,6 +168,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurn = read("std
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurn);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStep);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -257,6 +259,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorAttemptDriverTests = re
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -22529,6 +22532,152 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_lower_recovery_authority_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_no_scheduler_no_platform_no_fallback"),
     "F5dt std tile present host-span-operation-presenter-executor-session-turn-step focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn driver boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending") &&
+            doc.includes("caller supplied outcome") &&
+            doc.includes("borrowed expected operation") &&
+            doc.includes("prevents operation mismatch"),
+        `F5du ${name} must document driver boundary, caller supplied outcome, borrowed expected operation, and mismatch prevention`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *'), "std/gui facade must export F5du tile present host span operation presenter executor session turn driver boundary");
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request_ref"),
+    [
+        "field::get_ref pending \"request\"",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session F5du support accessor must borrow pending request without consuming it",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_pending_request_ref"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request_ref pending",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn F5du support accessor must expose borrowed pending request through F5ds",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver.includes("Completed"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du must define owner-bearing driver pending and normalized driver step result",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du owner-bearing values and errors must be non-Copy and non-Clone",
+);
+assertMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl,
+    /#import "std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_step" as \*/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du must build on F5dt step boundary",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start support policy action",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start_error_new lower",
+        "Result::Ok turn_state:",
+        "Result::Ok turn_state",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du start must call F5dt start exactly once and return turn state",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start support policy action/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du start must call F5dt start exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Execute pending:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_new pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Execute driver_pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Continue turn_state:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Continue turn_state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Yield turn_state:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Yield turn_state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Completed",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du step mapping must wrap Execute pending and preserve transient outcomes",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll turn_state",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_new lower",
+        "Result::Ok step:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result step",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du poll must call F5dt poll exactly once",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll turn_state/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du poll must call F5dt poll exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending_ref pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_pending_request_ref session_pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_operation request",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du pending operation must borrow request and read expected operation without consuming pending",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation &driver_pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt operation outcome",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending driver_pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete pending attempt",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete_error_new lower",
+        "Result::Ok step:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result step",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du complete must derive attempt from expected operation plus caller outcome before F5dt completion",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete pending attempt/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du complete must call F5dt complete exactly once",
+);
+assert(
+    (functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete").match(/gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt operation outcome/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du complete must construct exactly one F5do attempt from expected operation and caller supplied outcome",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_attempt\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_outcome_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_request\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_loop_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_attempt\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_completion_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_scheduled_span_operation_state_resume_slice\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_step\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_start\b|\bgui_rgba8888_row_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_row_tile_rle_present_host_executor_action_same\b|\bGuiRgba8888RowTileRlePresentHostExecutionAction::|\btile_present_host_span_operation_presenter_executor_loop\b|\btile_present_host_span_operation_presenter_executor_attempt_driver\b|\btile_present_host_action_attempt_driver\b|\btile_present_host_action_sink_driver\b|\btile_present_host_action_sink\b|\btile_present_host_execution_driver\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\btile_present_virtual_executor\b|\btile_present_command_cursor\b|\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bstd\/gui\/tile_present_host_import\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\bResult::Ok unit\b|\bResult::Err GuiError::|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du must not bypass F5dt, use old action paths, raw/platform APIs, synthesize outcomes, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver F5du implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_owner_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_borrowed_operation_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_outcome_only_complete_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_complete_order_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_lower_recovery_authority_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_no_scheduler_no_platform_no_fallback"),
+    "F5du std tile present host-span-operation-presenter-executor-session-turn-driver focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

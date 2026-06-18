@@ -1166,6 +1166,45 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5du: std layer row tile RLE present host span operation presenter executor session turn driver boundary
+
+目的:
+
+- F5dt `Execute` result を actual Web / native / bare / headless executor が扱える owner-bearing driver pending value へ包む。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending` は F5dr session pending request を所有し、Clone / Copy しない。
+- executor は caller supplied outcome だけを返し、operation identity は pending から borrowed expected operation として読む。
+- `turn_driver_complete` は borrowed expected operation と caller supplied outcome から F5do `executor_attempt` を 1 回だけ作り、F5dt `turn_step_complete` を 1 回だけ呼ぶ。
+- この boundary で prevents operation mismatch を固定し、F5do complete / request、F5dr / F5dp / F5dq direct completion、real scheduler policy、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` に進まない。
+
+plan review:
+
+- Cicero plan review は `PLAN_APPROVED`。
+- F5dr / F5ds に borrowed pending request accessor を追加する方針は owner state を消費せず expected operation を読めるため適切と判断された。
+- F5du が F5do を使う範囲は `executor_request_operation` と `executor_attempt` に限定する。
+- `turn_driver_complete` は full attempt ではなく `Result unit GuiError` を受け取り、operation identity authority を pending request 側に残す。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl` に `session_pending_request_ref` を追加する。
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl` に `session_turn_pending_request_ref` を追加する。
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl` を追加する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md` を追加し、facade、pending owner、borrowed operation、outcome-only complete、poll / complete order、lower recovery authority、no scheduler / platform / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5du source policy を追加し、borrowed accessor、F5dt-only completion、F5do usage whitelist、old path / raw / platform / scheduler / fallback leakage 禁止、括弧なし prefix style を固定する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver_f5du.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver_module_f5du.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step_f5du_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5du.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

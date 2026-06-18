@@ -1,3 +1,49 @@
+# 2026-06-18 Agent2 GUI font F5du std host span operation presenter executor session turn driver boundary
+
+## scope
+
+- F5dt `Execute` result を actual Web / native / bare / headless executor が outcome-only に扱える owner-bearing driver pending value へ包む。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending` は F5dr session pending request を所有し、Clone / Copy しない。
+- executor は caller supplied outcome だけを返し、operation identity は pending から borrowed expected operation として読む。
+- `turn_driver_complete` は borrowed expected operation と caller supplied outcome から F5do `executor_attempt` を 1 回だけ作り、F5dt `turn_step_complete` を 1 回だけ呼ぶ。
+- F5du は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Cicero plan review は `PLAN_APPROVED`。
+- F5dr / F5ds に borrowed pending request accessor を追加する root fix は、pending owner を消費せず expected operation を読めるため適切と確認された。
+- F5du の F5do usage は `executor_request_operation` と `executor_attempt` に限定し、F5do complete / request は禁止する。
+- `turn_driver_complete` は full attempt ではなく `Result unit GuiError` を受け取り、operation mismatch をこの layer で防ぐ方針が承認された。
+
+## implementation
+
+- pending request を消費しない `session_pending_request_ref` と `session_turn_pending_request_ref` を追加した。
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl` を追加し、start / poll / pending operation / complete を F5dt 境界の上に実装した。
+- `stdlib/std/gui.nepl` facade、F5du focused doctest、GUI / font rendering specs、implementation plan、source policy regression を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md` は match なし。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5du focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md`。
+- pass: F5du module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl`。
+- pass: F5dt regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は CRLF warning のみで error なし。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- code / source-policy / docs は clean と確認された。
+- 唯一の blocker はこの `note.n.md` の F5du `subagent_review` が pending のままだったことだったため、この節を更新した。
+- Cicero follow-up review は `REVIEW_APPROVED`。
+- 前回 blocker は解消され、F5du 実装は merge-ready と確認された。
+
+## remaining
+
+- F5du は actual Web / native / bare / headless executor が operation mismatch なしで outcome を返すための driver pending boundary であり、real scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dt std host span operation presenter executor session turn step boundary
 
 ## scope

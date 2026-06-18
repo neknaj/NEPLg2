@@ -8214,6 +8214,16 @@ The start function delegates to F5ds `turn_start` exactly once and returns the F
 
 F5dt must not call F5dr, F5dp, F5dq, presenter loop, old action driver, virtual executor, dispatch loop, raw storage, host import, platform API, DOM, Canvas, minifb, video memory, queue, timer, real scheduler, fallback path, or silent no-op path directly. Error recovery is also delegated to F5ds wrapper errors, with category values exposed only through F5ds category accessors.
 
+## Std layer row tile RLE present host span operation presenter executor session turn driver boundary
+
+F5du introduces the std layer row tile RLE present host span operation presenter executor session turn driver boundary. It sits directly above F5dt and still below any real scheduler, queue, timer, platform executor, DOM, Canvas, minifb, video memory presenter, or fallback path. Its purpose is to make the `Execute` branch usable by an actual executor without letting that executor choose the operation identity.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending` owns the F5dr session pending request. A driver poll maps F5dt `Execute pending` into `TurnDriverPending`; Continue, Yield, and Completed pass through as the same transient step result shape. The driver pending value is intentionally owner-bearing and must not implement Clone or Copy.
+
+The key contract is caller supplied outcome only. `turn_driver_pending_operation` borrows through the new F5ds pending request reference and then uses F5do `executor_request_operation` to read the borrowed expected operation without consuming pending. `turn_driver_complete` first reads that borrowed expected operation, then constructs exactly one F5do executor attempt from the operation and the caller supplied outcome, then consumes the pending value and delegates to F5dt `turn_step_complete` exactly once. This prevents operation mismatch at this boundary because the executor cannot provide a different operation.
+
+F5du may use F5do only for `executor_request_operation` and `executor_attempt`. It must not call F5do complete or request, F5dr / F5dp / F5dq direct completion paths, old action paths, raw storage, host import, platform API, DOM, Canvas, minifb, video memory, queue, timer, real scheduler, fallback path, silent no-op path, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.

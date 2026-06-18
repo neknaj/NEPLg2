@@ -124,6 +124,9 @@ pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_
         Result::Ok completion:
             Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_complete_result_new completion
 
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_pending_request_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \pending:
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request_ref pending
+
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError Option GuiError \error:
     *field::get_ref error "category"
 

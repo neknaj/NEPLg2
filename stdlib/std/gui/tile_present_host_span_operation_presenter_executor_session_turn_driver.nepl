@@ -1,0 +1,155 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5dt turn step result を actual Web / native / bare / headless driver が[扱/あつか]いやすい owner-bearing result へ[包/つつ]みます。
+//: - executor は成功または失敗の outcome だけを[返/かえ]し、operation identity は pending request 側の borrowed expected operation から[復元/ふくげん]します。
+//:
+//: ### [契約/けいやく]
+//: - `TurnDriverPending` は F5dr session pending request を[所有/しょゆう]します。
+//: - `turn_driver_pending_operation` は pending を[消費/しょうひ]せず、borrowed expected operation を[読/よ]みます。
+//: - `turn_driver_complete` は caller supplied outcome と borrowed expected operation から executor attempt を[作/つく]り、F5dt `turn_step_complete` だけを 1 [回/かい]だけ[呼/よ]びます。
+//: - executor から operation を[受/う]け[取/と]らないため、operation mismatch をこの driver boundary で[防/ふせ]ぎます。
+//: - real scheduler、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending:
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult:
+    Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending
+    Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    Completed
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending \pending:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending pending
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult \step:
+    match step:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Execute pending:
+            let driver_pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_new pending
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Execute driver_pending
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Continue turn_state:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Continue turn_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Yield turn_state:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Yield turn_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Completed:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Completed
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending \pending:
+    field::get_ref pending "pending"
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending \pending:
+    field::get pending "pending"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start: action から driver turn state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5dt turn step start を 1 [回/かい]だけ[呼/よ]びます。
+//: - start は scheduler tick ではないため step result ではなく turn state を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError \support\policy\action:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start support policy action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start_error_new lower
+        Result::Ok turn_state:
+            Result::Ok turn_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll: turn state を driver step result へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5dt turn step poll を 1 [回/かい]だけ[呼/よ]びます。
+//: - Execute は owner-bearing `TurnDriverPending` に[包/つつ]み、executor に outcome だけを[返/かえ]させる形へ[変換/へんかん]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError \turn_state:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll turn_state:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_new lower
+        Result::Ok step:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result step
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation: pending の expected operation を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - pending owner を[消費/しょうひ]しません。
+//: - F5ds borrowed request accessor と F5do request operation accessor だけを[使/つか]います。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending GuiRgba8888RowTileRlePresentHostSpanOperation \pending:
+    let session_pending %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending_ref pending
+    let request %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_pending_request_ref session_pending
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_operation request
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete: caller supplied outcome を turn driver result へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - outcome は caller supplied outcome としてそのまま attempt に[包/つつ]みます。
+//: - expected operation は pending から borrowed expected operation として[読/よ]み、executor には operation identity を[渡/わた]させません。
+//: - F5dt turn step complete を 1 [回/かい]だけ[呼/よ]びます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending fn Result unit GuiError Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError \driver_pending\outcome:
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation &driver_pending
+    let attempt %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt operation outcome
+    let pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_session_pending driver_pending
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete pending attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete_error_new lower
+        Result::Ok step:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_step_from_turn_step_result step
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError \error:
+    field::get error "lower"
