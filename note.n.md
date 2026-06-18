@@ -1,3 +1,49 @@
+# 2026-06-19 Agent2 GUI platform F5fq Bare display driver byte echo verification boundary
+
+## 目的
+
+- F5fp Bare display driver host import boundary の後続として、bare display driver byte echo verification boundary を追加する。
+- `GuiBareDisplayDriverStepApplied` は public Copy value として偽造できるため public entry の入力権威にせず、`GuiBareDisplayDriverState`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverByteEcho` から内部で F5fo `gui_bare_display_driver_apply` を呼ぶ。
+- canonical step が `SpanWrite` / `SpanWriteAccepted` の場合だけ、accepted byte range と RGBA8888 channel evidence を使って 1 byte echo を検証する。
+- raw display memory ownership、bulk byte readback、actual driver adapter、host import、loop、queue、DOM、Canvas、minifb、video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Archimedes the 2nd の plan review は `NEEDS_CHANGES`。
+- 初期案の `gui_bare_display_driver_byte_echo_verify driver_step echo` は public Copy の `GuiBareDisplayDriverStepApplied` を信用してしまうため、F5fo/F5fp が受理した canonical step であることを証明できないと指摘された。
+- 指摘に従い、public verify は supplied driver step を受け取らず、`driver_state + memory_step + outcome + echo` を受け、内部で `gui_bare_display_driver_apply` を呼んでから byte extraction へ進む設計に修正した。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_byte_echo.nepl` を追加し、`GuiBareDisplayDriverByteEcho`、typed channel enum `Red` / `Green` / `Blue` / `Alpha`、verified value、typed error、`gui_bare_display_driver_byte_echo_verify` を実装した。
+- driver apply failure は `DriverStepInvalid %GuiBareDisplayDriverErrorKind` として lower kind/category を保持する。
+- `SpanWrite` / `SpanWriteAccepted` 以外は `NonSpanWriteAction` / `NonSpanWriteOutcome` として fail-closed に拒否する。
+- byte echo は value 0..255、`byte_start <= byte_index < byte_end`、`rem_s relative 4` による typed channel、expected channel value との一致を検査し、mismatch は `EchoValueMismatch` にする。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy、todo を F5fq に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_byte_echo.nepl -o tmp_gui_bare_display_driver_byte_echo_module_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_f5fq.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_storage.n.md -o tmp_gui_bare_display_storage_after_f5fq.json --timeout-nonfatal` は既存 heavy forged sequence の doctest#2 が compile timeout として検出されたが、`--timeout-nonfatal` であり今回の差分起因ではない。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Archimedes the 2nd の implementation review は `REVIEW_APPROVED`。
+- prior blocker は解消済みであり、public verify が `GuiBareDisplayDriverStepApplied` を受け取らず、`gui_bare_display_driver_apply state memory_step outcome` を byte extraction 前に呼ぶこと、apply failure を `DriverStepInvalid` と lower kind/category で保持すること、`SpanWrite` / `SpanWriteAccepted` のみが検証へ進むことが確認された。
+- full forged storage / framebuffer executable sequence は heavy timeout に入りやすいため、F5fq では channel mapping と typed `DriverStepInvalid` の軽量 doctest、source-policy による apply-before-extract / forged-step rejection / span-only / bounds / mismatch / Begin-Present fail-closed 固定で妥当と判断された。
+
+## residual
+
+- F5fq は単一 byte echo verification までであり、raw display memory ownership、bulk byte readback、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fp Bare display driver host import boundary
 
 ## 目的
