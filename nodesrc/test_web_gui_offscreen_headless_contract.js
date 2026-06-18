@@ -86,6 +86,8 @@ const turnVirtualSchedulerLoopTimerAdvance = read("stdlib/std/gui/tile_present_h
 const turnVirtualSchedulerLoopTimerAdvanceImpl = withoutComments(turnVirtualSchedulerLoopTimerAdvance);
 const turnVirtualSchedulerLoopExecutorComplete = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl");
 const turnVirtualSchedulerLoopExecutorCompleteImpl = withoutComments(turnVirtualSchedulerLoopExecutorComplete);
+const turnVirtualSchedulerLoopYieldComplete = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl");
+const turnVirtualSchedulerLoopYieldCompleteImpl = withoutComments(turnVirtualSchedulerLoopYieldComplete);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
@@ -99,6 +101,7 @@ const guiStdTurnVirtualSchedulerLoopTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTurnVirtualSchedulerLoopActionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md");
 const guiStdTurnVirtualSchedulerLoopTimerAdvanceTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md");
 const guiStdTurnVirtualSchedulerLoopExecutorCompleteTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md");
+const guiStdTurnVirtualSchedulerLoopYieldCompleteTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md");
 
 assertMatch(
     spec,
@@ -777,6 +780,61 @@ assertNoMatch(
     /[()]/,
     "std/gui turn virtual scheduler loop executor complete implementation must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /YieldReady\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldReady[\s\S]*YieldPending\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldPending[\s\S]*DeltaInvalid[\s\S]*YieldDelayInvalid[\s\S]*AdvanceFailed\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceFailed/,
+    "std/gui turn virtual scheduler loop yield complete must expose ready/pending result and typed delta/yield-delay failures",
+);
+assertMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler"\s+as\s+\*[\s\S]*#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action"\s+as\s+\*/,
+    "std/gui turn virtual scheduler loop yield complete must import F5ea and F5eg boundaries",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn(?:_driver|_scheduler|_step|_virtual_timer|_virtual_scheduler_(?:step|drain|transition|slice|loop|loop_timer_advance|loop_executor_complete))"\s+as\s+\*|#import\s+"std\/gui\/virtual_timer"\s+as\s+\*|#import\s+"std\/gui\/host"\s+as\s+\*/,
+    "std/gui turn virtual scheduler loop yield complete must not import scheduler internals beyond F5ea/F5eg or host modules",
+);
+const schedulerLoopYieldAdvance = functionSlice(turnVirtualSchedulerLoopYieldCompleteImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_advance");
+assertMatch(
+    schedulerLoopYieldAdvance,
+    /%fn\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock\s+fn\s+i32\s+Result[\s\S]*loop_action_yield_to_clock_remaining_count\s+&action[\s\S]*loop_action_yield_to_clock_yield_delay_ms\s+&action[\s\S]*lt\s+delta_ms\s+0[\s\S]*DeltaInvalid\s+action\s+delta_ms[\s\S]*lt\s+yield_delay_ms\s+0[\s\S]*YieldDelayInvalid\s+action\s+delta_ms[\s\S]*loop_action_yield_to_clock_state\s+action[\s\S]*lt\s+delta_ms\s+yield_delay_ms[\s\S]*sub\s+yield_delay_ms\s+delta_ms[\s\S]*YieldPending\s+pending[\s\S]*YieldReady\s+ready/,
+    "std/gui turn virtual scheduler loop yield complete must validate delta and yield delay before subtracting and returning pending/ready",
+);
+assert(
+    schedulerLoopYieldAdvance.indexOf("sub yield_delay_ms delta_ms") > schedulerLoopYieldAdvance.indexOf("lt yield_delay_ms 0") &&
+        schedulerLoopYieldAdvance.indexOf("sub yield_delay_ms delta_ms") > schedulerLoopYieldAdvance.indexOf("lt delta_ms yield_delay_ms"),
+    "std/gui turn virtual scheduler loop yield complete must subtract only after validation and pending branch",
+);
+const schedulerLoopCompleteAck = functionSlice(turnVirtualSchedulerLoopYieldCompleteImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_complete_ack");
+const schedulerLoopYieldCompleteRuntimeImpl = turnVirtualSchedulerLoopYieldCompleteImpl
+    .replace(/impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceErrorKind\s*:/g, "")
+    .replace(/impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceErrorKind\s*:/g, "");
+assertMatch(
+    schedulerLoopCompleteAck,
+    /%fn\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteCompleted[\s\S]*loop_action_complete_remaining_count\s+&action[\s\S]*loop_action_complete_completed\s+action[\s\S]*yield_complete_completed_new\s+completed\s+remaining_count/,
+    "std/gui turn virtual scheduler loop yield complete must ack Complete by reading remaining_count before consuming completed owner",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /_:/,
+    "std/gui turn virtual scheduler loop yield complete must not use wildcard enum matches",
+);
+assertNoMatch(
+    schedulerLoopYieldCompleteRuntimeImpl,
+    /\b(?:while|for|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui turn virtual scheduler loop yield complete must not queue, call platform/raw APIs, or fallback",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldComplete(?!YieldAdvanceErrorKind\b)[A-Za-z0-9]*\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldComplete(?!YieldAdvanceErrorKind\b)[A-Za-z0-9]*\s*:/,
+    "std/gui turn virtual scheduler loop yield complete owner-bearing payloads and error enum must be non-Copy and non-Clone",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopYieldCompleteImpl,
+    /[()]/,
+    "std/gui turn virtual scheduler loop yield complete implementation must preserve NEPL prefix style without parentheses",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -842,6 +900,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete"\s+as\s+\*/,
     "std/gui facade must re-export the virtual scheduler loop executor complete contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler loop yield complete contract",
 );
 assertMatch(
     guiStdTests,
@@ -912,6 +975,11 @@ assertMatch(
     guiStdTurnVirtualSchedulerLoopExecutorCompleteTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_policy_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_imports_f5eg_f5du_f5dv_f5ea_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_consumes_execute_host_action_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_caller_supplied_outcome_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_driver_scheduler_timer_order_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_remaining_count_preserved_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_lower_error_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_no_wildcard_backend_queue_fallback/,
     "std/gui turn virtual scheduler loop executor complete focused doctest must cover F5eg/F5du/F5dv/F5ea executor authority and no backend/queue/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerLoopYieldCompleteTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_error_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_imports_f5eg_f5ea_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_advance_reads_before_consume_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_advance_validates_delta_and_delay_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_advance_pending_ready_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_complete_ack_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_no_wildcard_backend_queue_fallback/,
+    "std/gui turn virtual scheduler loop yield complete focused doctest must cover F5eg/F5ea yield/complete authority and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");

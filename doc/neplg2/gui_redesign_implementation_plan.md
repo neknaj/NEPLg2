@@ -705,11 +705,48 @@ subagent review:
 
 - F5ei source policy が ExecuteHostAction-only input、caller supplied outcome only、F5du / F5dv / F5ea exactly once、remaining_count / timer_state before owner consumption、lower error wrapping、backend / queue / fallback 禁止を検査する。
 - focused doctest が source policy label を持つ。
-- 次の再開 target は YieldToClock / Complete を含む real scheduler loop integration、native / bare scheduler backend、headless app-loop integration である。
+- 次の再開 target は YieldToClock / Complete を扱う F5ej deterministic clock-delta authority と complete ack boundary であり、actual real scheduler loop、native / bare scheduler backend、headless app-loop integration はその後に進める。
 
 subagent review:
 
 - Aquinas に F5ei 実装計画を渡し、implementation may start を確認した。実装後に、ExecuteHostAction only input、caller supplied outcome only、F5du / F5dv / F5ea one call each、remaining_count / timer_state preservation、lower error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
+## Phase 5.13 / F5ej: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop yield complete boundary
+
+目的:
+
+- F5eg `YieldToClock` action を caller supplied clock delta で進める deterministic clock-delta authority を固定する。
+- F5eg `Complete` action を terminal completed payload へ明示 ack する。
+- actual real scheduler loop / headless app-loop integration の前段として、typed action payload ごとの再開境界を揃える。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult` は `YieldReady` と `YieldPending` を持つ。
+- `DeltaInvalid` と `YieldDelayInvalid` を分け、どちらも `Option::Some GuiError::InvalidCommand` category を保持する owner-bearing error にする。
+- `loop_yield_complete_yield_advance` は `remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、`delta_ms >= 0` と `yield_delay_ms >= 0` を検査してから pending branch のみで `sub yield_delay_ms delta_ms` を行う。
+- `loop_yield_complete_complete_ack` は `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload を返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md` を追加し、facade、result shape、error shape、F5eg / F5ea import、read-before-consume、validation、pending / ready、complete ack、no wildcard / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.13 / F5ej source policy を追加する。
+
+非目標:
+
+- general `LoopAction` を受けない。
+- F5eg `loop_action_from_result`、F5ef `loop_step`、F5eh `loop_timer_advance`、F5ei `loop_executor_complete`、F5du / F5dv scheduler decision path は呼ばない。
+- actual real scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+
+完了条件:
+
+- F5ej source policy が negative delta / negative yield delay separation、read-before-consume、sub-after-validation、pending / ready branch、complete ack、backend / queue / fallback 禁止を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は actual real scheduler loop、headless app-loop integration、native / bare scheduler backend である。
+
+subagent review:
+
+- Aquinas に F5ej 実装計画を渡した。
+- Review change として `yield_delay_ms < 0` の検査、`YieldDelayInvalid` error kind、明示 `YieldAdvanceResult` enum、read-before-consume / validate-before-sub source policy を要求されたため、実装計画に反映した。
+- 実装後に、F5eg / F5ea only import、negative delta / negative delay separation、non-Copy / non-Clone、no timer advance / executor complete / actual real scheduler loop / queue / fallback の観点で再確認させる。
 
 ## Phase 6: migration and cleanup
 
@@ -798,11 +835,13 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.12 / F5ei の deterministic virtual scheduler loop executor complete boundary までを現在の checkpoint とする。次の再開 target は、F5eg `YieldToClock` / `Complete` を扱う real scheduler loop / headless app-loop integration、native / bare scheduler backend である。
+Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までを現在の checkpoint とする。次の再開 target は、F5eg action 全体を actual real scheduler loop / headless app-loop integration に接続し、native / bare scheduler backend へ進めることである。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
+- `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
 - `ExecuteHostAction` は F5ei の `loop_executor_complete` または later real backend executor authority が返す caller supplied outcome によってだけ再開する必要がある。
+- `Complete` は F5ej の `loop_yield_complete_complete_ack` によって terminal payload へ明示的に変換する必要がある。
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。

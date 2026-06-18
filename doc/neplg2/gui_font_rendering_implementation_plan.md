@@ -1747,7 +1747,7 @@ subagent review:
 
 - F5ei source policy が `remaining_count` と `timer_state` を owner consumption 前に読む順序、F5du / F5dv / F5ea exactly once、caller supplied outcome only、lower error wrapping、no loop / no backend / no fallback を検査する。
 - focused doctest が source policy label を持つ。
-- 次の再開 target は `YieldToClock` / `Complete` を扱う real scheduler loop integration、native / bare scheduler backend、headless app-loop integration である。
+- 次の再開 target は F5eg `YieldToClock` / `Complete` typed action を扱う F5ej deterministic clock-delta authority と complete ack boundary であり、actual real scheduler loop、native / bare scheduler backend、headless app-loop integration はその後に進める。
 
 検証:
 
@@ -1766,6 +1766,61 @@ subagent review:
 
 - Aquinas に F5ei 実装計画を渡し、implementation may start を確認した。
 - 実装後に、ExecuteHostAction only input、caller supplied outcome only、F5du / F5dv / F5ea one call each、remaining_count / timer_state preservation、lower error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
+## Phase F5ej: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop yield complete boundary
+
+目的:
+
+- F5eg `YieldToClock` action payload を caller supplied clock delta で進める deterministic clock-delta authority を追加する。
+- F5eg `Complete` action payload を terminal completed payload へ明示 ack する。
+- actual real scheduler loop はまだ実装せず、later loop / headless app-loop / native / bare backend が呼ぶ typed boundary を固定する。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult` は `YieldReady` と `YieldPending` を持つ。
+- `YieldReady` は state owner と original `remaining_count` を保持する。
+- `YieldPending` は reduced delay を持つ `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock` を保持する。
+- Error kind は `DeltaInvalid` と `YieldDelayInvalid` を持ち、どちらも `Option::Some GuiError::InvalidCommand` category へ写す。
+- Public `loop_yield_complete_yield_advance` は `remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、`delta_ms >= 0` と `yield_delay_ms >= 0` を検査してから remaining delay を計算する。
+- `0 <= delta_ms < yield_delay_ms` の場合だけ `sub yield_delay_ms delta_ms` を行い、pending action を返す。
+- `delta_ms >= yield_delay_ms` の場合は state owner と original `remaining_count` を ready result として返す。
+- Public `loop_yield_complete_complete_ack` は `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload を返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md` を追加し、facade、result shape、error shape、F5eg / F5ea import、read-before-consume、delta / delay validation、pending / ready branch、complete ack、no wildcard / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ej source policy を追加する。
+
+非目標:
+
+- general `LoopAction` を受けない。
+- F5eg `loop_action_from_result`、F5ef `loop_step`、F5eh `loop_timer_advance`、F5ei `loop_executor_complete`、F5du / F5dv / F5ea scheduler decision path は呼ばない。
+- actual real scheduler loop、headless app-loop integration、native / bare real timer backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- negative `yield_delay_ms` を trusted payload として扱わない。
+
+完了条件:
+
+- F5ej source policy が `remaining_count` / `yield_delay_ms` read-before-consume、negative delta / negative yield delay separation、sub-after-validation、pending / ready branch、complete ack、backend / queue / fallback 禁止を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は actual real scheduler loop / headless app-loop integration、native / bare scheduler backend である。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_f5ej.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_module_f5ej.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Aquinas に F5ej 実装計画を渡した。
+- Review change として `yield_delay_ms < 0` の検査、`YieldDelayInvalid` error kind、明示 `YieldAdvanceResult` enum、read-before-consume / validate-before-sub source policy を要求されたため、実装計画に反映した。
+- 実装後に、F5eg / F5ea only import、negative delta / negative delay separation、no timer advance / executor complete / actual real scheduler loop / queue / fallback の観点で再確認させる。
 
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 

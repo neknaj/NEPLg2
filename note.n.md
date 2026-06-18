@@ -1,3 +1,46 @@
+# 2026-06-18 Agent2 GUI font F5ej std deterministic virtual scheduler loop yield complete boundary
+
+## 目的
+
+- F5ei executor complete の後続として、F5eg `YieldToClock` / `Complete` typed action payload を処理する boundary を追加する。
+- actual real scheduler loop そのものではなく、later real loop / headless app-loop / native / bare backend が呼ぶ deterministic clock-delta authority と complete ack authority を std layer に固定する。
+- timer advance、executor completion、scheduler decision、queue、platform API、fallback へは踏み込まない。
+
+## 直近の改良
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl` を追加し、`YieldAdvanceResult`、`YieldReady`、`YieldPending`、`Completed`、`DeltaInvalid` / `YieldDelayInvalid` owner-bearing error を定義した。
+- `loop_yield_complete_yield_advance` は `remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、negative `delta_ms` と negative `yield_delay_ms` を別 error kind に分け、validation 後の pending branch だけで remaining delay を計算する。
+- `loop_yield_complete_complete_ack` は `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload へ変換する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書・詳細設計・実装計画、`todo.md`、source policy を更新した。
+
+## subagent review
+
+- Aquinas に F5ej 実装計画を渡した。
+- Review result は `REVIEW_CHANGES` だった。
+- 指摘は、F5eg `LoopActionYieldToClock` が public なので `yield_delay_ms < 0` を fail closed にすること、`DeltaInvalid` とは別に `YieldDelayInvalid` を持つこと、`YieldAdvanceResult` enum を明示すること、source policy で read-before-consume / validate-before-sub / pending branch only subtract を検査することだった。
+- 実装計画と source policy へ反映済みである。
+- Dirac に F5ej 実装レビューを依頼した。
+- Review result は `REVIEW_CHANGES` だったが、code / source policy は clean で、note 更新漏れだけが required fix だった。
+- Dirac は typed `YieldToClock` / `Complete` payload、read-before-consume、negative delta / negative yield delay separation、sub-after-validation、`Complete` ack ordering、F5du / F5dv / F5eh / F5ei / backend / queue / fallback 禁止、wildcard 禁止、disallowed Clone / Copy leakage なしを確認した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md` は match なし。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ej focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md`。
+- pass: F5ej module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl`。
+- pass: F5eg / F5eh / F5ei / F5ef focused doctest regressions。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。
+
+## これからする内容
+
+- 問題がなければ checkpoint commit、remote/main 同期、main merge、push、Discord 報告を行う。
+
 # 2026-06-18 Agent2 GUI font F5ei std deterministic virtual scheduler loop executor complete boundary
 
 ## 目的
