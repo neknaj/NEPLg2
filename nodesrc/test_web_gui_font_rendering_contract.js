@@ -278,6 +278,8 @@ const platformGuiBareDisplayDriver = read("stdlib/platforms/gui/bare/display_dri
 const platformGuiBareDisplayDriverImpl = withoutComments(platformGuiBareDisplayDriver);
 const platformGuiBareDisplayDriverHostImport = read("stdlib/platforms/gui/bare/display_driver_host_import.nepl");
 const platformGuiBareDisplayDriverHostImportImpl = withoutComments(platformGuiBareDisplayDriverHostImport);
+const platformGuiBareDisplayDriverByteEcho = read("stdlib/platforms/gui/bare/display_driver_byte_echo.nepl");
+const platformGuiBareDisplayDriverByteEchoImpl = withoutComments(platformGuiBareDisplayDriverByteEcho);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -393,6 +395,7 @@ const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
 const guiPlatformBareDisplayDriverTests = read("tests/stdlib/gui_platform_bare_display_driver.n.md");
 const guiPlatformBareDisplayDriverHostImportTests = read("tests/stdlib/gui_platform_bare_display_driver_host_import.n.md");
+const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27023,6 +27026,171 @@ assert(
         "platform_bare_display_driver_host_import_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplayDriverHostImportTests.includes(label)),
     "F5fp platform bare display driver host import focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fq Bare display driver byte echo verification boundary") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayDriverByteEcho") &&
+        guiStandardLibrarySpec.includes("DriverStepInvalid") &&
+        guiStandardLibrarySpec.includes("Red") &&
+        guiStandardLibrarySpec.includes("Green") &&
+        guiStandardLibrarySpec.includes("Blue") &&
+        guiStandardLibrarySpec.includes("Alpha") &&
+        guiStandardLibrarySpec.includes("raw display memory ownership") &&
+        guiStandardLibrarySpec.includes("fallback") &&
+        guiStandardLibrarySpec.includes("silent no-op") &&
+        barePlatformBehaviorDoc.includes("F5fq") &&
+        barePlatformBehaviorDoc.includes("Bare display driver byte echo verification boundary") &&
+        barePlatformBehaviorDoc.includes("gui_bare_display_driver_apply"),
+    "F5fq docs must describe byte echo verification, canonical apply, typed RGBA channels, and forbidden fallback/no-op behavior",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_driver_byte_echo" as @merge'),
+    "platforms/gui/bare facade must export F5fq display driver byte echo boundary",
+);
+assert(
+    platformGuiBareDisplayDriverByteEcho.includes("Bare display driver byte echo verification boundary") &&
+        platformGuiBareDisplayDriverByteEcho.includes("public driver step") &&
+        platformGuiBareDisplayDriverByteEcho.includes("byte index") &&
+        platformGuiBareDisplayDriverByteEcho.includes("raw memory ownership") &&
+        platformGuiBareDisplayDriverByteEcho.includes("fallback") &&
+        platformGuiBareDisplayDriverByteEcho.includes("silent no-op"),
+    "platforms/gui/bare/display_driver_byte_echo F5fq must document canonical byte echo verification and non-goals",
+);
+assert(
+    platformGuiBareDisplayDriverByteEchoImpl.includes("pub struct GuiBareDisplayDriverByteEcho") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("pub enum GuiBareDisplayDriverByteChannel") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("Red") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("Green") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("Blue") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("Alpha") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("pub struct GuiBareDisplayDriverByteEchoVerified") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("pub enum GuiBareDisplayDriverByteEchoErrorKind") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("DriverStepInvalid %GuiBareDisplayDriverErrorKind") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("EchoValueMismatch") &&
+        platformGuiBareDisplayDriverByteEchoImpl.includes("pub fn gui_bare_display_driver_byte_echo_verify"),
+    "platforms/gui/bare/display_driver_byte_echo F5fq must expose echo, typed channel, verified value, error, and verify APIs",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverByteEchoImpl,
+    /pub fn gui_bare_display_driver_byte_echo_verify %fn[^\n]*GuiBareDisplayDriverStepApplied/,
+    "platforms/gui/bare/display_driver_byte_echo F5fq public verify must not accept forgeable driver step as authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_verify"),
+    [
+        "gui_bare_display_driver_apply state memory_step outcome",
+        "Result::Err driver_error",
+        "gui_bare_display_driver_byte_echo_error_from_driver_step driver_error state memory_step outcome echo",
+        "Result::Ok step",
+        "gui_bare_display_driver_byte_echo_verify_step state memory_step outcome echo step",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq verify must call F5fo apply before byte extraction",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_error_from_driver_step"),
+    [
+        "gui_bare_display_driver_step_error_kind &driver_error",
+        "gui_bare_display_driver_step_error_category_value &driver_error",
+        "GuiBareDisplayDriverByteEchoErrorKind::DriverStepInvalid lower_kind",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq driver-step errors must preserve lower kind and category",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_verify_step"),
+    [
+        "gui_bare_display_driver_step_applied_action &step",
+        "GuiBareDisplayMemoryAction::FrameBegin begin_plan",
+        "GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteAction",
+        "GuiBareDisplayMemoryAction::SpanWrite span_plan",
+        "GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted",
+        "gui_bare_display_driver_byte_echo_verify_span state memory_step outcome echo step accepted",
+        "GuiBareDisplayDriverOutcome::BeginAccepted begin_accepted",
+        "GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome",
+        "GuiBareDisplayDriverOutcome::FramePresentAccepted present_accepted",
+        "GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome",
+        "GuiBareDisplayDriverOutcome::DriverRejected lower",
+        "GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome",
+        "GuiBareDisplayMemoryAction::FramePresent present_plan",
+        "GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteAction",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq must fail closed for Begin/Present and non-span outcomes",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_verify_span"),
+    [
+        "gui_bare_display_driver_byte_echo_value &echo",
+        "if or lt echo_value 0 gt echo_value 255",
+        "GuiBareDisplayDriverByteEchoErrorKind::EchoValueInvalid",
+        "gui_bare_display_driver_byte_echo_byte_index &echo",
+        "gui_bare_display_driver_span_write_accepted_byte_start &accepted",
+        "gui_bare_display_driver_span_write_accepted_byte_end &accepted",
+        "if lt byte_index byte_start",
+        "GuiBareDisplayDriverByteEchoErrorKind::ByteIndexBeforeSpan",
+        "if ge byte_index byte_end",
+        "GuiBareDisplayDriverByteEchoErrorKind::ByteIndexAfterSpan",
+        "let relative %i32 sub byte_index byte_start",
+        "let offset %i32 rem_s relative 4",
+        "gui_bare_display_driver_span_write_accepted_color &accepted",
+        "gui_bare_display_driver_byte_echo_expected_for_offset offset color",
+        "gui_bare_display_driver_byte_echo_expected_value &expected",
+        "GuiBareDisplayDriverByteEchoErrorKind::EchoValueMismatch",
+        "Result::Ok gui_bare_display_driver_byte_echo_verified_new step echo expected",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq must validate value, byte bounds, channel offset, and mismatch before success",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_channel_for_byte_offset"),
+    [
+        "if eq offset 0",
+        "GuiBareDisplayDriverByteChannel::Red",
+        "if eq offset 1",
+        "GuiBareDisplayDriverByteChannel::Green",
+        "if eq offset 2",
+        "GuiBareDisplayDriverByteChannel::Blue",
+        "if eq offset 3",
+        "GuiBareDisplayDriverByteChannel::Alpha",
+        "GuiBareDisplayDriverByteEchoErrorKind::ByteOffsetInvalid",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq must use typed RGBA channel enum for byte offsets",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverByteEchoImpl, "gui_bare_display_driver_byte_echo_channel_value"),
+    [
+        "GuiBareDisplayDriverByteChannel::Red",
+        "cast rgba8888_r &color",
+        "GuiBareDisplayDriverByteChannel::Green",
+        "cast rgba8888_g &color",
+        "GuiBareDisplayDriverByteChannel::Blue",
+        "cast rgba8888_b &color",
+        "GuiBareDisplayDriverByteChannel::Alpha",
+        "cast rgba8888_a &color",
+    ],
+    "platforms/gui/bare/display_driver_byte_echo F5fq must map typed channel enum to RGBA8888 accessors",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverByteEchoImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|ByteBuf|MemPtr|RegionToken|store_u8|load_u8|region_ptr_at)\b/i,
+    "platforms/gui/bare/display_driver_byte_echo F5fq must not implement host imports, raw memory ownership, loops, queues, renderers, or fallback transports",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverByteEchoImpl,
+    /fallback|silent|[()]/i,
+    "platforms/gui/bare/display_driver_byte_echo F5fq implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_driver_byte_echo_facade_ok",
+        "platform_bare_display_driver_byte_echo_channel_mapping_ok",
+        "platform_bare_display_driver_byte_echo_forged_step_rejected_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_apply_before_extract_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_span_only_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_bounds_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_echo_value_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_mismatch_ok",
+        "platform_bare_display_driver_byte_echo_source_policy_begin_present_fail_closed_ok",
+        "platform_bare_display_driver_byte_echo_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayDriverByteEchoTests.includes(label)),
+    "F5fq platform bare display driver byte echo focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

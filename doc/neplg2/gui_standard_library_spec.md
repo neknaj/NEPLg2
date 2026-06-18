@@ -145,7 +145,17 @@ status `0` だけを accepted outcome として扱う。`-1` は `GuiError::Unsu
 
 `display_driver_span_write` には x / y / width / height だけでなく、F5fn が checked arithmetic で計算した run index、pixel start / end、row byte start、x byte offset、byte_start、byte_len、byte_end、surface byte count、RGBA8888 color evidence を渡す。`display_driver_begin` と `display_driver_frame_present` は descriptor の surface / frame / packet metadata と surface byte count を渡す。これにより host 側は same app code の checked action evidence を使って actual device / offscreen display に反映できる。
 
-F5fp は long-running scheduler backend、timer queue、present loop、polling input、raw byte buffer ownership、byte echo verification、DOM、Canvas、minifb、video memory host import、fallback、silent no-op を実装しない。host が import を提供しない doctest / CLI-only runtime では `nodesrc/run_test.js` の default stub が `-1` を返し、`Unsupported` として検出される。
+F5fp は long-running scheduler backend、timer queue、present loop、polling input、raw byte buffer ownership、DOM、Canvas、minifb、video memory host import、fallback、silent no-op を実装しない。host が import を提供しない doctest / CLI-only runtime では `nodesrc/run_test.js` の default stub が `-1` を返し、`Unsupported` として検出される。
+
+## F5fq Bare display driver byte echo verification boundary
+
+2026-06-19 の F5fq では、bare `platforms/gui/bare/display_driver_byte_echo` を追加する。これは F5fp の host import accepted status の後に host が返す単一 byte echo を、F5fn/F5fo の checked span write evidence と照合する verification boundary である。
+
+`GuiBareDisplayDriverStepApplied` は public Copy value として偽造できるため、F5fq の public entry は supplied driver step を受け取らない。`gui_bare_display_driver_byte_echo_verify` は `GuiBareDisplayDriverState`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverByteEcho` を受け取り、内部で必ず `gui_bare_display_driver_apply` を呼ぶ。F5fo ledger が stale / forged memory step、state mismatch、action mismatch、driver outcome mismatch を検出した場合は `DriverStepInvalid %GuiBareDisplayDriverErrorKind` として `Result` error を返し、byte extraction へ進まない。
+
+ledger が成功した後、F5fq は canonical step の action と outcome が `SpanWrite` / `SpanWriteAccepted` であることを確認する。Begin / Present は `NonSpanWriteAction` または `NonSpanWriteOutcome` として fail-closed に拒否する。`GuiBareDisplayDriverByteEcho` は `byte_index` と `value` を持ち、`value` は 0..255、`byte_index` は accepted span の `byte_start <= index < byte_end` を満たさなければならない。relative byte offset は `rem_s relative 4` で計算し、0 / 1 / 2 / 3 を `Red` / `Green` / `Blue` / `Alpha` の typed channel enum に写す。期待値は accepted `Rgba8888` の corresponding channel から取り出す。echo value が一致しない場合は `EchoValueMismatch` を返し、silent no-op にはしない。
+
+F5fq は raw display memory ownership、full byte buffer readback、actual hardware write、host import、long-running scheduler backend、timer queue、present loop、polling input、DOM、Canvas、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fq の byte echo verifier を raw display memory ownership / actual display driver adapter と接続し、単一 byte echo から bulk verification へ拡張する。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
