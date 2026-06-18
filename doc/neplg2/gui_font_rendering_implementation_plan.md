@@ -1615,6 +1615,57 @@ Subagent review:
 - Aquinas に F5ef 実装計画を渡し、implementation may start を確認した。
 - 実装後に、one F5ee slice call、F5ee payload 再公開禁止、lower direct call 禁止、non-Copy / non-Clone、no backend / no queue / no fallback が source policy と実装で揃っていることを確認させる。
 
+## Phase F5eg: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop action boundary
+
+目的:
+
+- F5ef loop result を、real scheduler loop / headless app-loop の outer authority が処理する action value に詰め替える。
+- F5eg は F5ef `loop_step` を呼ばず、caller supplied loop result だけを `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` へ total mapping する。
+- `loop_action_from_result` は later authority が次に行う `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` を返す。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` は `YieldToClock`、`AwaitTimerAdvance`、`ExecuteHostAction`、`Complete` を持つ。
+- `YieldToClock` は state、`remaining_count`、`yield_delay_ms` を保持する。
+- `AwaitTimerAdvance`、`ExecuteHostAction`、`Complete` は pending / execute / completed authority と `remaining_count` を保持する。
+- F5ef payload struct を action payload として再公開せず、scalar field は owner payload を消費する前に読む。
+- Mapping は total なので F5eg 自体は error `Result` を作らない。timer / executor の actual effect authority は後続 slice で `Result` を返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md` を追加し、facade、action variants、F5ef-only import、explicit match、payload rewrap、total mapping、no wildcard、no timer / executor / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5eg source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- F5ee / F5ec / F5ed / F5eb / F5ea、virtual timer、host、platform module を import しない。
+- F5ef `virtual_scheduler_loop_step` を呼ばない。
+
+完了条件:
+
+- F5ef の `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` が F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` へ explicit match で写る。
+- F5eg payload は F5ef payload struct を保持せず、action-owned payload だけを公開する。
+- F5eg source policy が direct lower call、loop step call、backend、queue、fallback を禁止する。
+- 次の slice が F5eg action を consumed authority として実 timer / executor 処理へ進むことを note / todo に残す。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_f5eg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_module_f5eg.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Aquinas に F5eg 実装計画を渡し、implementation may start を確認した。
+- 実装後に、F5ef-only input、total mapping、F5ef payload 再公開禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

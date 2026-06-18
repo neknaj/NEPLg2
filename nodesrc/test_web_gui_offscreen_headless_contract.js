@@ -80,6 +80,8 @@ const turnVirtualSchedulerSlice = read("stdlib/std/gui/tile_present_host_span_op
 const turnVirtualSchedulerSliceImpl = withoutComments(turnVirtualSchedulerSlice);
 const turnVirtualSchedulerLoop = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl");
 const turnVirtualSchedulerLoopImpl = withoutComments(turnVirtualSchedulerLoop);
+const turnVirtualSchedulerLoopAction = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl");
+const turnVirtualSchedulerLoopActionImpl = withoutComments(turnVirtualSchedulerLoopAction);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
@@ -90,6 +92,7 @@ const guiStdTurnVirtualSchedulerDrainTests = read("tests/stdlib/gui_std_tile_pre
 const guiStdTurnVirtualSchedulerTransitionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md");
 const guiStdTurnVirtualSchedulerSliceTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md");
 const guiStdTurnVirtualSchedulerLoopTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md");
+const guiStdTurnVirtualSchedulerLoopActionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md");
 
 assertMatch(
     spec,
@@ -591,6 +594,66 @@ assertNoMatch(
     /[()]/,
     "std/gui turn virtual scheduler loop implementation must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /LoopAction:[\s\S]*YieldToClock\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock[\s\S]*AwaitTimerAdvance\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance[\s\S]*ExecuteHostAction\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction[\s\S]*Complete\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete/,
+    "std/gui turn virtual scheduler loop action must expose explicit yield, timer, host-action, and complete actions",
+);
+assertMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /LoopActionYieldToClock:[\s\S]*state\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState[\s\S]*remaining_count\s+%i32[\s\S]*yield_delay_ms\s+%i32[\s\S]*LoopActionAwaitTimerAdvance:[\s\S]*pending\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending[\s\S]*remaining_count\s+%i32[\s\S]*LoopActionExecuteHostAction:[\s\S]*execute\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute[\s\S]*remaining_count\s+%i32[\s\S]*LoopActionComplete:[\s\S]*completed\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted[\s\S]*remaining_count\s+%i32/,
+    "std/gui turn virtual scheduler loop action payloads must preserve authority payloads and remaining counts",
+);
+assertMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop"\s+as\s+\*/,
+    "std/gui turn virtual scheduler loop action must import F5ef loop boundary",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler(?:_step|_drain|_transition|_slice)?"\s+as\s+\*|#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer"\s+as\s+\*|#import\s+"std\/gui\/virtual_timer"\s+as\s+\*|#import\s+"std\/gui\/host"\s+as\s+\*/,
+    "std/gui turn virtual scheduler loop action must not import F5ea/F5eb/F5ec/F5ed/F5ee, virtual timer, or host modules directly",
+);
+assertNoMatch(
+    textSliceBetween(
+        turnVirtualSchedulerLoopActionImpl,
+        "pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock:",
+        "pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction:",
+    ),
+    /VirtualSchedulerLoop(?:Yield|AwaitTimer|ExecuteHostAction|Done)\b/,
+    "std/gui turn virtual scheduler loop action payloads must not expose F5ef loop payload structs",
+);
+const schedulerLoopActionFromResult = functionSlice(turnVirtualSchedulerLoopActionImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_from_result");
+assertMatch(
+    schedulerLoopActionFromResult,
+    /LoopResult::Yield[\s\S]*loop_yield_remaining_count\s+&loop_payload[\s\S]*loop_yield_yield_delay_ms\s+&loop_payload[\s\S]*loop_yield_state\s+loop_payload[\s\S]*LoopAction::YieldToClock\s+payload[\s\S]*LoopResult::AwaitTimer[\s\S]*loop_await_timer_remaining_count\s+&loop_payload[\s\S]*loop_await_timer_pending\s+loop_payload[\s\S]*LoopAction::AwaitTimerAdvance\s+payload[\s\S]*LoopResult::ExecuteHostAction[\s\S]*loop_execute_host_action_remaining_count\s+&loop_payload[\s\S]*loop_execute_host_action_execute\s+loop_payload[\s\S]*LoopAction::ExecuteHostAction\s+payload[\s\S]*LoopResult::Done[\s\S]*loop_done_remaining_count\s+&loop_payload[\s\S]*loop_done_completed\s+loop_payload[\s\S]*LoopAction::Complete\s+payload/,
+    "std/gui turn virtual scheduler loop action must explicitly rewrap every F5ef loop result variant",
+);
+assertNoMatch(
+    schedulerLoopActionFromResult,
+    /\bResult::|\bResult\s+|LoopActionError/,
+    "std/gui turn virtual scheduler loop action total mapping must not invent an error Result",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /_:/,
+    "std/gui turn virtual scheduler loop action must not use wildcard enum matches",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /\b(?:while|for|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op|virtual_scheduler_loop_step|virtual_scheduler_slice|virtual_scheduler_step|virtual_scheduler_drain|transition_from_drain_result|virtual_scheduler_advance_timer|virtual_timer_advance|turn_driver_complete|executor_session_turn_driver_complete)\b/i,
+    "std/gui turn virtual scheduler loop action must not call loop step, lower scheduler phases, advance timers, complete host execution, queue, call platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction(?:YieldToClock|AwaitTimerAdvance|ExecuteHostAction|Complete)?\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction(?:YieldToClock|AwaitTimerAdvance|ExecuteHostAction|Complete)?\s*:/,
+    "std/gui turn virtual scheduler loop action owner-bearing payloads and action enum must be non-Copy and non-Clone",
+);
+assertNoMatch(
+    turnVirtualSchedulerLoopActionImpl,
+    /[()]/,
+    "std/gui turn virtual scheduler loop action implementation must preserve NEPL prefix style without parentheses",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -641,6 +704,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop"\s+as\s+\*/,
     "std/gui facade must re-export the virtual scheduler loop contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler loop action contract",
 );
 assertMatch(
     guiStdTests,
@@ -696,6 +764,11 @@ assertMatch(
     guiStdTurnVirtualSchedulerLoopTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_policy_owns_f5ee_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_result_variants_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_one_slice_call_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_payload_rewrap_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_lower_only_slice_error_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_wildcard_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_timer_executor_backend_queue_fallback/,
     "std/gui turn virtual scheduler loop focused doctest must cover F5ee-only policy, one slice call, payload rewrap, lower-only failure, and no backend/queue/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerLoopActionTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_variants_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_imports_f5ef_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_explicit_match_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_payload_rewrap_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_total_mapping_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_no_wildcard_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_no_timer_executor_backend_queue_fallback/,
+    "std/gui turn virtual scheduler loop action focused doctest must cover F5ef-only total mapping and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");
