@@ -286,6 +286,8 @@ const platformGuiBareDisplayMemorySpanReadback = read("stdlib/platforms/gui/bare
 const platformGuiBareDisplayMemorySpanReadbackImpl = withoutComments(platformGuiBareDisplayMemorySpanReadback);
 const platformGuiBareDisplayDriverAdapter = read("stdlib/platforms/gui/bare/display_driver_adapter.nepl");
 const platformGuiBareDisplayDriverAdapterImpl = withoutComments(platformGuiBareDisplayDriverAdapter);
+const platformGuiBareDisplayPresentReadiness = read("stdlib/platforms/gui/bare/display_present_readiness.nepl");
+const platformGuiBareDisplayPresentReadinessImpl = withoutComments(platformGuiBareDisplayPresentReadiness);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -405,6 +407,7 @@ const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platfor
 const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_bare_display_memory_owner.n.md");
 const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
 const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
+const guiPlatformBareDisplayPresentReadinessTests = read("tests/stdlib/gui_platform_bare_display_present_readiness.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27232,6 +27235,7 @@ assert(
         platformGuiBareDisplayMemoryOwnerImpl.includes("driver_state %GuiBareDisplayDriverState") &&
         platformGuiBareDisplayMemoryOwnerImpl.includes("storage %RegionToken u8") &&
         platformGuiBareDisplayMemoryOwnerImpl.includes("verified_byte_count %i32") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("packet_verified_byte_count %i32") &&
         platformGuiBareDisplayMemoryOwnerImpl.includes("pub struct GuiBareDisplayMemoryOwnerWriteError") &&
         platformGuiBareDisplayMemoryOwnerImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
         platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_create") &&
@@ -27267,8 +27271,10 @@ assertOrderedFragments(
         "gui_bare_display_driver_byte_echo_verified_step &verified",
         "gui_bare_display_driver_step_applied_state &step",
         "gui_bare_display_memory_owner_checked_verified_count count",
+        "gui_bare_display_memory_owner_packet_verified_byte_count &owner",
+        "gui_bare_display_memory_owner_checked_verified_count packet_count",
         "field::get owner \"storage\"",
-        "Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count Option::Some verified",
+        "Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count next_packet_count Option::Some verified",
     ],
     "platforms/gui/bare/display_memory_owner F5fr write must re-run F5fq, write before state advance, and advance only exact byte evidence",
 );
@@ -27388,9 +27394,12 @@ assertOrderedFragments(
         "gui_bare_display_memory_owner_span_readback_store_loop storage_ref &accepted",
         "gui_bare_display_memory_owner_span_readback_verify_loop storage_ref &accepted",
         "gui_bare_display_memory_owner_span_readback_checked_count count byte_len",
+        "gui_bare_display_memory_owner_packet_verified_byte_count &owner",
+        "gui_bare_display_memory_owner_span_readback_checked_count packet_count byte_len",
+        "Result::Ok next_packet_count",
         "gui_bare_display_driver_step_applied_state &step",
         "field::get owner \"storage\"",
-        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count Option::None",
+        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count next_packet_count Option::None",
         "gui_bare_display_memory_owner_span_readback_evidence_new accepted",
     ],
     "platforms/gui/bare/display_memory_span_readback F5fs must store and read back before state advance and clear stale byte evidence",
@@ -27541,8 +27550,10 @@ assertOrderedFragments(
         "gui_bare_display_driver_adapter_owner_surface_matches_state &owner &next_driver_state",
         "gui_bare_display_memory_owner_surface_byte_count &owner",
         "gui_bare_display_memory_owner_verified_byte_count &owner",
+        "gui_bare_display_memory_owner_packet_verified_byte_count &owner",
+        "gui_bare_display_driver_adapter_next_packet_verified_byte_count kind packet_verified_byte_count",
         "field::get owner \"storage\"",
-        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count Option::None",
+        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count next_packet_verified_byte_count Option::None",
     ],
     "platforms/gui/bare/display_driver_adapter F5ft Begin/Present must preserve storage/count, clear stale byte evidence, and avoid byte/frame readiness",
 );
@@ -27579,6 +27590,169 @@ assert(
         "platform_bare_display_driver_adapter_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplayDriverAdapterTests.includes(label)),
     "F5ft platform bare display driver adapter focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fu Bare presented packet readiness evidence boundary") &&
+        guiStandardLibrarySpec.includes("packet_verified_byte_count") &&
+        guiStandardLibrarySpec.includes("gui_bare_display_present_readiness_from_adapter_completed") &&
+        guiStandardLibrarySpec.includes("presented packet readiness") &&
+        guiStandardLibrarySpec.includes("whole surface") &&
+        barePlatformBehaviorDoc.includes("F5fu") &&
+        barePlatformBehaviorDoc.includes("packet-local"),
+    "F5fu docs must describe packet-local readiness, owner count reset, and non-whole-surface contract",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_present_readiness" as @merge'),
+    "platforms/gui/bare facade must export F5fu presented packet readiness boundary",
+);
+assert(
+    platformGuiBareDisplayPresentReadiness.includes("Bare presented packet readiness evidence boundary") &&
+        platformGuiBareDisplayPresentReadiness.includes("packet-local verified byte count") &&
+        platformGuiBareDisplayPresentReadiness.includes("pixel_count * 4") &&
+        platformGuiBareDisplayPresentReadiness.includes("whole surface ready") &&
+        platformGuiBareDisplayPresentReadiness.includes("fallback") &&
+        platformGuiBareDisplayPresentReadiness.includes("silent no-op"),
+    "platforms/gui/bare/display_present_readiness F5fu must document packet readiness contract and non-goals",
+);
+assert(
+    platformGuiBareDisplayMemoryOwnerImpl.includes("packet_verified_byte_count %i32") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_packet_verified_byte_count"),
+    "platforms/gui/bare/display_memory_owner must expose packet-local verified count for F5fu readiness",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_next_packet_verified_byte_count"),
+    [
+        "GuiBareDisplayDriverAdapterStepKind::BeginHostAccepted",
+        "0",
+        "GuiBareDisplayDriverAdapterStepKind::SpanHostAcceptedAndReadback",
+        "current_count",
+        "GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted",
+        "current_count",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5fu must reset packet verified count only at Begin",
+);
+assert(
+    platformGuiBareDisplayPresentReadinessImpl.includes("pub struct GuiBareDisplayPresentedPacketReadyEvidence") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("packet_rgba_byte_count %i32") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("packet_verified_byte_count %i32") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("pub struct GuiBareDisplayPresentedPacketReady") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("pub struct GuiBareDisplayPresentReadinessError") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("adapter_evidence %GuiBareDisplayDriverAdapterStepEvidence") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("pub fn gui_bare_display_present_readiness_from_adapter_completed"),
+    "platforms/gui/bare/display_present_readiness F5fu must expose typed evidence and owner-bearing success/error",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresentReadinessImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayPresentedPacketReady\b|impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayPresentReadinessError\b/,
+    "platforms/gui/bare/display_present_readiness F5fu owner-bearing success/error must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresentReadinessImpl,
+    /pub fn[^\n]*(?:RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice|GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|GuiBareDisplayDriverFramePresentAccepted)/,
+    "platforms/gui/bare/display_present_readiness F5fu public API must not expose raw storage or accept forgeable driver step/outcome/present authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresentReadinessImpl, "gui_bare_display_present_readiness_from_adapter_completed"),
+    [
+        "gui_bare_display_driver_adapter_completed_evidence &completed",
+        "gui_bare_display_driver_adapter_completed_owner completed",
+        "GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted",
+        "gui_bare_display_driver_adapter_evidence_step &adapter_evidence",
+        "gui_bare_display_driver_step_applied_outcome &step",
+        "GuiBareDisplayDriverOutcome::FramePresentAccepted present",
+        "gui_bare_display_present_readiness_build owner adapter_evidence present",
+        "GuiBareDisplayPresentReadinessErrorKind::AdapterStepNotPresent",
+    ],
+    "platforms/gui/bare/display_present_readiness F5fu public entry must consume adapter completed and accept only FramePresentHostAccepted present outcome",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresentReadinessImpl, "gui_bare_display_present_readiness_validate_last_present"),
+    [
+        "gui_bare_display_memory_owner_driver_state owner",
+        "gui_bare_display_driver_state_phase &driver_state",
+        "GuiBareDisplayDriverPhase::Active active",
+        "GuiBareDisplayPresentReadinessErrorKind::DriverPhaseMismatch",
+        "gui_bare_display_driver_state_last_present &driver_state",
+        "Option::None",
+        "GuiBareDisplayPresentReadinessErrorKind::LastPresentMissing",
+        "gui_bare_display_present_readiness_present_equal &last_present present",
+    ],
+    "platforms/gui/bare/display_present_readiness F5fu must verify owner canonical driver phase and last_present",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresentReadinessImpl, "gui_bare_display_present_readiness_present_equal"),
+    [
+        "gui_bare_display_driver_frame_present_accepted_target left",
+        "gui_bare_display_driver_frame_present_accepted_target right",
+        "gui_bare_display_driver_frame_present_accepted_descriptor left",
+        "gui_bare_display_driver_frame_present_accepted_descriptor right",
+        "gui_bare_display_driver_frame_present_accepted_frame left",
+        "gui_bare_display_driver_frame_present_accepted_frame right",
+        "gui_bare_display_memory_target_equal left_target right_target",
+        "gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor",
+        "frame_id_raw &left_frame",
+        "frame_id_raw &right_frame",
+        "gui_bare_display_driver_frame_present_accepted_run_count left",
+        "gui_bare_display_driver_frame_present_accepted_run_count right",
+        "gui_bare_display_driver_frame_present_accepted_pixel_count left",
+        "gui_bare_display_driver_frame_present_accepted_pixel_count right",
+        "gui_bare_display_driver_frame_present_accepted_surface_byte_count left",
+        "gui_bare_display_driver_frame_present_accepted_surface_byte_count right",
+    ],
+    "platforms/gui/bare/display_present_readiness F5fu must compare all present evidence fields",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresentReadinessImpl, "gui_bare_display_present_readiness_build"),
+    [
+        "gui_bare_display_present_readiness_validate_last_present &owner &present",
+        "gui_bare_display_memory_owner_surface_byte_count &owner",
+        "gui_bare_display_driver_frame_present_accepted_surface_byte_count &present",
+        "GuiBareDisplayPresentReadinessErrorKind::SurfaceByteCountMismatch",
+        "gui_bare_display_present_readiness_packet_rgba_byte_count &present",
+        "if gt packet_rgba_byte_count owner_surface",
+        "gui_bare_display_memory_owner_packet_verified_byte_count &owner",
+        "if ne packet_verified_byte_count packet_rgba_byte_count",
+        "GuiBareDisplayPresentReadinessErrorKind::PacketVerifiedByteCountMismatch",
+        "gui_bare_display_presented_packet_ready_evidence_new",
+    ],
+    "platforms/gui/bare/display_present_readiness F5fu must require exact packet-local RGBA byte verification",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresentReadinessImpl, "gui_bare_display_present_readiness_packet_rgba_byte_count"),
+    [
+        "gui_bare_display_driver_frame_present_accepted_pixel_count present",
+        "if le pixel_count 0",
+        "GuiBareDisplayPresentReadinessErrorKind::PacketPixelCountInvalid",
+        "div_s max_i32 4",
+        "if gt pixel_count max_pixel_count",
+        "GuiBareDisplayPresentReadinessErrorKind::PacketRgbaByteCountOverflow",
+        "Result::Ok mul pixel_count 4",
+    ],
+    "platforms/gui/bare/display_present_readiness F5fu packet byte count must be checked RGBA memory byte count",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresentReadinessImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|flush|surface_ready|whole_surface|fallback)\b/i,
+    "platforms/gui/bare/display_present_readiness F5fu must not implement host imports, loops, renderers, flush, or whole surface readiness",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresentReadinessImpl,
+    /silent|[()]|>=/i,
+    "platforms/gui/bare/display_present_readiness F5fu implementation must preserve no-fallback wording only in comments, avoid parentheses, and use exact equality instead of >=",
+);
+assert(
+    [
+        "platform_bare_display_present_readiness_facade_ok",
+        "platform_bare_display_present_readiness_import_create_free_ok",
+        "platform_bare_display_present_readiness_source_policy_packet_count_reset_ok",
+        "platform_bare_display_present_readiness_source_policy_adapter_completed_authority_ok",
+        "platform_bare_display_present_readiness_source_policy_last_present_check_ok",
+        "platform_bare_display_present_readiness_source_policy_exact_packet_byte_count_ok",
+        "platform_bare_display_present_readiness_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_present_readiness_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayPresentReadinessTests.includes(label)),
+    "F5fu platform bare display present readiness focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

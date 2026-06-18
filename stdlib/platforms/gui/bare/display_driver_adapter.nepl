@@ -145,6 +145,9 @@ pub fn gui_bare_display_driver_adapter_error_owner %fn GuiBareDisplayDriverAdapt
 pub fn gui_bare_display_driver_adapter_evidence_kind %fn &GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverAdapterStepKind \evidence:
     *field::get_ref evidence "kind"
 
+pub fn gui_bare_display_driver_adapter_evidence_step %fn &GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverStepApplied \evidence:
+    *field::get_ref evidence "step"
+
 pub fn gui_bare_display_driver_adapter_evidence_span_readback %fn &GuiBareDisplayDriverAdapterStepEvidence Option GuiBareDisplayMemoryOwnerSpanReadbackEvidence \evidence:
     *field::get_ref evidence "span_readback"
 
@@ -154,6 +157,15 @@ fn gui_bare_display_driver_adapter_owner_surface_matches_state %fn &GuiBareDispl
     let owner_surface %i32 gui_bare_display_memory_owner_surface_byte_count owner
     eq next_surface owner_surface
 
+fn gui_bare_display_driver_adapter_next_packet_verified_byte_count %fn GuiBareDisplayDriverAdapterStepKind fn i32 i32 \kind\current_count:
+    match kind:
+        GuiBareDisplayDriverAdapterStepKind::BeginHostAccepted:
+            0
+        GuiBareDisplayDriverAdapterStepKind::SpanHostAcceptedAndReadback:
+            current_count
+        GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted:
+            current_count
+
 fn gui_bare_display_driver_adapter_apply_completed_owner %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverStepApplied fn GuiBareDisplayDriverAdapterStepKind Result GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterError \owner\memory_step\step\kind:
     let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
     if not gui_bare_display_driver_adapter_owner_surface_matches_state &owner &next_driver_state:
@@ -161,8 +173,10 @@ fn gui_bare_display_driver_adapter_apply_completed_owner %fn GuiBareDisplayMemor
         else:
             let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
             let verified_byte_count %i32 gui_bare_display_memory_owner_verified_byte_count &owner
+            let packet_verified_byte_count %i32 gui_bare_display_memory_owner_packet_verified_byte_count &owner
+            let next_packet_verified_byte_count %i32 gui_bare_display_driver_adapter_next_packet_verified_byte_count kind packet_verified_byte_count
             let storage field::get owner "storage"
-            let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count Option::None
+            let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count next_packet_verified_byte_count Option::None
             let evidence %GuiBareDisplayDriverAdapterStepEvidence gui_bare_display_driver_adapter_evidence_new kind step Option::None
             Result::Ok gui_bare_display_driver_adapter_completed_new next_owner evidence
 

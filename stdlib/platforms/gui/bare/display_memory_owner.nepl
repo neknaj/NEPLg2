@@ -45,6 +45,7 @@ pub struct GuiBareDisplayMemoryOwner:
     surface_byte_count %i32
     storage %RegionToken u8
     verified_byte_count %i32
+    packet_verified_byte_count %i32
     last_verified %Option GuiBareDisplayDriverByteEchoVerified
 
 pub enum GuiBareDisplayMemoryOwnerCreateErrorKind:
@@ -121,8 +122,8 @@ impl Copy for GuiBareDisplayMemoryOwnerFreeErrorKind:
     fn copy_mark %fn GuiBareDisplayMemoryOwnerFreeErrorKind GuiBareDisplayMemoryOwnerFreeErrorKind \kind:
         kind
 
-fn gui_bare_display_memory_owner_new %fn GuiBareDisplayDriverState fn i32 fn RegionToken u8 fn i32 fn Option GuiBareDisplayDriverByteEchoVerified GuiBareDisplayMemoryOwner \driver_state\surface_byte_count\storage\verified_byte_count\last_verified:
-    GuiBareDisplayMemoryOwner driver_state surface_byte_count storage verified_byte_count last_verified
+fn gui_bare_display_memory_owner_new %fn GuiBareDisplayDriverState fn i32 fn RegionToken u8 fn i32 fn i32 fn Option GuiBareDisplayDriverByteEchoVerified GuiBareDisplayMemoryOwner \driver_state\surface_byte_count\storage\verified_byte_count\packet_verified_byte_count\last_verified:
+    GuiBareDisplayMemoryOwner driver_state surface_byte_count storage verified_byte_count packet_verified_byte_count last_verified
 
 fn gui_bare_display_memory_owner_create_error_category %fn GuiBareDisplayMemoryOwnerCreateErrorKind Option GuiError \kind:
     match kind:
@@ -170,6 +171,9 @@ pub fn gui_bare_display_memory_owner_surface_byte_count %fn &GuiBareDisplayMemor
 
 pub fn gui_bare_display_memory_owner_verified_byte_count %fn &GuiBareDisplayMemoryOwner i32 \owner:
     *field::get_ref owner "verified_byte_count"
+
+pub fn gui_bare_display_memory_owner_packet_verified_byte_count %fn &GuiBareDisplayMemoryOwner i32 \owner:
+    *field::get_ref owner "packet_verified_byte_count"
 
 pub fn gui_bare_display_memory_owner_last_verified %fn &GuiBareDisplayMemoryOwner Option GuiBareDisplayDriverByteEchoVerified \owner:
     *field::get_ref owner "last_verified"
@@ -271,7 +275,7 @@ pub fn gui_bare_display_memory_owner_create %fn GuiBareFramebufferConfig Result 
                 Result::Err _:
                     Result::Err gui_bare_display_memory_owner_create_error GuiBareDisplayMemoryOwnerCreateErrorKind::AllocationFailed config
                 Result::Ok storage:
-                    Result::Ok gui_bare_display_memory_owner_new driver_state surface_byte_count storage 0 Option::None
+                    Result::Ok gui_bare_display_memory_owner_new driver_state surface_byte_count storage 0 0 Option::None
 
 //: gui_bare_display_memory_owner_write_echo: verified echo 1 byte を raw memory owner へ[反映/はんえい]する
 //:
@@ -296,9 +300,14 @@ pub fn gui_bare_display_memory_owner_write_echo %fn GuiBareDisplayMemoryOwner fn
                         Result::Err kind:
                             Result::Err gui_bare_display_memory_owner_write_error kind owner memory_step outcome echo
                         Result::Ok next_count:
-                            let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
-                            let storage %RegionToken u8 field::get owner "storage"
-                            Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count Option::Some verified
+                            let packet_count %i32 gui_bare_display_memory_owner_packet_verified_byte_count &owner
+                            match gui_bare_display_memory_owner_checked_verified_count packet_count:
+                                Result::Err packet_kind:
+                                    Result::Err gui_bare_display_memory_owner_write_error packet_kind owner memory_step outcome echo
+                                Result::Ok next_packet_count:
+                                    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+                                    let storage %RegionToken u8 field::get owner "storage"
+                                    Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count next_packet_count Option::Some verified
 
 pub fn gui_bare_display_memory_owner_read_byte %fn &GuiBareDisplayMemoryOwner fn i32 Result i32 GuiBareDisplayMemoryOwnerReadErrorKind \owner\byte_index:
     let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count owner

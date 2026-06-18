@@ -346,6 +346,24 @@ pub fn gui_bare_display_driver_span_write_accepted_surface_byte_count %fn &GuiBa
 pub fn gui_bare_display_driver_span_write_accepted_color %fn &GuiBareDisplayDriverSpanWriteAccepted Rgba8888 \accepted:
     *field::get_ref accepted "color"
 
+pub fn gui_bare_display_driver_frame_present_accepted_target %fn &GuiBareDisplayDriverFramePresentAccepted GuiRgba8888RowTileRlePresentHostSpanOperationTarget \accepted:
+    *field::get_ref accepted "target"
+
+pub fn gui_bare_display_driver_frame_present_accepted_descriptor %fn &GuiBareDisplayDriverFramePresentAccepted GuiRgba8888RowTileRlePresentDescriptor \accepted:
+    *field::get_ref accepted "descriptor"
+
+pub fn gui_bare_display_driver_frame_present_accepted_frame %fn &GuiBareDisplayDriverFramePresentAccepted FrameId \accepted:
+    *field::get_ref accepted "frame"
+
+pub fn gui_bare_display_driver_frame_present_accepted_run_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "run_count"
+
+pub fn gui_bare_display_driver_frame_present_accepted_pixel_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "pixel_count"
+
+pub fn gui_bare_display_driver_frame_present_accepted_surface_byte_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "surface_byte_count"
+
 pub fn gui_bare_display_driver_step_applied_state %fn &GuiBareDisplayDriverStepApplied GuiBareDisplayDriverState \applied:
     *field::get_ref applied "state"
 

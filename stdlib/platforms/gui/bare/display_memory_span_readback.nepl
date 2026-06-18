@@ -339,12 +339,17 @@ fn gui_bare_display_memory_owner_span_readback_apply_span %fn GuiBareDisplayMemo
                                 Result::Err kind:
                                     Result::Err gui_bare_display_memory_owner_span_readback_error_new kind owner memory_step outcome -1 -1 -1
                                 Result::Ok next_count:
-                                    let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
-                                    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
-                                    let storage %RegionToken u8 field::get owner "storage"
-                                    let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count Option::None
-                                    let evidence %GuiBareDisplayMemoryOwnerSpanReadbackEvidence gui_bare_display_memory_owner_span_readback_evidence_new accepted
-                                    Result::Ok gui_bare_display_memory_owner_span_readback_completed_new next_owner evidence
+                                    let packet_count %i32 gui_bare_display_memory_owner_packet_verified_byte_count &owner
+                                    match gui_bare_display_memory_owner_span_readback_checked_count packet_count byte_len:
+                                        Result::Err packet_kind:
+                                            Result::Err gui_bare_display_memory_owner_span_readback_error_new packet_kind owner memory_step outcome -1 -1 -1
+                                        Result::Ok next_packet_count:
+                                            let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
+                                            let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+                                            let storage %RegionToken u8 field::get owner "storage"
+                                            let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count next_packet_count Option::None
+                                            let evidence %GuiBareDisplayMemoryOwnerSpanReadbackEvidence gui_bare_display_memory_owner_span_readback_evidence_new accepted
+                                            Result::Ok gui_bare_display_memory_owner_span_readback_completed_new next_owner evidence
 
 fn gui_bare_display_memory_owner_span_readback_apply_step %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverStepApplied Result GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwnerSpanReadbackError \owner\memory_step\outcome\step:
     let action %GuiBareDisplayMemoryAction gui_bare_display_driver_step_applied_action &step

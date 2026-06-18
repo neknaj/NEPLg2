@@ -191,6 +191,16 @@ returned step の action / outcome は enum `match` で明示的に分ける。`
 
 F5ft の owner-bearing success / error は `Clone` / `Copy` を実装しない。pure evidence は copyable metadata であり、それ単独では write / read authority にならない。F5ft は public raw storage accessor、scheduler loop、queue、timer backend、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、frame readiness evidence を実装しない。
 
+## F5fu Bare presented packet readiness evidence boundary
+
+2026-06-19 の F5fu では、bare `platforms/gui/bare/display_present_readiness` を追加する。これは F5ft の `GuiBareDisplayDriverAdapterCompleted` を value として消費し、`FramePresentHostAccepted` に限って row-tile RLE packet 単位の presented packet readiness evidence へ昇格する境界である。copyable `GuiBareDisplayDriverStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverFramePresentAccepted`、adapter evidence 単体は public authority として受け取らない。
+
+F5fu のために `GuiBareDisplayMemoryOwner` は lifetime 累積の `verified_byte_count` とは別に `packet_verified_byte_count` を持つ。F5ft adapter は `BeginHostAccepted` の時だけ `packet_verified_byte_count` を 0 に reset し、`SpanWrite` / `SpanWriteAccepted` は F5fs の full span store / readback success 後に `byte_len` を checked add する。`FramePresentHostAccepted` は packet-local count を保持し、readiness check がその count を検査する。これにより過去 packet の累積 count を current packet readiness と誤認しない。
+
+`gui_bare_display_present_readiness_from_adapter_completed completed` は、adapter evidence kind が `FramePresentHostAccepted`、adapter step outcome が `FramePresentAccepted`、owner 内 canonical driver state の phase が `Idle`、`last_present` が `Some` で step outcome の present evidence と target / descriptor / frame / run count / pixel count / surface byte count すべてで一致することを検査する。さらに present の `pixel_count * 4` を checked arithmetic で `packet_rgba_byte_count` にし、`packet_verified_byte_count == packet_rgba_byte_count` を要求する。ここでの byte count は RGBA memory byte count であり、RLE encoded byte count ではない。
+
+成功 payload `GuiBareDisplayPresentedPacketReady` は owner と pure `GuiBareDisplayPresentedPacketReadyEvidence` を保持する。failure payload `GuiBareDisplayPresentReadinessError` も owner と adapter evidence を保持し、caller が owner recovery を選べる。owner-bearing success / error は `Clone` / `Copy` を実装しない。F5fu は packet readiness だけを主張し、whole surface ready、hardware flush completion、scheduler loop completion、tile aggregation、actual display driver flush、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -1,3 +1,53 @@
+# 2026-06-19 Agent2 GUI platform F5fu Bare presented packet readiness evidence boundary
+
+## scope
+
+- F5ft Bare actual display driver adapter boundary の後続として、row-tile RLE packet 単位の presented packet readiness evidence boundary を追加した。
+- F5ft の `GuiBareDisplayDriverAdapterCompleted` を value として消費し、copyable step / outcome / present evidence 単体を public authority として受け取らない。
+- F5fu は current packet の RGBA byte readback と host present accepted が揃ったことだけを示し、whole surface readiness、hardware flush completion、scheduler loop completion、actual backend、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- Jason the 2nd の初回 plan review は `BLOCKED`。`verified_byte_count >= packet_byte_count` は owner lifetime 累積であり、過去 packet の readback count を含むため current packet readiness の証明には使えないと指摘された。
+- 指摘に従い、`GuiBareDisplayMemoryOwner` に lifetime 累積の `verified_byte_count` とは別に packet-local `packet_verified_byte_count` を追加する計画へ変更した。
+- 修正計画では、create は 0、Begin は packet count だけ 0 reset、span full readback は `byte_len` を checked add、Present は count を保持し、readiness は `packet_verified_byte_count == pixel_count * 4` を要求する。
+- Jason the 2nd は修正計画を `PLAN_APPROVED`。checked add、exact equality、owner-bearing success/error non-Copy、last_present と driver phase の検査、non-goal の明文化が条件として示された。
+
+## implementation
+
+- `GuiBareDisplayMemoryOwner` に `packet_verified_byte_count` と accessor を追加した。create / single-byte echo / span readback / adapter completion は lifetime count と packet-local count を分けて更新する。
+- `display_memory_span_readback` は full store と full readback が成功した後だけ `byte_len` を lifetime count と packet-local count の両方へ checked add する。
+- `display_driver_adapter` は `BeginHostAccepted` だけで packet-local count を 0 に reset し、`SpanHostAcceptedAndReadback` と `FramePresentHostAccepted` では保持する。
+- `display_driver` に `GuiBareDisplayDriverFramePresentAccepted` の target / descriptor / frame / run_count / pixel_count / surface_byte_count accessor を追加した。
+- `platforms/gui/bare/display_present_readiness` を追加し、`gui_bare_display_present_readiness_from_adapter_completed completed` で `FramePresentHostAccepted` / `FramePresentAccepted`、owner canonical driver phase `Idle`、`last_present` 一致、owner surface と present surface の一致、checked `pixel_count * 4`、packet-local verified byte count の exact equality を検査する。
+- success payload `GuiBareDisplayPresentedPacketReady` と error payload `GuiBareDisplayPresentReadinessError` は owner-bearing とし、Clone / Copy を実装しない。pure evidence と error kind は Copy のままにした。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5fu に合わせて更新した。
+- Bacon the 2nd の非ブロッカー指摘に従い、`present_equal` の target / descriptor / frame / run_count / pixel_count / surface_byte_count 比較を source-policy で直接固定した。
+
+## verification_current
+
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_present_readiness.n.md --no-tree -o tmp_gui_bare_display_present_readiness_f5fu_second.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_present_readiness.nepl --no-tree -o tmp_gui_bare_display_present_readiness_module_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_owner.nepl --no-tree -o tmp_gui_bare_display_memory_owner_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_span_readback.nepl --no-tree -o tmp_gui_bare_span_readback_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_adapter.nepl --no-tree -o tmp_gui_bare_driver_adapter_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver.nepl --no-tree -o tmp_gui_bare_display_driver_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Jason the 2nd implementation review は `APPROVED_TO_COMMIT`。前回 blocker だった lifetime count の誤用は解消され、packet-local count、Begin reset、exact equality、owner canonical driver phase と `last_present` 検査、owner-bearing non-Copy success/error、non-goal の明文化が確認された。
+- Bacon the 2nd implementation review は `APPROVED_TO_COMMIT`。docs が whole-surface readiness / flush completion / scheduler completion を過大主張していないこと、source-policy が主要 invariant を固定していることが確認された。
+- Bacon the 2nd の hardening 提案を反映した後の再レビューも `APPROVED_TO_COMMIT`。`present_equal` の field-by-field regression guard が追加され、既存 guard を緩めていないことが確認された。
+
+## residual
+
+- F5fu は row-tile RLE packet readiness evidence までであり、whole-surface readiness aggregation、hardware flush completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5ft Bare actual display driver adapter boundary
 
 ## 目的
