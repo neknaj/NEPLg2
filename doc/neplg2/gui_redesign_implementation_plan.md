@@ -748,6 +748,43 @@ subagent review:
 - Review change として `yield_delay_ms < 0` の検査、`YieldDelayInvalid` error kind、明示 `YieldAdvanceResult` enum、read-before-consume / validate-before-sub source policy を要求されたため、実装計画に反映した。
 - 実装後に、F5eg / F5ea only import、negative delta / negative delay separation、non-Copy / non-Clone、no timer advance / executor complete / actual real scheduler loop / queue / fallback の観点で再確認させる。
 
+## Phase 5.14 / F5ek: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+目的:
+
+- F5eg `LoopAction` と caller supplied explicit input を照合し、F5ej / F5eh / F5ei の typed authority へ 1 段だけ進める。
+- actual real scheduler loop / headless app-loop が使う dispatch 境界を、backend、queue、timer sleep、platform API から分離して固定する。
+- 入力種別不一致を silent no-op にせず、action owner と input owner を保持する mismatch error として返す。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持する。`LoopExecutorCompletePolicy` は保持しない。
+- F5ei に borrowed policy entry を追加し、F5ek Execute branch は同じ `scheduler_policy` と `timer_policy` を借用して `loop_executor_complete_with_policy_refs` を呼ぶ。
+- `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を持つ。
+- `RealLoopStepResult` は `StateReady`、`YieldPending`、`Completed` を持つ。
+- `RealLoopStepError` は action ごとの input mismatch と、F5ej / F5eh / F5ei lower failure を分ける。
+- `stdlib/std/gui.nepl` facade から export する。
+- focused doctest は import smoke と source policy label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.14 / F5ek source policy を追加する。
+
+非目標:
+
+- actual while loop、queue drain、scheduler sleep、setTimeout / setInterval、host backend、platform API、DOM / Canvas / minifb、video memory は含めない。
+- F5ef loop step、F5ee slice、F5ec drain、F5ed transition、F5eb step、direct virtual timer を呼ばない。
+- executor outcome を合成しない。
+- fallback と silent no-op は含めない。
+
+完了条件:
+
+- F5ek source policy が single timer policy authority、explicit input shape、action/input dispatch pair、mismatch owner recovery、F5ej / F5eh / F5ei single call、backend / queue / fallback 禁止を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は F5ek result を使う actual real scheduler loop driver、headless app-loop integration、native / bare scheduler backend である。
+
+subagent review:
+
+- Dirac plan review は `PLAN_CHANGES`。`executor_policy` と `timer_policy` を同時に保持すると timer policy authority が二重化するため、F5ek policy は `scheduler_policy` と `timer_policy` だけを保持し、Execute branch では F5ei borrowed policy entry を使うように変更した。
+
 ## Phase 6: migration and cleanup
 
 目的:

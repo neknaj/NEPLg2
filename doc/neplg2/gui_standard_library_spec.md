@@ -736,3 +736,10 @@ platforms/wasix/tui/ansi
 - WebAssembly Component Model / WIT は host interface schema の参考にする。
 - Zenn 設計指針の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離、試作段階でも雑設計を残さない方針を正の制約として扱う。
 - NEPLg2 の既存 `core` / `alloc` / `std` / `platforms` 分離と NEPLg2.1 prefix 型式移行を正の制約として扱う。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は、F5eg `LoopAction` を actual real scheduler loop / headless app-loop が扱う直前の std layer dispatch contract として定義する。ここでは backend、queue、timer sleep、platform API を実行しない。`LoopAction` と explicit input を照合し、正しい組み合わせだけを F5ej / F5eh / F5ei の typed authority へ 1 回だけ渡す。
+
+F5ek policy は `scheduler_policy` と `timer_policy` のみを持つ。`LoopExecutorCompletePolicy` を policy 内へ保持しないため、timer policy authority は二重化しない。Execute branch は F5ei `loop_executor_complete_with_policy_refs` を使い、timer branch と同じ `timer_policy` を借用する。
+
+`RealLoopStepInput` は `ClockDelta`、caller supplied `ExecutorOutcome`、explicit `CompleteAck` を持つ。入力種別が action と合わない場合は action owner と input owner を持つ mismatch error を返す。fallback、silent no-op、executor outcome 合成は禁止する。

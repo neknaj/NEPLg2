@@ -1,0 +1,294 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+//:
+//: ### [目的/もくてき]
+//: - F5eg `LoopAction` と caller supplied input を[照合/しょうごう]し、F5ej / F5eh / F5ei の typed authority へ 1 [回/かい]だけ[渡/わた]します。
+//: - actual real scheduler loop / headless app-loop が action dispatch を[行/おこな]うための pure std boundary です。
+//:
+//: ### [契約/けいやく]
+//: - policy は scheduler policy と timer policy だけを[保持/ほじ]し、executor complete policy は[保持/ほじ]しません。
+//: - Execute branch は scheduler policy と timer policy の[同/おな]じ authority を[借用/しゃくよう]し、F5ei borrowed policy entry を[呼/よ]びます。
+//: - `YieldToClock` と `AwaitTimerAdvance` は `ClockDelta` input だけを[受/う]けます。
+//: - `ExecuteHostAction` は caller supplied `ExecutorOutcome` だけを[受/う]けます。
+//: - `Complete` は explicit `CompleteAck` だけを[受/う]けます。
+//: - 入力種別が[合/あ]わない[場合/ばあい]、action owner と input owner を mismatch error へ[保持/ほじ]し、silent no-op にしません。
+//: - actual while loop、queue drain、backend、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy:
+    scheduler_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy
+    timer_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput:
+    ClockDelta %i32
+    ExecutorOutcome %Result unit GuiError
+    CompleteAck
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady:
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState
+    remaining_count %i32
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted:
+    completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted
+    remaining_count %i32
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult:
+    StateReady %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady
+    YieldPending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending
+    Completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch:
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch:
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch:
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch:
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed:
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed:
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed:
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError:
+    YieldInputMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch
+    TimerInputMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch
+    ExecuteInputMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch
+    CompleteInputMismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch
+    YieldAdvanceFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed
+    TimerAdvanceFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed
+    ExecutorCompleteFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy \scheduler_policy\timer_policy:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy scheduler_policy timer_policy
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_scheduler_policy_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy \policy:
+    field::get_ref policy "scheduler_policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_timer_policy_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy \policy:
+    field::get_ref policy "timer_policy"
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState fn i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady \state\remaining_count:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady state remaining_count
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending \action:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending action
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_completed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted fn i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted \completed\remaining_count:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted completed remaining_count
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch \action\input:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch category action input
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch \action\input:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch category action input
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch \action\input:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch category action input
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch \action\input:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch category action input
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_advance_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed \lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_advance_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed \lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_executor_complete_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed \lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed lower
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step: LoopAction と explicit input を 1 [段/だん]だけ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - action variant と input variant の[組/く]み[合/あ]わせを wildcard なしで[照合/しょうごう]します。
+//: - 正しい[組/く]み[合/あ]わせだけが F5ej / F5eh / F5ei を 1 [回/かい]だけ[呼/よ]びます。
+//: - 入力種別の不一致は action owner と input owner を error へ[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError \policy\action\input:
+    match action:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::YieldToClock yield_action:
+            match input:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms:
+                    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_advance yield_action delta_ms:
+                        Result::Err lower:
+                            let failed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_advance_failed_new lower
+                            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::YieldAdvanceFailed failed
+                        Result::Ok advance_result:
+                            match advance_result:
+                                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult::YieldReady ready:
+                                    let remaining_count %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_ready_remaining_count &ready
+                                    let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_ready_state ready
+                                    let ready_payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_new state remaining_count
+                                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult::StateReady ready_payload
+                                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult::YieldPending pending:
+                                    let pending_action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_yield_pending_action pending
+                                    let pending_payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_pending_new pending_action
+                                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult::YieldPending pending_payload
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_new yield_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::YieldInputMismatch mismatch
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_new yield_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::YieldInputMismatch mismatch
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::AwaitTimerAdvance timer_action:
+            match input:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms:
+                    let timer_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_timer_policy_ref policy
+                    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance timer_policy timer_action delta_ms:
+                        Result::Err lower:
+                            let failed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_advance_failed_new lower
+                            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::TimerAdvanceFailed failed
+                        Result::Ok completed:
+                            let remaining_count %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_completed_remaining_count &completed
+                            let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_completed_state completed
+                            let ready_payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_new state remaining_count
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult::StateReady ready_payload
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_new timer_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::TimerInputMismatch mismatch
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_new timer_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::TimerInputMismatch mismatch
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::ExecuteHostAction execute_action:
+            match input:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_new execute_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::ExecuteInputMismatch mismatch
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome:
+                    let scheduler_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_scheduler_policy_ref policy
+                    let timer_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_timer_policy_ref policy
+                    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_with_policy_refs scheduler_policy timer_policy execute_action outcome:
+                        Result::Err lower:
+                            let failed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_executor_complete_failed_new lower
+                            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::ExecutorCompleteFailed failed
+                        Result::Ok completed:
+                            let remaining_count %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_completed_remaining_count &completed
+                            let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete_completed_state completed
+                            let ready_payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_new state remaining_count
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult::StateReady ready_payload
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_new execute_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::ExecuteInputMismatch mismatch
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::Complete complete_action:
+            match input:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ClockDelta delta_ms
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_new complete_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::CompleteInputMismatch mismatch
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome:
+                    let mismatch_input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome
+                    let mismatch %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_new complete_action mismatch_input
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError::CompleteInputMismatch mismatch
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck:
+                    let completed_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteCompleted gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_complete_ack complete_action
+                    let remaining_count %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_completed_remaining_count &completed_result
+                    let completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete_completed_completed completed_result
+                    let completed_payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_completed_new completed remaining_count
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult::Completed completed_payload
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \ready:
+    field::get ready "state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_state_ready_remaining_count %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepStateReady i32 \ready:
+    *field::get_ref ready "remaining_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_pending_action %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock \pending:
+    field::get pending "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_completed_completed %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted \completed:
+    field::get completed "completed"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_completed_remaining_count %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleted i32 \completed:
+    *field::get_ref completed "remaining_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_action %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock \mismatch:
+    field::get mismatch "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_input_mismatch_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \mismatch:
+    field::get mismatch "input"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_action %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance \mismatch:
+    field::get mismatch "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_input_mismatch_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \mismatch:
+    field::get mismatch "input"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_action %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction \mismatch:
+    field::get mismatch "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_execute_input_mismatch_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecuteInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \mismatch:
+    field::get mismatch "input"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_action %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete \mismatch:
+    field::get mismatch "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_complete_input_mismatch_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepCompleteInputMismatch GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \mismatch:
+    field::get mismatch "input"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_yield_advance_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepYieldAdvanceFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceError \failure:
+    field::get failure "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_timer_advance_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTimerAdvanceFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceError \failure:
+    field::get failure "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_executor_complete_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepExecutorCompleteFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteError \failure:
+    field::get failure "lower"

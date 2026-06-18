@@ -8455,3 +8455,10 @@ F1/F2 の戻り値は既存 `Result T GuiError` を使う。font-specific reason
 - Formal font renderer の contract が `MockTextMeasurer` / `HostTextMeasurer` を fallback として参照しない。
 
 TTF table parsing、glyph outline、rasterization、ruby/vertical/math layout は後続 phase で別テストを追加する。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は F5eg `LoopAction` 全体を扱う最初の real loop step 境界である。ただし、この段階では actual while loop、queue drain、host backend、platform API、DOM、Canvas、minifb、video memory は実装しない。入力 action と explicit input を照合し、F5ej / F5eh / F5ei の既存 typed authority へ委譲する。
+
+policy は `scheduler_policy` と `timer_policy` だけを保持する。Execute branch では F5ei の borrowed policy entry `loop_executor_complete_with_policy_refs` を呼び、executor 用に別の timer policy を持たない。これにより `AwaitTimerAdvance` と `ExecuteHostAction` が同じ timer policy authority を共有する。
+
+`RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` の enum で表す。`YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` と input の対応が崩れた場合は、対応する `YieldInputMismatch`、`TimerInputMismatch`、`ExecuteInputMismatch`、`CompleteInputMismatch` を返し、action owner と input owner を回収可能にする。

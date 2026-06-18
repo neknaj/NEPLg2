@@ -730,3 +730,10 @@ GuiVideoMemoryError:
 - Web command DTO に DOM / Canvas 型がない。
 - `core/gui` / `alloc/gui` / `std/gui` に Web / native concrete type name がない。
 - stdout GUI presentation を正式 path として参照しない。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は actual real scheduler loop / headless app-loop のために、F5eg `LoopAction` と explicit input の dispatch を std layer で固定する境界である。ここでは loop 本体、queue drain、sleep、backend executor、platform API は扱わない。
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを持つ。`LoopExecutorCompletePolicy` を保持すると timer policy が二重化するため、Execute branch は F5ei の `loop_executor_complete_with_policy_refs` を呼んで同じ timer policy authority を借用する。
+
+`RealLoopStepInput` は `ClockDelta`、caller supplied `ExecutorOutcome`、explicit `CompleteAck` である。action/input の組み合わせは wildcard なしで match し、不一致は action owner と input owner を持つ mismatch error として返す。fallback、silent no-op、executor outcome の合成は禁止する。

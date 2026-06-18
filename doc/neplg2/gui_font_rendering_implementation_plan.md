@@ -8645,3 +8645,20 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cv_regression.json -j 1
 git diff --check
 ```
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+実装 target:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl`
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `nodesrc/test_web_gui_offscreen_headless_contract.js`
+
+実装内容:
+
+- F5ek policy は `scheduler_policy` と `timer_policy` だけを保持する。
+- F5ei には borrowed policy entry `loop_executor_complete_with_policy_refs` を追加し、F5ek は Execute branch でこれを使う。
+- `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を持つ。
+- 正しい action/input pair だけが F5ej / F5eh / F5ei を 1 回だけ呼ぶ。
+- mismatch error は action owner、input owner、`Option::Some GuiError::InvalidCommand` category を持つ。
+- actual loop、queue、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。

@@ -7087,3 +7087,10 @@ Formal font renderer は `core/gui/font` と `std/gui/font_resource` を通る�
 - OS font fallback を暗黙使用すること。
 - Headless で fixed-cell fallback に暗黙切替すること。
 - Missing glyph を別 glyph や tofu に暗黙置換すること。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は、F5eg `LoopAction` と caller supplied explicit input を照合し、F5ej / F5eh / F5ei の typed authority へ 1 段だけ進める std layer boundary である。GUI font rendering と 2D renderer は、この scheduler boundary の外側に backend queue や platform API を持ち込まない。
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持する。`LoopExecutorCompletePolicy` は保持しない。Execute branch は F5ei の `loop_executor_complete_with_policy_refs` を使い、timer branch と同じ timer policy authority を借用する。
+
+`RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を明示する。`YieldToClock` と `AwaitTimerAdvance` は `ClockDelta`、`ExecuteHostAction` は caller supplied `ExecutorOutcome`、`Complete` は `CompleteAck` だけを受ける。入力種別不一致は action owner と input owner を保持する mismatch error で返し、fallback と silent no-op は行わない。

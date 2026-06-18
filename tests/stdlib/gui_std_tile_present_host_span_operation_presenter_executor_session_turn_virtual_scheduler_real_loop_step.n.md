@@ -1,0 +1,50 @@
+# GUI std row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step doctests
+
+このファイルは、F5ek の std layer deterministic virtual scheduler real loop step boundary の public import surface を固定する。
+
+F5ek は F5eg `LoopAction` と explicit input を照合し、`YieldToClock` と `AwaitTimerAdvance` は `ClockDelta`、`ExecuteHostAction` は caller supplied `ExecutorOutcome`、`Complete` は explicit `CompleteAck` だけを受け入れる。正しい組み合わせだけが F5ej / F5eh / F5ei を 1 回だけ呼ぶ。入力種別が合わない場合は action owner と input owner を mismatch error に保持し、silent no-op にしない。actual loop、timer backend、executor backend、queue は実装しない。source policy は `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` が検査する。ここでは doctest timeout を避けるため import smoke だけを実行する。
+
+source policy labels:
+
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_facade_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_shape_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_input_shape_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_result_shape_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_error_shape_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_imports_f5eg_f5eh_f5ei_f5ej_only_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_dispatch_pairs_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_mismatch_owner_recovery_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_single_timer_policy_authority_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_no_wildcard_backend_queue_fallback
+
+## import smoke
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"std tile present host span operation presenter executor session turn virtual scheduler real loop step import\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+#import "std/test" as test
+
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_facade_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_shape_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_input_shape_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_result_shape_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_error_shape_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_imports_f5eg_f5eh_f5ei_f5ej_only_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_dispatch_pairs_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_mismatch_owner_recovery_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_single_timer_policy_authority_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_no_wildcard_backend_queue_fallback
+
+fn main %impure fn void i32 \void:
+    let report:
+        test::test_report_new "gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step"
+        |> test::test_report_push test::assert_eq_i32 "std tile present host span operation presenter executor session turn virtual scheduler real loop step import" 0 0
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
+```

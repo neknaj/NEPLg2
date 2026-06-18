@@ -1,3 +1,50 @@
+# 2026-06-18 Agent2 GUI std F5ek virtual scheduler real loop step boundary
+
+## 目的
+
+- F5eg `LoopAction` と explicit input を照合し、F5ej / F5eh / F5ei の typed authority へ 1 段だけ進める std layer boundary を追加する。
+- actual while loop、queue drain、timer sleep、host backend、platform API、DOM、Canvas、minifb、video memory へは踏み込まない。
+- input mismatch は silent no-op にせず、action owner と input owner を保持する typed error とする。
+
+## subagent review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 当初案の `executor_policy` と `timer_policy` を同時に持つ F5ek policy は timer policy authority を二重化するため、`scheduler_policy` と `timer_policy` だけを保持する形へ変更した。
+- F5ei に borrowed policy entry を追加し、F5ek Execute branch は同じ scheduler / timer policy authority を借用して executor completion へ渡す。
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source policy は clean で、required fix はこの note に implementation summary、verification results、implementation review result を追記することだけだった。
+- Dirac は F5ek policy が `scheduler_policy` と `timer_policy` だけを保持すること、Execute branch が F5ei borrowed policy entry 経由で同じ authority を使うこと、Timer branch が F5ek timer policy accessor を使うこと、全 action / input pair が F5ej / F5eh / F5ei へ dispatch されること、mismatch が action owner と input owner を持つ typed error になることを確認した。
+- wildcard match、synthetic outcome、platform backend、queue、timer loop、fallback、silent no-op、NEPL parentheses issue は見当たらないと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl` を追加した。
+- `RealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持し、executor complete 用の policy を重複保持しない。
+- `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を持ち、F5eg action と明示 input を 1 step だけ照合する。
+- `RealLoopStepResult` は `StateReady`、`YieldPending`、`Completed` を持ち、次の driver が状態遷移を enum として扱えるようにした。
+- `RealLoopStepError` は action / input mismatch と lower boundary failure を分け、mismatch では action owner と input owner を保持する。
+- F5ei に borrowed policy helper を追加し、F5ek Execute branch が scheduler policy と timer policy を同じ authority から借用して executor completion へ渡せるようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: F5ek module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl`。
+- pass: F5ei module regression doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl`。
+- pass: F5ek focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md`。
+- pass: F5ej / F5ei / F5eh focused regression doctests。
+- pass: `stdlib/std/gui.nepl` facade doctest。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`。既存 policy の warn は残ったが、`web GUI offscreen/headless contract passed` と `web GUI font rendering contract passed` は確認済みである。
+
+## 残件
+
+- F5ek は real loop step dispatch boundary までであり、actual real scheduler loop driver、headless app-loop integration、native / bare scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5ej std deterministic virtual scheduler loop yield complete boundary
 
 ## 目的
