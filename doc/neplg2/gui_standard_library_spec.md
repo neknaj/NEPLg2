@@ -77,6 +77,14 @@ Begin / RunSpan 成功は `NativeWindowPresenterSessionOutcome::NotPresented` �
 
 F5fh は formal native window presenter integration への lib boundary であり、minifb、OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory host import は持たない。F5fg の presenter operation identity input と、F5ex/F5ey 由来の span operation execution path を後続でこの session boundary へ接続する。
 
+## F5fi Native presenter session host helper boundary
+
+2026-06-18 の F5fi では、F5ey の scalar span operation host ABI validator と F5fh の `NativeWindowPresenterSession` を接続する Rust lib-only helper boundary を追加する。`execute_native_window_presenter_session_begin`、`execute_native_window_presenter_session_run`、`execute_native_window_presenter_session_end` は existing scalar validation を通した後だけ typed `NativeSpanOperation` を session へ渡す。
+
+validation failure は `NativeWindowPresenterSessionHostError::ValidationFailed NativeSpanOperationStatus` として返し、session / sink / presenter state を変更しない。session execution failure は `NativeWindowPresenterSessionHostError::SessionFailed` として返し、lower `NativeWindowPresenterSessionError::SinkFailed` / `PresenterFailed` を保つ。Begin / RunSpan の success は `NotPresented`、End success だけが `Presented { frame_id, width, height }` になる。
+
+F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal NEPL `#extern` 差し替え、Canvas、DOM、video memory host import を持たない。raw status projection は outer ABI のための `status` helper に閉じ、内部 contract は enum / `Result` で保持する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -69944,3 +69944,47 @@ MERGE_APPROVED
 ### residual
 
 - F5fh は formal native presenter session boundary までであり、F5fg/F5ex/F5ey 由来の scheduler host executor path を session へ接続する formal `std/gui` present host import、bare runtime host import、native / bare long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fi presenter session host helper
+
+### scope
+
+- F5fi は F5ey / F5ex 由来の scalar span operation host ABI validation path と F5fh `NativeWindowPresenterSession` を接続する Rust lib-only helper boundary である。
+- この slice は `NativeSpanOperationStatus`、`NativeWindowPresenterSessionHostError`、session helper begin / run / end、unit tests、docs/source-policy の更新だけを扱う。
+- formal NEPL `#extern` 差し替え、long-running scheduler backend、queue、timer、bare runtime host import、minifb loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Noether the 2nd の plan review は `PLAN_APPROVED`。F5fh 後続として妥当であり、scalar validation を通した後だけ session へ渡すこと、内部では typed outcome / error を保持して raw `i32` projection を外周に閉じること、Begin / RunSpan は `NotPresented`、End 成功だけ `Presented` とすることが必須条件として確認された。
+
+### implementation
+
+- `NativeSpanOperationStatus` を追加し、raw status は `from_raw` / `as_raw` で typed enum に投影するようにした。
+- `NativeWindowPresenterSessionHostError` を追加し、validation failure と session failure を分けた。session failure は lower `NativeWindowPresenterSessionError::SinkFailed` / `PresenterFailed` を保持する。
+- `execute_native_window_presenter_session_begin`、`execute_native_window_presenter_session_run`、`execute_native_window_presenter_session_end` を追加した。各 helper は既存 scalar validation を使い、validation 成功後だけ `NativeWindowPresenterSession::execute_span_operation` に進む。
+- unit tests で scalar helper 経由の Begin / RunSpan が present しないこと、End だけ present すること、invalid scalar input が session state を変えないこと、sink failure と presenter failure が host error 内で区別されることを固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を F5fi contract へ更新した。
+
+### verification_current
+
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session_scalar -- --nocapture`
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session_host_error -- --nocapture`
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は長め timeout では exit code 0 で完走した。native behavior policy は pass し、既存の stdlib documentation / Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Erdos the 2nd implementation review は `REVIEW_APPROVED`。scalar helper が existing validation の後だけ session へ渡すこと、invalid scalar input が `ValidationFailed` で止まること、Begin / RunSpan は `NotPresented`、End だけ `Presented` であること、sink / presenter failure が lower error として分離され previous presenter frame preservation が保たれることが確認された。
+- Erdos the 2nd は targeted Rust tests と native behavior source-policy を再実行し、すべて pass と判断した。
+
+### residual
+
+- F5fi は Rust lib-only helper boundary までであり、formal NEPL `#extern` import 接続、native / bare long-running scheduler backend、bare runtime host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
