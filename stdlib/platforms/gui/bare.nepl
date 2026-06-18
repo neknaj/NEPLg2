@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - bare GUI backend が提供する formal platform [境界/きょうかい]を公開します。
-//: - 現 checkpoint では monotonic clock source import、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge、scheduler host action executor backend bridge、display framebuffer adapter、display storage adapter、display memory write plan boundary、display driver outcome ledger boundary、display driver host import boundary、display driver byte echo verification boundary を公開し、long-running scheduler backend、timer backend、actual hardware driver は後続 slice に分けます。
+//: - 現 checkpoint では monotonic clock source import、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge、scheduler host action executor backend bridge、display framebuffer adapter、display storage adapter、display memory write plan boundary、display driver outcome ledger boundary、display driver host import boundary、display driver byte echo verification boundary、raw display memory ownership boundary を公開し、long-running scheduler backend、timer backend、actual hardware driver は後続 slice に分けます。
 //:
 //: ### [注意/ちゅうい]
 //: - bare は universal wall clock を持つ前提にしません。
@@ -23,3 +23,4 @@ pub #import "./bare/display_memory" as @merge
 pub #import "./bare/display_driver" as @merge
 pub #import "./bare/display_driver_host_import" as @merge
 pub #import "./bare/display_driver_byte_echo" as @merge
+pub #import "./bare/display_memory_owner" as @merge

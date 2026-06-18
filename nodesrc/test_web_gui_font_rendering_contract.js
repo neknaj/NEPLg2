@@ -280,6 +280,8 @@ const platformGuiBareDisplayDriverHostImport = read("stdlib/platforms/gui/bare/d
 const platformGuiBareDisplayDriverHostImportImpl = withoutComments(platformGuiBareDisplayDriverHostImport);
 const platformGuiBareDisplayDriverByteEcho = read("stdlib/platforms/gui/bare/display_driver_byte_echo.nepl");
 const platformGuiBareDisplayDriverByteEchoImpl = withoutComments(platformGuiBareDisplayDriverByteEcho);
+const platformGuiBareDisplayMemoryOwner = read("stdlib/platforms/gui/bare/display_memory_owner.nepl");
+const platformGuiBareDisplayMemoryOwnerImpl = withoutComments(platformGuiBareDisplayMemoryOwner);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -396,6 +398,7 @@ const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_d
 const guiPlatformBareDisplayDriverTests = read("tests/stdlib/gui_platform_bare_display_driver.n.md");
 const guiPlatformBareDisplayDriverHostImportTests = read("tests/stdlib/gui_platform_bare_display_driver_host_import.n.md");
 const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md");
+const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_bare_display_memory_owner.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27191,6 +27194,117 @@ assert(
         "platform_bare_display_driver_byte_echo_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayDriverByteEchoTests.includes(label)),
     "F5fq platform bare display driver byte echo focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fr Bare raw display memory ownership boundary") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayMemoryOwner") &&
+        guiStandardLibrarySpec.includes("RegionToken u8") &&
+        guiStandardLibrarySpec.includes("gui_bare_display_memory_owner_write_echo") &&
+        guiStandardLibrarySpec.includes("exact echoed byte") &&
+        guiStandardLibrarySpec.includes("fallback") &&
+        guiStandardLibrarySpec.includes("silent no-op") &&
+        barePlatformBehaviorDoc.includes("F5fr") &&
+        barePlatformBehaviorDoc.includes("Bare raw display memory ownership boundary") &&
+        barePlatformBehaviorDoc.includes("GuiBareDisplayDriverState"),
+    "F5fr docs must describe raw display memory owner, canonical driver state, exact byte evidence, and forbidden fallback/no-op behavior",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_memory_owner" as @merge'),
+    "platforms/gui/bare facade must export F5fr display memory owner boundary",
+);
+assert(
+    platformGuiBareDisplayMemoryOwner.includes("Bare raw display memory ownership boundary") &&
+        platformGuiBareDisplayMemoryOwner.includes("canonical driver state") &&
+        platformGuiBareDisplayMemoryOwner.includes("RegionToken u8") &&
+        platformGuiBareDisplayMemoryOwner.includes("1 byte") &&
+        platformGuiBareDisplayMemoryOwner.includes("fallback") &&
+        platformGuiBareDisplayMemoryOwner.includes("silent no-op"),
+    "platforms/gui/bare/display_memory_owner F5fr must document canonical raw memory ownership and non-goals",
+);
+assert(
+    platformGuiBareDisplayMemoryOwnerImpl.includes("pub struct GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("driver_state %GuiBareDisplayDriverState") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("storage %RegionToken u8") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("verified_byte_count %i32") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub struct GuiBareDisplayMemoryOwnerWriteError") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_create") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_write_echo") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_read_byte") &&
+        platformGuiBareDisplayMemoryOwnerImpl.includes("pub fn gui_bare_display_memory_owner_free"),
+    "platforms/gui/bare/display_memory_owner F5fr must expose owner, owner-bearing write error, create/write/read/free APIs",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryOwnerImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayMemoryOwner\b|impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayMemoryOwnerWriteError\b/,
+    "platforms/gui/bare/display_memory_owner F5fr owner and owner-bearing write error must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryOwnerImpl,
+    /pub fn[^\n]*(?:RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr)/,
+    "platforms/gui/bare/display_memory_owner F5fr public API must not expose raw storage or pointer accessors",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryOwnerImpl,
+    /pub fn gui_bare_display_memory_owner_write_echo %fn[^\n]*GuiBareDisplayDriverByteEchoVerified/,
+    "platforms/gui/bare/display_memory_owner F5fr public write must not accept forgeable verified value as authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryOwnerImpl, "gui_bare_display_memory_owner_write_echo"),
+    [
+        "gui_bare_display_memory_owner_driver_state &owner",
+        "gui_bare_display_driver_byte_echo_verify driver_state memory_step outcome echo",
+        "Result::Err echo_error",
+        "gui_bare_display_memory_owner_write_error_from_echo echo_error owner memory_step outcome echo",
+        "Result::Ok verified",
+        "gui_bare_display_memory_owner_write_verified_byte &owner verified",
+        "gui_bare_display_driver_byte_echo_verified_step &verified",
+        "gui_bare_display_driver_step_applied_state &step",
+        "gui_bare_display_memory_owner_checked_verified_count count",
+        "field::get owner \"storage\"",
+        "Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count Option::Some verified",
+    ],
+    "platforms/gui/bare/display_memory_owner F5fr write must re-run F5fq, write before state advance, and advance only exact byte evidence",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemoryOwnerImpl, "gui_bare_display_memory_owner_write_verified_byte"),
+    [
+        "gui_bare_display_driver_byte_echo_verified_echo &verified",
+        "gui_bare_display_driver_byte_echo_byte_index &echo",
+        "gui_bare_display_memory_owner_checked_byte_index byte_index surface_byte_count",
+        "gui_bare_display_driver_byte_echo_verified_expected_value &verified",
+        "field::get_ref owner \"storage\"",
+        "gui_bare_display_memory_owner_store_byte storage byte_index expected",
+        "gui_bare_display_memory_owner_load_written_byte storage byte_index",
+        "if ne actual expected",
+        "GuiBareDisplayMemoryOwnerWriteErrorKind::ReadbackMismatch",
+    ],
+    "platforms/gui/bare/display_memory_owner F5fr must store and read back only the exact echoed byte",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryOwnerImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|ByteBuf|RegionToken\s+u8\s*\\owner|zero_region|zero_fill|clear|bulk|span_ready|frame_ready|fallback)\b/i,
+    "platforms/gui/bare/display_memory_owner F5fr must not implement host imports, loops, queues, renderers, zero-fill fallback, or bulk readiness",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemoryOwnerImpl,
+    /silent|[()]/i,
+    "platforms/gui/bare/display_memory_owner F5fr implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_memory_owner_facade_ok",
+        "platform_bare_display_memory_owner_create_free_ok",
+        "platform_bare_display_memory_owner_read_bounds_ok",
+        "platform_bare_display_memory_owner_source_policy_owner_embeds_driver_state_ok",
+        "platform_bare_display_memory_owner_source_policy_no_copy_owner_ok",
+        "platform_bare_display_memory_owner_source_policy_reverify_before_write_ok",
+        "platform_bare_display_memory_owner_source_policy_write_success_before_advance_ok",
+        "platform_bare_display_memory_owner_source_policy_exact_one_byte_ok",
+        "platform_bare_display_memory_owner_source_policy_owner_recovery_ok",
+        "platform_bare_display_memory_owner_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayMemoryOwnerTests.includes(label)),
+    "F5fr platform bare display memory owner focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

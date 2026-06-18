@@ -157,6 +157,16 @@ ledger が成功した後、F5fq は canonical step の action と outcome が `
 
 F5fq は raw display memory ownership、full byte buffer readback、actual hardware write、host import、long-running scheduler backend、timer queue、present loop、polling input、DOM、Canvas、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fq の byte echo verifier を raw display memory ownership / actual display driver adapter と接続し、単一 byte echo から bulk verification へ拡張する。
 
+## F5fr Bare raw display memory ownership boundary
+
+2026-06-19 の F5fr では、bare `platforms/gui/bare/display_memory_owner` を追加する。これは F5fq の byte echo verifier を、bare display backend が所有する raw RGBA8888 byte memory に接続する ownership boundary である。`GuiBareDisplayMemoryOwner` は canonical `GuiBareDisplayDriverState`、`surface_byte_count`、private `RegionToken u8`、`verified_byte_count`、直近の `GuiBareDisplayDriverByteEchoVerified` を保持する。ただし public `GuiBareDisplayDriverByteEchoVerified` は Copy value として偽造可能なので、F5fr の public write API はこれを権威として受け取らない。
+
+`gui_bare_display_memory_owner_write_echo` は `GuiBareDisplayMemoryOwner`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverByteEcho` を受ける。まず owner 内の canonical driver state から `gui_bare_display_driver_byte_echo_verify` を呼び、F5fo/F5fq の再検証を通過した場合だけ raw memory write に進む。write は exact echoed byte だけを `RegionToken u8` に store し、同じ byte index を load して expected value と一致することを確認した後にだけ owner の driver state と verified byte count を進める。store / readback 前に state を進めることは禁止する。
+
+F5fr の owner と owner-bearing write error は `Clone` / `Copy` を実装しない。write failure は input owner を error payload に保持し、caller が recovery / free / retry policy を選べるようにする。read API は checked single-byte readback だけを提供し、raw pointer、storage accessor、bulk slice、full span readiness、full frame readiness は公開しない。1 byte echo は exact echoed byte 1 個だけの evidence であり、span 全体や frame 全体の検証完了とはみなさない。
+
+F5fr は actual hardware driver、host import、long-running scheduler backend、timer queue、present loop、polling input、DOM、Canvas、minifb、video memory transport、zero-fill fallback、silent no-op、bulk readback を実装しない。後続 slice では owner を actual display driver adapter と接続し、bulk byte readback と frame readiness を別の typed evidence として追加する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

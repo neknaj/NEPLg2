@@ -1,3 +1,48 @@
+# 2026-06-19 Agent2 GUI platform F5fr Bare raw display memory ownership boundary
+
+## 目的
+
+- F5fq Bare display driver byte echo verification boundary の後続として、bare raw display memory ownership boundary を追加する。
+- `GuiBareDisplayDriverByteEchoVerified` は public Copy value として偽造できるため、public write API の権威にしない。
+- `GuiBareDisplayMemoryOwner` が canonical `GuiBareDisplayDriverState` と private `RegionToken u8` を保持し、owner 内 driver state から F5fq verification を再実行してから exact 1 byte だけを raw memory に反映する。
+- store / readback が成功するまで owner state を進めず、span ready / frame ready / bulk readback / actual driver adapter / host import / loop / queue / fallback / silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の plan review は `NEEDS_CHANGES`。
+- 初期案では `GuiBareDisplayDriverByteEchoVerified` を public success input として扱える余地があり、Copy-forgeable value を権威にしてしまう risk があると指摘された。
+- 指摘に従い、owner に canonical `GuiBareDisplayDriverState` を埋め込み、public write は `owner + memory_step + outcome + echo` から F5fq を再実行する設計に修正した。
+- owner と owner-bearing write error は `Clone` / `Copy` を実装しないこと、write failure は owner を error payload で返すこと、1 byte echo を span / frame readiness に拡大解釈しないことを実装条件にした。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_memory_owner.nepl` を追加し、`GuiBareDisplayMemoryOwner`、create / write echo / checked single-byte read / free API、typed create / write / read / free error を実装した。
+- owner は `GuiBareDisplayDriverState`、`surface_byte_count`、private `RegionToken u8`、`verified_byte_count`、`last_verified` を保持する。
+- `gui_bare_display_memory_owner_write_echo` は owner 内 driver state から `gui_bare_display_driver_byte_echo_verify` を呼び、成功後に exact byte index へ expected value を store し、同じ byte を load して一致を確認してからだけ driver state と verified byte count を進める。
+- write error は owner を保持し、caller が recovery / free / retry を選べる。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、focused doctest、source-policy、todo を F5fr に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_owner.nepl -o tmp_gui_bare_display_memory_owner_module_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_after_f5fr.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+
+## subagent implementation review
+
+- Bacon the 2nd の implementation review は `REVIEW_APPROVED`。
+- owner boundary は pure rename layer ではなく、canonical driver state を owner に持ち、public write が F5fq を再実行するため forged verified value を権威にしていないことが確認された。
+- owner / write error に `Clone` / `Copy` がなく、write error が owner を保持し、store / readback 成功後にだけ state と verified count を進めることが確認された。
+- residual risk として successful write path の full behavioral doctest は source-policy 中心であり、現 slice では blocker ではないと判断された。
+
+## residual
+
+- F5fr は single-byte raw memory ownership までであり、bulk byte readback evidence、span / frame readiness evidence、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fq Bare display driver byte echo verification boundary
 
 ## 目的
