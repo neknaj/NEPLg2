@@ -1,0 +1,219 @@
+//: # platforms/gui/bare/display_operation_driver_bridge
+//: Bare display operation-to-driver-adapter bridge
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRlePresentHostSpanOperation` を owner 内 canonical state から actual display driver adapter へ 1 step [渡/わた]します。
+//: - ここでの span operation は Begin / RunSpan / End を[含/ふく]む existing host span operation enum の[意味/いみ]です。
+//: - public `StepApplied` value を authority として[受/う]けず、owner が[持/も]つ driver / memory / storage / framebuffer state から[順/じゅん]に[再検証/さいけん]します。
+//:
+//: ### [契約/けいやく]
+//: - framebuffer、storage、memory validation failure では host import を[呼/よ]ばず、original owner と operation と lower error を[保持/ほじ]します。
+//: - adapter failure では adapter error が[回収/かいしゅう]した owner と operation と lower adapter error を[保持/ほじ]します。
+//: - adapter / host が external side effect を accepted した[後/あと]の failure は、owner recovery を[返/かえ]しますが host side effect の rollback は[主張/しゅちょう]しません。
+//: - long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_operation_driver_bridge" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_driver_adapter" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/display_storage" as *
+#import "platforms/gui/bare/framebuffer" as *
+#import "std/gui/tile_present_host_span_operation" as *
+
+struct GuiBareDisplayOperationDriverBridgeCompletedSeal:
+    operation_tag %i32
+
+pub struct GuiBareDisplayOperationDriverBridgeCompleted:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    adapter_completed %GuiBareDisplayDriverAdapterCompleted
+    adapter_evidence %GuiBareDisplayDriverAdapterStepEvidence
+    seal %GuiBareDisplayOperationDriverBridgeCompletedSeal
+
+pub struct GuiBareDisplayOperationDriverBridgeFramebufferError:
+    owner %GuiBareDisplayMemoryOwner
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    lower %GuiBareFramebufferStepError
+    category %Option GuiError
+
+pub struct GuiBareDisplayOperationDriverBridgeStorageError:
+    owner %GuiBareDisplayMemoryOwner
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    lower %GuiBareDisplayStorageStepError
+    category %Option GuiError
+
+pub struct GuiBareDisplayOperationDriverBridgeMemoryError:
+    owner %GuiBareDisplayMemoryOwner
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    lower %GuiBareDisplayMemoryStepError
+    category %Option GuiError
+
+pub struct GuiBareDisplayOperationDriverBridgeAdapterError:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+    lower %GuiBareDisplayDriverAdapterError
+    category %Option GuiError
+
+pub enum GuiBareDisplayOperationDriverBridgeError:
+    FramebufferFailed %GuiBareDisplayOperationDriverBridgeFramebufferError
+    StorageFailed %GuiBareDisplayOperationDriverBridgeStorageError
+    MemoryFailed %GuiBareDisplayOperationDriverBridgeMemoryError
+    AdapterFailed %GuiBareDisplayOperationDriverBridgeAdapterError
+
+fn gui_bare_display_operation_driver_bridge_operation_tag %fn GuiRgba8888RowTileRlePresentHostSpanOperation i32 \operation:
+    match operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin payload:
+            1
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan payload:
+            2
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd payload:
+            3
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin descriptor:
+            4
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan span:
+            5
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd descriptor:
+            6
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin descriptor:
+            7
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan span:
+            8
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd descriptor:
+            9
+
+fn gui_bare_display_operation_driver_bridge_completed_seal %fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiBareDisplayOperationDriverBridgeCompletedSeal \operation:
+    let operation_tag %i32 gui_bare_display_operation_driver_bridge_operation_tag operation
+    GuiBareDisplayOperationDriverBridgeCompletedSeal operation_tag
+
+fn gui_bare_display_operation_driver_bridge_completed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiBareDisplayDriverAdapterCompleted GuiBareDisplayOperationDriverBridgeCompleted \operation\adapter_completed:
+    let adapter_evidence %GuiBareDisplayDriverAdapterStepEvidence gui_bare_display_driver_adapter_completed_evidence &adapter_completed
+    let seal %GuiBareDisplayOperationDriverBridgeCompletedSeal gui_bare_display_operation_driver_bridge_completed_seal operation
+    GuiBareDisplayOperationDriverBridgeCompleted operation adapter_completed adapter_evidence seal
+
+fn gui_bare_display_operation_driver_bridge_framebuffer_error_new %fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiBareFramebufferStepError GuiBareDisplayOperationDriverBridgeError \owner\operation\lower:
+    let category %Option GuiError gui_bare_framebuffer_step_error_category_value &lower
+    let payload %GuiBareDisplayOperationDriverBridgeFramebufferError GuiBareDisplayOperationDriverBridgeFramebufferError owner operation lower category
+    GuiBareDisplayOperationDriverBridgeError::FramebufferFailed payload
+
+fn gui_bare_display_operation_driver_bridge_storage_error_new %fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiBareDisplayStorageStepError GuiBareDisplayOperationDriverBridgeError \owner\operation\lower:
+    let category %Option GuiError gui_bare_display_storage_step_error_category_value &lower
+    let payload %GuiBareDisplayOperationDriverBridgeStorageError GuiBareDisplayOperationDriverBridgeStorageError owner operation lower category
+    GuiBareDisplayOperationDriverBridgeError::StorageFailed payload
+
+fn gui_bare_display_operation_driver_bridge_memory_error_new %fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiBareDisplayMemoryStepError GuiBareDisplayOperationDriverBridgeError \owner\operation\lower:
+    let category %Option GuiError gui_bare_display_memory_step_error_category_value &lower
+    let payload %GuiBareDisplayOperationDriverBridgeMemoryError GuiBareDisplayOperationDriverBridgeMemoryError owner operation lower category
+    GuiBareDisplayOperationDriverBridgeError::MemoryFailed payload
+
+fn gui_bare_display_operation_driver_bridge_adapter_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation fn GuiBareDisplayDriverAdapterError GuiBareDisplayOperationDriverBridgeError \operation\lower:
+    let category %Option GuiError gui_bare_display_driver_adapter_error_category_value &lower
+    let payload %GuiBareDisplayOperationDriverBridgeAdapterError GuiBareDisplayOperationDriverBridgeAdapterError operation lower category
+    GuiBareDisplayOperationDriverBridgeError::AdapterFailed payload
+
+fn gui_bare_display_operation_driver_bridge_framebuffer_state %fn &GuiBareDisplayMemoryOwner GuiBareFramebufferState \owner:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state owner
+    let memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state &driver_state
+    let storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state &memory_state
+    gui_bare_display_storage_state_framebuffer_state &storage_state
+
+fn gui_bare_display_operation_driver_bridge_storage_state %fn &GuiBareDisplayMemoryOwner GuiBareDisplayStorageState \owner:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state owner
+    let memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state &driver_state
+    gui_bare_display_memory_state_storage_state &memory_state
+
+fn gui_bare_display_operation_driver_bridge_memory_state %fn &GuiBareDisplayMemoryOwner GuiBareDisplayMemoryState \owner:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state owner
+    gui_bare_display_driver_state_memory_state &driver_state
+
+pub fn gui_bare_display_operation_driver_bridge_completed_owner %fn GuiBareDisplayOperationDriverBridgeCompleted GuiBareDisplayMemoryOwner \completed:
+    let adapter_completed %GuiBareDisplayDriverAdapterCompleted field::get completed "adapter_completed"
+    gui_bare_display_driver_adapter_completed_owner adapter_completed
+
+pub fn gui_bare_display_operation_driver_bridge_completed_operation %fn &GuiBareDisplayOperationDriverBridgeCompleted GuiRgba8888RowTileRlePresentHostSpanOperation \completed:
+    *field::get_ref completed "operation"
+
+pub fn gui_bare_display_operation_driver_bridge_completed_adapter_evidence %fn &GuiBareDisplayOperationDriverBridgeCompleted GuiBareDisplayDriverAdapterStepEvidence \completed:
+    *field::get_ref completed "adapter_evidence"
+
+pub fn gui_bare_display_operation_driver_bridge_framebuffer_error_owner %fn GuiBareDisplayOperationDriverBridgeFramebufferError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_operation_driver_bridge_framebuffer_error_category_value %fn &GuiBareDisplayOperationDriverBridgeFramebufferError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_operation_driver_bridge_framebuffer_error_lower %fn &GuiBareDisplayOperationDriverBridgeFramebufferError GuiBareFramebufferStepError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_bare_display_operation_driver_bridge_storage_error_owner %fn GuiBareDisplayOperationDriverBridgeStorageError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_operation_driver_bridge_storage_error_category_value %fn &GuiBareDisplayOperationDriverBridgeStorageError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_operation_driver_bridge_storage_error_lower %fn &GuiBareDisplayOperationDriverBridgeStorageError GuiBareDisplayStorageStepError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_bare_display_operation_driver_bridge_memory_error_owner %fn GuiBareDisplayOperationDriverBridgeMemoryError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_operation_driver_bridge_memory_error_category_value %fn &GuiBareDisplayOperationDriverBridgeMemoryError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_operation_driver_bridge_memory_error_lower %fn &GuiBareDisplayOperationDriverBridgeMemoryError GuiBareDisplayMemoryStepError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_bare_display_operation_driver_bridge_adapter_error_owner %fn GuiBareDisplayOperationDriverBridgeAdapterError GuiBareDisplayMemoryOwner \error:
+    let lower %GuiBareDisplayDriverAdapterError field::get error "lower"
+    gui_bare_display_driver_adapter_error_owner lower
+
+pub fn gui_bare_display_operation_driver_bridge_adapter_error_category_value %fn &GuiBareDisplayOperationDriverBridgeAdapterError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_operation_driver_bridge_adapter_error_lower %fn GuiBareDisplayOperationDriverBridgeAdapterError GuiBareDisplayDriverAdapterError \error:
+    field::get error "lower"
+
+//: gui_bare_display_operation_driver_bridge_step: owner canonical state から operation を actual display driver adapter へ 1 step [渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - public `StepApplied` を[受/う]けず、owner から framebuffer / storage / memory state を[復元/ふくげん]して lower layer の validation を[順/じゅん]に[実行/じっこう]します。
+//: - framebuffer、storage、memory failure では host import を[呼/よ]ばず、original owner を[返/かえ]します。
+//: - adapter failure は adapter error の owner recovery に[従/したが]い、external host side effect の rollback は[主張/しゅちょう]しません。
+pub fn gui_bare_display_operation_driver_bridge_step %impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareDisplayOperationDriverBridgeCompleted GuiBareDisplayOperationDriverBridgeError \owner\operation:
+    let framebuffer_state %GuiBareFramebufferState gui_bare_display_operation_driver_bridge_framebuffer_state &owner
+    match gui_bare_framebuffer_validate_operation framebuffer_state operation:
+        Result::Err framebuffer_error:
+            Result::Err gui_bare_display_operation_driver_bridge_framebuffer_error_new owner operation framebuffer_error
+        Result::Ok framebuffer_step:
+            let storage_state %GuiBareDisplayStorageState gui_bare_display_operation_driver_bridge_storage_state &owner
+            match gui_bare_display_storage_apply storage_state framebuffer_step:
+                Result::Err storage_error:
+                    Result::Err gui_bare_display_operation_driver_bridge_storage_error_new owner operation storage_error
+                Result::Ok storage_step:
+                    let memory_state %GuiBareDisplayMemoryState gui_bare_display_operation_driver_bridge_memory_state &owner
+                    match gui_bare_display_memory_apply memory_state storage_step:
+                        Result::Err memory_error:
+                            Result::Err gui_bare_display_operation_driver_bridge_memory_error_new owner operation memory_error
+                        Result::Ok memory_step:
+                            match gui_bare_display_driver_adapter_step owner memory_step:
+                                Result::Err adapter_error:
+                                    Result::Err gui_bare_display_operation_driver_bridge_adapter_error_new operation adapter_error
+                                Result::Ok adapter_completed:
+                                    Result::Ok gui_bare_display_operation_driver_bridge_completed_new operation adapter_completed
