@@ -157,6 +157,7 @@ function defaultNeplGuiBareImports() {
         display_driver_begin: () => -1,
         display_driver_span_write: () => -1,
         display_driver_frame_present: () => -1,
+        display_hardware_flush: () => -1,
     };
 }
 

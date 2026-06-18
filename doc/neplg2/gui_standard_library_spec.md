@@ -209,7 +209,17 @@ F5fv の full-height plan は `plan_row_start == 0` かつ `plan_row_count == he
 
 `advance cursor ready` は non-Copy cursor と次の owner-bearing `GuiBareDisplayPresentedPacketReady` を両方消費する。fixed metadata は surface、frame、packet frame id、batch index、plan range、width、height、stride、tile rows、tile count、surface byte count に限定して比較し、tile-local metadata である `tile_index`、`row_start`、`row_count`、`pixel_count` は cursor の `next_tile_index` から再計算して照合する。`tile_index < next_tile_index` は `DuplicateOrReorderedTile`、`tile_index > next_tile_index` は `TileGap` として fail-closed にする。
 
-`Cursor` は module-private seal を持ち、public metadata だけから過去 tile の aggregation authority を偽造できない。`Continue` は `continue_take` で cursor と owner を同じ `Handoff` value に移し、future bridge や caller が同じ境界で両方を move できるようにする。`AdvanceError` は `advance_error_take` で cursor と incoming ready を同じ recovery value へ移し、failure path でも両方を回収できる。`GuiBareDisplayWholeSurfacePacketReadinessCompleted` も owner と pure evidence を保持し、owner recovery を失わない。`Cursor`、`Continue`、`Handoff`、`Completed`、start / advance error は `Clone` / `Copy` を実装しない。F5fv は hardware flush completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+`Cursor` は module-private seal を持ち、public metadata だけから過去 tile の aggregation authority を偽造できない。`Continue` は `continue_take` で cursor と owner を同じ `Handoff` value に移し、future bridge や caller が同じ境界で両方を move できるようにする。`AdvanceError` は `advance_error_take` で cursor と incoming ready を同じ recovery value へ移し、failure path でも両方を回収できる。`GuiBareDisplayWholeSurfacePacketReadinessCompleted` も owner と pure evidence と module-private completed seal を保持し、owner recovery を失わない。`Cursor`、`Continue`、`Handoff`、`Completed`、start / advance error は `Clone` / `Copy` を実装しない。F5fv は hardware flush completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+
+## F5fw Bare display hardware flush accepted boundary
+
+2026-06-19 の F5fw では、bare `platforms/gui/bare/display_flush_completion` を追加する。これは F5fv の sealed `GuiBareDisplayWholeSurfacePacketReadinessCompleted` を value として消費し、`nepl_gui_bare.display_hardware_flush` host import へ whole-surface metadata を 1 回だけ渡す境界である。copyable `GuiBareDisplayWholeSurfacePacketReadinessEvidence`、flush evidence 単体、driver step / outcome、raw storage は input authority にしない。
+
+`gui_bare_display_hardware_flush_accept_from_whole_surface completed` は、completed value から owner と evidence を取り出した後、host import の前に geometry preflight を行う。preflight は width / height / tile rows / tile count が正であること、`expected_pixel_count == width * height`、`ready_pixel_count == expected_pixel_count`、`stride_bytes == width * 4`、`surface_byte_count == height * stride_bytes` を checked arithmetic で検査する。preflight failure では host import を呼ばず、error payload の `status` は `Option::None` である。
+
+host status は `0` だけを accepted とし、`-1` は `GuiError::Unsupported`、`-2` と `-6` は `GuiError::InvalidCommand`、`-3` と `-4` は `GuiError::ResourceExhausted`、その他の負値と正の non-zero status は `GuiError::BackendFailure` とする。host status failure では `status` を `Option::Some` で保持し、owner と evidence を `GuiBareDisplayHardwareFlushError` に回収する。
+
+成功 payload `GuiBareDisplayHardwareFlushAccepted` は owner、pure `GuiBareDisplayHardwareFlushEvidence`、module-private accepted seal を保持する。これは host import が completed whole-surface evidence に対して accepted status を返したことだけを示し、physical scanout completion、long-running scheduler backend completion、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op を意味しない。physical scanout や real backend loop completion は、将来の scheduler / backend checkpoint で別の authority として扱う。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
