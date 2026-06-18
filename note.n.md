@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI platform F5fn Bare display memory write plan boundary
+
+## 目的
+
+- F5fm Bare display storage adapter boundary の後続として、bare display memory write plan boundary を追加する。
+- `GuiBareDisplayStorageStepApplied` / effect は public value なので、その supplied state / effect を信用せず、memory state が保持する canonical `GuiBareDisplayStorageState` から再適用した expected state / effect と照合する。
+- 成功時だけ actual display driver が消費できる checked byte write plan を返し、actual driver write、host import、present loop、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の plan review は `PLAN_APPROVED`。F5fm の typed effect ledger を actual driver 直前の checked byte write plan に落とす boundary であれば pure rename layer ではなく、F5fm の後続として妥当と確認された。
+- 実装条件として、canonical `GuiBareDisplayStorageState` を memory state に持つこと、`height * stride_bytes`、`y * stride_bytes`、`x * 4`、`width * 4`、start / end 加算を全て checked にすること、present は storage present effect と complete-frame evidence に基づいて許可すること、forged / stale step と forbidden host dependency を focused doctest / source-policy で固定することが示された。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_memory.nepl` を追加し、`GuiBareDisplayMemoryState`、`GuiBareDisplayMemoryPhase`、`GuiBareDisplayMemorySpanWritePlan`、`GuiBareDisplayMemoryAction`、`GuiBareDisplayMemoryErrorKind`、`gui_bare_display_memory_apply` を追加した。
+- `gui_bare_display_memory_apply` は memory state invariant を確認し、supplied storage step から framebuffer step を読み、canonical storage state で `gui_bare_display_storage_apply` を再適用して expected state / effect と supplied state / effect を照合する。
+- `gui_bare_display_memory_span_write_plan_checked` は RGBA8888 row span の `byte_start` / `byte_len` / `byte_end` を checked arithmetic で計算し、negative geometry、overflow、surface OOB を enum error と `Result` で拒否する。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を F5fn に合わせて更新した。
+
+## verification
+
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_f5fn.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory.nepl -o tmp_gui_bare_display_memory_module_f5fn.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `stdlib/platforms/gui/bare.nepl` facade 単体は runnable doctest を持たないため、facade export は source-policy と F5fn focused doctest の import smoke で確認した。
+- F5fm の heavy forged storage sequence は現 compiler で timeout しやすいため、F5fn では supplied storage step の再適用、mismatch rejection、overflow / OOB、present complete evidence を source-policy と軽量 executable doctest で固定した。
+
+## subagent implementation review
+
+- Arendt the 2nd の implementation review は `REVIEW_APPROVED`。
+- `gui_bare_display_memory_apply` が canonical storage state から `gui_bare_display_storage_apply` を再適用して supplied state / effect と照合していること、`height * stride_bytes`、`y * stride_bytes`、`x * 4`、`width * 4`、start / end を checked arithmetic にしていること、present が active state、target / descriptor、accepted run / pixel、expected run / pixel の一致に基づくことが確認された。
+- forged step と incomplete present の executable regression は、現 compiler で長い apply sequence が安定した後に追加する余地があるが、今回の実装承認条件ではないと判断された。
+
+## residual
+
+- F5fn は checked byte write plan boundary までであり、actual display driver write、raw byte buffer ownership、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fm Bare display storage adapter boundary
 
 ## 目的

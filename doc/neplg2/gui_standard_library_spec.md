@@ -115,6 +115,16 @@ F5fk は bare NEPL `#extern` boundary だけを扱う。bare actual display driv
 
 storage phase は framebuffer phase と target、descriptor、accepted run count、accepted pixel count が一致しなければならない。偽造された storage state は `StoragePhaseMismatch`、`TargetMismatch`、`DescriptorMismatch`、`AcceptedRunCountMismatch`、`AcceptedPixelCountMismatch` として fail-closed に拒否する。F5fm は raw memory、actual display driver、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。actual display driver は F5fm の typed effect ledger を消費する後続 slice とする。
 
+## F5fn Bare display memory write plan boundary
+
+2026-06-19 の F5fn では、bare `platforms/gui/bare/display_memory` を追加する。これは actual display driver そのものではなく、F5fm の typed effect ledger を actual bare display driver が消費できる checked byte write plan へ変換する境界である。`GuiBareDisplayMemoryState` は canonical storage state として `GuiBareDisplayStorageState` を保持し、public value である `GuiBareDisplayStorageStepApplied` や `GuiBareDisplayStorageEffect` をそのまま信用しない。
+
+`gui_bare_display_memory_apply` は、memory state が保持する canonical storage state から supplied storage step の framebuffer step を `gui_bare_display_storage_apply` で再適用する。expected storage state と supplied storage state が一致しない場合は `StorageStepStateMismatch`、expected effect と supplied effect が一致しない場合は `StorageStepEffectMismatch` を返す。これにより stale / forged storage step は actual driver 直前の byte plan に進めない。
+
+span write では、config と span から `height * stride_bytes`、`y * stride_bytes`、`x * 4`、`width * 4`、`byte_start`、`byte_end` を全て checked arithmetic で計算する。negative geometry、overflow、`byte_end > surface_byte_count` は `SpanXInvalid`、`SpanYInvalid`、`SpanWidthInvalid`、`RowByteOffsetOverflow`、`XByteOffsetOverflow`、`SpanByteLengthOverflow`、`ByteStartOverflow`、`ByteEndOverflow`、`ByteOutOfBounds` などの enum error と `Result` で fail-closed に拒否する。present は storage present effect と descriptor の expected run / pixel count が一致する complete-frame evidence に基づく場合だけ `FramePresent` action へ変換する。
+
+F5fn は raw byte buffer ownership、actual display driver write、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fn の checked byte write plan を消費する actual driver adapter と、native / bare long-running backend loop へ進む。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
