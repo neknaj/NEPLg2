@@ -108,6 +108,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT: i32 = -4;/);
     assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE: i32 = -5;/);
     assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME: i32 = -6;/);
+    assert.match(libSource, /pub enum NativeSpanOperationStatus\s*\{[\s\S]*Ok,[\s\S]*Unsupported,[\s\S]*InvalidArgument,[\s\S]*ResourceExhausted,[\s\S]*NoWritableSlot,[\s\S]*BackendFailure,[\s\S]*StaleFrame/);
     assert.match(libSource, /pub enum NativeSpanOperationTarget/);
     assert.match(libSource, /pub struct NativeSpanOperationDescriptor/);
     assert.match(libSource, /pub struct NativeSpanOperationRunSpan/);
@@ -117,12 +118,24 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub fn execute_native_span_operation_begin<S: NativeSpanOperationSink>/);
     assert.match(libSource, /pub fn execute_native_span_operation_run<S: NativeSpanOperationSink>/);
     assert.match(libSource, /pub fn execute_native_span_operation_end<S: NativeSpanOperationSink>/);
+    assert.match(libSource, /pub fn execute_native_window_presenter_session_operation\(/);
+    assert.match(libSource, /pub fn execute_native_window_presenter_session_begin\(/);
+    assert.match(libSource, /pub fn execute_native_window_presenter_session_run\(/);
+    assert.match(libSource, /pub fn execute_native_window_presenter_session_end\(/);
     assert.match(nativeSpanOperationHelper, /packet_frame_id != frame_id/);
     assert.match(nativeSpanOperationHelper, /stride_bytes != expected_stride/);
     assert.match(nativeSpanOperationHelper, /tile_count != expected_tile_count \|\| tile_index >= tile_count/);
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::Begin/);
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::RunSpan/);
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::End/);
+    assert.match(nativeSpanOperationHelper, /NativeSpanOperationStatus::from_raw\(status\)/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSessionHostError::ValidationFailed/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSessionHostError::SessionFailed/);
+    assert.match(nativeSpanOperationHelper, /validate_native_span_operation_descriptor\([\s\S]*\.map_err\(NativeWindowPresenterSessionHostError::from_validation_status\)/);
+    assert.match(nativeSpanOperationHelper, /validate_native_span_operation_run_span\([\s\S]*\.map_err\(NativeWindowPresenterSessionHostError::from_validation_status\)/);
+    assert.match(nativeSpanOperationHelper, /execute_native_window_presenter_session_operation\([\s\S]*NativeSpanOperation::Begin/);
+    assert.match(nativeSpanOperationHelper, /execute_native_window_presenter_session_operation\([\s\S]*NativeSpanOperation::RunSpan/);
+    assert.match(nativeSpanOperationHelper, /execute_native_window_presenter_session_operation\(session, NativeSpanOperation::End/);
     assert.match(libSource, /pub const NATIVE_RGBA8888_PIXEL_TRANSPARENT: u32 = 0x00000000;/);
     assert.match(libSource, /pub enum NativeSpanFramebufferError/);
     assert.match(libSource, /pub struct NativeSpanFramebufferActiveSequence/);
@@ -147,6 +160,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub struct NativeWindowPresenterSession\s*\{[\s\S]*sink: NativeRgb0PresenterSink,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /pub enum NativeWindowPresenterSessionOutcome\s*\{[\s\S]*NotPresented,[\s\S]*Presented\s*\{[\s\S]*frame_id: i32,[\s\S]*width: usize,[\s\S]*height: usize/);
     assert.match(libSource, /pub enum NativeWindowPresenterSessionError\s*\{[\s\S]*SinkFailed\(NativeSpanFramebufferError\),[\s\S]*PresenterFailed\(NativeWindowPresenterError\)/);
+    assert.match(libSource, /pub enum NativeWindowPresenterSessionHostError\s*\{[\s\S]*ValidationFailed\(NativeSpanOperationStatus\),[\s\S]*SessionFailed\(NativeWindowPresenterSessionError\)/);
     assert.match(libSource, /pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;/);
     assert.match(libSource, /pub enum NativePresenterFrameError/);
     assert.match(libSource, /pub struct NativePresenterFrame<'a>\s*\{[\s\S]*width: usize,[\s\S]*height: usize,[\s\S]*pixels: &'a \[u32\]/);
@@ -187,6 +201,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /\.execute_span_operation_typed\(operation\)[\s\S]*NativeWindowPresenterSessionError::SinkFailed/);
     assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Accepted[\s\S]*NativeWindowPresenterSessionOutcome::NotPresented/);
     assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Completed\s*\{\s*frame_id\s*\}[\s\S]*\.present_sink_frame\(&self\.sink\)[\s\S]*NativeWindowPresenterSessionOutcome::Presented/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterError::FrameMissing[\s\S]*NativeWindowPresenterError::FrameIdMissing[\s\S]*GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSessionHostError::ValidationFailed\(status\) => status\.as_raw\(\)/);
     assert.match(nativeSpanOperationHelper, /try_reserve_exact\(pixel_count\)[\s\S]*self\.last_pixels = next_pixels/);
     assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSurfaceState::Unavailable/);
     assert.match(nativeSpanOperationHelper, /let source_r = \(\(rgba8888 >> 24\) & 0xff\) as u8/);
@@ -228,6 +244,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_presenter_session_failed_sink_operation_keeps_previous_frame/);
     assert.match(libSource, /native_window_presenter_session_failed_present_keeps_previous_frame/);
     assert.match(libSource, /native_window_presenter_session_resize_keeps_frame_pixels_unscaled/);
+    assert.match(libSource, /native_window_presenter_session_scalar_helper_presents_only_after_end/);
+    assert.match(libSource, /native_window_presenter_session_scalar_validation_keeps_session_state/);
+    assert.match(libSource, /native_window_presenter_session_scalar_sink_failure_keeps_previous_frame/);
+    assert.match(libSource, /native_window_presenter_session_host_error_separates_presenter_failure/);
     assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
 
@@ -281,6 +301,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowPresenterSessionOutcome::Presented/);
     assert.match(platformDoc, /NativeWindowPresenterSessionError::SinkFailed/);
     assert.match(platformDoc, /NativeWindowPresenterSessionError::PresenterFailed/);
+    assert.match(platformDoc, /Native presenter session host helper checkpoint/);
+    assert.match(platformDoc, /NativeWindowPresenterSessionHostError::ValidationFailed/);
+    assert.match(platformDoc, /execute_native_window_presenter_session_begin/);
+    assert.match(platformDoc, /execute_native_window_presenter_session_end/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -290,11 +314,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /macOS AppKit、Windows Win32、Linux Wayland \/ X11/);
     assert.match(implementationPlan, /native presenter operation identity input boundary/);
     assert.match(implementationPlan, /native formal presenter session boundary/);
+    assert.match(implementationPlan, /native presenter session host helper boundary/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
+    assert.match(standardSpec, /F5fi Native presenter session host helper boundary/);
     assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
 
     assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
@@ -321,6 +347,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner redraws exact-size buffers after resize",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
+            "Native presenter session host helper validates scalar ABI before session execution",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

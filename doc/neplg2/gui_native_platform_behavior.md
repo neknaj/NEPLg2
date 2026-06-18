@@ -165,6 +165,16 @@ sink 側の失敗は `NativeWindowPresenterSessionError::SinkFailed`、presenter
 
 この checkpoint は formal native presenter integration の lib boundary であり、minifb / OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory、fallback、silent no-op を実装しない。resize は `resize_surface` で surface state だけを更新し、previous frame pixels を stretch / crop しない。application / layout は resize event 後に新しい pixel buffer を生成し、その End 成功時に session が presenter state を更新する。
 
+## Native presenter session host helper checkpoint
+
+F5fi では F5ey / F5ex の scalar host ABI validation path と F5fh の `NativeWindowPresenterSession` を接続する Rust lib-only boundary として、`execute_native_window_presenter_session_begin`、`execute_native_window_presenter_session_run`、`execute_native_window_presenter_session_end` を追加する。
+
+これらの helper は既存の `validate_native_span_operation_descriptor` / `validate_native_span_operation_run_span` を使い、invalid scalar input を `NativeWindowPresenterSessionHostError::ValidationFailed NativeSpanOperationStatus` として session / sink / presenter state に到達する前に返す。validation 成功後だけ typed `NativeSpanOperation` を `NativeWindowPresenterSession::execute_span_operation` へ渡す。
+
+Begin と RunSpan の成功は `NativeWindowPresenterSessionOutcome::NotPresented` のままであり、End 成功だけが `NativeWindowPresenterSessionOutcome::Presented` を返す。session 側の失敗は `NativeWindowPresenterSessionHostError::SessionFailed` に包まれ、lower error は `SinkFailed` と `PresenterFailed` の区別を保つ。
+
+F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal `#extern` 差し替え、Canvas、DOM、video memory host import、fallback、silent no-op へ進まない。raw `i32` status への投影は `NativeSpanOperationStatus::as_raw` と `NativeWindowPresenterSessionHostError::status` に閉じ、内部の contract は enum / `Result` として保持する。
+
 ## 参考
 
 - Apple Developer Documentation: `NSApplication.run` https://developer.apple.com/documentation/appkit/nsapplication/run

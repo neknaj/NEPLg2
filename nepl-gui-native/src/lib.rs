@@ -91,6 +91,17 @@ pub const GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT: i32 = -4;
 pub const GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE: i32 = -5;
 pub const GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME: i32 = -6;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeSpanOperationStatus {
+    Ok,
+    Unsupported,
+    InvalidArgument,
+    ResourceExhausted,
+    NoWritableSlot,
+    BackendFailure,
+    StaleFrame,
+}
+
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW: i32 = 1;
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_OFFSCREEN: i32 = 2;
 pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_DEVICE: i32 = 3;
@@ -160,6 +171,46 @@ pub fn normalize_native_span_operation_status(status: i32) -> i32 {
         | GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
         | GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME => status,
         _ => GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE,
+    }
+}
+
+impl NativeSpanOperationStatus {
+    pub fn from_raw(status: i32) -> Self {
+        match normalize_native_span_operation_status(status) {
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK => NativeSpanOperationStatus::Ok,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_UNSUPPORTED => NativeSpanOperationStatus::Unsupported,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT => {
+                NativeSpanOperationStatus::InvalidArgument
+            }
+            GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED => {
+                NativeSpanOperationStatus::ResourceExhausted
+            }
+            GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT => {
+                NativeSpanOperationStatus::NoWritableSlot
+            }
+            GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME => NativeSpanOperationStatus::StaleFrame,
+            _ => NativeSpanOperationStatus::BackendFailure,
+        }
+    }
+
+    pub fn as_raw(self) -> i32 {
+        match self {
+            NativeSpanOperationStatus::Ok => GUI_NATIVE_SPAN_OPERATION_STATUS_OK,
+            NativeSpanOperationStatus::Unsupported => GUI_NATIVE_SPAN_OPERATION_STATUS_UNSUPPORTED,
+            NativeSpanOperationStatus::InvalidArgument => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+            }
+            NativeSpanOperationStatus::ResourceExhausted => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED
+            }
+            NativeSpanOperationStatus::NoWritableSlot => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT
+            }
+            NativeSpanOperationStatus::BackendFailure => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+            }
+            NativeSpanOperationStatus::StaleFrame => GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME,
+        }
     }
 }
 
@@ -299,6 +350,147 @@ pub fn execute_native_span_operation_end<S: NativeSpanOperationSink>(
     normalize_native_span_operation_status(
         sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
     )
+}
+
+pub fn execute_native_window_presenter_session_operation(
+    session: &mut NativeWindowPresenterSession,
+    operation: NativeSpanOperation,
+) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+    session
+        .execute_span_operation(operation)
+        .map_err(NativeWindowPresenterSessionHostError::SessionFailed)
+}
+
+pub fn execute_native_window_presenter_session_begin(
+    session: &mut NativeWindowPresenterSession,
+    target_kind: i32,
+    window_raw: i32,
+    surface_raw: i32,
+    frame_raw: i32,
+    packet_frame_id: i32,
+    batch_index: i32,
+    tile_index: i32,
+    plan_row_start: i32,
+    plan_row_count: i32,
+    row_start: i32,
+    row_count: i32,
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    tile_rows: i32,
+    tile_count: i32,
+    pixel_count: i32,
+    total_run_count: i32,
+    encoded_byte_count: i32,
+) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+    let descriptor = validate_native_span_operation_descriptor(
+        target_kind,
+        window_raw,
+        surface_raw,
+        frame_raw,
+        packet_frame_id,
+        batch_index,
+        tile_index,
+        plan_row_start,
+        plan_row_count,
+        row_start,
+        row_count,
+        width,
+        height,
+        stride_bytes,
+        tile_rows,
+        tile_count,
+        pixel_count,
+        total_run_count,
+        encoded_byte_count,
+    )
+    .map_err(NativeWindowPresenterSessionHostError::from_validation_status)?;
+
+    execute_native_window_presenter_session_operation(
+        session,
+        NativeSpanOperation::Begin(descriptor),
+    )
+}
+
+pub fn execute_native_window_presenter_session_run(
+    session: &mut NativeWindowPresenterSession,
+    target_kind: i32,
+    window_raw: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    r: i32,
+    g: i32,
+    b: i32,
+    a: i32,
+) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+    let run_span = validate_native_span_operation_run_span(
+        target_kind,
+        window_raw,
+        x,
+        y,
+        width,
+        height,
+        r,
+        g,
+        b,
+        a,
+    )
+    .map_err(NativeWindowPresenterSessionHostError::from_validation_status)?;
+
+    execute_native_window_presenter_session_operation(
+        session,
+        NativeSpanOperation::RunSpan(run_span),
+    )
+}
+
+pub fn execute_native_window_presenter_session_end(
+    session: &mut NativeWindowPresenterSession,
+    target_kind: i32,
+    window_raw: i32,
+    surface_raw: i32,
+    frame_raw: i32,
+    packet_frame_id: i32,
+    batch_index: i32,
+    tile_index: i32,
+    plan_row_start: i32,
+    plan_row_count: i32,
+    row_start: i32,
+    row_count: i32,
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    tile_rows: i32,
+    tile_count: i32,
+    pixel_count: i32,
+    total_run_count: i32,
+    encoded_byte_count: i32,
+) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+    let descriptor = validate_native_span_operation_descriptor(
+        target_kind,
+        window_raw,
+        surface_raw,
+        frame_raw,
+        packet_frame_id,
+        batch_index,
+        tile_index,
+        plan_row_start,
+        plan_row_count,
+        row_start,
+        row_count,
+        width,
+        height,
+        stride_bytes,
+        tile_rows,
+        tile_count,
+        pixel_count,
+        total_run_count,
+        encoded_byte_count,
+    )
+    .map_err(NativeWindowPresenterSessionHostError::from_validation_status)?;
+
+    execute_native_window_presenter_session_operation(session, NativeSpanOperation::End(descriptor))
 }
 
 fn validate_native_span_operation_descriptor(
@@ -828,6 +1020,12 @@ pub enum NativeWindowPresenterSessionError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPresenterSessionHostError {
+    ValidationFailed(NativeSpanOperationStatus),
+    SessionFailed(NativeWindowPresenterSessionError),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativePresenterFrameError {
     InvalidDimensions,
     DimensionOverflow,
@@ -968,6 +1166,52 @@ impl NativeRgb0PresenterSink {
                 self.last_presented_frame_id = Some(frame_id);
                 Ok(NativeRgb0PresenterSinkOutcome::Completed { frame_id })
             }
+        }
+    }
+}
+
+impl NativeWindowPresenterError {
+    pub fn status(self) -> i32 {
+        match self {
+            NativeWindowPresenterError::ResourceExhausted => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED
+            }
+            NativeWindowPresenterError::DimensionOverflow => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+            }
+            NativeWindowPresenterError::FrameMissing
+            | NativeWindowPresenterError::FrameIdMissing => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME
+            }
+            NativeWindowPresenterError::InvalidSurfaceDimensions
+            | NativeWindowPresenterError::InvalidFrameId
+            | NativeWindowPresenterError::PresenterFrameValidationFailed(_) => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+            }
+        }
+    }
+}
+
+impl NativeWindowPresenterSessionError {
+    pub fn status(self) -> i32 {
+        match self {
+            NativeWindowPresenterSessionError::SinkFailed(error) => error.status(),
+            NativeWindowPresenterSessionError::PresenterFailed(error) => error.status(),
+        }
+    }
+}
+
+impl NativeWindowPresenterSessionHostError {
+    fn from_validation_status(status: i32) -> Self {
+        NativeWindowPresenterSessionHostError::ValidationFailed(
+            NativeSpanOperationStatus::from_raw(status),
+        )
+    }
+
+    pub fn status(self) -> i32 {
+        match self {
+            NativeWindowPresenterSessionHostError::ValidationFailed(status) => status.as_raw(),
+            NativeWindowPresenterSessionHostError::SessionFailed(error) => error.status(),
         }
     }
 }
@@ -3204,6 +3448,84 @@ mod tests {
         session
     }
 
+    fn execute_window_session_scalar_begin(
+        session: &mut NativeWindowPresenterSession,
+        descriptor: NativeSpanOperationDescriptor,
+    ) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+        execute_native_window_presenter_session_begin(
+            session,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            descriptor.surface_id,
+            descriptor.frame_id,
+            descriptor.packet_frame_id,
+            descriptor.batch_index,
+            descriptor.tile_index,
+            descriptor.plan_row_start,
+            descriptor.plan_row_count,
+            descriptor.row_start,
+            descriptor.row_count,
+            descriptor.width,
+            descriptor.height,
+            descriptor.stride_bytes,
+            descriptor.tile_rows,
+            descriptor.tile_count,
+            descriptor.pixel_count,
+            descriptor.total_run_count,
+            descriptor.encoded_byte_count,
+        )
+    }
+
+    fn execute_window_session_scalar_end(
+        session: &mut NativeWindowPresenterSession,
+        descriptor: NativeSpanOperationDescriptor,
+    ) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+        execute_native_window_presenter_session_end(
+            session,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            descriptor.surface_id,
+            descriptor.frame_id,
+            descriptor.packet_frame_id,
+            descriptor.batch_index,
+            descriptor.tile_index,
+            descriptor.plan_row_start,
+            descriptor.plan_row_count,
+            descriptor.row_start,
+            descriptor.row_count,
+            descriptor.width,
+            descriptor.height,
+            descriptor.stride_bytes,
+            descriptor.tile_rows,
+            descriptor.tile_count,
+            descriptor.pixel_count,
+            descriptor.total_run_count,
+            descriptor.encoded_byte_count,
+        )
+    }
+
+    fn execute_window_session_scalar_run(
+        session: &mut NativeWindowPresenterSession,
+        x: i32,
+        y: i32,
+        width: i32,
+        red: i32,
+    ) -> Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionHostError> {
+        execute_native_window_presenter_session_run(
+            session,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            x,
+            y,
+            width,
+            1,
+            red,
+            20,
+            30,
+            255,
+        )
+    }
+
     #[test]
     fn native_window_presenter_session_presents_only_after_end() {
         let descriptor = native_framebuffer_descriptor(1);
@@ -3252,6 +3574,170 @@ mod tests {
                 .unwrap()
                 .pixels()[0],
             0x00d2141e
+        );
+    }
+
+    #[test]
+    fn native_window_presenter_session_scalar_helper_presents_only_after_end() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut session = NativeWindowPresenterSession::new(4, 3, background, 640, 480).unwrap();
+
+        assert_eq!(
+            execute_window_session_scalar_begin(&mut session, descriptor).unwrap(),
+            NativeWindowPresenterSessionOutcome::NotPresented
+        );
+        assert_eq!(session.presenter_state().last_frame_id(), None);
+        assert_eq!(
+            execute_window_session_scalar_run(&mut session, 0, 0, 1, 210).unwrap(),
+            NativeWindowPresenterSessionOutcome::NotPresented
+        );
+        assert_eq!(session.presenter_state().last_frame_id(), None);
+        assert_eq!(
+            execute_window_session_scalar_end(&mut session, descriptor).unwrap(),
+            NativeWindowPresenterSessionOutcome::Presented {
+                frame_id: descriptor.frame_id,
+                width: 4,
+                height: 3,
+            }
+        );
+        assert_eq!(
+            session.presenter_state().last_frame_id(),
+            Some(descriptor.frame_id)
+        );
+        assert_eq!(
+            session
+                .presenter_state()
+                .last_present_frame_required()
+                .unwrap()
+                .pixels()[0],
+            0x00d2141e
+        );
+    }
+
+    #[test]
+    fn native_window_presenter_session_scalar_validation_keeps_session_state() {
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut session = NativeWindowPresenterSession::new(4, 3, background, 640, 480).unwrap();
+        let mut invalid_descriptor = native_framebuffer_descriptor(1);
+        invalid_descriptor.stride_bytes = 20;
+
+        assert_eq!(
+            execute_window_session_scalar_begin(&mut session, invalid_descriptor).unwrap_err(),
+            NativeWindowPresenterSessionHostError::ValidationFailed(
+                NativeSpanOperationStatus::InvalidArgument
+            )
+        );
+        assert_eq!(session.sink().frame_buffer().active_sequence(), None);
+        assert_eq!(session.presenter_state().last_frame_id(), None);
+    }
+
+    #[test]
+    fn native_window_presenter_session_scalar_sink_failure_keeps_previous_frame() {
+        let mut session = native_complete_window_presenter_session(101, 20);
+        let previous_id = session.presenter_state().last_frame_id();
+        let previous_size = session.presenter_state().last_frame_size();
+        let previous_pixels = session
+            .presenter_state()
+            .last_present_frame_required()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let mut descriptor = native_framebuffer_descriptor(1);
+        descriptor.frame_id = 102;
+        descriptor.packet_frame_id = 102;
+
+        assert_eq!(
+            execute_window_session_scalar_begin(&mut session, descriptor).unwrap(),
+            NativeWindowPresenterSessionOutcome::NotPresented
+        );
+        assert_eq!(
+            execute_window_session_scalar_run(&mut session, 3, 0, 2, 90).unwrap_err(),
+            NativeWindowPresenterSessionHostError::SessionFailed(
+                NativeWindowPresenterSessionError::SinkFailed(
+                    NativeSpanFramebufferError::RunExtentOutOfBounds
+                )
+            )
+        );
+        assert_eq!(
+            execute_window_session_scalar_end(&mut session, descriptor).unwrap_err(),
+            NativeWindowPresenterSessionHostError::SessionFailed(
+                NativeWindowPresenterSessionError::SinkFailed(
+                    NativeSpanFramebufferError::RunCountMismatch
+                )
+            )
+        );
+        assert_eq!(session.presenter_state().last_frame_id(), previous_id);
+        assert_eq!(session.presenter_state().last_frame_size(), previous_size);
+        assert_eq!(
+            session
+                .presenter_state()
+                .last_present_frame_required()
+                .unwrap()
+                .pixels(),
+            previous_pixels.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_presenter_session_host_error_separates_presenter_failure() {
+        let mut session = native_complete_window_presenter_session(111, 30);
+        let previous_id = session.presenter_state().last_frame_id();
+        let previous_pixels = session
+            .presenter_state()
+            .last_present_frame_required()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let mut descriptor = native_framebuffer_descriptor(1);
+        descriptor.frame_id = 0;
+        descriptor.packet_frame_id = 0;
+
+        assert_eq!(
+            execute_native_window_presenter_session_operation(
+                &mut session,
+                NativeSpanOperation::Begin(descriptor),
+            )
+            .unwrap(),
+            NativeWindowPresenterSessionOutcome::NotPresented
+        );
+        assert_eq!(
+            execute_native_window_presenter_session_operation(
+                &mut session,
+                NativeSpanOperation::RunSpan(native_framebuffer_run(0, 0, 1, 40)),
+            )
+            .unwrap(),
+            NativeWindowPresenterSessionOutcome::NotPresented
+        );
+        assert_eq!(
+            execute_native_window_presenter_session_operation(
+                &mut session,
+                NativeSpanOperation::End(descriptor),
+            )
+            .unwrap_err(),
+            NativeWindowPresenterSessionHostError::SessionFailed(
+                NativeWindowPresenterSessionError::PresenterFailed(
+                    NativeWindowPresenterError::InvalidFrameId
+                )
+            )
+        );
+        assert_eq!(
+            NativeWindowPresenterSessionHostError::SessionFailed(
+                NativeWindowPresenterSessionError::PresenterFailed(
+                    NativeWindowPresenterError::InvalidFrameId
+                )
+            )
+            .status(),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(session.presenter_state().last_frame_id(), previous_id);
+        assert_eq!(
+            session
+                .presenter_state()
+                .last_present_frame_required()
+                .unwrap()
+                .pixels(),
+            previous_pixels.as_slice()
         );
     }
 
