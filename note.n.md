@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI platform F5fm Bare display storage adapter boundary
+
+## 目的
+
+- F5fl Bare display framebuffer adapter boundary の後続として、bare display storage adapter の typed effect ledger を追加する。
+- `GuiBareFramebufferStepApplied` は public value なので、その supplied next state を信用せず、storage が保持する canonical framebuffer state から operation を再検証する。
+- 成功時だけ `FrameBegin`、`SpanWrite`、`FramePresent` の typed effect を返し、actual display driver / raw memory / host import / present loop / fallback / silent no-op には進まない。
+
+## subagent plan review
+
+- Gibbs the 2nd は `PLAN_APPROVED` として実装開始可と判断した。
+- 必須条件として、canonical framebuffer state の保持、StepApplied state mismatch の拒否、Begin double execution、RunSpan order / bounds、Incomplete End、replay / stale / other target / forged applied state の enum error、host import / fallback / silent no-op / DOM / Canvas / minifb 禁止を挙げた。
+- pixel buffer の actual memory 実装は後続 slice とし、この slice では後続 driver が消費できる typed storage ledger とする方針も承認された。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_storage.nepl` を追加した。
+- `GuiBareDisplayStorageState`、`GuiBareDisplayStoragePhase`、`GuiBareDisplayStorageEffect`、`GuiBareDisplayStorageErrorKind`、`GuiBareDisplayStorageStepApplied`、`GuiBareDisplayStorageStepError` を追加した。
+- `gui_bare_display_storage_apply` は storage invariant を検査し、canonical framebuffer state から `gui_bare_framebuffer_validate_operation` を再実行した後、expected next state と supplied next state を比較する。
+- framebuffer validation failure は `FramebufferValidationFailed` に包み、applied state mismatch、storage phase mismatch、target / descriptor / accepted count mismatch は storage 側 enum error で返す。
+- `stdlib/platforms/gui/bare.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_bare_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+
+## verification current
+
+- `stdlib/platforms/gui/bare/display_storage.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_bare_display_storage.n.md` は import smoke に加え、forged `GuiBareFramebufferStepApplied` を `gui_bare_display_storage_apply` へ渡して `AppliedStateMismatch` になる executable doctest を持つ。
+- full Begin / RunSpan / End sequence を実行 doctest から直接呼ぶと現 compiler で 180 秒 timeout に入りやすいため、replay / double begin / incomplete end / frame mismatch / storage invariant の詳細条件は `nodesrc/test_web_gui_font_rendering_contract.js` の source-policy に寄せた。
+- F5fm source-policy は、facade export、docs、typed state / effect / error、canonical state 再検証順序、stale applied rejection、host import / fallback / loop / queue / renderer 禁止を検査する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- 1 回目の実装レビューでは `NEEDS_CHANGES` として、source-policy だけでは `gui_bare_display_storage_apply` の behavioral contract を固定できないと指摘された。
+- 指摘に従い、forged `GuiBareFramebufferStepApplied` が `AppliedStateMismatch` になる executable doctest を追加した。
+- full sequence などの重い条件は `source_policy_*` label に明示分離し、実行 coverage と構造 policy の責務を混ぜない形へ修正した。
+- 再レビューでは Gibbs the 2nd が `REVIEW_APPROVED` として blocker なしと判断した。
+
 # 2026-06-18 Agent2 GUI platform F5fl Bare display framebuffer adapter boundary
 
 ## 目的

@@ -107,6 +107,14 @@ F5fk は bare NEPL `#extern` boundary だけを扱う。bare actual display driv
 
 `gui_bare_framebuffer_validate_operation` は host import を呼ばないため、headless / CLI-only doctest で検査できる。`gui_bare_framebuffer_execute_operation` は validation 成功後だけ existing bare scheduler host executor を 1 回呼び、host failure は `HostExecutionFailed` として original state と operation を保持する。validation failure は host call へ進まず、wrapper は advanced state を採用しない。F5fl は not long-running scheduler backend であり、actual display storage、timer queue、present loop、formal `std/gui` host implementation、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、fallback、silent no-op は後続 slice に分ける。
 
+## F5fm Bare display storage adapter boundary
+
+2026-06-19 の F5fm では、bare `platforms/gui/bare/display_storage` を追加する。これは actual display driver ではなく、F5fl の validation result を display storage が消費する typed effect ledger へ変換する境界である。`GuiBareDisplayStorageState` は canonical framebuffer state、storage phase、last presented frame を保持し、`GuiBareDisplayStorageEffect` は `FrameBegin`、`SpanWrite`、`FramePresent` を表す。
+
+`GuiBareFramebufferStepApplied` は public value なので、storage adapter は supplied next state をそのまま信用しない。`gui_bare_display_storage_apply` はまず storage state invariant を検査し、storage が保持する canonical framebuffer state から operation を `gui_bare_framebuffer_validate_operation` で再検証する。再検証で得た expected next framebuffer state と supplied next framebuffer state が一致しない場合は `AppliedStateMismatch` を返す。replay、stale applied、別 surface / frame / target、RunSpan before Begin、Incomplete End、frame mismatch は F5fl の enum error を `FramebufferValidationFailed` として保持する。
+
+storage phase は framebuffer phase と target、descriptor、accepted run count、accepted pixel count が一致しなければならない。偽造された storage state は `StoragePhaseMismatch`、`TargetMismatch`、`DescriptorMismatch`、`AcceptedRunCountMismatch`、`AcceptedPixelCountMismatch` として fail-closed に拒否する。F5fm は raw memory、actual display driver、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。actual display driver は F5fm の typed effect ledger を消費する後続 slice とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

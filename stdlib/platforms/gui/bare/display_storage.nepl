@@ -1,0 +1,602 @@
+//: # platforms/gui/bare/display_storage
+//: Bare display storage adapter boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fl の framebuffer validation [結果/けっか]を、bare display storage が[消費/しょうひ]する typed effect ledger へ[変換/へんかん]します。
+//: - Begin / RunSpan / End を display storage state と[照合/しょうごう]し、accepted span と presented frame の[証拠/しょうこ]を state に[保持/ほじ]します。
+//: - `GuiBareFramebufferStepApplied` は public value なので、そのまま[信用/しんよう]せず、storage が[持/も]つ canonical framebuffer state から operation を[再検証/さいけんさ]します。
+//:
+//: ### [契約/けいやく]
+//: - host import、platform window、DOM、Canvas、minifb、fallback、silent no-op はこの module に[含/ふく]めません。
+//: - pixel buffer の raw memory はまだ[所有/しょゆう]しません。代わりに、後続の actual display driver が[消費/しょうひ]できる Begin / SpanWrite / FramePresent effect を typed value として[返/かえ]します。
+//: - replay、stale applied、別 surface / frame / target、storage state [偽造/ぎぞう]は enum error と `Result` で[返/かえ]します。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_storage" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/framebuffer" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareDisplayStorageActiveFrame:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    accepted_run_count %i32
+    accepted_pixel_count %i32
+
+impl Clone for GuiBareDisplayStorageActiveFrame:
+    fn clone %fn &GuiBareDisplayStorageActiveFrame GuiBareDisplayStorageActiveFrame \active:
+        *active
+
+impl Copy for GuiBareDisplayStorageActiveFrame:
+    fn copy_mark %fn GuiBareDisplayStorageActiveFrame GuiBareDisplayStorageActiveFrame \active:
+        active
+
+pub enum GuiBareDisplayStoragePhase:
+    Idle
+    Active %GuiBareDisplayStorageActiveFrame
+
+impl Clone for GuiBareDisplayStoragePhase:
+    fn clone %fn &GuiBareDisplayStoragePhase GuiBareDisplayStoragePhase \phase:
+        *phase
+
+impl Copy for GuiBareDisplayStoragePhase:
+    fn copy_mark %fn GuiBareDisplayStoragePhase GuiBareDisplayStoragePhase \phase:
+        phase
+
+pub struct GuiBareDisplayStorageState:
+    framebuffer_state %GuiBareFramebufferState
+    phase %GuiBareDisplayStoragePhase
+    last_presented_frame %Option FrameId
+
+impl Clone for GuiBareDisplayStorageState:
+    fn clone %fn &GuiBareDisplayStorageState GuiBareDisplayStorageState \state:
+        *state
+
+impl Copy for GuiBareDisplayStorageState:
+    fn copy_mark %fn GuiBareDisplayStorageState GuiBareDisplayStorageState \state:
+        state
+
+pub struct GuiBareDisplayStorageFrameBeginEffect:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiBareDisplayStorageFrameBeginEffect:
+    fn clone %fn &GuiBareDisplayStorageFrameBeginEffect GuiBareDisplayStorageFrameBeginEffect \effect:
+        *effect
+
+impl Copy for GuiBareDisplayStorageFrameBeginEffect:
+    fn copy_mark %fn GuiBareDisplayStorageFrameBeginEffect GuiBareDisplayStorageFrameBeginEffect \effect:
+        effect
+
+pub struct GuiBareDisplayStorageSpanWriteEffect:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+    run_index %i32
+    pixel_start %i32
+    pixel_end %i32
+
+impl Clone for GuiBareDisplayStorageSpanWriteEffect:
+    fn clone %fn &GuiBareDisplayStorageSpanWriteEffect GuiBareDisplayStorageSpanWriteEffect \effect:
+        *effect
+
+impl Copy for GuiBareDisplayStorageSpanWriteEffect:
+    fn copy_mark %fn GuiBareDisplayStorageSpanWriteEffect GuiBareDisplayStorageSpanWriteEffect \effect:
+        effect
+
+pub struct GuiBareDisplayStorageFramePresentEffect:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    frame %FrameId
+    run_count %i32
+    pixel_count %i32
+
+impl Clone for GuiBareDisplayStorageFramePresentEffect:
+    fn clone %fn &GuiBareDisplayStorageFramePresentEffect GuiBareDisplayStorageFramePresentEffect \effect:
+        *effect
+
+impl Copy for GuiBareDisplayStorageFramePresentEffect:
+    fn copy_mark %fn GuiBareDisplayStorageFramePresentEffect GuiBareDisplayStorageFramePresentEffect \effect:
+        effect
+
+pub enum GuiBareDisplayStorageEffect:
+    FrameBegin %GuiBareDisplayStorageFrameBeginEffect
+    SpanWrite %GuiBareDisplayStorageSpanWriteEffect
+    FramePresent %GuiBareDisplayStorageFramePresentEffect
+
+impl Clone for GuiBareDisplayStorageEffect:
+    fn clone %fn &GuiBareDisplayStorageEffect GuiBareDisplayStorageEffect \effect:
+        *effect
+
+impl Copy for GuiBareDisplayStorageEffect:
+    fn copy_mark %fn GuiBareDisplayStorageEffect GuiBareDisplayStorageEffect \effect:
+        effect
+
+pub enum GuiBareDisplayStorageErrorKind:
+    FramebufferValidationFailed %GuiBareFramebufferErrorKind
+    AppliedStateMismatch
+    StoragePhaseMismatch
+    TargetMismatch
+    DescriptorMismatch
+    AcceptedRunCountMismatch
+    AcceptedPixelCountMismatch
+    BeginWhileActive
+    RunWithoutBegin
+    EndWithoutBegin
+    SpanPixelEndOverflow
+
+impl Clone for GuiBareDisplayStorageErrorKind:
+    fn clone %fn &GuiBareDisplayStorageErrorKind GuiBareDisplayStorageErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayStorageErrorKind:
+    fn copy_mark %fn GuiBareDisplayStorageErrorKind GuiBareDisplayStorageErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayStorageStepApplied:
+    state %GuiBareDisplayStorageState
+    effect %GuiBareDisplayStorageEffect
+    framebuffer_step %GuiBareFramebufferStepApplied
+
+impl Clone for GuiBareDisplayStorageStepApplied:
+    fn clone %fn &GuiBareDisplayStorageStepApplied GuiBareDisplayStorageStepApplied \applied:
+        *applied
+
+impl Copy for GuiBareDisplayStorageStepApplied:
+    fn copy_mark %fn GuiBareDisplayStorageStepApplied GuiBareDisplayStorageStepApplied \applied:
+        applied
+
+pub struct GuiBareDisplayStorageStepError:
+    kind %GuiBareDisplayStorageErrorKind
+    category %Option GuiError
+    state %GuiBareDisplayStorageState
+    framebuffer_step %GuiBareFramebufferStepApplied
+
+impl Clone for GuiBareDisplayStorageStepError:
+    fn clone %fn &GuiBareDisplayStorageStepError GuiBareDisplayStorageStepError \error:
+        *error
+
+impl Copy for GuiBareDisplayStorageStepError:
+    fn copy_mark %fn GuiBareDisplayStorageStepError GuiBareDisplayStorageStepError \error:
+        error
+
+fn gui_bare_display_storage_active_frame_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 fn i32 GuiBareDisplayStorageActiveFrame \target\descriptor\accepted_run_count\accepted_pixel_count:
+    GuiBareDisplayStorageActiveFrame target descriptor accepted_run_count accepted_pixel_count
+
+fn gui_bare_display_storage_state_new %fn GuiBareFramebufferState fn GuiBareDisplayStoragePhase fn Option FrameId GuiBareDisplayStorageState \framebuffer_state\phase\last_presented_frame:
+    GuiBareDisplayStorageState framebuffer_state phase last_presented_frame
+
+fn gui_bare_display_storage_begin_effect_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor GuiBareDisplayStorageFrameBeginEffect \target\descriptor:
+    GuiBareDisplayStorageFrameBeginEffect target descriptor
+
+fn gui_bare_display_storage_span_write_effect_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan fn i32 fn i32 fn i32 GuiBareDisplayStorageSpanWriteEffect \target\span\run_index\pixel_start\pixel_end:
+    GuiBareDisplayStorageSpanWriteEffect target span run_index pixel_start pixel_end
+
+fn gui_bare_display_storage_present_effect_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn FrameId fn i32 fn i32 GuiBareDisplayStorageFramePresentEffect \target\descriptor\frame\run_count\pixel_count:
+    GuiBareDisplayStorageFramePresentEffect target descriptor frame run_count pixel_count
+
+fn gui_bare_display_storage_step_applied_new %fn GuiBareDisplayStorageState fn GuiBareDisplayStorageEffect fn GuiBareFramebufferStepApplied GuiBareDisplayStorageStepApplied \state\effect\framebuffer_step:
+    GuiBareDisplayStorageStepApplied state effect framebuffer_step
+
+fn gui_bare_display_storage_error_category %fn GuiBareDisplayStorageErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayStorageErrorKind::FramebufferValidationFailed _:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::AppliedStateMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::StoragePhaseMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::TargetMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::DescriptorMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::AcceptedRunCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::AcceptedPixelCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::BeginWhileActive:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::RunWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::EndWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayStorageErrorKind::SpanPixelEndOverflow:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_bare_display_storage_step_error %fn GuiBareDisplayStorageErrorKind fn Option GuiError fn GuiBareDisplayStorageState fn GuiBareFramebufferStepApplied GuiBareDisplayStorageStepError \kind\category\state\framebuffer_step:
+    GuiBareDisplayStorageStepError kind category state framebuffer_step
+
+fn gui_bare_display_storage_step_error_from_kind %fn GuiBareDisplayStorageErrorKind fn GuiBareDisplayStorageState fn GuiBareFramebufferStepApplied GuiBareDisplayStorageStepError \kind\state\framebuffer_step:
+    let category %Option GuiError gui_bare_display_storage_error_category kind
+    gui_bare_display_storage_step_error kind category state framebuffer_step
+
+pub fn gui_bare_display_storage_state_initial %fn GuiBareFramebufferConfig GuiBareDisplayStorageState \config:
+    let framebuffer_state %GuiBareFramebufferState gui_bare_framebuffer_state_initial config
+    gui_bare_display_storage_state_new framebuffer_state GuiBareDisplayStoragePhase::Idle Option::None
+
+pub fn gui_bare_display_storage_state_framebuffer_state %fn &GuiBareDisplayStorageState GuiBareFramebufferState \state:
+    *field::get_ref state "framebuffer_state"
+
+pub fn gui_bare_display_storage_state_phase %fn &GuiBareDisplayStorageState GuiBareDisplayStoragePhase \state:
+    *field::get_ref state "phase"
+
+pub fn gui_bare_display_storage_state_last_presented_frame %fn &GuiBareDisplayStorageState Option FrameId \state:
+    *field::get_ref state "last_presented_frame"
+
+pub fn gui_bare_display_storage_active_frame_target %fn &GuiBareDisplayStorageActiveFrame GuiRgba8888RowTileRlePresentHostSpanOperationTarget \active:
+    *field::get_ref active "target"
+
+pub fn gui_bare_display_storage_active_frame_descriptor %fn &GuiBareDisplayStorageActiveFrame GuiRgba8888RowTileRlePresentDescriptor \active:
+    *field::get_ref active "descriptor"
+
+pub fn gui_bare_display_storage_active_frame_accepted_run_count %fn &GuiBareDisplayStorageActiveFrame i32 \active:
+    *field::get_ref active "accepted_run_count"
+
+pub fn gui_bare_display_storage_active_frame_accepted_pixel_count %fn &GuiBareDisplayStorageActiveFrame i32 \active:
+    *field::get_ref active "accepted_pixel_count"
+
+pub fn gui_bare_display_storage_span_write_effect_run_index %fn &GuiBareDisplayStorageSpanWriteEffect i32 \effect:
+    *field::get_ref effect "run_index"
+
+pub fn gui_bare_display_storage_span_write_effect_pixel_start %fn &GuiBareDisplayStorageSpanWriteEffect i32 \effect:
+    *field::get_ref effect "pixel_start"
+
+pub fn gui_bare_display_storage_span_write_effect_pixel_end %fn &GuiBareDisplayStorageSpanWriteEffect i32 \effect:
+    *field::get_ref effect "pixel_end"
+
+pub fn gui_bare_display_storage_present_effect_frame %fn &GuiBareDisplayStorageFramePresentEffect FrameId \effect:
+    *field::get_ref effect "frame"
+
+pub fn gui_bare_display_storage_present_effect_run_count %fn &GuiBareDisplayStorageFramePresentEffect i32 \effect:
+    *field::get_ref effect "run_count"
+
+pub fn gui_bare_display_storage_present_effect_pixel_count %fn &GuiBareDisplayStorageFramePresentEffect i32 \effect:
+    *field::get_ref effect "pixel_count"
+
+pub fn gui_bare_display_storage_step_applied_state %fn &GuiBareDisplayStorageStepApplied GuiBareDisplayStorageState \applied:
+    *field::get_ref applied "state"
+
+pub fn gui_bare_display_storage_step_applied_effect %fn &GuiBareDisplayStorageStepApplied GuiBareDisplayStorageEffect \applied:
+    *field::get_ref applied "effect"
+
+pub fn gui_bare_display_storage_step_applied_framebuffer_step %fn &GuiBareDisplayStorageStepApplied GuiBareFramebufferStepApplied \applied:
+    *field::get_ref applied "framebuffer_step"
+
+pub fn gui_bare_display_storage_step_error_kind %fn &GuiBareDisplayStorageStepError GuiBareDisplayStorageErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_storage_step_error_category_value %fn &GuiBareDisplayStorageStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_storage_step_error_state %fn &GuiBareDisplayStorageStepError GuiBareDisplayStorageState \error:
+    *field::get_ref error "state"
+
+pub fn gui_bare_display_storage_step_error_framebuffer_step %fn &GuiBareDisplayStorageStepError GuiBareFramebufferStepApplied \error:
+    *field::get_ref error "framebuffer_step"
+
+fn gui_bare_display_storage_target_equal %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget bool \left\right:
+    match left:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window left_window:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window:
+                    eq window_id_raw &left_window window_id_raw &right_window
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    true
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching2:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    true
+
+fn gui_bare_display_storage_descriptor_equal %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &right_packet
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &right_packet
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &right_packet
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &right_packet
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &right_packet
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_start &right_packet
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_count &right_packet
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_width &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_width &right_packet
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_height &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_height &right_packet
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &right_packet
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &right_packet
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &right_packet
+                                                            and:
+                                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &right_packet
+                                                                and:
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &right_packet
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &right_packet
+
+fn gui_bare_display_storage_option_frame_equal %fn Option FrameId fn Option FrameId bool \left\right:
+    match left:
+        Option::None:
+            match right:
+                Option::None:
+                    true
+                Option::Some right_frame:
+                    false
+        Option::Some left_frame:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_frame:
+                    eq frame_id_raw &left_frame frame_id_raw &right_frame
+
+fn gui_bare_display_storage_config_equal %fn &GuiBareFramebufferConfig fn &GuiBareFramebufferConfig bool \left\right:
+    let left_surface %SurfaceId gui_bare_framebuffer_config_surface left
+    let right_surface %SurfaceId gui_bare_framebuffer_config_surface right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq gui_bare_framebuffer_config_width left gui_bare_framebuffer_config_width right
+            and:
+                eq gui_bare_framebuffer_config_height left gui_bare_framebuffer_config_height right
+                eq gui_bare_framebuffer_config_stride_bytes left gui_bare_framebuffer_config_stride_bytes right
+
+fn gui_bare_display_storage_active_frame_from_framebuffer %fn &GuiBareFramebufferActiveSequence GuiBareDisplayStorageActiveFrame \active:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target active
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor active
+    let seen_run_count %i32 gui_bare_framebuffer_active_sequence_seen_run_count active
+    let seen_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count active
+    gui_bare_display_storage_active_frame_new target descriptor seen_run_count seen_pixel_count
+
+fn gui_bare_display_storage_phase_from_framebuffer_state %fn &GuiBareFramebufferState GuiBareDisplayStoragePhase \framebuffer_state:
+    match gui_bare_framebuffer_state_phase framebuffer_state:
+        GuiBareFramebufferPhase::Idle:
+            GuiBareDisplayStoragePhase::Idle
+        GuiBareFramebufferPhase::Active active:
+            GuiBareDisplayStoragePhase::Active gui_bare_display_storage_active_frame_from_framebuffer &active
+
+fn gui_bare_display_storage_active_matches_framebuffer %fn &GuiBareDisplayStorageActiveFrame fn &GuiBareFramebufferActiveSequence Result unit GuiBareDisplayStorageErrorKind \storage_active\framebuffer_active:
+    let storage_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_storage_active_frame_target storage_active
+    let framebuffer_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target framebuffer_active
+    if not gui_bare_display_storage_target_equal storage_target framebuffer_target:
+        then Result::Err GuiBareDisplayStorageErrorKind::TargetMismatch
+        else:
+            let storage_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_storage_active_frame_descriptor storage_active
+            let framebuffer_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor framebuffer_active
+            if not gui_bare_display_storage_descriptor_equal &storage_descriptor &framebuffer_descriptor:
+                then Result::Err GuiBareDisplayStorageErrorKind::DescriptorMismatch
+                else:
+                    let storage_run_count %i32 gui_bare_display_storage_active_frame_accepted_run_count storage_active
+                    let framebuffer_run_count %i32 gui_bare_framebuffer_active_sequence_seen_run_count framebuffer_active
+                    if ne storage_run_count framebuffer_run_count:
+                        then Result::Err GuiBareDisplayStorageErrorKind::AcceptedRunCountMismatch
+                        else:
+                            let storage_pixel_count %i32 gui_bare_display_storage_active_frame_accepted_pixel_count storage_active
+                            let framebuffer_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count framebuffer_active
+                            if ne storage_pixel_count framebuffer_pixel_count:
+                                then Result::Err GuiBareDisplayStorageErrorKind::AcceptedPixelCountMismatch
+                                else Result::Ok unit
+
+fn gui_bare_display_storage_state_invariant %fn &GuiBareDisplayStorageState Result unit GuiBareDisplayStorageErrorKind \state:
+    let framebuffer_state %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state state
+    match gui_bare_framebuffer_state_phase &framebuffer_state:
+        GuiBareFramebufferPhase::Idle:
+            match gui_bare_display_storage_state_phase state:
+                GuiBareDisplayStoragePhase::Idle:
+                    Result::Ok unit
+                GuiBareDisplayStoragePhase::Active storage_active:
+                    Result::Err GuiBareDisplayStorageErrorKind::StoragePhaseMismatch
+        GuiBareFramebufferPhase::Active framebuffer_active:
+            match gui_bare_display_storage_state_phase state:
+                GuiBareDisplayStoragePhase::Idle:
+                    Result::Err GuiBareDisplayStorageErrorKind::StoragePhaseMismatch
+                GuiBareDisplayStoragePhase::Active storage_active:
+                    gui_bare_display_storage_active_matches_framebuffer &storage_active &framebuffer_active
+
+fn gui_bare_display_storage_framebuffer_phase_equal %fn GuiBareFramebufferPhase fn GuiBareFramebufferPhase bool \left\right:
+    match left:
+        GuiBareFramebufferPhase::Idle:
+            match right:
+                GuiBareFramebufferPhase::Idle:
+                    true
+                GuiBareFramebufferPhase::Active right_active:
+                    false
+        GuiBareFramebufferPhase::Active left_active:
+            match right:
+                GuiBareFramebufferPhase::Idle:
+                    false
+                GuiBareFramebufferPhase::Active right_active:
+                    let left_storage_active %GuiBareDisplayStorageActiveFrame gui_bare_display_storage_active_frame_from_framebuffer &left_active
+                    match gui_bare_display_storage_active_matches_framebuffer &left_storage_active &right_active:
+                        Result::Ok _:
+                            true
+                        Result::Err _:
+                            false
+
+fn gui_bare_display_storage_framebuffer_state_equal %fn &GuiBareFramebufferState fn &GuiBareFramebufferState bool \left\right:
+    let left_config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config left
+    let right_config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config right
+    let left_phase %GuiBareFramebufferPhase gui_bare_framebuffer_state_phase left
+    let right_phase %GuiBareFramebufferPhase gui_bare_framebuffer_state_phase right
+    let left_completed %Option FrameId gui_bare_framebuffer_state_last_completed_frame left
+    let right_completed %Option FrameId gui_bare_framebuffer_state_last_completed_frame right
+    and:
+        gui_bare_display_storage_config_equal &left_config &right_config
+        and:
+            gui_bare_display_storage_framebuffer_phase_equal left_phase right_phase
+            gui_bare_display_storage_option_frame_equal left_completed right_completed
+
+fn gui_bare_display_storage_checked_add %fn i32 fn i32 Result i32 GuiBareDisplayStorageErrorKind \base\delta:
+    if or lt base 0 lt delta 0:
+        then Result::Err GuiBareDisplayStorageErrorKind::SpanPixelEndOverflow
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err GuiBareDisplayStorageErrorKind::SpanPixelEndOverflow
+                else Result::Ok add base delta
+
+fn gui_bare_display_storage_effect_begin %fn &GuiBareDisplayStorageState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor Result GuiBareDisplayStorageEffect GuiBareDisplayStorageErrorKind \state\target\descriptor:
+    match gui_bare_display_storage_state_phase state:
+        GuiBareDisplayStoragePhase::Active active:
+            Result::Err GuiBareDisplayStorageErrorKind::BeginWhileActive
+        GuiBareDisplayStoragePhase::Idle:
+            Result::Ok GuiBareDisplayStorageEffect::FrameBegin gui_bare_display_storage_begin_effect_new target descriptor
+
+fn gui_bare_display_storage_effect_run %fn &GuiBareDisplayStorageState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan Result GuiBareDisplayStorageEffect GuiBareDisplayStorageErrorKind \state\target\span:
+    match gui_bare_display_storage_state_phase state:
+        GuiBareDisplayStoragePhase::Idle:
+            Result::Err GuiBareDisplayStorageErrorKind::RunWithoutBegin
+        GuiBareDisplayStoragePhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_storage_active_frame_target &active
+            if not gui_bare_display_storage_target_equal active_target target:
+                then Result::Err GuiBareDisplayStorageErrorKind::TargetMismatch
+                else:
+                    let pixel_start %i32 gui_bare_display_storage_active_frame_accepted_pixel_count &active
+                    let span_width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width &span
+                    match gui_bare_display_storage_checked_add pixel_start span_width:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok pixel_end:
+                            let run_index %i32 gui_bare_display_storage_active_frame_accepted_run_count &active
+                            let effect %GuiBareDisplayStorageSpanWriteEffect gui_bare_display_storage_span_write_effect_new target span run_index pixel_start pixel_end
+                            Result::Ok GuiBareDisplayStorageEffect::SpanWrite effect
+
+fn gui_bare_display_storage_effect_end %fn &GuiBareDisplayStorageState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor Result GuiBareDisplayStorageEffect GuiBareDisplayStorageErrorKind \state\target\descriptor:
+    match gui_bare_display_storage_state_phase state:
+        GuiBareDisplayStoragePhase::Idle:
+            Result::Err GuiBareDisplayStorageErrorKind::EndWithoutBegin
+        GuiBareDisplayStoragePhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_storage_active_frame_target &active
+            if not gui_bare_display_storage_target_equal active_target target:
+                then Result::Err GuiBareDisplayStorageErrorKind::TargetMismatch
+                else:
+                    let active_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_storage_active_frame_descriptor &active
+                    if not gui_bare_display_storage_descriptor_equal &active_descriptor &descriptor:
+                        then Result::Err GuiBareDisplayStorageErrorKind::DescriptorMismatch
+                        else:
+                            let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+                            let run_count %i32 gui_bare_display_storage_active_frame_accepted_run_count &active
+                            let pixel_count %i32 gui_bare_display_storage_active_frame_accepted_pixel_count &active
+                            let effect %GuiBareDisplayStorageFramePresentEffect gui_bare_display_storage_present_effect_new target descriptor frame run_count pixel_count
+                            Result::Ok GuiBareDisplayStorageEffect::FramePresent effect
+
+fn gui_bare_display_storage_effect_for_operation %fn &GuiBareDisplayStorageState fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareDisplayStorageEffect GuiBareDisplayStorageErrorKind \state\operation:
+    match operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor &payload
+            gui_bare_display_storage_effect_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window descriptor
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window &payload
+            let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span &payload
+            gui_bare_display_storage_effect_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window span
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor &payload
+            gui_bare_display_storage_effect_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window descriptor
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin descriptor:
+            gui_bare_display_storage_effect_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen descriptor
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan span:
+            gui_bare_display_storage_effect_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen span
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd descriptor:
+            gui_bare_display_storage_effect_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen descriptor
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin descriptor:
+            gui_bare_display_storage_effect_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device descriptor
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan span:
+            gui_bare_display_storage_effect_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device span
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd descriptor:
+            gui_bare_display_storage_effect_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device descriptor
+
+fn gui_bare_display_storage_next_last_presented %fn Option FrameId fn GuiBareDisplayStorageEffect Option FrameId \last_presented\effect:
+    match effect:
+        GuiBareDisplayStorageEffect::FramePresent present:
+            Option::Some gui_bare_display_storage_present_effect_frame &present
+        GuiBareDisplayStorageEffect::FrameBegin begin:
+            last_presented
+        GuiBareDisplayStorageEffect::SpanWrite span:
+            last_presented
+
+//: gui_bare_display_storage_apply: validated framebuffer step を display storage effect に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `framebuffer_step` の operation を、storage が[持/も]つ canonical framebuffer state から[再検証/さいけんさ]します。
+//: - supplied next framebuffer state が再検証[結果/けっか]と[一致/いっち]しない場合は stale / forged step として[拒否/きょひ]します。
+//: - [成功/せいこう]時だけ storage state を[進/すす]め、actual driver が[消費/しょうひ]できる typed effect を[返/かえ]します。
+pub fn gui_bare_display_storage_apply %fn GuiBareDisplayStorageState fn GuiBareFramebufferStepApplied Result GuiBareDisplayStorageStepApplied GuiBareDisplayStorageStepError \state\framebuffer_step:
+    match gui_bare_display_storage_state_invariant &state:
+        Result::Err invariant_kind:
+            Result::Err gui_bare_display_storage_step_error_from_kind invariant_kind state framebuffer_step
+        Result::Ok invariant_ok:
+            let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_bare_framebuffer_step_applied_operation &framebuffer_step
+            let current_framebuffer_state %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state &state
+            match gui_bare_framebuffer_validate_operation current_framebuffer_state operation:
+                Result::Err framebuffer_error:
+                    let framebuffer_kind %GuiBareFramebufferErrorKind gui_bare_framebuffer_step_error_kind &framebuffer_error
+                    let framebuffer_category %Option GuiError gui_bare_framebuffer_step_error_category_value &framebuffer_error
+                    let kind %GuiBareDisplayStorageErrorKind GuiBareDisplayStorageErrorKind::FramebufferValidationFailed framebuffer_kind
+                    Result::Err gui_bare_display_storage_step_error kind framebuffer_category state framebuffer_step
+                Result::Ok expected_step:
+                    let expected_next %GuiBareFramebufferState gui_bare_framebuffer_step_applied_state &expected_step
+                    let supplied_next %GuiBareFramebufferState gui_bare_framebuffer_step_applied_state &framebuffer_step
+                    if not gui_bare_display_storage_framebuffer_state_equal &expected_next &supplied_next:
+                        then Result::Err gui_bare_display_storage_step_error_from_kind GuiBareDisplayStorageErrorKind::AppliedStateMismatch state framebuffer_step
+                        else:
+                            match gui_bare_display_storage_effect_for_operation &state operation:
+                                Result::Err effect_kind:
+                                    Result::Err gui_bare_display_storage_step_error_from_kind effect_kind state framebuffer_step
+                                Result::Ok effect:
+                                    let next_phase %GuiBareDisplayStoragePhase gui_bare_display_storage_phase_from_framebuffer_state &supplied_next
+                                    let last_presented %Option FrameId gui_bare_display_storage_state_last_presented_frame &state
+                                    let next_presented %Option FrameId gui_bare_display_storage_next_last_presented last_presented effect
+                                    let next_state %GuiBareDisplayStorageState gui_bare_display_storage_state_new supplied_next next_phase next_presented
+                                    Result::Ok gui_bare_display_storage_step_applied_new next_state effect framebuffer_step
