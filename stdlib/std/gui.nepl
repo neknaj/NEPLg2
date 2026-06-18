@@ -66,4 +66,5 @@ pub #import "./gui/host" as *
 pub #import "./gui/keymap" as *
 pub #import "./gui/runtime" as *
 pub #import "./gui/virtual_event" as *
+pub #import "./gui/virtual_timer" as *
 pub #import "./gui/error_display" as *

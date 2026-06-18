@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5dx Web formal one-shot timer backend の後続として、native・bare・headless timer backend、general scheduler loop、timeslice policy、virtual scheduler / real scheduler unification、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationへ進める。zero-fill fallback 禁止、silent no-op 禁止、raw RenderCommand accessor 禁止、old per-sample FillRect bridge 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、checked arithmetic、SourceOver-only validation、write-success-before-advance、mask resource missing / unsupported の `Result` 化を維持する
+- F5dy std deterministic virtual timer scheduler の後続として、general scheduler loop、timeslice policy、native・bare の実 timer backend、headless app-loop integration、real scheduler と virtual timer の接続方針、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationへ進める。zero-fill fallback 禁止、silent no-op 禁止、raw RenderCommand accessor 禁止、old per-sample FillRect bridge 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、checked arithmetic、SourceOver-only validation、write-success-before-advance、mask resource missing / unsupported の `Result` 化を維持する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
@@ -19,7 +19,7 @@
 - Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
 - GUI examples 全体を、Zenn 方針の Result / enum 相当、match、浅い nest、doc comment、formal video memory host surface、The Elm Architecture style update/view/effect 境界に合わせ、font / layout / render2d / event host が安定した段階で旧 stdout / mock / TS simulation path から新仕様へ全面移行する
 - font rasterization / text layout が実描画可能になった段階で、examples に古今和歌集仮名序を使うルビ付き日本語 sample を追加する。window 幅に合わせた自動改行、ruby layout、font size 変更 button、keymap を備える
-- Web formal timer request の後続として、timeslice contract、virtual scheduler / real scheduler 共通化、native / bare / headless scheduler backend を追加する
+- Web formal timer request と F5dy virtual timer scheduler の後続として、timeslice contract、real scheduler loop、native / bare scheduler backend、headless app-loop integration を追加する
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える

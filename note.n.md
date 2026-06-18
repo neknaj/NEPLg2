@@ -1,3 +1,54 @@
+# 2026-06-18 Agent2 GUI font F5dy std deterministic virtual timer scheduler
+
+## scope
+
+- headless / offscreen test 用に、実 OS / browser timer へ接続しない deterministic timer scheduler を std layer に追加する。
+- `TimerRequest` から `GuiEvent::Timer` を生成し、Web / native / bare と同じ app-facing event shape を使う。
+- event queue overflow を避けるため、timer catch-up は queue ではなく state の remainder と zero-delta drain で表す。
+- headless は presentation fallback ではなく、event replay / app state transition の test target として扱う。
+
+## plan_review
+
+- Cicero plan review は `PLAN_CHANGES`。
+- 指摘は、error shape を plain `Result ... GuiError` に決めること、public struct 偽造に備えて state invariant を schedule / advance で再検査すること、repeating catch-up で extra elapsed を捨てず `advance state 0` で drain 可能にすることだった。
+- revised implementation では plain `GuiError`、`None` state invariant、`Some TimerRequest` state invariant、negative delta / overflow validation、remainder preservation を source policy と doctest に入れる方針へ変更した。
+
+## implementation
+
+- `stdlib/std/gui/virtual_timer.nepl` を追加した。
+- `GuiVirtualTimerState` は `Option TimerRequest`、elapsed、tick を保持する。
+- `GuiVirtualTimerAdvance` は next state と `Option GuiEvent` を保持する。
+- `gui_virtual_timer_schedule` は incoming state と request を検査し、`interval_ms == 0` を clear request として active timer を消す。
+- `gui_virtual_timer_advance` は malformed state、negative delta、elapsed overflow、tick overflow を `GuiError::InvalidCommand` として拒否する。
+- repeating timer は 1 advance あたり最大 1 event を返し、余り elapsed は state の remainder として保持する。余りが interval 以上なら `advance state 0` で 1 event ずつ drain できる。
+- one-shot timer は event を返すときに state を empty へ戻す。
+- `stdlib/std/gui.nepl` facade に `virtual_timer` を公開した。
+- `tests/stdlib/gui_std_virtual_timer.n.md` と `nodesrc/test_web_gui_offscreen_headless_contract.js` を追加更新し、state invariant、repeating remainder、sentinel / queue / platform / fallback 禁止を固定した。
+- `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` に Phase 5.2 を追加した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/virtual_timer.nepl tests/stdlib/gui_std_virtual_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: `tests/stdlib/gui_std_virtual_timer.n.md` focused doctest。
+- pass: `stdlib/std/gui/virtual_timer.nepl` module doctest。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+- known: broad `tests/stdlib/gui_std.n.md` は既存 `stdlib/alloc/gui/font/sfnt/glyf.nepl` の parser error を踏む。F5dy focused doctest は `std/gui` facade ではなく direct module imports で検査した。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- content implementation は `PLAN_CHANGES` を満たしており、std layer placement、plain `GuiError`、forged state invariant、repeating remainder、zero-delta drain、one-shot clear、no queue / platform / fallback は問題ないと確認された。
+- focused direct-module doctest は、既存 broad `std/gui` facade parse failure があるため許容された。
+- 残 blocker は、この F5dy note 追記、`todo.md` の virtual scheduler wording narrowing、新規 `stdlib/std/gui/virtual_timer.nepl` と `tests/stdlib/gui_std_virtual_timer.n.md` を commit set に含めることだった。
+- 上記 blocker を解消して staging 後、Cicero final review は `REVIEW_APPROVED`。F5dy は merge-ready と確認された。
+
+## remaining
+
+- F5dy は std layer deterministic virtual timer scheduler までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、real scheduler と virtual timer の接続、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dx Web formal one-shot timer request backend boundary
 
 ## scope

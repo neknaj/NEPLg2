@@ -293,6 +293,51 @@ Subagent review:
 - 実装開始前に、Zenn 方針と GUI redesign 3 文書を読ませ、offscreen snapshot / virtual event の方針に `implementation may start` が出るまで実装しない。
 - 実装後に、offscreen と headless の混同がないこと、screenshot が hidden fallback になっていないこと、virtual event が `GuiEvent` を使っていることを確認させる。
 
+## Phase 5.2: stdlib virtual timer scheduler contract
+
+目的:
+
+- headless / offscreen test 用に、実 OS / browser timer へ接続しない deterministic timer scheduler を std layer に追加する。
+- `TimerRequest` から `GuiEvent::Timer` を生成し、Web / native / bare と同じ app-facing event shape を使えるようにする。
+- event queue overflow を避けるため、timer catch-up は queue ではなく timer state の remainder と zero-delta drain で表す。
+
+変更:
+
+- `stdlib/std/gui/virtual_timer.nepl` を追加する。
+- `GuiVirtualTimerState` は `Option TimerRequest`、elapsed、tick を保持する。
+- `GuiVirtualTimerAdvance` は next state と `Option GuiEvent` を保持する。
+- `request == None` の state は elapsed と tick が 0 であることを schedule / advance で再検査する。
+- `request == Some` の state は positive window id、positive timer id、positive interval、non-negative elapsed、non-negative tick を要求する。
+- `gui_virtual_timer_schedule` は incoming state と request を検査し、`interval_ms == 0` を clear request として扱う。
+- `gui_virtual_timer_advance` は negative delta、elapsed overflow、tick overflow、malformed state を `GuiError::InvalidCommand` として拒否する。
+- repeating timer は 1 advance あたり最大 1 event を返し、extra elapsed を remainder として保持する。remainder が interval 以上なら `advance state 0` で 1 event ずつ drain する。
+- one-shot timer は event を返すときに state を empty へ戻す。
+- `std/gui.nepl` facade に virtual timer を公開する。
+- `tests/stdlib/gui_std_virtual_timer.n.md` を追加し、one-shot、repeating catch-up、clear、malformed state、overflow、source policy label を検査する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` に virtual timer の source policy を追加する。
+
+完了条件:
+
+- `virtual_timer.nepl` は DOM、Canvas、minifb、OS timer、browser timer、stdout、event queue、video memory、platform API、fallback、silent no-op を含まない。
+- state invariant は public constructor で壊されても schedule / advance で拒否される。
+- repeating catch-up は modulo や discard ではなく remainder と `advance state 0` で表現される。
+- focused doctest、offscreen/headless source policy、`git diff --check` が通る。
+- subagent implementation review で std layer placement、state invariant、zero-delta drain、no fallback が承認される。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_virtual_timer.n.md --no-tree -o tmp/gui-std-virtual-timer.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i stdlib/std/gui/virtual_timer.nepl --no-tree -o tmp/gui-std-virtual-timer-module.json -j 1 --dist web/dist --assert-io
+git diff --check
+```
+
+Subagent review:
+
+- 実装前 review では `PLAN_CHANGES` として plain `GuiError`、state invariant 再検査、repeating remainder 保持、`delta_ms == 0` drain を指摘された。
+- 実装後に、指摘がすべて満たされていること、headless が presentation fallback になっていないことを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:

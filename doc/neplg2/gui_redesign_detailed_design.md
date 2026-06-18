@@ -188,7 +188,30 @@ Virtual clock:
 - `gui_virtual_clock_advance clock delta_ms` は negative delta を `GuiError::InvalidCommand` として拒否する。
 - `now_ms + delta_ms` または `tick + 1` が i32 positive range を超える場合は wrap せず `GuiError::InvalidCommand` とする。
 - advance は OS clock を読まない。caller が渡した delta だけで deterministic に進む。
-- timer event は `GuiEvent::Timer` として script に入れる。virtual timer scheduler は後続 slice で追加する。
+- timer event は `GuiEvent::Timer` として script に入れる。virtual timer scheduler は `TimerRequest` から同じ event shape を生成する。
+
+Virtual timer scheduler:
+
+```text
+GuiVirtualTimerState:
+    request Option TimerRequest
+    elapsed_ms i32
+    tick i32
+
+GuiVirtualTimerAdvance:
+    state GuiVirtualTimerState
+    event Option GuiEvent
+```
+
+`GuiVirtualTimerState` は deterministic timer の現在状態である。`request` が `Option::None` の場合、`elapsed_ms` と `tick` は 0 でなければならない。`request` が `Option::Some TimerRequest` の場合、window id と timer id は 1 以上、interval は 1 以上、elapsed と tick は 0 以上でなければならない。public struct constructor で壊れた state を作れるため、schedule と advance は毎回この invariant を再検査する。
+
+`gui_virtual_timer_schedule state request` は incoming state と request を検査する。`interval_ms == 0` は clear request として active timer を消す。`interval_ms > 0` は active request を保持し、elapsed と tick を 0 へ戻す。invalid state、invalid ids、negative interval は `GuiError::InvalidCommand` である。
+
+`gui_virtual_timer_advance state delta_ms` は real clock を読まない。negative delta、elapsed overflow、tick overflow、malformed state は `GuiError::InvalidCommand` である。発火しない場合は `Option::None`、発火する場合は `Option::Some GuiEvent::Timer` を返す。
+
+Repeating timer は 1 回の advance で最大 1 event だけを返す。catch-up で extra elapsed があっても捨てず、`sub next_elapsed interval_ms` を remainder として state に保持する。remainder がまだ interval 以上なら、caller は `advance state 0` により queue を使わず 1 event ずつ drain できる。One-shot timer は 1 event を返すときに state を `None` へ戻し、残り elapsed を保持しない。これは Web one-shot timer が enqueue 前に active entry を clear する挙動と対応する。
+
+Virtual timer scheduler は std layer の deterministic test contract であり、DOM、Canvas、minifb、OS timer、browser timer、stdout protocol、event queue、video memory、presentation fallback を持たない。
 
 Pixel hash:
 
@@ -552,7 +575,7 @@ VirtualClock:
 Contract:
 
 - replay order は deterministic。
-- timer は virtual clock の advance によってだけ発火する。
+- timer は virtual clock / virtual timer の advance によってだけ発火する。
 - pointer / keyboard / text input / resize / close request は platform event と同じ typed shape を使う。
 - invalid event script は `GuiError::InvalidCommand` とする。
 

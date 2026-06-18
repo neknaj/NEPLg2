@@ -38,8 +38,11 @@ const offscreen = read("stdlib/std/gui/offscreen.nepl");
 const offscreenImpl = withoutComments(offscreen);
 const virtualEvent = read("stdlib/std/gui/virtual_event.nepl");
 const virtualEventImpl = withoutComments(virtualEvent);
+const virtualTimer = read("stdlib/std/gui/virtual_timer.nepl");
+const virtualTimerImpl = withoutComments(virtualTimer);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
+const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
 
 assertMatch(
     spec,
@@ -57,9 +60,19 @@ assertMatch(
     "detailed design must use Option GuiEvent slots for virtual events",
 );
 assertMatch(
+    detailedDesign,
+    /GuiVirtualTimerState:[\s\S]*request\s+Option\s+TimerRequest[\s\S]*Repeating timer[\s\S]*advance state 0/,
+    "detailed design must define virtual timer state, zero-delta drain, and repeating semantics",
+);
+assertMatch(
     implementationPlan,
     /Phase 5\.1:[\s\S]*stdlib\/std\/gui\/offscreen\.nepl[\s\S]*stdlib\/std\/gui\/virtual_event\.nepl/,
     "implementation plan must track the offscreen and virtual event implementation slice",
+);
+assertMatch(
+    implementationPlan,
+    /Phase 5\.2:[\s\S]*stdlib\/std\/gui\/virtual_timer\.nepl[\s\S]*tests\/stdlib\/gui_std_virtual_timer\.n\.md/,
+    "implementation plan must track the virtual timer scheduler implementation slice",
 );
 
 assertMatch(
@@ -130,6 +143,42 @@ assertNoMatch(
 );
 
 assertMatch(
+    virtualTimerImpl,
+    /pub\s+struct\s+GuiVirtualTimerState:[\s\S]*request\s+%Option\s+TimerRequest[\s\S]*elapsed_ms\s+%i32[\s\S]*tick\s+%i32/,
+    "std/gui/virtual_timer must store active timer as Option TimerRequest plus deterministic counters",
+);
+assertMatch(
+    virtualTimerImpl,
+    /pub\s+struct\s+GuiVirtualTimerAdvance:[\s\S]*state\s+%GuiVirtualTimerState[\s\S]*event\s+%Option\s+GuiEvent/,
+    "std/gui/virtual_timer must return Option GuiEvent, not a sentinel event",
+);
+assertNoMatch(
+    virtualTimerImpl,
+    /GuiEvent::None/,
+    "std/gui/virtual_timer must not invent a GuiEvent sentinel",
+);
+assertMatch(
+    virtualTimerImpl,
+    /gui_virtual_timer_schedule[\s\S]*not\s+gui_virtual_timer_state_is_valid\s+&state[\s\S]*not\s+gui_virtual_timer_request_is_schedulable\s+&request/,
+    "std/gui/virtual_timer schedule must revalidate incoming state and request",
+);
+assertMatch(
+    virtualTimerImpl,
+    /gui_virtual_timer_advance[\s\S]*not\s+gui_virtual_timer_state_is_valid\s+&state[\s\S]*lt\s+delta_ms\s+0[\s\S]*gt\s+delta_ms\s+max_delta[\s\S]*ge\s+tick\s+gui_virtual_timer_i32_max/,
+    "std/gui/virtual_timer advance must reject malformed state, negative delta, elapsed overflow, and tick overflow",
+);
+assertMatch(
+    virtualTimerImpl,
+    /let\s+remainder\s+%i32\s+sub\s+next_elapsed\s+interval_ms[\s\S]*gui_virtual_timer_state_new\s+some\s+active\s+remainder\s+next_tick/,
+    "std/gui/virtual_timer repeating catch-up must retain elapsed remainder instead of dropping it",
+);
+assertNoMatch(
+    virtualTimerImpl,
+    /\b(?:DOM|Canvas|KeyboardEvent|MouseEvent|PointerEvent|EventTarget|document\.|window\.|minifb|HWND|stdout|queue|SharedArrayBuffer|setTimeout|setInterval|video_memory|fallback|silent no-op)\b/i,
+    "std/gui/virtual_timer must not depend on platform APIs, queues, video memory, or hidden fallback",
+);
+
+assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/offscreen"\s+as\s+\*/,
     "std/gui facade must re-export the offscreen snapshot contract",
@@ -140,6 +189,11 @@ assertMatch(
     "std/gui facade must re-export the virtual event contract",
 );
 assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/virtual_timer"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual timer contract",
+);
+assertMatch(
     guiStdTests,
     /gui_offscreen_snapshot_requires_offscreen_present_command[\s\S]*headless unsupported[\s\S]*window unsupported[\s\S]*device unsupported[\s\S]*noop unsupported/,
     "std/gui tests must cover offscreen-only snapshot behavior across non-offscreen surface kinds",
@@ -148,6 +202,16 @@ assertMatch(
     guiStdTests,
     /gui_virtual_event_script_replays_typed_events_without_sentinel[\s\S]*empty poll none[\s\S]*malformed empty rejected[\s\S]*malformed one rejected[\s\S]*cursor overflow rejected/,
     "std/gui tests must cover Option-based virtual event replay and malformed public constructor states",
+);
+assertMatch(
+    guiStdVirtualTimerTests,
+    /gui_std_virtual_timer_repeating_remainder_drain_ok[\s\S]*repeating first remainder[\s\S]*repeating drain tick[\s\S]*tick overflow rejected/,
+    "std/gui virtual timer focused doctest must cover repeating remainder drain and overflow validation",
+);
+assertMatch(
+    guiStdVirtualTimerTests,
+    /gui_std_virtual_timer_no_sentinel_no_queue_no_platform_no_fallback[\s\S]*malformed none state rejected[\s\S]*malformed active state rejected/,
+    "std/gui virtual timer focused doctest must cover state invariant validation and no sentinel/queue/platform/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");
