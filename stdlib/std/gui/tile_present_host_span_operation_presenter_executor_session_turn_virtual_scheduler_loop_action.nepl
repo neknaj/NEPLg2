@@ -105,6 +105,17 @@ pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute \payload:
     field::get payload "execute"
 
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute_ref: execute payload を borrowed に[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - platform executor が original action owner を F5ev/F5ew へ[渡/わた]す[前/まえ]に、pending operation だけを[確認/かくにん]できるようにします。
+//:
+//: [契約/けいやく]:
+//: - payload を[消費/しょうひ]しません。
+//: - backend 実行、scheduler step、fallback は[行/おこな]いません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute \payload:
+    field::get_ref payload "execute"
+
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_remaining_count %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction i32 \payload:
     *field::get_ref payload "remaining_count"
 

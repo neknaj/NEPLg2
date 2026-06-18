@@ -65,6 +65,12 @@ NEPLg2 GUI は Web、native、bare、offscreen、headless で同じ application 
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` として包み、packaged `RealLoopStepInput::ExecutorOutcome` input と一緒に F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返し、success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error は合成しない。action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
 
+## F5ex Native and Bare scheduler host action executor backend bridge
+
+2026-06-18 の F5ex では、Native and Bare scheduler host action executor backend bridge を追加する。これは typed `ExecuteHostAction` から actual platform host import へ進む backend-facing boundary であり、not long-running scheduler backend である。`ExecuteHostAction` は general `LoopAction` に戻さず、borrowed accessor で `execute` と pending span operation を読む。platform bridge は pending operation の variant を wildcard なしで網羅し、begin / run / end のいずれかの host import を 1 回だけ呼ぶ。host status は `Result unit GuiError` に変換し、`Unsupported`、`InvalidCommand`、`ResourceExhausted`、`BackendFailure` などの typed error として返す。Bare embedding host が executor ABI を提供しない場合も fallback や silent no-op にはせず、`Unsupported` を `Result` として返す。
+
+F5ex の current implementation は、`platforms/gui/native/scheduler_host_executor` と `platforms/gui/bare/scheduler_host_executor` である。これらは operation 実行 outcome を F5ev `scheduler_executor_input` に包み、F5ew `scheduler_executor_step` へ渡す。F5ex は F5ev/F5ew を再利用するため、scheduler completion の authority は F5ek/F5dt 側に残る。long-running scheduler loop、queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb / DOM / Canvas / video memory 操作、old action sink / driver、fallback は後続 slice で扱うか、禁止された責務として保持する。
+
 ## 必須 contract
 
 ### Font identity
