@@ -1123,6 +1123,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dt: std layer row tile RLE present host span operation presenter executor session turn step boundary
+
+目的:
+
+- F5ds の poll result と complete result を、future Web / native / bare / headless driver が同じ transient step result として扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult` は `Execute`、`Continue`、`Yield`、`Completed` を持つ。
+- `Completed` は transient Completed result であり、persistent state ではない。terminal state authority は F5dr / F5ds に残す。
+- start is setup authority なので `turn_step_start` は F5ds `turn_start` を 1 回だけ呼び、step result ではなく F5ds turn state を返す。
+- `turn_step_poll` は F5ds `turn_poll` を 1 回だけ呼び、`Execute` / `Completed` を `TurnStepResult` へ写す。
+- `turn_step_complete` は F5ds `turn_complete` を 1 回だけ呼び、`Continue` / `Yield` を `TurnStepResult` へ写す。
+- F5dt は real scheduler policy、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation に進まない。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `turn_step_start -> Result TurnState StartError` は start が scheduler tick outcome ではないため適切と判断された。
+- single transient `TurnStepResult` は F5ds poll / complete の戻り値を future scheduler code が直接 lower variant を見ずに消費するための std boundary として有効と判断された。
+- `StepResult::Completed` は transient result のみに限定し、persistent completed state を追加しないことが承認条件である。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult`、start / poll / complete wrapper errors、start / poll / complete functions、category / lower accessors を追加する。
+- `turn_step_start` は F5ds turn start を 1 回だけ呼び、success で turn state をそのまま返す。
+- `turn_step_poll` は F5ds turn poll を 1 回だけ呼び、Execute / Completed を single step result へ写す。
+- `turn_step_complete` は F5ds turn complete を 1 回だけ呼び、Continue / Yield を single step result へ写す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md` を追加し、facade、result owner、transient completed、start returns turn state、poll / complete normalization、lower recovery authority、no scheduler / platform / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dt source policy を追加し、F5ds-only boundary、persistent completed state 禁止、lower bypass 禁止、old action path 禁止、raw / platform / scheduler / fallback leakage 禁止、括弧なし prefix style を固定する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step_f5dt.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step_module_f5dt.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_f5dt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dt.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

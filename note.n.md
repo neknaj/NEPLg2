@@ -1,3 +1,53 @@
+# 2026-06-18 Agent2 GUI font F5dt std host span operation presenter executor session turn step boundary
+
+## scope
+
+- F5ds の poll result と complete result を、future Web / native / bare / headless driver が single transient step result として扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult` は `Execute`、`Continue`、`Yield`、`Completed` を持つ。
+- `Completed` は transient result であり、persistent completed state は追加しない。
+- start is setup authority なので `turn_step_start` は step result ではなく F5ds turn state を返す。
+- `turn_step_poll` は F5ds `turn_poll` を 1 回だけ呼び、Execute / Completed を step result へ写す。
+- `turn_step_complete` は F5ds `turn_complete` を 1 回だけ呼び、Continue / Yield を step result へ写す。
+- F5dt は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `turn_step_start -> Result TurnState StartError` は start が scheduler tick outcome ではないため適切と判断された。
+- single transient `TurnStepResult` は F5ds poll / complete result を future scheduler code が lower session variants を見ずに消費する std boundary として有用と判断された。
+- `StepResult::Completed` は transient result のみに限定し、persistent completed state を追加しないことが承認条件だった。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl` を追加した。
+- TurnStepResult、start / poll / complete wrapper errors、start / poll / complete functions、category / lower accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dt focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md`。
+- pass: F5dt module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl`。
+- pass: F5ds regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は CRLF warning のみで error なし。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- `TurnStepResult::Completed` が transient result のみで persistent completed state がないこと、`turn_step_start` が step result ではなく turn state を返すこと、poll / complete が F5ds だけへ 1 回委譲して結果を正規化することが確認された。
+- direct F5dr / F5dp / F5dq bypass、old action / virtual / dispatch path、synthetic outcome、platform / raw / scheduler / fallback leakage、NEPL parentheses はないと確認された。
+- 指摘はこの `note.n.md` の F5dt `subagent_review` が pending のままだったことだけだったため、この節を更新した。
+- Cicero follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった F5dt `subagent_review` 記録不足は解消され、code / source-policy / docs blocker はないと確認された。
+
+## remaining
+
+- F5dt は std layer turn step normalization boundary であり、actual Web / native / bare / headless scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5ds std host span operation presenter executor session turn boundary
 
 ## scope
