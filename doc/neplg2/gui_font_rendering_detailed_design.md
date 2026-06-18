@@ -48,6 +48,12 @@
 
 この helper は does not return Result である。理由は、general `LoopAction`、`YieldToClock`、`AwaitTimerAdvance`、`Complete` が public entry の型で除外され、unsupported operation を runtime 分岐で検出する必要がないためである。executor success / failure は caller supplied outcome の中身であり、この boundary は `Result::Ok unit` や `Result::Err GuiError::*` を合成しない。F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op には進まない。
 
+## F5ew Native and Bare scheduler executor one-step bridge boundary
+
+2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。F5ev で作った `GuiNativeSchedulerExecutorInputReady` / `GuiBareSchedulerExecutorInputReady` と borrowed F5ek `RealLoopStepPolicy` を受け、ready payload 内の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` へ包み、packaged input を F5ek `real_loop_step` へ渡す。
+
+F5ew は input packaging と F5ek の間の接続を固定するだけで、actual host action executor ではない。F5ek `real_loop_step` を 1 回だけ呼び、戻り値の `Result RealLoopStepResult RealLoopStepError` は再分類せずに返す。`Result::Ok unit` / `Result::Err GuiError` の合成、unsupported error 合成、F5ei executor complete の直接呼び出し、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は持たない。長時間 scheduler backend は、F5ew の one-step bridge を使う別 slice として実装する。
+
 ## 責務分離
 
 Font rendering は `core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/*` で責務を分ける。

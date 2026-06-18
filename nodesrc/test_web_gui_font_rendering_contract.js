@@ -249,6 +249,8 @@ const platformGuiNativeSchedulerClockInput = read("stdlib/platforms/gui/native/s
 const platformGuiNativeSchedulerClockInputImpl = withoutComments(platformGuiNativeSchedulerClockInput);
 const platformGuiNativeSchedulerExecutorInput = read("stdlib/platforms/gui/native/scheduler_executor_input.nepl");
 const platformGuiNativeSchedulerExecutorInputImpl = withoutComments(platformGuiNativeSchedulerExecutorInput);
+const platformGuiNativeSchedulerExecutorStep = read("stdlib/platforms/gui/native/scheduler_executor_step.nepl");
+const platformGuiNativeSchedulerExecutorStepImpl = withoutComments(platformGuiNativeSchedulerExecutorStep);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
@@ -258,6 +260,8 @@ const platformGuiBareSchedulerClockInput = read("stdlib/platforms/gui/bare/sched
 const platformGuiBareSchedulerClockInputImpl = withoutComments(platformGuiBareSchedulerClockInput);
 const platformGuiBareSchedulerExecutorInput = read("stdlib/platforms/gui/bare/scheduler_executor_input.nepl");
 const platformGuiBareSchedulerExecutorInputImpl = withoutComments(platformGuiBareSchedulerExecutorInput);
+const platformGuiBareSchedulerExecutorStep = read("stdlib/platforms/gui/bare/scheduler_executor_step.nepl");
+const platformGuiBareSchedulerExecutorStepImpl = withoutComments(platformGuiBareSchedulerExecutorStep);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -363,6 +367,8 @@ const guiPlatformNativeSchedulerClockInputTests = read("tests/stdlib/gui_platfor
 const guiPlatformBareSchedulerClockInputTests = read("tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md");
 const guiPlatformNativeSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_native_scheduler_executor_input.n.md");
 const guiPlatformBareSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md");
+const guiPlatformNativeSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_native_scheduler_executor_step.n.md");
+const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25920,6 +25926,99 @@ for (const [name, source, impl, readyPrefix, tests] of [
             tests.includes(`platform_${name}_scheduler_executor_input_preserves_outcome_ok`) &&
             tests.includes(`platform_${name}_scheduler_executor_input_no_executor_complete_backend_queue_fallback`),
         `F5ev platform ${name} scheduler executor input focused doctest must cover source-policy labels`,
+    );
+}
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native and Bare scheduler executor one-step bridge boundary") &&
+            doc.includes("F5ew") &&
+            doc.includes("backend-facing one-step bridge") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("GuiNativeSchedulerExecutorInputReady") &&
+            doc.includes("GuiBareSchedulerExecutorInputReady") &&
+            doc.includes("LoopAction::ExecuteHostAction") &&
+            doc.includes("real_loop_step") &&
+            doc.includes("Result RealLoopStepResult RealLoopStepError") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5ew ${name} must document scheduler executor one-step bridge and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_executor_step" as @merge'),
+    "platforms/gui/native facade must export F5ew native scheduler executor one-step bridge",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_executor_step" as @merge'),
+    "platforms/gui/bare facade must export F5ew bare scheduler executor one-step bridge",
+);
+for (const [name, source, impl, readyType, tests] of [
+    [
+        "native",
+        platformGuiNativeSchedulerExecutorStep,
+        platformGuiNativeSchedulerExecutorStepImpl,
+        "GuiNativeSchedulerExecutorInputReady",
+        guiPlatformNativeSchedulerExecutorStepTests,
+    ],
+    [
+        "bare",
+        platformGuiBareSchedulerExecutorStep,
+        platformGuiBareSchedulerExecutorStepImpl,
+        "GuiBareSchedulerExecutorInputReady",
+        guiPlatformBareSchedulerExecutorStepTests,
+    ],
+]) {
+    assert(
+        source.includes("backend-facing one-step bridge") &&
+            source.includes("not long-running scheduler backend") &&
+            source.includes(readyType) &&
+            source.includes("ExecuteHostAction") &&
+            source.includes("RealLoopStepInput::ExecutorOutcome") &&
+            source.includes("real_loop_step") &&
+            source.includes("Result RealLoopStepResult RealLoopStepError") &&
+            source.includes("fallback") &&
+            source.includes("silent no-op"),
+        `platforms/gui/${name}/scheduler_executor_step F5ew must document one-step bridge and no fallback`,
+    );
+    const stepSlice = functionSlice(impl, `gui_${name}_scheduler_executor_step`);
+    assert(
+        (stepSlice.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step\b/g) || []).length === 1,
+        `platforms/gui/${name}/scheduler_executor_step F5ew helper must call F5ek real_loop_step exactly once`,
+    );
+    assertOrderedFragments(
+        stepSlice,
+        [
+            `fn ${readyType}`,
+            `field::get ready "action"`,
+            `field::get ready "input"`,
+            "LoopAction::ExecuteHostAction execute_action",
+            "real_loop_step policy action input",
+        ],
+        `platforms/gui/${name}/scheduler_executor_step F5ew helper must preserve ready payload and delegate to F5ek`,
+    );
+    assertNoMatch(
+        impl,
+        /\b(?:YieldToClock|AwaitTimerAdvance|CompleteAck|RealLoopStepInput::ClockDelta|ClockDelta|scheduler_clock|backend_clock|loop_executor_complete|real_loop_driver|headless_app_loop_step|tile_present_host_action_sink|tile_present_host_action_sink_driver|tile_present_host_execution_driver|host_executor_require_supported|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|present|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|Result::Ok|Result::Err)\b/i,
+        `platforms/gui/${name}/scheduler_executor_step F5ew must not implement unsupported variants, synthetic results, backend queues, timers, rendering, or fallback behavior`,
+    );
+    assertNoMatch(
+        impl,
+        /_:|[()]/,
+        `platforms/gui/${name}/scheduler_executor_step F5ew implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
+    );
+    assert(
+        tests.includes(`platform_${name}_scheduler_executor_step_facade_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_step_backend_boundary_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_step_ready_payload_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_step_calls_real_loop_step_once_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_step_returns_lower_result_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_step_no_backend_queue_timer_fallback`),
+        `F5ew platform ${name} scheduler executor step focused doctest must cover source-policy labels`,
     );
 }
 for (const [name, doc] of [

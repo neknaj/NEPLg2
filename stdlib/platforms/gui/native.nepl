@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - native GUI backend が提供する formal platform [境界/きょうかい]を公開します。
-//: - 現 checkpoint では monotonic clock source、clock one-tick helper、clock action input helper、scheduler executor outcome input helper を公開し、window / present / long-running scheduler backend は後続 slice に分けます。
+//: - 現 checkpoint では monotonic clock source、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge を公開し、window / present / long-running scheduler backend は後続 slice に分けます。
 //:
 //: ### [注意/ちゅうい]
 //: - OS handle、minifb、AppKit、Win32、Wayland、X11 は public API に出しません。
@@ -15,3 +15,4 @@ pub #import "./native/clock" as @merge
 pub #import "./native/scheduler_clock" as @merge
 pub #import "./native/scheduler_clock_input" as @merge
 pub #import "./native/scheduler_executor_input" as @merge
+pub #import "./native/scheduler_executor_step" as @merge

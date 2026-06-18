@@ -1,3 +1,44 @@
+# 2026-06-18 Agent2 GUI platform F5ew Native/Bare scheduler executor one-step bridge boundary
+
+## 目的
+
+- F5ev Native/Bare scheduler executor outcome input helper の後続として、F5ev ready payload を F5ek real loop step へ 1 回だけ渡す。
+- これは backend-facing one-step bridge であり、not long-running scheduler backend である。
+- actual host action executor、F5ei direct complete、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Maxwell は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、F5ev typed boundary を維持すること、F5ek `real_loop_step` へ正確に 1 回だけ委譲すること、F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返すことだった。
+- source policy では action sink / driver、queue、loop、clock / timer、rendering / platform API、fallback、synthetic `Result::Ok` / `Result::Err` を禁止することも確認された。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_executor_step.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_step.nepl` を追加した。
+- public entry は `GuiNativeSchedulerExecutorInputReady` / `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy だけを受ける。
+- ready payload の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` として包み、packaged input を F5ek `real_loop_step` へ 1 回だけ渡す。
+- F5ek の `Result RealLoopStepResult RealLoopStepError` を再分類せず返し、success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error は合成しない。
+- 初回検証で step module の public return type が `Result` を使う一方、`core/result` import が不足していることが分かったため、native / bare の両方に明示 import を追加した。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_step.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md` は通過した。
+- `stdlib/platforms/gui/native/scheduler_executor_step.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_step.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md` は通過した。
+- F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の別領域に warning が残っている。F5ew focused source policy は通過しており、この変更の blocker ではない。
+
+## subagent implementation review
+
+- Maxwell は `REVIEW_APPROVED` として blocker なしと判断した。
+- Native / Bare step module が F5ev typed ready payload と borrowed F5ek policy だけを受けることが確認された。
+- `action` / `input` を取り出し、`LoopAction::ExecuteHostAction` として包み、F5ek `real_loop_step` を 1 回だけ呼び、lower `Result` をそのまま返すことが確認された。
+- synthetic `Result::Ok` / `Result::Err`、queue、timer、rendering / platform API、fallback、silent no-op、long-running scheduler behavior の混入はないと確認された。
+
 # 2026-06-18 Agent2 GUI platform F5ev Native/Bare scheduler executor outcome input helper boundary
 
 ## 目的
