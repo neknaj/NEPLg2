@@ -232,6 +232,9 @@ const stdGuiTilePresentHostActionSinkDriver = read("stdlib/std/gui/tile_present_
 const stdGuiTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiTilePresentHostActionSinkDriver);
 const stdGuiTilePresentHostActionAttemptDriver = read("stdlib/std/gui/tile_present_host_action_attempt_driver.nepl");
 const stdGuiTilePresentHostActionAttemptDriverImpl = withoutComments(stdGuiTilePresentHostActionAttemptDriver);
+const platformGuiWebFacade = read("stdlib/platforms/gui/web.nepl");
+const platformGuiWebClock = read("stdlib/platforms/gui/web/clock.nepl");
+const platformGuiWebClockImpl = withoutComments(platformGuiWebClock);
 const platformGuiWebTimer = read("stdlib/platforms/gui/web/timer.nepl");
 const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
@@ -326,6 +329,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopRunnerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md");
+const guiPlatformWebClockTests = read("tests/stdlib/gui_platform_web_clock.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25090,6 +25094,104 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_valid_delta_clock_delta_only_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_no_platform_queue_backend_fallback"),
     "F5eo std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler-backend-clock focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("Web formal monotonic clock source backend boundary") &&
+            doc.includes("F5ep") &&
+            doc.includes("performance.now") &&
+            doc.includes("i32::MAX") &&
+            doc.includes("BackendFailure") &&
+            doc.includes("Date.now") &&
+            doc.includes("fallback"),
+        `F5ep ${name} must document Web monotonic clock source, i32 range failure, and forbidden fallbacks`,
+    );
+}
+assert(
+    platformGuiWebFacade.includes('pub #import "./web/clock" as @merge'),
+    "platforms/gui/web facade must export F5ep Web monotonic clock backend boundary",
+);
+assert(
+    platformGuiWebClock.includes('#extern "nepl_gui_web" "monotonic_clock_ms" fn gui_web_monotonic_clock_ms_raw %impure fn void i32') &&
+        platformGuiWebClock.includes("pub fn gui_web_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError"),
+    "platforms/gui/web/clock F5ep must expose single i32 raw import and Result BackendClockSample wrapper",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebClockImpl, "gui_web_monotonic_clock_status_error"),
+    [
+        "if eq raw -1:",
+        "GuiError::Unsupported",
+        "GuiError::BackendFailure",
+    ],
+    "platforms/gui/web/clock F5ep must map negative raw sentinel values explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebClockImpl, "gui_web_backend_clock_sample"),
+    [
+        "let raw %i32 gui_web_monotonic_clock_ms_raw",
+        "if lt raw 0:",
+        "Result::Err gui_web_monotonic_clock_status_error raw",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw",
+        "Result::Ok sample",
+        "Result::Err kind",
+        "Result::Err gui_web_backend_clock_sample_error kind",
+    ],
+    "platforms/gui/web/clock F5ep wrapper must map sentinels before delegating to F5eo sample constructor",
+);
+assertNoMatch(
+    platformGuiWebClockImpl,
+    /\b(?:Date|setTimeout|setInterval|queue|stdout_protocol|polling|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|while|clamp|round)\b/i,
+    "platforms/gui/web/clock F5ep wrapper must not use fallback transports, timers, rendering APIs, queues, clamp, or round",
+);
+assertNoMatch(
+    platformGuiWebClockImpl,
+    /_:|[()]/,
+    "platforms/gui/web/clock F5ep implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    webWorker.includes("const GUI_WEB_BACKEND_CLOCK_I32_MAX_MS = 2147483647;") &&
+        webWorker.includes("monotonic_clock_ms: this.nepl_gui_web_monotonic_clock_ms.bind(this),"),
+    "Worker F5ep must define i32 clock range and expose monotonic_clock_ms import binding",
+);
+const f5epWorkerMonotonicClock = textSliceBetween(webWorker, "    nepl_gui_web_monotonic_clock_ms(): number {", "\n    private storeGuiWebInputEventTakeResult");
+assertOrderedFragments(
+    f5epWorkerMonotonicClock,
+    [
+        "typeof performance === 'undefined'",
+        "typeof performance.now !== 'function'",
+        "return GUI_WEB_BACKEND_CLOCK_STATUS_UNSUPPORTED;",
+        "const timestampMs = performance.now();",
+        "!Number.isFinite(timestampMs)",
+        "timestampMs < 0",
+        "timestampMs > GUI_WEB_BACKEND_CLOCK_I32_MAX_MS",
+        "return GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE;",
+        "const monotonicMs = Math.floor(timestampMs);",
+        "!Number.isInteger(monotonicMs)",
+        "return GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE;",
+        "return monotonicMs;",
+    ],
+    "Worker F5ep monotonic clock import must validate performance.now before returning i32 to Wasm",
+);
+assertNoMatch(
+    f5epWorkerMonotonicClock,
+    /Date\.now|setTimeout|setInterval|queue|stdout|postWorkerMessage|Math\.round|Math\.min|Math\.max|clamp/i,
+    "Worker F5ep monotonic clock import must not use Date, timers, queues, stdout, rounding, or clamp fallback",
+);
+assert(
+    guiPlatformWebClockTests.includes("platform_web_clock_facade_ok") &&
+        guiPlatformWebClockTests.includes("platform_web_clock_import_ok") &&
+        guiPlatformWebClockTests.includes("platform_web_clock_sample_constructor_bridge_ok") &&
+        guiPlatformWebClockTests.includes("platform_web_clock_negative_sentinel_result_ok") &&
+        guiPlatformWebClockTests.includes("platform_web_clock_no_date_timer_queue_fallback") &&
+        guiPlatformWebClockTests.includes("worker_web_clock_performance_now_i32_guard_ok"),
+    "F5ep platform Web clock focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

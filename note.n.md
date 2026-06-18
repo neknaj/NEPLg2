@@ -1,3 +1,37 @@
+# 2026-06-18 Agent2 GUI platform F5ep Web monotonic clock source backend boundary
+
+## 目的
+
+- F5eo backend clock delta boundary の後続として、Web Playground runtime の actual monotonic clock source を `platforms/gui/web` の formal host import 境界へ接続する。
+- `performance.now` 由来の sample を単一 `i32` ABI で受け、negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor に渡す。
+- `Date.now`、timer API、stdout protocol、polling loop、queue、fallback、silent no-op、wrap、clamp を使わない。
+
+## subagent plan review
+
+- Darwin は `PLAN_CHANGES` として、単一 `i32` ABI、`>= 0` sample / `-1` unsupported / `-2` backend failure、worker 側 i32 範囲検査、slice-based source policy を必須と指摘した。
+- `performance.now` を `Math.floor` で i32 millisecond にすることは、現在の F5eo `i32` clock type に対する platform boundary conversion として許容された。
+- 指摘を反映し、`i32::MAX` ms 超過は clamp や wrap ではなく `BackendFailure` sentinel にする設計へ固定した。
+
+## subagent implementation review
+
+- Russell は `REVIEW_CHANGES` として、raw `performance.now` value が `2147483647.9` の場合に floor 後の `2147483647` が成功扱いになる問題を指摘した。
+- 指摘を反映し、`timestampMs < 0` と `timestampMs > GUI_WEB_BACKEND_CLOCK_I32_MAX_MS` の検査を `Math.floor` より前へ移した。
+- source policy も raw timestamp の範囲検査が floor より前にあることを固定するよう更新した。
+
+## 実装内容
+
+- `stdlib/platforms/gui/web/clock.nepl` を追加した。
+- `stdlib/platforms/gui/web.nepl` から Web clock boundary を export した。
+- `web/src/runtime/worker.ts` に `nepl_gui_web.monotonic_clock_ms` import を追加し、`performance.now` の finite / non-negative / i32 range guard を実装した。
+- `nodesrc/run_test.js` の doctest runtime import stub に `monotonic_clock_ms` を追加した。
+- `tests/stdlib/gui_platform_web_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ep source policy を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+
+## 未完了
+
+- F5ep は Web runtime の actual clock source だけであり、native / bare / headless actual clock source、native / bare scheduler backend、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI std F5eo virtual scheduler backend clock delta boundary
 
 ## 目的

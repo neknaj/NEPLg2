@@ -52,6 +52,10 @@ import {
     waitGuiTimerHostAck,
 } from '../gui-preview/timer-host-abi.js';
 
+const GUI_WEB_BACKEND_CLOCK_STATUS_UNSUPPORTED = -1;
+const GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE = -2;
+const GUI_WEB_BACKEND_CLOCK_I32_MAX_MS = 2147483647;
+
 type WorkerStdoutMessage = {
     type: 'stdout';
     fd: number;
@@ -216,6 +220,7 @@ class WorkerWASI extends WASI {
             video_memory_present_surface: this.nepl_gui_web_video_memory_present_surface.bind(this),
             video_memory_close_surface: this.nepl_gui_web_video_memory_close_surface.bind(this),
             request_timer: this.nepl_gui_web_request_timer.bind(this),
+            monotonic_clock_ms: this.nepl_gui_web_monotonic_clock_ms.bind(this),
         };
     }
 
@@ -687,6 +692,25 @@ class WorkerWASI extends WASI {
             return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
         }
         return this.requestGuiRuntimeTimer(windowId, timerId, intervalMs, repeatingRaw === 1);
+    }
+
+    nepl_gui_web_monotonic_clock_ms(): number {
+        if (typeof performance === 'undefined' || typeof performance.now !== 'function') {
+            return GUI_WEB_BACKEND_CLOCK_STATUS_UNSUPPORTED;
+        }
+        const timestampMs = performance.now();
+        if (
+            !Number.isFinite(timestampMs)
+            || timestampMs < 0
+            || timestampMs > GUI_WEB_BACKEND_CLOCK_I32_MAX_MS
+        ) {
+            return GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE;
+        }
+        const monotonicMs = Math.floor(timestampMs);
+        if (!Number.isInteger(monotonicMs)) {
+            return GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE;
+        }
+        return monotonicMs;
     }
 
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {

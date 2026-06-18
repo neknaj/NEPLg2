@@ -1,0 +1,60 @@
+//: # platforms/gui/web/clock
+//: Web backend の formal monotonic clock host boundary
+//:
+//: ### [目的/もくてき]
+//: - Web Playground の monotonic clock sample を `nepl_gui_web` host import から[受/う]け[取/と]ります。
+//: - raw sentinel はこの module で `Result BackendClockSample GuiError` へ[写/うつ]し、application code へ漏らしません。
+//:
+//: ### [契約/けいやく]
+//: - host import は 0 以上の i32 millisecond sample を[返/かえ]します。
+//: - raw value が -1 なら clock unsupported として `GuiError::Unsupported` です。
+//: - raw value がその他の負値なら clock backend failure として `GuiError::BackendFailure` です。
+//: - Web host は `performance.now` だけを clock source とし、`Date.now` や timer API へ fallback しません。
+//: - `i32::MAX` ms を[超/こ]える sample は host 側で failure sentinel になり、wrap や clamp はしません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/web/clock" as *
+//: ```
+
+#indent 4
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+
+#extern "nepl_gui_web" "monotonic_clock_ms" fn gui_web_monotonic_clock_ms_raw %impure fn void i32
+
+fn gui_web_monotonic_clock_status_error %fn i32 GuiError \raw:
+    if eq raw -1:
+        then GuiError::Unsupported
+        else GuiError::BackendFailure
+
+fn gui_web_backend_clock_sample_error %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind::MonotonicMsInvalid:
+            GuiError::InvalidCommand
+
+//: gui_web_backend_clock_sample: Web host から monotonic clock sample を[取得/しゅとく]する
+//:
+//: [目的/もくてき]:
+//: - Web runtime の `performance.now` 由来 sample を F5eo backend clock sample constructor へ[渡/わた]します。
+//:
+//: [契約/けいやく]:
+//: - raw sentinel は public API へ漏らさず `GuiError` へ[写/うつ]します。
+//: - 成功時も F5eo の sample constructor を[通/とお]し、platform module で sample value を直接[組/く]み[立/た]てません。
+//: - `Date.now`、browser timer、stdout protocol、polling loop、queue へ fallback しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError \void:
+    let raw %i32 gui_web_monotonic_clock_ms_raw
+    if lt raw 0:
+        then Result::Err gui_web_monotonic_clock_status_error raw
+        else:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw:
+                Result::Ok sample:
+                    Result::Ok sample
+                Result::Err kind:
+                    Result::Err gui_web_backend_clock_sample_error kind
