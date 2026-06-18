@@ -279,6 +279,18 @@ public authority は support、span policy、dynamic `GuiVirtualTimerState`、F5
 
 F5gc は scheduler initial state construction までである。virtual scheduler step / drain / slice / loop、real loop driver、loop action mapping、turn driver complete、actual host import execution、timer backend、queue、platform API、DOM、Canvas、minifb、video memory、RenderTarget / DrawTarget fallback には進まない。
 
+## F5gd Native window event pump boundary
+
+2026-06-19 の F5gd では、`nepl-gui-native` の smoke runner から minifb input / resize polling を `poll_minifb_window_event_pump` へ集約する。Rust lib は `NativeWindowEventPumpInput` と `NativeWindowEventPumpSnapshot` を持ち、previous window size、previous left-button state、current window size、pointer sample、close state を enum / struct として返す。
+
+`NativeWindowSize` は OS / window manager から観測した raw size なので zero dimension を許す。zero dimension は drawable surface ではなく `NativeWindowPresenterSurfaceState::Unavailable` へ写す。positive size は `Drawable { width, height }` になり、smoke runner はその width / height と同じ RGB0 buffer を再生成してから `Window::update_with_buffer` へ渡す。window resize は pixel buffer stretch ではなく、application / layout が新しい drawable size に合わせて frame を作り直す契約である。
+
+close state は `Open`、`OsCloseRequested`、`ExitShortcutRequested` に分ける。現 smoke runner は unsaved state を持たないため OS close button と Escape shortcut のどちらでも loop を終了するが、snapshot contract は将来の rejectable close request、lifecycle、test event virtualization で区別できる形を保つ。
+
+pointer input は `NativeWindowPointerSample::Unavailable` と `Available { x, y }` を分ける。pointer raw sample が存在しないことは通常状態であり、非有限 coordinate は `NativeWindowEventPumpError::InvalidPointerSample` として失敗する。main loop は minifb の `Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` を直接読まず、snapshot を `match` する。
+
+F5gd は native event pump boundary だけであり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。event pump helper は `window.update` / `update_with_buffer` を呼ばず、presentation authority は smoke runner / future backend loop に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

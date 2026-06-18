@@ -1,12 +1,13 @@
 use std::env;
 use std::process::ExitCode;
 
-#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-use nepl_gui_native::map_native_window_point_to_image;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 use nepl_gui_native::{
-    rasterize_frame_to_surface, NativeRgb0PresentBuffer, NativeWindowPresenterState,
+    map_native_window_point_to_image, poll_minifb_window_event_pump, rasterize_frame_to_surface,
+    NativeRgb0PresentBuffer, NativeWindowEventPumpCloseState, NativeWindowEventPumpInput,
+    NativeWindowPointerButtonTransition, NativeWindowPointerSample, NativeWindowPresenterState,
+    NativeWindowPresenterSurfaceState, NativeWindowSize,
 };
 
 fn main() -> ExitCode {
@@ -183,7 +184,7 @@ fn print_usage() {
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
-    use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
+    use minifb::{ScaleMode, Window, WindowOptions};
 
     let mut frame = render_demo_frame(options.demo, options.counter_value);
     let initial_size = initial_window_size(&frame, options.scale)?;
@@ -208,81 +209,92 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     window.set_target_fps(60);
     window.set_background_color(9, 13, 18);
-    let mut previous_size = window.get_size();
+    let mut previous_size = NativeWindowSize::from_tuple(window.get_size());
     update_window_title(&mut window, options.demo, previous_size);
     let mut previous_mouse_down = false;
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        let current_size = window.get_size();
-        if current_size.0 == 0 || current_size.1 == 0 {
-            if current_size != previous_size {
-                previous_size = current_size;
-                presenter_state
-                    .resize_surface(current_size.0, current_size.1)
-                    .map_err(|error| {
-                        format!("native window presenter rejected resize: {error:?}")
-                    })?;
-                update_window_title(&mut window, options.demo, current_size);
-            }
-            previous_mouse_down = false;
-            window.update();
-            continue;
+    loop {
+        let event_snapshot = poll_minifb_window_event_pump(
+            &window,
+            NativeWindowEventPumpInput {
+                previous_size,
+                previous_mouse_down,
+            },
+        )
+        .map_err(|error| format!("native window event pump rejected input: {error:?}"))?;
+        match event_snapshot.close_state {
+            NativeWindowEventPumpCloseState::Open => {}
+            NativeWindowEventPumpCloseState::OsCloseRequested
+            | NativeWindowEventPumpCloseState::ExitShortcutRequested => break,
         }
-
-        if current_size != previous_size {
+        let current_size = event_snapshot.window_size;
+        if event_snapshot.size_changed {
             previous_size = current_size;
             presenter_state
-                .resize_surface(current_size.0, current_size.1)
+                .resize_surface(current_size.width, current_size.height)
                 .map_err(|error| format!("native window presenter rejected resize: {error:?}"))?;
+            update_window_title(&mut window, options.demo, current_size);
+        }
+        let (surface_width, surface_height) = match event_snapshot.surface_state {
+            NativeWindowPresenterSurfaceState::Drawable { width, height } => (width, height),
+            NativeWindowPresenterSurfaceState::Unavailable => {
+                previous_mouse_down = event_snapshot.mouse_down;
+                window.update();
+                continue;
+            }
+        };
+
+        if event_snapshot.size_changed {
             presenter_frame_id = next_presenter_frame_id(presenter_frame_id)?;
             present_demo_frame_to_window_state(
                 &mut presenter_state,
                 presenter_frame_id,
                 &frame,
-                current_size.0,
-                current_size.1,
+                surface_width,
+                surface_height,
             )?;
-            update_window_title(&mut window, options.demo, current_size);
         }
 
         if options.demo == GuiDemo::Counter {
-            let mouse_down = window.get_mouse_down(MouseButton::Left);
-            if mouse_down && !previous_mouse_down {
-                let counter_hit = if let Some((mouse_x, mouse_y)) =
-                    window.get_unscaled_mouse_pos(MouseMode::Discard)
-                {
-                    let present_frame =
-                        presenter_state
-                            .last_present_frame_required()
-                            .map_err(|error| {
-                                format!("native window presenter has no frame: {error:?}")
-                            })?;
-                    if present_frame.width() != current_size.0
-                        || present_frame.height() != current_size.1
-                    {
-                        return Err(format!(
-                            "native window presenter frame size mismatch: frame={}x{} window={}x{}",
-                            present_frame.width(),
-                            present_frame.height(),
-                            current_size.0,
-                            current_size.1
-                        ));
-                    }
-                    match map_native_window_point_to_image(
-                        current_size.0,
-                        current_size.1,
-                        frame.width,
-                        frame.height,
-                        mouse_x,
-                        mouse_y,
-                    ) {
-                        Some((image_x, image_y)) => {
-                            nepl_gui_native::counter_hit(&frame, image_x, image_y)
+            if event_snapshot.mouse_left_transition == NativeWindowPointerButtonTransition::Pressed
+            {
+                let counter_hit = match event_snapshot.pointer_sample {
+                    NativeWindowPointerSample::Available {
+                        x: mouse_x,
+                        y: mouse_y,
+                    } => {
+                        let present_frame =
+                            presenter_state
+                                .last_present_frame_required()
+                                .map_err(|error| {
+                                    format!("native window presenter has no frame: {error:?}")
+                                })?;
+                        if present_frame.width() != surface_width
+                            || present_frame.height() != surface_height
+                        {
+                            return Err(format!(
+                                "native window presenter frame size mismatch: frame={}x{} window={}x{}",
+                                present_frame.width(),
+                                present_frame.height(),
+                                surface_width,
+                                surface_height
+                            ));
                         }
-                        None => false,
+                        match map_native_window_point_to_image(
+                            surface_width,
+                            surface_height,
+                            frame.width,
+                            frame.height,
+                            mouse_x,
+                            mouse_y,
+                        ) {
+                            Some((image_x, image_y)) => {
+                                nepl_gui_native::counter_hit(&frame, image_x, image_y)
+                            }
+                            None => false,
+                        }
                     }
-                } else {
-                    false
+                    NativeWindowPointerSample::Unavailable => false,
                 };
                 if counter_hit {
                     options.counter_value = options
@@ -295,23 +307,23 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
                         &mut presenter_state,
                         presenter_frame_id,
                         &frame,
-                        current_size.0,
-                        current_size.1,
+                        surface_width,
+                        surface_height,
                     )?;
                 }
             }
-            previous_mouse_down = mouse_down;
+            previous_mouse_down = event_snapshot.mouse_down;
         }
         let present_frame = presenter_state
             .last_present_frame_required()
             .map_err(|error| format!("native window presenter has no frame: {error:?}"))?;
-        if present_frame.width() != current_size.0 || present_frame.height() != current_size.1 {
+        if present_frame.width() != surface_width || present_frame.height() != surface_height {
             return Err(format!(
                 "native window presenter frame size mismatch: frame={}x{} window={}x{}",
                 present_frame.width(),
                 present_frame.height(),
-                current_size.0,
-                current_size.1
+                surface_width,
+                surface_height
             ));
         }
         window
@@ -327,8 +339,8 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-fn update_window_title(window: &mut minifb::Window, demo: GuiDemo, size: (usize, usize)) {
-    let title = if size.0 == 0 || size.1 == 0 {
+fn update_window_title(window: &mut minifb::Window, demo: GuiDemo, size: NativeWindowSize) {
+    let title = if size.width == 0 || size.height == 0 {
         format!(
             "NEPLg2 GUI native preview - {:?} - surface unavailable",
             demo
@@ -336,7 +348,7 @@ fn update_window_title(window: &mut minifb::Window, demo: GuiDemo, size: (usize,
     } else {
         format!(
             "NEPLg2 GUI native preview - {:?} - {}x{}",
-            demo, size.0, size.1
+            demo, size.width, size.height
         )
     };
     window.set_title(&title);

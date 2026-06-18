@@ -46,15 +46,31 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub const GUI_NATIVE_SPAN_OPERATION_STATUS_OK",
         "impl FromStr for GuiDemo",
     );
+    const nativeWindowEventPumpHelper = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowSize",
+        "impl NativeWindowPresenterState",
+    );
+    const nativeSpanOperationHelperWithoutEventPump = nativeSpanOperationHelper.replace(
+        nativeWindowEventPumpHelper,
+        "",
+    );
 
     assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
     assert.match(mainSource, /window\.set_target_fps\(60\)/);
     assert.match(mainSource, /window\.set_background_color\(9,\s*13,\s*18\)/);
-    assert.match(mainSource, /let mut previous_size = window\.get_size\(\)/);
-    assert.match(mainSource, /let current_size = window\.get_size\(\)/);
+    assert.match(mainSource, /let mut previous_size = NativeWindowSize::from_tuple\(window\.get_size\(\)\)/);
+    assert.match(mainSource, /poll_minifb_window_event_pump\(/);
+    assert.match(mainSource, /NativeWindowEventPumpInput\s*\{[\s\S]*previous_size,[\s\S]*previous_mouse_down/);
+    assert.match(mainSource, /match event_snapshot\.close_state/);
+    assert.match(mainSource, /NativeWindowEventPumpCloseState::OsCloseRequested/);
+    assert.match(mainSource, /NativeWindowEventPumpCloseState::ExitShortcutRequested/);
+    assert.match(mainSource, /match event_snapshot\.surface_state/);
+    assert.match(mainSource, /NativeWindowPresenterSurfaceState::Unavailable\s*=>\s*\{[\s\S]*window\.update\(\)/);
+    assert.match(mainSource, /let \(surface_width, surface_height\) = match event_snapshot\.surface_state/);
     assert.match(mainSource, /update_window_title\(&mut window,\s*options\.demo,\s*current_size\)/);
-    assert.match(mainSource, /while window\.is_open\(\) && !window\.is_key_down\(Key::Escape\)/);
-    assert.match(mainSource, /window\.get_unscaled_mouse_pos\(MouseMode::Discard\)/);
+    assert.match(mainSource, /NativeWindowPointerButtonTransition::Pressed/);
+    assert.match(mainSource, /NativeWindowPointerSample::Available/);
     assert.match(mainSource, /map_native_window_point_to_image\(/);
     assert.match(mainSource, /NativeWindowPresenterState/);
     assert.match(mainSource, /let mut presenter_state = NativeWindowPresenterState::new/);
@@ -62,16 +78,17 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(mainSource, /rasterize_frame_to_surface\(frame,\s*surface_width,\s*surface_height\)/);
     assert.match(mainSource, /fn present_demo_frame_to_window_state/);
     assert.match(mainSource, /presenter_state[\s\S]*\.present_buffer\(presenter_frame_id, &initial_buffer\)/);
-    assert.match(mainSource, /presenter_state[\s\S]*\.resize_surface\(current_size\.0, current_size\.1\)/);
+    assert.match(mainSource, /presenter_state[\s\S]*\.resize_surface\(current_size\.width, current_size\.height\)/);
     assert.match(mainSource, /presenter_frame_id = next_presenter_frame_id\(presenter_frame_id\)\?/);
     assert.match(mainSource, /frame_id[\s\S]*\.checked_add\(1\)/);
-    assert.match(mainSource, /present_demo_frame_to_window_state\([\s\S]*current_size\.0,[\s\S]*current_size\.1,[\s\S]*\)\?/);
+    assert.match(mainSource, /present_demo_frame_to_window_state\([\s\S]*surface_width,[\s\S]*surface_height,[\s\S]*\)\?/);
     assert.match(mainSource, /let present_frame = presenter_state[\s\S]*\.last_present_frame_required\(\)/);
-    assert.match(mainSource, /present_frame\.width\(\) != current_size\.0 \|\| present_frame\.height\(\) != current_size\.1/);
+    assert.match(mainSource, /present_frame\.width\(\) != surface_width \|\| present_frame\.height\(\) != surface_height/);
     assert.match(mainSource, /update_with_buffer\(\s*present_frame\.pixels\(\),\s*present_frame\.width\(\),\s*present_frame\.height\(\),\s*\)/);
     assert.doesNotMatch(mainSource, /update_with_buffer\(&image\.pixels,\s*image\.width,\s*image\.height\)/);
     assert.doesNotMatch(mainSource, /let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
     assert.doesNotMatch(mainSource, /get_mouse_pos\(MouseMode::Clamp\)/);
+    assert.doesNotMatch(mainSource, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(/);
 
     assert.match(libSource, /pub struct NativeSurfacePlacement/);
     assert.match(libSource, /pub enum NativeSurfaceState\s*\{[\s\S]*Drawable\(NativeSurfacePlacement\),[\s\S]*Unavailable/);
@@ -249,7 +266,28 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_presenter_session_scalar_validation_keeps_session_state/);
     assert.match(libSource, /native_window_presenter_session_scalar_sink_failure_keeps_previous_frame/);
     assert.match(libSource, /native_window_presenter_session_host_error_separates_presenter_failure/);
-    assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
+    assert.match(libSource, /pub struct NativeWindowSize/);
+    assert.match(libSource, /pub enum NativeWindowEventPumpCloseState\s*\{[\s\S]*Open,[\s\S]*OsCloseRequested,[\s\S]*ExitShortcutRequested/);
+    assert.match(libSource, /pub enum NativeWindowPointerButtonTransition\s*\{[\s\S]*Unchanged,[\s\S]*Pressed,[\s\S]*Released/);
+    assert.match(libSource, /pub enum NativeWindowPointerSample\s*\{[\s\S]*Unavailable,[\s\S]*Available\s*\{\s*x: f32,\s*y: f32\s*\}/);
+    assert.match(libSource, /pub enum NativeWindowEventPumpError\s*\{[\s\S]*InvalidPointerSample/);
+    assert.match(libSource, /pub struct NativeWindowEventPumpInput/);
+    assert.match(libSource, /pub struct NativeWindowEventPumpSnapshot/);
+    assert.match(nativeWindowEventPumpHelper, /pub fn build_native_window_event_pump_snapshot_from_raw/);
+    assert.match(nativeWindowEventPumpHelper, /pub fn poll_minifb_window_event_pump/);
+    assert.match(nativeWindowEventPumpHelper, /!window\.is_open\(\)/);
+    assert.match(nativeWindowEventPumpHelper, /window\.is_key_down\(minifb::Key::Escape\)/);
+    assert.match(nativeWindowEventPumpHelper, /window\.get_mouse_down\(minifb::MouseButton::Left\)/);
+    assert.match(nativeWindowEventPumpHelper, /window\.get_unscaled_mouse_pos\(minifb::MouseMode::Discard\)/);
+    assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpCloseState::OsCloseRequested/);
+    assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpCloseState::ExitShortcutRequested/);
+    assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpError::InvalidPointerSample/);
+    assert.doesNotMatch(nativeWindowEventPumpHelper, /window\.update\(|update_with_buffer|queue|stdout_protocol|Canvas|DOM|video_memory|fallback|silent no-op/i);
+    assert.match(libSource, /native_window_event_pump_tracks_positive_and_zero_resize/);
+    assert.match(libSource, /native_window_event_pump_tracks_pointer_button_transitions/);
+    assert.match(libSource, /native_window_event_pump_rejects_non_finite_pointer_sample/);
+    assert.match(libSource, /native_window_event_pump_separates_os_close_and_exit_shortcut/);
+    assert.doesNotMatch(nativeSpanOperationHelperWithoutEventPump, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
 
     assert.match(platformDoc, /macOS AppKit/);
@@ -309,6 +347,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /Native presenter session host import checkpoint/);
     assert.match(platformDoc, /window_presenter_session_begin/);
     assert.match(platformDoc, /window_presenter_session_end/);
+    assert.match(platformDoc, /Native window event pump boundary checkpoint/);
+    assert.match(platformDoc, /NativeWindowEventPumpSnapshot/);
+    assert.match(platformDoc, /OsCloseRequested/);
+    assert.match(platformDoc, /ExitShortcutRequested/);
+    assert.match(platformDoc, /NativeWindowPointerSample::Unavailable/);
+    assert.match(platformDoc, /NativeWindowEventPumpError::InvalidPointerSample/);
+    assert.match(platformDoc, /poll_minifb_window_event_pump/);
+    assert.match(platformDoc, /window\.update` \/ `update_with_buffer/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -320,8 +366,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /native formal presenter session boundary/);
     assert.match(implementationPlan, /native presenter session host helper boundary/);
     assert.match(implementationPlan, /native presenter session host import boundary/);
+    assert.match(implementationPlan, /Phase F5gd: Native window event pump boundary/);
+    assert.match(implementationPlan, /minifb input API を `poll_minifb_window_event_pump` に閉じ/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
+    assert.match(standardSpec, /F5gd Native window event pump boundary/);
+    assert.match(standardSpec, /NativeWindowEventPumpInput/);
+    assert.match(standardSpec, /NativeWindowEventPumpSnapshot/);
+    assert.match(standardSpec, /OsCloseRequested/);
+    assert.match(standardSpec, /ExitShortcutRequested/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

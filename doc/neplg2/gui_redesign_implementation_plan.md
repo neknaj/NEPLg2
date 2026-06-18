@@ -1012,6 +1012,35 @@ Phase F5gc では、`stdlib/std/gui/tile_present_host_import_scheduler_start.nep
 - `nodesrc/test_web_gui_font_rendering_contract.js`、`nodesrc/test_web_gui_offscreen_headless_contract.js`、`nodesrc/test_stdlib_gui_layering_policy.js`、focused doctest、GUI spec、note、todo を同じ slice で更新する。
 - plan review では、explicit empty timer semantics、layering policy の追加、後続 authority の禁止、support / span policy を recovery authority として保持しないことを確認する。
 
+## Phase F5gd: Native window event pump boundary
+
+Phase F5gd では、native smoke runner の OS window observation を型付き event pump snapshot として切り出す。これは F5ff の exact-size resize redraw を、main.rs の生 minifb polling ではなく future native backend / test harness へ接続可能な境界にする作業である。
+
+実装:
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowSize`、`NativeWindowEventPumpInput`、`NativeWindowEventPumpSnapshot`、`NativeWindowEventPumpCloseState`、`NativeWindowPointerButtonTransition`、`NativeWindowPointerSample`、`NativeWindowEventPumpError` を追加する。
+- pure builder は current size、previous size、previous mouse state、current mouse state、pointer raw sample、OS close request、exit shortcut request だけを受け、minifb に依存しない。
+- `poll_minifb_window_event_pump` は `cfg(all(feature = "window", not(target_arch = "wasm32")))` の薄い adapter とし、minifb から読んだ値を pure builder へ渡すだけにする。
+- `NativeWindowSize` は observed size として zero を許す。zero dimension は `NativeWindowPresenterSurfaceState::Unavailable` に写し、Drawable として扱わない。
+- close state は OS close と Escape shortcut を別 variant にし、現 smoke runner ではどちらも terminal side process 終了へ写すが、contract 上は close request / lifecycle / virtual event test が区別できるようにする。
+- main.rs は `Key` / `MouseButton` / `MouseMode` / `is_open` / `is_key_down` / `get_mouse_down` / `get_unscaled_mouse_pos` を直接使わず、snapshot を `match` する。
+- zero-size path では `window.update` で event pump だけを進め、positive drawable path では surface size と same width / height の RGB0 buffer を再生成して `update_with_buffer` する。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_native_platform_behavior.md`、note、todo を同じ slice で更新する。
+
+非目標:
+
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- event pump helper は `window.update` / `update_with_buffer` を呼ばない。
+- pointer sample がない状態を error にしない。非有限 coordinate だけを typed error にする。
+- fallback frame、blank frame、silent no-op、synthetic click は作らない。
+
+完了条件:
+
+- pure builder tests が unchanged size、positive resize、zero resize、zero-to-positive restore、Pressed / Held / Released / Idle、pointer unavailable、non-finite pointer error、OS close / shortcut close 分離を検査する。
+- source-policy が minifb input API を `poll_minifb_window_event_pump` に閉じ、main.rs から直接読まないことを検査する。
+- `cargo test -p nepl-gui-native --lib` と `cargo check -p nepl-gui-native --features window` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

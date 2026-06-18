@@ -57,6 +57,18 @@ Native backend は次を守る。
 - high-frequency resize / pointer move は coalesce してよいが、close request、button up、keyboard、text input、action をまたいで古い event を上書きしてはいけない。
 - backend-specific handle、DOM、Canvas、AppKit、Win32、Wayland、X11、minifb は `core/gui` / `alloc/gui` / `std/gui` の public type に入れない。
 
+## Native window event pump boundary checkpoint
+
+F5gd では `nepl-gui-native` の OS window observation を `NativeWindowEventPumpSnapshot` に集約する。snapshot は close state、observed window size、drawable surface state、size changed flag、left button transition、pointer sample を持つ。main loop は snapshot を `match` し、minifb の `Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` を直接読まない。
+
+`NativeWindowSize` は observed size であり、zero dimension を許す。zero width / height は `NativeWindowPresenterSurfaceState::Unavailable` に写し、Drawable として扱わない。この状態では smoke runner は `window.update` で event pump を進めるだけで、blank frame や fallback frame を合成しない。positive drawable size へ戻った場合は `resize_surface` の後、same width and height の RGB0 buffer を再生成してから `update_with_buffer` する。
+
+close state は `Open`、`OsCloseRequested`、`ExitShortcutRequested` を分ける。OS close button と Escape は現 smoke runner ではどちらも process を正常終了させるが、standard GUI contract では close request、keyboard shortcut、lifecycle event を後続で別々に扱うため、event pump 境界で潰さない。
+
+pointer sample は `NativeWindowPointerSample::Unavailable` と `Available { x, y }` を分ける。pointer が取得できないことは通常の unavailable state である。非有限 coordinate は `NativeWindowEventPumpError::InvalidPointerSample` として返し、hit test から silently discard しない。
+
+`poll_minifb_window_event_pump` は minifb adapter であり、`window.update` / `update_with_buffer` を呼ばない。presentation timing と buffer ownership は presenter state / backend loop の責務である。この checkpoint は event pump boundary のみであり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -66,7 +78,7 @@ Native backend は次を守る。
 - `WindowOptions.resize = true` により OS window manager の resize を許可する。
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
-- `Window::get_size` を監視し、window title に current surface size を反映する。
+- `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化し、window title に current surface size を反映する。
 - counter hit test は current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
 - zero size または invalid size は `NativeSurfaceState::Unavailable` として扱い、hit test を行わない。
 - close button または Escape により loop を抜け、terminal side の process が正常終了する。

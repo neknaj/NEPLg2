@@ -1026,6 +1026,54 @@ pub enum NativeWindowPresenterSessionHostError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowSize {
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowEventPumpCloseState {
+    Open,
+    OsCloseRequested,
+    ExitShortcutRequested,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPointerButtonTransition {
+    Unchanged,
+    Pressed,
+    Released,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NativeWindowPointerSample {
+    Unavailable,
+    Available { x: f32, y: f32 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowEventPumpError {
+    InvalidPointerSample,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowEventPumpInput {
+    pub previous_size: NativeWindowSize,
+    pub previous_mouse_down: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NativeWindowEventPumpSnapshot {
+    pub close_state: NativeWindowEventPumpCloseState,
+    pub window_size: NativeWindowSize,
+    pub surface_state: NativeWindowPresenterSurfaceState,
+    pub size_changed: bool,
+    pub mouse_down: bool,
+    pub mouse_left_transition: NativeWindowPointerButtonTransition,
+    pub pointer_sample: NativeWindowPointerSample,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativePresenterFrameError {
     InvalidDimensions,
     DimensionOverflow,
@@ -1214,6 +1262,113 @@ impl NativeWindowPresenterSessionHostError {
             NativeWindowPresenterSessionHostError::SessionFailed(error) => error.status(),
         }
     }
+}
+
+impl NativeWindowSize {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self { width, height }
+    }
+
+    pub fn from_tuple(size: (usize, usize)) -> Self {
+        Self {
+            width: size.0,
+            height: size.1,
+        }
+    }
+
+    pub fn as_tuple(self) -> (usize, usize) {
+        (self.width, self.height)
+    }
+
+    pub fn presenter_surface_state(self) -> NativeWindowPresenterSurfaceState {
+        if self.width == 0 || self.height == 0 {
+            NativeWindowPresenterSurfaceState::Unavailable
+        } else {
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: self.width,
+                height: self.height,
+            }
+        }
+    }
+}
+
+pub fn native_window_pointer_sample_from_raw(
+    x: f32,
+    y: f32,
+) -> Result<NativeWindowPointerSample, NativeWindowEventPumpError> {
+    if !x.is_finite() || !y.is_finite() {
+        return Err(NativeWindowEventPumpError::InvalidPointerSample);
+    }
+    Ok(NativeWindowPointerSample::Available { x, y })
+}
+
+pub fn build_native_window_event_pump_snapshot(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_sample: NativeWindowPointerSample,
+) -> NativeWindowEventPumpSnapshot {
+    let close_state = if os_close_requested {
+        NativeWindowEventPumpCloseState::OsCloseRequested
+    } else if exit_shortcut_requested {
+        NativeWindowEventPumpCloseState::ExitShortcutRequested
+    } else {
+        NativeWindowEventPumpCloseState::Open
+    };
+    let mouse_left_transition = match (input.previous_mouse_down, mouse_down) {
+        (false, true) => NativeWindowPointerButtonTransition::Pressed,
+        (true, false) => NativeWindowPointerButtonTransition::Released,
+        _ => NativeWindowPointerButtonTransition::Unchanged,
+    };
+
+    NativeWindowEventPumpSnapshot {
+        close_state,
+        window_size: current_size,
+        surface_state: current_size.presenter_surface_state(),
+        size_changed: current_size != input.previous_size,
+        mouse_down,
+        mouse_left_transition,
+        pointer_sample,
+    }
+}
+
+pub fn build_native_window_event_pump_snapshot_from_raw(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_raw: Option<(f32, f32)>,
+) -> Result<NativeWindowEventPumpSnapshot, NativeWindowEventPumpError> {
+    let pointer_sample = match pointer_raw {
+        Some((x, y)) => native_window_pointer_sample_from_raw(x, y)?,
+        None => NativeWindowPointerSample::Unavailable,
+    };
+    Ok(build_native_window_event_pump_snapshot(
+        input,
+        os_close_requested,
+        exit_shortcut_requested,
+        current_size,
+        mouse_down,
+        pointer_sample,
+    ))
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+pub fn poll_minifb_window_event_pump(
+    window: &minifb::Window,
+    input: NativeWindowEventPumpInput,
+) -> Result<NativeWindowEventPumpSnapshot, NativeWindowEventPumpError> {
+    build_native_window_event_pump_snapshot_from_raw(
+        input,
+        !window.is_open(),
+        window.is_key_down(minifb::Key::Escape),
+        NativeWindowSize::from_tuple(window.get_size()),
+        window.get_mouse_down(minifb::MouseButton::Left),
+        window.get_unscaled_mouse_pos(minifb::MouseMode::Discard),
+    )
 }
 
 impl NativeWindowPresenterState {
@@ -3886,6 +4041,250 @@ mod tests {
                 .unwrap()
                 .pixels(),
             previous_pixels.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_event_pump_tracks_positive_and_zero_resize() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 480),
+            previous_mouse_down: false,
+        };
+
+        let unchanged = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            false,
+            false,
+            NativeWindowSize::new(640, 480),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(unchanged.close_state, NativeWindowEventPumpCloseState::Open);
+        assert!(!unchanged.size_changed);
+        assert_eq!(
+            unchanged.surface_state,
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 640,
+                height: 480,
+            }
+        );
+
+        let resized = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            false,
+            false,
+            NativeWindowSize::new(1280, 720),
+            false,
+            None,
+        )
+        .unwrap();
+        assert!(resized.size_changed);
+        assert_eq!(
+            resized.surface_state,
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 1280,
+                height: 720,
+            }
+        );
+
+        let unavailable = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            false,
+            false,
+            NativeWindowSize::new(0, 720),
+            false,
+            None,
+        )
+        .unwrap();
+        assert!(unavailable.size_changed);
+        assert_eq!(
+            unavailable.surface_state,
+            NativeWindowPresenterSurfaceState::Unavailable
+        );
+
+        let restored = build_native_window_event_pump_snapshot_from_raw(
+            NativeWindowEventPumpInput {
+                previous_size: NativeWindowSize::new(0, 720),
+                previous_mouse_down: true,
+            },
+            false,
+            false,
+            NativeWindowSize::new(1280, 720),
+            false,
+            None,
+        )
+        .unwrap();
+        assert!(restored.size_changed);
+        assert_eq!(
+            restored.surface_state,
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 1280,
+                height: 720,
+            }
+        );
+        assert_eq!(
+            restored.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Released
+        );
+    }
+
+    #[test]
+    fn native_window_event_pump_tracks_pointer_button_transitions() {
+        let size = NativeWindowSize::new(640, 480);
+        let idle = build_native_window_event_pump_snapshot_from_raw(
+            NativeWindowEventPumpInput {
+                previous_size: size,
+                previous_mouse_down: false,
+            },
+            false,
+            false,
+            size,
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            idle.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Unchanged
+        );
+
+        let pressed = build_native_window_event_pump_snapshot_from_raw(
+            NativeWindowEventPumpInput {
+                previous_size: size,
+                previous_mouse_down: false,
+            },
+            false,
+            false,
+            size,
+            true,
+            Some((12.0, 34.0)),
+        )
+        .unwrap();
+        assert_eq!(
+            pressed.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Pressed
+        );
+        assert_eq!(
+            pressed.pointer_sample,
+            NativeWindowPointerSample::Available { x: 12.0, y: 34.0 }
+        );
+
+        let held = build_native_window_event_pump_snapshot_from_raw(
+            NativeWindowEventPumpInput {
+                previous_size: size,
+                previous_mouse_down: true,
+            },
+            false,
+            false,
+            size,
+            true,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            held.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Unchanged
+        );
+
+        let released = build_native_window_event_pump_snapshot_from_raw(
+            NativeWindowEventPumpInput {
+                previous_size: size,
+                previous_mouse_down: true,
+            },
+            false,
+            false,
+            size,
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            released.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Released
+        );
+    }
+
+    #[test]
+    fn native_window_event_pump_rejects_non_finite_pointer_sample() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 480),
+            previous_mouse_down: false,
+        };
+
+        assert_eq!(
+            build_native_window_event_pump_snapshot_from_raw(
+                input,
+                false,
+                false,
+                NativeWindowSize::new(640, 480),
+                true,
+                Some((f32::NAN, 10.0)),
+            )
+            .unwrap_err(),
+            NativeWindowEventPumpError::InvalidPointerSample
+        );
+        assert_eq!(
+            build_native_window_event_pump_snapshot_from_raw(
+                input,
+                false,
+                false,
+                NativeWindowSize::new(640, 480),
+                true,
+                Some((10.0, f32::INFINITY)),
+            )
+            .unwrap_err(),
+            NativeWindowEventPumpError::InvalidPointerSample
+        );
+    }
+
+    #[test]
+    fn native_window_event_pump_separates_os_close_and_exit_shortcut() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 480),
+            previous_mouse_down: false,
+        };
+
+        let os_close = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            true,
+            false,
+            NativeWindowSize::new(640, 480),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            os_close.close_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested
+        );
+
+        let shortcut = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            false,
+            true,
+            NativeWindowSize::new(640, 480),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            shortcut.close_state,
+            NativeWindowEventPumpCloseState::ExitShortcutRequested
+        );
+
+        let os_close_wins = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            true,
+            true,
+            NativeWindowSize::new(640, 480),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            os_close_wins.close_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested
         );
     }
 

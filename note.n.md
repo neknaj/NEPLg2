@@ -1,3 +1,42 @@
+# 2026-06-19 Agent2 GUI platform F5gd Native window event pump boundary
+
+## scope
+
+- F5gc std layer host import scheduler-start boundary の後続として、native smoke runner の minifb input / resize polling を typed event pump boundary へ切り出す。
+- F5gd は `NativeWindowEventPumpInput` から `NativeWindowEventPumpSnapshot` を作り、observed window size、surface availability、close state、left button transition、pointer sample を enum / struct で表す。
+- zero-size surface は `NativeWindowPresenterSurfaceState::Unavailable` とし、blank frame / fallback frame を合成しない。
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Banach the 2nd の plan review は実装開始可。ただし、OS close と Escape shortcut を同一 close state に潰さないこと、main.rs から minifb input API を source-policy で戻らないようにすること、`NativeWindowSize` の zero 許容を明文化すること、doc/neplg2/gui_native_platform_behavior.md を更新することが必須指摘だった。
+- 指摘に従い、close state を `Open` / `OsCloseRequested` / `ExitShortcutRequested` に分け、event pump helper は `window.update` / `update_with_buffer` を呼ばない仕様にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowSize`、`NativeWindowEventPumpInput`、`NativeWindowEventPumpSnapshot`、`NativeWindowEventPumpCloseState`、`NativeWindowPointerButtonTransition`、`NativeWindowPointerSample`、`NativeWindowEventPumpError` を追加した。
+- pure builder `build_native_window_event_pump_snapshot_from_raw` と、cfg-gated minifb adapter `poll_minifb_window_event_pump` を追加した。
+- `nepl-gui-native/src/main.rs` は `Key` / `MouseButton` / `MouseMode` / `is_open` / `is_key_down` / `get_mouse_down` / `get_unscaled_mouse_pos` を直接扱わず、snapshot を `match` して close、resize、counter click を処理する形に変更した。
+- GUI standard library spec、GUI redesign implementation plan、native platform behavior doc、source-policy、todo を F5gd に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gd native platform source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: GitHub Actions run `27793833279` は全体 `cancelled`。指定 job `82250574782` / `examples-test` は `Run examples doctests` で failure。今回の F5gd 差分由来ではなく、既存 remote/main 側の CI 状態として監視を継続する。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。`main.rs` が minifb input polling API を直接扱わず snapshot を `match` していること、OS close と Escape が別 variant であること、zero size が `Unavailable` であること、non-finite pointer が typed error であること、event pump helper が `window.update` / `update_with_buffer` を呼ばないことが確認された。
+- docs、source-policy、note、todo は F5gd scope と非目標に整合し、指摘なしだった。
+
+## residual
+
+- F5gd は native event pump boundary までであり、formal native OS window backend loop、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI std F5gc host import scheduler-start boundary
 
 ## scope
