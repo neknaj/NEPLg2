@@ -1,3 +1,49 @@
+# 2026-06-19 Agent2 GUI std F5gc host import scheduler-start boundary
+
+## scope
+
+- F5gb Native / Bare bounded real-loop runner の後続として、formal `std/gui` present host import connection の最小境界を追加する。
+- F5gc は F5cr request を F5cw action、F5du turn start、F5ea virtual scheduler initial state へ接続する。
+- public input authority は support、span policy、dynamic timer state、F5cr request だけに限定する。
+- actual host import execution、scheduler step / loop、real loop driver、queue、timer backend、platform API、DOM、Canvas、minifb、video memory、RenderTarget / DrawTarget fallback には進まない。
+
+## plan_review
+
+- Galileo the 2nd の plan review は `PLAN_CHANGES`。実装開始は可能だが、explicit empty timer semantics、layering policy への追加、後続 authority の禁止、support / span policy の recovery authority 非保持を文書と regression に入れる必要があると指摘された。
+- 指摘に従い、`start_with_empty_timer` は active timer を持たない明示 initial `GuiVirtualTimerState` であって fallback や silent no-op ではないと仕様化した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`nodesrc/test_web_gui_offscreen_headless_contract.js`、`nodesrc/test_stdlib_gui_layering_policy.js` に F5gc の source policy を追加する方針にした。
+
+## implementation_current
+
+- `stdlib/std/gui/tile_present_host_import_scheduler_start.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady` は original request、derived action、initial scheduler state を保持する。
+- `GuiRgba8888RowTileRlePresentHostImportSchedulerStartError::TurnStartFailed` は original request、derived action、lower F5du error、category を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI standard library spec、GUI redesign implementation plan、source-policy、todo を F5gc に合わせて更新した。
+
+## subagent_review
+
+- Galileo the 2nd implementation review は `APPROVED_TO_COMMIT`。F5gc は F5cw action conversion、F5du `turn_start`、F5ea `virtual_scheduler_turn` だけを接続し、scheduler step / drain / slice / loop、executor completion、platform API、synthetic outcome、fallback、silent no-op を導入していないと確認された。
+- `start_with_empty_timer` は `gui_virtual_timer_empty` から main start へ委譲する明示 empty timer helper であり、backend unavailable fallback ではないことが確認された。
+- source-policy は font、offscreen/headless、stdlib layering の 3 箇所で exported surface、順序、括弧なし、wildcard 禁止、後続 authority 禁止を検査しており十分と確認された。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`
+- pass: `node --check nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: F5gc module doctest `stdlib/std/gui/tile_present_host_import_scheduler_start.nepl`。
+- pass: F5gc focused doctest `tests/stdlib/gui_std_tile_present_host_import_scheduler_start.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gc source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5gc は scheduler initial state construction までであり、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5ga Bare scheduler real-loop action step boundary
 
 ## scope

@@ -999,6 +999,19 @@ Phase F5fw の Bare display hardware flush accepted boundary を現在の checkp
 
 Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。2026-06-19 の F5gb では、Native / Bare scheduler bounded real-loop runner として F5el start から F5fz / F5ga platform step を `max_step_count` で bounded に進める checkpoint を追加した。これは long-running real backend loop へ向かう platform-neutral runner であり、queue、sleep、timer wait、fallback、silent no-op は持たない。F5gb の次の再開 target は、formal `std/gui` present host import 接続、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain へ進めることである。
 
+## Phase F5gc: std layer row tile RLE present host import scheduler start boundary
+
+Phase F5gc では、`stdlib/std/gui/tile_present_host_import_scheduler_start.nepl` を追加し、F5cr request から F5cw action、F5du turn start、F5ea `virtual_scheduler_turn` へつながる formal `std/gui` present host import 接続の最小境界を固定する。
+
+- public input authority は support、span policy、dynamic timer state、F5cr request だけに限定する。
+- action は F5cw `gui_rgba8888_row_tile_rle_present_host_execution_action &request` で作り、F5du `turn_start` に 1 回だけ渡す。
+- F5du が成功した場合だけ F5ea `virtual_scheduler_turn` に timer state と turn state を渡し、initial virtual scheduler state を ready value に入れる。
+- F5du が失敗した場合は original request、derived action、lower F5du error、category を error value に保持する。support / span policy は Copy policy input なので recovery authority として保持しない。
+- `start_with_empty_timer` は active timer を持たない明示 initial `GuiVirtualTimerState` を作る helper であり、fallback や silent no-op ではない。
+- scheduler step、virtual scheduler drain / slice / loop、real loop driver、loop action mapping、turn driver complete、host import execution、timer backend、queue、platform API、DOM、Canvas、minifb、video memory、RenderTarget / DrawTarget fallback へは進まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`nodesrc/test_web_gui_offscreen_headless_contract.js`、`nodesrc/test_stdlib_gui_layering_policy.js`、focused doctest、GUI spec、note、todo を同じ slice で更新する。
+- plan review では、explicit empty timer semantics、layering policy の追加、後続 authority の禁止、support / span policy を recovery authority として保持しないことを確認する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

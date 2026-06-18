@@ -269,6 +269,16 @@ native runner の error payload は current clock state と lower error を保�
 
 F5gb は bounded runner であり、OS window loop、minifb event pump、timer wait、sleep、queue drain、DOM、Canvas、video memory transport、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。`ClockDelta`、`ExecutorOutcome`、`CompleteAck` は F5fz / F5ga の step path でのみ作られ、runner が fallback input や silent no-op を合成しない。
 
+## F5gc std layer row tile RLE present host import scheduler start boundary
+
+2026-06-19 の F5gc では、std layer row tile RLE present host import scheduler start として `std/gui/tile_present_host_import_scheduler_start` を追加する。これは F5cr `GuiRgba8888RowTileRlePresentHostImportRequest` を F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` へ写し、F5du `turn_start` で presenter / executor session turn を開始し、その turn state を F5ea `virtual_scheduler_turn` に渡して `GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady` を作る std layer boundary である。
+
+public authority は support、span policy、dynamic `GuiVirtualTimerState`、F5cr request だけである。success payload は original request、derived action、initial virtual scheduler state を保持する。turn start failure では original request、derived action、lower F5du error、category を保持する。support と span policy は Copy policy input であり、error recovery authority として保持しない。
+
+`start_with_empty_timer` は active timer を持たない明示 initial GuiVirtualTimerState を作る helper である。これは timer backend unavailable の fallback や silent no-op ではない。caller が dynamic timer state を持っている場合は `start` に渡し、active timer を持たない initial state から始めたい場合だけ helper を使う。
+
+F5gc は scheduler initial state construction までである。virtual scheduler step / drain / slice / loop、real loop driver、loop action mapping、turn driver complete、actual host import execution、timer backend、queue、platform API、DOM、Canvas、minifb、video memory、RenderTarget / DrawTarget fallback には進まない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

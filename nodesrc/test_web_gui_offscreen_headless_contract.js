@@ -68,6 +68,8 @@ const virtualTimer = read("stdlib/std/gui/virtual_timer.nepl");
 const virtualTimerImpl = withoutComments(virtualTimer);
 const turnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl");
 const turnVirtualTimerImpl = withoutComments(turnVirtualTimer);
+const hostImportSchedulerStart = read("stdlib/std/gui/tile_present_host_import_scheduler_start.nepl");
+const hostImportSchedulerStartImpl = withoutComments(hostImportSchedulerStart);
 const turnVirtualScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl");
 const turnVirtualSchedulerImpl = withoutComments(turnVirtualScheduler);
 const turnVirtualSchedulerStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl");
@@ -100,6 +102,7 @@ const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
 const guiStdTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
+const guiStdHostImportSchedulerStartTests = read("tests/stdlib/gui_std_tile_present_host_import_scheduler_start.n.md");
 const guiStdTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
 const guiStdTurnVirtualSchedulerStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md");
 const guiStdTurnVirtualSchedulerDrainTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md");
@@ -297,6 +300,43 @@ assertNoMatch(
     turnVirtualTimerImpl,
     /\b(?:DOM|Canvas|KeyboardEvent|MouseEvent|PointerEvent|EventTarget|document\.|window\.|minifb|HWND|stdout|queue|SharedArrayBuffer|setTimeout|setInterval|video_memory|fallback|silent no-op)\b/i,
     "std/gui turn virtual timer bridge must not depend on platform APIs, queues, video memory, or hidden fallback",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_import_scheduler_start"\s+as\s+\*/,
+    "std/gui facade must re-export the F5gc host import scheduler-start boundary",
+);
+assertMatch(
+    hostImportSchedulerStart,
+    /F5gc[\s\S]*GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady[\s\S]*GuiRgba8888RowTileRlePresentHostImportSchedulerStartError/,
+    "std/gui host import scheduler-start must document F5gc ready/error boundary",
+);
+const hostImportSchedulerStartPublic = functionSlice(hostImportSchedulerStartImpl, "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start");
+assertMatch(
+    hostImportSchedulerStartPublic,
+    /host_execution_action\s+&request[\s\S]*executor_session_turn_start\s+support\s+span_policy\s+action[\s\S]*Result::Err\s+lower:[\s\S]*scheduler_start_failed_new\s+request\s+action\s+lower[\s\S]*Result::Ok\s+turn_state:[\s\S]*virtual_scheduler_turn\s+timer_state\s+turn_state/,
+    "std/gui host import scheduler-start must connect request/action/turn start/initial scheduler state in order",
+);
+assertNoMatch(
+    hostImportSchedulerStartPublic,
+    /\b(?:virtual_scheduler_step|virtual_scheduler_drain|virtual_scheduler_slice|virtual_scheduler_loop|real_loop_driver|loop_action|ClockDelta|ExecutorOutcome|CompleteAck|turn_driver_complete|executor_session_turn_driver_complete|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|Result::Ok\s+unit|Result::Err\s+GuiError::|fallback|silent no-op)\b/i,
+    "std/gui host import scheduler-start must not step/loop, synthesize backend input, queue, call platform APIs, or fallback",
+);
+const hostImportSchedulerStartEmpty = functionSlice(hostImportSchedulerStartImpl, "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_with_empty_timer");
+assertMatch(
+    hostImportSchedulerStartEmpty,
+    /gui_virtual_timer_empty[\s\S]*host_import_scheduler_start\s+support\s+span_policy\s+timer_state\s+request/,
+    "std/gui host import scheduler-start empty timer helper must use explicit empty timer state",
+);
+assertNoMatch(
+    hostImportSchedulerStartEmpty,
+    /\b(?:Unsupported|fallback|silent no-op|schedule_timer|setTimeout|setInterval|queue|platform|Canvas|DOM|minifb|video_memory)\b/i,
+    "std/gui host import scheduler-start empty timer helper must not mean unsupported timer fallback",
+);
+assertMatch(
+    guiStdHostImportSchedulerStartTests,
+    /std_row_tile_rle_present_host_import_scheduler_start_facade_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_request_to_action_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_turn_start_order_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_dynamic_timer_state_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_empty_timer_explicit_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_error_context_ok[\s\S]*std_row_tile_rle_present_host_import_scheduler_start_no_step_loop_backend_queue_fallback/,
+    "std/gui host import scheduler-start focused doctest must cover F5gc labels",
 );
 assertMatch(
     turnVirtualSchedulerImpl,

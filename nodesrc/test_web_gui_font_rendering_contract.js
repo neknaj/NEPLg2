@@ -148,6 +148,8 @@ const stdGuiTilePresentRunSpan = read("stdlib/std/gui/tile_present_run_span.nepl
 const stdGuiTilePresentRunSpanImpl = withoutComments(stdGuiTilePresentRunSpan);
 const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_import.nepl");
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
+const stdGuiTilePresentHostImportSchedulerStart = read("stdlib/std/gui/tile_present_host_import_scheduler_start.nepl");
+const stdGuiTilePresentHostImportSchedulerStartImpl = withoutComments(stdGuiTilePresentHostImportSchedulerStart);
 const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_execution.nepl");
 const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
 const stdGuiTilePresentHostSpanOperation = read("stdlib/std/gui/tile_present_host_span_operation.nepl");
@@ -365,6 +367,7 @@ const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiStdTilePresentRunSpanTests = read("tests/stdlib/gui_std_tile_present_run_span.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
+const guiStdTilePresentHostImportSchedulerStartTests = read("tests/stdlib/gui_std_tile_present_host_import_scheduler_start.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostSpanOperationTests = read("tests/stdlib/gui_std_tile_present_host_span_operation.n.md");
 const guiStdTilePresentScheduledSpanOperationTests = read("tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md");
@@ -20623,6 +20626,76 @@ assert(
         guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_consumes_f5cq_only_ok") &&
         guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_no_raw_no_host_call_no_platform_no_fallback"),
     "F5cr std tile present host-import focused doctest must cover host-import source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("std layer row tile RLE present host import scheduler start") &&
+        guiStandardLibrarySpec.includes("GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady") &&
+        guiStandardLibrarySpec.includes("active timer を持たない明示 initial GuiVirtualTimerState") &&
+        guiStandardLibrarySpec.includes("F5gc"),
+    "F5gc GUI standard library spec must document host import scheduler start and explicit empty timer semantics",
+);
+assert(
+    redesignPlan.includes("Phase F5gc") &&
+        redesignPlan.includes("tile_present_host_import_scheduler_start.nepl") &&
+        redesignPlan.includes("virtual_scheduler_turn") &&
+        redesignPlan.includes("fallback や silent no-op ではない"),
+    "F5gc implementation plan must track std host import scheduler start boundary and forbidden fallback behavior",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_import_scheduler_start" as *'), "std/gui facade must export F5gc tile present host import scheduler start boundary");
+assert(
+    stdGuiTilePresentHostImportSchedulerStart.includes("pub struct GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady:") &&
+        stdGuiTilePresentHostImportSchedulerStart.includes("request %GuiRgba8888RowTileRlePresentHostImportRequest") &&
+        stdGuiTilePresentHostImportSchedulerStart.includes("action %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostImportSchedulerStart.includes("state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState") &&
+        stdGuiTilePresentHostImportSchedulerStart.includes("pub enum GuiRgba8888RowTileRlePresentHostImportSchedulerStartError:") &&
+        stdGuiTilePresentHostImportSchedulerStart.includes("TurnStartFailed %GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed"),
+    "std/gui/tile_present_host_import_scheduler_start F5gc must expose request/action/state success and typed turn-start failure",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostImportSchedulerStartImpl, "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_action &request",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start support span_policy action",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_new request action lower",
+        "Result::Ok turn_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn timer_state turn_state",
+        "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_new request action state",
+    ],
+    "std/gui/tile_present_host_import_scheduler_start F5gc must convert request, start turn, and wrap dynamic timer state in exact order",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostImportSchedulerStartImpl, "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_with_empty_timer"),
+    [
+        "gui_virtual_timer_empty",
+        "gui_rgba8888_row_tile_rle_present_host_import_scheduler_start support span_policy timer_state request",
+    ],
+    "std/gui/tile_present_host_import_scheduler_start F5gc empty timer helper must construct explicit empty timer state then delegate",
+);
+assertNoMatch(
+    stdGuiTilePresentHostImportSchedulerStartImpl,
+    /\b(?:virtual_scheduler_step|virtual_scheduler_drain|virtual_scheduler_slice|virtual_scheduler_loop|real_loop_driver|loop_action|turn_driver_complete|executor_session_turn_driver_complete|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|Result::Ok\s+unit|Result::Err\s+GuiError::|fallback|silent no-op)\b/i,
+    "std/gui/tile_present_host_import_scheduler_start F5gc must not step schedulers, execute host imports, queue, call platform/raw APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostImportSchedulerStartImpl,
+    /_:/,
+    "std/gui/tile_present_host_import_scheduler_start F5gc must not use wildcard enum matches",
+);
+assertNoMatch(
+    stdGuiTilePresentHostImportSchedulerStartImpl,
+    /[()]/,
+    "std/gui/tile_present_host_import_scheduler_start F5gc implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_facade_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_request_to_action_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_turn_start_order_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_dynamic_timer_state_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_empty_timer_explicit_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_error_context_ok") &&
+        guiStdTilePresentHostImportSchedulerStartTests.includes("std_row_tile_rle_present_host_import_scheduler_start_no_step_loop_backend_queue_fallback"),
+    "F5gc std tile present host-import scheduler-start focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
