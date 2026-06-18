@@ -31,6 +31,14 @@ function assertNoMatch(text, pattern, message) {
     assert(!pattern.test(text), `${message}: forbidden ${pattern}`);
 }
 
+function textSliceBetween(text, startMarker, endMarker) {
+    const start = text.indexOf(startMarker);
+    assert(start >= 0, `missing start marker: ${startMarker}`);
+    const end = text.indexOf(endMarker, start + startMarker.length);
+    assert(end >= 0, `missing end marker after ${startMarker}: ${endMarker}`);
+    return text.slice(start, end);
+}
+
 const spec = read("doc/neplg2/gui_redesign_spec.md");
 const detailedDesign = read("doc/neplg2/gui_redesign_detailed_design.md");
 const implementationPlan = read("doc/neplg2/gui_redesign_implementation_plan.md");
@@ -44,11 +52,14 @@ const turnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_p
 const turnVirtualTimerImpl = withoutComments(turnVirtualTimer);
 const turnVirtualScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl");
 const turnVirtualSchedulerImpl = withoutComments(turnVirtualScheduler);
+const turnVirtualSchedulerStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl");
+const turnVirtualSchedulerStepImpl = withoutComments(turnVirtualSchedulerStep);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
 const guiStdTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
 const guiStdTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
+const guiStdTurnVirtualSchedulerStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md");
 
 assertMatch(
     spec,
@@ -89,6 +100,11 @@ assertMatch(
     implementationPlan,
     /Phase 5\.4:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler\.n\.md/,
     "implementation plan must track the virtual scheduler state boundary implementation slice",
+);
+assertMatch(
+    implementationPlan,
+    /Phase 5\.5:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step\.n\.md/,
+    "implementation plan must track the virtual scheduler single-step implementation slice",
 );
 
 assertMatch(
@@ -238,6 +254,55 @@ assertNoMatch(
     /\b(?:while|loop|for|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
     "std/gui turn virtual scheduler must not loop, drain, call backend timers, queue, platform APIs, raw render APIs, or fallback",
 );
+assertMatch(
+    turnVirtualSchedulerStepImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy:[\s\S]*scheduler_policy\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy[\s\S]*timer_policy\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy/,
+    "std/gui turn virtual scheduler step policy must hold only static scheduler/timer policy values",
+);
+assertNoMatch(
+    textSliceBetween(
+        turnVirtualSchedulerStepImpl,
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult:",
+    ),
+    /GuiVirtualTimerState/,
+    "std/gui turn virtual scheduler step policy must not hold dynamic virtual timer state",
+);
+assertMatch(
+    turnVirtualSchedulerStepImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult:[\s\S]*Advanced\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState[\s\S]*BlockedWaitingTimer\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending[\s\S]*BlockedExecute\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute[\s\S]*Completed\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted/,
+    "std/gui turn virtual scheduler step must return explicit advanced/blocked/completed results",
+);
+assertMatch(
+    turnVirtualSchedulerStepImpl,
+    /StepTurnPollFailed:[\s\S]*category\s+%Option\s+GuiError[\s\S]*timer_state\s+%GuiVirtualTimerState[\s\S]*lower\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError[\s\S]*StepSchedulerDecisionFailed:[\s\S]*category\s+%Option\s+GuiError[\s\S]*timer_state\s+%GuiVirtualTimerState[\s\S]*lower\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError/,
+    "std/gui turn virtual scheduler step errors must preserve timer state on poll and scheduler-decision failures",
+);
+assertMatch(
+    turnVirtualSchedulerStepImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState::Turn\s+turn:[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll\s+turn_state[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decide\s+scheduler_policy\s+driver_step[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_decide\s+timer_policy\s+timer_state\s+decision[\s\S]*StepResult::Advanced\s+next_state/,
+    "std/gui turn virtual scheduler step must poll, schedule-decide, and timer-decide in that exact Turn path order",
+);
+assertMatch(
+    turnVirtualSchedulerStepImpl,
+    /VirtualSchedulerState::WaitingTimer\s+pending:[\s\S]*StepResult::BlockedWaitingTimer\s+pending[\s\S]*VirtualSchedulerState::Execute\s+execute:[\s\S]*StepResult::BlockedExecute\s+execute[\s\S]*VirtualSchedulerState::Completed\s+completed:[\s\S]*StepResult::Completed\s+completed/,
+    "std/gui turn virtual scheduler step must preserve blocked phases explicitly",
+);
+assertNoMatch(
+    turnVirtualSchedulerStepImpl,
+    /_:/,
+    "std/gui turn virtual scheduler step must not use wildcard enum matches",
+);
+assertNoMatch(
+    turnVirtualSchedulerStepImpl,
+    /\b(?:while|loop|for|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui turn virtual scheduler step must not loop, timeslice, call backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    turnVirtualSchedulerStepImpl,
+    /[()]/,
+    "std/gui turn virtual scheduler step implementation must preserve NEPL prefix style without parentheses",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -263,6 +328,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler"\s+as\s+\*/,
     "std/gui facade must re-export the virtual scheduler state contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler single-step contract",
 );
 assertMatch(
     guiStdTests,
@@ -293,6 +363,11 @@ assertMatch(
     guiStdTurnVirtualSchedulerTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_phase_state_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_ready_empty_timer_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_no_loop_no_backend_no_queue_no_fallback/,
     "std/gui turn virtual scheduler focused doctest must cover phase-owned state, empty one-shot timer state, and no backend/queue/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerStepTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_no_dynamic_timer_state_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_result_blocked_phase_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_exact_authority_order_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_no_loop_timeslice_backend_queue_fallback/,
+    "std/gui turn virtual scheduler step focused doctest must cover policy, blocked result, Turn path order, and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");

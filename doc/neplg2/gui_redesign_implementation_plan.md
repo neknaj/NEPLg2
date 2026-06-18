@@ -427,6 +427,47 @@ Subagent review:
 - revised plan では dynamic state を phase payload に移し、`ContinueNow` を `Turn` phase、`Ready` 後を明示 `gui_virtual_timer_empty` として固定し、Cicero revised plan review は `PLAN_APPROVED`。
 - 実装後に、指摘がすべて満たされていること、real scheduler loop や presentation fallback に進んでいないことを確認させる。
 
+## Phase 5.5: stdlib virtual scheduler single step boundary
+
+目的:
+
+- F5ea state を使う real scheduler loop の前段として、1 回だけ state を前進させる std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary を固定する。
+- Turn path の authority order を F5du driver poll、F5dv scheduler decide、F5ea timer decide に限定する。
+- blocked phase を no-progress success にせず、外側 loop authority が処理できる typed result として返す。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+- step policy は scheduler policy と timer policy だけを持ち、dynamic `GuiVirtualTimerState` を保持しない。
+- poll failure と scheduler decision failure は current `GuiVirtualTimerState` と lower error を保持する。
+- timer decision failure は F5ea lower owner-bearing error を保持する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` を追加する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.5 / F5eb source policy を追加する。
+
+完了条件:
+
+- Turn path は driver poll、scheduler decide、F5ea timer decide をそれぞれ 1 回だけ呼ぶ。
+- `WaitingTimer` は `BlockedWaitingTimer`、`Execute` は `BlockedExecute`、`Completed` は `Completed` として返る。
+- F5eb は DOM、Canvas、minifb、OS timer、browser timer、stdout、event queue、video memory、platform API、fallback、silent no-op、loop drain、timeslice budget を含まない。
+- focused doctest、offscreen/headless source policy、font rendering source policy、`git diff --check` が通る。
+- subagent implementation review で owner recovery、exact authority order、blocked branch no backend / queue / fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+```
+
+Subagent review:
+
+- 初回 review では `PLAN_CHANGES`。blocked phase を `Ok same state` にしないこと、`BlockedWaitingTimer` / `BlockedExecute` / `Completed` を result に持たせること、poll / scheduler failure に current timer state を保持すること、step policy に dynamic timer state を入れないことが指摘された。
+- revised plan では single-step boundary と blocked result を明示し、Cicero revised plan review は `PLAN_APPROVED`。
+- 実装後に、Turn path の正確な順序、blocked branch で backend / queue を呼ばないこと、owner-bearing error が保たれることを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -514,9 +555,9 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.4 の deterministic virtual scheduler state boundary までを現在の checkpoint とする。次の再開 target は、F5ea state を使う real scheduler loop / timeslice contract / headless app-loop integration である。
+Phase 5.5 の deterministic virtual scheduler single step boundary までを現在の checkpoint とする。次の再開 target は、F5eb step result を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
 
-- scheduler loop は F5ea の `Turn` / `WaitingTimer` / `Execute` / `Completed` phase を明示的に進める必要がある。
+- scheduler loop は F5eb の `Advanced` / `BlockedWaitingTimer` / `BlockedExecute` / `Completed` result を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
 - timeslice policy は `Yield` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。

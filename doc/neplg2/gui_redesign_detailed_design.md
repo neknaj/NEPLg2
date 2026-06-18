@@ -254,6 +254,10 @@ F5ea の std layer row tile RLE present host span operation presenter executor s
 
 Decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼ぶ。`ScheduleTimer` だけが F5dz schedule を呼び、success は `WaitingTimer` になる。Timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼ぶ。`Ready` decision が返った場合、F5dw request は one-shot で F5dy / F5dz は completion 前に virtual timer を clear しているため、F5ea は `gui_virtual_timer_empty` を明示的な next dynamic state として decision boundary へ戻す。F5ea は loop drain、timeslice budget、actual backend timer、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
+F5eb の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary は、F5ea state を 1 回だけ進める境界である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。Turn path は F5du driver poll、F5dv scheduler decide、F5ea timer decide の順序を固定し、それぞれを 1 回だけ呼ぶ。
+
+`WaitingTimer`、`Execute`、`Completed` は F5eb 内で queue、backend、executor、platform API へ進まない。`WaitingTimer` は `BlockedWaitingTimer`、`Execute` は `BlockedExecute` として返し、real scheduler loop / timeslice policy / headless app-loop integration が次の authority として処理する。poll failure と scheduler decision failure は current `GuiVirtualTimerState` を失わず、timer decision failure は F5ea lower owner-bearing error を保持する。F5eb は loop drain、timeslice budget、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。

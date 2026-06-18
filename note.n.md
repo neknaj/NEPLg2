@@ -1,3 +1,58 @@
+# 2026-06-18 Agent2 GUI font F5eb std deterministic virtual scheduler single step boundary
+
+## scope
+
+- F5ea の deterministic virtual scheduler state を 1 回だけ前進させる single-step boundary を std layer に追加する。
+- Turn path は F5du driver poll、F5dv scheduler decide、F5ea timer decide の順序だけを扱う。
+- `WaitingTimer`、`Execute`、`Completed` は no-progress success にせず、外側 scheduler loop の authority へ返す typed blocked result にする。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、blocked phase を `Ok same state` にしないこと、`BlockedWaitingTimer` / `BlockedExecute` / `Completed` を result に持たせること、poll / scheduler decision failure に current timer state を保持すること、step policy に dynamic timer state を入れないことだった。
+- revised plan では `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` を追加し、Turn path の authority order と blocked result を明示した。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl` を追加した。
+- step policy は scheduler policy と timer policy だけを保持し、dynamic `GuiVirtualTimerState` を policy へ入れない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+- Turn path は driver poll、scheduler decide、F5ea virtual scheduler decide をそれぞれ 1 回だけ呼ぶ。
+- poll failure と scheduler decision failure は current `GuiVirtualTimerState` と lower error を保持する。
+- timer decision failure は F5ea lower owner-bearing error を保持する。
+- `stdlib/std/gui.nepl` facade に F5eb step boundary を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` を追加し、facade、policy no dynamic timer state、blocked phase result、Turn path order、timer state recovery、no wildcard、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5eb source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5eb focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md`。
+- pass: F5eb module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl`。
+- pass: F5ea regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: F5dz regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- code / source policy / docs / tests は F5eb contract と整合しており、Zenn 方針、layering、ownership の blocker は見つからなかった。
+- procedural 指摘として、F5eb の新規 module / focused doctest を stage し、`NUL` と古い `tmp_*` を commit へ含めないことが挙げられた。
+- この note 更新後、意図した新規ファイルだけを commit 対象に含める。
+- Cicero follow-up review は `REVIEW_APPROVED`。stage 対象は意図した 13 file のみで、`git diff --cached --check` は clean、残 blocker はない。
+
+## remaining
+
+- F5eb は deterministic virtual scheduler single-step boundary までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5ea std deterministic virtual scheduler state boundary
 
 ## scope

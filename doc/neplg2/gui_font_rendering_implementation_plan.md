@@ -1388,6 +1388,52 @@ subagent review:
 - revised plan では dynamic state を phase payload に移し、`ContinueNow` を `Turn` phase、`Ready` 後を明示 `gui_virtual_timer_empty` として固定し、Cicero revised plan review は `PLAN_APPROVED`。
 - 実装後に、上記の指摘がすべて満たされていること、bridge が real scheduler loop や presentation fallback に進んでいないことを確認させる。
 
+## Phase F5eb: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary
+
+目的:
+
+- F5ea の deterministic scheduler state を 1 回だけ進める std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary を追加する。
+- Turn path では F5du driver poll、F5dv scheduler decide、F5ea timer decide の authority order を固定する。
+- `WaitingTimer`、`Execute`、`Completed` を no-progress success として隠さず、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` の `BlockedWaitingTimer`、`BlockedExecute`、`Completed` として返す。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl` を追加する。
+- step policy は scheduler policy と timer policy だけを持ち、dynamic `GuiVirtualTimerState` は保持しない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` を追加し、`Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持たせる。
+- Turn path は driver poll、scheduler decide、F5ea virtual scheduler decide をそれぞれ 1 回だけ呼ぶ。
+- poll failure と scheduler decision failure は current `GuiVirtualTimerState` と lower error を保持する owner-bearing error にする。
+- timer decision failure は F5ea lower owner-bearing error を保持し、timer state recovery を二重に再分類しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` を追加し、facade、policy no dynamic timer state、blocked phase result、Turn path authority order、timer state recovery、no wildcard、no loop / timeslice / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5eb source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+非目標:
+
+- general scheduler loop、loop drain、timeslice budget、real Web / native / bare timer backend、event queue、platform API、DOM、Canvas、minifb、video memory、DrawTarget、RenderTarget、fallback、silent no-op は実装しない。
+
+検証:
+
+```text
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_f5eb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_module_f5eb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_f5eb_regression.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- 実装前 review では `PLAN_CHANGES` として blocked phase を `Ok same state` にしないこと、step result に `BlockedWaitingTimer` / `BlockedExecute` / `Completed` を持たせること、poll / scheduler decision failure に current timer state を保持すること、policy に dynamic timer state を入れないことが指摘された。
+- revised plan では single-step boundary と blocked result を明示し、Cicero revised plan review は `PLAN_APPROVED`。
+- 実装後に、Turn path authority order、blocked branch no backend / queue calls、owner recovery、no wildcard、no fallback を確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:
