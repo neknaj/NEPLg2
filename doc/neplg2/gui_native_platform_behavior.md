@@ -147,6 +147,14 @@ minifb の `ScaleMode::UpperLeft` は OS / toolkit による stretch を避け�
 
 zero-size resize は `NativeWindowPresenterSurfaceState::Unavailable` として記録し、blank frame や fallback frame を合成しない。この state では `Window::update` だけで event pump を進め、positive drawable size が戻った時点で新しい exact-size frame を present する。
 
+## Native presenter operation identity input checkpoint
+
+F5fg では native presenter operation identity input boundary として、typed `ExecuteHostAction` から pending span operation identity を取り出す `platforms/gui/native/presenter_input` を追加する。この checkpoint は presenter-facing input boundary であり、not long-running scheduler backend である。F5ev is the scheduler step input boundary; F5fg is the native presenter-facing identity input boundary.
+
+`gui_native_presenter_input` は action owner を F5ev ready payload へ移す前に borrowed accessor で pending operation を読む。operation identity は `WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` を保つ typed value であり、string tag や raw integer へ潰さない。scheduler completion input は `gui_native_scheduler_executor_input` を再利用するため、F5fg は `RealLoopStepInput::ExecutorOutcome` を再実装しない。
+
+この checkpoint は backend execution、raw status mapping、scheduler step、minifb / OS window loop、queue、timer、Canvas、DOM、video memory、fallback、silent no-op を持たない。formal native window presenter integration、bare runtime host import、long-running real backend loop は後続 slice で実装する。
+
 ## 参考
 
 - Apple Developer Documentation: `NSApplication.run` https://developer.apple.com/documentation/appkit/nsapplication/run

@@ -316,6 +316,34 @@ plan review:
 - focused doctest、module doctest、source policy、F5eu / F5ek regression、`git diff --check` が通る。
 - subagent implementation review で executor outcome input helper 境界、synthetic outcome 禁止、禁止依存が承認される。
 
+## Phase F5fg: Native presenter operation identity input boundary
+
+2026-06-18 の F5fg では、Native presenter operation identity input boundary を追加する。これは presenter-facing input boundary であり、not long-running scheduler backend である。F5ev is the scheduler step input boundary; F5fg is the native presenter-facing identity input boundary.
+
+目的:
+
+- typed `ExecuteHostAction` だけを入口にし、general `LoopAction` は受けない。
+- action を F5ev ready payload に移す前に borrowed accessor で pending span operation identity を読む。
+- `WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` を `GuiRgba8888RowTileRlePresentHostSpanOperation` として保持する。
+- scheduler completion input は `gui_native_scheduler_executor_input` を再利用し、F5fg 内で `RealLoopStepInput::ExecutorOutcome` を再実装しない。
+- backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op は実装しない。
+
+変更:
+
+- `stdlib/platforms/gui/native/presenter_input.nepl` を追加する。
+- `GuiNativePresenterInputOperationIdentity` は pending span operation identity を保持する Copy value とする。
+- `GuiNativePresenterInputReady` は operation identity と `GuiNativeSchedulerExecutorInputReady` を保持する。
+- `gui_native_presenter_input` は `execute_host_action_execute_ref`、`virtual_scheduler_execute_pending_ref`、`turn_driver_pending_operation` の順で identity を取り出し、その後 `gui_native_scheduler_executor_input` を 1 回だけ呼ぶ。
+- `stdlib/platforms/gui/native.nepl` facade から `presenter_input` を export する。
+- `tests/stdlib/gui_platform_native_presenter_input.n.md` に focused import smoke と source policy label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、facade export、identity payload、F5ev reuse、forbidden backend / queue / fallback behavior、括弧なし prefix style を固定する。
+
+完了条件:
+
+- action owner を F5ev ready payload へ移す前に operation identity が borrowed accessor で読まれる。
+- F5ev `gui_native_scheduler_executor_input` が再利用され、`RealLoopStepInput::ExecutorOutcome` の再実装が存在しない。
+- focused doctest、module doctest、source policy、F5ev/F5ew/F5ex regression、`git diff --check` が通る。
+
 ## Phase F5ew: Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。F5ev ready payload を borrowed F5ek policy と合わせ、F5ek `real_loop_step` を 1 回だけ呼ぶ境界に留める。

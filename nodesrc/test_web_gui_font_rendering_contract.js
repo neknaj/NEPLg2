@@ -249,6 +249,8 @@ const platformGuiNativeSchedulerClockInput = read("stdlib/platforms/gui/native/s
 const platformGuiNativeSchedulerClockInputImpl = withoutComments(platformGuiNativeSchedulerClockInput);
 const platformGuiNativeSchedulerExecutorInput = read("stdlib/platforms/gui/native/scheduler_executor_input.nepl");
 const platformGuiNativeSchedulerExecutorInputImpl = withoutComments(platformGuiNativeSchedulerExecutorInput);
+const platformGuiNativePresenterInput = read("stdlib/platforms/gui/native/presenter_input.nepl");
+const platformGuiNativePresenterInputImpl = withoutComments(platformGuiNativePresenterInput);
 const platformGuiNativeSchedulerExecutorStep = read("stdlib/platforms/gui/native/scheduler_executor_step.nepl");
 const platformGuiNativeSchedulerExecutorStepImpl = withoutComments(platformGuiNativeSchedulerExecutorStep);
 const platformGuiNativeSchedulerHostExecutor = read("stdlib/platforms/gui/native/scheduler_host_executor.nepl");
@@ -371,6 +373,7 @@ const guiPlatformNativeSchedulerClockInputTests = read("tests/stdlib/gui_platfor
 const guiPlatformBareSchedulerClockInputTests = read("tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md");
 const guiPlatformNativeSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_native_scheduler_executor_input.n.md");
 const guiPlatformBareSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md");
+const guiPlatformNativePresenterInputTests = read("tests/stdlib/gui_platform_native_presenter_input.n.md");
 const guiPlatformNativeSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_native_scheduler_executor_step.n.md");
 const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md");
 const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
@@ -25934,6 +25937,96 @@ for (const [name, source, impl, readyPrefix, tests] of [
         `F5ev platform ${name} scheduler executor input focused doctest must cover source-policy labels`,
     );
 }
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native presenter operation identity input boundary") &&
+            doc.includes("F5fg") &&
+            doc.includes("presenter-facing input boundary") &&
+            doc.includes("F5ev is the scheduler step input boundary") &&
+            doc.includes("borrowed accessor") &&
+            doc.includes("pending span operation identity") &&
+            doc.includes("WindowBegin") &&
+            doc.includes("WindowRunSpan") &&
+            doc.includes("WindowEnd") &&
+            doc.includes("OffscreenBegin") &&
+            doc.includes("DeviceEnd") &&
+            doc.includes("gui_native_scheduler_executor_input") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fg ${name} must document native presenter input identity boundary and F5ev difference`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/presenter_input" as @merge'),
+    "platforms/gui/native facade must export F5fg native presenter operation identity input boundary",
+);
+assert(
+    platformGuiNativePresenterInput.includes("presenter-facing input boundary") &&
+        platformGuiNativePresenterInput.includes("F5ev は scheduler step input boundary") &&
+        platformGuiNativePresenterInput.includes("borrowed accessor") &&
+        platformGuiNativePresenterInput.includes("pending operation") &&
+        platformGuiNativePresenterInput.includes("WindowBegin") &&
+        platformGuiNativePresenterInput.includes("WindowRunSpan") &&
+        platformGuiNativePresenterInput.includes("WindowEnd") &&
+        platformGuiNativePresenterInput.includes("OffscreenBegin") &&
+        platformGuiNativePresenterInput.includes("DeviceEnd") &&
+        platformGuiNativePresenterInput.includes("gui_native_scheduler_executor_input") &&
+        platformGuiNativePresenterInput.includes("fallback") &&
+        platformGuiNativePresenterInput.includes("silent no-op"),
+    "platforms/gui/native/presenter_input F5fg must document presenter identity boundary and no fallback",
+);
+assert(
+    platformGuiNativePresenterInput.includes("GuiNativePresenterInputOperationIdentity:") &&
+        platformGuiNativePresenterInput.includes("operation %GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        platformGuiNativePresenterInput.includes("GuiNativePresenterInputReady:") &&
+        platformGuiNativePresenterInput.includes("operation_identity %GuiNativePresenterInputOperationIdentity") &&
+        platformGuiNativePresenterInput.includes("scheduler_ready %GuiNativeSchedulerExecutorInputReady"),
+    "platforms/gui/native/presenter_input F5fg must expose identity plus F5ev ready payload",
+);
+const nativePresenterInputSlice = functionSlice(platformGuiNativePresenterInputImpl, "gui_native_presenter_input");
+assertOrderedFragments(
+    nativePresenterInputSlice,
+    [
+        "fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction",
+        "execute_host_action_execute_ref &action",
+        "virtual_scheduler_execute_pending_ref execute",
+        "turn_driver_pending_operation pending",
+        "gui_native_presenter_input_operation_identity_new operation",
+        "gui_native_scheduler_executor_input action outcome",
+        "gui_native_presenter_input_ready_new operation_identity scheduler_ready",
+    ],
+    "platforms/gui/native/presenter_input F5fg must borrow operation identity before reusing F5ev",
+);
+assert(
+    (nativePresenterInputSlice.match(/\bgui_native_scheduler_executor_input\b/g) || []).length === 1 &&
+        (platformGuiNativePresenterInputImpl.match(/\bRealLoopStepInput::ExecutorOutcome\b/g) || []).length === 0,
+    "platforms/gui/native/presenter_input F5fg must reuse F5ev and not reimplement ExecutorOutcome",
+);
+assertNoMatch(
+    platformGuiNativePresenterInputImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|RealLoopStepInput::ClockDelta|ClockDelta|loop_executor_complete|real_loop_step\s+|real_loop_driver|headless_app_loop_step|tile_present_host_action_sink|tile_present_host_action_sink_driver|tile_present_host_execution_driver|host_executor_require_supported|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|present_buffer|update_with_buffer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|Result::Ok|Result::Err|execute_span_operation|status_unit|status_error)\b/i,
+    "platforms/gui/native/presenter_input F5fg must not implement scheduler step, host execution, queue, timer, rendering, or fallback behavior",
+);
+assertNoMatch(
+    platformGuiNativePresenterInputImpl,
+    /_:|[()]/,
+    "platforms/gui/native/presenter_input F5fg implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_facade_ok") &&
+        guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_presenter_boundary_ok") &&
+        guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_execute_only_ok") &&
+        guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_operation_identity_ok") &&
+        guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_reuses_f5ev_ok") &&
+        guiPlatformNativePresenterInputTests.includes("platform_native_presenter_input_no_backend_queue_fallback"),
+    "F5fg native presenter input focused doctest must cover source-policy labels",
+);
 for (const [name, doc] of [
     ["font rendering spec", spec],
     ["GUI standard library spec", guiStandardLibrarySpec],

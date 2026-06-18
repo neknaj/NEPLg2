@@ -63,6 +63,12 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。Native / bare backend は F5eg `ExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome だけを受け、F5ek `RealLoopStepInput::ExecutorOutcome` へ total packaging する。ready payload は original action と `RealLoopStepInput` を保持し、helper は does not return Result である。unsupported path は型で除外されるため silent no-op や fallback branch を持たない。`YieldToClock` / `AwaitTimerAdvance` / `Complete` / `ClockDelta` / `CompleteAck` / F5ei executor complete / F5ek real loop step / action sink / driver / support validation / queue / timer / present / platform renderer には進まない。
 
+## F5fg Native presenter operation identity input boundary
+
+2026-06-18 の F5fg では、Native presenter operation identity input boundary を追加する。これは presenter-facing input boundary であり、not long-running scheduler backend である。F5ev is the scheduler step input boundary; F5fg is the native presenter-facing identity input boundary. F5fg は typed `ExecuteHostAction` だけを受け、action を F5ev ready payload へ移す前に borrowed accessor で pending span operation identity を取り出す。
+
+operation identity は F5cx `GuiRgba8888RowTileRlePresentHostSpanOperation` として保持し、`WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` を型付き value のまま失わない。scheduler completion input は `gui_native_scheduler_executor_input` を 1 回だけ呼んで作り、F5fg 自身は `RealLoopStepInput::ExecutorOutcome` を再実装しない。backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

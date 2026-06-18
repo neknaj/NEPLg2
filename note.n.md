@@ -69856,3 +69856,47 @@ MERGE_APPROVED
 ### residual
 
 - F5ff は native smoke runner の resize redraw presentation までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fg presenter operation identity input boundary
+
+### scope
+
+- F5fg は typed `ExecuteHostAction` から pending span operation identity を取り出し、F5ev scheduler completion ready payload と同じ native presenter-facing input value に保持する checkpoint である。
+- この slice は presenter-facing input boundary だけを扱い、backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op へ進まない。
+- F5ev は scheduler step input boundary、F5fg は native presenter-facing identity input boundary として責務を分ける。
+
+### plan_review
+
+- Hume the 2nd の plan review は、当初案のままでは F5ev の薄い wrapper になる危険があるため `PLAN_APPROVED` ではなかった。
+- 実装条件として、typed `ExecuteHostAction` だけを受けること、action を F5ev ready payload へ移す前に borrowed accessor で pending operation を読むこと、operation identity を typed value として保持すること、scheduler completion wrapping は F5ev を再利用すること、backend execution / minifb / loop / queue / timer / raw status mapping を持たないことが提示された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/presenter_input.nepl` を追加した。
+- `GuiNativePresenterInputOperationIdentity` は `GuiRgba8888RowTileRlePresentHostSpanOperation` を保持し、`WindowBegin` / `WindowRunSpan` / `WindowEnd` / `OffscreenBegin` / `OffscreenRunSpan` / `OffscreenEnd` / `DeviceBegin` / `DeviceRunSpan` / `DeviceEnd` を失わない。
+- `GuiNativePresenterInputReady` は operation identity と F5ev `GuiNativeSchedulerExecutorInputReady` を同じ value に保持する。
+- `gui_native_presenter_input` は `execute_host_action_execute_ref`、`virtual_scheduler_execute_pending_ref`、`turn_driver_pending_operation` の順で borrowed identity を読み、その後 `gui_native_scheduler_executor_input` を 1 回だけ呼ぶ。
+- `stdlib/platforms/gui/native.nepl` facade、`tests/stdlib/gui_platform_native_presenter_input.n.md`、GUI/font 関連 docs、`nodesrc/test_web_gui_font_rendering_contract.js`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_platform_native_presenter_input.n.md --no-tree -o tmp_gui_platform_native_presenter_input_f5fg.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/platforms/gui/native/presenter_input.nepl --no-tree -o tmp_gui_platform_native_presenter_input_module_f5fg.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_executor_input.n.md -i tests/stdlib/gui_platform_native_scheduler_executor_step.n.md -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_native_presenter_input_regression_f5fg.json -j 1`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check -- ...changed files...` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の GUI/font contract と native behavior policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning が残っている。
+
+### subagent_review
+
+- Hume the 2nd implementation review 1 は `BLOCKED`。実装本体は plan 条件に沿うが、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`note.n.md` の追従漏れが blocker と指摘された。
+- 指摘に従い、native behavior notes に F5fg section を追加し、GUI/TUI implementation plan の current implementation summary へ F5fg を追加し、`nodesrc/test_native_gui_platform_behavior.js` で F5fg doc 欠落を検出するようにした。
+- fixes 後に `node nodesrc/test_native_gui_platform_behavior.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、changed-file `git diff --check` を再実行し、すべて pass した。
+- Hume the 2nd implementation review 2 は `REVIEW_APPROVED`。前回 blocker の解消、F5fg doc / plan coverage、note 更新、typed `ExecuteHostAction` only input、borrowed identity read before F5ev reuse、platform backend 漏れがないことが確認された。
+
+### residual
+
+- F5fg は native presenter-facing input boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
