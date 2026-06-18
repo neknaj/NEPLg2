@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI platform F5ga Bare scheduler real-loop action step boundary
+
+## scope
+
+- F5fz Native scheduler real-loop action step boundary の後続として、bare F5fy owner path から F5ek/F5el real-loop action step へ戻す boundary を追加する。
+- F5ga は public input authority を bare policy、backend clock state、`GuiBareDisplayMemoryOwner`、F5el `NeedInput` だけに限定する。
+- Yield / Timer は bare clock helper success payload を F5ek へ渡し、Execute は F5fy display presenter input owner path を F5ew に戻し、Complete だけが `CompleteAck` を作る。
+- F5ga は long-running scheduler backend、queue、timer wait、present loop、direct host import、DOM、Canvas、minifb、video memory transport、raw display state、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- Boole the 2nd の plan review は `PLAN_CHANGES`。F5ga 自体は F5eu / F5ew / F5el / F5fy が揃っているため delay 不要だが、全失敗経路の owner recovery を強める必要があると指摘された。
+- 指摘に従い、`RealStepFailed` と `DriverAfterStepFailed` は branch、relevant clock state、recovered owner、lower error を保持する設計にした。
+- Execute success と `BridgeFailedReady` では F5ew へ scheduler ready を渡す前に owner を回収し、`BridgeFailedMissingCategory` では `GuiError` を捏造せず direct error にする。
+
+## implementation_current
+
+- `stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl` を追加した。
+- ready payload は clock state、recovered owner、F5el driver result を保持する。
+- clock helper failure、F5ek failure、F5el failure は owner recovery を失わない error shape にした。
+- `platforms/gui/bare` facade、GUI standard library spec、GUI/font implementation plan、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5ga に合わせて更新した。
+
+## subagent_review
+
+- Kant the 2nd implementation review は `APPROVED_TO_COMMIT`。bare-only scope、`Result` / enum / match style、`BridgeFailedMissingCategory` direct error、F5ek/F5el failure wrapper の recovered owner + clock state、execute success / `BridgeFailedReady` の F5ew 前 owner recovery、F5ew single helper path が確認された。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl --no-tree -o tmp_gui_bare_scheduler_real_loop_step_module_f5ga_first.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_real_loop_step.n.md --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_step_f5ga_first.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5ga は bare scheduler real-loop action step boundary までであり、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fx Bare display operation-to-driver-adapter bridge
 
 ## scope
