@@ -70032,3 +70032,50 @@ MERGE_APPROVED
 ### residual
 
 - F5fj は native formal NEPL host import 名の接続までであり、bare runtime host import、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI bare F5fk display presenter session host import
+
+### scope
+
+- F5fk は bare `platforms/gui/bare/scheduler_host_executor` の formal NEPL host import 名を、generic `execute_span_operation_*` から bare display presenter session contract へ寄せる checkpoint である。
+- この slice は bare `#extern` import 名、doctest runtime stub、source-policy、docs、todo の更新だけを扱う。
+- bare actual display driver、framebuffer adapter、polling input、native / bare long-running scheduler backend、timer、queue、present loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Franklin the 2nd の plan review は `PLAN_APPROVED`。F5fk は old generic bare public ABI を削除し、`display_presenter_session_begin` / `run` / `end` を exact host import 名にする場合だけ F5fj 後続として意味を持つと判断された。
+- 条件として、old `execute_span_operation_*` extern / raw names / default stubs / source-policy allowlist を残さないこと、scalar ABI と `-1 -> GuiError::Unsupported` mapping を維持すること、loop / timer / queue / fallback / display driver 実装へ進まないことが示された。
+
+### implementation
+
+- `stdlib/platforms/gui/bare/scheduler_host_executor.nepl` の bare host import を `display_presenter_session_begin`、`display_presenter_session_run`、`display_presenter_session_end` に変更した。scalar ABI shape と `Result unit GuiError` mapping は既存 F5ex path を保つ。
+- `nodesrc/run_test.js` の bare doctest default import を display-session-specific 名へ更新し、host 未提供時は `-1` から `GuiError::Unsupported` へ写る fail-closed path を維持した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は bare の old generic `execute_span_operation_*` extern が残らないことを検査するようにした。
+- `tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`、GUI / font docs、`todo.md` を F5fk contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_bare_scheduler_host_executor_f5fk.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl --no-tree -o tmp_gui_platform_bare_scheduler_host_executor_module_f5fk.json -j 1`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `git diff --check main --`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5fk.json`
+- pass: `tmp/playground-editor-tests-f5fk.json` inspection showed 13 / 13 playground editor cases passed and 0 failed.
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の GUI/font contract は pass し、既存の stdlib documentation / Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Rawls the 2nd implementation review 1 は `BLOCKED`。実装本体に ABI / scope blocker は無いが、`note.n.md` の `verification_current` が pending のままで、docs / note / todo の一貫性条件を満たしていないと指摘された。
+- 指摘に従い、focused source-policy、doctest、issues check、diff check、trunk build、playground editor JSON 検証の通過状況を `verification_current` に反映した。
+- Rawls the 2nd implementation review 2 は `REVIEW_APPROVED`。前回 blocker の解消と note の一貫性回復が確認された。
+
+### residual
+
+- F5fk は bare formal NEPL host import 名の接続までであり、bare actual display driver、framebuffer adapter、polling input、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
