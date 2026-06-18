@@ -69815,3 +69815,44 @@ MERGE_APPROVED
 ### residual
 
 - F5fe は native smoke runner の presenter state integration までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ff window resize redraw smoke presentation
+
+### scope
+
+- F5ff は native smoke runner の resize 後表示を OS scaling ではなく current drawable surface と同じ size の RGB0 buffer redraw に寄せる checkpoint である。
+- この slice は `nepl-gui-native` smoke window presentation だけを扱い、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- minifb / OS window API は `main.rs` の call site に閉じ込め、`lib.rs` は platform-independent rasterization / presenter validation boundary として維持する。
+
+### plan_review
+
+- Anscombe the 2nd の plan review は `PLAN_APPROVED`。実装条件として、positive resize ごとに exact-size RGB0 buffer を redraw / present してから `update_with_buffer` すること、zero-size resize は `Unavailable` として扱うこと、frame id は `checked_add` で進めること、minifb / OS API を `main.rs` に閉じること、source policy と docs で固定することが確認された。
+
+### implementation
+
+- `RasterizeSurfaceError` と `rasterize_frame_to_surface` を追加し、logical `GuiFrame` を current drawable surface と同じ width / height の `RasterImage` へ描画できるようにした。
+- `native_aspect_ratio_placement` は 1px minimum へ丸め込まず、ceil division と `Unavailable` state で zero / invalid surface を明示するようにした。
+- native smoke runner は `ScaleMode::UpperLeft` を使い、positive resize の後に `resize_surface`、`next_presenter_frame_id`、`present_demo_frame_to_window_state` を実行して current window size と同じ frame を presenter state へ present する。
+- `Window::update_with_buffer` の直前と counter hit test の前に、`last_present_frame_required` の dimensions が current window size と一致することを検査するようにした。
+- `--scale 0` は silent normalize せず error として返すようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を exact-size redraw contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check -- nepl-gui-native/src/lib.rs nepl-gui-native/src/main.rs nodesrc/test_native_gui_platform_behavior.js doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md todo.md note.n.md` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。native GUI source policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning が出ている。
+
+### subagent_review
+
+- Anscombe the 2nd implementation review は `APPROVED`。positive resize ごとの exact-size redraw / present、zero-size `Unavailable`、`checked_add` frame id、minifb API の `main.rs` 閉じ込め、out-of-bounds command error test が確認された。
+- Anscombe the 2nd は `cargo fmt --package nepl-gui-native -- --check`、通常 / window feature の `cargo test -p nepl-gui-native`、`node nodesrc/test_native_gui_platform_behavior.js`、changed-file `git diff --check` の pass を十分と判断した。
+
+### residual
+
+- F5ff は native smoke runner の resize redraw presentation までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。

@@ -46,7 +46,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         "impl FromStr for GuiDemo",
     );
 
-    assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::AspectRatioStretch/);
+    assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
     assert.match(mainSource, /window\.set_target_fps\(60\)/);
     assert.match(mainSource, /window\.set_background_color\(9,\s*13,\s*18\)/);
     assert.match(mainSource, /let mut previous_size = window\.get_size\(\)/);
@@ -57,10 +57,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(mainSource, /map_native_window_point_to_image\(/);
     assert.match(mainSource, /NativeWindowPresenterState/);
     assert.match(mainSource, /let mut presenter_state = NativeWindowPresenterState::new/);
+    assert.match(mainSource, /fn rasterize_demo_present_buffer_for_surface/);
+    assert.match(mainSource, /rasterize_frame_to_surface\(frame,\s*surface_width,\s*surface_height\)/);
+    assert.match(mainSource, /fn present_demo_frame_to_window_state/);
     assert.match(mainSource, /presenter_state[\s\S]*\.present_buffer\(presenter_frame_id, &initial_buffer\)/);
     assert.match(mainSource, /presenter_state[\s\S]*\.resize_surface\(current_size\.0, current_size\.1\)/);
-    assert.match(mainSource, /presenter_frame_id = presenter_frame_id[\s\S]*\.checked_add\(1\)/);
+    assert.match(mainSource, /presenter_frame_id = next_presenter_frame_id\(presenter_frame_id\)\?/);
+    assert.match(mainSource, /frame_id[\s\S]*\.checked_add\(1\)/);
+    assert.match(mainSource, /present_demo_frame_to_window_state\([\s\S]*current_size\.0,[\s\S]*current_size\.1,[\s\S]*\)\?/);
     assert.match(mainSource, /let present_frame = presenter_state[\s\S]*\.last_present_frame_required\(\)/);
+    assert.match(mainSource, /present_frame\.width\(\) != current_size\.0 \|\| present_frame\.height\(\) != current_size\.1/);
     assert.match(mainSource, /update_with_buffer\(\s*present_frame\.pixels\(\),\s*present_frame\.width\(\),\s*present_frame\.height\(\),\s*\)/);
     assert.doesNotMatch(mainSource, /update_with_buffer\(&image\.pixels,\s*image\.width,\s*image\.height\)/);
     assert.doesNotMatch(mainSource, /let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
@@ -77,6 +83,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_point_mapping_handles_shrunken_window/);
     assert.match(libSource, /native_window_point_mapping_rejects_top_bottom_letterbox/);
     assert.match(libSource, /native_window_point_mapping_rejects_unavailable_and_invalid_points/);
+    assert.match(libSource, /pub enum RasterizeSurfaceError/);
+    assert.match(libSource, /pub fn rasterize_frame_to_surface/);
+    assert.match(libSource, /try_reserve_exact\(pixel_count\)/);
+    assert.match(libSource, /fn fill_surface_rect/);
+    assert.match(libSource, /fn ceil_div_u128/);
+    assert.match(libSource, /rasterize_frame_to_surface_matches_drawable_size/);
+    assert.match(libSource, /rasterize_frame_to_surface_keeps_counter_hit_mapping/);
+    assert.match(libSource, /rasterize_frame_to_surface_rejects_invalid_surface/);
+    assert.match(libSource, /rasterize_frame_to_surface_rejects_out_of_bounds_command/);
     assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS: u128 = 2_147_483_647;/);
     assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_UNSUPPORTED: i32 = -1;/);
     assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE: i32 = -2;/);
@@ -209,7 +224,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /xdg_toplevel\.close/);
     assert.match(platformDoc, /WM_DELETE_WINDOW/);
     assert.match(platformDoc, /ConfigureNotify/);
-    assert.match(platformDoc, /ScaleMode::AspectRatioStretch/);
+    assert.match(platformDoc, /ScaleMode::UpperLeft/);
+    assert.match(platformDoc, /rasterize_frame_to_surface/);
     assert.match(platformDoc, /NativeSurfaceState::Unavailable/);
     assert.match(platformDoc, /Native span operation host executor ABI checkpoint/);
     assert.match(platformDoc, /stride_bytes == width \* 4/);
@@ -233,6 +249,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowPresenterSurfaceState::Unavailable/);
     assert.match(platformDoc, /does not stretch/);
     assert.match(platformDoc, /previous frame/);
+    assert.match(platformDoc, /Native window resize redraw checkpoint/);
+    assert.match(platformDoc, /same width and height as the current drawable surface/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -242,6 +260,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /macOS AppKit、Windows Win32、Linux Wayland \/ X11/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
+    assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
 
     assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
@@ -265,6 +284,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native RGB0 presenter sink converts complete span sequences into typed frames",
             "Native window presenter state keeps resize and frame ownership explicit",
             "Native smoke runner presents and hit-tests through NativeWindowPresenterState",
+            "Native smoke runner redraws exact-size buffers after resize",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

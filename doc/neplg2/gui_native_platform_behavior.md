@@ -41,7 +41,7 @@ minifb smoke backend:
 
 - `Window::update_with_buffer` は 32-bit `0RGB` buffer を表示し、同時に window input / event pump のために毎 loop 呼ぶ必要がある。
 - `Window::is_open` は user close button などで window が閉じられたかを application が確認するための状態である。
-- `WindowOptions.resize` を有効にし、`ScaleMode::AspectRatioStretch` で OS / window manager が与えた size に framebuffer を合わせる。
+- `WindowOptions.resize` を有効にし、OS / window manager が与えた size に合わせて RGB0 buffer を再生成する。minifb 側は `ScaleMode::UpperLeft` に固定し、OS scaling ではなく application 側の redraw を authority とする。
 - `Window::set_target_fps` で tight loop の CPU 消費を避ける。
 - `get_unscaled_mouse_pos` と backend-local placement 計算を使い、letterbox 部分への pointer input を action hit test へ渡さない。
 - minifb は native handle として Windows は `HWND`、macOS は `NSWindow`、X11 は `XWindow` を返せるが、この smoke backend では handle を標準 API へ公開しない。
@@ -64,7 +64,7 @@ Native backend は次を守る。
 現在の checkpoint では次を実装している。
 
 - `WindowOptions.resize = true` により OS window manager の resize を許可する。
-- `ScaleMode::AspectRatioStretch` と dark background を使い、resize 後も framebuffer の aspect ratio を保つ。
+- `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
 - `Window::get_size` を監視し、window title に current surface size を反映する。
 - counter hit test は current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
@@ -138,6 +138,14 @@ F5fe では native smoke runner の window loop が `NativeWindowPresenterState`
 `NativeWindowPresenterState::present_frame` は positive frame id と checked typed frame を受け取り、`present_buffer` は `NativeRgb0PresentBuffer` を typed frame に変換した後で `present_frame` に委譲する。`present_sink_frame` も completed frame と frame id を取り出した後は同じ `present_frame` を使う。frame id が 0 以下の場合は `InvalidFrameId` で失敗し、`wrapping`、`saturating`、reset、silent reuse は行わない。
 
 `nepl-gui-native` の window loop は初期 RGB0 frame を presenter state に present し、resize を `resize_surface` へ通知し、hit test と `Window::update_with_buffer` の両方で `last_present_frame_required` を読む。frame が無い場合は `FrameMissing` から error を返し、blank frame や fallback frame を合成しない。minifb / OS window API は引き続き `main.rs` のみに閉じ込める。
+
+## Native window resize redraw checkpoint
+
+F5ff では native smoke runner の positive resize を redraw requirement として扱う。window loop は `resize_surface` の後、`checked_add` で frame id を進め、`rasterize_frame_to_surface` で same width and height as the current drawable surface の RGB0 buffer を作り、`present_buffer` へ渡してから `Window::update_with_buffer` を呼ぶ。
+
+minifb の `ScaleMode::UpperLeft` は OS / toolkit による stretch を避けるための smoke backend detail である。display される frame は `NativeWindowPresenterState::last_present_frame_required` から取得し、`update_with_buffer` の直前に stored frame size と current window size が一致することを検査する。一致しない場合は backend error として止める。
+
+zero-size resize は `NativeWindowPresenterSurfaceState::Unavailable` として記録し、blank frame や fallback frame を合成しない。この state では `Window::update` だけで event pump を進め、positive drawable size が戻った時点で新しい exact-size frame を present する。
 
 ## 参考
 

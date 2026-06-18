@@ -50,6 +50,14 @@ pub struct RasterImage {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RasterizeSurfaceError {
+    InvalidDimensions,
+    CommandOutOfBounds,
+    DimensionOverflow,
+    ResourceExhausted,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeSurfacePlacement {
     pub x: usize,
     pub y: usize,
@@ -1229,6 +1237,48 @@ pub fn rasterize_frame(frame: &GuiFrame, scale: usize) -> RasterImage {
     }
 }
 
+pub fn rasterize_frame_to_surface(
+    frame: &GuiFrame,
+    surface_width: usize,
+    surface_height: usize,
+) -> Result<RasterImage, RasterizeSurfaceError> {
+    if frame.width == 0 || frame.height == 0 || surface_width == 0 || surface_height == 0 {
+        return Err(RasterizeSurfaceError::InvalidDimensions);
+    }
+    let pixel_count = surface_width
+        .checked_mul(surface_height)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    let mut pixels = Vec::new();
+    pixels
+        .try_reserve_exact(pixel_count)
+        .map_err(|_| RasterizeSurfaceError::ResourceExhausted)?;
+    pixels.resize(pixel_count, 0x0d1117);
+
+    let NativeSurfaceState::Drawable(placement) =
+        native_aspect_ratio_placement(surface_width, surface_height, frame.width, frame.height)
+    else {
+        return Err(RasterizeSurfaceError::InvalidDimensions);
+    };
+
+    for rect in &frame.rects {
+        fill_surface_rect(
+            &mut pixels,
+            surface_width,
+            surface_height,
+            placement,
+            frame.width,
+            frame.height,
+            rect,
+        )?;
+    }
+
+    Ok(RasterImage {
+        width: surface_width,
+        height: surface_height,
+        pixels,
+    })
+}
+
 pub fn checksum_pixels(pixels: &[u32]) -> u64 {
     pixels.iter().fold(0xcbf29ce484222325, |hash, pixel| {
         let mixed = hash ^ u64::from(*pixel);
@@ -1260,17 +1310,24 @@ pub fn native_aspect_ratio_placement(
         > (window_height as u128) * (image_width as u128);
     let (width, height) = if window_wide {
         let height = window_height;
-        let width = ((height as u128) * (image_width as u128) / (image_height as u128))
-            .max(1)
-            .min(window_width as u128) as usize;
+        let width = ceil_div_u128(
+            (height as u128) * (image_width as u128),
+            image_height as u128,
+        )
+        .min(window_width as u128) as usize;
         (width, height)
     } else {
         let width = window_width;
-        let height = ((width as u128) * (image_height as u128) / (image_width as u128))
-            .max(1)
-            .min(window_height as u128) as usize;
+        let height = ceil_div_u128(
+            (width as u128) * (image_height as u128),
+            image_width as u128,
+        )
+        .min(window_height as u128) as usize;
         (width, height)
     };
+    if width == 0 || height == 0 {
+        return NativeSurfaceState::Unavailable;
+    }
 
     NativeSurfaceState::Drawable(NativeSurfacePlacement {
         x: (window_width - width) / 2,
@@ -1312,6 +1369,99 @@ pub fn map_native_window_point_to_image(
         (image_x as usize).min(image_width - 1),
         (image_y as usize).min(image_height - 1),
     ))
+}
+
+fn fill_surface_rect(
+    pixels: &mut [u32],
+    surface_width: usize,
+    surface_height: usize,
+    placement: NativeSurfacePlacement,
+    frame_width: usize,
+    frame_height: usize,
+    rect: &RectCommand,
+) -> Result<(), RasterizeSurfaceError> {
+    if rect.width == 0 || rect.height == 0 {
+        return Err(RasterizeSurfaceError::CommandOutOfBounds);
+    }
+    let rect_x_end = rect
+        .x
+        .checked_add(rect.width)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    let rect_y_end = rect
+        .y
+        .checked_add(rect.height)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    if rect_x_end > frame_width || rect_y_end > frame_height {
+        return Err(RasterizeSurfaceError::CommandOutOfBounds);
+    }
+
+    let x0 = placement
+        .x
+        .checked_add(scale_floor(rect.x, placement.width, frame_width)?)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    let y0 = placement
+        .y
+        .checked_add(scale_floor(rect.y, placement.height, frame_height)?)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    let x1 = placement
+        .x
+        .checked_add(scale_ceil(rect_x_end, placement.width, frame_width)?)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    let y1 = placement
+        .y
+        .checked_add(scale_ceil(rect_y_end, placement.height, frame_height)?)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    if x1 > surface_width || y1 > surface_height || x0 >= x1 || y0 >= y1 {
+        return Err(RasterizeSurfaceError::CommandOutOfBounds);
+    }
+
+    for y in y0..y1 {
+        let row = y
+            .checked_mul(surface_width)
+            .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+        for x in x0..x1 {
+            pixels[row + x] = rect.color;
+        }
+    }
+    Ok(())
+}
+
+fn scale_floor(
+    value: usize,
+    destination_span: usize,
+    source_span: usize,
+) -> Result<usize, RasterizeSurfaceError> {
+    if source_span == 0 {
+        return Err(RasterizeSurfaceError::InvalidDimensions);
+    }
+    let numerator = (value as u128)
+        .checked_mul(destination_span as u128)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    usize::try_from(numerator / source_span as u128)
+        .map_err(|_| RasterizeSurfaceError::DimensionOverflow)
+}
+
+fn scale_ceil(
+    value: usize,
+    destination_span: usize,
+    source_span: usize,
+) -> Result<usize, RasterizeSurfaceError> {
+    if source_span == 0 {
+        return Err(RasterizeSurfaceError::InvalidDimensions);
+    }
+    let numerator = (value as u128)
+        .checked_mul(destination_span as u128)
+        .ok_or(RasterizeSurfaceError::DimensionOverflow)?;
+    usize::try_from(ceil_div_u128(numerator, source_span as u128))
+        .map_err(|_| RasterizeSurfaceError::DimensionOverflow)
+}
+
+fn ceil_div_u128(numerator: u128, denominator: u128) -> u128 {
+    if numerator == 0 {
+        0
+    } else {
+        ((numerator - 1) / denominator) + 1
+    }
 }
 
 fn render_mandelbrot_frame() -> GuiFrame {
@@ -1673,6 +1823,75 @@ mod tests {
         assert_eq!(image.width, 288);
         assert_eq!(image.height, 288);
         assert_eq!(checksum_pixels(&image.pixels), 17_705_978_859_225_436_581);
+    }
+
+    #[test]
+    fn rasterize_frame_to_surface_matches_drawable_size() {
+        let frame = render_demo_frame(GuiDemo::Counter, 3);
+        let image = rasterize_frame_to_surface(&frame, 640, 480).unwrap();
+
+        assert_eq!(image.width, 640);
+        assert_eq!(image.height, 480);
+        assert_eq!(image.pixels.len(), 640 * 480);
+        assert_eq!(image.pixels[0], 0x0d1117);
+    }
+
+    #[test]
+    fn rasterize_frame_to_surface_keeps_counter_hit_mapping() {
+        let frame = render_demo_frame(GuiDemo::Counter, 3);
+        let NativeSurfaceState::Drawable(placement) =
+            native_aspect_ratio_placement(640, 480, frame.width, frame.height)
+        else {
+            panic!("counter frame should be drawable");
+        };
+        let scene_x = 20usize;
+        let scene_y = 90usize;
+        let window_x = placement.x + (scene_x * placement.width / frame.width);
+        let window_y = placement.y + (scene_y * placement.height / frame.height);
+
+        let Some((mapped_x, mapped_y)) = map_native_window_point_to_image(
+            640,
+            480,
+            frame.width,
+            frame.height,
+            window_x as f32,
+            window_y as f32,
+        ) else {
+            panic!("counter button point should map into frame");
+        };
+
+        assert!(counter_hit(&frame, mapped_x, mapped_y));
+    }
+
+    #[test]
+    fn rasterize_frame_to_surface_rejects_invalid_surface() {
+        let frame = render_demo_frame(GuiDemo::Counter, 0);
+
+        assert_eq!(
+            rasterize_frame_to_surface(&frame, 0, 480).unwrap_err(),
+            RasterizeSurfaceError::InvalidDimensions
+        );
+        assert_eq!(
+            rasterize_frame_to_surface(&frame, 640, 0).unwrap_err(),
+            RasterizeSurfaceError::InvalidDimensions
+        );
+    }
+
+    #[test]
+    fn rasterize_frame_to_surface_rejects_out_of_bounds_command() {
+        let mut frame = render_demo_frame(GuiDemo::Counter, 0);
+        frame.rects.push(RectCommand {
+            x: frame.width,
+            y: 0,
+            width: 1,
+            height: 1,
+            color: 0x00ff00,
+        });
+
+        assert_eq!(
+            rasterize_frame_to_surface(&frame, 640, 480).unwrap_err(),
+            RasterizeSurfaceError::CommandOutOfBounds
+        );
     }
 
     #[test]

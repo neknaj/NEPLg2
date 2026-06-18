@@ -5,7 +5,9 @@ use std::process::ExitCode;
 use nepl_gui_native::map_native_window_point_to_image;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-use nepl_gui_native::{NativeRgb0PresentBuffer, NativeWindowPresenterState};
+use nepl_gui_native::{
+    rasterize_frame_to_surface, NativeRgb0PresentBuffer, NativeWindowPresenterState,
+};
 
 fn main() -> ExitCode {
     let options = match NativeGuiOptions::parse(env::args().skip(1)) {
@@ -56,10 +58,13 @@ impl NativeGuiOptions {
                     let Some(raw) = iter.next() else {
                         return Err("--scale requires a value".to_string());
                     };
-                    options.scale = raw
+                    let scale = raw
                         .parse::<usize>()
-                        .map_err(|_| "--scale must be a positive integer".to_string())?
-                        .max(1);
+                        .map_err(|_| "--scale must be a positive integer".to_string())?;
+                    if scale == 0 {
+                        return Err("--scale must be a positive integer".to_string());
+                    }
+                    options.scale = scale;
                 }
                 "--counter" => {
                     let Some(raw) = iter.next() else {
@@ -111,11 +116,35 @@ fn print_headless_frame(demo: GuiDemo, counter_value: i32, scale: usize) {
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-fn rasterize_demo_present_buffer(
+fn initial_window_size(
     frame: &nepl_gui_native::GuiFrame,
     scale: usize,
+) -> Result<(usize, usize), String> {
+    if scale == 0 {
+        return Err("native presenter scale must be positive".to_string());
+    }
+    let width = frame
+        .width
+        .checked_mul(scale)
+        .ok_or_else(|| "native presenter initial width overflow".to_string())?;
+    let height = frame
+        .height
+        .checked_mul(scale)
+        .ok_or_else(|| "native presenter initial height overflow".to_string())?;
+    if width == 0 || height == 0 {
+        return Err("native presenter initial surface has invalid dimensions".to_string());
+    }
+    Ok((width, height))
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn rasterize_demo_present_buffer_for_surface(
+    frame: &nepl_gui_native::GuiFrame,
+    surface_width: usize,
+    surface_height: usize,
 ) -> Result<NativeRgb0PresentBuffer, String> {
-    let image = rasterize_frame(frame, scale);
+    let image = rasterize_frame_to_surface(frame, surface_width, surface_height)
+        .map_err(|error| format!("native exact surface rasterization failed: {error:?}"))?;
     NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(
         image.width,
         image.height,
@@ -125,28 +154,24 @@ fn rasterize_demo_present_buffer(
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-fn present_buffer_size(buffer: &NativeRgb0PresentBuffer) -> Result<(usize, usize), String> {
-    if buffer.width() <= 0 || buffer.height() <= 0 {
-        return Err("native presenter RGB0 frame has invalid dimensions".to_string());
-    }
-    let width = usize::try_from(buffer.width())
-        .map_err(|_| "native presenter RGB0 width overflow".to_string())?;
-    let height = usize::try_from(buffer.height())
-        .map_err(|_| "native presenter RGB0 height overflow".to_string())?;
-    Ok((width, height))
-}
-
-#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn present_demo_frame_to_window_state(
     presenter_state: &mut NativeWindowPresenterState,
     frame_id: i32,
     frame: &nepl_gui_native::GuiFrame,
-    scale: usize,
+    surface_width: usize,
+    surface_height: usize,
 ) -> Result<(), String> {
-    let buffer = rasterize_demo_present_buffer(frame, scale)?;
+    let buffer = rasterize_demo_present_buffer_for_surface(frame, surface_width, surface_height)?;
     presenter_state
         .present_buffer(frame_id, &buffer)
         .map_err(|error| format!("native window presenter rejected frame: {error:?}"))
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn next_presenter_frame_id(frame_id: i32) -> Result<i32, String> {
+    frame_id
+        .checked_add(1)
+        .ok_or_else(|| "native presenter frame id overflow".to_string())
 }
 
 fn print_usage() {
@@ -161,8 +186,9 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
     use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
 
     let mut frame = render_demo_frame(options.demo, options.counter_value);
-    let initial_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
-    let initial_size = present_buffer_size(&initial_buffer)?;
+    let initial_size = initial_window_size(&frame, options.scale)?;
+    let initial_buffer =
+        rasterize_demo_present_buffer_for_surface(&frame, initial_size.0, initial_size.1)?;
     let mut presenter_state = NativeWindowPresenterState::new(initial_size.0, initial_size.1)
         .map_err(|error| format!("native window presenter rejected surface: {error:?}"))?;
     let mut presenter_frame_id = 1;
@@ -175,7 +201,7 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
         initial_size.1,
         WindowOptions {
             resize: true,
-            scale_mode: ScaleMode::AspectRatioStretch,
+            scale_mode: ScaleMode::UpperLeft,
             ..WindowOptions::default()
         },
     )
@@ -188,11 +214,34 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let current_size = window.get_size();
+        if current_size.0 == 0 || current_size.1 == 0 {
+            if current_size != previous_size {
+                previous_size = current_size;
+                presenter_state
+                    .resize_surface(current_size.0, current_size.1)
+                    .map_err(|error| {
+                        format!("native window presenter rejected resize: {error:?}")
+                    })?;
+                update_window_title(&mut window, options.demo, current_size);
+            }
+            previous_mouse_down = false;
+            window.update();
+            continue;
+        }
+
         if current_size != previous_size {
             previous_size = current_size;
             presenter_state
                 .resize_surface(current_size.0, current_size.1)
                 .map_err(|error| format!("native window presenter rejected resize: {error:?}"))?;
+            presenter_frame_id = next_presenter_frame_id(presenter_frame_id)?;
+            present_demo_frame_to_window_state(
+                &mut presenter_state,
+                presenter_frame_id,
+                &frame,
+                current_size.0,
+                current_size.1,
+            )?;
             update_window_title(&mut window, options.demo, current_size);
         }
 
@@ -208,18 +257,27 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
                             .map_err(|error| {
                                 format!("native window presenter has no frame: {error:?}")
                             })?;
+                    if present_frame.width() != current_size.0
+                        || present_frame.height() != current_size.1
+                    {
+                        return Err(format!(
+                            "native window presenter frame size mismatch: frame={}x{} window={}x{}",
+                            present_frame.width(),
+                            present_frame.height(),
+                            current_size.0,
+                            current_size.1
+                        ));
+                    }
                     match map_native_window_point_to_image(
                         current_size.0,
                         current_size.1,
-                        present_frame.width(),
-                        present_frame.height(),
+                        frame.width,
+                        frame.height,
                         mouse_x,
                         mouse_y,
                     ) {
                         Some((image_x, image_y)) => {
-                            let scene_x = image_x / options.scale.max(1);
-                            let scene_y = image_y / options.scale.max(1);
-                            nepl_gui_native::counter_hit(&frame, scene_x, scene_y)
+                            nepl_gui_native::counter_hit(&frame, image_x, image_y)
                         }
                         None => false,
                     }
@@ -231,15 +289,14 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
                         .counter_value
                         .checked_add(1)
                         .ok_or_else(|| "counter value overflow".to_string())?;
-                    presenter_frame_id = presenter_frame_id
-                        .checked_add(1)
-                        .ok_or_else(|| "native presenter frame id overflow".to_string())?;
+                    presenter_frame_id = next_presenter_frame_id(presenter_frame_id)?;
                     frame = render_demo_frame(options.demo, options.counter_value);
                     present_demo_frame_to_window_state(
                         &mut presenter_state,
                         presenter_frame_id,
                         &frame,
-                        options.scale,
+                        current_size.0,
+                        current_size.1,
                     )?;
                 }
             }
@@ -248,6 +305,15 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
         let present_frame = presenter_state
             .last_present_frame_required()
             .map_err(|error| format!("native window presenter has no frame: {error:?}"))?;
+        if present_frame.width() != current_size.0 || present_frame.height() != current_size.1 {
+            return Err(format!(
+                "native window presenter frame size mismatch: frame={}x{} window={}x{}",
+                present_frame.width(),
+                present_frame.height(),
+                current_size.0,
+                current_size.1
+            ));
+        }
         window
             .update_with_buffer(
                 present_frame.pixels(),
