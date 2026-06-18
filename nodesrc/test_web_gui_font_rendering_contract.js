@@ -237,6 +237,9 @@ const platformGuiWebClock = read("stdlib/platforms/gui/web/clock.nepl");
 const platformGuiWebClockImpl = withoutComments(platformGuiWebClock);
 const platformGuiWebTimer = read("stdlib/platforms/gui/web/timer.nepl");
 const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
+const platformGuiHeadlessFacade = read("stdlib/platforms/gui/headless.nepl");
+const platformGuiHeadlessClock = read("stdlib/platforms/gui/headless/clock.nepl");
+const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -330,6 +333,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopRunnerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md");
 const guiPlatformWebClockTests = read("tests/stdlib/gui_platform_web_clock.n.md");
+const guiPlatformHeadlessClockTests = read("tests/stdlib/gui_platform_headless_clock.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25192,6 +25196,154 @@ assert(
         guiPlatformWebClockTests.includes("platform_web_clock_no_date_timer_queue_fallback") &&
         guiPlatformWebClockTests.includes("worker_web_clock_performance_now_i32_guard_ok"),
     "F5ep platform Web clock focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("Headless scripted monotonic clock source backend boundary") &&
+            doc.includes("F5eq") &&
+            doc.includes("fixed-slot") &&
+            doc.includes("cursor") &&
+            doc.includes("BackendClockSample") &&
+            doc.includes("Option::None") &&
+            doc.includes("wall clock") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5eq ${name} must document headless scripted monotonic clock source, fixed slots, end None, and forbidden fallbacks`,
+    );
+}
+assert(
+    platformGuiHeadlessFacade.includes('pub #import "./headless/clock" as @merge'),
+    "platforms/gui/headless facade must export F5eq scripted clock backend boundary",
+);
+assert(
+    platformGuiHeadlessClock.includes("pub struct GuiHeadlessBackendClockScript:") &&
+        platformGuiHeadlessClock.includes("first %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample") &&
+        platformGuiHeadlessClock.includes("second %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample") &&
+        platformGuiHeadlessClock.includes("third %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample") &&
+        platformGuiHeadlessClock.includes("count %i32") &&
+        platformGuiHeadlessClock.includes("cursor %i32") &&
+        platformGuiHeadlessClock.includes("pub enum GuiHeadlessBackendClockScriptErrorKind:") &&
+        platformGuiHeadlessClock.includes("CountInvalid") &&
+        platformGuiHeadlessClock.includes("CursorInvalid") &&
+        platformGuiHeadlessClock.includes("SlotShapeInvalid") &&
+        platformGuiHeadlessClock.includes("SampleInvalid"),
+    "platforms/gui/headless/clock F5eq must expose fixed three-slot script and typed script error kinds",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_sample_slot"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample monotonic_ms",
+        "Result::Ok sample",
+        "Result::Err kind",
+        "GuiHeadlessBackendClockScriptErrorKind::SampleInvalid",
+    ],
+    "platforms/gui/headless/clock F5eq sample slot must delegate to F5eo backend clock sample constructor",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_script_one"),
+    [
+        "gui_headless_backend_clock_sample_slot first",
+        "Result::Ok first_sample",
+        "some first_sample",
+        "script_new first_slot none none 1 0",
+        "Result::Err kind",
+    ],
+    "platforms/gui/headless/clock F5eq constructor must validate raw i32 sample before storing a slot",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_script_shape_error"),
+    [
+        "or lt sample_count 0 gt sample_count 3",
+        "CountInvalid",
+        "or lt cursor 0 gt cursor sample_count",
+        "CursorInvalid",
+        "eq sample_count 0",
+        "and is_none first and is_none second is_none third",
+        "eq sample_count 1",
+        "and is_some first and is_none second is_none third",
+        "eq sample_count 2",
+        "and is_some first and is_some second is_none third",
+        "and is_some first and is_some second is_some third",
+    ],
+    "platforms/gui/headless/clock F5eq shape check must validate count, cursor, and exact Some or None slot shape",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_script_sample_error"),
+    [
+        "let sample_count %i32 gui_headless_backend_clock_script_count script",
+        "gui_headless_backend_clock_script_first script",
+        "gui_headless_backend_clock_script_second script",
+        "gui_headless_backend_clock_script_third script",
+        "if eq sample_count 0:",
+        "gui_headless_backend_clock_validate_sample_value first_sample",
+        "if eq sample_count 1:",
+        "gui_headless_backend_clock_validate_sample_value second_sample",
+        "if eq sample_count 2:",
+        "gui_headless_backend_clock_validate_sample_value third_sample",
+    ],
+    "platforms/gui/headless/clock F5eq sample check must revalidate every Some slot required by count",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_poll_checked_sample"),
+    [
+        "sample_monotonic_ms &sample",
+        "gui_headless_backend_clock_sample_slot monotonic_ms",
+        "gui_headless_backend_clock_script_invalid_result kind script",
+        "let next_cursor %i32 add cursor 1",
+        "script_new first second third count next_cursor",
+        "some checked",
+        "Result::Ok gui_headless_backend_clock_poll_new next_script sample_slot",
+    ],
+    "platforms/gui/headless/clock F5eq poll must revalidate public sample before advancing cursor",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiHeadlessClockImpl, "gui_headless_backend_clock_poll"),
+    [
+        "gui_headless_backend_clock_script_shape_error &script",
+        "Result::Err kind",
+        "gui_headless_backend_clock_script_invalid_result kind script",
+        "gui_headless_backend_clock_script_sample_error &script",
+        "Result::Err kind",
+        "gui_headless_backend_clock_script_invalid_result kind script",
+        "if eq cursor count:",
+        "Result::Ok gui_headless_backend_clock_poll_new script none",
+        "if eq cursor 0:",
+        "gui_headless_backend_clock_script_first &script",
+        "gui_headless_backend_clock_poll_checked_sample script sample",
+        "if eq cursor 1:",
+        "gui_headless_backend_clock_script_second &script",
+        "gui_headless_backend_clock_script_third &script",
+    ],
+    "platforms/gui/headless/clock F5eq poll must validate before selecting by cursor and return None at script end",
+);
+assertNoMatch(
+    platformGuiHeadlessClockImpl,
+    /\b(?:Vec|push|queue|#extern|#intrinsic|Date|performance|setTimeout|setInterval|sleep|GuiHost|std\/gui\/host|platforms\/gui\/web|platforms\/gui\/native|platforms\/gui\/bare|Canvas|DOM|minifb|video_memory|fallback|silent no-op|while|clamp|round)\b/i,
+    "platforms/gui/headless/clock F5eq implementation must not use host imports, timers, queues, render APIs, clamp, or fallback",
+);
+assertNoMatch(
+    platformGuiHeadlessClockImpl,
+    /_:|[()]/,
+    "platforms/gui/headless/clock F5eq implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    guiPlatformHeadlessClockTests.includes("platform_headless_clock_facade_ok") &&
+        guiPlatformHeadlessClockTests.includes("platform_headless_clock_fixed_script_shape_ok") &&
+        guiPlatformHeadlessClockTests.includes("platform_headless_clock_constructor_sample_validation_ok") &&
+        guiPlatformHeadlessClockTests.includes("platform_headless_clock_poll_shape_validation_ok") &&
+        guiPlatformHeadlessClockTests.includes("platform_headless_clock_poll_end_none_ok") &&
+        guiPlatformHeadlessClockTests.includes("platform_headless_clock_no_timer_queue_fallback") &&
+        guiPlatformHeadlessClockTests.includes("forged current sample rejected") &&
+        guiPlatformHeadlessClockTests.includes("forged consumed sample rejected") &&
+        guiPlatformHeadlessClockTests.includes("forged end sample rejected"),
+    "F5eq platform headless clock focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

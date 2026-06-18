@@ -127,6 +127,31 @@
 - focused doctest、source policy、F5eo regression、`git diff --check` が通る。
 - subagent implementation review で i32 range failure、no fallback、layer separation が承認される。
 
+## Phase F5eq: Headless scripted monotonic clock source backend boundary
+
+2026-06-18 の F5eq では、Headless scripted monotonic clock source backend boundary を追加する。これは headless / offscreen test 用の deterministic actual clock input source であり、wall clock、native / bare clock source、sleep、scheduler loop、executor backend、queue、DOM / Canvas rendering、video memory presentation は実装しない。
+
+実装 target:
+
+- `stdlib/platforms/gui/headless.nepl`
+- `stdlib/platforms/gui/headless/clock.nepl`
+- `tests/stdlib/gui_platform_headless_clock.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- `GuiHeadlessBackendClockScript` は fixed-slot の `Option BackendClockSample` 3 件、`count`、`cursor` だけを持つ。
+- constructor は raw i32 sample を F5eo `BackendClockSample` constructor で検査してから slot に保持する。
+- poll は public script の count / cursor / slot shape / sample を再検査し、sample があれば cursor を 1 進める。
+- `cursor == count` は `Option::None` を返し、zero sample、delta、fallback、silent no-op を合成しない。
+- timer、queue、host import、platform API、wall clock は使わない。
+
+完了条件:
+
+- source policy が fixed-slot shape、constructor validation、poll validation、end None、forbidden timer / queue / fallback を固定する。
+- focused doctest、source policy、F5eo / F5ep regression、`git diff --check` が通る。
+- subagent implementation review で no fallback、virtualized headless source、layer separation が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

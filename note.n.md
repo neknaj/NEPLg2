@@ -1,3 +1,36 @@
+# 2026-06-18 Agent2 GUI platform F5eq Headless scripted monotonic clock source backend boundary
+
+## 目的
+
+- F5ep Web clock source の後続として、headless / offscreen test 用の deterministic actual clock input source を `platforms/gui/headless` に追加する。
+- wall clock ではなく fixed-slot script から F5eo `BackendClockSample` を返し、同じ app code が virtualized time input でも実行できるようにする。
+- fallback、silent no-op、timer、queue、host import、platform API は使わない。
+
+## subagent plan review
+
+- Halley は `REVIEW_APPROVED` として、headless / offscreen testing に必要な virtualized time input source であり、wall clock backend を装っていないため次 slice として妥当と判断した。
+- `count` は 0 から 3、`cursor` は 0 から `count`、slot は count と一致する `Some` / `None` shape を必須とするよう指摘された。
+- constructor と poll の両方で sample を検査し、`cursor == count` は `Option::None` を返して sample を合成しない方針へ固定した。
+
+## subagent implementation review
+
+- Raman は最初 `REVIEW_CHANGES` として、poll が cursor 位置の sample だけを再検査しており、`cursor == count` や consumed slot に forged negative sample が残る public script を拒否できない問題を指摘した。
+- 指摘を反映し、poll entry で `count` 内の全 `Some` slot を再検査してから end `Option::None` または current sample を返すよう修正した。
+- forged current / consumed / end sample の doctest を追加し、Raman の再レビューは `REVIEW_APPROVED` だった。
+
+## 実装内容
+
+- `stdlib/platforms/gui/headless.nepl` と `stdlib/platforms/gui/headless/clock.nepl` を追加した。
+- `GuiHeadlessBackendClockScript` は 3 slot の `Option BackendClockSample`、`count`、`cursor` だけを持つ。
+- constructor は raw i32 sample を F5eo constructor で検査し、poll は public script の count / cursor / slot shape と count 内の全 sample を再検査してから cursor を進める。
+- `tests/stdlib/gui_platform_headless_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5eq source policy を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+
+## 未完了
+
+- F5eq は headless scripted clock input source までであり、native / bare actual clock source、native / bare scheduler backend、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI platform F5ep Web monotonic clock source backend boundary
 
 ## 目的
