@@ -1,0 +1,24 @@
+# NEPLg2 bare GUI platform behavior notes
+
+作成日: 2026-06-18
+
+## 目的
+
+この文書は bare GUI backend が持つ制約を整理し、NEPLg2 GUI の platform boundary へ落とすための notes である。bare は Web、native desktop、headless test runner と違い、標準化された OS clock、window manager、timer queue、filesystem、thread sleep を持つとは限らない。
+
+## Bare backend contract
+
+Bare backend は次を守る。
+
+- core / alloc / std GUI substrate は universal wall clock を仮定しない。
+- monotonic clock が必要な場合、embedding host が `nepl_gui_bare.monotonic_clock_ms` を明示的に提供する。
+- host が clock source を提供しない場合は -1 sentinel を返し、NEPL wrapper は `GuiError::Unsupported` として扱う。
+- -1 以外の負値は `GuiError::BackendFailure` として扱う。
+- non-negative sample だけを F5eo `BackendClockSample` constructor へ渡す。
+- Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、stdout protocol、rendering API、fallback、silent no-op は bare clock source として使わない。
+
+## Current implementation
+
+F5es では Bare formal monotonic clock source backend boundary として、`platforms/gui/bare/clock` を追加する。これは bare 環境の clock を stdlib が生成する実装ではなく、embedding host が明示提供する import ABI の contract である。
+
+`nodesrc/run_test.js` の `nepl_gui_bare.monotonic_clock_ms` は doctest-only unsupported source であり、hidden fallback や hidden mock ではない。既定で -1 を返すことで、host が clock を提供しない場合に `Unsupported` が返ることを検査する。bare scheduler backend、bare timer backend、display present、long-running real backend loop は後続 slice で実装する。

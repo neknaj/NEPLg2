@@ -1,3 +1,38 @@
+# 2026-06-18 Agent2 GUI platform F5es Bare formal monotonic clock source backend boundary
+
+## 目的
+
+- F5er Native clock source の後続として、bare embedding host が明示提供する actual monotonic clock source を `platforms/gui/bare` に追加する。
+- `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` ABI で sample または sentinel を受け、negative sentinel を `GuiError` へ写してから F5eo `BackendClockSample` constructor を通す。
+- bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、timer、sleep、queue、fallback、silent no-op を使わない。
+
+## subagent plan review
+
+- Newton は `PLAN_APPROVED` として、bare actual clock source を host import ABI boundary として追加する計画を承認した。
+- `nepl_gui_bare.monotonic_clock_ms` は embedding host が明示提供する境界であり、stdlib が wall clock を生成した扱いにしないことが必須とされた。
+- doctest runner の既定 `nepl_gui_bare` import は -1 を返す doctest-only unsupported source とし、hidden fallback / hidden mock ではないことを docs と source policy に固定するよう指摘された。
+- Native と bare の責務を混同しないため、bare 固有の制約は `gui_bare_platform_behavior.md` に分けた。
+
+## subagent implementation review
+
+- Epicurus は `REVIEW_APPROVED` として blocker なしと判断した。
+- explicit `nepl_gui_bare.monotonic_clock_ms` host import boundary、-1 `Unsupported` / other negative `BackendFailure` / non-negative F5eo checked constructor delegation、universal wall clock 非仮定、doctest-only unsupported source、new NEPL files の括弧なしと `_:` 不使用が確認された。
+- review 側でも source policy、focused doctests、`git diff --check` の通過が確認された。
+- 運用 note として、新規 bare files が untracked なので commit 前に明示 stage する必要が指摘された。
+
+## 実装内容
+
+- `stdlib/platforms/gui/bare.nepl` と `stdlib/platforms/gui/bare/clock.nepl` を追加した。
+- `nodesrc/run_test.js` に doctest runtime 用の `nepl_gui_bare.monotonic_clock_ms` stub を追加し、既定で -1 `Unsupported` を返すようにした。
+- `tests/stdlib/gui_platform_bare_clock.n.md` を追加し、host clock 未提供時の `Unsupported` mapping を検査した。
+- `doc/neplg2/gui_bare_platform_behavior.md` を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5es source policy を追加した。
+
+## 未完了
+
+- F5es は bare monotonic clock host import boundary までであり、native / bare scheduler backend、timer backend、executor backend、formal present implementation、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI platform F5er Native formal monotonic clock source backend boundary
 
 ## 目的

@@ -180,6 +180,33 @@
 - focused doctest、source policy、native platform behavior regression、F5eo / F5ep / F5eq regression、`cargo test -p nepl-gui-native`、`git diff --check` が通る。
 - subagent implementation review で no fallback、i32 range failure、layer separation、doctest stub と native runtime source の分離が承認される。
 
+## Phase F5es: Bare formal monotonic clock source backend boundary
+
+2026-06-18 の F5es では、bare embedding host が明示提供する actual monotonic clock source を `platforms/gui/bare/clock` へ接続する。これは Bare formal monotonic clock source backend boundary だけの変更であり、stdlib が universal wall clock を生成する実装ではない。native / bare scheduler backend、timer backend、executor backend、queue、DOM / Canvas rendering、minifb rendering、video memory presentation は実装しない。
+
+実装 target:
+
+- `stdlib/platforms/gui/bare.nepl`
+- `stdlib/platforms/gui/bare/clock.nepl`
+- `tests/stdlib/gui_platform_bare_clock.n.md`
+- `doc/neplg2/gui_bare_platform_behavior.md`
+- `nodesrc/run_test.js`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- `nepl_gui_bare.monotonic_clock_ms` は単一 `i32` return ABI とし、0 以上を sample、-1 を `Unsupported`、その他の負値を `BackendFailure` とする。
+- NEPL wrapper は negative sentinel を `GuiError` へ写し、成功値だけを F5eo `BackendClockSample` constructor へ渡す。
+- `nodesrc/run_test.js` の `nepl_gui_bare` 既定 import は doctest-only unsupported source とし、`monotonic_clock_ms` は -1 を返す。
+- doctest-only unsupported source は hidden fallback や hidden mock ではなく、host が clock を提供しない場合の明示 contract を検査するためだけに使う。
+- Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、stdout protocol、fallback、silent no-op は使わない。
+
+完了条件:
+
+- source policy が bare facade export、raw import、negative sentinel mapping、F5eo sample constructor bridge、doctest-only unsupported default、forbidden fallback を固定する。
+- focused doctest、source policy、F5eo / F5ep / F5eq / F5er regression、`git diff --check` が通る。
+- subagent implementation review で no fallback、doctest-only unsupported default、layer separation、bare scheduler / present / timer 未実装の分離が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

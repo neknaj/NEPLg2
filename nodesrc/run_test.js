@@ -145,6 +145,12 @@ function defaultNeplGuiNativeImports() {
     };
 }
 
+function defaultNeplGuiBareImports() {
+    return {
+        monotonic_clock_ms: () => -1,
+    };
+}
+
 function resolveRuntimeImports(extraImports, context) {
     if (typeof extraImports === 'function') {
         const resolved = extraImports(context);
@@ -195,6 +201,7 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
         const {
             nepl_gui_web: extraNeplGuiWebImports = {},
             nepl_gui_native: extraNeplGuiNativeImports = {},
+            nepl_gui_bare: extraNeplGuiBareImports = {},
             ...extraImportNamespaces
         } = resolvedExtraImports;
         const instance = new WebAssembly.Instance(module, {
@@ -210,6 +217,12 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
                 ...defaultNeplGuiNativeImports(),
                 ...(extraNeplGuiNativeImports && typeof extraNeplGuiNativeImports === 'object'
                     ? extraNeplGuiNativeImports
+                    : {}),
+            },
+            nepl_gui_bare: {
+                ...defaultNeplGuiBareImports(),
+                ...(extraNeplGuiBareImports && typeof extraNeplGuiBareImports === 'object'
+                    ? extraNeplGuiBareImports
                     : {}),
             },
         });
