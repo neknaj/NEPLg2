@@ -69576,3 +69576,44 @@ MERGE_APPROVED
 ### residual
 
 - F5ey は Rust side validator までであり、actual native window presenter sink、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ez RGBA8888 framebuffer sink
+
+### scope
+
+- F5ez は F5ey の typed `NativeSpanOperation` を native offscreen RGBA8888 framebuffer へ反映する Rust side sink boundary である。
+- この slice は actual native presenter、window loop、minifb `update_with_buffer`、scheduler loop、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- McClintock the 2nd の初回 plan review は `PLAN_BLOCKED`。`Vec<u32>` の pixel packing、checked constructor、sequence completeness、failure state preservation、既存 ABI status への写像を計画へ追加する必要があると指摘された。
+- 改訂 plan では pixel を semantic `0xRRGGBBAA` として固定し、checked constructor、`seen_run_count`、End 時の exact run count、Run / End 失敗時の state preservation、既存 F5ey status への写像を追加した。
+- McClintock the 2nd の改訂 plan review は `APPROVED`。実装時には direct construction 対策として sink 側でも範囲検査を保つこと、active accessor を read-only snapshot にすること、source policy で endian byte view と minifb integration 禁止を見ることが条件として確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgba8888FrameBuffer`、`NativeSpanFramebufferError`、`NativeSpanFramebufferActiveSequence`、`native_pack_rgba8888_pixel` を追加した。
+- framebuffer は private field と checked constructor を持ち、positive width / height、checked `width * 4` stride、checked `width * height` pixel count、`try_reserve_exact` を通した後だけ生成される。
+- pixel storage は semantic `0xRRGGBBAA` の `u32` であり、native endian byte view は公開しない。
+- `NativeSpanOperationSink` 実装は Begin で descriptor / `seen_run_count = 0` を保持し、RunSpan は target、`x >= 0`、`width > 0`、`height == 1`、row extent、x extent、remaining run count、checked index を検査してから pixel を書く。成功した RunSpan だけが seen count を増やす。
+- End は descriptor equality と `seen_run_count == descriptor.total_run_count` を要求し、短い / 余分な span 列を silent partial frame として成功させない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- McClintock the 2nd implementation review 1 は `CHANGES_REQUESTED`。`write_run_span` が `run_span.x < 0` を拒否しておらず、`x = -1, y = 1, width = 1` が前行末尾へ書けると指摘された。あわせて public struct direct construction 対策として `width <= 0` と `height != 1` も sink 側で拒否する必要があるとされた。
+- 指摘に従い、index 計算と pixel write の前に `run_span.x < 0 || run_span.width <= 0 || run_span.height != 1` を拒否するようにした。negative x と non-unit height は `InvalidArgument`、pixels unchanged、`seen_run_count` unchanged を test で固定した。
+- McClintock the 2nd follow-up review は `APPROVED`。前行末尾への誤書き込み経路は閉じられ、docs/source-policyにも契約が反映されていると確認された。
+
+### residual
+
+- F5ez は offscreen framebuffer sink までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。

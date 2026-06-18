@@ -490,6 +490,248 @@ fn checked_ceil_div_i32(value: i32, divisor: i32) -> Result<i32, i32> {
     Ok(adjusted / divisor)
 }
 
+pub const NATIVE_RGBA8888_PIXEL_TRANSPARENT: u32 = 0x00000000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeSpanFramebufferError {
+    InvalidDimensions,
+    DimensionOverflow,
+    ResourceExhausted,
+    SequenceAlreadyActive,
+    SequenceMissing,
+    FramebufferDescriptorMismatch,
+    DescriptorMismatch,
+    TargetMismatch,
+    RunCountExceeded,
+    RunExtentOutOfBounds,
+    RunCountMismatch,
+    InternalIndexOverflow,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeSpanFramebufferActiveSequence {
+    pub descriptor: NativeSpanOperationDescriptor,
+    pub seen_run_count: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeRgba8888FrameBuffer {
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    pixels: Vec<u32>,
+    active_sequence: Option<NativeSpanFramebufferActiveSequence>,
+}
+
+impl NativeSpanFramebufferError {
+    pub fn status(self) -> i32 {
+        match self {
+            NativeSpanFramebufferError::ResourceExhausted => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED
+            }
+            NativeSpanFramebufferError::InternalIndexOverflow => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+            }
+            NativeSpanFramebufferError::InvalidDimensions
+            | NativeSpanFramebufferError::DimensionOverflow
+            | NativeSpanFramebufferError::SequenceAlreadyActive
+            | NativeSpanFramebufferError::SequenceMissing
+            | NativeSpanFramebufferError::FramebufferDescriptorMismatch
+            | NativeSpanFramebufferError::DescriptorMismatch
+            | NativeSpanFramebufferError::TargetMismatch
+            | NativeSpanFramebufferError::RunCountExceeded
+            | NativeSpanFramebufferError::RunExtentOutOfBounds
+            | NativeSpanFramebufferError::RunCountMismatch => {
+                GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+            }
+        }
+    }
+}
+
+impl NativeRgba8888FrameBuffer {
+    /// Creates a checked logical RGBA8888 framebuffer.
+    ///
+    /// Pixels are semantic `0xRRGGBBAA` values. The storage is not a native-endian
+    /// byte view, so presenters must explicitly convert when a host surface uses a
+    /// different pixel contract.
+    pub fn new(width: i32, height: i32) -> Result<Self, NativeSpanFramebufferError> {
+        if width <= 0 || height <= 0 {
+            return Err(NativeSpanFramebufferError::InvalidDimensions);
+        }
+        let stride_bytes = width
+            .checked_mul(4)
+            .ok_or(NativeSpanFramebufferError::DimensionOverflow)?;
+        let pixel_count = width
+            .checked_mul(height)
+            .ok_or(NativeSpanFramebufferError::DimensionOverflow)?;
+        let pixel_count = usize::try_from(pixel_count)
+            .map_err(|_| NativeSpanFramebufferError::DimensionOverflow)?;
+        let mut pixels = Vec::new();
+        pixels
+            .try_reserve_exact(pixel_count)
+            .map_err(|_| NativeSpanFramebufferError::ResourceExhausted)?;
+        pixels.resize(pixel_count, NATIVE_RGBA8888_PIXEL_TRANSPARENT);
+
+        Ok(Self {
+            width,
+            height,
+            stride_bytes,
+            pixels,
+            active_sequence: None,
+        })
+    }
+
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
+    pub fn height(&self) -> i32 {
+        self.height
+    }
+
+    pub fn stride_bytes(&self) -> i32 {
+        self.stride_bytes
+    }
+
+    pub fn pixels(&self) -> &[u32] {
+        &self.pixels
+    }
+
+    pub fn active_sequence(&self) -> Option<NativeSpanFramebufferActiveSequence> {
+        self.active_sequence
+    }
+
+    pub fn pixel_at(&self, x: i32, y: i32) -> Option<u32> {
+        if x < 0 || y < 0 || x >= self.width || y >= self.height {
+            return None;
+        }
+        let index = native_span_framebuffer_index(self.width, x, y).ok()?;
+        self.pixels.get(index).copied()
+    }
+
+    fn begin_sequence(
+        &mut self,
+        descriptor: NativeSpanOperationDescriptor,
+    ) -> Result<(), NativeSpanFramebufferError> {
+        if self.active_sequence.is_some() {
+            return Err(NativeSpanFramebufferError::SequenceAlreadyActive);
+        }
+        if descriptor.width != self.width
+            || descriptor.height != self.height
+            || descriptor.stride_bytes != self.stride_bytes
+        {
+            return Err(NativeSpanFramebufferError::FramebufferDescriptorMismatch);
+        }
+        self.active_sequence = Some(NativeSpanFramebufferActiveSequence {
+            descriptor,
+            seen_run_count: 0,
+        });
+        Ok(())
+    }
+
+    fn write_run_span(
+        &mut self,
+        run_span: NativeSpanOperationRunSpan,
+    ) -> Result<(), NativeSpanFramebufferError> {
+        let active = self
+            .active_sequence
+            .ok_or(NativeSpanFramebufferError::SequenceMissing)?;
+        let descriptor = active.descriptor;
+        if run_span.target != descriptor.target {
+            return Err(NativeSpanFramebufferError::TargetMismatch);
+        }
+        if run_span.x < 0 || run_span.width <= 0 || run_span.height != 1 {
+            return Err(NativeSpanFramebufferError::RunExtentOutOfBounds);
+        }
+        if active.seen_run_count >= descriptor.total_run_count {
+            return Err(NativeSpanFramebufferError::RunCountExceeded);
+        }
+        let row_end = descriptor
+            .row_start
+            .checked_add(descriptor.row_count)
+            .ok_or(NativeSpanFramebufferError::InternalIndexOverflow)?;
+        let run_x_end = run_span
+            .x
+            .checked_add(run_span.width)
+            .ok_or(NativeSpanFramebufferError::RunExtentOutOfBounds)?;
+        if run_span.y < descriptor.row_start
+            || run_span.y >= row_end
+            || run_x_end > descriptor.width
+        {
+            return Err(NativeSpanFramebufferError::RunExtentOutOfBounds);
+        }
+
+        let start = native_span_framebuffer_index(self.width, run_span.x, run_span.y)?;
+        let run_width = usize::try_from(run_span.width)
+            .map_err(|_| NativeSpanFramebufferError::RunExtentOutOfBounds)?;
+        let end = start
+            .checked_add(run_width)
+            .ok_or(NativeSpanFramebufferError::InternalIndexOverflow)?;
+        if end > self.pixels.len() {
+            return Err(NativeSpanFramebufferError::InternalIndexOverflow);
+        }
+
+        let pixel = native_pack_rgba8888_pixel(run_span.r, run_span.g, run_span.b, run_span.a);
+        for value in &mut self.pixels[start..end] {
+            *value = pixel;
+        }
+        self.active_sequence = Some(NativeSpanFramebufferActiveSequence {
+            descriptor,
+            seen_run_count: active.seen_run_count + 1,
+        });
+        Ok(())
+    }
+
+    fn end_sequence(
+        &mut self,
+        descriptor: NativeSpanOperationDescriptor,
+    ) -> Result<(), NativeSpanFramebufferError> {
+        let active = self
+            .active_sequence
+            .ok_or(NativeSpanFramebufferError::SequenceMissing)?;
+        if descriptor != active.descriptor {
+            return Err(NativeSpanFramebufferError::DescriptorMismatch);
+        }
+        if active.seen_run_count != descriptor.total_run_count {
+            return Err(NativeSpanFramebufferError::RunCountMismatch);
+        }
+        self.active_sequence = None;
+        Ok(())
+    }
+}
+
+impl NativeSpanOperationSink for NativeRgba8888FrameBuffer {
+    fn execute_span_operation(&mut self, operation: NativeSpanOperation) -> i32 {
+        let result = match operation {
+            NativeSpanOperation::Begin(descriptor) => self.begin_sequence(descriptor),
+            NativeSpanOperation::RunSpan(run_span) => self.write_run_span(run_span),
+            NativeSpanOperation::End(descriptor) => self.end_sequence(descriptor),
+        };
+        match result {
+            Ok(()) => GUI_NATIVE_SPAN_OPERATION_STATUS_OK,
+            Err(error) => error.status(),
+        }
+    }
+}
+
+pub fn native_pack_rgba8888_pixel(r: u8, g: u8, b: u8, a: u8) -> u32 {
+    (u32::from(r) << 24) | (u32::from(g) << 16) | (u32::from(b) << 8) | u32::from(a)
+}
+
+fn native_span_framebuffer_index(
+    frame_width: i32,
+    x: i32,
+    y: i32,
+) -> Result<usize, NativeSpanFramebufferError> {
+    let row_offset = y
+        .checked_mul(frame_width)
+        .ok_or(NativeSpanFramebufferError::InternalIndexOverflow)?;
+    let index = row_offset
+        .checked_add(x)
+        .ok_or(NativeSpanFramebufferError::InternalIndexOverflow)?;
+    usize::try_from(index).map_err(|_| NativeSpanFramebufferError::InternalIndexOverflow)
+}
+
 impl FromStr for GuiDemo {
     type Err = String;
 
@@ -1351,5 +1593,264 @@ mod tests {
             GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
         );
         assert_eq!(unknown_negative.operations.len(), 1);
+    }
+
+    fn native_framebuffer_descriptor(total_run_count: i32) -> NativeSpanOperationDescriptor {
+        NativeSpanOperationDescriptor {
+            target: NativeSpanOperationTarget::Window { window_id: 7 },
+            surface_id: 10,
+            frame_id: 11,
+            packet_frame_id: 11,
+            batch_index: 0,
+            tile_index: 0,
+            plan_row_start: 0,
+            plan_row_count: 2,
+            row_start: 0,
+            row_count: 2,
+            width: 4,
+            height: 3,
+            stride_bytes: 16,
+            tile_rows: 2,
+            tile_count: 1,
+            pixel_count: 8,
+            total_run_count,
+            encoded_byte_count: total_run_count * 12,
+        }
+    }
+
+    fn native_framebuffer_run(x: i32, y: i32, width: i32, r: u8) -> NativeSpanOperationRunSpan {
+        NativeSpanOperationRunSpan {
+            target: NativeSpanOperationTarget::Window { window_id: 7 },
+            x,
+            y,
+            width,
+            height: 1,
+            r,
+            g: 20,
+            b: 30,
+            a: 255,
+        }
+    }
+
+    #[test]
+    fn native_span_framebuffer_constructor_checks_dimensions_and_layout() {
+        assert_eq!(
+            NativeRgba8888FrameBuffer::new(0, 2).unwrap_err(),
+            NativeSpanFramebufferError::InvalidDimensions
+        );
+        assert_eq!(
+            NativeRgba8888FrameBuffer::new(i32::MAX, 2).unwrap_err(),
+            NativeSpanFramebufferError::DimensionOverflow
+        );
+
+        let frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(frame_buffer.width(), 4);
+        assert_eq!(frame_buffer.height(), 3);
+        assert_eq!(frame_buffer.stride_bytes(), 16);
+        assert_eq!(frame_buffer.pixels().len(), 12);
+        assert!(frame_buffer
+            .pixels()
+            .iter()
+            .all(|pixel| *pixel == NATIVE_RGBA8888_PIXEL_TRANSPARENT));
+        assert_eq!(frame_buffer.active_sequence(), None);
+    }
+
+    #[test]
+    fn native_span_framebuffer_writes_complete_sequence() {
+        let descriptor = native_framebuffer_descriptor(2);
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(1, 0, 2, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 1);
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 1, 4, 40),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+
+        assert_eq!(frame_buffer.active_sequence(), None);
+        assert_eq!(
+            frame_buffer.pixel_at(0, 0),
+            Some(NATIVE_RGBA8888_PIXEL_TRANSPARENT)
+        );
+        assert_eq!(
+            frame_buffer.pixel_at(1, 0),
+            Some(native_pack_rgba8888_pixel(10, 20, 30, 255))
+        );
+        assert_eq!(
+            frame_buffer.pixel_at(2, 0),
+            Some(native_pack_rgba8888_pixel(10, 20, 30, 255))
+        );
+        assert_eq!(
+            frame_buffer.pixel_at(3, 1),
+            Some(native_pack_rgba8888_pixel(40, 20, 30, 255))
+        );
+    }
+
+    #[test]
+    fn native_span_framebuffer_rejects_missing_and_nested_sequence() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 0, 1, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            frame_buffer.active_sequence().unwrap(),
+            NativeSpanFramebufferActiveSequence {
+                descriptor,
+                seen_run_count: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn native_span_framebuffer_rejects_invalid_run_without_partial_write() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        let before = frame_buffer.pixels().to_vec();
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(3, 0, 2, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.pixels(), before.as_slice());
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 0);
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(-1, 1, 1, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.pixels(), before.as_slice());
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 0);
+
+        let wrong_height = NativeSpanOperationRunSpan {
+            height: 2,
+            ..native_framebuffer_run(0, 0, 1, 10)
+        };
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(wrong_height)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.pixels(), before.as_slice());
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 0);
+
+        let wrong_target = NativeSpanOperationRunSpan {
+            target: NativeSpanOperationTarget::Window { window_id: 8 },
+            ..native_framebuffer_run(0, 0, 1, 10)
+        };
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(wrong_target)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.pixels(), before.as_slice());
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 0);
+    }
+
+    #[test]
+    fn native_span_framebuffer_requires_exact_run_count_before_end() {
+        let descriptor = native_framebuffer_descriptor(2);
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 0, 1, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 1);
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(1, 0, 1, 20),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(2, 0, 1, 30),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(frame_buffer.active_sequence().unwrap().seen_run_count, 2);
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+    }
+
+    #[test]
+    fn native_span_framebuffer_rejects_end_descriptor_mismatch_and_keeps_active() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let mismatched = NativeSpanOperationDescriptor {
+            batch_index: 1,
+            ..descriptor
+        };
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(mismatched)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            frame_buffer.active_sequence().unwrap(),
+            NativeSpanFramebufferActiveSequence {
+                descriptor,
+                seen_run_count: 0,
+            }
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 0, 1, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
     }
 }
