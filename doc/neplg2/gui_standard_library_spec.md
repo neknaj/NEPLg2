@@ -125,6 +125,16 @@ span write では、config と span から `height * stride_bytes`、`y * stride
 
 F5fn は raw byte buffer ownership、actual display driver write、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fn の checked byte write plan を消費する actual driver adapter と、native / bare long-running backend loop へ進む。
 
+## F5fo Bare display driver outcome ledger boundary
+
+2026-06-19 の F5fo では、bare `platforms/gui/bare/display_driver` を追加する。これは actual hardware display driver そのものではなく、F5fn の checked byte write plan と caller supplied driver outcome を照合する pure ledger boundary である。`GuiBareDisplayDriverState` は canonical memory state として `GuiBareDisplayMemoryState` を保持し、public value である `GuiBareDisplayMemoryStepApplied` をそのまま信用しない。
+
+`gui_bare_display_driver_apply` は driver state が保持する canonical memory state から supplied memory step の storage step を `gui_bare_display_memory_apply` で再適用する。expected memory state と supplied memory state が一致しない場合は `MemoryStepStateMismatch`、expected action と supplied action が一致しない場合は `MemoryStepActionMismatch` を返す。これにより stale / forged memory step は driver outcome matching へ進めない。
+
+driver outcome は `BeginAccepted`、`SpanWriteAccepted`、`FramePresentAccepted`、`DriverRejected` の enum で表す。`BeginAccepted` は target / descriptor / surface byte count、`SpanWriteAccepted` は target / span / run index / pixel range / row byte start / x byte offset / byte_start / byte_len / byte_end / surface byte count / color、`FramePresentAccepted` は target / descriptor / frame / run count / pixel count / surface byte count を持つ。selected memory action と outcome variant が合わない場合は `OutcomeActionMismatch`、payload が一致しない場合は field ごとの mismatch error を返す。`DriverRejected` は lower `GuiError` を保持し、fallback や silent no-op へ変換しない。
+
+F5fo は raw byte buffer ownership、actual hardware write、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fo の driver outcome ledger を実際の bare display driver adapter または formal host import と接続する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
