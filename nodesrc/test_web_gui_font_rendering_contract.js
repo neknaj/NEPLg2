@@ -240,6 +240,10 @@ const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
 const platformGuiHeadlessFacade = read("stdlib/platforms/gui/headless.nepl");
 const platformGuiHeadlessClock = read("stdlib/platforms/gui/headless/clock.nepl");
 const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
+const platformGuiNativeFacade = read("stdlib/platforms/gui/native.nepl");
+const platformGuiNativeClock = read("stdlib/platforms/gui/native/clock.nepl");
+const platformGuiNativeClockImpl = withoutComments(platformGuiNativeClock);
+const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -334,6 +338,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md");
 const guiPlatformWebClockTests = read("tests/stdlib/gui_platform_web_clock.n.md");
 const guiPlatformHeadlessClockTests = read("tests/stdlib/gui_platform_headless_clock.n.md");
+const guiPlatformNativeClockTests = read("tests/stdlib/gui_platform_native_clock.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25344,6 +25349,104 @@ assert(
         guiPlatformHeadlessClockTests.includes("forged consumed sample rejected") &&
         guiPlatformHeadlessClockTests.includes("forged end sample rejected"),
     "F5eq platform headless clock focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("Native formal monotonic clock source backend boundary") &&
+            doc.includes("F5er") &&
+            doc.includes("nepl_gui_native.monotonic_clock_ms") &&
+            doc.includes("Instant") &&
+            doc.includes("i32::MAX") &&
+            doc.includes("BackendFailure") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5er ${name} must document native monotonic clock source, i32 range failure, and forbidden fallbacks`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/clock" as @merge'),
+    "platforms/gui/native facade must export F5er native monotonic clock backend boundary",
+);
+assert(
+    platformGuiNativeClock.includes('#extern "nepl_gui_native" "monotonic_clock_ms" fn gui_native_monotonic_clock_ms_raw %impure fn void i32') &&
+        platformGuiNativeClock.includes("pub fn gui_native_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError"),
+    "platforms/gui/native/clock F5er must expose single i32 raw import and Result BackendClockSample wrapper",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeClockImpl, "gui_native_monotonic_clock_status_error"),
+    [
+        "if eq raw -1:",
+        "GuiError::Unsupported",
+        "GuiError::BackendFailure",
+    ],
+    "platforms/gui/native/clock F5er must map negative raw sentinel values explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeClockImpl, "gui_native_backend_clock_sample"),
+    [
+        "let raw %i32 gui_native_monotonic_clock_ms_raw",
+        "if lt raw 0:",
+        "Result::Err gui_native_monotonic_clock_status_error raw",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw",
+        "Result::Ok sample",
+        "Result::Err kind",
+        "Result::Err gui_native_backend_clock_sample_error kind",
+    ],
+    "platforms/gui/native/clock F5er wrapper must map sentinels before delegating to F5eo sample constructor",
+);
+assertNoMatch(
+    platformGuiNativeClockImpl,
+    /\b(?:Date|performance|setTimeout|setInterval|sleep|queue|stdout_protocol|polling|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|platforms\/gui\/web|platforms\/gui\/headless|platforms\/gui\/bare|fallback|silent no-op|while|clamp|round)\b/i,
+    "platforms/gui/native/clock F5er wrapper must not use fallback transports, timers, rendering APIs, queues, clamp, or round",
+);
+assertNoMatch(
+    platformGuiNativeClockImpl,
+    /_:|[()]/,
+    "platforms/gui/native/clock F5er implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    nativeGuiLib.includes("pub const GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS: u128 = 2_147_483_647;") &&
+        nativeGuiLib.includes("pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_UNSUPPORTED: i32 = -1;") &&
+        nativeGuiLib.includes("pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE: i32 = -2;") &&
+        nativeGuiLib.includes("pub fn native_monotonic_clock_ms_from_elapsed_ms(elapsed_ms: u128) -> i32") &&
+        nativeGuiLib.includes("pub fn native_monotonic_clock_ms_since(start: &Instant) -> i32"),
+    "nepl-gui-native F5er must expose native clock constants and Instant-backed helper",
+);
+const nativeGuiClockHelper = textSliceBetween(
+    nativeGuiLib,
+    "pub fn native_monotonic_clock_ms_from_elapsed_ms",
+    "impl FromStr for GuiDemo",
+);
+assertOrderedFragments(
+    nativeGuiClockHelper,
+    [
+        "if elapsed_ms > GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS",
+        "GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE",
+        "elapsed_ms as i32",
+        "native_monotonic_clock_ms_from_elapsed_ms(start.elapsed().as_millis())",
+    ],
+    "nepl-gui-native F5er helper must check i32 range before returning native elapsed milliseconds",
+);
+assertNoMatch(
+    nativeGuiClockHelper,
+    /saturating_|wrapping_|clamp|std::thread::sleep|sleep\(|SystemTime|UNIX_EPOCH|Date|performance|setTimeout|setInterval|queue|fallback|silent no-op/i,
+    "nepl-gui-native F5er clock helper must not wrap, clamp, sleep, use wall clock, or fallback",
+);
+assert(
+    guiPlatformNativeClockTests.includes("platform_native_clock_facade_ok") &&
+        guiPlatformNativeClockTests.includes("platform_native_clock_import_ok") &&
+        guiPlatformNativeClockTests.includes("platform_native_clock_sample_constructor_bridge_ok") &&
+        guiPlatformNativeClockTests.includes("platform_native_clock_negative_sentinel_result_ok") &&
+        guiPlatformNativeClockTests.includes("platform_native_clock_no_timer_queue_fallback") &&
+        guiPlatformNativeClockTests.includes("native_runner_clock_instant_i32_guard_ok"),
+    "F5er platform native clock focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

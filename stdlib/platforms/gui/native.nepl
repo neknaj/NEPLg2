@@ -1,0 +1,14 @@
+//: # platforms/gui/native
+//: Native GUI backend facade
+//:
+//: ### [目的/もくてき]
+//: - native GUI backend が提供する formal platform [境界/きょうかい]を公開します。
+//: - 現 checkpoint では monotonic clock source だけを公開し、window / present / scheduler backend は後続 slice に分けます。
+//:
+//: ### [注意/ちゅうい]
+//: - OS handle、minifb、AppKit、Win32、Wayland、X11 は public API に出しません。
+//: - fallback や silent no-op ではなく、unsupported / backend failure は `Result` へ写します。
+
+#indent 4
+
+pub #import "./native/clock" as @merge

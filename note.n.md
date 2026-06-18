@@ -1,3 +1,36 @@
+# 2026-06-18 Agent2 GUI platform F5er Native formal monotonic clock source backend boundary
+
+## 目的
+
+- F5ep Web clock source と F5eq Headless scripted clock source の後続として、native runtime の actual monotonic clock source を `platforms/gui/native` に追加する。
+- `nepl_gui_native.monotonic_clock_ms` の単一 `i32` ABI で native `Instant` 由来 sample を受け、negative sentinel を `GuiError` へ写してから F5eo `BackendClockSample` constructor を通す。
+- fallback、silent no-op、timer、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol は clock source として使わない。
+
+## subagent plan review
+
+- Euler は `PLAN_APPROVED` として、F5ep / F5eq の後続 slice として native actual clock source を追加する順序を承認した。
+- Rust `nepl-gui-native` 側では `Instant` だけを host boundary source とし、elapsed millisecond が `i32::MAX` を超える場合は wrap / clamp ではなく backend failure sentinel を返すことが必須とされた。
+- doctest runtime stub は import surface 検査だけのために使い、native runtime wiring の証拠として扱わないよう source policy と doc に固定した。
+
+## subagent implementation review
+
+- Euclid は `REVIEW_APPROVED` として blocker なしと判断した。
+- NEPL new native files に括弧 call と `_:` wildcard match がないこと、negative sentinel mapping、F5eo checked constructor delegation、Rust `Instant` helper の i32 range guard、no wrap / clamp / sleep / wall-clock、docs の pending scheduler / present / bare / real loop 分離が確認された。
+- review 側でも source policy、native platform behavior regression、focused doctests、`cargo test -p nepl-gui-native`、`git diff --check` の通過が確認された。
+
+## 実装内容
+
+- `stdlib/platforms/gui/native.nepl` と `stdlib/platforms/gui/native/clock.nepl` を追加した。
+- `nepl-gui-native/src/lib.rs` に native clock sentinel 定数と `Instant` 由来 elapsed millisecond の i32 range guard helper を追加した。
+- `nodesrc/run_test.js` に doctest runtime 用の `nepl_gui_native.monotonic_clock_ms` stub を追加した。
+- `tests/stdlib/gui_platform_native_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_native_gui_platform_behavior.js` に F5er source policy / native regression を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、native platform behavior notes、`todo.md` を更新した。
+
+## 未完了
+
+- F5er は native monotonic clock source までであり、bare actual clock source、native / bare scheduler backend、formal native present implementation、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI platform F5eq Headless scripted monotonic clock source backend boundary
 
 ## 目的
