@@ -48,6 +48,14 @@
 
 この helper は does not return Result である。理由は、general `LoopAction`、`YieldToClock`、`AwaitTimerAdvance`、`Complete` が public entry の型で除外され、unsupported operation を runtime 分岐で検出する必要がないためである。executor success / failure は caller supplied outcome の中身であり、この boundary は `Result::Ok unit` や `Result::Err GuiError::*` を合成しない。F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op には進まない。
 
+## F5fg Native presenter operation identity input boundary
+
+2026-06-18 の F5fg では、Native presenter operation identity input boundary を追加する。これは presenter-facing input boundary であり、not long-running scheduler backend である。F5ev is the scheduler step input boundary; F5fg is the native presenter-facing identity input boundary. F5fg は Native 専用の presenter-facing ready value を作るが、scheduler completion wrapping は F5ev に委譲する。
+
+`platforms/gui/native/presenter_input` は typed `ExecuteHostAction` だけを受ける。まず `execute_host_action_execute_ref` と `virtual_scheduler_execute_pending_ref` で action owner を消費せずに pending を読む。次に `turn_driver_pending_operation` で pending span operation identity を取り出し、`GuiNativePresenterInputOperationIdentity` に保持する。最後に original action と caller supplied `Result unit GuiError` outcome を `gui_native_scheduler_executor_input` に渡し、F5ev の `GuiNativeSchedulerExecutorInputReady` を保持する。
+
+operation identity は `WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` のいずれかであり、string tag や raw integer には落とさない。F5fg は backend execution、raw status mapping、scheduler step、queue、timer、window loop、minifb、Canvas、DOM、video memory、fallback、silent no-op を持たない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。F5ev で作った `GuiNativeSchedulerExecutorInputReady` / `GuiBareSchedulerExecutorInputReady` と borrowed F5ek `RealLoopStepPolicy` を受け、ready payload 内の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` へ包み、packaged input を F5ek `real_loop_step` へ渡す。

@@ -251,6 +251,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /previous frame/);
     assert.match(platformDoc, /Native window resize redraw checkpoint/);
     assert.match(platformDoc, /same width and height as the current drawable surface/);
+    assert.match(platformDoc, /Native presenter operation identity input checkpoint/);
+    assert.match(platformDoc, /F5ev is the scheduler step input boundary/);
+    assert.match(platformDoc, /gui_native_scheduler_executor_input/);
+    assert.match(platformDoc, /WindowBegin/);
+    assert.match(platformDoc, /DeviceEnd/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -258,9 +263,11 @@ function runNativeGuiPlatformBehaviorRegression() {
 
     assert.match(implementationPlan, /native platform behavior checkpoint/);
     assert.match(implementationPlan, /macOS AppKit、Windows Win32、Linux Wayland \/ X11/);
+    assert.match(implementationPlan, /native presenter operation identity input boundary/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
+    assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
 
     assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
@@ -285,6 +292,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native window presenter state keeps resize and frame ownership explicit",
             "Native smoke runner presents and hit-tests through NativeWindowPresenterState",
             "Native smoke runner redraws exact-size buffers after resize",
+            "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };
