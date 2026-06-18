@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI platform F5fx Bare display operation-to-driver-adapter bridge
+
+## scope
+
+- F5fw Bare display hardware flush accepted boundary の後続として、bare display operation-to-driver-adapter bridge を追加した。
+- F5fx は owner + `GuiRgba8888RowTileRlePresentHostSpanOperation` だけを public input authority とし、owner canonical state から framebuffer / storage / memory validation を通して actual display driver adapter へ 1 step 渡す。
+- public `StepApplied` value、driver outcome、raw storage、`RegionToken`、`MemPtr` は public input authority にしない。
+- F5fx は long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、hardware flush、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- James the 2nd の plan review は `PLAN_APPROVED`。owner accessor 経由で canonical state を復元し、`framebuffer -> storage -> memory -> driver_adapter` の順に進めるなら Zenn / doc 方針に合うと確認された。
+- Carver the 2nd の plan review は `PLAN_CHANGES`。public API authority を owner + operation に限定すること、全 lower failure の owner-bearing recovery、host side effect rollback を過剰主張しないこと、owner-bearing completed / error payload を Clone / Copy にしないことが必須条件として指摘された。
+- 指摘に従い、module 名を `display_operation_driver_bridge` とし、operation enum 全体を扱うこと、adapter failure では lower adapter error の owner recovery に従うこと、host side effect rollback を主張しないことを docs / implementation に反映した。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl` を追加し、sealed `GuiBareDisplayOperationDriverBridgeCompleted` と owner-bearing lower error variants を定義した。
+- `gui_bare_display_operation_driver_bridge_step` は owner から `GuiBareDisplayDriverState`、`GuiBareDisplayMemoryState`、`GuiBareDisplayStorageState`、`GuiBareFramebufferState` を復元し、`gui_bare_framebuffer_validate_operation`、`gui_bare_display_storage_apply`、`gui_bare_display_memory_apply`、`gui_bare_display_driver_adapter_step` の順で処理する。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5fx に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl --no-tree -o tmp_gui_bare_display_operation_driver_bridge_module_f5fx.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_operation_driver_bridge.n.md --no-tree -o tmp_gui_platform_bare_display_operation_driver_bridge_f5fx.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は 184 秒の local timeout に到達した。今回追加した GUI/font contract は直接 `node nodesrc/test_web_gui_font_rendering_contract.js` で pass している。
+
+## subagent_review
+
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。public entry authority、canonical state derivation、validation-before-adapter、raw step / raw storage input 不在、owner recovery、private seal、no rollback claim が確認された。
+- James the 2nd implementation review は初回 `REQUIRED_CHANGES`。`note.n.md` の verification が pending のままである点が blocker として指摘された。
+- 指摘に従い verification_current を実行済み command へ更新した後、James the 2nd の再レビューは `APPROVED_TO_COMMIT` となった。
+
+## remaining
+
+- F5fx は operation-to-driver-adapter bridge までであり、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fw Bare display hardware flush accepted boundary
 
 ## scope

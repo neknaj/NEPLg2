@@ -286,6 +286,8 @@ const platformGuiBareDisplayMemorySpanReadback = read("stdlib/platforms/gui/bare
 const platformGuiBareDisplayMemorySpanReadbackImpl = withoutComments(platformGuiBareDisplayMemorySpanReadback);
 const platformGuiBareDisplayDriverAdapter = read("stdlib/platforms/gui/bare/display_driver_adapter.nepl");
 const platformGuiBareDisplayDriverAdapterImpl = withoutComments(platformGuiBareDisplayDriverAdapter);
+const platformGuiBareDisplayOperationDriverBridge = read("stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl");
+const platformGuiBareDisplayOperationDriverBridgeImpl = withoutComments(platformGuiBareDisplayOperationDriverBridge);
 const platformGuiBareDisplayPresentReadiness = read("stdlib/platforms/gui/bare/display_present_readiness.nepl");
 const platformGuiBareDisplayPresentReadinessImpl = withoutComments(platformGuiBareDisplayPresentReadiness);
 const platformGuiBareDisplaySurfaceReadiness = read("stdlib/platforms/gui/bare/display_surface_readiness.nepl");
@@ -411,6 +413,7 @@ const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platfor
 const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_bare_display_memory_owner.n.md");
 const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
 const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
+const guiPlatformBareDisplayOperationDriverBridgeTests = read("tests/stdlib/gui_platform_bare_display_operation_driver_bridge.n.md");
 const guiPlatformBareDisplayPresentReadinessTests = read("tests/stdlib/gui_platform_bare_display_present_readiness.n.md");
 const guiPlatformBareDisplaySurfaceReadinessTests = read("tests/stdlib/gui_platform_bare_display_surface_readiness.n.md");
 const guiPlatformBareDisplayFlushCompletionTests = read("tests/stdlib/gui_platform_bare_display_flush_completion.n.md");
@@ -27910,6 +27913,111 @@ assert(
         "platform_bare_display_surface_readiness_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplaySurfaceReadinessTests.includes(label)),
     "F5fv platform bare display surface readiness focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fx Bare display operation-to-driver-adapter bridge") &&
+        guiStandardLibrarySpec.includes("display_operation_driver_bridge") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayOperationDriverBridgeCompleted") &&
+        guiStandardLibrarySpec.includes("owner + `GuiRgba8888RowTileRlePresentHostSpanOperation`") &&
+        barePlatformBehaviorDoc.includes("F5fx") &&
+        barePlatformBehaviorDoc.includes("Bare display operation-to-driver-adapter bridge") &&
+        barePlatformBehaviorDoc.includes("host side effect rollback"),
+    "F5fx docs must describe owner plus operation authority, bridge scope, and non-rollback contract",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_operation_driver_bridge" as @merge'),
+    "platforms/gui/bare facade must export F5fx display operation driver bridge boundary",
+);
+assert(
+    platformGuiBareDisplayOperationDriverBridge.includes("Bare display operation-to-driver-adapter bridge") &&
+        platformGuiBareDisplayOperationDriverBridge.includes("GuiRgba8888RowTileRlePresentHostSpanOperation") &&
+        platformGuiBareDisplayOperationDriverBridge.includes("host side effect") &&
+        platformGuiBareDisplayOperationDriverBridge.includes("rollback") &&
+        platformGuiBareDisplayOperationDriverBridge.includes("fallback") &&
+        platformGuiBareDisplayOperationDriverBridge.includes("silent no-op"),
+    "platforms/gui/bare/display_operation_driver_bridge F5fx must document operation authority, owner recovery, and non-goals",
+);
+assert(
+    platformGuiBareDisplayOperationDriverBridgeImpl.includes("struct GuiBareDisplayOperationDriverBridgeCompletedSeal") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("pub struct GuiBareDisplayOperationDriverBridgeCompleted") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("adapter_completed %GuiBareDisplayDriverAdapterCompleted") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("seal %GuiBareDisplayOperationDriverBridgeCompletedSeal") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("pub enum GuiBareDisplayOperationDriverBridgeError") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("AdapterFailed %GuiBareDisplayOperationDriverBridgeAdapterError") &&
+        platformGuiBareDisplayOperationDriverBridgeImpl.includes("pub fn gui_bare_display_operation_driver_bridge_step"),
+    "platforms/gui/bare/display_operation_driver_bridge F5fx must expose sealed completed, typed errors, and public bridge entry",
+);
+assertNoMatch(
+    platformGuiBareDisplayOperationDriverBridgeImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayOperationDriverBridge(?:Completed|FramebufferError|StorageError|MemoryError|AdapterError|Error)\b/,
+    "platforms/gui/bare/display_operation_driver_bridge F5fx owner-bearing completed/error values must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayOperationDriverBridgeImpl,
+    /pub fn gui_bare_display_operation_driver_bridge_step[^\n]*(?:GuiBareFramebufferState|GuiBareDisplayStorageState|GuiBareDisplayMemoryState|GuiBareFramebufferStepApplied|GuiBareDisplayStorageStepApplied|GuiBareDisplayMemoryStepApplied|GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_operation_driver_bridge F5fx public API must not accept raw state, raw step, raw storage, or forgeable driver authority",
+);
+assertNoMatch(
+    platformGuiBareDisplayOperationDriverBridgeImpl,
+    /pub\s+(?:struct|fn)[^\n]*GuiBareDisplayOperationDriverBridgeCompletedSeal/,
+    "platforms/gui/bare/display_operation_driver_bridge F5fx completed seal must remain module-private",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayOperationDriverBridgeImpl, "gui_bare_display_operation_driver_bridge_step"),
+    [
+        "gui_bare_display_operation_driver_bridge_framebuffer_state &owner",
+        "gui_bare_framebuffer_validate_operation framebuffer_state operation",
+        "Result::Err framebuffer_error",
+        "gui_bare_display_operation_driver_bridge_framebuffer_error_new owner operation framebuffer_error",
+        "gui_bare_display_operation_driver_bridge_storage_state &owner",
+        "gui_bare_display_storage_apply storage_state framebuffer_step",
+        "Result::Err storage_error",
+        "gui_bare_display_operation_driver_bridge_storage_error_new owner operation storage_error",
+        "gui_bare_display_operation_driver_bridge_memory_state &owner",
+        "gui_bare_display_memory_apply memory_state storage_step",
+        "Result::Err memory_error",
+        "gui_bare_display_operation_driver_bridge_memory_error_new owner operation memory_error",
+        "gui_bare_display_driver_adapter_step owner memory_step",
+        "Result::Err adapter_error",
+        "gui_bare_display_operation_driver_bridge_adapter_error_new operation adapter_error",
+        "Result::Ok adapter_completed",
+        "gui_bare_display_operation_driver_bridge_completed_new operation adapter_completed",
+    ],
+    "platforms/gui/bare/display_operation_driver_bridge F5fx must validate framebuffer/storage/memory before host adapter and preserve owner recovery",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayOperationDriverBridgeImpl, "gui_bare_display_operation_driver_bridge_framebuffer_state"),
+    [
+        "gui_bare_display_memory_owner_driver_state owner",
+        "gui_bare_display_driver_state_memory_state &driver_state",
+        "gui_bare_display_memory_state_storage_state &memory_state",
+        "gui_bare_display_storage_state_framebuffer_state &storage_state",
+    ],
+    "platforms/gui/bare/display_operation_driver_bridge F5fx must recover framebuffer state through owner canonical state accessors",
+);
+assertNoMatch(
+    platformGuiBareDisplayOperationDriverBridgeImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|surface_ready|display_hardware_flush|fallback|silent)\b/i,
+    "platforms/gui/bare/display_operation_driver_bridge F5fx must not implement loops, renderers, old transports, flush, fallback, or silent no-op",
+);
+assertNoMatch(
+    platformGuiBareDisplayOperationDriverBridgeImpl,
+    /[()]|>=/,
+    "platforms/gui/bare/display_operation_driver_bridge F5fx implementation must avoid parentheses and >= in NEPL body",
+);
+assert(
+    [
+        "platform_bare_display_operation_driver_bridge_facade_ok",
+        "platform_bare_display_operation_driver_bridge_import_create_free_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_owner_operation_authority_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_validation_before_host_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_owner_error_recovery_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_adapter_error_recovery_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_completed_seal_ok",
+        "platform_bare_display_operation_driver_bridge_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_operation_driver_bridge_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayOperationDriverBridgeTests.includes(label)),
+    "F5fx platform bare display operation driver bridge focused doctest must cover executable and source-policy labels",
 );
 assert(
     guiStandardLibrarySpec.includes("## F5fw Bare display hardware flush accepted boundary") &&
