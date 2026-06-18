@@ -1,3 +1,53 @@
+# 2026-06-18 Agent2 GUI font F5ec std deterministic virtual scheduler bounded drain boundary
+
+## scope
+
+- F5eb deterministic virtual scheduler single-step boundary を `max_advance_count` で bounded に消費する drain boundary を std layer に追加する。
+- zero budget は F5eb step を呼ばず `BudgetExhausted` terminal として返す。
+- `Advanced` だけが budget を消費し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は remaining count を保持して外側 authority へ返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、`Advanced state remaining_count` のような曖昧 terminal ではなく `BudgetExhausted state remaining_count` を明示すること、zero budget では F5eb step を呼ばないこと、`StepFailed` は F5eb lower error だけを保持することだった。
+- revised plan では `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` にし、positive budget helper だけが F5eb step を呼ぶ形にした。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl` を追加した。
+- drain policy は F5eb step policy と `max_advance_count` だけを保持し、dynamic timer state や backend handle を持たない。
+- `max_advance_count` は construction と drain entry の両方で 0 以上に検査する。
+- zero budget は `BudgetExhausted` を返し、F5eb step を呼ばない。
+- `Advanced` だけが budget を 1 消費し、blocked / completed terminal は remaining count を保持して返る。
+- `StepFailed` は lower F5eb error だけを保持し、original state を重複保持しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、docs、source policy を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ec focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md`。
+- pass: F5ec module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl`。
+- pass: F5eb regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- code / source policy / docs / tests は F5ec contract と整合しており、Zenn 方針、typed terminal、zero-budget no-step、lower-only error、no fallback、no silent no-op、layering の content blocker は見つからなかった。
+- procedural 指摘として、この note 更新と、新規 F5ec module / focused doctest を commit 対象へ含めること、`NUL` と古い `tmp_*` を stage しないことが挙げられた。
+- この note 更新後、意図した 13 file だけを stage する。
+- Cicero follow-up review は `REVIEW_APPROVED`。staged set は意図した 13 file のみで、`git diff --cached --check` は clean、残 blocker はない。
+
+## remaining
+
+- F5ec は bounded drain boundary までであり、timer advance event injection、executor completion、real scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5eb std deterministic virtual scheduler single step boundary
 
 ## scope

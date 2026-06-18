@@ -1434,6 +1434,52 @@ subagent review:
 - revised plan では single-step boundary と blocked result を明示し、Cicero revised plan review は `PLAN_APPROVED`。
 - 実装後に、Turn path authority order、blocked branch no backend / queue calls、owner recovery、no wildcard、no fallback を確認させる。
 
+## Phase F5ec: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary
+
+目的:
+
+- F5eb step boundary を `max_advance_count` で bounded に消費する std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary を追加する。
+- zero budget を implicit success にせず `BudgetExhausted` terminal として返し、test / headless runtime が no-progress を明示的に扱えるようにする。
+- `BlockedWaitingTimer`、`BlockedExecute`、`Completed` を budget 消費なしの terminal として返し、timer advance / executor completion / actual scheduler loop は後続 authority に残す。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy` は F5eb step policy と `max_advance_count` だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` は `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+- `max_advance_count` は policy construction と drain entry の両方で 0 以上に検査する。
+- drain helper は positive budget の場合だけ F5eb step を呼び、`Advanced` だけで budget を 1 消費する。
+- `StepFailed` は F5eb lower error だけを保持し、original state を重複保持しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md` を追加し、facade、policy validation、budget exhausted terminal、zero budget no step、step failed lower only、blocked remaining count、no wildcard、no backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ec source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler loop、timeslice backend、native / bare / headless backend、platform timer backend は実装しない。
+- DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op を std boundary に入れない。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_f5ec.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_module_f5ec.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_f5ec_regression.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Cicero に F5ec 実装計画を渡し、budget terminal、zero-budget no step、F5eb lower-only error、blocked remaining count、no backend / no queue / no fallback の観点で確認させる。
+- 実装後に、helper だけが positive budget で F5eb step を呼ぶこと、policy revalidation、source policy と focused doctest label が一致していることを確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

@@ -39,6 +39,24 @@ function textSliceBetween(text, startMarker, endMarker) {
     return text.slice(start, end);
 }
 
+function functionSlice(source, name) {
+    const start = source.indexOf(`fn ${name} `);
+    if (start < 0) {
+        return "";
+    }
+    const candidates = [
+        source.indexOf("\nfn ", start + 1),
+        source.indexOf("\npub fn ", start + 1),
+        source.indexOf("\nstruct ", start + 1),
+        source.indexOf("\nenum ", start + 1),
+        source.indexOf("\npub struct ", start + 1),
+        source.indexOf("\npub enum ", start + 1),
+        source.indexOf("\nimpl ", start + 1),
+    ].filter((index) => index >= 0);
+    const next = candidates.length === 0 ? -1 : Math.min(...candidates);
+    return next < 0 ? source.slice(start) : source.slice(start, next);
+}
+
 const spec = read("doc/neplg2/gui_redesign_spec.md");
 const detailedDesign = read("doc/neplg2/gui_redesign_detailed_design.md");
 const implementationPlan = read("doc/neplg2/gui_redesign_implementation_plan.md");
@@ -54,12 +72,15 @@ const turnVirtualScheduler = read("stdlib/std/gui/tile_present_host_span_operati
 const turnVirtualSchedulerImpl = withoutComments(turnVirtualScheduler);
 const turnVirtualSchedulerStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl");
 const turnVirtualSchedulerStepImpl = withoutComments(turnVirtualSchedulerStep);
+const turnVirtualSchedulerDrain = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl");
+const turnVirtualSchedulerDrainImpl = withoutComments(turnVirtualSchedulerDrain);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
 const guiStdTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
 const guiStdTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
 const guiStdTurnVirtualSchedulerStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md");
+const guiStdTurnVirtualSchedulerDrainTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md");
 
 assertMatch(
     spec,
@@ -105,6 +126,11 @@ assertMatch(
     implementationPlan,
     /Phase 5\.5:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step\.n\.md/,
     "implementation plan must track the virtual scheduler single-step implementation slice",
+);
+assertMatch(
+    implementationPlan,
+    /Phase 5\.6:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain\.nepl[\s\S]*GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult/,
+    "implementation plan must track the virtual scheduler bounded-drain implementation slice",
 );
 
 assertMatch(
@@ -303,6 +329,52 @@ assertNoMatch(
     /[()]/,
     "std/gui turn virtual scheduler step implementation must preserve NEPL prefix style without parentheses",
 );
+assertNoMatch(
+    textSliceBetween(
+        turnVirtualSchedulerDrainImpl,
+        "pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy:",
+        "pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind:",
+    ),
+    /GuiVirtualTimerState/,
+    "std/gui turn virtual scheduler drain policy must not hold dynamic timer state",
+);
+assertMatch(
+    turnVirtualSchedulerDrainImpl,
+    /pub\s+enum\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult:[\s\S]*BudgetExhausted[\s\S]*BlockedWaitingTimer[\s\S]*BlockedExecute[\s\S]*Completed/,
+    "std/gui turn virtual scheduler drain must expose explicit budget and blocked terminal results",
+);
+const drainPublic = functionSlice(turnVirtualSchedulerDrainImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain");
+const drainRemaining = functionSlice(turnVirtualSchedulerDrainImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_remaining");
+assertMatch(
+    drainPublic,
+    /drain_validate_max_advance_count\s+max_advance_count[\s\S]*PolicyInvalid[\s\S]*drain_remaining\s+policy\s+state\s+count/,
+    "std/gui turn virtual scheduler drain must revalidate max_advance_count before calling the helper",
+);
+assertMatch(
+    drainRemaining,
+    /if\s+le\s+remaining_count\s+0:[\s\S]*BudgetExhausted[\s\S]*virtual_scheduler_step\s+step_policy\s+state[\s\S]*StepFailed[\s\S]*Advanced\s+next_state:[\s\S]*next_remaining_count\s+%i32\s+sub\s+remaining_count\s+1[\s\S]*BlockedWaitingTimer[\s\S]*BlockedExecute[\s\S]*Completed/,
+    "std/gui turn virtual scheduler drain helper must return budget terminal before step and preserve blocked terminal order",
+);
+assertNoMatch(
+    drainPublic,
+    /\bvirtual_scheduler_step\b/,
+    "std/gui turn virtual scheduler public drain must not call F5eb step before positive-budget helper",
+);
+assertNoMatch(
+    turnVirtualSchedulerDrainImpl,
+    /_:/,
+    "std/gui turn virtual scheduler drain must not use wildcard matches",
+);
+assertNoMatch(
+    turnVirtualSchedulerDrainImpl,
+    /\b(?:while|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui turn virtual scheduler drain must not loop, timeslice, call backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    turnVirtualSchedulerDrainImpl,
+    /[()]/,
+    "std/gui turn virtual scheduler drain implementation must preserve NEPL prefix style without parentheses",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -333,6 +405,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step"\s+as\s+\*/,
     "std/gui facade must re-export the virtual scheduler single-step contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler bounded drain contract",
 );
 assertMatch(
     guiStdTests,
@@ -368,6 +445,11 @@ assertMatch(
     guiStdTurnVirtualSchedulerStepTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_no_dynamic_timer_state_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_result_blocked_phase_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_exact_authority_order_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_no_loop_timeslice_backend_queue_fallback/,
     "std/gui turn virtual scheduler step focused doctest must cover policy, blocked result, Turn path order, and no backend/queue/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerDrainTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_max_advance_count_validation_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_budget_exhausted_terminal_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_zero_budget_no_step_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_no_backend_queue_fallback/,
+    "std/gui turn virtual scheduler drain focused doctest must cover budget validation, zero-budget terminal, and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");

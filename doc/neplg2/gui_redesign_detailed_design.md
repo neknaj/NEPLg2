@@ -258,6 +258,10 @@ F5eb の std layer row tile RLE present host span operation presenter executor s
 
 `WaitingTimer`、`Execute`、`Completed` は F5eb 内で queue、backend、executor、platform API へ進まない。`WaitingTimer` は `BlockedWaitingTimer`、`Execute` は `BlockedExecute` として返し、real scheduler loop / timeslice policy / headless app-loop integration が次の authority として処理する。poll failure と scheduler decision failure は current `GuiVirtualTimerState` を失わず、timer decision failure は F5ea lower owner-bearing error を保持する。F5eb は loop drain、timeslice budget、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
+F5ec の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary は、F5eb step を `max_advance_count` で bounded に消費する境界である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy` は F5eb step policy と `max_advance_count` だけを保持し、dynamic timer state、backend handle、queue owner を持たない。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` は `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+
+`max_advance_count` は construction と drain entry の両方で 0 以上に検査する。0 は step を呼ばない `BudgetExhausted` であり、test / headless runtime が no-progress を明示的に扱うための terminal である。`Advanced` だけが budget を 1 消費し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は budget を消費せずに外側 authority へ返る。`StepFailed` は F5eb lower error だけを保持し、original state を重複保持しない。F5ec は timer advance、executor completion、real scheduler loop、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。

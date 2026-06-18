@@ -468,6 +468,33 @@ Subagent review:
 - revised plan では single-step boundary と blocked result を明示し、Cicero revised plan review は `PLAN_APPROVED`。
 - 実装後に、Turn path の正確な順序、blocked branch で backend / queue を呼ばないこと、owner-bearing error が保たれることを確認させる。
 
+## Phase 5.6: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary
+
+目的:
+
+- F5eb single-step boundary を `max_advance_count` で bounded に消費し、headless / offscreen test や後続 real scheduler loop が no-progress terminal を型で扱えるようにする。
+- zero budget を F5eb step 呼び出しなしの `BudgetExhausted` として固定する。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy` は step policy と `max_advance_count` だけを持つ。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` は `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+- `Advanced` だけが budget を消費し、blocked / completed terminal は remaining count を保持して返る。
+- `StepFailed` は lower F5eb error だけを保持する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.6 / F5ec source policy を追加する。
+
+完了条件:
+
+- zero budget は F5eb step を呼ばず `BudgetExhausted` を返す。
+- negative `max_advance_count` は construction と drain entry の両方で拒否される。
+- F5ec は timer advance、executor completion、backend timer、queue drain、DOM / Canvas / minifb、video memory、fallback、silent no-op を含まない。
+
+subagent review:
+
+- Cicero に F5ec 実装計画を渡し、budget terminal、blocked remaining count、lower-only error、no backend / no queue / no fallback の観点で確認させる。
+- 実装後に、source policy と focused doctest が Phase 5.6 の contract を検査していることを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -555,9 +582,9 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.5 の deterministic virtual scheduler single step boundary までを現在の checkpoint とする。次の再開 target は、F5eb step result を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
+Phase 5.6 の deterministic virtual scheduler bounded drain boundary までを現在の checkpoint とする。次の再開 target は、F5ec drain result を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
 
-- scheduler loop は F5eb の `Advanced` / `BlockedWaitingTimer` / `BlockedExecute` / `Completed` result を明示的に進める必要がある。
+- scheduler loop は F5ec の `BudgetExhausted` / `BlockedWaitingTimer` / `BlockedExecute` / `Completed` result を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
 - timeslice policy は `Yield` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
