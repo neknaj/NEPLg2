@@ -288,6 +288,8 @@ const platformGuiBareDisplayDriverAdapter = read("stdlib/platforms/gui/bare/disp
 const platformGuiBareDisplayDriverAdapterImpl = withoutComments(platformGuiBareDisplayDriverAdapter);
 const platformGuiBareDisplayOperationDriverBridge = read("stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl");
 const platformGuiBareDisplayOperationDriverBridgeImpl = withoutComments(platformGuiBareDisplayOperationDriverBridge);
+const platformGuiBareDisplayPresenterInput = read("stdlib/platforms/gui/bare/display_presenter_input.nepl");
+const platformGuiBareDisplayPresenterInputImpl = withoutComments(platformGuiBareDisplayPresenterInput);
 const platformGuiBareDisplayPresentReadiness = read("stdlib/platforms/gui/bare/display_present_readiness.nepl");
 const platformGuiBareDisplayPresentReadinessImpl = withoutComments(platformGuiBareDisplayPresentReadiness);
 const platformGuiBareDisplaySurfaceReadiness = read("stdlib/platforms/gui/bare/display_surface_readiness.nepl");
@@ -414,6 +416,7 @@ const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_b
 const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
 const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
 const guiPlatformBareDisplayOperationDriverBridgeTests = read("tests/stdlib/gui_platform_bare_display_operation_driver_bridge.n.md");
+const guiPlatformBareDisplayPresenterInputTests = read("tests/stdlib/gui_platform_bare_display_presenter_input.n.md");
 const guiPlatformBareDisplayPresentReadinessTests = read("tests/stdlib/gui_platform_bare_display_present_readiness.n.md");
 const guiPlatformBareDisplaySurfaceReadinessTests = read("tests/stdlib/gui_platform_bare_display_surface_readiness.n.md");
 const guiPlatformBareDisplayFlushCompletionTests = read("tests/stdlib/gui_platform_bare_display_flush_completion.n.md");
@@ -28018,6 +28021,101 @@ assert(
         "platform_bare_display_operation_driver_bridge_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplayOperationDriverBridgeTests.includes(label)),
     "F5fx platform bare display operation driver bridge focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fy Bare display presenter input boundary") &&
+        guiStandardLibrarySpec.includes("display_presenter_input") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayPresenterInputReady") &&
+        guiStandardLibrarySpec.includes("`GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction`") &&
+        barePlatformBehaviorDoc.includes("F5fy") &&
+        barePlatformBehaviorDoc.includes("Bare display presenter input boundary") &&
+        barePlatformBehaviorDoc.includes("category が無い bridge failure"),
+    "F5fy docs must describe bare display presenter input authority, category handling, and scheduler input boundary",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_presenter_input" as @merge'),
+    "platforms/gui/bare facade must export F5fy display presenter input boundary",
+);
+assert(
+    platformGuiBareDisplayPresenterInput.includes("Bare display presenter input boundary") &&
+        platformGuiBareDisplayPresenterInput.includes("GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayPresenterInput.includes("ExecuteHostAction") &&
+        platformGuiBareDisplayPresenterInput.includes("gui_bare_display_operation_driver_bridge_step") &&
+        platformGuiBareDisplayPresenterInput.includes("gui_bare_scheduler_executor_input") &&
+        platformGuiBareDisplayPresenterInput.includes("category") &&
+        platformGuiBareDisplayPresenterInput.includes("fallback") &&
+        platformGuiBareDisplayPresenterInput.includes("silent no-op"),
+    "platforms/gui/bare/display_presenter_input F5fy must document owner/action authority, F5fx bridge, category handling, and non-goals",
+);
+assertMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /pub fn gui_bare_display_presenter_input %impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction Result GuiBareDisplayPresenterInputReady GuiBareDisplayPresenterInputError/,
+    "platforms/gui/bare/display_presenter_input F5fy public entry must accept exactly bare owner plus ExecuteHostAction",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /pub fn gui_bare_display_presenter_input %impure fn[^\n]*(?:LoopAction(?!ExecuteHostAction)|VirtualSchedulerCompleted|GuiRgba8888RowTileRlePresentHostSpanOperation\s|GuiBareFramebufferState|GuiBareDisplayStorageState|GuiBareDisplayMemoryState|GuiBareFramebufferStepApplied|GuiBareDisplayStorageStepApplied|GuiBareDisplayMemoryStepApplied|GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|RegionToken|MemPtr|host_status|status %i32|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_presenter_input F5fy public API must not accept general loop actions, raw operations, raw state, raw steps, host status, or raw storage",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayPresenterInputImpl, "gui_bare_display_presenter_input"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute_ref &action",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending_ref execute",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation pending",
+        "gui_bare_display_operation_driver_bridge_step owner operation",
+        "Result::Err bridge_error",
+        "gui_bare_display_presenter_input_failure_from_bridge action bridge_error",
+        "Result::Ok bridge_completed",
+        "Result::Ok unit",
+        "gui_bare_scheduler_executor_input action outcome",
+    ],
+    "platforms/gui/bare/display_presenter_input F5fy must read pending operation before action consumption, call F5fx once, and reuse scheduler input",
+);
+assertMatch(
+    functionSlice(platformGuiBareDisplayPresenterInputImpl, "gui_bare_display_presenter_input_failure_from_category"),
+    /Option::None[\s\S]*gui_bare_display_presenter_input_bridge_failed_missing_category_new action bridge_error[\s\S]*Option::Some gui_error[\s\S]*Result::Err gui_error[\s\S]*gui_bare_scheduler_executor_input action outcome/,
+    "platforms/gui/bare/display_presenter_input F5fy must preserve action on missing category and only package scheduler ready for category-bearing failures",
+);
+assert(
+    (functionSlice(platformGuiBareDisplayPresenterInputImpl, "gui_bare_display_presenter_input").match(/gui_bare_display_operation_driver_bridge_step/g) || []).length === 1,
+    "platforms/gui/bare/display_presenter_input F5fy public entry must call F5fx bridge exactly once",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /RealLoopStepInput::ExecutorOutcome|#extern|display_presenter_session|display_driver_begin|display_driver_span_write|display_driver_frame_present/,
+    "platforms/gui/bare/display_presenter_input F5fy must not reimplement real loop input wrapping or call host imports directly",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /\b(?:LoopAction::YieldToClock|LoopAction::AwaitTimerAdvance|LoopAction::Complete|ClockDelta|CompleteAck|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|surface_ready|display_hardware_flush|rollback|fallback|silent)\b/i,
+    "platforms/gui/bare/display_presenter_input F5fy must not implement loops, timers, renderers, flush, rollback, fallback, or silent no-op",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayPresenterInput(?:Ready|BridgeFailedReady|BridgeFailedMissingCategory|Error)\b/,
+    "platforms/gui/bare/display_presenter_input F5fy owner/action-bearing ready/error values must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayPresenterInputImpl,
+    /[()]|>=/,
+    "platforms/gui/bare/display_presenter_input F5fy implementation must avoid parentheses and >= in NEPL body",
+);
+assert(
+    [
+        "platform_bare_display_presenter_input_facade_ok",
+        "platform_bare_display_presenter_input_import_create_free_ok",
+        "platform_bare_display_presenter_input_execute_only_ok",
+        "platform_bare_display_presenter_input_owner_action_authority_ok",
+        "platform_bare_display_presenter_input_borrowed_operation_before_action_consumption_ok",
+        "platform_bare_display_presenter_input_calls_f5fx_once_ok",
+        "platform_bare_display_presenter_input_reuses_scheduler_input_ok",
+        "platform_bare_display_presenter_input_category_missing_preserves_action_ok",
+        "platform_bare_display_presenter_input_no_raw_state_public_api_ok",
+        "platform_bare_display_presenter_input_no_direct_host_import_ok",
+        "platform_bare_display_presenter_input_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayPresenterInputTests.includes(label)),
+    "F5fy platform bare display presenter input focused doctest must cover executable and source-policy labels",
 );
 assert(
     guiStandardLibrarySpec.includes("## F5fw Bare display hardware flush accepted boundary") &&

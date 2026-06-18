@@ -1,0 +1,175 @@
+//: # platforms/gui/bare/display_presenter_input
+//: Bare display presenter input boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fy Bare display presenter input boundary として、typed `ExecuteHostAction` と bare display memory owner を F5fx operation-to-driver-adapter bridge へ[接続/せつぞく]します。
+//: - scheduler action を[消費/しょうひ]する[前/まえ]に pending span operation identity を borrowed accessor で[読/よ]み、actual display driver bridge の[結果/けっか]を scheduler outcome input へ[戻/もど]します。
+//:
+//: ### [契約/けいやく]
+//: - public input authority は `GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction` だけです。
+//: - general `LoopAction`、scheduler completed payload、raw operation、framebuffer / storage / memory state、host status は[受/う]け[取/と]りません。
+//: - F5fx bridge を 1 [回/かい]だけ[呼/よ]び、success は `Result::Ok unit`、category 付き failure は `Result::Err GuiError` として `gui_bare_scheduler_executor_input` へ[渡/わた]します。
+//: - category が[無/な]い bridge failure では scheduler ready を[作/つく]らず、original action と lower bridge error を[保持/ほじ]します。
+//: - direct host import、long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、host side effect rollback claim は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_presenter_input" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/display_operation_driver_bridge" as *
+#import "platforms/gui/bare/scheduler_executor_input" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+
+pub struct GuiBareDisplayPresenterInputOperationIdentity:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+impl Clone for GuiBareDisplayPresenterInputOperationIdentity:
+    fn clone %fn &GuiBareDisplayPresenterInputOperationIdentity GuiBareDisplayPresenterInputOperationIdentity \identity:
+        *identity
+
+impl Copy for GuiBareDisplayPresenterInputOperationIdentity:
+    fn copy_mark %fn GuiBareDisplayPresenterInputOperationIdentity GuiBareDisplayPresenterInputOperationIdentity \identity:
+        identity
+
+pub struct GuiBareDisplayPresenterInputReady:
+    operation_identity %GuiBareDisplayPresenterInputOperationIdentity
+    bridge_completed %GuiBareDisplayOperationDriverBridgeCompleted
+    scheduler_ready %GuiBareSchedulerExecutorInputReady
+
+pub struct GuiBareDisplayPresenterInputBridgeFailedReady:
+    bridge_error %GuiBareDisplayOperationDriverBridgeError
+    scheduler_ready %GuiBareSchedulerExecutorInputReady
+
+pub struct GuiBareDisplayPresenterInputBridgeFailedMissingCategory:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction
+    bridge_error %GuiBareDisplayOperationDriverBridgeError
+
+pub enum GuiBareDisplayPresenterInputError:
+    BridgeFailedReady %GuiBareDisplayPresenterInputBridgeFailedReady
+    BridgeFailedMissingCategory %GuiBareDisplayPresenterInputBridgeFailedMissingCategory
+
+fn gui_bare_display_presenter_input_operation_identity_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiBareDisplayPresenterInputOperationIdentity \operation:
+    GuiBareDisplayPresenterInputOperationIdentity operation
+
+fn gui_bare_display_presenter_input_ready_new %fn GuiBareDisplayPresenterInputOperationIdentity fn GuiBareDisplayOperationDriverBridgeCompleted fn GuiBareSchedulerExecutorInputReady GuiBareDisplayPresenterInputReady \operation_identity\bridge_completed\scheduler_ready:
+    GuiBareDisplayPresenterInputReady operation_identity bridge_completed scheduler_ready
+
+fn gui_bare_display_presenter_input_bridge_failed_ready_new %fn GuiBareDisplayOperationDriverBridgeError fn GuiBareSchedulerExecutorInputReady GuiBareDisplayPresenterInputBridgeFailedReady \bridge_error\scheduler_ready:
+    GuiBareDisplayPresenterInputBridgeFailedReady bridge_error scheduler_ready
+
+fn gui_bare_display_presenter_input_bridge_failed_missing_category_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn GuiBareDisplayOperationDriverBridgeError GuiBareDisplayPresenterInputBridgeFailedMissingCategory \action\bridge_error:
+    GuiBareDisplayPresenterInputBridgeFailedMissingCategory action bridge_error
+
+fn gui_bare_display_presenter_input_failure_from_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn GuiBareDisplayOperationDriverBridgeError fn Option GuiError Result GuiBareDisplayPresenterInputReady GuiBareDisplayPresenterInputError \action\bridge_error\category:
+    match category:
+        Option::None:
+            let missing %GuiBareDisplayPresenterInputBridgeFailedMissingCategory gui_bare_display_presenter_input_bridge_failed_missing_category_new action bridge_error
+            Result::Err GuiBareDisplayPresenterInputError::BridgeFailedMissingCategory missing
+        Option::Some gui_error:
+            let outcome %Result unit GuiError Result::Err gui_error
+            let scheduler_ready %GuiBareSchedulerExecutorInputReady gui_bare_scheduler_executor_input action outcome
+            let failed %GuiBareDisplayPresenterInputBridgeFailedReady gui_bare_display_presenter_input_bridge_failed_ready_new bridge_error scheduler_ready
+            Result::Err GuiBareDisplayPresenterInputError::BridgeFailedReady failed
+
+fn gui_bare_display_presenter_input_failure_from_bridge %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn GuiBareDisplayOperationDriverBridgeError Result GuiBareDisplayPresenterInputReady GuiBareDisplayPresenterInputError \action\bridge_error:
+    match bridge_error:
+        GuiBareDisplayOperationDriverBridgeError::FramebufferFailed payload:
+            let category %Option GuiError gui_bare_display_operation_driver_bridge_framebuffer_error_category_value &payload
+            let lower %GuiBareDisplayOperationDriverBridgeError GuiBareDisplayOperationDriverBridgeError::FramebufferFailed payload
+            gui_bare_display_presenter_input_failure_from_category action lower category
+        GuiBareDisplayOperationDriverBridgeError::StorageFailed payload:
+            let category %Option GuiError gui_bare_display_operation_driver_bridge_storage_error_category_value &payload
+            let lower %GuiBareDisplayOperationDriverBridgeError GuiBareDisplayOperationDriverBridgeError::StorageFailed payload
+            gui_bare_display_presenter_input_failure_from_category action lower category
+        GuiBareDisplayOperationDriverBridgeError::MemoryFailed payload:
+            let category %Option GuiError gui_bare_display_operation_driver_bridge_memory_error_category_value &payload
+            let lower %GuiBareDisplayOperationDriverBridgeError GuiBareDisplayOperationDriverBridgeError::MemoryFailed payload
+            gui_bare_display_presenter_input_failure_from_category action lower category
+        GuiBareDisplayOperationDriverBridgeError::AdapterFailed payload:
+            let category %Option GuiError gui_bare_display_operation_driver_bridge_adapter_error_category_value &payload
+            let lower %GuiBareDisplayOperationDriverBridgeError GuiBareDisplayOperationDriverBridgeError::AdapterFailed payload
+            gui_bare_display_presenter_input_failure_from_category action lower category
+
+fn gui_bare_display_presenter_input_bridge_error_owner %fn GuiBareDisplayOperationDriverBridgeError GuiBareDisplayMemoryOwner \bridge_error:
+    match bridge_error:
+        GuiBareDisplayOperationDriverBridgeError::FramebufferFailed payload:
+            gui_bare_display_operation_driver_bridge_framebuffer_error_owner payload
+        GuiBareDisplayOperationDriverBridgeError::StorageFailed payload:
+            gui_bare_display_operation_driver_bridge_storage_error_owner payload
+        GuiBareDisplayOperationDriverBridgeError::MemoryFailed payload:
+            gui_bare_display_operation_driver_bridge_memory_error_owner payload
+        GuiBareDisplayOperationDriverBridgeError::AdapterFailed payload:
+            gui_bare_display_operation_driver_bridge_adapter_error_owner payload
+
+pub fn gui_bare_display_presenter_input_ready_operation_identity %fn &GuiBareDisplayPresenterInputReady GuiBareDisplayPresenterInputOperationIdentity \ready:
+    *field::get_ref ready "operation_identity"
+
+pub fn gui_bare_display_presenter_input_ready_bridge_completed %fn GuiBareDisplayPresenterInputReady GuiBareDisplayOperationDriverBridgeCompleted \ready:
+    field::get ready "bridge_completed"
+
+pub fn gui_bare_display_presenter_input_ready_scheduler_ready %fn GuiBareDisplayPresenterInputReady GuiBareSchedulerExecutorInputReady \ready:
+    field::get ready "scheduler_ready"
+
+pub fn gui_bare_display_presenter_input_operation_identity_operation %fn &GuiBareDisplayPresenterInputOperationIdentity GuiRgba8888RowTileRlePresentHostSpanOperation \identity:
+    *field::get_ref identity "operation"
+
+pub fn gui_bare_display_presenter_input_bridge_failed_ready_scheduler_ready %fn GuiBareDisplayPresenterInputBridgeFailedReady GuiBareSchedulerExecutorInputReady \failed:
+    field::get failed "scheduler_ready"
+
+pub fn gui_bare_display_presenter_input_bridge_failed_ready_lower %fn GuiBareDisplayPresenterInputBridgeFailedReady GuiBareDisplayOperationDriverBridgeError \failed:
+    field::get failed "bridge_error"
+
+pub fn gui_bare_display_presenter_input_bridge_failed_missing_category_action %fn GuiBareDisplayPresenterInputBridgeFailedMissingCategory GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction \missing:
+    field::get missing "action"
+
+pub fn gui_bare_display_presenter_input_bridge_failed_missing_category_lower %fn GuiBareDisplayPresenterInputBridgeFailedMissingCategory GuiBareDisplayOperationDriverBridgeError \missing:
+    field::get missing "bridge_error"
+
+pub fn gui_bare_display_presenter_input_error_owner %fn GuiBareDisplayPresenterInputError GuiBareDisplayMemoryOwner \error:
+    match error:
+        GuiBareDisplayPresenterInputError::BridgeFailedReady failed:
+            let bridge_error %GuiBareDisplayOperationDriverBridgeError gui_bare_display_presenter_input_bridge_failed_ready_lower failed
+            gui_bare_display_presenter_input_bridge_error_owner bridge_error
+        GuiBareDisplayPresenterInputError::BridgeFailedMissingCategory missing:
+            let bridge_error %GuiBareDisplayOperationDriverBridgeError gui_bare_display_presenter_input_bridge_failed_missing_category_lower missing
+            gui_bare_display_presenter_input_bridge_error_owner bridge_error
+
+//: gui_bare_display_presenter_input: bare display bridge の[結果/けっか]を scheduler executor input へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - `ExecuteHostAction` payload だけを[受/う]け、action を[消費/しょうひ]する[前/まえ]に pending operation を borrowed に[読/よ]みます。
+//: - F5fx `gui_bare_display_operation_driver_bridge_step` を 1 [回/かい]だけ[呼/よ]びます。
+//: - success と category 付き failure だけを `gui_bare_scheduler_executor_input` で scheduler input へ[変換/へんかん]します。
+pub fn gui_bare_display_presenter_input %impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction Result GuiBareDisplayPresenterInputReady GuiBareDisplayPresenterInputError \owner\action:
+    let execute %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute_ref &action
+    let pending %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending_ref execute
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation pending
+    match gui_bare_display_operation_driver_bridge_step owner operation:
+        Result::Err bridge_error:
+            gui_bare_display_presenter_input_failure_from_bridge action bridge_error
+        Result::Ok bridge_completed:
+            let operation_identity %GuiBareDisplayPresenterInputOperationIdentity gui_bare_display_presenter_input_operation_identity_new operation
+            let outcome %Result unit GuiError Result::Ok unit
+            let scheduler_ready %GuiBareSchedulerExecutorInputReady gui_bare_scheduler_executor_input action outcome
+            Result::Ok gui_bare_display_presenter_input_ready_new operation_identity bridge_completed scheduler_ready
