@@ -118,6 +118,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /\(u32::from\(r\) << 24\) \| \(u32::from\(g\) << 16\) \| \(u32::from\(b\) << 8\) \| u32::from\(a\)/);
     assert.match(libSource, /pub struct NativeRgbColor/);
     assert.match(libSource, /pub struct NativeRgb0PresentBuffer\s*\{[\s\S]*width: i32,[\s\S]*height: i32,[\s\S]*pixels: Vec<u32>/);
+    assert.match(libSource, /pub struct NativeRgb0PresenterSink\s*\{[\s\S]*frame_buffer: NativeRgba8888FrameBuffer,[\s\S]*background: NativeRgbColor,[\s\S]*last_present_buffer: Option<NativeRgb0PresentBuffer>,[\s\S]*last_presented_frame_id: Option<i32>/);
     assert.match(libSource, /pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;/);
     assert.match(libSource, /pub enum NativePresenterFrameError/);
     assert.match(libSource, /pub struct NativePresenterFrame<'a>\s*\{[\s\S]*width: usize,[\s\S]*height: usize,[\s\S]*pixels: &'a \[u32\]/);
@@ -132,6 +133,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /pub fn native_pack_rgb0_pixel\(r: u8, g: u8, b: u8\) -> u32/);
     assert.match(nativeSpanOperationHelper, /\(u32::from\(r\) << 16\) \| \(u32::from\(g\) << 8\) \| u32::from\(b\)/);
     assert.match(nativeSpanOperationHelper, /pub fn native_rgba8888_to_rgb0_over_background/);
+    assert.match(nativeSpanOperationHelper, /fn native_rgb0_present_buffer_from_rgba8888_parts/);
+    assert.match(nativeSpanOperationHelper, /fn end_sequence_to_rgb0_present_buffer/);
+    assert.match(nativeSpanOperationHelper, /let present_buffer = native_rgb0_present_buffer_from_rgba8888_parts/);
+    assert.match(nativeSpanOperationHelper, /self\.active_sequence = None;[\s\S]*Ok\(present_buffer\)/);
+    assert.match(nativeSpanOperationHelper, /last_present_frame/);
+    assert.match(nativeSpanOperationHelper, /last_presented_frame_id/);
     assert.match(nativeSpanOperationHelper, /let source_r = \(\(rgba8888 >> 24\) & 0xff\) as u8/);
     assert.match(nativeSpanOperationHelper, /u32::from\(source\) \* alpha \+ u32::from\(background\) \* inverse_alpha \+ 127/);
     assert.match(libSource, /native_span_operation_records_valid_begin_run_end/);
@@ -153,6 +160,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_presenter_frame_imports_smoke_rgb0_pixels/);
     assert.match(libSource, /native_presenter_frame_rejects_invalid_rgb0_import/);
     assert.match(libSource, /native_presenter_frame_revalidates_buffer_contract/);
+    assert.match(libSource, /native_rgb0_presenter_sink_updates_last_frame_on_complete_sequence/);
+    assert.match(libSource, /native_rgb0_presenter_sink_keeps_previous_frame_on_invalid_sequence/);
+    assert.match(libSource, /native_rgb0_presenter_private_helper_keeps_active_on_conversion_failure/);
+    assert.match(libSource, /native_span_framebuffer_end_semantics_still_close_sequence/);
     assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
 
@@ -185,6 +196,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /Native presenter frame adapter checkpoint/);
     assert.match(platformDoc, /high byte/);
     assert.match(platformDoc, /typed presenter frame/);
+    assert.match(platformDoc, /Native RGB0 presenter sink checkpoint/);
+    assert.match(platformDoc, /last completed/);
+    assert.match(platformDoc, /conversion succeeds/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -214,6 +228,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native RGBA8888 framebuffer sink requires complete span sequences without endian byte views",
             "Native RGB0 present buffer conversion uses explicit background alpha composition",
             "Native presenter frame adapter validates RGB0 pixels before minifb update",
+            "Native RGB0 presenter sink converts complete span sequences into typed frames",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

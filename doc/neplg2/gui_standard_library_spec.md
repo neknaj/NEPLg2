@@ -97,6 +97,12 @@ Begin は active sequence が無い場合だけ受け、descriptor と `seen_run
 
 smoke runner の既存 demo rasterizer から来る pixels は `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` を通す。この import は `width > 0`、`height > 0`、checked `width * height == pixels.len`、every pixel の high byte が 0 の `0x00RRGGBB` であることを要求する。high byte がある pixel は mask せず、`Result` error とする。F5fb は正式 NEPL span path、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
 
+## F5fc Native RGB0 presenter sink checkpoint
+
+2026-06-18 の F5fc では、validated `NativeSpanOperation` stream を `NativeRgba8888FrameBuffer` へ書き込み、complete End の成功時だけ `NativeRgb0PresentBuffer` と typed presenter frame へ進める native sink boundary を追加する。`NativeRgb0PresenterSink` は framebuffer、explicit background、last completed RGB0 buffer、last presented frame id を所有する。
+
+Begin / RunSpan は F5ez と同じ検査を使う。End は descriptor equality と exact `seen_run_count` を満たした後、RGB0 conversion を先に行い、conversion succeeds の後だけ active sequence を閉じて last completed buffer / frame id を更新する。conversion failure、descriptor mismatch、run count mismatch、invalid run は previous completed frame を置き換えない。F5fc は window update call、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+
 ## 層構造
 
 依存方向は次に固定する。

@@ -69695,3 +69695,41 @@ MERGE_APPROVED
 ### residual
 
 - F5fb は typed presenter frame adapter と smoke runner call-site の境界までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fc RGB0 presenter sink
+
+### scope
+
+- F5fc は validated `NativeSpanOperation` stream を offscreen `NativeRgba8888FrameBuffer` に反映し、complete End の成功時だけ `NativeRgb0PresentBuffer` と typed presenter frame へ進める native sink boundary である。
+- この slice は Rust side sink と last completed frame state だけを扱い、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- `NativeRgba8888FrameBuffer` の既存 End semantics は維持し、present buffer を作る path は `NativeRgb0PresenterSink` 側へ分離する。
+
+### plan_review
+
+- Godel the 2nd の plan review は `PLAN_APPROVED`。実装条件として、conversion failure 時の active sequence preservation を OOM 依存ではなく deterministic に検査すること、RGB0 conversion helper を private に保つこと、既存 `NativeRgba8888FrameBuffer` End semantics を変えないこと、実際の subagent plan / implementation review を記録することが確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgb0PresenterSink` を追加した。sink は `NativeRgba8888FrameBuffer`、explicit background、last completed `NativeRgb0PresentBuffer`、last presented frame id を所有する。
+- Begin / RunSpan は既存 framebuffer と同じ validation / write contract を使う。End は descriptor equality と exact run count を検査し、RGB0 conversion succeeds の後だけ active sequence を閉じ、last completed buffer と frame id を更新する。
+- RGB0 conversion failure、descriptor mismatch、run count mismatch、invalid run は previous completed frame を置き換えない。conversion failure path は forged internal pixel length mismatch で deterministic に検査し、active sequence が保持されることを固定した。
+- completed RGBA8888 pixels から RGB0 present buffer を作る private helper を追加し、positive dimensions、checked pixel count、exact source length、`try_reserve_exact` を通してから semantic `0x00RRGGBB` pixels を作る。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Godel the 2nd implementation review は `APPROVED`。conversion が active sequence clear より先に行われること、sink が successful conversion の後だけ last completed frame / frame id を更新すること、private helper が checked dimensions / exact source length / `try_reserve_exact` を使うこと、deterministic forged-length test で conversion failure 時の active sequence preservation を固定していることが確認された。
+
+### residual
+
+- F5fc は native RGB0 presenter sink boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
