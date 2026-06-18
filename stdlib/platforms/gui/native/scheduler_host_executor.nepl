@@ -2,14 +2,14 @@
 //: Native scheduler host action executor backend bridge
 //:
 //: ### [目的/もくてき]
-//: - F5ex Native scheduler host action executor backend bridge として、typed `ExecuteHostAction` を native host import へ 1 operation だけ[渡/わた]します。
-//: - host import の status を `Result unit GuiError` に[写/うつ]し、F5ev/F5ew の executor outcome path へ[戻/もど]します。
+//: - F5fj Native presenter session host import boundary として、typed `ExecuteHostAction` を native presenter session host import へ 1 operation だけ[渡/わた]します。
+//: - `window_presenter_session_begin` / `run` / `end` の status を `Result unit GuiError` に[写/うつ]し、F5ev/F5ew の executor outcome path へ[戻/もど]します。
 //: - これは backend-facing bridge であり、not long-running scheduler backend です。
 //:
 //: ### [契約/けいやく]
 //: - general `LoopAction` は[受/う]け[取/と]らず、typed `ExecuteHostAction` payload だけを[入力/にゅうりょく] authority とします。
 //: - action は[消費/しょうひ]せず borrowed accessor で pending span operation を[読/よ]み、その後 original action を F5ev ready payload に[保持/ほじ]します。
-//: - host import は operation variant ごとに begin、run、end のいずれかを 1 [回/かい]だけ[呼/よ]びます。
+//: - host import は operation variant ごとに native presenter session begin、run、end のいずれかを 1 [回/かい]だけ[呼/よ]びます。
 //: - status `0` は `Ok unit`、負 status は typed `GuiError` として[返/かえ]します。
 //: - long-running scheduler backend、queue、while loop、timer wait、present loop、minifb、DOM、Canvas、video memory、fallback、silent no-op は[扱/あつか]いません。
 //:
@@ -46,9 +46,9 @@
 #import "std/gui/tile_present_run_span" as *
 #import "std/gui/window" as *
 
-#extern "nepl_gui_native" "execute_span_operation_begin" fn gui_native_execute_span_operation_begin_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
-#extern "nepl_gui_native" "execute_span_operation_run" fn gui_native_execute_span_operation_run_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
-#extern "nepl_gui_native" "execute_span_operation_end" fn gui_native_execute_span_operation_end_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_native" "window_presenter_session_begin" fn gui_native_window_presenter_session_begin_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_native" "window_presenter_session_run" fn gui_native_window_presenter_session_run_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_native" "window_presenter_session_end" fn gui_native_window_presenter_session_end_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 
 fn gui_native_scheduler_host_executor_status_error %fn i32 GuiError \status:
     if eq status -1:
@@ -93,7 +93,7 @@ fn gui_native_scheduler_host_executor_descriptor_begin %impure fn i32 impure fn 
     let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
     let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
     let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &packet
-    let status %i32 gui_native_execute_span_operation_begin_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+    let status %i32 gui_native_window_presenter_session_begin_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
     gui_native_scheduler_host_executor_status_unit status
 
 fn gui_native_scheduler_host_executor_descriptor_end %impure fn i32 impure fn i32 impure fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiError \target_kind\window_raw\descriptor:
@@ -117,7 +117,7 @@ fn gui_native_scheduler_host_executor_descriptor_end %impure fn i32 impure fn i3
     let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
     let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
     let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &packet
-    let status %i32 gui_native_execute_span_operation_end_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
+    let status %i32 gui_native_window_presenter_session_end_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count
     gui_native_scheduler_host_executor_status_unit status
 
 fn gui_native_scheduler_host_executor_run_span %impure fn i32 impure fn i32 impure fn &GuiRgba8888RowTileRlePresentRunRowSpan Result unit GuiError \target_kind\window_raw\span:
@@ -130,7 +130,7 @@ fn gui_native_scheduler_host_executor_run_span %impure fn i32 impure fn i32 impu
     let g %i32 cast rgba8888_g &color
     let b %i32 cast rgba8888_b &color
     let a %i32 cast rgba8888_a &color
-    let status %i32 gui_native_execute_span_operation_run_raw target_kind window_raw x y width height r g b a
+    let status %i32 gui_native_window_presenter_session_run_raw target_kind window_raw x y width height r g b a
     gui_native_scheduler_host_executor_status_unit status
 
 //: gui_native_scheduler_host_executor_execute_operation: span operation 1 [件/けん]を native host import へ[渡/わた]す

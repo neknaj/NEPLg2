@@ -33,6 +33,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     const standardSpec = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
     const nativeFacade = readRepoFile("stdlib", "platforms", "gui", "native.nepl");
     const nativeClock = readRepoFile("stdlib", "platforms", "gui", "native", "clock.nepl");
+    const nativeSchedulerHostExecutor = readRepoFile("stdlib", "platforms", "gui", "native", "scheduler_host_executor.nepl");
     const nativeClockImpl = withoutComments(nativeClock);
     const nativeClockTest = readRepoFile("tests", "stdlib", "gui_platform_native_clock.n.md");
     const nativeClockHelper = textSliceBetween(
@@ -305,6 +306,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowPresenterSessionHostError::ValidationFailed/);
     assert.match(platformDoc, /execute_native_window_presenter_session_begin/);
     assert.match(platformDoc, /execute_native_window_presenter_session_end/);
+    assert.match(platformDoc, /Native presenter session host import checkpoint/);
+    assert.match(platformDoc, /window_presenter_session_begin/);
+    assert.match(platformDoc, /window_presenter_session_end/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -315,15 +319,24 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /native presenter operation identity input boundary/);
     assert.match(implementationPlan, /native formal presenter session boundary/);
     assert.match(implementationPlan, /native presenter session host helper boundary/);
+    assert.match(implementationPlan, /native presenter session host import boundary/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
     assert.match(standardSpec, /F5fi Native presenter session host helper boundary/);
+    assert.match(standardSpec, /F5fj Native presenter session host import boundary/);
     assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
 
     assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
+    assert.match(nativeSchedulerHostExecutor, /#extern "nepl_gui_native" "window_presenter_session_begin"/);
+    assert.match(nativeSchedulerHostExecutor, /#extern "nepl_gui_native" "window_presenter_session_run"/);
+    assert.match(nativeSchedulerHostExecutor, /#extern "nepl_gui_native" "window_presenter_session_end"/);
+    assert.match(nativeSchedulerHostExecutor, /gui_native_window_presenter_session_begin_raw/);
+    assert.match(nativeSchedulerHostExecutor, /gui_native_window_presenter_session_run_raw/);
+    assert.match(nativeSchedulerHostExecutor, /gui_native_window_presenter_session_end_raw/);
+    assert.doesNotMatch(nativeSchedulerHostExecutor, /#extern "nepl_gui_native" "execute_span_operation_(?:begin|run|end)"/);
     assert.match(nativeClock, /#extern "nepl_gui_native" "monotonic_clock_ms"/);
     assert.match(nativeClock, /GuiError::Unsupported/);
     assert.match(nativeClock, /GuiError::BackendFailure/);
@@ -348,6 +361,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",
+            "Native presenter session host import exposes formal NEPL ABI names",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

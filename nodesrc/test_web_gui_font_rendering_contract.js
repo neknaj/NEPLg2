@@ -26159,10 +26159,47 @@ assert(
         stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("field::get_ref execute \"pending\""),
     "F5ex std virtual scheduler must expose borrowed pending accessor for platform executor bridge",
 );
-for (const [name, source, impl, tests] of [
-    ["native", platformGuiNativeSchedulerHostExecutor, platformGuiNativeSchedulerHostExecutorImpl, guiPlatformNativeSchedulerHostExecutorTests],
-    ["bare", platformGuiBareSchedulerHostExecutor, platformGuiBareSchedulerHostExecutorImpl, guiPlatformBareSchedulerHostExecutorTests],
+for (const hostExecutorCase of [
+    {
+        name: "native",
+        source: platformGuiNativeSchedulerHostExecutor,
+        impl: platformGuiNativeSchedulerHostExecutorImpl,
+        tests: guiPlatformNativeSchedulerHostExecutorTests,
+        externNames: [
+            "window_presenter_session_begin",
+            "window_presenter_session_run",
+            "window_presenter_session_end",
+        ],
+        rawNames: [
+            "gui_native_window_presenter_session_begin_raw",
+            "gui_native_window_presenter_session_run_raw",
+            "gui_native_window_presenter_session_end_raw",
+        ],
+        extraLabels: [
+            "platform_native_scheduler_host_executor_session_host_import_ok",
+        ],
+        forbidOldNativeExtern: true,
+    },
+    {
+        name: "bare",
+        source: platformGuiBareSchedulerHostExecutor,
+        impl: platformGuiBareSchedulerHostExecutorImpl,
+        tests: guiPlatformBareSchedulerHostExecutorTests,
+        externNames: [
+            "execute_span_operation_begin",
+            "execute_span_operation_run",
+            "execute_span_operation_end",
+        ],
+        rawNames: [
+            "gui_bare_execute_span_operation_begin_raw",
+            "gui_bare_execute_span_operation_run_raw",
+            "gui_bare_execute_span_operation_end_raw",
+        ],
+        extraLabels: [],
+        forbidOldNativeExtern: false,
+    },
 ]) {
+    const { name, source, impl, tests, externNames, rawNames, extraLabels, forbidOldNativeExtern } = hostExecutorCase;
     assert(
         source.includes("scheduler host action executor backend bridge") &&
             source.includes("typed `ExecuteHostAction`") &&
@@ -26177,18 +26214,23 @@ for (const [name, source, impl, tests] of [
         `platforms/gui/${name}/scheduler_host_executor F5ex must document typed backend bridge and no fallback`,
     );
     assert(
-        source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_begin"`) &&
-            source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_run"`) &&
-            source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_end"`),
+        externNames.every((externName) => source.includes(`#extern "nepl_gui_${name}" "${externName}"`)),
         `platforms/gui/${name}/scheduler_host_executor F5ex must define explicit begin/run/end host imports`,
     );
+    if (forbidOldNativeExtern) {
+        assertNoMatch(
+            source,
+            /#extern\s+"nepl_gui_native"\s+"execute_span_operation_(?:begin|run|end)"/,
+            "platforms/gui/native scheduler_host_executor F5fj must not expose old generic native span-operation extern names",
+        );
+    }
     const beginSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_descriptor_begin`);
     const runSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_run_span`);
     const endSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_descriptor_end`);
     assert(
-        (beginSlice.match(new RegExp(`gui_${name}_execute_span_operation_begin_raw`, "g")) || []).length === 1 &&
-            (runSlice.match(new RegExp(`gui_${name}_execute_span_operation_run_raw`, "g")) || []).length === 1 &&
-            (endSlice.match(new RegExp(`gui_${name}_execute_span_operation_end_raw`, "g")) || []).length === 1,
+        (beginSlice.match(new RegExp(rawNames[0], "g")) || []).length === 1 &&
+            (runSlice.match(new RegExp(rawNames[1], "g")) || []).length === 1 &&
+            (endSlice.match(new RegExp(rawNames[2], "g")) || []).length === 1,
         `platforms/gui/${name}/scheduler_host_executor F5ex must call exactly one platform import per operation helper`,
     );
     assert(
@@ -26223,19 +26265,23 @@ for (const [name, source, impl, tests] of [
         /_:|[()]/,
         `platforms/gui/${name}/scheduler_host_executor F5ex implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
     );
+    const requiredLabels = [
+        `platform_${name}_scheduler_host_executor_facade_ok`,
+        `platform_${name}_scheduler_host_executor_backend_boundary_ok`,
+        `platform_${name}_scheduler_host_executor_host_import_status_ok`,
+        `platform_${name}_scheduler_host_executor_borrowed_operation_ok`,
+        `platform_${name}_scheduler_host_executor_reuses_f5ev_f5ew_ok`,
+        `platform_${name}_scheduler_host_executor_no_loop_queue_fallback`,
+        ...extraLabels,
+    ];
     assert(
-        tests.includes(`platform_${name}_scheduler_host_executor_facade_ok`) &&
-            tests.includes(`platform_${name}_scheduler_host_executor_backend_boundary_ok`) &&
-            tests.includes(`platform_${name}_scheduler_host_executor_host_import_status_ok`) &&
-            tests.includes(`platform_${name}_scheduler_host_executor_borrowed_operation_ok`) &&
-            tests.includes(`platform_${name}_scheduler_host_executor_reuses_f5ev_f5ew_ok`) &&
-            tests.includes(`platform_${name}_scheduler_host_executor_no_loop_queue_fallback`),
+        requiredLabels.every((label) => tests.includes(label)),
         `F5ex platform ${name} scheduler host executor focused doctest must cover source-policy labels`,
     );
 }
 assert(
-    /function defaultNeplGuiNativeImports\(\)[\s\S]*execute_span_operation_begin: \(\) => -1[\s\S]*execute_span_operation_run: \(\) => -1[\s\S]*execute_span_operation_end: \(\) => -1/.test(runTestSource),
-    "run_test native default imports must fail closed for F5ex host executor ABI",
+    /function defaultNeplGuiNativeImports\(\)[\s\S]*window_presenter_session_begin: \(\) => -1[\s\S]*window_presenter_session_run: \(\) => -1[\s\S]*window_presenter_session_end: \(\) => -1/.test(runTestSource),
+    "run_test native default imports must fail closed for F5fj presenter session host import ABI",
 );
 assert(
     /function defaultNeplGuiBareImports\(\)[\s\S]*execute_span_operation_begin: \(\) => -1[\s\S]*execute_span_operation_run: \(\) => -1[\s\S]*execute_span_operation_end: \(\) => -1/.test(runTestSource),
