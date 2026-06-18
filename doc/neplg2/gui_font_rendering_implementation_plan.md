@@ -316,6 +316,40 @@ plan review:
 - focused doctest、module doctest、source policy、F5eu / F5ek regression、`git diff --check` が通る。
 - subagent implementation review で executor outcome input helper 境界、synthetic outcome 禁止、禁止依存が承認される。
 
+## Phase F5ew: Native and Bare scheduler executor one-step bridge boundary
+
+2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。F5ev ready payload を borrowed F5ek policy と合わせ、F5ek `real_loop_step` を 1 回だけ呼ぶ境界に留める。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_executor_step.nepl`
+- `stdlib/platforms/gui/bare/scheduler_executor_step.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_executor_step.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- public entry は `GuiNativeSchedulerExecutorInputReady` / `GuiBareSchedulerExecutorInputReady` と borrowed F5ek `RealLoopStepPolicy` だけを受ける。
+- ready payload の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` として包み、packaged `RealLoopStepInput::ExecutorOutcome` をそのまま渡す。
+- F5ek `real_loop_step` を 1 回だけ呼び、戻り値の `Result RealLoopStepResult RealLoopStepError` を再分類せず返す。
+- success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error は合成しない。
+- F5ei executor complete、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Maxwell plan review は `PLAN_APPROVED`。
+- 指摘は、F5ev typed boundary を維持すること、F5ek へ正確に 1 回だけ委譲すること、F5ek の `Result` をそのまま返すこと、fallback / silent no-op / queue / rendering / timer / support validation / long-running scheduler へ進まないことだった。
+- 本計画では上記を反映し、実装開始可と判断する。
+
+完了条件:
+
+- source policy が facade export、backend-facing one-step bridge docs、ready payload input、F5ek exactly once、lower Result passthrough、synthetic Result / backend / queue / timer / fallback 禁止、括弧なし prefix style を固定する。
+- focused doctest、module doctest、source policy、F5ev / F5ek regression、`git diff --check` が通る。
+- subagent implementation review で executor one-step bridge 境界、F5ek delegation、禁止依存が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

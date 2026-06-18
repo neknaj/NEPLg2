@@ -1,0 +1,47 @@
+//: # platforms/gui/native/scheduler_executor_step
+//: Native scheduler executor one-step bridge
+//:
+//: ### [目的/もくてき]
+//: - F5ev native scheduler executor input ready payload を F5ek real loop step へ 1 [回/かい]だけ[渡/わた]します。
+//: - これは backend-facing one-step bridge であり、not long-running scheduler backend です。
+//:
+//: ### [契約/けいやく]
+//: - `GuiNativeSchedulerExecutorInputReady` だけを[入力/にゅうりょく] authority とし、general `LoopAction` は[受/う]け[取/と]りません。
+//: - ready payload の original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` をそのまま[使/つか]います。
+//: - F5ek `real_loop_step` を 1 [回/かい]だけ[呼/よ]び、F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま[返/かえ]します。
+//: - この boundary では success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error を[合成/ごうせい]しません。
+//: - action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/scheduler_executor_step" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/result" as *
+#import "platforms/gui/native/scheduler_executor_input" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+
+//: gui_native_scheduler_executor_step: native executor ready payload を F5ek real loop step へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - ready payload から action と input を[取/と]り[出/だ]し、action は `LoopAction::ExecuteHostAction` として[包/つつ]みます。
+//: - input は F5ev が[作/つく]った packaged input をそのまま[渡/わた]します。
+//: - F5ek real loop step を 1 [回/かい]だけ[呼/よ]び、lower `Result` を[再分類/さいぶんるい]せず[返/かえ]します。
+pub fn gui_native_scheduler_executor_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy fn GuiNativeSchedulerExecutorInputReady Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError \policy\ready:
+    let execute_action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction field::get ready "action"
+    let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput field::get ready "input"
+    let action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::ExecuteHostAction execute_action
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step policy action input
