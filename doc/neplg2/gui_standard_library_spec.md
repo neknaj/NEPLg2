@@ -111,6 +111,14 @@ Begin / RunSpan は F5ez と同じ検査を使う。End は descriptor equality 
 
 F5fd は minifb / OS window API、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
 
+## F5fe Native window presenter smoke integration checkpoint
+
+2026-06-18 の F5fe では、native smoke runner の window loop を `NativeWindowPresenterState` 経由の present / hit-test path へ寄せる。これにより `main.rs` が current present buffer を並列所有する状態をやめ、display と hit test の authoritative frame は `NativeWindowPresenterState::last_present_frame_required` から得る。
+
+`NativeWindowPresenterError` は `InvalidFrameId` を持つ。`present_frame` は `frame_id > 0` を要求し、`present_buffer` と `present_sink_frame` は frame validation 後に `present_frame` へ委譲する。native smoke runner の frame id は `checked_add` で進め、overflow は error として返す。reset、wrap、saturating cast、silent reuse は行わない。
+
+F5fe は smoke window integration だけであり、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。minifb / OS window API は `main.rs` だけに残し、`lib.rs` は platform-independent presenter state と validation boundary のままにする。
+
 ## 層構造
 
 依存方向は次に固定する。

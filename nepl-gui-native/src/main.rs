@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use nepl_gui_native::map_native_window_point_to_image;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-use nepl_gui_native::{NativePresenterFrame, NativeRgb0PresentBuffer};
+use nepl_gui_native::{NativeRgb0PresentBuffer, NativeWindowPresenterState};
 
 fn main() -> ExitCode {
     let options = match NativeGuiOptions::parse(env::args().skip(1)) {
@@ -124,6 +124,31 @@ fn rasterize_demo_present_buffer(
     .map_err(|error| format!("native presenter RGB0 frame invalid: {error:?}"))
 }
 
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn present_buffer_size(buffer: &NativeRgb0PresentBuffer) -> Result<(usize, usize), String> {
+    if buffer.width() <= 0 || buffer.height() <= 0 {
+        return Err("native presenter RGB0 frame has invalid dimensions".to_string());
+    }
+    let width = usize::try_from(buffer.width())
+        .map_err(|_| "native presenter RGB0 width overflow".to_string())?;
+    let height = usize::try_from(buffer.height())
+        .map_err(|_| "native presenter RGB0 height overflow".to_string())?;
+    Ok((width, height))
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn present_demo_frame_to_window_state(
+    presenter_state: &mut NativeWindowPresenterState,
+    frame_id: i32,
+    frame: &nepl_gui_native::GuiFrame,
+    scale: usize,
+) -> Result<(), String> {
+    let buffer = rasterize_demo_present_buffer(frame, scale)?;
+    presenter_state
+        .present_buffer(frame_id, &buffer)
+        .map_err(|error| format!("native window presenter rejected frame: {error:?}"))
+}
+
 fn print_usage() {
     eprintln!(
         "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N]"
@@ -136,13 +161,18 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
     use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
 
     let mut frame = render_demo_frame(options.demo, options.counter_value);
-    let mut present_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
-    let initial_present_frame = NativePresenterFrame::from_rgb0_present_buffer(&present_buffer)
-        .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
+    let initial_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
+    let initial_size = present_buffer_size(&initial_buffer)?;
+    let mut presenter_state = NativeWindowPresenterState::new(initial_size.0, initial_size.1)
+        .map_err(|error| format!("native window presenter rejected surface: {error:?}"))?;
+    let mut presenter_frame_id = 1;
+    presenter_state
+        .present_buffer(presenter_frame_id, &initial_buffer)
+        .map_err(|error| format!("native window presenter rejected frame: {error:?}"))?;
     let mut window = Window::new(
         "NEPLg2 GUI native preview",
-        initial_present_frame.width(),
-        initial_present_frame.height(),
+        initial_size.0,
+        initial_size.1,
         WindowOptions {
             resize: true,
             scale_mode: ScaleMode::AspectRatioStretch,
@@ -160,19 +190,25 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
         let current_size = window.get_size();
         if current_size != previous_size {
             previous_size = current_size;
+            presenter_state
+                .resize_surface(current_size.0, current_size.1)
+                .map_err(|error| format!("native window presenter rejected resize: {error:?}"))?;
             update_window_title(&mut window, options.demo, current_size);
         }
 
         if options.demo == GuiDemo::Counter {
             let mouse_down = window.get_mouse_down(MouseButton::Left);
             if mouse_down && !previous_mouse_down {
-                if let Some((mouse_x, mouse_y)) = window.get_unscaled_mouse_pos(MouseMode::Discard)
+                let counter_hit = if let Some((mouse_x, mouse_y)) =
+                    window.get_unscaled_mouse_pos(MouseMode::Discard)
                 {
-                    let present_frame = NativePresenterFrame::from_rgb0_present_buffer(
-                        &present_buffer,
-                    )
-                    .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
-                    if let Some((image_x, image_y)) = map_native_window_point_to_image(
+                    let present_frame =
+                        presenter_state
+                            .last_present_frame_required()
+                            .map_err(|error| {
+                                format!("native window presenter has no frame: {error:?}")
+                            })?;
+                    match map_native_window_point_to_image(
                         current_size.0,
                         current_size.1,
                         present_frame.width(),
@@ -180,20 +216,38 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
                         mouse_x,
                         mouse_y,
                     ) {
-                        let scene_x = image_x / options.scale.max(1);
-                        let scene_y = image_y / options.scale.max(1);
-                        if nepl_gui_native::counter_hit(&frame, scene_x, scene_y) {
-                            options.counter_value += 1;
-                            frame = render_demo_frame(options.demo, options.counter_value);
-                            present_buffer = rasterize_demo_present_buffer(&frame, options.scale)?;
+                        Some((image_x, image_y)) => {
+                            let scene_x = image_x / options.scale.max(1);
+                            let scene_y = image_y / options.scale.max(1);
+                            nepl_gui_native::counter_hit(&frame, scene_x, scene_y)
                         }
+                        None => false,
                     }
+                } else {
+                    false
+                };
+                if counter_hit {
+                    options.counter_value = options
+                        .counter_value
+                        .checked_add(1)
+                        .ok_or_else(|| "counter value overflow".to_string())?;
+                    presenter_frame_id = presenter_frame_id
+                        .checked_add(1)
+                        .ok_or_else(|| "native presenter frame id overflow".to_string())?;
+                    frame = render_demo_frame(options.demo, options.counter_value);
+                    present_demo_frame_to_window_state(
+                        &mut presenter_state,
+                        presenter_frame_id,
+                        &frame,
+                        options.scale,
+                    )?;
                 }
             }
             previous_mouse_down = mouse_down;
         }
-        let present_frame = NativePresenterFrame::from_rgb0_present_buffer(&present_buffer)
-            .map_err(|error| format!("native presenter frame invalid: {error:?}"))?;
+        let present_frame = presenter_state
+            .last_present_frame_required()
+            .map_err(|error| format!("native window presenter has no frame: {error:?}"))?;
         window
             .update_with_buffer(
                 present_frame.pixels(),
