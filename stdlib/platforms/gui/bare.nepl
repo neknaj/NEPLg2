@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - bare GUI backend が提供する formal platform [境界/きょうかい]を公開します。
-//: - 現 checkpoint では monotonic clock source import、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge、scheduler host action executor backend bridge、display framebuffer adapter、display storage adapter、display memory write plan boundary、display driver outcome ledger boundary、display driver host import boundary、display driver byte echo verification boundary、raw display memory ownership boundary、span write/readback boundary、actual display driver adapter boundary、presented packet readiness boundary、whole-surface packet-readiness aggregation boundary を公開し、long-running scheduler backend、timer backend、hardware flush completion は後続 slice に分けます。
+//: - 現 checkpoint では monotonic clock source import、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge、scheduler host action executor backend bridge、display framebuffer adapter、display storage adapter、display memory write plan boundary、display driver outcome ledger boundary、display driver host import boundary、display driver byte echo verification boundary、raw display memory ownership boundary、span write/readback boundary、actual display driver adapter boundary、presented packet readiness boundary、whole-surface packet-readiness aggregation boundary、hardware flush accepted boundary を公開し、long-running scheduler backend、timer backend は後続 slice に分けます。
 //:
 //: ### [注意/ちゅうい]
 //: - bare は universal wall clock を持つ前提にしません。
@@ -28,3 +28,4 @@ pub #import "./bare/display_memory_span_readback" as @merge
 pub #import "./bare/display_driver_adapter" as @merge
 pub #import "./bare/display_present_readiness" as @merge
 pub #import "./bare/display_surface_readiness" as @merge
+pub #import "./bare/display_flush_completion" as @merge

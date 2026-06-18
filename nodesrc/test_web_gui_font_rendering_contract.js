@@ -290,6 +290,8 @@ const platformGuiBareDisplayPresentReadiness = read("stdlib/platforms/gui/bare/d
 const platformGuiBareDisplayPresentReadinessImpl = withoutComments(platformGuiBareDisplayPresentReadiness);
 const platformGuiBareDisplaySurfaceReadiness = read("stdlib/platforms/gui/bare/display_surface_readiness.nepl");
 const platformGuiBareDisplaySurfaceReadinessImpl = withoutComments(platformGuiBareDisplaySurfaceReadiness);
+const platformGuiBareDisplayFlushCompletion = read("stdlib/platforms/gui/bare/display_flush_completion.nepl");
+const platformGuiBareDisplayFlushCompletionImpl = withoutComments(platformGuiBareDisplayFlushCompletion);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -411,6 +413,7 @@ const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_pla
 const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
 const guiPlatformBareDisplayPresentReadinessTests = read("tests/stdlib/gui_platform_bare_display_present_readiness.n.md");
 const guiPlatformBareDisplaySurfaceReadinessTests = read("tests/stdlib/gui_platform_bare_display_surface_readiness.n.md");
+const guiPlatformBareDisplayFlushCompletionTests = read("tests/stdlib/gui_platform_bare_display_flush_completion.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27790,9 +27793,11 @@ assert(
     "platforms/gui/bare/display_present_readiness must expose read-only evidence accessors needed by F5fv",
 );
 assert(
-    platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessCursor") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessCursor") &&
         platformGuiBareDisplaySurfaceReadinessImpl.includes("struct GuiBareDisplayWholeSurfacePacketReadinessCursorSeal") &&
         platformGuiBareDisplaySurfaceReadinessImpl.includes("seal %GuiBareDisplayWholeSurfacePacketReadinessCursorSeal") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("struct GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("seal %GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal") &&
         platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessContinue") &&
         platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessHandoff") &&
         platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessCompleted") &&
@@ -27817,6 +27822,11 @@ assertNoMatch(
     platformGuiBareDisplaySurfaceReadinessImpl,
     /pub\s+(?:struct|fn)[^\n]*GuiBareDisplayWholeSurfacePacketReadinessCursorSeal/,
     "platforms/gui/bare/display_surface_readiness F5fv cursor seal must remain module-private",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /pub\s+(?:struct|fn)[^\n]*GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal/,
+    "platforms/gui/bare/display_surface_readiness F5fv completed seal must remain module-private",
 );
 assertOrderedFragments(
     functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_start"),
@@ -27900,6 +27910,164 @@ assert(
         "platform_bare_display_surface_readiness_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplaySurfaceReadinessTests.includes(label)),
     "F5fv platform bare display surface readiness focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fw Bare display hardware flush accepted boundary") &&
+        guiStandardLibrarySpec.includes("display_hardware_flush") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayHardwareFlushAccepted") &&
+        guiStandardLibrarySpec.includes("status `0`") &&
+        guiStandardLibrarySpec.includes("Option::None") &&
+        guiStandardLibrarySpec.includes("physical scanout completion") &&
+        barePlatformBehaviorDoc.includes("F5fw") &&
+        barePlatformBehaviorDoc.includes("Bare display hardware flush accepted boundary") &&
+        barePlatformBehaviorDoc.includes("not physical scanout completion"),
+    "F5fw docs must describe hardware flush host accepted boundary, status mapping, status option, and non-scanout contract",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_flush_completion" as @merge'),
+    "platforms/gui/bare facade must export F5fw display flush completion boundary",
+);
+assert(
+    runTestSource.includes("display_hardware_flush: () => -1"),
+    "nodesrc/run_test.js default bare imports must expose F5fw display hardware flush unsupported stub",
+);
+assert(
+    platformGuiBareDisplayFlushCompletion.includes("Bare display hardware flush accepted boundary") &&
+        platformGuiBareDisplayFlushCompletion.includes("Completed") &&
+        platformGuiBareDisplayFlushCompletion.includes("Option::None") &&
+        platformGuiBareDisplayFlushCompletion.includes("physical scanout completion") &&
+        platformGuiBareDisplayFlushCompletion.includes("fallback") &&
+        platformGuiBareDisplayFlushCompletion.includes("silent no-op"),
+    "platforms/gui/bare/display_flush_completion F5fw must document host accepted flush contract and non-goals",
+);
+assert(
+        platformGuiBareDisplayFlushCompletionImpl.includes('#extern "nepl_gui_bare" "display_hardware_flush"') &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("struct GuiBareDisplayHardwareFlushAcceptedSeal") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("pub struct GuiBareDisplayHardwareFlushAccepted") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("seal %GuiBareDisplayHardwareFlushAcceptedSeal") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("pub struct GuiBareDisplayHardwareFlushError") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("status %Option i32") &&
+        platformGuiBareDisplayFlushCompletionImpl.includes("pub fn gui_bare_display_hardware_flush_accept_from_whole_surface"),
+    "platforms/gui/bare/display_flush_completion F5fw must expose extern import, owner-bearing accepted/error, status option, and public entry",
+);
+assertNoMatch(
+    platformGuiBareDisplayFlushCompletionImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayHardwareFlush(?:Accepted|Error)\b/,
+    "platforms/gui/bare/display_flush_completion F5fw owner-bearing accepted/error must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayFlushCompletionImpl,
+    /pub fn gui_bare_display_hardware_flush_accept_from_whole_surface[^\n]*(?:GuiBareDisplayWholeSurfacePacketReadinessEvidence|GuiBareDisplayHardwareFlushEvidence|GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_flush_completion F5fw public API must not accept copy evidence, raw storage, or forgeable driver authority",
+);
+assertNoMatch(
+    platformGuiBareDisplayFlushCompletionImpl,
+    /pub\s+(?:struct|fn)[^\n]*GuiBareDisplayHardwareFlushAcceptedSeal/,
+    "platforms/gui/bare/display_flush_completion F5fw accepted seal must remain module-private",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayFlushCompletionImpl, "gui_bare_display_hardware_flush_accept_from_whole_surface"),
+    [
+        "gui_bare_display_whole_surface_packet_readiness_completed_evidence &completed",
+        "gui_bare_display_hardware_flush_evidence_from_whole &whole_evidence",
+        "gui_bare_display_whole_surface_packet_readiness_completed_owner completed",
+        "gui_bare_display_hardware_flush_preflight &evidence",
+        "Result::Err kind",
+        "Option::None",
+        "Result::Ok _",
+        "gui_bare_display_hardware_flush_call &evidence",
+        "if eq status 0",
+        "gui_bare_display_hardware_flush_accepted_new owner evidence",
+        "gui_bare_display_hardware_flush_status_kind status",
+        "Option::Some status",
+    ],
+    "platforms/gui/bare/display_flush_completion F5fw must consume sealed completed value, preflight before host import, and distinguish validation and host status failures",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayFlushCompletionImpl, "gui_bare_display_hardware_flush_preflight"),
+    [
+        "if le width 0",
+        "if le height 0",
+        "if le tile_rows 0",
+        "if le tile_count 0",
+        "if le expected_pixel_count 0",
+        "gui_bare_display_hardware_flush_checked_mul width height",
+        "if ne computed_pixel_count expected_pixel_count",
+        "if ne ready_pixel_count expected_pixel_count",
+        "gui_bare_display_hardware_flush_checked_mul width 4",
+        "if ne stride_bytes expected_stride",
+        "gui_bare_display_hardware_flush_checked_mul height stride_bytes",
+        "if ne surface_byte_count expected_surface_byte_count",
+    ],
+    "platforms/gui/bare/display_flush_completion F5fw preflight must validate geometry, stride, surface bytes, and readiness before host import",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayFlushCompletionImpl, "gui_bare_display_hardware_flush_status_kind"),
+    [
+        "if eq status -1",
+        "GuiBareDisplayHardwareFlushErrorKind::HostUnsupported",
+        "if eq status -2",
+        "GuiBareDisplayHardwareFlushErrorKind::HostInvalidCommand",
+        "if eq status -3",
+        "GuiBareDisplayHardwareFlushErrorKind::HostResourceExhausted",
+        "if eq status -4",
+        "GuiBareDisplayHardwareFlushErrorKind::HostResourceExhausted",
+        "if eq status -6",
+        "GuiBareDisplayHardwareFlushErrorKind::HostInvalidCommand",
+        "GuiBareDisplayHardwareFlushErrorKind::HostBackendFailure",
+    ],
+    "platforms/gui/bare/display_flush_completion F5fw status mapping must treat only 0 as accepted and fail closed for other statuses",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayFlushCompletionImpl, "gui_bare_display_hardware_flush_target_kind"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window",
+        "1",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen",
+        "2",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device",
+        "3",
+    ],
+    "platforms/gui/bare/display_flush_completion F5fw target encoding must distinguish window, offscreen, and device without fallback",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayFlushCompletionImpl, "gui_bare_display_hardware_flush_window_raw"),
+    [
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window",
+        "window_id_raw &window",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen",
+        "0",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device",
+        "0",
+    ],
+    "platforms/gui/bare/display_flush_completion F5fw non-window targets must encode window_raw as 0",
+);
+assertNoMatch(
+    platformGuiBareDisplayFlushCompletionImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|surface_ready|fallback|silent)\b/i,
+    "platforms/gui/bare/display_flush_completion F5fw must not implement loops, renderers, old transports, fallback, or silent no-op",
+);
+assertNoMatch(
+    platformGuiBareDisplayFlushCompletionImpl,
+    /[()]|>=/,
+    "platforms/gui/bare/display_flush_completion F5fw implementation must avoid parentheses and >= in NEPL body",
+);
+assert(
+    [
+        "platform_bare_display_flush_completion_facade_ok",
+        "platform_bare_display_flush_completion_import_create_free_ok",
+        "platform_bare_display_flush_completion_source_policy_completed_value_authority_ok",
+        "platform_bare_display_flush_completion_source_policy_f5fv_completed_seal_ok",
+        "platform_bare_display_flush_completion_source_policy_accepted_seal_ok",
+        "platform_bare_display_flush_completion_source_policy_preflight_before_host_ok",
+        "platform_bare_display_flush_completion_source_policy_status_option_ok",
+        "platform_bare_display_flush_completion_source_policy_status_mapping_ok",
+        "platform_bare_display_flush_completion_source_policy_target_encoding_ok",
+        "platform_bare_display_flush_completion_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_flush_completion_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayFlushCompletionTests.includes(label)),
+    "F5fw platform bare display flush completion focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

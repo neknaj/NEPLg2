@@ -1,3 +1,59 @@
+# 2026-06-19 Agent2 GUI platform F5fw Bare display hardware flush accepted boundary
+
+## scope
+
+- F5fv Bare whole-surface packet-readiness aggregation boundary の後続として、sealed whole-surface completed value を bare hardware flush host import へ渡す境界を追加した。
+- F5fw は host import が completed whole-surface evidence に対して accepted status を返したことだけを示し、physical scanout completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+- `GuiBareDisplayWholeSurfacePacketReadinessCompleted` に module-private completed seal を追加し、owner + copy evidence だけから completed authority を偽造できないようにした。
+
+## plan_review
+
+- James the 2nd の plan review は `BLOCKED`。preflight failure と host status failure の error shape を分けること、owner recovery の方針、status mapping、target encoding を明文化する必要があると指摘された。
+- Carver the 2nd の plan review は `BLOCKED`。F5fw の前提として F5fv `Completed` に private seal が必要であり、success 名称は scanout completion ではなく host accepted として扱うべきと指摘された。
+- 指摘に従い、F5fv `Completed` に private seal を追加し、F5fw は `GuiBareDisplayHardwareFlushAccepted` として host accepted status だけを表す設計へ変更した。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_flush_completion.nepl` を追加した。
+- public entry は `gui_bare_display_hardware_flush_accept_from_whole_surface completed` だけであり、copyable whole-surface evidence、flush evidence、driver step / outcome、raw storage を input authority にしない。
+- preflight は host import 前に width / height / tile rows / tile count、checked `width * height`、`ready_pixel_count == expected_pixel_count`、checked `width * 4`、checked `height * stride_bytes` を検査する。
+- preflight failure は `status == Option::None`、host status failure は `status == Option::Some status` として owner-bearing error に回収する。
+- host status は `0` だけを accepted とし、`-1` Unsupported、`-2` / `-6` InvalidCommand、`-3` / `-4` ResourceExhausted、その他は BackendFailure として fail-closed にする。
+- `GuiBareDisplayHardwareFlushAccepted` に module-private accepted seal を追加し、host accepted success value も後続 authority として偽造できないようにした。
+- `nodesrc/run_test.js` の default bare imports に `display_hardware_flush: () => -1` を追加し、未提供 host が fallback success にならないようにした。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5fw に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fw_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw_seal.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fw_final.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw_final.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw_final.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- info: `node nodesrc/tests.js -i stdlib/platforms/gui/bare.nepl --no-tree -o tmp_gui_bare_facade_f5fw.json -j 1` は facade に runnable doctest が無いため `nodesrc/tests/no-runnable-doctests` になった。focused doctest 側で bare facade import は通している。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- James the 2nd implementation review は `REQUIRED_CHANGES`。F5fw success payload `GuiBareDisplayHardwareFlushAccepted` に private seal が無く、host status `0` を通さず success authority を偽造できる点が blocker として指摘された。
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。F5fv completed seal、F5fw public entry authority、preflight before host、status option、status `0` only success、non-scanout docs、fallback / silent no-op 不在が確認された。
+- James the 2nd の指摘に従い、`GuiBareDisplayHardwareFlushAcceptedSeal` を module-private に追加し、`Accepted` に seal field を持たせ、source-policy と focused doctest label を更新した。
+- James the 2nd の再レビューは `APPROVED_TO_COMMIT`。sealed completed value だけが input authority であること、validation / host status error の `Option` shape、`status 0` only success、accepted value の private seal、Zenn 方針の Result / enum / no fallback / no silent no-op contract に反していないことが確認された。
+
+## residual
+
+- F5fw は host accepted hardware flush boundary までであり、physical scanout completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fv Bare whole-surface packet-readiness aggregation boundary
 
 ## scope

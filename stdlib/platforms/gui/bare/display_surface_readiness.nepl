@@ -69,6 +69,10 @@ struct GuiBareDisplayWholeSurfacePacketReadinessCursorSeal:
     next_tile_index %i32
     ready_pixel_count %i32
 
+struct GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal:
+    frame_id %i32
+    ready_pixel_count %i32
+
 pub struct GuiBareDisplayWholeSurfacePacketReadinessCursor:
     target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
     surface %SurfaceId
@@ -99,6 +103,7 @@ pub struct GuiBareDisplayWholeSurfacePacketReadinessHandoff:
 pub struct GuiBareDisplayWholeSurfacePacketReadinessCompleted:
     owner %GuiBareDisplayMemoryOwner
     evidence %GuiBareDisplayWholeSurfacePacketReadinessEvidence
+    seal %GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal
 
 pub enum GuiBareDisplayWholeSurfacePacketReadinessResult:
     Continue %GuiBareDisplayWholeSurfacePacketReadinessContinue
@@ -172,6 +177,11 @@ fn gui_bare_display_whole_surface_packet_readiness_evidence_new %fn GuiRgba8888R
 fn gui_bare_display_whole_surface_packet_readiness_cursor_seal %fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessCursorSeal \next_tile_index\ready_pixel_count:
     GuiBareDisplayWholeSurfacePacketReadinessCursorSeal next_tile_index ready_pixel_count
 
+fn gui_bare_display_whole_surface_packet_readiness_completed_seal %fn &GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal \evidence:
+    let frame_id %i32 *field::get_ref evidence "frame_id"
+    let ready_pixel_count %i32 *field::get_ref evidence "ready_pixel_count"
+    GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal frame_id ready_pixel_count
+
 fn gui_bare_display_whole_surface_packet_readiness_cursor_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn SurfaceId fn FrameId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessCursor \target\surface\frame\frame_id\batch_index\plan_row_start\plan_row_count\width\height\stride_bytes\tile_rows\tile_count\next_tile_index\expected_pixel_count\ready_pixel_count\surface_byte_count:
     let seal %GuiBareDisplayWholeSurfacePacketReadinessCursorSeal gui_bare_display_whole_surface_packet_readiness_cursor_seal next_tile_index ready_pixel_count
     GuiBareDisplayWholeSurfacePacketReadinessCursor target surface frame frame_id batch_index plan_row_start plan_row_count width height stride_bytes tile_rows tile_count next_tile_index expected_pixel_count ready_pixel_count surface_byte_count seal
@@ -183,7 +193,8 @@ fn gui_bare_display_whole_surface_packet_readiness_handoff_new %fn GuiBareDispla
     GuiBareDisplayWholeSurfacePacketReadinessHandoff cursor owner
 
 fn gui_bare_display_whole_surface_packet_readiness_completed_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessCompleted \owner\evidence:
-    GuiBareDisplayWholeSurfacePacketReadinessCompleted owner evidence
+    let seal %GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal gui_bare_display_whole_surface_packet_readiness_completed_seal &evidence
+    GuiBareDisplayWholeSurfacePacketReadinessCompleted owner evidence seal
 
 fn gui_bare_display_whole_surface_packet_readiness_error_category %fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind Option GuiError \kind:
     match kind:

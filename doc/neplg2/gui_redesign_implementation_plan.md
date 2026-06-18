@@ -984,19 +984,20 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase F5fv の Bare whole-surface packet-readiness aggregation boundary を現在の checkpoint とする。直前の F5fu は row-tile RLE packet readiness だけを主張していたため、次の実装では F5fu の owner-bearing ready value を順序付きに集約し、full-height surface の packet readiness がそろったことだけを evidence 化する。
+Phase F5fw の Bare display hardware flush accepted boundary を現在の checkpoint とする。直前の F5fv は row-tile RLE packet readiness を full-height surface へ集約しただけで、hardware flush や scheduler completion は主張していなかった。そのため、次の実装では F5fv の sealed owner-bearing completed value だけを authority とし、bare host import が flush request を accepted として返したことを evidence 化する。
 
-- `stdlib/platforms/gui/bare/display_surface_readiness.nepl` を追加する。
-- public authority は `GuiBareDisplayPresentedPacketReady` value だけとし、copyable evidence、driver step / outcome / present accepted、raw storage を input authority にしない。
-- `start ready` は tile 0、full-height plan、checked stride、checked expected pixel count、single-tile direct completion を検査する。
-- `advance cursor ready` は module-private seal 付き non-Copy cursor と次 packet ready を両方消費し、fixed metadata と tile-local coverage を分けて検査する。
-- `Continue` は cursor と owner を保持し、`continue_take` で同じ handoff value に移す。
-- `AdvanceError` は `advance_error_take` で cursor と incoming ready を同じ recovery value に移し、failure path の回収を失わない。
-- `Completed` は owner と pure evidence を保持し、hardware flush completion や scheduler completion を主張しない。
-- duplicate / reorder / gap、partial plan、overflow は enum error と owner-bearing `Result` で fail-closed に返す。
-- docs、focused doctest、source-policy、note、todo を同じ slice で更新する。
+- `stdlib/platforms/gui/bare/display_surface_readiness.nepl` の `GuiBareDisplayWholeSurfacePacketReadinessCompleted` に module-private completed seal を追加し、owner + copy evidence だけから completed authority を偽造できないようにする。
+- `stdlib/platforms/gui/bare/display_flush_completion.nepl` を追加する。
+- public authority は `GuiBareDisplayWholeSurfacePacketReadinessCompleted` value だけとし、copyable whole-surface evidence、flush evidence、driver step / outcome、raw storage を input authority にしない。
+- host import 名は `nepl_gui_bare.display_hardware_flush` とし、target kind、window raw、surface、frame、frame id、batch index、width、height、stride bytes、tile rows、tile count、expected pixel count、ready pixel count、surface byte count を渡す。
+- preflight は host import の前に width / height / tile rows / tile count、checked `width * height`、`ready_pixel_count == expected_pixel_count`、checked `width * 4`、checked `height * stride_bytes` を検査する。
+- preflight error は `status == Option::None`、host status error は `status == Option::Some status` として区別する。
+- status `0` だけを accepted とし、`-1` Unsupported、`-2` / `-6` InvalidCommand、`-3` / `-4` ResourceExhausted、その他は BackendFailure として fail-closed にする。
+- success は module-private accepted seal を持つ `GuiBareDisplayHardwareFlushAccepted` とし、physical scanout completion、scheduler completion、long-running backend completion を主張しない。
+- owner-bearing accepted / error は `Clone` / `Copy` にしない。
+- docs、focused doctest、source-policy、note、todo、default bare test import を同じ slice で更新する。
 
-Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。F5fv の次の再開 target は、hardware flush completion、actual real scheduler loop / headless app-loop integration、native / bare scheduler backend へ進めることである。
+Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。F5fw の次の再開 target は、actual real scheduler loop / headless app-loop integration、native / bare scheduler backend、formal `std/gui` present host import 接続へ進めることである。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。

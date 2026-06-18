@@ -1,0 +1,339 @@
+//: # platforms/gui/bare/display_flush_completion
+//: Bare display hardware flush accepted boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fv の whole-surface packet readiness completed value を、bare embedding host の hardware flush import へ[渡/わた]します。
+//: - `Completed` は module-private seal を[含/ふく]む owner-bearing value として[消費/しょうひ]し、copyable evidence [単体/たんたい]を authority にしません。
+//: - host status は typed error へ[写/うつ]し、status `0` の場合だけ flush accepted evidence へ[進/すす]みます。
+//:
+//: ### [契約/けいやく]
+//: - success は host import が completed whole-surface evidence に[対/たい]して accepted status を[返/かえ]したことだけを[示/しめ]します。
+//: - physical scanout completion、long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//: - preflight failure では host import を[呼/よ]ばず、`status` は `Option::None` です。
+//: - host status failure では `status` を `Option::Some` で[保持/ほじ]し、owner と evidence を error payload に[回収/かいしゅう]します。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_flush_completion" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/display_surface_readiness" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/window" as *
+
+#extern "nepl_gui_bare" "display_hardware_flush" fn gui_bare_display_hardware_flush_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+pub struct GuiBareDisplayHardwareFlushEvidence:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    surface %SurfaceId
+    frame %FrameId
+    frame_id %i32
+    batch_index %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    tile_rows %i32
+    tile_count %i32
+    expected_pixel_count %i32
+    ready_pixel_count %i32
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayHardwareFlushEvidence:
+    fn clone %fn &GuiBareDisplayHardwareFlushEvidence GuiBareDisplayHardwareFlushEvidence \evidence:
+        *evidence
+
+impl Copy for GuiBareDisplayHardwareFlushEvidence:
+    fn copy_mark %fn GuiBareDisplayHardwareFlushEvidence GuiBareDisplayHardwareFlushEvidence \evidence:
+        evidence
+
+struct GuiBareDisplayHardwareFlushAcceptedSeal:
+    frame_id %i32
+    surface_byte_count %i32
+
+pub struct GuiBareDisplayHardwareFlushAccepted:
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayHardwareFlushEvidence
+    seal %GuiBareDisplayHardwareFlushAcceptedSeal
+
+pub enum GuiBareDisplayHardwareFlushErrorKind:
+    WidthInvalid
+    HeightInvalid
+    TileRowsInvalid
+    TileCountInvalid
+    ExpectedPixelCountInvalid
+    ExpectedPixelCountOverflow
+    ExpectedPixelCountMismatch
+    StrideOverflow
+    StrideMismatch
+    SurfaceByteCountOverflow
+    SurfaceByteCountMismatch
+    ReadyPixelCountMismatch
+    HostUnsupported
+    HostInvalidCommand
+    HostResourceExhausted
+    HostBackendFailure
+
+impl Clone for GuiBareDisplayHardwareFlushErrorKind:
+    fn clone %fn &GuiBareDisplayHardwareFlushErrorKind GuiBareDisplayHardwareFlushErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayHardwareFlushErrorKind:
+    fn copy_mark %fn GuiBareDisplayHardwareFlushErrorKind GuiBareDisplayHardwareFlushErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayHardwareFlushError:
+    kind %GuiBareDisplayHardwareFlushErrorKind
+    category %Option GuiError
+    status %Option i32
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayHardwareFlushEvidence
+
+fn gui_bare_display_hardware_flush_evidence_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn SurfaceId fn FrameId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiBareDisplayHardwareFlushEvidence \target\surface\frame\frame_id\batch_index\width\height\stride_bytes\tile_rows\tile_count\expected_pixel_count\ready_pixel_count\surface_byte_count:
+    GuiBareDisplayHardwareFlushEvidence target surface frame frame_id batch_index width height stride_bytes tile_rows tile_count expected_pixel_count ready_pixel_count surface_byte_count
+
+fn gui_bare_display_hardware_flush_accepted_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayHardwareFlushEvidence GuiBareDisplayHardwareFlushAccepted \owner\evidence:
+    let seal %GuiBareDisplayHardwareFlushAcceptedSeal gui_bare_display_hardware_flush_accepted_seal &evidence
+    GuiBareDisplayHardwareFlushAccepted owner evidence seal
+
+fn gui_bare_display_hardware_flush_accepted_seal %fn &GuiBareDisplayHardwareFlushEvidence GuiBareDisplayHardwareFlushAcceptedSeal \evidence:
+    let frame_id %i32 *field::get_ref evidence "frame_id"
+    let surface_byte_count %i32 *field::get_ref evidence "surface_byte_count"
+    GuiBareDisplayHardwareFlushAcceptedSeal frame_id surface_byte_count
+
+fn gui_bare_display_hardware_flush_category %fn GuiBareDisplayHardwareFlushErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayHardwareFlushErrorKind::WidthInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::HeightInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::TileRowsInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::TileCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::StrideOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::StrideMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::SurfaceByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::SurfaceByteCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayHardwareFlushErrorKind::ReadyPixelCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayHardwareFlushErrorKind::HostUnsupported:
+            Option::Some GuiError::Unsupported
+        GuiBareDisplayHardwareFlushErrorKind::HostInvalidCommand:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayHardwareFlushErrorKind::HostResourceExhausted:
+            Option::Some GuiError::ResourceExhausted
+        GuiBareDisplayHardwareFlushErrorKind::HostBackendFailure:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_hardware_flush_error_new %fn GuiBareDisplayHardwareFlushErrorKind fn Option i32 fn GuiBareDisplayMemoryOwner fn GuiBareDisplayHardwareFlushEvidence GuiBareDisplayHardwareFlushError \kind\status\owner\evidence:
+    let category %Option GuiError gui_bare_display_hardware_flush_category kind
+    GuiBareDisplayHardwareFlushError kind category status owner evidence
+
+pub fn gui_bare_display_hardware_flush_accepted_owner %fn GuiBareDisplayHardwareFlushAccepted GuiBareDisplayMemoryOwner \accepted:
+    field::get accepted "owner"
+
+pub fn gui_bare_display_hardware_flush_accepted_evidence %fn &GuiBareDisplayHardwareFlushAccepted GuiBareDisplayHardwareFlushEvidence \accepted:
+    *field::get_ref accepted "evidence"
+
+pub fn gui_bare_display_hardware_flush_error_kind %fn &GuiBareDisplayHardwareFlushError GuiBareDisplayHardwareFlushErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_hardware_flush_error_category_value %fn &GuiBareDisplayHardwareFlushError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_hardware_flush_error_status_value %fn &GuiBareDisplayHardwareFlushError Option i32 \error:
+    *field::get_ref error "status"
+
+pub fn gui_bare_display_hardware_flush_error_owner %fn GuiBareDisplayHardwareFlushError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_hardware_flush_error_evidence %fn &GuiBareDisplayHardwareFlushError GuiBareDisplayHardwareFlushEvidence \error:
+    *field::get_ref error "evidence"
+
+fn gui_bare_display_hardware_flush_evidence_from_whole %fn &GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayHardwareFlushEvidence \evidence:
+    gui_bare_display_hardware_flush_evidence_new:
+        *field::get_ref evidence "target"
+        *field::get_ref evidence "surface"
+        *field::get_ref evidence "frame"
+        *field::get_ref evidence "frame_id"
+        *field::get_ref evidence "batch_index"
+        *field::get_ref evidence "width"
+        *field::get_ref evidence "height"
+        *field::get_ref evidence "stride_bytes"
+        *field::get_ref evidence "tile_rows"
+        *field::get_ref evidence "tile_count"
+        *field::get_ref evidence "expected_pixel_count"
+        *field::get_ref evidence "ready_pixel_count"
+        *field::get_ref evidence "surface_byte_count"
+
+fn gui_bare_display_hardware_flush_checked_mul %fn i32 fn i32 fn GuiBareDisplayHardwareFlushErrorKind Result i32 GuiBareDisplayHardwareFlushErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_bare_display_hardware_flush_preflight %fn &GuiBareDisplayHardwareFlushEvidence Result unit GuiBareDisplayHardwareFlushErrorKind \evidence:
+    let width %i32 *field::get_ref evidence "width"
+    if le width 0:
+        then Result::Err GuiBareDisplayHardwareFlushErrorKind::WidthInvalid
+        else:
+            let height %i32 *field::get_ref evidence "height"
+            if le height 0:
+                then Result::Err GuiBareDisplayHardwareFlushErrorKind::HeightInvalid
+                else:
+                    let tile_rows %i32 *field::get_ref evidence "tile_rows"
+                    if le tile_rows 0:
+                        then Result::Err GuiBareDisplayHardwareFlushErrorKind::TileRowsInvalid
+                        else:
+                            let tile_count %i32 *field::get_ref evidence "tile_count"
+                            if le tile_count 0:
+                                then Result::Err GuiBareDisplayHardwareFlushErrorKind::TileCountInvalid
+                                else:
+                                    let expected_pixel_count %i32 *field::get_ref evidence "expected_pixel_count"
+                                    if le expected_pixel_count 0:
+                                        then Result::Err GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountInvalid
+                                        else:
+                                            match gui_bare_display_hardware_flush_checked_mul width height GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountOverflow:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok computed_pixel_count:
+                                                    if ne computed_pixel_count expected_pixel_count:
+                                                        then Result::Err GuiBareDisplayHardwareFlushErrorKind::ExpectedPixelCountMismatch
+                                                        else:
+                                                            let ready_pixel_count %i32 *field::get_ref evidence "ready_pixel_count"
+                                                            if ne ready_pixel_count expected_pixel_count:
+                                                                then Result::Err GuiBareDisplayHardwareFlushErrorKind::ReadyPixelCountMismatch
+                                                                else:
+                                                                    match gui_bare_display_hardware_flush_checked_mul width 4 GuiBareDisplayHardwareFlushErrorKind::StrideOverflow:
+                                                                        Result::Err kind:
+                                                                            Result::Err kind
+                                                                        Result::Ok expected_stride:
+                                                                            let stride_bytes %i32 *field::get_ref evidence "stride_bytes"
+                                                                            if ne stride_bytes expected_stride:
+                                                                                then Result::Err GuiBareDisplayHardwareFlushErrorKind::StrideMismatch
+                                                                                else:
+                                                                                    match gui_bare_display_hardware_flush_checked_mul height stride_bytes GuiBareDisplayHardwareFlushErrorKind::SurfaceByteCountOverflow:
+                                                                                        Result::Err kind:
+                                                                                            Result::Err kind
+                                                                                        Result::Ok expected_surface_byte_count:
+                                                                                            let surface_byte_count %i32 *field::get_ref evidence "surface_byte_count"
+                                                                                            if ne surface_byte_count expected_surface_byte_count:
+                                                                                                then Result::Err GuiBareDisplayHardwareFlushErrorKind::SurfaceByteCountMismatch
+                                                                                                else Result::Ok unit
+
+fn gui_bare_display_hardware_flush_target_kind %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget i32 \target:
+    match target:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window:
+            1
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            2
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            3
+
+fn gui_bare_display_hardware_flush_window_raw %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget i32 \target:
+    match target:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window:
+            window_id_raw &window
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            0
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            0
+
+fn gui_bare_display_hardware_flush_status_kind %fn i32 GuiBareDisplayHardwareFlushErrorKind \status:
+    if eq status -1:
+        then GuiBareDisplayHardwareFlushErrorKind::HostUnsupported
+        else:
+            if eq status -2:
+                then GuiBareDisplayHardwareFlushErrorKind::HostInvalidCommand
+                else:
+                    if eq status -3:
+                        then GuiBareDisplayHardwareFlushErrorKind::HostResourceExhausted
+                        else:
+                            if eq status -4:
+                                then GuiBareDisplayHardwareFlushErrorKind::HostResourceExhausted
+                                else:
+                                    if eq status -6:
+                                        then GuiBareDisplayHardwareFlushErrorKind::HostInvalidCommand
+                                        else GuiBareDisplayHardwareFlushErrorKind::HostBackendFailure
+
+fn gui_bare_display_hardware_flush_call %impure fn &GuiBareDisplayHardwareFlushEvidence i32 \evidence:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref evidence "target"
+    let target_kind %i32 gui_bare_display_hardware_flush_target_kind target
+    let window_raw %i32 gui_bare_display_hardware_flush_window_raw target
+    let surface %SurfaceId *field::get_ref evidence "surface"
+    let frame %FrameId *field::get_ref evidence "frame"
+    let surface_raw %i32 surface_id_raw &surface
+    let frame_raw %i32 frame_id_raw &frame
+    gui_bare_display_hardware_flush_raw:
+        target_kind
+        window_raw
+        surface_raw
+        frame_raw
+        *field::get_ref evidence "frame_id"
+        *field::get_ref evidence "batch_index"
+        *field::get_ref evidence "width"
+        *field::get_ref evidence "height"
+        *field::get_ref evidence "stride_bytes"
+        *field::get_ref evidence "tile_rows"
+        *field::get_ref evidence "tile_count"
+        *field::get_ref evidence "expected_pixel_count"
+        *field::get_ref evidence "ready_pixel_count"
+        *field::get_ref evidence "surface_byte_count"
+
+//: gui_bare_display_hardware_flush_accept_from_whole_surface: whole-surface readiness completed を hardware flush accepted evidence へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - `Completed` value を[消費/しょうひ]し、copyable evidence [単体/たんたい]や raw accepted value は[受/う]け[取/と]りません。
+//: - preflight が[失敗/しっぱい]した場合は host import を[呼/よ]びません。
+//: - host status `0` だけを success とし、それ以外は owner-bearing error として[返/かえ]します。
+pub fn gui_bare_display_hardware_flush_accept_from_whole_surface %impure fn GuiBareDisplayWholeSurfacePacketReadinessCompleted Result GuiBareDisplayHardwareFlushAccepted GuiBareDisplayHardwareFlushError \completed:
+    let whole_evidence %GuiBareDisplayWholeSurfacePacketReadinessEvidence gui_bare_display_whole_surface_packet_readiness_completed_evidence &completed
+    let evidence %GuiBareDisplayHardwareFlushEvidence gui_bare_display_hardware_flush_evidence_from_whole &whole_evidence
+    let owner %GuiBareDisplayMemoryOwner gui_bare_display_whole_surface_packet_readiness_completed_owner completed
+    match gui_bare_display_hardware_flush_preflight &evidence:
+        Result::Err kind:
+            Result::Err gui_bare_display_hardware_flush_error_new kind Option::None owner evidence
+        Result::Ok _:
+            let status %i32 gui_bare_display_hardware_flush_call &evidence
+            if eq status 0:
+                then Result::Ok gui_bare_display_hardware_flush_accepted_new owner evidence
+                else:
+                    let kind %GuiBareDisplayHardwareFlushErrorKind gui_bare_display_hardware_flush_status_kind status
+                    Result::Err gui_bare_display_hardware_flush_error_new kind Option::Some status owner evidence
