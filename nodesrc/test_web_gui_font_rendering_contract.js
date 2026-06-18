@@ -210,6 +210,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStep);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriver = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriver);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -317,6 +319,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -24656,6 +24659,156 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_zero_budget_yield_semantics_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_no_wildcard_backend_queue_fallback"),
     "F5el std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler-real-loop-driver focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary") &&
+            doc.includes("F5em") &&
+            doc.includes("HeadlessAppLoopStepPolicy") &&
+            doc.includes("RealLoopStepInput") &&
+            doc.includes("CompleteAck") &&
+            doc.includes("remaining_count == 0") &&
+            doc.includes("budget-yield semantics") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5em ${name} must document headless app-loop step, explicit input, CompleteAck non-synthesis, zero-budget semantics, and no fallback`,
+    );
+}
+assert(
+    stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step" as *'),
+    "std/gui facade must export F5em tile present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepPolicy:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("driver_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("step_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("NeedInput %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepNeedInput") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("Completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepCompleted") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("StartFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepStartFailed") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("RealStepFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepRealStepFailed") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep.includes("AfterStepFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepAfterStepFailed"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must expose two-policy app-loop step shape, terminal result, and typed lower errors",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep,
+    /LoopPolicy|DrainPolicy|SlicePolicy|scheduler_policy\s+%|timer_policy\s+%|GuiHost|TimerRequest|TimerEvent/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must not own lower scheduler/timer/backend authority",
+);
+assert(
+    /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action"\s+as\s+\*/.test(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl) &&
+        /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step"\s+as\s+\*/.test(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl) &&
+        /#import\s+"std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver"\s+as\s+\*/.test(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must import F5eg/F5ek/F5el surfaces only",
+);
+const f5emResultFromDriverResult = functionSlice(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_result_from_driver_result",
+);
+assertOrderedFragments(
+    f5emResultFromDriverResult,
+    [
+        "RealLoopDriverResult::NeedInput need",
+        "real_loop_driver_need_input_action need",
+        "HeadlessAppLoopStepResult::NeedInput payload",
+        "RealLoopDriverResult::Completed completed_result",
+        "real_loop_driver_completed_remaining_count &completed_result",
+        "real_loop_driver_completed_completed completed_result",
+        "HeadlessAppLoopStepResult::Completed payload",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must map driver request/completion to headless app-loop result without synthesizing input",
+);
+const f5emStart = functionSlice(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_start",
+);
+assertOrderedFragments(
+    f5emStart,
+    [
+        "headless_app_loop_step_policy_driver_policy_ref policy",
+        "real_loop_driver_start driver_policy state",
+        "headless_app_loop_step_start_failed_result lower",
+        "headless_app_loop_step_result_from_driver_result driver_result",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em start must call only F5el start and map typed lower error",
+);
+assert(
+    (f5emStart.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start\b/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em start must call F5el start exactly once",
+);
+assertNoMatch(
+    f5emStart,
+    /\b(?:real_loop_step|real_loop_driver_after_step|CompleteAck|ExecutorOutcome|ClockDelta)\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em start must not advance or synthesize backend input",
+);
+const f5emAdvance = functionSlice(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_advance",
+);
+assertOrderedFragments(
+    f5emAdvance,
+    [
+        "headless_app_loop_step_policy_step_policy_ref policy",
+        "real_loop_step step_policy action input",
+        "headless_app_loop_step_real_step_failed_result lower",
+        "headless_app_loop_step_policy_driver_policy_ref policy",
+        "real_loop_driver_after_step driver_policy step_result",
+        "headless_app_loop_step_after_step_failed_result lower",
+        "headless_app_loop_step_result_from_driver_result driver_result",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em advance must call F5ek once, then F5el after-step once only on success",
+);
+assert(
+    (f5emAdvance.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step\b/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em advance must call F5ek step exactly once",
+);
+assert(
+    (f5emAdvance.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step\b/g) || []).length === 1,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em advance must call F5el after-step exactly once",
+);
+assertNoMatch(
+    f5emAdvance,
+    /\b(?:remaining_count\s+0|CompleteAck|ExecutorOutcome|ClockDelta|real_loop_driver_start|Result::Ok\s+unit|Result::Err\s+GuiError::)\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em advance must not synthesize CompleteAck, collapse zero budget, call start, or fallback to generic success/error",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    /_:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must not use wildcard matches",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    /\b(?:while|for|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op|virtual_scheduler_loop_step|virtual_scheduler_loop_resume|virtual_scheduler_slice|virtual_scheduler_drain|loop_timer_advance|loop_executor_complete|loop_yield_complete|scheduler_decide|virtual_scheduler_decide|turn_driver_complete)\b/i,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em must not queue, call platform/raw APIs, bypass authorities, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep[A-Za-z0-9]*\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStep[A-Za-z0-9]*\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em owner-bearing payloads and error enum must be non-Copy and non-Clone",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step F5em implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_policy_shape_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_result_shape_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_error_shape_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_start_dispatch_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_advance_dispatch_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_completed_terminal_only_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_no_synthetic_complete_ack_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_lower_error_order_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_no_wildcard_backend_queue_fallback"),
+    "F5em std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler-headless-app-loop-step focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

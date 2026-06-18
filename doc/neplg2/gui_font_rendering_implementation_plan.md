@@ -13,6 +13,35 @@
 - F5el は backend clock、executor、queue、platform API を持たない。
 - F5el は `remaining_count < 0` だけを typed error にする。
 
+## Phase F5em: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary
+
+2026-06-18 の F5em では、F5el `NeedInput` と caller supplied F5ek input を deterministic headless / offscreen test 用の 1 app-loop step として接続する。F5em は actual backend clock source、native / bare scheduler backend、queue、platform API、DOM / Canvas / minifb、video memory を実装しない。
+
+実装 target:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.nepl`
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `nodesrc/test_web_gui_offscreen_headless_contract.js`
+
+実装内容:
+
+- `HeadlessAppLoopStepPolicy` は F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持する。
+- `start` は F5el `real_loop_driver_start` だけを 1 回呼び、driver result を F5em result へ写す。
+- `advance` は previous `NeedInput` と caller supplied F5ek input だけを受け、F5ek `real_loop_step` を 1 回呼ぶ。
+- F5ek step success の場合だけ F5el `real_loop_driver_after_step` を 1 回呼ぶ。
+- F5ek step error では F5el after-step を呼ばず typed `RealStepFailed` を返す。
+- `Completed` は terminal output だけであり、advance input にはしない。
+- `Complete` action は caller supplied `CompleteAck` を待つ。F5em は `CompleteAck`、executor outcome、clock delta を合成しない。
+- `remaining_count == 0` は F5em で判定せず、F5el / F5ec の budget-yield semantics に任せる。
+
+完了条件:
+
+- F5em は F5el と F5ek だけを実装上の authority とし、F5ef / F5ec / scheduler / timer policy を直接扱わない。
+- source policy が exact import、start / advance の call order、F5ek error で after-step を呼ばないこと、no backend / queue / fallback / silent no-op を固定する。
+- focused doctest、source policy、F5el / F5ek regression、`git diff --check` が通る。
+- subagent implementation review で terminal-only `Completed`、no synthetic `CompleteAck`、zero-budget semantics preservation が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。
