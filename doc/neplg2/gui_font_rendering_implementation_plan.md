@@ -1297,6 +1297,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dz: std layer row tile RLE present host span operation presenter executor session turn virtual timer bridge
+
+目的:
+
+- F5dw timer pending request と F5dy deterministic virtual timer scheduler を std layer で接続する。
+- headless / offscreen test は actual Web / native / bare timer backend、queue、real scheduler loop を使わず、`GuiEvent::Timer` によって scheduled turn を再開できる。
+- schedule / advance / complete の各 authority を F5dw / F5dy に残し、新規 bridge は owner recovery と接続順序だけを担う。
+
+plan review:
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。
+- 指摘は、advance failure、unexpected event、timer complete failure の recovery payload から virtual timer state が失われること、schedule error の lower `GuiError` が category に縮約されていること、recovery accessor が計画されていないことだった。
+- revised plan では schedule error が original F5dw pending と original virtual state と lower `GuiError` を保持し、advance failure が original combined pending と lower `GuiError` を保持する。
+- unexpected event は F5dw pending、advance-after virtual timer state、event を保持し、timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。
+- source policy は `gui_virtual_timer_schedule`、`gui_virtual_timer_advance`、F5dw `turn_timer_complete` をそれぞれ該当 path で 1 回だけ呼ぶこと、loop / drain / backend / queue / fallback に進まないことを固定する。Cicero revised plan review は `PLAN_APPROVED`。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending` は F5dw pending と `GuiVirtualTimerState` を所有する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance` は `Pending` または `Ready SchedulerDecision` を返す。
+- schedule は F5dw pending から borrowed `TimerRequest` を読み、`gui_virtual_timer_schedule` を 1 回だけ呼ぶ。
+- advance は `gui_virtual_timer_advance` を 1 回だけ呼び、`Option::None` は next pending、`GuiEvent::Timer` は F5dw `turn_timer_complete`、timer 以外は owner-bearing unexpected event error に写す。
+- schedule error、advance failed error、unexpected event error、complete failed error に category / lower / pending / timer_state / event の recovery accessor を追加する。
+- owner-bearing pending、advance、error payload、top-level advance error には Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` を追加し、facade、schedule owner recovery、advance owner recovery、timer complete state recovery、unexpected event、exact authority calls、no loop / backend / queue / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5dz source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer_f5dz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer_module_f5dz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_virtual_timer.n.md --no-tree -o tmp_gui_std_virtual_timer_f5dz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer_f5dz_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

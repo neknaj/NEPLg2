@@ -40,9 +40,12 @@ const virtualEvent = read("stdlib/std/gui/virtual_event.nepl");
 const virtualEventImpl = withoutComments(virtualEvent);
 const virtualTimer = read("stdlib/std/gui/virtual_timer.nepl");
 const virtualTimerImpl = withoutComments(virtualTimer);
+const turnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl");
+const turnVirtualTimerImpl = withoutComments(turnVirtualTimer);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
+const guiStdTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
 
 assertMatch(
     spec,
@@ -73,6 +76,11 @@ assertMatch(
     implementationPlan,
     /Phase 5\.2:[\s\S]*stdlib\/std\/gui\/virtual_timer\.nepl[\s\S]*tests\/stdlib\/gui_std_virtual_timer\.n\.md/,
     "implementation plan must track the virtual timer scheduler implementation slice",
+);
+assertMatch(
+    implementationPlan,
+    /Phase 5\.3:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer\.n\.md/,
+    "implementation plan must track the virtual timer turn bridge implementation slice",
 );
 
 assertMatch(
@@ -177,6 +185,21 @@ assertNoMatch(
     /\b(?:DOM|Canvas|KeyboardEvent|MouseEvent|PointerEvent|EventTarget|document\.|window\.|minifb|HWND|stdout|queue|SharedArrayBuffer|setTimeout|setInterval|video_memory|fallback|silent no-op)\b/i,
     "std/gui/virtual_timer must not depend on platform APIs, queues, video memory, or hidden fallback",
 );
+assertMatch(
+    turnVirtualTimerImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending:[\s\S]*pending\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending[\s\S]*timer_state\s+%GuiVirtualTimerState/,
+    "std/gui turn virtual timer bridge must keep F5dw pending and virtual timer state together",
+);
+assertMatch(
+    turnVirtualTimerImpl,
+    /gui_virtual_timer_schedule\s+timer_state\s+request[\s\S]*gui_virtual_timer_advance\s+timer_state\s+delta_ms[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete\s+timer_pending\s+timer_event/,
+    "std/gui turn virtual timer bridge must connect F5dy schedule and advance to F5dw completion",
+);
+assertNoMatch(
+    turnVirtualTimerImpl,
+    /\b(?:DOM|Canvas|KeyboardEvent|MouseEvent|PointerEvent|EventTarget|document\.|window\.|minifb|HWND|stdout|queue|SharedArrayBuffer|setTimeout|setInterval|video_memory|fallback|silent no-op)\b/i,
+    "std/gui turn virtual timer bridge must not depend on platform APIs, queues, video memory, or hidden fallback",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -192,6 +215,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/virtual_timer"\s+as\s+\*/,
     "std/gui facade must re-export the virtual timer contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual timer turn bridge contract",
 );
 assertMatch(
     guiStdTests,
@@ -212,6 +240,11 @@ assertMatch(
     guiStdVirtualTimerTests,
     /gui_std_virtual_timer_no_sentinel_no_queue_no_platform_no_fallback[\s\S]*malformed none state rejected[\s\S]*malformed active state rejected/,
     "std/gui virtual timer focused doctest must cover state invariant validation and no sentinel/queue/platform/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualTimerTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_owner_recovery_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_no_loop_no_backend_no_queue_no_fallback/,
+    "std/gui turn virtual timer focused doctest must cover owner recovery and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");

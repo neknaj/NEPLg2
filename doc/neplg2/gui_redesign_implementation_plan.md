@@ -338,6 +338,53 @@ Subagent review:
 - 実装前 review では `PLAN_CHANGES` として plain `GuiError`、state invariant 再検査、repeating remainder 保持、`delta_ms == 0` drain を指摘された。
 - 実装後に、指摘がすべて満たされていること、headless が presentation fallback になっていないことを確認させる。
 
+## Phase 5.3: stdlib virtual timer turn bridge contract
+
+目的:
+
+- F5dw の target-neutral timer pending request と F5dy の deterministic virtual timer scheduler を std layer で接続する。
+- headless / offscreen test は actual Web / native / bare timer backend、queue、real scheduler loop を使わず、`GuiEvent::Timer` によって scheduled turn を再開できる。
+- bridge は `gui_virtual_timer_schedule`、`gui_virtual_timer_advance`、F5dw `turn_timer_complete` の接続順序と owner recovery だけを担当する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending` は F5dw pending と `GuiVirtualTimerState` を保持する。
+- schedule は F5dw pending から borrowed `TimerRequest` を読み、`gui_virtual_timer_schedule` を 1 回だけ呼ぶ。
+- advance は `gui_virtual_timer_advance` を 1 回だけ呼び、`Option::None` は next pending、`GuiEvent::Timer` は F5dw `turn_timer_complete`、timer 以外の event は owner-bearing error に写す。
+- schedule failure は original pending と original virtual timer state と lower `GuiError` を保持する。
+- advance failure は original combined pending と lower `GuiError` を保持する。
+- unexpected event は F5dw pending、advance-after virtual timer state、event を保持する。
+- timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。
+- owner-bearing pending / advance / error payload には Clone / Copy を実装しない。
+- `std/gui.nepl` facade に virtual timer turn bridge を公開する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` を追加し、owner recovery、exact authority calls、no loop / backend / queue / fallback の source policy label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に source policy を追加する。
+
+完了条件:
+
+- F5dz は DOM、Canvas、minifb、OS timer、browser timer、stdout、event queue、video memory、platform API、fallback、silent no-op、loop drain を含まない。
+- schedule / advance / complete の各 lower authority を重複して呼ばない。
+- failure path は pending と virtual timer state を失わず、caller が recovery accessor で回収できる。
+- focused doctest、offscreen/headless source policy、font rendering source policy、`git diff --check` が通る。
+- subagent implementation review で owner recovery、exact authority calls、no backend / queue / fallback が承認される。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md --no-tree -o tmp/gui-std-turn-virtual-timer.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl --no-tree -o tmp/gui-std-turn-virtual-timer-module.json -j 1 --dist web/dist --assert-io
+git diff --check
+```
+
+Subagent review:
+
+- 実装前 review では `PLAN_BLOCKED` として timer complete failure / unexpected event / advance failure の owner recovery 不足を指摘された。
+- revised plan では advance-after virtual timer state と lower error を保持する設計に直し、Cicero revised plan review は `PLAN_APPROVED`。
+- 実装後に、指摘がすべて満たされていること、bridge が real scheduler や presentation fallback に進んでいないことを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:

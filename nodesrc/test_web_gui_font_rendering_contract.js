@@ -184,6 +184,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler = 
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -278,6 +280,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests = 
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -22987,6 +22990,113 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_event_validation_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_no_backend_no_queue_no_fallback"),
     "F5dw std tile present host-span-operation-presenter-executor-session-turn-timer focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn virtual timer bridge") &&
+            doc.includes("F5dz") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending") &&
+            doc.includes("gui_virtual_timer_schedule") &&
+            doc.includes("gui_virtual_timer_advance") &&
+            doc.includes("turn_timer_complete") &&
+            doc.includes("advance-after virtual timer state"),
+        `F5dz ${name} must document deterministic virtual timer bridge and recovery state`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer" as *'), "std/gui facade must export F5dz tile present host span operation presenter executor session turn virtual timer bridge");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("timer_state %GuiVirtualTimerState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("Pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("Ready %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("lower %GuiError") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("event %GuiEvent") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError:"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz must define pending, advance, and owner-bearing recovery errors",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz owner-bearing values must be non-Copy and non-Clone",
+);
+const f5dzSchedule = functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule");
+assertOrderedFragments(
+    f5dzSchedule,
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_request &pending",
+        "gui_virtual_timer_schedule timer_state request",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_new pending timer_state lower",
+        "Result::Ok next_timer_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_new pending next_timer_state",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz schedule must call virtual timer schedule once and retain owners on failure",
+);
+assert((f5dzSchedule.match(/\bgui_virtual_timer_schedule\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz schedule must call F5dy schedule exactly once");
+const f5dzAdvance = functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance");
+assertOrderedFragments(
+    f5dzAdvance,
+    [
+        "gui_virtual_timer_advance timer_state delta_ms",
+        "Result::Err lower:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_new pending lower",
+        "Result::Ok timer_advance:",
+        "gui_virtual_timer_advance_state &timer_advance",
+        "gui_virtual_timer_advance_event &timer_advance",
+        "Option::None:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance::Pending next_pending",
+        "Option::Some event:",
+        "GuiEvent::Timer timer_event:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete timer_pending timer_event",
+        "TimerCompleteFailed payload",
+        "GuiEvent::Pointer pointer_event:",
+        "GuiEvent::Keyboard keyboard_event:",
+        "GuiEvent::TextInput text_input_event:",
+        "GuiEvent::Window window_event:",
+        "GuiEvent::Lifecycle lifecycle_event:",
+        "GuiEvent::Accessibility accessibility_event:",
+        "GuiEvent::Action action:",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz advance must map none, timer event, complete failure, and all unexpected event variants without losing virtual state",
+);
+assert((f5dzAdvance.match(/\bgui_virtual_timer_advance\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz advance must call F5dy advance exactly once");
+assert((f5dzAdvance.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz advance must call F5dw complete exactly once");
+assertNoMatch(
+    f5dzAdvance,
+    /_:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz advance must not use wildcard GuiEvent handling",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl,
+    /\b(?:while|loop|for|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz must not loop, drain, call backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer F5dz implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_owner_recovery_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_owner_recovery_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_timer_complete_state_recovery_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_exact_authority_calls_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_no_loop_no_backend_no_queue_no_fallback"),
+    "F5dz std tile present host-span-operation-presenter-executor-session-turn-virtual-timer focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

@@ -1,0 +1,201 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn virtual timer bridge
+//:
+//: ### [目的/もくてき]
+//: - F5dw の timer pending request を F5dy の deterministic virtual timer に[接続/せつぞく]します。
+//: - headless / offscreen test は actual Web / native / bare timer backend を[使/つか]わず、同じ `GuiEvent::Timer` で scheduled turn を[再開/さいかい]できます。
+//:
+//: ### [契約/けいやく]
+//: - schedule は F5dy `gui_virtual_timer_schedule` を 1 [回/かい]だけ[呼/よ]び、失敗時は original F5dw pending と original virtual timer state を[保持/ほじ]します。
+//: - advance は F5dy `gui_virtual_timer_advance` を 1 [回/かい]だけ[呼/よ]び、発火しない場合は F5dw pending と next virtual timer state を[保持/ほじ]して[返/かえ]します。
+//: - `GuiEvent::Timer` だけを F5dw `turn_timer_complete` へ[渡/わた]します。timer 以外の event は silent no-op にせず owner-bearing error です。
+//: - timer complete 失敗時は F5dw complete error と advance 後 virtual timer state を[保持/ほじ]します。
+//: - loop、drain、real scheduler、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/timer" as *
+#import "std/gui/virtual_timer" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending:
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    timer_state %GuiVirtualTimerState
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance:
+    Pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending
+    Ready %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError:
+    category %Option GuiError
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    timer_state %GuiVirtualTimerState
+    lower %GuiError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError:
+    category %Option GuiError
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending
+    lower %GuiError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError:
+    category %Option GuiError
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    timer_state %GuiVirtualTimerState
+    event %GuiEvent
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError:
+    category %Option GuiError
+    timer_state %GuiVirtualTimerState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError:
+    AdvanceFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError
+    UnexpectedEvent %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError
+    TimerCompleteFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn GuiVirtualTimerState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending \pending\timer_state:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending pending timer_state
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn GuiVirtualTimerState fn GuiError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError \pending\timer_state\lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError some lower pending timer_state lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending fn GuiError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError \pending\lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError some lower pending lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn GuiVirtualTimerState fn GuiEvent GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError \pending\timer_state\event:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError some GuiError::InvalidCommand pending timer_state event
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_complete_failed_error_new %fn GuiVirtualTimerState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError \timer_state\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError category timer_state lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending fn GuiVirtualTimerState fn GuiEvent Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError \pending\timer_state\event:
+    let timer_pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_pending pending
+    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_new timer_pending timer_state event
+    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError::UnexpectedEvent payload
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_pending_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \pending:
+    field::get_ref pending "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \pending:
+    field::get pending "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending GuiVirtualTimerState \pending:
+    *field::get_ref pending "timer_state"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule: F5dw pending を virtual timer に[登録/とうろく]する
+//:
+//: [契約/けいやく]:
+//: - F5dw pending から borrowed `TimerRequest` を[読/よ]み、F5dy schedule を 1 [回/かい]だけ[呼/よ]びます。
+//: - schedule 失敗では original pending と original virtual timer state を error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn GuiVirtualTimerState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError \pending\timer_state:
+    let request %TimerRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_request &pending
+    match gui_virtual_timer_schedule timer_state request:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_new pending timer_state lower
+        Result::Ok next_timer_state:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_new pending next_timer_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance: virtual timer を[進/すす]めて scheduled turn を[再開/さいかい]する
+//:
+//: [契約/けいやく]:
+//: - F5dy advance を 1 [回/かい]だけ[呼/よ]びます。
+//: - event がなければ pending と next timer state を[返/かえ]します。
+//: - `GuiEvent::Timer` の場合だけ F5dw complete を 1 [回/かい]だけ[呼/よ]びます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending fn i32 Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError \pending\delta_ms:
+    let timer_state %GuiVirtualTimerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_state &pending
+    match gui_virtual_timer_advance timer_state delta_ms:
+        Result::Err lower:
+            let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_new pending lower
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError::AdvanceFailed payload
+        Result::Ok timer_advance:
+            let next_timer_state %GuiVirtualTimerState gui_virtual_timer_advance_state &timer_advance
+            let event_option %Option GuiEvent gui_virtual_timer_advance_event &timer_advance
+            match event_option:
+                Option::None:
+                    let timer_pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_pending pending
+                    let next_pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_new timer_pending next_timer_state
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance::Pending next_pending
+                Option::Some event:
+                    match event:
+                        GuiEvent::Timer timer_event:
+                            let timer_pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_pending_timer_pending pending
+                            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete timer_pending timer_event:
+                                Result::Err lower:
+                                    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_complete_failed_error_new next_timer_state lower
+                                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceError::TimerCompleteFailed payload
+                                Result::Ok decision:
+                                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance::Ready decision
+                        GuiEvent::Pointer pointer_event:
+                            let unexpected_event %GuiEvent GuiEvent::Pointer pointer_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::Keyboard keyboard_event:
+                            let unexpected_event %GuiEvent GuiEvent::Keyboard keyboard_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::TextInput text_input_event:
+                            let unexpected_event %GuiEvent GuiEvent::TextInput text_input_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::Window window_event:
+                            let unexpected_event %GuiEvent GuiEvent::Window window_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::Lifecycle lifecycle_event:
+                            let unexpected_event %GuiEvent GuiEvent::Lifecycle lifecycle_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::Accessibility accessibility_event:
+                            let unexpected_event %GuiEvent GuiEvent::Accessibility accessibility_event
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+                        GuiEvent::Action action:
+                            let unexpected_event %GuiEvent GuiEvent::Action action
+                            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_result pending next_timer_state unexpected_event
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError GuiVirtualTimerState \error:
+    *field::get_ref error "timer_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError GuiError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_error_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerScheduleError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \error:
+    field::get error "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError GuiError \error:
+    *field::get_ref error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance_failed_error_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvanceFailedError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending \error:
+    field::get error "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError GuiVirtualTimerState \error:
+    *field::get_ref error "timer_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_event %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError GuiEvent \error:
+    *field::get_ref error "event"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_unexpected_event_error_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerUnexpectedEventError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \error:
+    field::get error "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_complete_failed_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_complete_failed_error_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError GuiVirtualTimerState \error:
+    *field::get_ref error "timer_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_complete_failed_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerCompleteFailedError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError \error:
+    field::get error "lower"

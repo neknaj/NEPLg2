@@ -1,3 +1,58 @@
+# 2026-06-18 Agent2 GUI font F5dz std deterministic virtual timer turn bridge
+
+## scope
+
+- F5dw の target-neutral timer pending request と F5dy deterministic virtual timer scheduler を std layer で接続する。
+- headless / offscreen test は actual Web / native / bare timer backend、queue、real scheduler loop を使わず、`GuiEvent::Timer` によって scheduled turn を再開できる。
+- bridge は schedule / advance / complete の authority を F5dw / F5dy に残し、owner recovery と接続順序だけを担当する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。
+- 指摘は、advance failure、unexpected event、timer complete failure の recovery payload から virtual timer state が失われること、schedule error の lower `GuiError` が category に縮約されていること、recovery accessor が計画されていないことだった。
+- revised plan では schedule error が original F5dw pending と original virtual state と lower `GuiError` を保持し、advance failure が original combined pending と lower `GuiError` を保持する。
+- unexpected event は F5dw pending、advance-after virtual timer state、event を保持し、timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。
+- source policy は `gui_virtual_timer_schedule`、`gui_virtual_timer_advance`、F5dw `turn_timer_complete` をそれぞれ該当 path で 1 回だけ呼ぶこと、loop / drain / backend / queue / fallback に進まないことを固定する。Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending` は F5dw pending と `GuiVirtualTimerState` を保持する。
+- schedule は F5dw pending から borrowed `TimerRequest` を読み、F5dy `gui_virtual_timer_schedule` を 1 回だけ呼ぶ。
+- advance は F5dy `gui_virtual_timer_advance` を 1 回だけ呼び、`Option::None` は next pending、`GuiEvent::Timer` は F5dw `turn_timer_complete`、timer 以外は owner-bearing unexpected event error に写す。
+- schedule error、advance failed error、unexpected event error、complete failed error に category / lower / pending / timer_state / event の recovery accessor を追加した。
+- owner-bearing pending、advance、error payload、top-level advance error には Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade に F5dz bridge を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` を追加し、facade、owner recovery、exact authority calls、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5dz source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5dz focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dz module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: F5dw regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md`。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- 指摘は `GuiEvent` の非 Timer 分岐が `_:` wildcard になっており、Zenn 方針の enum / match / static-checking に反することだった。
+- 修正として `Pointer`、`Keyboard`、`TextInput`、`Window`、`Lifecycle`、`Accessibility`、`Action` を明示列挙し、それぞれ unexpected event helper へ渡す形にした。source policy も `_:` 禁止と全 variant 明示を検査する。
+- Cicero follow-up review は、content blocker は解消され、owner recovery と F5dy / F5dw authority-call shape は正しいと確認した。
+- 残 procedural blocker は新規 intended files を stage することと、untracked `NUL` を commit に含めないことだった。
+- 新規 F5dz module / focused doctest を含む intended files を stage し、`NUL` は untracked のまま commit set から除外した。Cicero final review は `REVIEW_APPROVED`。
+
+## remaining
+
+- F5dz は deterministic virtual timer turn bridge までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dy std deterministic virtual timer scheduler
 
 ## scope

@@ -213,6 +213,22 @@ Repeating timer は 1 回の advance で最大 1 event だけを返す。catch-u
 
 Virtual timer scheduler は std layer の deterministic test contract であり、DOM、Canvas、minifb、OS timer、browser timer、stdout protocol、event queue、video memory、presentation fallback を持たない。
 
+Virtual timer turn bridge:
+
+```text
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending:
+    pending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    timer_state GuiVirtualTimerState
+
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance:
+    Pending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending
+    Ready GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision
+```
+
+F5dz の std layer row tile RLE present host span operation presenter executor session turn virtual timer bridge は、F5dw の target-neutral timer pending と F5dy の deterministic virtual timer state を結びつける。`gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule pending timer_state` は F5dw pending から borrowed `TimerRequest` を読み、`gui_virtual_timer_schedule` を 1 回だけ呼ぶ。schedule failure は original pending、original virtual timer state、lower `GuiError` を保持する。
+
+`gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance pending delta_ms` は `gui_virtual_timer_advance` を 1 回だけ呼ぶ。event がなければ next pending を返す。`GuiEvent::Timer` が出た場合だけ F5dw `turn_timer_complete` を 1 回だけ呼び、成功時は scheduler decision を返す。unexpected event は F5dw pending、advance-after virtual timer state、event を保持する owner-bearing error にする。timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。ここでは real scheduler loop、actual timer backend、queue、DOM、Canvas、minifb、video memory、presentation fallback、silent no-op、loop drain を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。
