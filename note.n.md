@@ -1,3 +1,46 @@
+# 2026-06-18 Agent2 GUI platform F5fl Bare display framebuffer adapter boundary
+
+## 目的
+
+- F5fk Bare display presenter session host import boundary の後続として、bare display framebuffer adapter の pure validation state machine を追加する。
+- これは actual display driver ではなく、existing bare scheduler host executor へ operation を渡す前に Begin / RunSpan / End の順序、target、surface、frame、shape、row-major progress、incomplete end を検査する boundary である。
+- validation failure と host failure は state と operation を保持する typed error とし、fallback、silent no-op、advanced state の採用、new `#extern`、long-running scheduler backend、timer、queue、Canvas / DOM / minifb / video memory には進まない。
+
+## subagent plan review
+
+- Archimedes the 2nd は `NEEDS_CHANGES` として、slice を actual display driver ではなく bare platform validation / adapter boundary に狭めるべきだと指摘した。
+- 指摘に従い、new host import は追加せず、pure validation と existing F5fk host executor wrapper を分離する計画へ修正した。
+- acceptance として、typed Config / State / Phase / Error、recoverable state / operation、valid begin/run/end、run-before-begin、end-before-begin、target mismatch、gap / overlap、incomplete end、source policy、docs checkpoint が必要とされた。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/framebuffer.nepl` を追加した。
+- `GuiBareFramebufferConfig`、`GuiBareFramebufferState`、`GuiBareFramebufferPhase`、`GuiBareFramebufferErrorKind`、`GuiBareFramebufferStepApplied`、`GuiBareFramebufferStepError` を追加した。
+- `gui_bare_framebuffer_validate_operation` は pure validation として host import を呼ばず、Begin / RunSpan / End の state transition だけを検査する。
+- Begin descriptor と RunSpan / End 前の active descriptor は `std/gui/tile_present` の descriptor contract を再検査し、active state の `seen_run_count` / `seen_pixel_count` は non-negative かつ descriptor count 以下であることを確認する。
+- `gui_bare_framebuffer_execute_operation` は validation 成功後だけ `gui_bare_scheduler_host_executor_execute_operation` を 1 回呼び、host failure では original state と operation を `HostExecutionFailed` に保持する。
+- `stdlib/platforms/gui/bare.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_bare_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。
+
+## verification current
+
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/framebuffer.nepl` は通過した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_framebuffer.n.md` は通過した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md` は通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の 9 件 warning が残っている。F5fl focused source policy は通過しており、この変更の blocker ではない。
+- `npm --prefix web run build:ts` と `npm --prefix web run build` は通過した。
+- `node nodesrc/cli.js -i tests/stdlib/gui_platform_bare_framebuffer.n.md -o html=tmp_f5fl_cli_html` は HTML を生成できた。`nodesrc/cli.js` の JSON 出力は playground editor test 専用なので、この slice は doctest JSON と CLI HTML で確認した。
+
+## subagent implementation review
+
+- 1 回目の実装レビューでは `NEEDS_CHANGES` として、public `Active` state を偽造すると active descriptor と seen count が再検査されず host execution へ進み得ると指摘された。
+- 指摘に従い、`gui_bare_framebuffer_validate_active_invariant` を追加し、RunSpan / End の入口で active descriptor contract と seen count 範囲を再検査するように修正した。
+- focused doctest と source policy に、偽造 active descriptor、negative seen count、over-range seen count、RunSpan / End の active invariant ordering を追加した。
+- 再レビューでは `APPROVED` として blocker なしと判断された。
+
 # 2026-06-18 Agent2 GUI platform F5ew Native/Bare scheduler executor one-step bridge boundary
 
 ## 目的
