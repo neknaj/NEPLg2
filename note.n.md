@@ -1,3 +1,43 @@
+# 2026-06-18 Agent2 GUI platform F5eu Native/Bare scheduler clock action input helper boundary
+
+## 目的
+
+- F5et Native/Bare scheduler clock one-tick helper の後続として、F5eg `YieldToClock` / `AwaitTimerAdvance` action を F5ek `RealLoopStepInput` に接続する。
+- これは action input helper only であり、not long-running scheduler backend である。
+- `ExecuteHostAction`、`Complete`、`ExecutorOutcome`、`CompleteAck`、timer backend、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bohr は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、entry を `YieldToClock` / `AwaitTimerAdvance` に分けること、success payload に original action / new `BackendClockState` / F5eo-derived `RealLoopStepInput` を保持すること、error payload に original action / input clock state / lower error を保持すること、tick を 1 回だけ呼ぶことだった。
+- F5eo の `BackendClockState` は `i32` だけの state value なので、tick failure path で input state を失わないため Clone / Copy を明示した。F5ek `RealLoopStepInput` は既存 source policy が owner-bearing input として扱うため Copy 化しない。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_clock_input.nepl` と `stdlib/platforms/gui/bare/scheduler_clock_input.nepl` を追加した。
+- `gui_*_scheduler_clock_yield_input` と `gui_*_scheduler_clock_timer_input` は F5et `gui_*_scheduler_clock_tick` を 1 回だけ呼ぶ。
+- success payload は original action、新しい `BackendClockState`、F5eo 由来の `RealLoopStepInput` を保持する。
+- failure payload は original action、input clock state、lower platform scheduler clock error を保持する。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_clock_input.nepl` と `stdlib/platforms/gui/bare/scheduler_clock_input.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_clock_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md` は通過した。
+- F5et native / bare scheduler clock doctest、F5eo backend clock doctest、F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `web` の `npm run build` は通過した。
+- `nodesrc/cli.js` は今回追加した focused doctest 文書から一時ディレクトリへ HTML を生成できた。
+
+## subagent implementation review
+
+- Euclid the 2nd は `REVIEW_APPROVED` として blocker なしと判断した。
+- F5eu は action input helper only / not long-running scheduler backend として設計どおりに閉じていることが確認された。
+- native / bare とも `YieldToClock` / `AwaitTimerAdvance` typed payload 用 entry だけを持ち、各 entry が `gui_*_scheduler_clock_tick` を 1 回だけ呼ぶことが確認された。
+- success payload は original action / new `BackendClockState` / F5eo 由来 `RealLoopStepInput`、error payload は original action / input state / lower error を保持していることが確認された。
+- scheduler backend、queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op、汎用 `LoopAction` match、`ExecutorOutcome` / `CompleteAck` 合成は見当たらないと確認された。
+
 # 2026-06-18 Agent2 GUI platform F5et Native/Bare scheduler clock one-tick helper boundary
 
 ## 目的

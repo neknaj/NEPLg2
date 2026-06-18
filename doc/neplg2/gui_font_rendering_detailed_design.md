@@ -38,6 +38,10 @@
 
 2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、platform clock source と F5eo `BackendClockPolicy` / `BackendClockState` の接続だけを担当する。`start` は platform sample を 1 回取得して F5eo `backend_clock_start` へ渡し、`tick` は platform sample を 1 回取得して F5eo `backend_clock_advance` へ渡す。policy は F5eo `BackendClockPolicy` そのものであり、新しい scheduler policy、timer policy、loop policy は持たない。tick は `ClockDelta` を直接合成せず、F5eo `BackendClockAdvance` を返す。start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持し、F5eo lower error は再分類せず lower error として保持する。timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op は使わない。
 
+## F5eu Native and Bare scheduler clock action input helper boundary
+
+2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。`platforms/gui/native/scheduler_clock_input` と `platforms/gui/bare/scheduler_clock_input` は F5eg `LoopActionYieldToClock` / `LoopActionAwaitTimerAdvance` を typed authority として受け、F5et `gui_*_scheduler_clock_tick` を entry ごとに 1 回だけ呼ぶ。成功時は F5eo `BackendClockAdvance` が保持する新しい `BackendClockState` と F5ek `RealLoopStepInput` を取り出し、original action と一緒に success payload へ保存する。失敗時は original action、input clock state、lower platform scheduler clock error を owner-bearing error として返す。general `LoopAction`、`ExecuteHostAction`、`Complete` は対象外であり、`ExecutorOutcome` / `CompleteAck` / `ClockDelta` はこの層で合成しない。real loop driver、headless app-loop step、queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は持たない。
+
 ## 責務分離
 
 Font rendering は `core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/*` で責務を分ける。
