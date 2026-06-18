@@ -284,6 +284,8 @@ const platformGuiBareDisplayMemoryOwner = read("stdlib/platforms/gui/bare/displa
 const platformGuiBareDisplayMemoryOwnerImpl = withoutComments(platformGuiBareDisplayMemoryOwner);
 const platformGuiBareDisplayMemorySpanReadback = read("stdlib/platforms/gui/bare/display_memory_span_readback.nepl");
 const platformGuiBareDisplayMemorySpanReadbackImpl = withoutComments(platformGuiBareDisplayMemorySpanReadback);
+const platformGuiBareDisplayDriverAdapter = read("stdlib/platforms/gui/bare/display_driver_adapter.nepl");
+const platformGuiBareDisplayDriverAdapterImpl = withoutComments(platformGuiBareDisplayDriverAdapter);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -402,6 +404,7 @@ const guiPlatformBareDisplayDriverHostImportTests = read("tests/stdlib/gui_platf
 const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md");
 const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_bare_display_memory_owner.n.md");
 const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
+const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27435,6 +27438,147 @@ assert(
         "platform_bare_display_memory_span_readback_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayMemorySpanReadbackTests.includes(label)),
     "F5fs platform bare display memory span readback focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5ft Bare actual display driver adapter boundary") &&
+        guiStandardLibrarySpec.includes("gui_bare_display_driver_adapter_step") &&
+        guiStandardLibrarySpec.includes("host accepted ledger authority") &&
+        guiStandardLibrarySpec.includes("SpanHostAcceptedAndReadback") &&
+        guiStandardLibrarySpec.includes("rollback") &&
+        guiStandardLibrarySpec.includes("frame ready") &&
+        barePlatformBehaviorDoc.includes("F5ft") &&
+        barePlatformBehaviorDoc.includes("Bare actual display driver adapter boundary"),
+    "F5ft docs must describe host accepted ledger authority, span readback connection, recovery, and non-frame-ready contract",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_driver_adapter" as @merge'),
+    "platforms/gui/bare facade must export F5ft display driver adapter boundary",
+);
+assert(
+    platformGuiBareDisplayDriverAdapter.includes("Bare actual display driver adapter boundary") &&
+        platformGuiBareDisplayDriverAdapter.includes("canonical driver state") &&
+        platformGuiBareDisplayDriverAdapter.includes("SpanWrite") &&
+        platformGuiBareDisplayDriverAdapter.includes("host accepted ledger step completed") &&
+        platformGuiBareDisplayDriverAdapter.includes("fallback") &&
+        platformGuiBareDisplayDriverAdapter.includes("silent no-op"),
+    "platforms/gui/bare/display_driver_adapter F5ft must document canonical adapter authority and non-goals",
+);
+assert(
+    platformGuiBareDisplayDriverAdapterImpl.includes("pub enum GuiBareDisplayDriverAdapterStepKind") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("BeginHostAccepted") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("SpanHostAcceptedAndReadback") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("FramePresentHostAccepted") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("pub struct GuiBareDisplayDriverAdapterCompleted") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("pub struct GuiBareDisplayDriverAdapterError") &&
+        platformGuiBareDisplayDriverAdapterImpl.includes("pub fn gui_bare_display_driver_adapter_step"),
+    "platforms/gui/bare/display_driver_adapter F5ft must expose typed evidence, owner-bearing success/error, and public entry",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverAdapterImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayDriverAdapterCompleted\b|impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayDriverAdapterError\b/,
+    "platforms/gui/bare/display_driver_adapter F5ft owner-bearing success/error must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverAdapterImpl,
+    /pub fn[^\n]*(?:RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_driver_adapter F5ft public API must not expose raw storage, pointer, or byte slice accessors",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverAdapterImpl,
+    /pub fn gui_bare_display_driver_adapter_step %impure fn[^\n]*(?:GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|GuiBareDisplayDriverSpanWriteAccepted|GuiBareDisplayDriverByteEchoVerified)/,
+    "platforms/gui/bare/display_driver_adapter F5ft public entry must not accept forgeable public driver step, outcome, span, or echo authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_step"),
+    [
+        "gui_bare_display_memory_owner_driver_state &owner",
+        "gui_bare_display_driver_host_import_step driver_state memory_step",
+        "Result::Err driver_error",
+        "gui_bare_display_driver_adapter_error_from_host driver_error owner memory_step",
+        "Result::Ok step",
+        "gui_bare_display_driver_adapter_apply_step owner memory_step step",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5ft public entry must call F5fp host import step from owner state before owner advance",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_apply_step"),
+    [
+        "gui_bare_display_driver_step_applied_action &step",
+        "gui_bare_display_driver_step_applied_outcome &step",
+        "GuiBareDisplayMemoryAction::FrameBegin begin",
+        "GuiBareDisplayDriverOutcome::BeginAccepted accepted",
+        "gui_bare_display_driver_adapter_apply_completed_owner owner memory_step step GuiBareDisplayDriverAdapterStepKind::BeginHostAccepted",
+        "GuiBareDisplayMemoryAction::SpanWrite plan",
+        "GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted",
+        "gui_bare_display_driver_adapter_apply_span owner memory_step step",
+        "GuiBareDisplayMemoryAction::FramePresent present",
+        "GuiBareDisplayDriverOutcome::FramePresentAccepted accepted",
+        "gui_bare_display_driver_adapter_apply_completed_owner owner memory_step step GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted",
+        "GuiBareDisplayDriverOutcome::DriverRejected lower",
+        "GuiBareDisplayDriverAdapterErrorKind::UnexpectedDriverRejected lower",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5ft must explicitly match Begin/Span/Present success and reject DriverRejected",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_apply_span"),
+    [
+        "gui_bare_display_driver_step_applied_outcome &step",
+        "gui_bare_display_memory_owner_write_span_readback owner memory_step outcome",
+        "Result::Err span_error",
+        "gui_bare_display_driver_adapter_error_from_span span_error memory_step",
+        "Result::Ok span_completed",
+        "gui_bare_display_memory_owner_span_readback_completed_owner span_completed",
+        "gui_bare_display_memory_owner_span_readback_completed_evidence &span_completed",
+        "GuiBareDisplayDriverAdapterStepKind::SpanHostAcceptedAndReadback",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5ft SpanWrite must connect returned host outcome to F5fs full span readback",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_apply_completed_owner"),
+    [
+        "gui_bare_display_driver_step_applied_state &step",
+        "gui_bare_display_driver_adapter_owner_surface_matches_state &owner &next_driver_state",
+        "gui_bare_display_memory_owner_surface_byte_count &owner",
+        "gui_bare_display_memory_owner_verified_byte_count &owner",
+        "field::get owner \"storage\"",
+        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count Option::None",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5ft Begin/Present must preserve storage/count, clear stale byte evidence, and avoid byte/frame readiness",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverAdapterImpl, "gui_bare_display_driver_adapter_error_from_span"),
+    [
+        "gui_bare_display_memory_owner_span_readback_error_kind &span_error",
+        "gui_bare_display_memory_owner_span_readback_error_category_value &span_error",
+        "gui_bare_display_memory_owner_span_readback_error_owner span_error",
+        "GuiBareDisplayDriverAdapterErrorKind::SpanReadbackFailed lower",
+    ],
+    "platforms/gui/bare/display_driver_adapter F5ft span readback failure must recover owner and preserve lower error kind/category",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverAdapterImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|frame_ready|present_ready|fallback)\b/i,
+    "platforms/gui/bare/display_driver_adapter F5ft must not implement raw host imports, loops, queues, renderers, zero-fill fallback, or frame readiness",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverAdapterImpl,
+    /silent|[()]/i,
+    "platforms/gui/bare/display_driver_adapter F5ft implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_driver_adapter_facade_ok",
+        "platform_bare_display_driver_adapter_import_create_free_ok",
+        "platform_bare_display_driver_adapter_source_policy_owner_state_authority_ok",
+        "platform_bare_display_driver_adapter_source_policy_host_before_owner_advance_ok",
+        "platform_bare_display_driver_adapter_source_policy_span_uses_readback_ok",
+        "platform_bare_display_driver_adapter_source_policy_begin_present_not_frame_ready_ok",
+        "platform_bare_display_driver_adapter_source_policy_owner_error_recovery_ok",
+        "platform_bare_display_driver_adapter_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_driver_adapter_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayDriverAdapterTests.includes(label)),
+    "F5ft platform bare display driver adapter focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

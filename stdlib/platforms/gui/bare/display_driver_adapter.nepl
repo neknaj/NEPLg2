@@ -1,0 +1,227 @@
+//: # platforms/gui/bare/display_driver_adapter
+//: Bare actual display driver adapter boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fp の host import accepted step と F5fs の owner-side span readback を[接続/せつぞく]します。
+//: - public memory step は adapter の[権威/けんい]にせず、owner 内 canonical driver state から host import step を[実行/じっこう]します。
+//: - SpanWrite は host accepted と owner full write/readback の[両方/りょうほう]が[成功/せいこう]した場合だけ owner state を[進/すす]めます。
+//:
+//: ### [契約/けいやく]
+//: - Begin / Present の success は host accepted ledger step completed evidence であり、frame readiness や byte readback evidence ではありません。
+//: - span readback failure after host accepted は owner を unadvanced state として[回収/かいしゅう]します。ただし external host side effect は rollback されたものとして[扱/あつか]いません。
+//: - public raw storage accessor、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_driver_adapter" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_driver_host_import" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/display_memory_span_readback" as *
+
+pub enum GuiBareDisplayDriverAdapterStepKind:
+    BeginHostAccepted
+    SpanHostAcceptedAndReadback
+    FramePresentHostAccepted
+
+impl Clone for GuiBareDisplayDriverAdapterStepKind:
+    fn clone %fn &GuiBareDisplayDriverAdapterStepKind GuiBareDisplayDriverAdapterStepKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayDriverAdapterStepKind:
+    fn copy_mark %fn GuiBareDisplayDriverAdapterStepKind GuiBareDisplayDriverAdapterStepKind \kind:
+        kind
+
+pub struct GuiBareDisplayDriverAdapterStepEvidence:
+    kind %GuiBareDisplayDriverAdapterStepKind
+    step %GuiBareDisplayDriverStepApplied
+    span_readback %Option GuiBareDisplayMemoryOwnerSpanReadbackEvidence
+
+impl Clone for GuiBareDisplayDriverAdapterStepEvidence:
+    fn clone %fn &GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverAdapterStepEvidence \evidence:
+        *evidence
+
+impl Copy for GuiBareDisplayDriverAdapterStepEvidence:
+    fn copy_mark %fn GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverAdapterStepEvidence \evidence:
+        evidence
+
+pub struct GuiBareDisplayDriverAdapterCompleted:
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayDriverAdapterStepEvidence
+
+pub enum GuiBareDisplayDriverAdapterErrorKind:
+    HostImportFailed %GuiBareDisplayDriverErrorKind
+    SpanReadbackFailed %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind
+    AdapterOutcomeMismatch
+    UnexpectedDriverRejected %GuiError
+    NextDriverSurfaceMismatch
+
+impl Clone for GuiBareDisplayDriverAdapterErrorKind:
+    fn clone %fn &GuiBareDisplayDriverAdapterErrorKind GuiBareDisplayDriverAdapterErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayDriverAdapterErrorKind:
+    fn copy_mark %fn GuiBareDisplayDriverAdapterErrorKind GuiBareDisplayDriverAdapterErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayDriverAdapterError:
+    kind %GuiBareDisplayDriverAdapterErrorKind
+    category %Option GuiError
+    owner %GuiBareDisplayMemoryOwner
+    memory_step %GuiBareDisplayMemoryStepApplied
+
+fn gui_bare_display_driver_adapter_evidence_new %fn GuiBareDisplayDriverAdapterStepKind fn GuiBareDisplayDriverStepApplied fn Option GuiBareDisplayMemoryOwnerSpanReadbackEvidence GuiBareDisplayDriverAdapterStepEvidence \kind\step\span_readback:
+    GuiBareDisplayDriverAdapterStepEvidence kind step span_readback
+
+fn gui_bare_display_driver_adapter_completed_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverAdapterCompleted \owner\evidence:
+    GuiBareDisplayDriverAdapterCompleted owner evidence
+
+fn gui_bare_display_driver_adapter_error_new %fn GuiBareDisplayDriverAdapterErrorKind fn Option GuiError fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied GuiBareDisplayDriverAdapterError \kind\category\owner\memory_step:
+    GuiBareDisplayDriverAdapterError kind category owner memory_step
+
+fn gui_bare_display_driver_adapter_simple_error_category %fn GuiBareDisplayDriverAdapterErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayDriverAdapterErrorKind::HostImportFailed lower:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverAdapterErrorKind::SpanReadbackFailed lower:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverAdapterErrorKind::UnexpectedDriverRejected lower_error:
+            Option::Some lower_error
+        GuiBareDisplayDriverAdapterErrorKind::NextDriverSurfaceMismatch:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_bare_display_driver_adapter_error_simple %fn GuiBareDisplayDriverAdapterErrorKind fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied GuiBareDisplayDriverAdapterError \kind\owner\memory_step:
+    let category %Option GuiError gui_bare_display_driver_adapter_simple_error_category kind
+    gui_bare_display_driver_adapter_error_new kind category owner memory_step
+
+fn gui_bare_display_driver_adapter_error_from_host %fn GuiBareDisplayDriverStepError fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied GuiBareDisplayDriverAdapterError \driver_error\owner\memory_step:
+    let lower %GuiBareDisplayDriverErrorKind gui_bare_display_driver_step_error_kind &driver_error
+    let category %Option GuiError gui_bare_display_driver_step_error_category_value &driver_error
+    gui_bare_display_driver_adapter_error_new GuiBareDisplayDriverAdapterErrorKind::HostImportFailed lower category owner memory_step
+
+fn gui_bare_display_driver_adapter_error_from_span %fn GuiBareDisplayMemoryOwnerSpanReadbackError fn GuiBareDisplayMemoryStepApplied GuiBareDisplayDriverAdapterError \span_error\memory_step:
+    let lower %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind gui_bare_display_memory_owner_span_readback_error_kind &span_error
+    let category %Option GuiError gui_bare_display_memory_owner_span_readback_error_category_value &span_error
+    let owner %GuiBareDisplayMemoryOwner gui_bare_display_memory_owner_span_readback_error_owner span_error
+    gui_bare_display_driver_adapter_error_new GuiBareDisplayDriverAdapterErrorKind::SpanReadbackFailed lower category owner memory_step
+
+pub fn gui_bare_display_driver_adapter_completed_owner %fn GuiBareDisplayDriverAdapterCompleted GuiBareDisplayMemoryOwner \completed:
+    field::get completed "owner"
+
+pub fn gui_bare_display_driver_adapter_completed_evidence %fn &GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterStepEvidence \completed:
+    *field::get_ref completed "evidence"
+
+pub fn gui_bare_display_driver_adapter_error_kind %fn &GuiBareDisplayDriverAdapterError GuiBareDisplayDriverAdapterErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_driver_adapter_error_category_value %fn &GuiBareDisplayDriverAdapterError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_driver_adapter_error_owner %fn GuiBareDisplayDriverAdapterError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_driver_adapter_evidence_kind %fn &GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayDriverAdapterStepKind \evidence:
+    *field::get_ref evidence "kind"
+
+pub fn gui_bare_display_driver_adapter_evidence_span_readback %fn &GuiBareDisplayDriverAdapterStepEvidence Option GuiBareDisplayMemoryOwnerSpanReadbackEvidence \evidence:
+    *field::get_ref evidence "span_readback"
+
+fn gui_bare_display_driver_adapter_owner_surface_matches_state %fn &GuiBareDisplayMemoryOwner fn &GuiBareDisplayDriverState bool \owner\next_driver_state:
+    let next_memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state next_driver_state
+    let next_surface %i32 gui_bare_display_memory_state_total_byte_count &next_memory_state
+    let owner_surface %i32 gui_bare_display_memory_owner_surface_byte_count owner
+    eq next_surface owner_surface
+
+fn gui_bare_display_driver_adapter_apply_completed_owner %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverStepApplied fn GuiBareDisplayDriverAdapterStepKind Result GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterError \owner\memory_step\step\kind:
+    let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
+    if not gui_bare_display_driver_adapter_owner_surface_matches_state &owner &next_driver_state:
+        then Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::NextDriverSurfaceMismatch owner memory_step
+        else:
+            let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+            let verified_byte_count %i32 gui_bare_display_memory_owner_verified_byte_count &owner
+            let storage field::get owner "storage"
+            let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage verified_byte_count Option::None
+            let evidence %GuiBareDisplayDriverAdapterStepEvidence gui_bare_display_driver_adapter_evidence_new kind step Option::None
+            Result::Ok gui_bare_display_driver_adapter_completed_new next_owner evidence
+
+fn gui_bare_display_driver_adapter_apply_span %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverStepApplied Result GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterError \owner\memory_step\step:
+    let outcome %GuiBareDisplayDriverOutcome gui_bare_display_driver_step_applied_outcome &step
+    match gui_bare_display_memory_owner_write_span_readback owner memory_step outcome:
+        Result::Err span_error:
+            Result::Err gui_bare_display_driver_adapter_error_from_span span_error memory_step
+        Result::Ok span_completed:
+            let next_owner %GuiBareDisplayMemoryOwner gui_bare_display_memory_owner_span_readback_completed_owner span_completed
+            let span_evidence %GuiBareDisplayMemoryOwnerSpanReadbackEvidence gui_bare_display_memory_owner_span_readback_completed_evidence &span_completed
+            let evidence %GuiBareDisplayDriverAdapterStepEvidence gui_bare_display_driver_adapter_evidence_new GuiBareDisplayDriverAdapterStepKind::SpanHostAcceptedAndReadback step Option::Some span_evidence
+            Result::Ok gui_bare_display_driver_adapter_completed_new next_owner evidence
+
+fn gui_bare_display_driver_adapter_apply_step %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverStepApplied Result GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterError \owner\memory_step\step:
+    let action %GuiBareDisplayMemoryAction gui_bare_display_driver_step_applied_action &step
+    let outcome %GuiBareDisplayDriverOutcome gui_bare_display_driver_step_applied_outcome &step
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin begin:
+            match outcome:
+                GuiBareDisplayDriverOutcome::BeginAccepted accepted:
+                    gui_bare_display_driver_adapter_apply_completed_owner owner memory_step step GuiBareDisplayDriverAdapterStepKind::BeginHostAccepted
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted_span:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::FramePresentAccepted accepted_present:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::UnexpectedDriverRejected lower owner memory_step
+        GuiBareDisplayMemoryAction::SpanWrite plan:
+            match outcome:
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted:
+                    gui_bare_display_driver_adapter_apply_span owner memory_step step
+                GuiBareDisplayDriverOutcome::BeginAccepted accepted_begin:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::FramePresentAccepted accepted_present:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::UnexpectedDriverRejected lower owner memory_step
+        GuiBareDisplayMemoryAction::FramePresent present:
+            match outcome:
+                GuiBareDisplayDriverOutcome::FramePresentAccepted accepted:
+                    gui_bare_display_driver_adapter_apply_completed_owner owner memory_step step GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted
+                GuiBareDisplayDriverOutcome::BeginAccepted accepted_begin:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted_span:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::AdapterOutcomeMismatch owner memory_step
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    Result::Err gui_bare_display_driver_adapter_error_simple GuiBareDisplayDriverAdapterErrorKind::UnexpectedDriverRejected lower owner memory_step
+
+//: gui_bare_display_driver_adapter_step: owner state から actual bare display driver import と memory owner を 1 step [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - owner 内 driver state から F5fp host import step を[実行/じっこう]し、returned step だけを accepted authority として[扱/あつか]います。
+//: - SpanWrite は returned outcome を F5fs span write/readback へ[渡/わた]し、full readback success の owner だけを[返/かえ]します。
+//: - Begin / Present は host accepted ledger step completed evidence だけを[返/かえ]し、byte / frame readback evidence にはしません。
+pub fn gui_bare_display_driver_adapter_step %impure fn GuiBareDisplayMemoryOwner impure fn GuiBareDisplayMemoryStepApplied Result GuiBareDisplayDriverAdapterCompleted GuiBareDisplayDriverAdapterError \owner\memory_step:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state &owner
+    match gui_bare_display_driver_host_import_step driver_state memory_step:
+        Result::Err driver_error:
+            Result::Err gui_bare_display_driver_adapter_error_from_host driver_error owner memory_step
+        Result::Ok step:
+            gui_bare_display_driver_adapter_apply_step owner memory_step step
