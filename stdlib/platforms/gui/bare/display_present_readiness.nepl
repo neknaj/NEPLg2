@@ -130,6 +130,21 @@ pub fn gui_bare_display_presented_packet_ready_owner %fn GuiBareDisplayPresented
 pub fn gui_bare_display_presented_packet_ready_evidence %fn &GuiBareDisplayPresentedPacketReady GuiBareDisplayPresentedPacketReadyEvidence \ready:
     *field::get_ref ready "evidence"
 
+pub fn gui_bare_display_presented_packet_ready_evidence_target %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiRgba8888RowTileRlePresentHostSpanOperationTarget \evidence:
+    *field::get_ref evidence "target"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_descriptor %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiRgba8888RowTileRlePresentDescriptor \evidence:
+    *field::get_ref evidence "descriptor"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_frame %fn &GuiBareDisplayPresentedPacketReadyEvidence FrameId \evidence:
+    *field::get_ref evidence "frame"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_run_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "run_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_pixel_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "pixel_count"
+
 pub fn gui_bare_display_present_readiness_error_kind %fn &GuiBareDisplayPresentReadinessError GuiBareDisplayPresentReadinessErrorKind \error:
     *field::get_ref error "kind"
 
@@ -142,8 +157,14 @@ pub fn gui_bare_display_present_readiness_error_owner %fn GuiBareDisplayPresentR
 pub fn gui_bare_display_presented_packet_ready_evidence_packet_rgba_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
     *field::get_ref evidence "packet_rgba_byte_count"
 
+pub fn gui_bare_display_presented_packet_ready_evidence_surface_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "surface_byte_count"
+
 pub fn gui_bare_display_presented_packet_ready_evidence_packet_verified_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
     *field::get_ref evidence "packet_verified_byte_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_total_verified_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "total_verified_byte_count"
 
 fn gui_bare_display_present_readiness_present_equal %fn &GuiBareDisplayDriverFramePresentAccepted fn &GuiBareDisplayDriverFramePresentAccepted bool \left\right:
     let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_driver_frame_present_accepted_target left

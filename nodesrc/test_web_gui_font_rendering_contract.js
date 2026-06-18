@@ -288,6 +288,8 @@ const platformGuiBareDisplayDriverAdapter = read("stdlib/platforms/gui/bare/disp
 const platformGuiBareDisplayDriverAdapterImpl = withoutComments(platformGuiBareDisplayDriverAdapter);
 const platformGuiBareDisplayPresentReadiness = read("stdlib/platforms/gui/bare/display_present_readiness.nepl");
 const platformGuiBareDisplayPresentReadinessImpl = withoutComments(platformGuiBareDisplayPresentReadiness);
+const platformGuiBareDisplaySurfaceReadiness = read("stdlib/platforms/gui/bare/display_surface_readiness.nepl");
+const platformGuiBareDisplaySurfaceReadinessImpl = withoutComments(platformGuiBareDisplaySurfaceReadiness);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -408,6 +410,7 @@ const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_b
 const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
 const guiPlatformBareDisplayDriverAdapterTests = read("tests/stdlib/gui_platform_bare_display_driver_adapter.n.md");
 const guiPlatformBareDisplayPresentReadinessTests = read("tests/stdlib/gui_platform_bare_display_present_readiness.n.md");
+const guiPlatformBareDisplaySurfaceReadinessTests = read("tests/stdlib/gui_platform_bare_display_surface_readiness.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27753,6 +27756,150 @@ assert(
         "platform_bare_display_present_readiness_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareDisplayPresentReadinessTests.includes(label)),
     "F5fu platform bare display present readiness focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fv Bare whole-surface packet-readiness aggregation boundary") &&
+        guiStandardLibrarySpec.includes("GuiBareDisplayWholeSurfacePacketReadinessCompleted") &&
+        guiStandardLibrarySpec.includes("module-private seal") &&
+        guiStandardLibrarySpec.includes("advance_error_take") &&
+        guiStandardLibrarySpec.includes("DuplicateOrReorderedTile") &&
+        guiStandardLibrarySpec.includes("TileGap") &&
+        barePlatformBehaviorDoc.includes("F5fv") &&
+        barePlatformBehaviorDoc.includes("continue_take") &&
+        barePlatformBehaviorDoc.includes("advance_error_take"),
+    "F5fv docs must describe ordered whole-surface packet-readiness aggregation, handoff, and duplicate/gap errors",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_surface_readiness" as @merge'),
+    "platforms/gui/bare facade must export F5fv whole-surface packet-readiness aggregation boundary",
+);
+assert(
+    platformGuiBareDisplaySurfaceReadiness.includes("Bare whole-surface packet-readiness aggregation boundary") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("packet readiness") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("full-height") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("continue_take") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("hardware flush completion") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("fallback") &&
+        platformGuiBareDisplaySurfaceReadiness.includes("silent no-op"),
+    "platforms/gui/bare/display_surface_readiness F5fv must document aggregation contract and non-goals",
+);
+assert(
+    platformGuiBareDisplayPresentReadinessImpl.includes("pub fn gui_bare_display_presented_packet_ready_evidence_descriptor") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("pub fn gui_bare_display_presented_packet_ready_evidence_surface_byte_count") &&
+        platformGuiBareDisplayPresentReadinessImpl.includes("pub fn gui_bare_display_presented_packet_ready_evidence_pixel_count"),
+    "platforms/gui/bare/display_present_readiness must expose read-only evidence accessors needed by F5fv",
+);
+assert(
+    platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessCursor") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("struct GuiBareDisplayWholeSurfacePacketReadinessCursorSeal") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("seal %GuiBareDisplayWholeSurfacePacketReadinessCursorSeal") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessContinue") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessHandoff") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessCompleted") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub struct GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub fn gui_bare_display_whole_surface_packet_readiness_start") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub fn gui_bare_display_whole_surface_packet_readiness_advance") &&
+        platformGuiBareDisplaySurfaceReadinessImpl.includes("pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_take"),
+    "platforms/gui/bare/display_surface_readiness F5fv must expose sealed cursor, continue handoff, owner-bearing completed, recovery, and start/advance entries",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayWholeSurfacePacketReadiness(?:Cursor|CursorSeal|Continue|Handoff|Completed|Result|StartError|AdvanceError|AdvanceErrorRecovery)\b/,
+    "platforms/gui/bare/display_surface_readiness F5fv owner-bearing cursor/continue/handoff/completed/error/result must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /pub fn[^\n]*(?:GuiBareDisplayPresentedPacketReadyEvidence|GuiBareDisplayDriverStepApplied|GuiBareDisplayDriverOutcome|GuiBareDisplayDriverFramePresentAccepted|RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_surface_readiness F5fv public API must not accept copy evidence, raw storage, or forgeable driver authority",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /pub\s+(?:struct|fn)[^\n]*GuiBareDisplayWholeSurfacePacketReadinessCursorSeal/,
+    "platforms/gui/bare/display_surface_readiness F5fv cursor seal must remain module-private",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_start"),
+    [
+        "gui_bare_display_presented_packet_ready_evidence &ready",
+        "gui_bare_display_whole_surface_packet_readiness_check_full_plan &packet",
+        "gui_bare_display_whole_surface_packet_readiness_check_tile &evidence 0",
+        "if eq tile_count 1",
+        "if ne ready_pixel_count expected_pixel_count",
+        "gui_bare_display_presented_packet_ready_owner ready",
+        "GuiBareDisplayWholeSurfacePacketReadinessResult::Completed",
+        "GuiBareDisplayWholeSurfacePacketReadinessResult::Continue",
+    ],
+    "platforms/gui/bare/display_surface_readiness F5fv start must validate full plan and first tile before owner extraction and single-tile completion",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_advance"),
+    [
+        "gui_bare_display_presented_packet_ready_evidence &ready",
+        "gui_bare_display_whole_surface_packet_readiness_compare_fixed &cursor &evidence",
+        "next_tile_index",
+        "gui_bare_display_whole_surface_packet_readiness_check_tile &evidence next_tile_index",
+        "gui_bare_display_whole_surface_packet_readiness_checked_add current_ready_pixel_count packet_pixel_count",
+        "if gt next_ready_pixel_count expected_pixel_count",
+        "gui_bare_display_presented_packet_ready_owner ready",
+        "GuiBareDisplayWholeSurfacePacketReadinessResult::Completed",
+        "GuiBareDisplayWholeSurfacePacketReadinessResult::Continue",
+    ],
+    "platforms/gui/bare/display_surface_readiness F5fv advance must compare fixed metadata, validate ordered tile coverage, and extract owner after failure checks",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_check_tile_index"),
+    [
+        "if lt tile_index expected_tile_index",
+        "GuiBareDisplayWholeSurfacePacketReadinessErrorKind::DuplicateOrReorderedTile",
+        "if gt tile_index expected_tile_index",
+        "GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileGap",
+    ],
+    "platforms/gui/bare/display_surface_readiness F5fv must classify duplicate/reorder and gap separately",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_continue_take"),
+    [
+        "field::get continue \"cursor\"",
+        "field::get continue \"owner\"",
+        "gui_bare_display_whole_surface_packet_readiness_handoff_new cursor owner",
+    ],
+    "platforms/gui/bare/display_surface_readiness F5fv continue_take must move cursor and owner into one handoff value",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplaySurfaceReadinessImpl, "gui_bare_display_whole_surface_packet_readiness_advance_error_take"),
+    [
+        "field::get error \"cursor\"",
+        "field::get error \"ready\"",
+        "gui_bare_display_whole_surface_packet_readiness_advance_error_recovery_new cursor ready",
+    ],
+    "platforms/gui/bare/display_surface_readiness F5fv advance_error_take must recover cursor and incoming ready together",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|flush|surface_ready|fallback|silent)\b/i,
+    "platforms/gui/bare/display_surface_readiness F5fv must not implement host imports, loops, renderers, flush, scheduler, queues, or fallbacks",
+);
+assertNoMatch(
+    platformGuiBareDisplaySurfaceReadinessImpl,
+    /[()]|>=/,
+    "platforms/gui/bare/display_surface_readiness F5fv implementation must avoid parentheses and >= in NEPL body",
+);
+assert(
+    [
+        "platform_bare_display_surface_readiness_facade_ok",
+        "platform_bare_display_surface_readiness_import_create_free_ok",
+        "platform_bare_display_surface_readiness_source_policy_ready_value_authority_ok",
+        "platform_bare_display_surface_readiness_source_policy_cursor_seal_ok",
+        "platform_bare_display_surface_readiness_source_policy_continue_handoff_ok",
+        "platform_bare_display_surface_readiness_source_policy_advance_error_recovery_ok",
+        "platform_bare_display_surface_readiness_source_policy_completed_owner_ok",
+        "platform_bare_display_surface_readiness_source_policy_ordered_tile_coverage_ok",
+        "platform_bare_display_surface_readiness_source_policy_duplicate_gap_errors_ok",
+        "platform_bare_display_surface_readiness_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_surface_readiness_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplaySurfaceReadinessTests.includes(label)),
+    "F5fv platform bare display surface readiness focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

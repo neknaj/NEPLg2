@@ -1,3 +1,53 @@
+# 2026-06-19 Agent2 GUI platform F5fv Bare whole-surface packet-readiness aggregation boundary
+
+## scope
+
+- F5fu Bare presented packet readiness evidence boundary の後続として、row-tile RLE packet readiness を full-height surface の ordered packet readiness evidence へ集約する境界を追加した。
+- aggregation authority は F5fu の owner-bearing `GuiBareDisplayPresentedPacketReady` value だけに限定し、copyable evidence 単体、driver step / outcome / present accepted value、raw storage、`RegionToken`、`MemPtr` を input authority にしない。
+- F5fv は full-height surface の packet readiness が tile index 順に揃ったことだけを示し、hardware flush completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- James the 2nd と Carver the 2nd の初回 plan review は `PLAN_CHANGES`。固定 metadata と tile-local metadata の分離、failure payload owner recovery、completion 名称の過大主張回避、owner handoff flow、start 時の tile coverage 検査、duplicate / reorder / gap の concrete enum 化が必要と指摘された。
+- 指摘に従い、`GuiBareDisplayWholeSurfacePacketReadiness*` 系の型名へ絞り、public entry は `start ready` と `advance cursor ready` のみにした。
+- `Continue` は cursor と owner を保持し、`continue_take` で両方を同じ handoff value へ移す。`Completed` も owner-bearing とし、owner recovery を失わない計画へ変更した。
+- 修正計画は James the 2nd と Carver the 2nd の両方から `PLAN_APPROVED` を受けた。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_surface_readiness.nepl` を追加した。
+- `start ready` は tile 0 だけを受け取り、full-height plan、width / height / stride / tile rows / tile count / expected pixel count / first tile row range / pixel count を checked arithmetic で検査する。
+- `advance cursor ready` は fixed metadata の一致、expected tile index、row start、row count、pixel count、ready pixel count の overflow / out-of-bounds を fail-closed に検査する。
+- duplicate / reorder と gap は `DuplicateOrReorderedTile` と `TileGap` に分け、`TileIndexBeforeExpected` / `TileIndexAfterEnd` も別 variant として保持した。
+- `Cursor`、`Continue`、`Handoff`、`Completed`、start / advance error は Clone / Copy にせず、error kind と pure evidence だけ Copy にした。
+- `display_present_readiness` には F5fv の検査に必要な read-only evidence accessor だけを追加し、raw storage や driver accepted authority は公開していない。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5fv に合わせて更新した。
+- enum error category の分類は wildcard match を使わず、variant ごとの明示的な `match` にした。
+- James the 2nd の implementation review blocker に従い、cursor に module-private seal を追加し、public metadata だけで prior packet aggregation authority を偽造できないようにした。
+- 同じ blocker に従い、`AdvanceError` から cursor と incoming ready を同時回収する `advance_error_take` と recovery payload を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_surface_readiness.n.md --no-tree -o tmp_gui_platform_bare_display_surface_readiness_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_present_readiness.nepl --no-tree -o tmp_gui_bare_display_present_readiness_module_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_present_readiness.n.md --no-tree -o tmp_gui_platform_bare_display_present_readiness_f5fv_seal.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- James the 2nd implementation review は初回 `PLAN_CHANGES / not approved to commit`。public cursor が forged aggregation authority になる点と、advance error から cursor / ready を同時回収できない点が blocker として指摘された。
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。ready value authority、raw storage / driver outcome / `RegionToken` / `MemPtr` 不使用、full-height plan、tile order、duplicate/gap、owner-bearing recovery、Continue/Handoff/Completed の non-Copy 方針が一致していることが確認された。
+- James the 2nd 再レビューは `APPROVED_TO_COMMIT`。module-private cursor seal、public seal constructor/export 不在、`advance_error_take` の一括 recovery、owner-bearing payload の non-Copy 方針が確認された。
+
+## residual
+
+- F5fv は whole-surface packet-readiness aggregation までであり、hardware flush completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fu Bare presented packet readiness evidence boundary
 
 ## scope

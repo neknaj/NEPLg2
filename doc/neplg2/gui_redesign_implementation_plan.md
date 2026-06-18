@@ -984,7 +984,19 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までを現在の checkpoint とする。次の再開 target は、F5eg action 全体を actual real scheduler loop / headless app-loop integration に接続し、native / bare scheduler backend へ進めることである。
+Phase F5fv の Bare whole-surface packet-readiness aggregation boundary を現在の checkpoint とする。直前の F5fu は row-tile RLE packet readiness だけを主張していたため、次の実装では F5fu の owner-bearing ready value を順序付きに集約し、full-height surface の packet readiness がそろったことだけを evidence 化する。
+
+- `stdlib/platforms/gui/bare/display_surface_readiness.nepl` を追加する。
+- public authority は `GuiBareDisplayPresentedPacketReady` value だけとし、copyable evidence、driver step / outcome / present accepted、raw storage を input authority にしない。
+- `start ready` は tile 0、full-height plan、checked stride、checked expected pixel count、single-tile direct completion を検査する。
+- `advance cursor ready` は module-private seal 付き non-Copy cursor と次 packet ready を両方消費し、fixed metadata と tile-local coverage を分けて検査する。
+- `Continue` は cursor と owner を保持し、`continue_take` で同じ handoff value に移す。
+- `AdvanceError` は `advance_error_take` で cursor と incoming ready を同じ recovery value に移し、failure path の回収を失わない。
+- `Completed` は owner と pure evidence を保持し、hardware flush completion や scheduler completion を主張しない。
+- duplicate / reorder / gap、partial plan、overflow は enum error と owner-bearing `Result` で fail-closed に返す。
+- docs、focused doctest、source-policy、note、todo を同じ slice で更新する。
+
+Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。F5fv の次の再開 target は、hardware flush completion、actual real scheduler loop / headless app-loop integration、native / bare scheduler backend へ進めることである。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
