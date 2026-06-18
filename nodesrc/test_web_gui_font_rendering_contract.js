@@ -25458,7 +25458,7 @@ assert(
 const nativeGuiClockHelper = textSliceBetween(
     nativeGuiLib,
     "pub fn native_monotonic_clock_ms_from_elapsed_ms",
-    "impl FromStr for GuiDemo",
+    "pub const GUI_NATIVE_SPAN_OPERATION_STATUS_OK",
 );
 assertOrderedFragments(
     nativeGuiClockHelper,

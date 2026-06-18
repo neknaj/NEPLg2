@@ -40,6 +40,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub fn native_monotonic_clock_ms_from_elapsed_ms",
         "impl FromStr for GuiDemo",
     );
+    const nativeSpanOperationHelper = textSliceBetween(
+        libSource,
+        "pub const GUI_NATIVE_SPAN_OPERATION_STATUS_OK",
+        "impl FromStr for GuiDemo",
+    );
 
     assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::AspectRatioStretch/);
     assert.match(mainSource, /window\.set_target_fps\(60\)/);
@@ -73,6 +78,34 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_monotonic_clock_elapsed_conversion_checks_i32_range/);
     assert.match(libSource, /native_monotonic_clock_since_uses_instant_source/);
     assert.doesNotMatch(nativeClockHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|fallback|silent no-op/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_OK: i32 = 0;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_UNSUPPORTED: i32 = -1;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT: i32 = -2;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED: i32 = -3;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT: i32 = -4;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE: i32 = -5;/);
+    assert.match(libSource, /pub const GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME: i32 = -6;/);
+    assert.match(libSource, /pub enum NativeSpanOperationTarget/);
+    assert.match(libSource, /pub struct NativeSpanOperationDescriptor/);
+    assert.match(libSource, /pub struct NativeSpanOperationRunSpan/);
+    assert.match(libSource, /pub enum NativeSpanOperation/);
+    assert.match(libSource, /pub trait NativeSpanOperationSink/);
+    assert.match(libSource, /pub fn normalize_native_span_operation_status\(status: i32\) -> i32/);
+    assert.match(libSource, /pub fn execute_native_span_operation_begin<S: NativeSpanOperationSink>/);
+    assert.match(libSource, /pub fn execute_native_span_operation_run<S: NativeSpanOperationSink>/);
+    assert.match(libSource, /pub fn execute_native_span_operation_end<S: NativeSpanOperationSink>/);
+    assert.match(nativeSpanOperationHelper, /packet_frame_id != frame_id/);
+    assert.match(nativeSpanOperationHelper, /stride_bytes != expected_stride/);
+    assert.match(nativeSpanOperationHelper, /tile_count != expected_tile_count \|\| tile_index >= tile_count/);
+    assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::Begin/);
+    assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::RunSpan/);
+    assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::End/);
+    assert.match(libSource, /native_span_operation_records_valid_begin_run_end/);
+    assert.match(libSource, /native_span_operation_rejects_invalid_descriptor_before_sink/);
+    assert.match(libSource, /native_span_operation_requires_exact_tile_count_and_frame_id/);
+    assert.match(libSource, /native_span_operation_rejects_invalid_run_span_before_sink/);
+    assert.match(libSource, /native_span_operation_normalizes_sink_status/);
+    assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op/);
 
     assert.match(platformDoc, /macOS AppKit/);
     assert.match(platformDoc, /Windows Win32/);
@@ -88,6 +121,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /ConfigureNotify/);
     assert.match(platformDoc, /ScaleMode::AspectRatioStretch/);
     assert.match(platformDoc, /NativeSurfaceState::Unavailable/);
+    assert.match(platformDoc, /Native span operation host executor ABI checkpoint/);
+    assert.match(platformDoc, /stride_bytes == width \* 4/);
+    assert.match(platformDoc, /tile_count == ceil\(plan_row_count \/ tile_rows\)/);
+    assert.match(platformDoc, /invalid scalar input returns -2 before the sink is called/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -113,6 +150,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner uses OS-managed resize and close state",
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
             "Native monotonic clock source uses Instant with i32 range failure",
+            "Native span-operation host ABI validates scalar packet input before injected sink execution",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };
