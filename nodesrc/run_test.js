@@ -154,6 +154,9 @@ function defaultNeplGuiBareImports() {
         display_presenter_session_begin: () => -1,
         display_presenter_session_run: () => -1,
         display_presenter_session_end: () => -1,
+        display_driver_begin: () => -1,
+        display_driver_span_write: () => -1,
+        display_driver_frame_present: () => -1,
     };
 }
 

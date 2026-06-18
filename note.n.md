@@ -1,3 +1,46 @@
+# 2026-06-19 Agent2 GUI platform F5fp Bare display driver host import boundary
+
+## 目的
+
+- F5fo Bare display driver outcome ledger boundary の後続として、bare display driver host import boundary を追加する。
+- `GuiBareDisplayMemoryStepApplied` は public value なので、host import の前に F5fo ledger preflight を通して stale / forged step を副作用なしで拒否する。
+- preflight success action に対応する `display_driver_begin` / `display_driver_span_write` / `display_driver_frame_present` を 1 回だけ呼び、status `0` だけを accepted outcome として F5fo ledger へ再適用する。
+- status `-1` は `Unsupported`、unknown negative と positive non-zero は `BackendFailure` として `DriverRejected` に写し、fallback、silent no-op、actual byte readback proof には進まない。
+
+## subagent plan review
+
+- Jason the 2nd の plan review は `PLAN_APPROVED`。
+- 実装条件として、status `0` だけを success にすること、success outcome は host accepted status と ledger match の証明に限定して byte write proof と混同しないこと、F5fk `display_presenter_session_*` とは別名の `display_driver_*` import にすること、span write では byte_start / byte_len / byte_end / surface byte count / run and pixel evidence を渡すこと、wildcard success / no-op を持たないことが示された。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_host_import.nepl` を追加し、F5fo preflight、host import call、status-to-outcome mapping、final ledger reapply を `gui_bare_display_driver_host_import_step` に分離した。
+- `display_driver_begin` / `display_driver_span_write` / `display_driver_frame_present` の `nepl_gui_bare` import を追加し、doctest-only default stub は `nodesrc/run_test.js` で `-1` を返すようにした。
+- span write import には F5fn の checked byte evidence と RGBA8888 color evidence を渡し、Begin / Present には descriptor metadata と surface byte count を渡す。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を F5fp に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_f5fp_fix2.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_host_import.nepl -o tmp_gui_bare_display_driver_host_import_module_f5fp_fix2.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fp_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fp_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Jason the 2nd の implementation review は `REVIEW_APPROVED`。
+- preflight が host import より前に実行され、status `0` のみ success、positive non-zero を含む non-zero status は typed `DriverRejected` へ写ることが確認された。
+- span write が byte_start / byte_len / byte_end / surface byte count / color / run / pixel evidence を raw import へ渡し、action match が wildcard success ではないこと、DOM / Canvas / minifb / video memory / loop / queue leakage がないことも確認された。
+- reviewer 側でも `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` が通過した。
+
+## residual
+
+- F5fp は host accepted status と F5fo ledger match までであり、raw byte buffer readback、byte echo verification、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fo Bare display driver outcome ledger boundary
 
 ## 目的
