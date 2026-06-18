@@ -70710,3 +70710,45 @@ MERGE_APPROVED
 ### residual
 
 - F5fy は bare display presenter input boundary までであり、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5fz scheduler real-loop action step boundary
+
+### scope
+
+- F5fz は F5el `NeedInput` を native clock helper / native presenter host executor へ 1 action だけ接続し、F5ek success 後に F5el `real_loop_driver_after_step` へ戻す native-only boundary である。
+- public input は native policy、F5eo backend clock state、F5el `NeedInput` だけであり、bare owner path、queue、timer wait、present loop、renderer、surface、video memory は扱わない。
+- この slice は `platforms/gui/native/scheduler_real_loop_step`、facade export、focused doctest、source-policy、docs、todo の更新だけを扱う。
+
+### plan_review
+
+- Lorentz the 2nd の plan review 1 は `PLAN_CHANGES`。native と bare を同時に進めず F5fz を native-only に絞ること、Yield / Timer は clock helper success payload の action / input を使うこと、Execute は `gui_native_scheduler_host_executor_step` に委譲して追加 F5ek を呼ばないこと、CompleteAck は Complete branch だけで作ることが条件として示された。
+- Lorentz the 2nd の plan review 2 は `PLAN_APPROVED`。上記条件を計画へ反映し、source-policy で call count、禁止依存、fallback / silent no-op 禁止を固定する場合に実装開始可と判断された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_step.nepl` を追加した。
+- `GuiNativeSchedulerRealLoopStepPolicy` は F5ek step policy、F5el driver policy、F5eo backend clock policy だけを保持する。
+- `YieldToClock` / `AwaitTimerAdvance` は native clock helper を 1 回だけ呼び、success payload の next clock state、action、input を使って F5ek へ進む。
+- `ExecuteHostAction` は `gui_native_scheduler_host_executor_step` を 1 回だけ呼び、host import failure を `Result unit GuiError` outcome として F5ek/F5el path へ戻す。
+- `Complete` だけが `RealLoopStepInput::CompleteAck` を作る。
+- `stdlib/platforms/gui/native.nepl` facade、`tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI / font docs、`todo.md` を F5fz contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_real_loop_step.nepl --no-tree -o tmp_gui_platform_native_scheduler_real_loop_step_module_f5fz_first.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md --no-tree -o tmp_gui_platform_native_scheduler_real_loop_step_f5fz_first.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の F5fz source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Lorentz the 2nd implementation review は `REVIEW_APPROVED`。F5fz が native-only の 1 action step boundary に留まり、public entry を policy / clock state / F5el `NeedInput` に限定していることが確認された。
+- Yield / Timer が native clock helper の ready payload から action / input を取り直して F5ek に渡すこと、Execute が `gui_native_scheduler_host_executor_step` に委譲して追加 F5ek call を持たないこと、F5ek success 後に F5el `real_loop_driver_after_step` へ進むこと、CompleteAck が Complete branch だけで生成されることが確認された。
+- ready / error は non-Copy / non-Clone、Copy は branch enum のみに限定され、docs / source-policy / focused doctest / todo / note が native-only、no bare path、no queue / fallback / silent no-op を固定していることも確認された。
+
+### residual
+
+- F5fz は native one-action step boundary までであり、bare F5fy owner path から real-loop action step へ戻す boundary、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。

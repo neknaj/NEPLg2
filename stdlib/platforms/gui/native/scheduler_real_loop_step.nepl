@@ -1,0 +1,231 @@
+//: # platforms/gui/native/scheduler_real_loop_step
+//: Native scheduler real-loop action step boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fz Native scheduler real-loop action step boundary として、F5el `NeedInput` を native clock / presenter executor に 1 step だけ[接続/せつぞく]します。
+//: - F5ek success 後は F5el `real_loop_driver_after_step` まで[進/すす]め、次の `NeedInput` または terminal `Completed` を[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - public input authority は native policy、backend clock state、F5el `NeedInput` だけです。
+//: - policy は F5ek step policy、F5el driver policy、F5eo backend clock policy だけを[保持/ほじ]します。
+//: - `YieldToClock` / `AwaitTimerAdvance` は native clock input helper を 1 [回/かい]だけ[呼/よ]び、success payload の action / input を F5ek へ[渡/わた]します。
+//: - `ExecuteHostAction` は `gui_native_scheduler_host_executor_step` を 1 [回/かい]だけ[呼/よ]び、F5fz 自体は F5ek を[追加/ついか]で[呼/よ]びません。
+//: - host import failure は F5fz の direct error ではなく、`Result unit GuiError` outcome として F5ek/F5el path へ[戻/もど]ります。
+//: - `Complete` だけが `CompleteAck` を[作/つく]り、clock / execute branch では `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を[合成/ごうせい]しません。
+//: - long-running loop、queue、timer backend、sleep、minifb、DOM、Canvas、video memory、bare owner path、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/scheduler_real_loop_step" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/native/scheduler_clock_input" as *
+#import "platforms/gui/native/scheduler_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+
+pub enum GuiNativeSchedulerRealLoopStepBranch:
+    YieldToClock
+    AwaitTimerAdvance
+    ExecuteHostAction
+    Complete
+
+impl Clone for GuiNativeSchedulerRealLoopStepBranch:
+    fn clone %fn &GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch \branch:
+        *branch
+
+impl Copy for GuiNativeSchedulerRealLoopStepBranch:
+    fn copy_mark %fn GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch \branch:
+        branch
+
+pub struct GuiNativeSchedulerRealLoopStepPolicy:
+    step_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy
+    driver_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy
+    clock_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy
+
+pub struct GuiNativeSchedulerRealLoopStepReady:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    driver_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult
+
+pub struct GuiNativeSchedulerRealLoopStepYieldClockInputFailed:
+    lower %GuiNativeSchedulerClockInputError
+
+pub struct GuiNativeSchedulerRealLoopStepTimerClockInputFailed:
+    lower %GuiNativeSchedulerClockInputError
+
+pub struct GuiNativeSchedulerRealLoopStepRealStepFailed:
+    branch %GuiNativeSchedulerRealLoopStepBranch
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError
+
+pub struct GuiNativeSchedulerRealLoopStepDriverAfterStepFailed:
+    branch %GuiNativeSchedulerRealLoopStepBranch
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError
+
+pub enum GuiNativeSchedulerRealLoopStepError:
+    YieldClockInputFailed %GuiNativeSchedulerRealLoopStepYieldClockInputFailed
+    TimerClockInputFailed %GuiNativeSchedulerRealLoopStepTimerClockInputFailed
+    RealStepFailed %GuiNativeSchedulerRealLoopStepRealStepFailed
+    DriverAfterStepFailed %GuiNativeSchedulerRealLoopStepDriverAfterStepFailed
+
+pub fn gui_native_scheduler_real_loop_step_policy %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy GuiNativeSchedulerRealLoopStepPolicy \step_policy\driver_policy\clock_policy:
+    GuiNativeSchedulerRealLoopStepPolicy step_policy driver_policy clock_policy
+
+pub fn gui_native_scheduler_real_loop_step_policy_step_policy_ref %fn &GuiNativeSchedulerRealLoopStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy \policy:
+    field::get_ref policy "step_policy"
+
+pub fn gui_native_scheduler_real_loop_step_policy_driver_policy_ref %fn &GuiNativeSchedulerRealLoopStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy \policy:
+    field::get_ref policy "driver_policy"
+
+pub fn gui_native_scheduler_real_loop_step_policy_clock_policy %fn &GuiNativeSchedulerRealLoopStepPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy \policy:
+    *field::get_ref policy "clock_policy"
+
+fn gui_native_scheduler_real_loop_step_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult GuiNativeSchedulerRealLoopStepReady \clock_state\driver_result:
+    GuiNativeSchedulerRealLoopStepReady clock_state driver_result
+
+fn gui_native_scheduler_real_loop_step_yield_clock_input_failed_new %fn GuiNativeSchedulerClockInputError GuiNativeSchedulerRealLoopStepYieldClockInputFailed \lower:
+    GuiNativeSchedulerRealLoopStepYieldClockInputFailed lower
+
+fn gui_native_scheduler_real_loop_step_timer_clock_input_failed_new %fn GuiNativeSchedulerClockInputError GuiNativeSchedulerRealLoopStepTimerClockInputFailed \lower:
+    GuiNativeSchedulerRealLoopStepTimerClockInputFailed lower
+
+fn gui_native_scheduler_real_loop_step_real_step_failed_new %fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError GuiNativeSchedulerRealLoopStepRealStepFailed \branch\clock_state\lower:
+    GuiNativeSchedulerRealLoopStepRealStepFailed branch clock_state lower
+
+fn gui_native_scheduler_real_loop_step_driver_after_step_failed_new %fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError GuiNativeSchedulerRealLoopStepDriverAfterStepFailed \branch\clock_state\lower:
+    GuiNativeSchedulerRealLoopStepDriverAfterStepFailed branch clock_state lower
+
+fn gui_native_scheduler_real_loop_step_real_step_failed_result %fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \branch\clock_state\lower:
+    let failed %GuiNativeSchedulerRealLoopStepRealStepFailed gui_native_scheduler_real_loop_step_real_step_failed_new branch clock_state lower
+    Result::Err GuiNativeSchedulerRealLoopStepError::RealStepFailed failed
+
+fn gui_native_scheduler_real_loop_step_driver_after_step_failed_result %fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \branch\clock_state\lower:
+    let failed %GuiNativeSchedulerRealLoopStepDriverAfterStepFailed gui_native_scheduler_real_loop_step_driver_after_step_failed_new branch clock_state lower
+    Result::Err GuiNativeSchedulerRealLoopStepError::DriverAfterStepFailed failed
+
+fn gui_native_scheduler_real_loop_step_after_step %fn &GuiNativeSchedulerRealLoopStepPolicy fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\branch\clock_state\step_result:
+    let driver_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy gui_native_scheduler_real_loop_step_policy_driver_policy_ref policy
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step driver_policy step_result:
+        Result::Err lower:
+            gui_native_scheduler_real_loop_step_driver_after_step_failed_result branch clock_state lower
+        Result::Ok driver_result:
+            Result::Ok gui_native_scheduler_real_loop_step_ready_new clock_state driver_result
+
+fn gui_native_scheduler_real_loop_step_from_step_result %fn &GuiNativeSchedulerRealLoopStepPolicy fn GuiNativeSchedulerRealLoopStepBranch fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\branch\clock_state\step_outcome:
+    match step_outcome:
+        Result::Err lower:
+            gui_native_scheduler_real_loop_step_real_step_failed_result branch clock_state lower
+        Result::Ok step_result:
+            gui_native_scheduler_real_loop_step_after_step policy branch clock_state step_result
+
+fn gui_native_scheduler_real_loop_step_yield %impure fn &GuiNativeSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\clock_state\yield_action:
+    let clock_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy gui_native_scheduler_real_loop_step_policy_clock_policy policy
+    match gui_native_scheduler_clock_yield_input clock_policy clock_state yield_action:
+        Result::Err lower:
+            let failed %GuiNativeSchedulerRealLoopStepYieldClockInputFailed gui_native_scheduler_real_loop_step_yield_clock_input_failed_new lower
+            Result::Err GuiNativeSchedulerRealLoopStepError::YieldClockInputFailed failed
+        Result::Ok ready:
+            let next_clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState field::get ready "state"
+            let ready_action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock field::get ready "action"
+            let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput field::get ready "input"
+            let action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::YieldToClock ready_action
+            let step_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_step_policy_step_policy_ref policy
+            let branch %GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch::YieldToClock
+            let step_outcome %Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step step_policy action input
+            gui_native_scheduler_real_loop_step_from_step_result policy branch next_clock_state step_outcome
+
+fn gui_native_scheduler_real_loop_step_timer %impure fn &GuiNativeSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\clock_state\timer_action:
+    let clock_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy gui_native_scheduler_real_loop_step_policy_clock_policy policy
+    match gui_native_scheduler_clock_timer_input clock_policy clock_state timer_action:
+        Result::Err lower:
+            let failed %GuiNativeSchedulerRealLoopStepTimerClockInputFailed gui_native_scheduler_real_loop_step_timer_clock_input_failed_new lower
+            Result::Err GuiNativeSchedulerRealLoopStepError::TimerClockInputFailed failed
+        Result::Ok ready:
+            let next_clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState field::get ready "state"
+            let ready_action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance field::get ready "action"
+            let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput field::get ready "input"
+            let action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::AwaitTimerAdvance ready_action
+            let step_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_step_policy_step_policy_ref policy
+            let branch %GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch::AwaitTimerAdvance
+            let step_outcome %Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step step_policy action input
+            gui_native_scheduler_real_loop_step_from_step_result policy branch next_clock_state step_outcome
+
+fn gui_native_scheduler_real_loop_step_execute %impure fn &GuiNativeSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\clock_state\execute_action:
+    let step_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_step_policy_step_policy_ref policy
+    let branch %GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch::ExecuteHostAction
+    let step_outcome %Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError gui_native_scheduler_host_executor_step step_policy execute_action
+    gui_native_scheduler_real_loop_step_from_step_result policy branch clock_state step_outcome
+
+fn gui_native_scheduler_real_loop_step_complete %fn &GuiNativeSchedulerRealLoopStepPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionComplete Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\clock_state\complete_action:
+    let step_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_step_policy_step_policy_ref policy
+    let action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::Complete complete_action
+    let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::CompleteAck
+    let branch %GuiNativeSchedulerRealLoopStepBranch GuiNativeSchedulerRealLoopStepBranch::Complete
+    let step_outcome %Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step step_policy action input
+    gui_native_scheduler_real_loop_step_from_step_result policy branch clock_state step_outcome
+
+//: gui_native_scheduler_real_loop_step: native backend action を 1 step [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5el `NeedInput` の action variant を wildcard なしで[網羅/もうら]します。
+//: - clock branch は clock helper success payload から[取/と]り[出/だ]した action / input だけを F5ek へ[渡/わた]します。
+//: - execute branch は host executor step が F5ek まで[進/すす]めるため、ここで F5ek を[追加/ついか]で[呼/よ]びません。
+//: - F5ek success 後は F5el after-step を 1 [回/かい]だけ[呼/よ]びます。
+pub fn gui_native_scheduler_real_loop_step %impure fn &GuiNativeSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError \policy\clock_state\need:
+    let action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_need_input_action need
+    match action:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::YieldToClock yield_action:
+            gui_native_scheduler_real_loop_step_yield policy clock_state yield_action
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::AwaitTimerAdvance timer_action:
+            gui_native_scheduler_real_loop_step_timer policy clock_state timer_action
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::ExecuteHostAction execute_action:
+            gui_native_scheduler_real_loop_step_execute policy clock_state execute_action
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction::Complete complete_action:
+            gui_native_scheduler_real_loop_step_complete policy clock_state complete_action
+
+pub fn gui_native_scheduler_real_loop_step_ready_clock_state %fn &GuiNativeSchedulerRealLoopStepReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \ready:
+    *field::get_ref ready "clock_state"
+
+pub fn gui_native_scheduler_real_loop_step_ready_driver_result %fn GuiNativeSchedulerRealLoopStepReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult \ready:
+    field::get ready "driver_result"
+
+pub fn gui_native_scheduler_real_loop_step_yield_clock_input_failed_lower %fn GuiNativeSchedulerRealLoopStepYieldClockInputFailed GuiNativeSchedulerClockInputError \failure:
+    field::get failure "lower"
+
+pub fn gui_native_scheduler_real_loop_step_timer_clock_input_failed_lower %fn GuiNativeSchedulerRealLoopStepTimerClockInputFailed GuiNativeSchedulerClockInputError \failure:
+    field::get failure "lower"
+
+pub fn gui_native_scheduler_real_loop_step_real_step_failed_branch %fn &GuiNativeSchedulerRealLoopStepRealStepFailed GuiNativeSchedulerRealLoopStepBranch \failure:
+    *field::get_ref failure "branch"
+
+pub fn gui_native_scheduler_real_loop_step_real_step_failed_clock_state %fn &GuiNativeSchedulerRealLoopStepRealStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \failure:
+    *field::get_ref failure "clock_state"
+
+pub fn gui_native_scheduler_real_loop_step_real_step_failed_lower %fn GuiNativeSchedulerRealLoopStepRealStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepError \failure:
+    field::get failure "lower"
+
+pub fn gui_native_scheduler_real_loop_step_driver_after_step_failed_branch %fn &GuiNativeSchedulerRealLoopStepDriverAfterStepFailed GuiNativeSchedulerRealLoopStepBranch \failure:
+    *field::get_ref failure "branch"
+
+pub fn gui_native_scheduler_real_loop_step_driver_after_step_failed_clock_state %fn &GuiNativeSchedulerRealLoopStepDriverAfterStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \failure:
+    *field::get_ref failure "clock_state"
+
+pub fn gui_native_scheduler_real_loop_step_driver_after_step_failed_lower %fn GuiNativeSchedulerRealLoopStepDriverAfterStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError \failure:
+    field::get failure "lower"

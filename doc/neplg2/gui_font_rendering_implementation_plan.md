@@ -417,6 +417,41 @@ plan review:
 - focused doctest、module doctest、source policy、F5ev / F5ew regression、`git diff --check` が通る。
 - subagent implementation review で backend bridge、typed error、禁止依存が承認される。
 
+## Phase F5fz: Native scheduler real-loop action step boundary
+
+2026-06-19 の F5fz では、Native scheduler real-loop action step boundary として `platforms/gui/native/scheduler_real_loop_step` を追加する。これは native-only boundary であり、F5el `NeedInput` を 1 action だけ native clock helper / native host executor へ接続し、success した F5ek result を F5el `real_loop_driver_after_step` へ戻す。not long-running scheduler backend であり、queue、timer wait、sleep、present loop、minifb window loop、Canvas、DOM、video memory、bare owner path、fallback、silent no-op へは進まない。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_step.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `doc/neplg2/gui_standard_library_spec.md`
+- `doc/neplg2/gui_tui_implementation_plan.md`
+- `todo.md`
+- `note.n.md`
+
+contract:
+
+- public entry は native policy、F5eo backend clock state、F5el `NeedInput` だけを受ける。
+- policy は F5ek real-loop step policy、F5el real-loop driver policy、F5eo backend clock policy だけを保持する。
+- `YieldToClock` と `AwaitTimerAdvance` は native clock helper の success payload から next clock state、action、F5ek input を取り出し、その action / input を F5ek へ渡す。ClockDelta は F5fz で再合成しない。
+- `ExecuteHostAction` は `gui_native_scheduler_host_executor_step` を 1 回だけ呼ぶ。host import failure は direct F5fz error ではなく `Result unit GuiError` outcome として F5ek/F5el path へ戻るため、execute branch では F5ek を追加で呼ばない。
+- `Complete` branch だけが `CompleteAck` を作る。clock branch と execute branch では `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を合成しない。
+- bare の同等接続は F5fy owner path から別 slice で扱う。F5fz では bare owner、raw display memory、actual renderer、formal `std/gui` present host implementation へ進まない。
+
+plan review:
+
+- Lorentz plan review 1 は `PLAN_CHANGES`。native と bare を同時に進めず、F5fz は native-only action step boundary に絞ること、clock helper success payload の action / input を使うこと、execute branch は host executor step に委譲し追加 F5ek を呼ばないこと、CompleteAck は Complete branch だけで作ることが条件として示された。
+- Lorentz plan review 2 は `PLAN_APPROVED`。上記条件を計画へ反映し、source-policy で呼び出し回数、禁止依存、fallback / silent no-op 禁止を固定する場合に実装開始可と判断された。
+
+完了条件:
+
+- source policy が F5fz docs、facade export、policy fields、public entry signature、clock helper / host executor / F5ek / F5el の呼び出し回数、bare / queue / timer / renderer / fallback / silent no-op 禁止を固定する。
+- focused doctest、module doctest、source policy、`nodesrc/issues.js check --dir issues`、`git diff --check` が通る。
+- subagent implementation review で native-only scope、F5ek/F5el 接続、owner-bearing value の Clone/Copy 禁止、docs / todo / note の一貫性が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

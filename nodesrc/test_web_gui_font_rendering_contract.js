@@ -255,6 +255,8 @@ const platformGuiNativeSchedulerExecutorStep = read("stdlib/platforms/gui/native
 const platformGuiNativeSchedulerExecutorStepImpl = withoutComments(platformGuiNativeSchedulerExecutorStep);
 const platformGuiNativeSchedulerHostExecutor = read("stdlib/platforms/gui/native/scheduler_host_executor.nepl");
 const platformGuiNativeSchedulerHostExecutorImpl = withoutComments(platformGuiNativeSchedulerHostExecutor);
+const platformGuiNativeSchedulerRealLoopStep = read("stdlib/platforms/gui/native/scheduler_real_loop_step.nepl");
+const platformGuiNativeSchedulerRealLoopStepImpl = withoutComments(platformGuiNativeSchedulerRealLoopStep);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
@@ -406,6 +408,7 @@ const guiPlatformNativeSchedulerExecutorStepTests = read("tests/stdlib/gui_platf
 const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md");
 const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
+const guiPlatformNativeSchedulerRealLoopStepTests = read("tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md");
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
@@ -26332,6 +26335,152 @@ assert(
 assert(
     /function defaultNeplGuiBareImports\(\)[\s\S]*display_presenter_session_begin: \(\) => -1[\s\S]*display_presenter_session_run: \(\) => -1[\s\S]*display_presenter_session_end: \(\) => -1/.test(runTestSource),
     "run_test bare default imports must fail closed for F5fk display presenter session host import ABI",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native scheduler real-loop action step boundary") &&
+            doc.includes("F5fz") &&
+            doc.includes("native-only") &&
+            doc.includes("NeedInput") &&
+            doc.includes("real_loop_driver_after_step") &&
+            doc.includes("host import failure") &&
+            doc.includes("Result unit GuiError") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fz ${name} must document native-only real-loop action step and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_real_loop_step" as @merge'),
+    "platforms/gui/native facade must export F5fz native scheduler real-loop action step boundary",
+);
+assert(
+    platformGuiNativeSchedulerRealLoopStep.includes("Native scheduler real-loop action step boundary") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("F5fz") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("F5el `NeedInput`") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("real_loop_driver_after_step") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("host import failure") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("Result unit GuiError") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("long-running loop") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("fallback") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("silent no-op"),
+    "platforms/gui/native/scheduler_real_loop_step F5fz must document native action dispatch boundary and non-goals",
+);
+assert(
+    platformGuiNativeSchedulerRealLoopStep.includes("pub struct GuiNativeSchedulerRealLoopStepPolicy:") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("step_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("driver_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("clock_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("pub struct GuiNativeSchedulerRealLoopStepReady:") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState") &&
+        platformGuiNativeSchedulerRealLoopStep.includes("driver_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult"),
+    "platforms/gui/native/scheduler_real_loop_step F5fz must expose step, driver, and clock policy plus ready payload",
+);
+assert(
+    /pub fn gui_native_scheduler_real_loop_step %impure fn &GuiNativeSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput Result GuiNativeSchedulerRealLoopStepReady GuiNativeSchedulerRealLoopStepError/.test(platformGuiNativeSchedulerRealLoopStep),
+    "platforms/gui/native/scheduler_real_loop_step F5fz public entry must accept only policy, clock state, and F5el NeedInput",
+);
+const nativeRealLoopStepPublicSlice = functionSlice(platformGuiNativeSchedulerRealLoopStepImpl, "gui_native_scheduler_real_loop_step");
+assertOrderedFragments(
+    nativeRealLoopStepPublicSlice,
+    [
+        "real_loop_driver_need_input_action need",
+        "LoopAction::YieldToClock yield_action",
+        "gui_native_scheduler_real_loop_step_yield policy clock_state yield_action",
+        "LoopAction::AwaitTimerAdvance timer_action",
+        "gui_native_scheduler_real_loop_step_timer policy clock_state timer_action",
+        "LoopAction::ExecuteHostAction execute_action",
+        "gui_native_scheduler_real_loop_step_execute policy clock_state execute_action",
+        "LoopAction::Complete complete_action",
+        "gui_native_scheduler_real_loop_step_complete policy clock_state complete_action",
+    ],
+    "platforms/gui/native/scheduler_real_loop_step F5fz public entry must dispatch F5el NeedInput without wildcard",
+);
+assert(
+    (platformGuiNativeSchedulerRealLoopStepImpl.match(/\bgui_native_scheduler_clock_yield_input\b/g) || []).length === 1 &&
+        (platformGuiNativeSchedulerRealLoopStepImpl.match(/\bgui_native_scheduler_clock_timer_input\b/g) || []).length === 1 &&
+        (platformGuiNativeSchedulerRealLoopStepImpl.match(/\bgui_native_scheduler_host_executor_step\b/g) || []).length === 1 &&
+        (platformGuiNativeSchedulerRealLoopStepImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step\b/g) || []).length === 3 &&
+        (platformGuiNativeSchedulerRealLoopStepImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step\b/g) || []).length === 1,
+    "platforms/gui/native/scheduler_real_loop_step F5fz must call clock helpers, host executor, F5ek, and F5el at the expected counts",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopStepImpl, "gui_native_scheduler_real_loop_step_yield"),
+    [
+        "gui_native_scheduler_clock_yield_input clock_policy clock_state yield_action",
+        "field::get ready \"state\"",
+        "field::get ready \"action\"",
+        "field::get ready \"input\"",
+        "LoopAction::YieldToClock ready_action",
+        "real_loop_step step_policy action input",
+        "gui_native_scheduler_real_loop_step_from_step_result policy branch next_clock_state",
+    ],
+    "platforms/gui/native/scheduler_real_loop_step F5fz yield branch must use clock helper payload before F5ek",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopStepImpl, "gui_native_scheduler_real_loop_step_timer"),
+    [
+        "gui_native_scheduler_clock_timer_input clock_policy clock_state timer_action",
+        "field::get ready \"state\"",
+        "field::get ready \"action\"",
+        "field::get ready \"input\"",
+        "LoopAction::AwaitTimerAdvance ready_action",
+        "real_loop_step step_policy action input",
+        "gui_native_scheduler_real_loop_step_from_step_result policy branch next_clock_state",
+    ],
+    "platforms/gui/native/scheduler_real_loop_step F5fz timer branch must use clock helper payload before F5ek",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopStepImpl, "gui_native_scheduler_real_loop_step_execute"),
+    [
+        "gui_native_scheduler_host_executor_step step_policy execute_action",
+        "gui_native_scheduler_real_loop_step_from_step_result policy branch clock_state",
+    ],
+    "platforms/gui/native/scheduler_real_loop_step F5fz execute branch must delegate to host executor step without extra F5ek",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopStepImpl, "gui_native_scheduler_real_loop_step_complete"),
+    [
+        "LoopAction::Complete complete_action",
+        "RealLoopStepInput::CompleteAck",
+        "real_loop_step step_policy action input",
+        "gui_native_scheduler_real_loop_step_from_step_result policy branch clock_state",
+    ],
+    "platforms/gui/native/scheduler_real_loop_step F5fz complete branch must create CompleteAck only in complete path",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopStepImpl,
+    /\b(?:platforms\/gui\/bare|gui_bare_|GuiBare|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|timer_backend|minifb|Canvas|DOM|video_memory|DrawTarget|RenderTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "platforms/gui/native/scheduler_real_loop_step F5fz must not depend on bare, queues, platform renderers, externs, or fallback behavior",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopStepImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiNativeSchedulerRealLoopStep(?:Policy|Ready|YieldClockInputFailed|TimerClockInputFailed|RealStepFailed|DriverAfterStepFailed|Error)\b/,
+    "platforms/gui/native/scheduler_real_loop_step F5fz owner-bearing policy, ready, and error values must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopStepImpl,
+    /_:|[()]/,
+    "platforms/gui/native/scheduler_real_loop_step F5fz implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    [
+        "platform_native_scheduler_real_loop_step_facade_ok",
+        "platform_native_scheduler_real_loop_step_import_ok",
+        "platform_native_scheduler_real_loop_step_policy_fields_ok",
+        "platform_native_scheduler_real_loop_step_need_input_only_ok",
+        "platform_native_scheduler_real_loop_step_clock_helpers_once_ok",
+        "platform_native_scheduler_real_loop_step_execute_host_executor_once_ok",
+        "platform_native_scheduler_real_loop_step_complete_ack_only_ok",
+        "platform_native_scheduler_real_loop_step_f5ek_f5el_dispatch_ok",
+        "platform_native_scheduler_real_loop_step_no_bare_queue_fallback",
+        "platform_native_scheduler_real_loop_step_no_clone_copy_owner_values",
+    ].every((label) => guiPlatformNativeSchedulerRealLoopStepTests.includes(label)),
+    "F5fz native scheduler real-loop step focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["GUI standard library spec", guiStandardLibrarySpec],
