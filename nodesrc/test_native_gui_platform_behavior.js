@@ -143,6 +143,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowPresenterSurfaceState\s*\{[\s\S]*Drawable\s*\{\s*width: usize,\s*height: usize\s*\},[\s\S]*Unavailable/);
     assert.match(libSource, /pub enum NativeWindowPresenterError\s*\{[\s\S]*InvalidSurfaceDimensions,[\s\S]*FrameMissing,[\s\S]*FrameIdMissing,[\s\S]*InvalidFrameId,[\s\S]*PresenterFrameValidationFailed\(NativePresenterFrameError\),[\s\S]*ResourceExhausted,[\s\S]*DimensionOverflow/);
     assert.match(libSource, /pub struct NativeWindowPresenterState\s*\{[\s\S]*surface_state: NativeWindowPresenterSurfaceState,[\s\S]*last_frame_id: Option<i32>,[\s\S]*last_frame_width: usize,[\s\S]*last_frame_height: usize,[\s\S]*last_pixels: Vec<u32>/);
+    assert.match(libSource, /pub enum NativeRgb0PresenterSinkOutcome\s*\{[\s\S]*Accepted,[\s\S]*Completed\s*\{\s*frame_id: i32\s*\}/);
+    assert.match(libSource, /pub struct NativeWindowPresenterSession\s*\{[\s\S]*sink: NativeRgb0PresenterSink,[\s\S]*presenter_state: NativeWindowPresenterState/);
+    assert.match(libSource, /pub enum NativeWindowPresenterSessionOutcome\s*\{[\s\S]*NotPresented,[\s\S]*Presented\s*\{[\s\S]*frame_id: i32,[\s\S]*width: usize,[\s\S]*height: usize/);
+    assert.match(libSource, /pub enum NativeWindowPresenterSessionError\s*\{[\s\S]*SinkFailed\(NativeSpanFramebufferError\),[\s\S]*PresenterFailed\(NativeWindowPresenterError\)/);
     assert.match(libSource, /pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;/);
     assert.match(libSource, /pub enum NativePresenterFrameError/);
     assert.match(libSource, /pub struct NativePresenterFrame<'a>\s*\{[\s\S]*width: usize,[\s\S]*height: usize,[\s\S]*pixels: &'a \[u32\]/);
@@ -161,6 +165,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /fn end_sequence_to_rgb0_present_buffer/);
     assert.match(nativeSpanOperationHelper, /let present_buffer = native_rgb0_present_buffer_from_rgba8888_parts/);
     assert.match(nativeSpanOperationHelper, /self\.active_sequence = None;[\s\S]*Ok\(present_buffer\)/);
+    assert.match(nativeSpanOperationHelper, /pub fn execute_span_operation_typed/);
+    assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Accepted/);
+    assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Completed\s*\{\s*frame_id\s*\}/);
     assert.match(nativeSpanOperationHelper, /last_present_frame/);
     assert.match(nativeSpanOperationHelper, /last_presented_frame_id/);
     assert.match(nativeSpanOperationHelper, /fn native_presenter_frame_from_rgb0_parts/);
@@ -172,6 +179,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameMissing\)/);
     assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameIdMissing\)/);
     assert.match(nativeSpanOperationHelper, /self\.present_frame\(frame_id, source_frame\)\?/);
+    assert.match(nativeSpanOperationHelper, /impl NativeWindowPresenterSession/);
+    assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSink::new\(framebuffer_width, framebuffer_height, background\)/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterState::new\(surface_width, surface_height\)/);
+    assert.match(nativeSpanOperationHelper, /pub fn resize_surface\([\s\S]*NativeWindowPresenterSessionError/);
+    assert.match(nativeSpanOperationHelper, /pub fn execute_span_operation\([\s\S]*NativeWindowPresenterSessionOutcome/);
+    assert.match(nativeSpanOperationHelper, /\.execute_span_operation_typed\(operation\)[\s\S]*NativeWindowPresenterSessionError::SinkFailed/);
+    assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Accepted[\s\S]*NativeWindowPresenterSessionOutcome::NotPresented/);
+    assert.match(nativeSpanOperationHelper, /NativeRgb0PresenterSinkOutcome::Completed\s*\{\s*frame_id\s*\}[\s\S]*\.present_sink_frame\(&self\.sink\)[\s\S]*NativeWindowPresenterSessionOutcome::Presented/);
     assert.match(nativeSpanOperationHelper, /try_reserve_exact\(pixel_count\)[\s\S]*self\.last_pixels = next_pixels/);
     assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSurfaceState::Unavailable/);
     assert.match(nativeSpanOperationHelper, /let source_r = \(\(rgba8888 >> 24\) & 0xff\) as u8/);
@@ -209,6 +224,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_presenter_state_tracks_resize_without_stretching_last_frame/);
     assert.match(libSource, /native_window_presenter_state_failed_buffer_present_keeps_previous_frame/);
     assert.match(libSource, /native_window_presenter_state_failed_present_keeps_previous_frame/);
+    assert.match(libSource, /native_window_presenter_session_presents_only_after_end/);
+    assert.match(libSource, /native_window_presenter_session_failed_sink_operation_keeps_previous_frame/);
+    assert.match(libSource, /native_window_presenter_session_failed_present_keeps_previous_frame/);
+    assert.match(libSource, /native_window_presenter_session_resize_keeps_frame_pixels_unscaled/);
     assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
 
@@ -256,6 +275,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /gui_native_scheduler_executor_input/);
     assert.match(platformDoc, /WindowBegin/);
     assert.match(platformDoc, /DeviceEnd/);
+    assert.match(platformDoc, /Native formal presenter session checkpoint/);
+    assert.match(platformDoc, /NativeWindowPresenterSession/);
+    assert.match(platformDoc, /NativeWindowPresenterSessionOutcome::NotPresented/);
+    assert.match(platformDoc, /NativeWindowPresenterSessionOutcome::Presented/);
+    assert.match(platformDoc, /NativeWindowPresenterSessionError::SinkFailed/);
+    assert.match(platformDoc, /NativeWindowPresenterSessionError::PresenterFailed/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -264,10 +289,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /native platform behavior checkpoint/);
     assert.match(implementationPlan, /macOS AppKit、Windows Win32、Linux Wayland \/ X11/);
     assert.match(implementationPlan, /native presenter operation identity input boundary/);
+    assert.match(implementationPlan, /native formal presenter session boundary/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
+    assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
     assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
 
     assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
@@ -293,6 +320,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner presents and hit-tests through NativeWindowPresenterState",
             "Native smoke runner redraws exact-size buffers after resize",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
+            "Native formal presenter session commits successful End operations to presenter state",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

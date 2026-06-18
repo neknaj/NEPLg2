@@ -155,6 +155,16 @@ F5fg では native presenter operation identity input boundary として、typed
 
 この checkpoint は backend execution、raw status mapping、scheduler step、minifb / OS window loop、queue、timer、Canvas、DOM、video memory、fallback、silent no-op を持たない。formal native window presenter integration、bare runtime host import、long-running real backend loop は後続 slice で実装する。
 
+## Native formal presenter session checkpoint
+
+F5fh では formal span operation stream と native window presenter state を結ぶ Rust lib-only boundary として、`NativeWindowPresenterSession` を追加する。session は `NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有し、typed `NativeSpanOperation` を `execute_span_operation` で 1 件ずつ受ける。
+
+Begin と RunSpan は sink の typed execution helper を通し、成功時は `NativeWindowPresenterSessionOutcome::NotPresented` を返す。End だけが completed RGB0 frame と positive frame id を要求し、`NativeWindowPresenterState::present_sink_frame` に成功した場合だけ `NativeWindowPresenterSessionOutcome::Presented` を返す。
+
+sink 側の失敗は `NativeWindowPresenterSessionError::SinkFailed`、presenter state 側の失敗は `NativeWindowPresenterSessionError::PresenterFailed` として分けて返す。failed RunSpan、failed End、missing completed frame、missing / invalid frame id、presenter frame validation failure は previous presenter state を置き換えない。
+
+この checkpoint は formal native presenter integration の lib boundary であり、minifb / OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory、fallback、silent no-op を実装しない。resize は `resize_surface` で surface state だけを更新し、previous frame pixels を stretch / crop しない。application / layout は resize event 後に新しい pixel buffer を生成し、その End 成功時に session が presenter state を更新する。
+
 ## 参考
 
 - Apple Developer Documentation: `NSApplication.run` https://developer.apple.com/documentation/appkit/nsapplication/run
