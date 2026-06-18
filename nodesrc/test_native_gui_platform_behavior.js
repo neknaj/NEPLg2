@@ -100,12 +100,35 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::Begin/);
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::RunSpan/);
     assert.match(nativeSpanOperationHelper, /sink\.execute_span_operation\(NativeSpanOperation::End/);
+    assert.match(libSource, /pub const NATIVE_RGBA8888_PIXEL_TRANSPARENT: u32 = 0x00000000;/);
+    assert.match(libSource, /pub enum NativeSpanFramebufferError/);
+    assert.match(libSource, /pub struct NativeSpanFramebufferActiveSequence/);
+    assert.match(libSource, /pub struct NativeRgba8888FrameBuffer\s*\{[\s\S]*width: i32,[\s\S]*height: i32,[\s\S]*stride_bytes: i32,[\s\S]*pixels: Vec<u32>,[\s\S]*active_sequence: Option<NativeSpanFramebufferActiveSequence>/);
+    assert.match(nativeSpanOperationHelper, /semantic `0xRRGGBBAA` values/);
+    assert.match(nativeSpanOperationHelper, /try_reserve_exact\(pixel_count\)/);
+    assert.match(nativeSpanOperationHelper, /descriptor\.stride_bytes != self\.stride_bytes/);
+    assert.match(nativeSpanOperationHelper, /seen_run_count: 0/);
+    assert.match(nativeSpanOperationHelper, /run_span\.x < 0 \|\| run_span\.width <= 0 \|\| run_span\.height != 1/);
+    assert.match(nativeSpanOperationHelper, /active\.seen_run_count >= descriptor\.total_run_count/);
+    assert.match(nativeSpanOperationHelper, /active\.seen_run_count != descriptor\.total_run_count/);
+    assert.match(nativeSpanOperationHelper, /active\.seen_run_count \+ 1/);
+    assert.match(nativeSpanOperationHelper, /pub fn native_pack_rgba8888_pixel\(r: u8, g: u8, b: u8, a: u8\) -> u32/);
+    assert.match(nativeSpanOperationHelper, /\(u32::from\(r\) << 24\) \| \(u32::from\(g\) << 16\) \| \(u32::from\(b\) << 8\) \| u32::from\(a\)/);
     assert.match(libSource, /native_span_operation_records_valid_begin_run_end/);
     assert.match(libSource, /native_span_operation_rejects_invalid_descriptor_before_sink/);
     assert.match(libSource, /native_span_operation_requires_exact_tile_count_and_frame_id/);
     assert.match(libSource, /native_span_operation_rejects_invalid_run_span_before_sink/);
     assert.match(libSource, /native_span_operation_normalizes_sink_status/);
-    assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op/);
+    assert.match(libSource, /native_span_framebuffer_constructor_checks_dimensions_and_layout/);
+    assert.match(libSource, /native_span_framebuffer_writes_complete_sequence/);
+    assert.match(libSource, /native_span_framebuffer_rejects_missing_and_nested_sequence/);
+    assert.match(libSource, /native_span_framebuffer_rejects_invalid_run_without_partial_write/);
+    assert.match(libSource, /native_framebuffer_run\(-1, 1, 1, 10\)/);
+    assert.match(libSource, /height: 2,[\s\S]*native_framebuffer_run\(0, 0, 1, 10\)/);
+    assert.match(libSource, /native_span_framebuffer_requires_exact_run_count_before_end/);
+    assert.match(libSource, /native_span_framebuffer_rejects_end_descriptor_mismatch_and_keeps_active/);
+    assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
+    assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer/);
 
     assert.match(platformDoc, /macOS AppKit/);
     assert.match(platformDoc, /Windows Win32/);
@@ -125,6 +148,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /stride_bytes == width \* 4/);
     assert.match(platformDoc, /tile_count == ceil\(plan_row_count \/ tile_rows\)/);
     assert.match(platformDoc, /invalid scalar input returns -2 before the sink is called/);
+    assert.match(platformDoc, /Native RGBA8888 framebuffer sink checkpoint/);
+    assert.match(platformDoc, /0xRRGGBBAA/);
+    assert.match(platformDoc, /seen_run_count == descriptor\.total_run_count/);
+    assert.match(platformDoc, /silent partial frame/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -151,6 +178,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
             "Native monotonic clock source uses Instant with i32 range failure",
             "Native span-operation host ABI validates scalar packet input before injected sink execution",
+            "Native RGBA8888 framebuffer sink requires complete span sequences without endian byte views",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

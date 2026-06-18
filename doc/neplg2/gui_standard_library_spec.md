@@ -79,6 +79,12 @@ F5ex は F5ev/F5ew と接続される。host import outcome は F5ev `scheduler_
 
 descriptor は sink を呼ぶ前に、positive id、frame id 一致、checked extent、`stride_bytes == width * 4`、`pixel_count == width * row_count`、`encoded_byte_count == total_run_count * 12`、`tile_count == ceil(plan_row_count / tile_rows)`、`tile_index < tile_count` をすべて満たす必要がある。run span は current row の span として `height == 1`、positive width、non-negative x / y、0..255 の RGBA channel を要求する。invalid scalar input は sink に渡さず `InvalidArgument` を返す。minifb rendering、window loop、queue、timer、video memory、DOM、Canvas、fallback、silent no-op はこの checkpoint の責務ではない。
 
+## F5ez Native RGBA8888 framebuffer sink checkpoint
+
+2026-06-18 の F5ez では、F5ey の typed operation を native offscreen framebuffer へ反映する `NativeRgba8888FrameBuffer` sink を追加する。pixel storage は semantic `0xRRGGBBAA` の `u32` であり、native endian byte view ではない。constructor は positive width / height、checked `width * height`、`stride_bytes == width * 4` を満たす場合だけ成功し、field は private にする。
+
+Begin は active sequence が無い場合だけ受け、descriptor と `seen_run_count = 0` を保持する。RunSpan は active descriptor、target、`x >= 0`、`width > 0`、`height == 1`、row extent、x extent、remaining run count を検査し、全検査の後だけ pixel を書く。成功した RunSpan だけが `seen_run_count` を増やす。End は descriptor equality と `seen_run_count == descriptor.total_run_count` を要求し、短い span 列や余分な span を silent partial frame として成功させない。失敗した RunSpan / End は active state と pixels を壊さない。F5ez は minifb `update_with_buffer`、window loop、scheduler loop、video memory、DOM、Canvas、fallback、silent no-op へ進まない。
+
 ## 層構造
 
 依存方向は次に固定する。
