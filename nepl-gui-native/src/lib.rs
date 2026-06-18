@@ -1088,6 +1088,86 @@ pub struct NativePresenterFrame<'a> {
     pixels: &'a [u32],
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowBackendLoopPresentation {
+    pub frame_id: i32,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowBackendLoopPointerAction {
+    None,
+    PressedUnavailable,
+    PressedOutside,
+    CounterIncremented {
+        value: i32,
+        presentation: NativeWindowBackendLoopPresentation,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowBackendLoopDrawableStep {
+    pub window_size: NativeWindowSize,
+    pub size_changed: bool,
+    pub resize_redraw: Option<NativeWindowBackendLoopPresentation>,
+    pub pointer_action: NativeWindowBackendLoopPointerAction,
+    pub final_frame: NativeWindowBackendLoopPresentation,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowBackendLoopStepOutcome {
+    CloseRequested {
+        close_state: NativeWindowEventPumpCloseState,
+    },
+    Unavailable {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    Drawable(NativeWindowBackendLoopDrawableStep),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowBackendLoopError {
+    InitialScaleInvalid,
+    InitialSizeOverflow,
+    InitialSurfaceInvalid,
+    FrameIdOverflow {
+        previous: i32,
+    },
+    CounterValueOverflow {
+        previous: i32,
+    },
+    CounterFrameIdMissing,
+    RasterizeFailed(RasterizeSurfaceError),
+    PresentBufferInvalid(NativePresenterFrameError),
+    PresenterFailed(NativeWindowPresenterError),
+    FrameMissing,
+    SurfaceUnavailable,
+    FrameWindowMismatch {
+        frame_width: usize,
+        frame_height: usize,
+        window_width: usize,
+        window_height: usize,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowBackendLoopState {
+    demo: GuiDemo,
+    counter_value: i32,
+    frame: GuiFrame,
+    presenter_frame_id: i32,
+    previous_size: NativeWindowSize,
+    previous_mouse_down: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowBackendLoop {
+    state: NativeWindowBackendLoopState,
+    presenter_state: NativeWindowPresenterState,
+}
+
 impl NativeRgb0PresentBuffer {
     /// Converts a completed semantic RGBA8888 framebuffer into `0x00RRGGBB`.
     ///
@@ -1496,6 +1576,344 @@ impl NativeWindowPresenterState {
             .ok_or(NativeWindowPresenterError::FrameIdMissing)?;
         self.present_frame(frame_id, source_frame)?;
         self.last_present_frame_required()
+    }
+}
+
+enum NativeWindowBackendLoopCounterIntent {
+    None,
+    PressedUnavailable,
+    PressedOutside,
+    Hit { value: i32, frame: GuiFrame },
+}
+
+impl NativeWindowBackendLoop {
+    pub fn new_for_scale(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+    ) -> Result<Self, NativeWindowBackendLoopError> {
+        let frame = render_demo_frame(demo, counter_value);
+        let initial_size = native_window_backend_loop_initial_size_for_frame(&frame, scale)?;
+        let mut presenter_state =
+            NativeWindowPresenterState::new(initial_size.width, initial_size.height)
+                .map_err(|_| NativeWindowBackendLoopError::InitialSurfaceInvalid)?;
+        let buffer = native_window_backend_loop_present_buffer_for_frame(
+            &frame,
+            initial_size.width,
+            initial_size.height,
+        )?;
+        presenter_state
+            .present_buffer(NATIVE_WINDOW_BACKEND_LOOP_INITIAL_FRAME_ID, &buffer)
+            .map_err(NativeWindowBackendLoopError::PresenterFailed)?;
+
+        Ok(Self {
+            state: NativeWindowBackendLoopState {
+                demo,
+                counter_value,
+                frame,
+                presenter_frame_id: NATIVE_WINDOW_BACKEND_LOOP_INITIAL_FRAME_ID,
+                previous_size: initial_size,
+                previous_mouse_down: false,
+            },
+            presenter_state,
+        })
+    }
+
+    pub fn initial_size(&self) -> NativeWindowSize {
+        self.state.previous_size
+    }
+
+    pub fn event_pump_input(&self) -> NativeWindowEventPumpInput {
+        NativeWindowEventPumpInput {
+            previous_size: self.state.previous_size,
+            previous_mouse_down: self.state.previous_mouse_down,
+        }
+    }
+
+    pub fn demo(&self) -> GuiDemo {
+        self.state.demo
+    }
+
+    pub fn counter_value(&self) -> i32 {
+        self.state.counter_value
+    }
+
+    pub fn presenter_frame_id(&self) -> i32 {
+        self.state.presenter_frame_id
+    }
+
+    pub fn presenter_state(&self) -> &NativeWindowPresenterState {
+        &self.presenter_state
+    }
+
+    pub fn current_present_frame_for_window(
+        &self,
+    ) -> Result<NativePresenterFrame<'_>, NativeWindowBackendLoopError> {
+        let NativeWindowPresenterSurfaceState::Drawable { width, height } =
+            self.presenter_state.surface_state()
+        else {
+            return Err(NativeWindowBackendLoopError::SurfaceUnavailable);
+        };
+        let frame = self
+            .presenter_state
+            .last_present_frame_required()
+            .map_err(native_window_backend_loop_frame_error)?;
+        if frame.width() != width || frame.height() != height {
+            return Err(NativeWindowBackendLoopError::FrameWindowMismatch {
+                frame_width: frame.width(),
+                frame_height: frame.height(),
+                window_width: width,
+                window_height: height,
+            });
+        }
+        Ok(frame)
+    }
+
+    pub fn step(
+        &mut self,
+        snapshot: NativeWindowEventPumpSnapshot,
+    ) -> Result<NativeWindowBackendLoopStepOutcome, NativeWindowBackendLoopError> {
+        match snapshot.close_state {
+            NativeWindowEventPumpCloseState::Open => {}
+            NativeWindowEventPumpCloseState::OsCloseRequested
+            | NativeWindowEventPumpCloseState::ExitShortcutRequested => {
+                return Ok(NativeWindowBackendLoopStepOutcome::CloseRequested {
+                    close_state: snapshot.close_state,
+                });
+            }
+        }
+
+        let NativeWindowPresenterSurfaceState::Drawable { width, height } = snapshot.surface_state
+        else {
+            self.presenter_state
+                .resize_surface(snapshot.window_size.width, snapshot.window_size.height)
+                .map_err(NativeWindowBackendLoopError::PresenterFailed)?;
+            self.state.previous_size = snapshot.window_size;
+            self.state.previous_mouse_down = snapshot.mouse_down;
+            return Ok(NativeWindowBackendLoopStepOutcome::Unavailable {
+                window_size: snapshot.window_size,
+                size_changed: snapshot.size_changed,
+            });
+        };
+
+        let counter_intent = self.counter_intent(width, height, snapshot)?;
+        let resize_frame_id = if snapshot.size_changed {
+            Some(native_window_backend_loop_next_frame_id(
+                self.state.presenter_frame_id,
+            )?)
+        } else {
+            None
+        };
+        let counter_frame_id = match counter_intent {
+            NativeWindowBackendLoopCounterIntent::Hit { .. } => {
+                let previous = resize_frame_id.unwrap_or(self.state.presenter_frame_id);
+                Some(native_window_backend_loop_next_frame_id(previous)?)
+            }
+            NativeWindowBackendLoopCounterIntent::None
+            | NativeWindowBackendLoopCounterIntent::PressedUnavailable
+            | NativeWindowBackendLoopCounterIntent::PressedOutside => None,
+        };
+
+        let resize_redraw = match resize_frame_id {
+            Some(frame_id) => {
+                let frame = self.state.frame.clone();
+                self.present_frame_to_surface_after_success(frame_id, &frame, width, height)?;
+                self.presenter_state
+                    .resize_surface(width, height)
+                    .map_err(NativeWindowBackendLoopError::PresenterFailed)?;
+                self.state.presenter_frame_id = frame_id;
+                self.state.previous_size = snapshot.window_size;
+                Some(NativeWindowBackendLoopPresentation {
+                    frame_id,
+                    width,
+                    height,
+                })
+            }
+            None => None,
+        };
+
+        let pointer_action = match counter_intent {
+            NativeWindowBackendLoopCounterIntent::None => {
+                NativeWindowBackendLoopPointerAction::None
+            }
+            NativeWindowBackendLoopCounterIntent::PressedUnavailable => {
+                NativeWindowBackendLoopPointerAction::PressedUnavailable
+            }
+            NativeWindowBackendLoopCounterIntent::PressedOutside => {
+                NativeWindowBackendLoopPointerAction::PressedOutside
+            }
+            NativeWindowBackendLoopCounterIntent::Hit { value, frame } => {
+                let Some(frame_id) = counter_frame_id else {
+                    return Err(NativeWindowBackendLoopError::CounterFrameIdMissing);
+                };
+                self.present_frame_to_surface_after_success(frame_id, &frame, width, height)?;
+                self.state.counter_value = value;
+                self.state.frame = frame;
+                self.state.presenter_frame_id = frame_id;
+                NativeWindowBackendLoopPointerAction::CounterIncremented {
+                    value,
+                    presentation: NativeWindowBackendLoopPresentation {
+                        frame_id,
+                        width,
+                        height,
+                    },
+                }
+            }
+        };
+
+        self.state.previous_size = snapshot.window_size;
+        self.state.previous_mouse_down = snapshot.mouse_down;
+        let final_frame = self.current_presentation_for_window(width, height)?;
+        Ok(NativeWindowBackendLoopStepOutcome::Drawable(
+            NativeWindowBackendLoopDrawableStep {
+                window_size: snapshot.window_size,
+                size_changed: snapshot.size_changed,
+                resize_redraw,
+                pointer_action,
+                final_frame,
+            },
+        ))
+    }
+
+    fn counter_intent(
+        &self,
+        surface_width: usize,
+        surface_height: usize,
+        snapshot: NativeWindowEventPumpSnapshot,
+    ) -> Result<NativeWindowBackendLoopCounterIntent, NativeWindowBackendLoopError> {
+        if self.state.demo != GuiDemo::Counter
+            || snapshot.mouse_left_transition != NativeWindowPointerButtonTransition::Pressed
+        {
+            return Ok(NativeWindowBackendLoopCounterIntent::None);
+        }
+
+        let NativeWindowPointerSample::Available {
+            x: mouse_x,
+            y: mouse_y,
+        } = snapshot.pointer_sample
+        else {
+            return Ok(NativeWindowBackendLoopCounterIntent::PressedUnavailable);
+        };
+
+        let Some((image_x, image_y)) = map_native_window_point_to_image(
+            surface_width,
+            surface_height,
+            self.state.frame.width,
+            self.state.frame.height,
+            mouse_x,
+            mouse_y,
+        ) else {
+            return Ok(NativeWindowBackendLoopCounterIntent::PressedOutside);
+        };
+        if !counter_hit(&self.state.frame, image_x, image_y) {
+            return Ok(NativeWindowBackendLoopCounterIntent::PressedOutside);
+        }
+
+        let value = self.state.counter_value.checked_add(1).ok_or(
+            NativeWindowBackendLoopError::CounterValueOverflow {
+                previous: self.state.counter_value,
+            },
+        )?;
+        Ok(NativeWindowBackendLoopCounterIntent::Hit {
+            value,
+            frame: render_demo_frame(self.state.demo, value),
+        })
+    }
+
+    fn present_frame_to_surface_after_success(
+        &mut self,
+        frame_id: i32,
+        frame: &GuiFrame,
+        surface_width: usize,
+        surface_height: usize,
+    ) -> Result<(), NativeWindowBackendLoopError> {
+        let buffer = native_window_backend_loop_present_buffer_for_frame(
+            frame,
+            surface_width,
+            surface_height,
+        )?;
+        self.presenter_state
+            .present_buffer(frame_id, &buffer)
+            .map_err(NativeWindowBackendLoopError::PresenterFailed)
+    }
+
+    fn current_presentation_for_window(
+        &self,
+        window_width: usize,
+        window_height: usize,
+    ) -> Result<NativeWindowBackendLoopPresentation, NativeWindowBackendLoopError> {
+        let frame = self
+            .presenter_state
+            .last_present_frame_required()
+            .map_err(native_window_backend_loop_frame_error)?;
+        if frame.width() != window_width || frame.height() != window_height {
+            return Err(NativeWindowBackendLoopError::FrameWindowMismatch {
+                frame_width: frame.width(),
+                frame_height: frame.height(),
+                window_width,
+                window_height,
+            });
+        }
+        Ok(NativeWindowBackendLoopPresentation {
+            frame_id: self.state.presenter_frame_id,
+            width: frame.width(),
+            height: frame.height(),
+        })
+    }
+}
+
+const NATIVE_WINDOW_BACKEND_LOOP_INITIAL_FRAME_ID: i32 = 1;
+
+fn native_window_backend_loop_next_frame_id(
+    previous: i32,
+) -> Result<i32, NativeWindowBackendLoopError> {
+    previous
+        .checked_add(1)
+        .ok_or(NativeWindowBackendLoopError::FrameIdOverflow { previous })
+}
+
+fn native_window_backend_loop_initial_size_for_frame(
+    frame: &GuiFrame,
+    scale: usize,
+) -> Result<NativeWindowSize, NativeWindowBackendLoopError> {
+    if scale == 0 {
+        return Err(NativeWindowBackendLoopError::InitialScaleInvalid);
+    }
+    let width = frame
+        .width
+        .checked_mul(scale)
+        .ok_or(NativeWindowBackendLoopError::InitialSizeOverflow)?;
+    let height = frame
+        .height
+        .checked_mul(scale)
+        .ok_or(NativeWindowBackendLoopError::InitialSizeOverflow)?;
+    if width == 0 || height == 0 {
+        return Err(NativeWindowBackendLoopError::InitialSurfaceInvalid);
+    }
+    Ok(NativeWindowSize::new(width, height))
+}
+
+fn native_window_backend_loop_present_buffer_for_frame(
+    frame: &GuiFrame,
+    surface_width: usize,
+    surface_height: usize,
+) -> Result<NativeRgb0PresentBuffer, NativeWindowBackendLoopError> {
+    let image = rasterize_frame_to_surface(frame, surface_width, surface_height)
+        .map_err(NativeWindowBackendLoopError::RasterizeFailed)?;
+    NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(
+        image.width,
+        image.height,
+        image.pixels,
+    )
+    .map_err(NativeWindowBackendLoopError::PresentBufferInvalid)
+}
+
+fn native_window_backend_loop_frame_error(
+    error: NativeWindowPresenterError,
+) -> NativeWindowBackendLoopError {
+    match error {
+        NativeWindowPresenterError::FrameMissing => NativeWindowBackendLoopError::FrameMissing,
+        other => NativeWindowBackendLoopError::PresenterFailed(other),
     }
 }
 
@@ -4285,6 +4703,377 @@ mod tests {
         assert_eq!(
             os_close_wins.close_state,
             NativeWindowEventPumpCloseState::OsCloseRequested
+        );
+    }
+
+    fn native_window_backend_loop_counter() -> NativeWindowBackendLoop {
+        NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, 0, 2).unwrap()
+    }
+
+    fn native_window_backend_loop_snapshot(
+        loop_state: &NativeWindowBackendLoop,
+        close_state: NativeWindowEventPumpCloseState,
+        size: NativeWindowSize,
+        mouse_down: bool,
+        pointer_sample: NativeWindowPointerSample,
+    ) -> NativeWindowEventPumpSnapshot {
+        build_native_window_event_pump_snapshot(
+            loop_state.event_pump_input(),
+            close_state == NativeWindowEventPumpCloseState::OsCloseRequested,
+            close_state == NativeWindowEventPumpCloseState::ExitShortcutRequested,
+            size,
+            mouse_down,
+            pointer_sample,
+        )
+    }
+
+    fn native_window_backend_loop_drawable(
+        outcome: NativeWindowBackendLoopStepOutcome,
+    ) -> NativeWindowBackendLoopDrawableStep {
+        match outcome {
+            NativeWindowBackendLoopStepOutcome::Drawable(drawable) => drawable,
+            other => panic!("expected drawable outcome, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_backend_loop_initializes_scaled_surface() {
+        assert_eq!(
+            NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, 0, 0).unwrap_err(),
+            NativeWindowBackendLoopError::InitialScaleInvalid
+        );
+        assert_eq!(
+            NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, 0, usize::MAX).unwrap_err(),
+            NativeWindowBackendLoopError::InitialSizeOverflow
+        );
+
+        let loop_state = native_window_backend_loop_counter();
+        assert_eq!(loop_state.initial_size(), NativeWindowSize::new(440, 284));
+        assert_eq!(loop_state.presenter_frame_id(), 1);
+        let present_frame = loop_state.current_present_frame_for_window().unwrap();
+        assert_eq!(present_frame.width(), 440);
+        assert_eq!(present_frame.height(), 284);
+    }
+
+    #[test]
+    fn native_window_backend_loop_close_does_not_progress_state() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let input_before = loop_state.event_pump_input();
+        let frame_id_before = loop_state.presenter_frame_id();
+        let pixels_before = loop_state
+            .current_present_frame_for_window()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            NativeWindowSize::new(660, 426),
+            true,
+            NativeWindowPointerSample::Available { x: 60.0, y: 270.0 },
+        );
+
+        assert_eq!(
+            loop_state.step(snapshot).unwrap(),
+            NativeWindowBackendLoopStepOutcome::CloseRequested {
+                close_state: NativeWindowEventPumpCloseState::OsCloseRequested,
+            }
+        );
+        assert_eq!(loop_state.event_pump_input(), input_before);
+        assert_eq!(loop_state.presenter_frame_id(), frame_id_before);
+        assert_eq!(
+            loop_state
+                .current_present_frame_for_window()
+                .unwrap()
+                .pixels(),
+            pixels_before.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_unavailable_updates_observation_without_blank_frame() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let frame_id_before = loop_state.presenter_frame_id();
+        let pixels_before = loop_state
+            .current_present_frame_for_window()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(0, 284),
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+
+        assert_eq!(
+            loop_state.step(snapshot).unwrap(),
+            NativeWindowBackendLoopStepOutcome::Unavailable {
+                window_size: NativeWindowSize::new(0, 284),
+                size_changed: true,
+            }
+        );
+        assert_eq!(
+            loop_state.event_pump_input(),
+            NativeWindowEventPumpInput {
+                previous_size: NativeWindowSize::new(0, 284),
+                previous_mouse_down: true,
+            }
+        );
+        assert_eq!(
+            loop_state.presenter_state().surface_state(),
+            NativeWindowPresenterSurfaceState::Unavailable
+        );
+        assert_eq!(loop_state.presenter_frame_id(), frame_id_before);
+        assert_eq!(
+            loop_state
+                .presenter_state()
+                .last_present_frame_required()
+                .unwrap()
+                .pixels(),
+            pixels_before.as_slice()
+        );
+        assert_eq!(
+            loop_state.current_present_frame_for_window().unwrap_err(),
+            NativeWindowBackendLoopError::SurfaceUnavailable
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_restores_positive_surface_after_zero_size() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(0, 284),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        loop_state.step(unavailable).unwrap();
+
+        let restored = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let drawable = native_window_backend_loop_drawable(loop_state.step(restored).unwrap());
+        assert_eq!(
+            drawable.resize_redraw,
+            Some(NativeWindowBackendLoopPresentation {
+                frame_id: 2,
+                width: 660,
+                height: 426,
+            })
+        );
+        assert_eq!(drawable.final_frame.frame_id, 2);
+        assert_eq!(
+            loop_state.presenter_state().surface_state(),
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 660,
+                height: 426,
+            }
+        );
+        assert_eq!(
+            loop_state.event_pump_input().previous_size,
+            NativeWindowSize::new(660, 426)
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_resize_and_counter_report_both_presentations() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(660, 426),
+            true,
+            NativeWindowPointerSample::Available { x: 60.0, y: 270.0 },
+        );
+        let drawable = native_window_backend_loop_drawable(loop_state.step(snapshot).unwrap());
+
+        assert_eq!(
+            drawable.resize_redraw,
+            Some(NativeWindowBackendLoopPresentation {
+                frame_id: 2,
+                width: 660,
+                height: 426,
+            })
+        );
+        assert_eq!(
+            drawable.pointer_action,
+            NativeWindowBackendLoopPointerAction::CounterIncremented {
+                value: 1,
+                presentation: NativeWindowBackendLoopPresentation {
+                    frame_id: 3,
+                    width: 660,
+                    height: 426,
+                },
+            }
+        );
+        assert_eq!(
+            drawable.final_frame,
+            NativeWindowBackendLoopPresentation {
+                frame_id: 3,
+                width: 660,
+                height: 426,
+            }
+        );
+        assert_eq!(loop_state.counter_value(), 1);
+        assert_eq!(loop_state.presenter_frame_id(), 3);
+        let present_frame = loop_state.current_present_frame_for_window().unwrap();
+        assert_eq!(present_frame.width(), 660);
+        assert_eq!(present_frame.height(), 426);
+    }
+
+    #[test]
+    fn native_window_backend_loop_distinguishes_pointer_miss_reasons() {
+        let mut unavailable_loop = native_window_backend_loop_counter();
+        let unavailable_snapshot = native_window_backend_loop_snapshot(
+            &unavailable_loop,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(440, 284),
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let unavailable = native_window_backend_loop_drawable(
+            unavailable_loop.step(unavailable_snapshot).unwrap(),
+        );
+        assert_eq!(
+            unavailable.pointer_action,
+            NativeWindowBackendLoopPointerAction::PressedUnavailable
+        );
+        assert_eq!(unavailable_loop.counter_value(), 0);
+        assert_eq!(unavailable_loop.presenter_frame_id(), 1);
+
+        let mut outside_loop = native_window_backend_loop_counter();
+        let outside_snapshot = native_window_backend_loop_snapshot(
+            &outside_loop,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(440, 284),
+            true,
+            NativeWindowPointerSample::Available { x: 1.0, y: 1.0 },
+        );
+        let outside =
+            native_window_backend_loop_drawable(outside_loop.step(outside_snapshot).unwrap());
+        assert_eq!(
+            outside.pointer_action,
+            NativeWindowBackendLoopPointerAction::PressedOutside
+        );
+        assert_eq!(outside_loop.counter_value(), 0);
+        assert_eq!(outside_loop.presenter_frame_id(), 1);
+    }
+
+    #[test]
+    fn native_window_backend_loop_frame_id_overflow_happens_before_mutation() {
+        let mut loop_state = native_window_backend_loop_counter();
+        loop_state.state.presenter_frame_id = i32::MAX;
+        let input_before = loop_state.event_pump_input();
+        let pixels_before = loop_state
+            .current_present_frame_for_window()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+
+        assert_eq!(
+            loop_state.step(snapshot).unwrap_err(),
+            NativeWindowBackendLoopError::FrameIdOverflow { previous: i32::MAX }
+        );
+        assert_eq!(loop_state.event_pump_input(), input_before);
+        assert_eq!(loop_state.presenter_frame_id(), i32::MAX);
+        assert_eq!(
+            loop_state
+                .current_present_frame_for_window()
+                .unwrap()
+                .pixels(),
+            pixels_before.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_counter_overflow_happens_before_mutation() {
+        let mut loop_state =
+            NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, i32::MAX, 2).unwrap();
+        let input_before = loop_state.event_pump_input();
+        let pixels_before = loop_state
+            .current_present_frame_for_window()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(440, 284),
+            true,
+            NativeWindowPointerSample::Available { x: 40.0, y: 180.0 },
+        );
+
+        assert_eq!(
+            loop_state.step(snapshot).unwrap_err(),
+            NativeWindowBackendLoopError::CounterValueOverflow { previous: i32::MAX }
+        );
+        assert_eq!(loop_state.event_pump_input(), input_before);
+        assert_eq!(loop_state.counter_value(), i32::MAX);
+        assert_eq!(loop_state.presenter_frame_id(), 1);
+        assert_eq!(
+            loop_state
+                .current_present_frame_for_window()
+                .unwrap()
+                .pixels(),
+            pixels_before.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_rasterize_failure_preserves_old_surface_and_frame() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let old_input = loop_state.event_pump_input();
+        let old_surface = loop_state.presenter_state().surface_state();
+        let old_frame_id = loop_state.presenter_frame_id();
+        let old_pixels = loop_state
+            .current_present_frame_for_window()
+            .unwrap()
+            .pixels()
+            .to_vec();
+        loop_state.state.frame.rects.push(RectCommand {
+            x: loop_state.state.frame.width,
+            y: 0,
+            width: 1,
+            height: 1,
+            color: 0,
+        });
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+
+        assert_eq!(
+            loop_state.step(snapshot).unwrap_err(),
+            NativeWindowBackendLoopError::RasterizeFailed(
+                RasterizeSurfaceError::CommandOutOfBounds
+            )
+        );
+        assert_eq!(loop_state.event_pump_input(), old_input);
+        assert_eq!(loop_state.presenter_state().surface_state(), old_surface);
+        assert_eq!(loop_state.presenter_frame_id(), old_frame_id);
+        assert_eq!(
+            loop_state
+                .current_present_frame_for_window()
+                .unwrap()
+                .pixels(),
+            old_pixels.as_slice()
         );
     }
 

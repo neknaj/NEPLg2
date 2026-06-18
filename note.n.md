@@ -1,3 +1,47 @@
+# 2026-06-19 Agent2 GUI platform F5ge Native backend loop step boundary
+
+## scope
+
+- F5gd Native window event pump boundary の後続として、event snapshot 後の native smoke backend state transition を `NativeWindowBackendLoop` へ切り出す。
+- F5ge は close no-progress、unavailable observation update、positive resize commit-after-present、counter pointer action、final frame evidence を typed outcome として固定する。
+- `main.rs` は minifb window creation、event pump adapter、title update、`window.update`、`window.update_with_buffer` だけを担当する。
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の初回 plan review は `PLAN_CHANGES`。resize と counter click が同じ snapshot に入る場合の outcome shape、commit rule、typed error、initial state construction、pointer miss reason、source-policy、failure preservation tests が不足していると指摘された。
+- 修正計画では `NativeWindowBackendLoop` が state と presenter state を所有し、outcome は resize evidence / pointer action / final frame evidence を分ける形にした。
+- 二度目の review は `PLAN_CHANGES`。presentation ownership、constructor と scale validation、positive resize failure commit semantics が未確定と指摘された。
+- 最終修正では `NativeWindowBackendLoopPresentation` を `frame_id,width,height` evidence のみにし、pixels borrow は `current_present_frame_for_window` へ分離した。`new_for_scale` で scale validation から initial present まで一貫させ、positive resize は present success 後だけ surface / previous size / frame id を commit する形にした。
+- Feynman the 2nd の再レビューは `PLAN_APPROVED`。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowBackendLoop`、`NativeWindowBackendLoopState`、`NativeWindowBackendLoopPresentation`、`NativeWindowBackendLoopPointerAction`、`NativeWindowBackendLoopStepOutcome`、`NativeWindowBackendLoopError` を追加した。
+- `NativeWindowBackendLoop::new_for_scale` は initial frame render、scale validation、checked initial size、presenter state creation、initial present を担当する。
+- `NativeWindowBackendLoop::event_pump_input` は previous observed size / mouse state から F5gd input を返し、`main.rs` が duplicate loop state を持たないようにした。
+- `NativeWindowBackendLoop::step` は close、unavailable、drawable を enum outcome へ分け、resize redraw evidence と counter presentation evidence の両方を保持できる。
+- `main.rs` から `counter_hit`、`map_native_window_point_to_image`、frame id `checked_add`、`rasterize_frame_to_surface`、`present_buffer`、`resize_surface` の直接呼び出しを取り除いた。
+- GUI standard library spec、GUI redesign implementation plan、GUI/TUI implementation plan、native platform behavior doc、source-policy、todo を F5ge に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5ge native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。typed outcome/error、pixel borrow の `current_present_frame_for_window` 限定、`main.rs` の薄化、close no-progress / unavailable no blank / resize+counter same snapshot / overflow before mutation / rasterize failure preservation tests、source-policy、docs/note/todo の整合が確認された。
+
+## residual
+
+- F5ge は native smoke backend loop-step boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gd Native window event pump boundary
 
 ## scope

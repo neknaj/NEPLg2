@@ -51,6 +51,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowSize",
         "impl NativeWindowPresenterState",
     );
+    const nativeWindowBackendLoopHelper = textSliceBetween(
+        libSource,
+        "enum NativeWindowBackendLoopCounterIntent",
+        "impl NativeWindowPresenterSession",
+    );
     const nativeSpanOperationHelperWithoutEventPump = nativeSpanOperationHelper.replace(
         nativeWindowEventPumpHelper,
         "",
@@ -59,36 +64,38 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
     assert.match(mainSource, /window\.set_target_fps\(60\)/);
     assert.match(mainSource, /window\.set_background_color\(9,\s*13,\s*18\)/);
-    assert.match(mainSource, /let mut previous_size = NativeWindowSize::from_tuple\(window\.get_size\(\)\)/);
+    assert.match(mainSource, /NativeWindowBackendLoop::new_for_scale\(options\.demo,\s*options\.counter_value,\s*options\.scale\)/);
+    assert.match(mainSource, /let initial_size = backend_loop\.initial_size\(\)/);
     assert.match(mainSource, /poll_minifb_window_event_pump\(/);
-    assert.match(mainSource, /NativeWindowEventPumpInput\s*\{[\s\S]*previous_size,[\s\S]*previous_mouse_down/);
-    assert.match(mainSource, /match event_snapshot\.close_state/);
-    assert.match(mainSource, /NativeWindowEventPumpCloseState::OsCloseRequested/);
-    assert.match(mainSource, /NativeWindowEventPumpCloseState::ExitShortcutRequested/);
-    assert.match(mainSource, /match event_snapshot\.surface_state/);
-    assert.match(mainSource, /NativeWindowPresenterSurfaceState::Unavailable\s*=>\s*\{[\s\S]*window\.update\(\)/);
-    assert.match(mainSource, /let \(surface_width, surface_height\) = match event_snapshot\.surface_state/);
-    assert.match(mainSource, /update_window_title\(&mut window,\s*options\.demo,\s*current_size\)/);
-    assert.match(mainSource, /NativeWindowPointerButtonTransition::Pressed/);
-    assert.match(mainSource, /NativeWindowPointerSample::Available/);
-    assert.match(mainSource, /map_native_window_point_to_image\(/);
-    assert.match(mainSource, /NativeWindowPresenterState/);
-    assert.match(mainSource, /let mut presenter_state = NativeWindowPresenterState::new/);
-    assert.match(mainSource, /fn rasterize_demo_present_buffer_for_surface/);
-    assert.match(mainSource, /rasterize_frame_to_surface\(frame,\s*surface_width,\s*surface_height\)/);
-    assert.match(mainSource, /fn present_demo_frame_to_window_state/);
-    assert.match(mainSource, /presenter_state[\s\S]*\.present_buffer\(presenter_frame_id, &initial_buffer\)/);
-    assert.match(mainSource, /presenter_state[\s\S]*\.resize_surface\(current_size\.width, current_size\.height\)/);
-    assert.match(mainSource, /presenter_frame_id = next_presenter_frame_id\(presenter_frame_id\)\?/);
-    assert.match(mainSource, /frame_id[\s\S]*\.checked_add\(1\)/);
-    assert.match(mainSource, /present_demo_frame_to_window_state\([\s\S]*surface_width,[\s\S]*surface_height,[\s\S]*\)\?/);
-    assert.match(mainSource, /let present_frame = presenter_state[\s\S]*\.last_present_frame_required\(\)/);
-    assert.match(mainSource, /present_frame\.width\(\) != surface_width \|\| present_frame\.height\(\) != surface_height/);
+    assert.match(mainSource, /poll_minifb_window_event_pump\(&window,\s*backend_loop\.event_pump_input\(\)\)/);
+    assert.match(mainSource, /let outcome = backend_loop[\s\S]*\.step\(event_snapshot\)/);
+    assert.match(mainSource, /match outcome/);
+    assert.match(mainSource, /NativeWindowBackendLoopStepOutcome::CloseRequested/);
+    assert.match(mainSource, /NativeWindowBackendLoopStepOutcome::Unavailable\s*\{[\s\S]*window\.update\(\)/);
+    assert.match(mainSource, /NativeWindowBackendLoopStepOutcome::Drawable\(drawable\)/);
+    assert.match(mainSource, /backend_loop[\s\S]*\.current_present_frame_for_window\(\)/);
     assert.match(mainSource, /update_with_buffer\(\s*present_frame\.pixels\(\),\s*present_frame\.width\(\),\s*present_frame\.height\(\),\s*\)/);
     assert.doesNotMatch(mainSource, /update_with_buffer\(&image\.pixels,\s*image\.width,\s*image\.height\)/);
-    assert.doesNotMatch(mainSource, /let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
+    assert.doesNotMatch(mainSource, /let mut previous_size|previous_mouse_down|NativeWindowEventPumpInput\s*\{|NativeWindowPresenterState|counter_hit\(|map_native_window_point_to_image\(|checked_add\(|rasterize_frame_to_surface\(|present_buffer\(|resize_surface\(|let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
     assert.doesNotMatch(mainSource, /get_mouse_pos\(MouseMode::Clamp\)/);
     assert.doesNotMatch(mainSource, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(/);
+
+    assert.match(libSource, /pub struct NativeWindowBackendLoopPresentation\s*\{[\s\S]*frame_id: i32,[\s\S]*width: usize,[\s\S]*height: usize/);
+    assert.match(libSource, /pub enum NativeWindowBackendLoopPointerAction\s*\{[\s\S]*PressedUnavailable,[\s\S]*PressedOutside,[\s\S]*CounterIncremented/);
+    assert.match(libSource, /pub enum NativeWindowBackendLoopStepOutcome\s*\{[\s\S]*CloseRequested[\s\S]*Unavailable[\s\S]*Drawable/);
+    assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
+    assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
+    assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
+    assert.match(libSource, /CounterIncremented\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation/);
+    assert.match(nativeWindowBackendLoopHelper, /pub fn new_for_scale/);
+    assert.match(nativeWindowBackendLoopHelper, /pub fn event_pump_input\(&self\) -> NativeWindowEventPumpInput/);
+    assert.match(nativeWindowBackendLoopHelper, /pub fn step\([\s\S]*NativeWindowEventPumpSnapshot[\s\S]*NativeWindowBackendLoopStepOutcome/);
+    assert.match(nativeWindowBackendLoopHelper, /CloseRequested[\s\S]*return Ok\(NativeWindowBackendLoopStepOutcome::CloseRequested/);
+    assert.match(nativeWindowBackendLoopHelper, /NativeWindowBackendLoopStepOutcome::Unavailable/);
+    assert.match(nativeWindowBackendLoopHelper, /present_frame_to_surface_after_success/);
+    assert.match(nativeWindowBackendLoopHelper, /native_window_backend_loop_next_frame_id/);
+    assert.match(nativeWindowBackendLoopHelper, /CounterFrameIdMissing/);
+    assert.doesNotMatch(nativeWindowBackendLoopHelper, /minifb|DOM|Canvas|video_memory|stdout_protocol|window\.update\(|update_with_buffer|fallback|silent no-op/i);
 
     assert.match(libSource, /pub struct NativeSurfacePlacement/);
     assert.match(libSource, /pub enum NativeSurfaceState\s*\{[\s\S]*Drawable\(NativeSurfacePlacement\),[\s\S]*Unavailable/);
@@ -355,6 +362,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowEventPumpError::InvalidPointerSample/);
     assert.match(platformDoc, /poll_minifb_window_event_pump/);
     assert.match(platformDoc, /window\.update` \/ `update_with_buffer/);
+    assert.match(platformDoc, /Native backend loop step checkpoint/);
+    assert.match(platformDoc, /NativeWindowBackendLoop/);
+    assert.match(platformDoc, /new_for_scale/);
+    assert.match(platformDoc, /positive resize は resize 先の RGB0 buffer を作り/);
+    assert.match(platformDoc, /current_present_frame_for_window/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -368,6 +380,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /native presenter session host import boundary/);
     assert.match(implementationPlan, /Phase F5gd: Native window event pump boundary/);
     assert.match(implementationPlan, /minifb input API を `poll_minifb_window_event_pump` に閉じ/);
+    assert.match(implementationPlan, /Phase F5ge: Native backend loop step boundary/);
+    assert.match(implementationPlan, /NativeWindowBackendLoop::new_for_scale/);
+    assert.match(implementationPlan, /fallback や silent no-op を作らない/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -375,6 +390,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowEventPumpSnapshot/);
     assert.match(standardSpec, /OsCloseRequested/);
     assert.match(standardSpec, /ExitShortcutRequested/);
+    assert.match(standardSpec, /F5ge Native backend loop step boundary/);
+    assert.match(standardSpec, /NativeWindowBackendLoop/);
+    assert.match(standardSpec, /current_present_frame_for_window/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

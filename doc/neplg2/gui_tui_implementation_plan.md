@@ -43,6 +43,16 @@ minifb input API を `poll_minifb_window_event_pump` に閉じる。main.rs は 
 
 この phase は native event pump boundary だけであり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+## Phase F5ge: Native backend loop step boundary
+
+F5ge では、F5gd の event pump snapshot を受けた後の native smoke backend state transition を `NativeWindowBackendLoop` へ移す。`main.rs` は minifb window creation、event pump adapter、title update、`window.update`、`window.update_with_buffer` だけを扱い、counter hit test、scene coordinate mapping、frame id update、resize redraw、RGB0 present buffer construction、presenter surface commit を直接行わない。
+
+`NativeWindowBackendLoop::new_for_scale` は scale validation、initial frame render、checked initial size、presenter state creation、initial present を一括して行う。`event_pump_input` は previous observed size / previous mouse state を返し、`step` は `NativeWindowEventPumpSnapshot` を 1 件だけ処理して `CloseRequested` / `Unavailable` / `Drawable` を返す。`Drawable` は resize redraw evidence、pointer action、final frame evidence を持ち、resize と counter hit が同じ snapshot に入っても両方の committed presentation evidence を保持する。
+
+commit rule は F5ge の中心契約である。close は no-progress、unavailable は observed size / mouse / surface availability だけを更新して blank frame を作らない。positive resize は rasterize / present が成功した後だけ surface state / previous size / frame id を commit する。counter hit は pointer unavailable、outside、hit を enum で分け、hit の場合だけ checked counter increment と checked frame id を mutation 前に検査し、present success 後だけ counter/current frame/frame id を進める。
+
+この phase は native smoke backend の loop-step boundary であり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。loop helper は minifb / DOM / Canvas / video memory / stdout protocol を知らず、fallback や silent no-op を作らない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

@@ -1041,6 +1041,34 @@ Phase F5gd では、native smoke runner の OS window observation を型付き e
 - `cargo test -p nepl-gui-native --lib` と `cargo check -p nepl-gui-native --features window` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5ge: Native backend loop step boundary
+
+Phase F5ge では、F5gd の event pump snapshot を受けた後の native smoke backend loop state transition を `NativeWindowBackendLoop` へ切り出す。F5gd で minifb input polling は分離済みだが、`main.rs` には resize redraw、frame id update、counter hit test、presenter state commit が残っていた。F5ge はこれを OS 非依存の typed loop step とし、future native backend / test harness / scheduler host integration が同じ state transition を再利用できるようにする。
+
+実装:
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowBackendLoop`、`NativeWindowBackendLoopState`、`NativeWindowBackendLoopPresentation`、`NativeWindowBackendLoopPointerAction`、`NativeWindowBackendLoopStepOutcome`、`NativeWindowBackendLoopError` を追加する。
+- `NativeWindowBackendLoop::new_for_scale` は demo、counter value、scale から initial frame、checked initial size、presenter state、initial present を作る。初期化失敗は `NativeWindowBackendLoopError` の variant で返し、`String` に潰さない。
+- `NativeWindowBackendLoop::event_pump_input` は previous observed size と previous mouse state から F5gd `NativeWindowEventPumpInput` を返す。
+- `NativeWindowBackendLoop::step` は `NativeWindowEventPumpSnapshot` を 1 件だけ処理し、close no-progress、unavailable observation update、positive resize redraw、counter pointer action、final frame evidence を enum / struct で返す。
+- positive resize は new-size frame の rasterize / RGB0 buffer validation / present が成功した後だけ surface state、previous size、frame id を commit する。
+- counter hit は pointer unavailable、letterbox/outside、actual hit を分け、hit の場合だけ counter checked add と frame id checked add を mutation 前に検査する。
+- `main.rs` は `NativeWindowBackendLoop` に state transition を委譲し、minifb window creation、event pump adapter、title update、`window.update`、`window.update_with_buffer` だけを持つ。
+- `nodesrc/test_native_gui_platform_behavior.js` は、`main.rs` から `counter_hit`、`map_native_window_point_to_image`、`checked_add`、`rasterize_frame_to_surface`、`present_buffer`、`resize_surface` が戻らないことと、loop helper が minifb / DOM / Canvas / video memory / stdout / fallback / silent no-op を持たないことを検査する。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_tui_implementation_plan.md`、note、todo を同じ slice で更新する。
+
+非目標:
+
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- loop outcome は pixel borrow を持たない。final committed frame の pixel borrow は `current_present_frame_for_window` からだけ取得する。
+- blank frame、fallback frame、silent no-op、synthetic click、best-effort counter action は作らない。
+
+完了条件:
+
+- tests が close no-progress、unavailable no blank、positive resize commit-after-present、zero-to-positive restore、resize+counter two presentation evidences、pointer unavailable/outside/hit、frame id overflow、counter overflow、rasterize failure preservation を検査する。
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

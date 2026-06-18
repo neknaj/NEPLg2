@@ -291,6 +291,18 @@ pointer input は `NativeWindowPointerSample::Unavailable` と `Available { x, y
 
 F5gd は native event pump boundary だけであり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。event pump helper は `window.update` / `update_with_buffer` を呼ばず、presentation authority は smoke runner / future backend loop に残す。
 
+## F5ge Native backend loop step boundary
+
+2026-06-19 の F5ge では、F5gd の event snapshot を受け取った後の native window loop state transition を `NativeWindowBackendLoop` へ移す。`main.rs` は minifb window creation、event pump adapter、title update、`window.update`、`window.update_with_buffer` だけを扱い、counter hit test、scene coordinate mapping、frame id update、resize redraw、RGB0 present buffer construction、presenter surface commit を直接行わない。
+
+`NativeWindowBackendLoop` は `GuiDemo`、counter value、current `GuiFrame`、presenter frame id、previous observed size、previous mouse state、`NativeWindowPresenterState` を所有する。public entry `new_for_scale` は scale validation、initial frame render、initial size checked multiplication、presenter state creation、initial frame present を一括して行い、成功した場合だけ ready な loop を返す。scale 0、initial size overflow、initial surface invalid、rasterize failure、present buffer validation failure、presenter failure は `NativeWindowBackendLoopError` で分ける。
+
+`NativeWindowBackendLoop::step` は `NativeWindowEventPumpSnapshot` を 1 件だけ処理し、`CloseRequested`、`Unavailable`、`Drawable` の typed outcome を返す。`Drawable` outcome は resize redraw evidence、pointer action、final frame evidence を分けるため、同じ snapshot に resize と counter hit が含まれても、resize frame と counter frame の両方を `frame_id,width,height` の committed evidence として保持できる。pixel borrow は outcome に含めず、final committed frame は `current_present_frame_for_window` からだけ借用する。
+
+commit rule は次である。close は最優先で no-progress とし、previous size / mouse、presenter frame、counter を進めない。unavailable surface は observed size、mouse state、presenter surface availability だけを更新し、blank frame や fallback frame を合成しない。positive resize は new-size RGB0 buffer construction と present が成功した後だけ surface state、previous size、frame id を commit する。counter hit は pointer unavailable、outside、hit を enum で分け、hit の場合だけ checked counter increment と checked frame id を mutation 前に検査し、new frame present success の後だけ counter/current frame/frame id を進める。
+
+F5ge は native smoke backend の loop-step state boundary であり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。loop helper は minifb / OS handle / DOM / Canvas / video memory / stdout protocol を知らず、fallback や silent no-op を作らない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

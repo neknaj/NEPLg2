@@ -69,6 +69,18 @@ pointer sample は `NativeWindowPointerSample::Unavailable` と `Available { x, 
 
 `poll_minifb_window_event_pump` は minifb adapter であり、`window.update` / `update_with_buffer` を呼ばない。presentation timing と buffer ownership は presenter state / backend loop の責務である。この checkpoint は event pump boundary のみであり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+## Native backend loop step checkpoint
+
+F5ge では、F5gd の `NativeWindowEventPumpSnapshot` を受け取った後の native smoke backend state transition を `NativeWindowBackendLoop` に移す。loop は `GuiDemo`、counter value、current `GuiFrame`、presenter frame id、previous observed size、previous mouse state、`NativeWindowPresenterState` を所有するが、minifb window、OS handle、DOM、Canvas、video memory transport は所有しない。
+
+`NativeWindowBackendLoop::new_for_scale` は initial frame render、scale validation、checked initial size、presenter state creation、initial present を一括して行う。`main.rs` は initial size を読んで minifb window を作るだけで、initial present buffer を直接作らない。`event_pump_input` は previous observed size と previous mouse state から F5gd input を返し、main 側に duplicate state を持たせない。
+
+`step` は close、unavailable、drawable を enum outcome に分ける。close は no-progress であり、close request を受けても previous size / mouse、presenter frame、counter は進まない。unavailable は surface availability observation として presenter surface state、observed size、mouse state だけを更新し、last frame pixels / frame id / current frame / counter は維持する。blank frame や fallback frame は作らない。
+
+positive resize は resize 先の RGB0 buffer を作り、present が成功した後だけ `resize_surface` と frame id / previous size を commit する。present failure では old surface state、old frame id、old frame pixels、previous size が残る。counter action は pointer unavailable、letterbox/outside、hit を enum で分け、hit の場合だけ counter overflow と frame id overflow を mutation 前に検査し、new frame present success の後だけ counter/current frame/frame id を進める。resize と counter hit が同じ snapshot に入った場合、resize redraw evidence と counter presentation evidence を両方 outcome に残す。
+
+outcome は pixel borrow を持たない。minifb `update_with_buffer` に渡す final committed frame は `current_present_frame_for_window` からだけ借用する。この helper は current presenter surface と last frame size の一致を検査し、不一致は `FrameWindowMismatch` として返す。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -79,7 +91,8 @@ pointer sample は `NativeWindowPointerSample::Unavailable` と `Available { x, 
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化し、window title に current surface size を反映する。
-- counter hit test は current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
+- `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有し、main.rs は minifb boundary に薄く留まる。
+- counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
 - zero size または invalid size は `NativeSurfaceState::Unavailable` として扱い、hit test を行わない。
 - close button または Escape により loop を抜け、terminal side の process が正常終了する。
 
