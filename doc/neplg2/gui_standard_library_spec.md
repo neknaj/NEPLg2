@@ -85,6 +85,12 @@ descriptor は sink を呼ぶ前に、positive id、frame id 一致、checked ex
 
 Begin は active sequence が無い場合だけ受け、descriptor と `seen_run_count = 0` を保持する。RunSpan は active descriptor、target、`x >= 0`、`width > 0`、`height == 1`、row extent、x extent、remaining run count を検査し、全検査の後だけ pixel を書く。成功した RunSpan だけが `seen_run_count` を増やす。End は descriptor equality と `seen_run_count == descriptor.total_run_count` を要求し、短い span 列や余分な span を silent partial frame として成功させない。失敗した RunSpan / End は active state と pixels を壊さない。F5ez は minifb `update_with_buffer`、window loop、scheduler loop、video memory、DOM、Canvas、fallback、silent no-op へ進まない。
 
+## F5fa Native RGB0 present buffer conversion checkpoint
+
+2026-06-18 の F5fa では、completed `NativeRgba8888FrameBuffer` を native presenter 用の semantic `0x00RRGGBB` present buffer へ変換する境界を追加する。`NativeRgb0PresentBuffer` は private field と read-only accessor だけを持ち、mutable pixel access や byte slice view を公開しない。source framebuffer に active sequence が残っている場合は変換を拒否し、silent partial frame を present 成功扱いにしない。
+
+変換は `0xRRGGBBAA` から shift / mask で channel を取り出し、caller supplied `NativeRgbColor` を explicit background として source-over alpha composition する。channel formula は `(source * alpha + background * (255 - alpha) + 127) / 255` で固定する。hidden default background、fallback background、native endian byte cast、minifb integration、window loop、scheduler loop、DOM、Canvas、video memory、fallback、silent no-op はこの checkpoint の責務ではない。
+
 ## 層構造
 
 依存方向は次に固定する。
