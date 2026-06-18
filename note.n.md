@@ -1,3 +1,40 @@
+# 2026-06-18 Agent2 GUI platform F5ev Native/Bare scheduler executor outcome input helper boundary
+
+## 目的
+
+- F5eu Native/Bare scheduler clock action input helper の後続として、F5eg `ExecuteHostAction` action と caller supplied `Result unit GuiError` outcome を F5ek `RealLoopStepInput::ExecutorOutcome` に接続する。
+- これは backend-facing input boundary であり、not long-running scheduler backend である。
+- `YieldToClock`、`AwaitTimerAdvance`、`Complete`、`ClockDelta`、`CompleteAck`、F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer backend、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Volta は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、typed `ExecuteHostAction` だけを受けること、caller supplied `Result unit GuiError` をそのまま保持すること、`RealLoopStepInput::ExecutorOutcome` を構築して original action と返すこと、`Result` を重ねないことだった。
+- unsupported variants は型で除外し、F5ei / F5ek / action sink / queue / timer / rendering / fallback へ進まない方針を実装計画と source policy に反映した。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_executor_input.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_input.nepl` を追加した。
+- `gui_*_scheduler_executor_input` は typed `ExecuteHostAction` payload と caller supplied outcome だけを受け、F5ek `RealLoopStepInput::ExecutorOutcome` を 1 回だけ構築する。
+- ready payload は original action と `RealLoopStepInput` を保持する。
+- helper は total packaging なので `Result` を返さず、success / failure outcome を合成しない。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_executor_input.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_input.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md` は通過した。
+- F5eu native / bare scheduler clock input doctest と F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Volta は `REVIEW_APPROVED` として blocker なしと判断した。
+- native / bare とも backend-facing input boundary に閉じ、typed `ExecuteHostAction` と caller supplied `Result unit GuiError` だけを受けることが確認された。
+- `RealLoopStepInput::ExecutorOutcome` への 1 回だけの包装、original action の保持、`Result` を返さない total packaging が確認された。
+- `Result::Ok unit` / `Result::Err GuiError::*` 合成、F5ei / F5ek / action sink / driver / support validation / queue / rendering / fallback への踏み込みは見当たらないと確認された。
+
 # 2026-06-18 Agent2 GUI platform F5eu Native/Bare scheduler clock action input helper boundary
 
 ## 目的
