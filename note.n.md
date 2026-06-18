@@ -1,3 +1,44 @@
+# 2026-06-18 Agent2 GUI std F5eo virtual scheduler backend clock delta boundary
+
+## 目的
+
+- Web / native / bare / headless backend が取得した monotonic clock sample を、std layer で F5ek `RealLoopStepInput::ClockDelta` へ変換する。
+- std layer は actual clock source、sleep、timer backend、queue、platform API を読まず、caller supplied sample の検査と delta 化だけを担当する。
+- F5en fixed script runner の後続として、long-running loop へ進む前の clock input contract を固定する。
+
+## subagent review
+
+- Volta plan review は `PLAN_CHANGES`。
+- 指摘は、public `Sample` / `State` を constructor 経由と仮定せず entry で再検査すること、`start` も `Result State BackendClockError` にすること、forged negative state を `StateInvalid` として拒否することだった。
+- error payload は policy / state / sample / previous / current / delta / max を回収可能に持つよう設計し、zero delta は `ClockDelta 0` として通し、delta が上限を超える場合は clamp せず `DeltaTooLarge` として返す方針へ修正した。
+- Hooke implementation review は最初 `REVIEW_CHANGES` で、新規 F5eo module と focused doctest が untracked のため commit 対象に入っていないことが blocker だった。
+- 対象 2 ファイルを含む全変更を明示的に stage し、再検証後の Hooke final review は `REVIEW_APPROVED` だった。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.nepl` を追加した。
+- `BackendClockPolicy` は `max_delta_ms` だけを保持する。
+- `BackendClockSample` は caller supplied `monotonic_ms` だけを保持する。
+- `BackendClockState` は previous `last_monotonic_ms` だけを保持する。
+- `backend_clock_start` は sample を再検査して baseline state を返し、delta を発行しない。
+- `backend_clock_advance` は policy / state / sample を再検査し、negative policy、negative sample、forged negative state、backward time、too-large delta を typed error として返す。
+- valid path は `RealLoopStepInput::ClockDelta delta_ms` だけを生成し、`ExecutorOutcome` / `CompleteAck` を生成しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_f5eo.json -j 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_f5eo_final_pair.json -j 1`。
+- pass: `git diff --cached --check`。CRLF normalization warning のみ。
+
+## 残件
+
+- F5eo は backend clock sample を `ClockDelta` input へ変換する boundary までであり、actual backend clock source、native / bare scheduler backend、real timer / executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI std F5en virtual scheduler bounded headless app-loop runner boundary
 
 ## 目的
