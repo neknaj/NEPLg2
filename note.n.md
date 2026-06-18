@@ -69900,3 +69900,47 @@ MERGE_APPROVED
 ### residual
 
 - F5fg は native presenter-facing input boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fh formal presenter session
+
+### scope
+
+- F5fh は formal span operation stream と native window presenter state を結ぶ Rust lib-only boundary である。
+- この slice は `NativeWindowPresenterSession`、typed sink outcome、typed session outcome / error、unit tests、docs/source-policy の更新だけを扱う。
+- minifb / OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory host import、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Linnaeus the 2nd の plan review は `PLAN_APPROVED`。条件として、session が既存 sink の `i32` status を薄く包むだけではなく typed outcome / error boundary を公開すること、End だけが presenter state への commit を試みること、失敗時に previous presenter state を保持することが確認された。
+
+### implementation
+
+- `NativeRgb0PresenterSinkOutcome` を追加し、`NativeRgb0PresenterSink::execute_span_operation_typed` が Begin / RunSpan を `Accepted`、End 成功を `Completed frame_id` として返すようにした。既存 `NativeSpanOperationSink` の `i32` ABI はこの typed helper の結果を status に写すだけにした。
+- `NativeWindowPresenterSession` を追加し、`NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有する boundary とした。
+- `NativeWindowPresenterSession::execute_span_operation` は Begin / RunSpan 成功で `NativeWindowPresenterSessionOutcome::NotPresented` を返し、End 成功時だけ `present_sink_frame` を呼んで `NativeWindowPresenterSessionOutcome::Presented` を返す。
+- sink failure は `NativeWindowPresenterSessionError::SinkFailed`、presenter state failure は `NativeWindowPresenterSessionError::PresenterFailed` に分け、failed RunSpan、failed End、invalid frame id による presenter failure、resize の各 path で previous frame が保持されることを unit test で固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を F5fh contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session -- --nocapture`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。native behavior policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Linnaeus the 2nd implementation review は blocker なし。`NativeWindowPresenterSession` が `NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有し、typed `Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionError>` を公開していること、Begin / RunSpan は `NotPresented` で End 成功時だけ `present_sink_frame` を呼ぶこと、legacy `i32` ABI は typed helper から status へ戻すだけであることが確認された。
+- failure mapping は `SinkFailed` と `PresenterFailed` に分かれており、unit tests と source-policy regression が End-only presentation、failed sink operation、presenter failure、resize non-stretch contract を検査していることが確認された。
+- residual note として、presenter failure after sink End succeeds では sink の last completed frame は進み、presenter state は previous frame のまま残る。これは今回の previous presenter state preservation contract に合うが、将来 retry API を設計するときの注意点として残す。
+
+### residual
+
+- F5fh は formal native presenter session boundary までであり、F5fg/F5ex/F5ey 由来の scheduler host executor path を session へ接続する formal `std/gui` present host import、bare runtime host import、native / bare long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。

@@ -69,6 +69,14 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 operation identity は F5cx `GuiRgba8888RowTileRlePresentHostSpanOperation` として保持し、`WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` を型付き value のまま失わない。scheduler completion input は `gui_native_scheduler_executor_input` を 1 回だけ呼んで作り、F5fg 自身は `RealLoopStepInput::ExecutorOutcome` を再実装しない。backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op は扱わない。
 
+## F5fh Native formal presenter session boundary
+
+2026-06-18 の F5fh では、Native formal presenter session boundary を `nepl-gui-native` に追加する。これは Rust lib-only boundary であり、`NativeWindowPresenterSession` が `NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有する。session public entry は typed `NativeSpanOperation` だけを受け、`NativeWindowPresenterSessionOutcome` / `NativeWindowPresenterSessionError` を返す。
+
+Begin / RunSpan 成功は `NativeWindowPresenterSessionOutcome::NotPresented` であり、window presenter state を更新しない。End 成功だけが completed RGB0 frame と frame id を使って `NativeWindowPresenterState::present_sink_frame` を呼び、`NativeWindowPresenterSessionOutcome::Presented` を返す。sink failure は `NativeWindowPresenterSessionError::SinkFailed`、presenter failure は `NativeWindowPresenterSessionError::PresenterFailed` として分ける。failure は previous presenter frame id / dimensions / pixels を保持し、blank frame 合成、stretch、crop、fallback、silent no-op を行わない。
+
+F5fh は formal native window presenter integration への lib boundary であり、minifb、OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory host import は持たない。F5fg の presenter operation identity input と、F5ex/F5ey 由来の span operation execution path を後続でこの session boundary へ接続する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
