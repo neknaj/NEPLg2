@@ -123,6 +123,21 @@ pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_
         Result::Ok slice_result:
             Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_result_from_slice_result slice_result
 
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_resume: [継続/けいぞく] budget で loop request を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5ek `StateReady` の `remaining_count` を[継続/けいぞく] budget として F5ee resume boundary へ[渡/わた]します。
+//: - `remaining_count == 0` は F5ec / F5ee の budget-yield semantics に[従/したが]い、error や completion へ[変換/へんかん]しません。
+//: - slice failure は lower F5ee error だけを[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_resume %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState fn i32 Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopError \policy\state\remaining_count:
+    let slice_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSlicePolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_policy_slice_policy_ref policy
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice_resume slice_policy state remaining_count:
+        Result::Err lower:
+            let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopSliceFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_slice_failed_new lower
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopError::SliceFailed payload
+        Result::Ok slice_result:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_result_from_slice_result slice_result
+
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYield GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \payload:
     field::get payload "state"
 

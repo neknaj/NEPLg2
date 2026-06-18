@@ -2,6 +2,17 @@
 
 作成日: 2026-06-13
 
+## Phase F5el: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop driver boundary
+
+2026-06-18 の F5el では、F5ek result を F5ef / F5eg へ接続する real loop driver boundary を追加する。`RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek step policy、scheduler policy、timer policy、backend executor、clock、queue を重複保持しない。`start` は F5ef `loop_step` と F5eg `loop_action_from_result` を 1 回ずつ呼び、`after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match する。`StateReady` は `loop_resume` へ戻し、`remaining_count == 0` は budget-yield semantics に従って yield action へ進め、error / completion / `CompleteAck` / fallback / silent no-op へ変換しない。
+
+検査:
+
+- F5ec / F5ee / F5ef に resume boundary があり、`remaining_count` を捨てずに継続する。
+- F5el policy は F5ef loop policy だけを保持する。
+- F5el は backend clock、executor、queue、platform API を持たない。
+- F5el は `remaining_count < 0` だけを typed error にする。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

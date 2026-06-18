@@ -35,6 +35,7 @@ pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSession
 
 pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind:
     MaxAdvanceCountInvalid
+    RemainingCountInvalid
 
 impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind:
     fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind \kind:
@@ -97,6 +98,8 @@ fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_sess
     match kind:
         GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind::MaxAdvanceCountInvalid:
             Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind::RemainingCountInvalid:
+            Option::Some GuiError::InvalidCommand
 
 fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_invalid_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyInvalid \kind\state:
     let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_error_kind_category kind
@@ -109,6 +112,15 @@ fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_sess
     if lt max_advance_count 0:
         then Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind::MaxAdvanceCountInvalid
         else Result::Ok max_advance_count
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_validate_remaining_count %fn i32 Result i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind \remaining_count:
+    if lt remaining_count 0:
+        then Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind::RemainingCountInvalid
+        else Result::Ok remaining_count
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_remaining_count_invalid_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError \state:
+    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyInvalid gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_invalid_new GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyErrorKind::RemainingCountInvalid state
+    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError::PolicyInvalid payload
 
 //: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy: bounded drain policy を[作/つく]る
 //:
@@ -168,6 +180,29 @@ pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_
             Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError::PolicyInvalid payload
         Result::Ok count:
             gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_remaining policy state count
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_resume: [継続/けいぞく] budget から scheduler state を bounded に[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5ek / F5el が[保持/ほじ]している `remaining_count` を[継続/けいぞく] budget として[使/つか]います。
+//: - `remaining_count == 0` は error ではなく、step を[呼/よ]ばず `BudgetExhausted` を[返/かえ]します。
+//: - `remaining_count < 0` は typed policy error として[返/かえ]します。
+//: - `remaining_count > max_advance_count` は caller が bounded drain contract を[越/こ]えているため typed policy error として[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_resume %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState fn i32 Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError \policy\state\remaining_count:
+    let max_advance_count %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_max_advance_count policy
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_validate_max_advance_count max_advance_count:
+        Result::Err kind:
+            let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyInvalid gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_invalid_new kind state
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError::PolicyInvalid payload
+        Result::Ok policy_count:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_validate_remaining_count remaining_count:
+                Result::Err kind:
+                    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicyInvalid gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_policy_invalid_new kind state
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainError::PolicyInvalid payload
+                Result::Ok count:
+                    if gt count policy_count:
+                        then gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_remaining_count_invalid_result state
+                        else gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_remaining policy state count
 
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_budget_exhausted_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainBudgetExhausted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \exhausted:
     field::get exhausted "state"

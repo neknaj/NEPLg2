@@ -1,3 +1,50 @@
+# 2026-06-18 Agent2 GUI std F5el virtual scheduler real loop driver boundary
+
+## 目的
+
+- F5ek `RealLoopStepResult` を、F5ef / F5eg 経由で次に host / headless loop が処理する action へ戻す。
+- `StateReady` の `remaining_count` を捨てず、F5ec / F5ee / F5ef の resume boundary へ渡して同じ slice budget を継続する。
+- actual backend clock、executor、queue、DOM、Canvas、minifb、video memory、fallback、silent no-op へは踏み込まない。
+
+## subagent review
+
+- Wegener plan review は `PLAN_CHANGES`。
+- 指摘は、F5el policy が F5ek policy を持つと scheduler / timer authority が二重化するため、F5ef loop policy だけを保持することだった。
+- `remaining_count == 0` は error / completed / `CompleteAck` にせず、F5ec の budget-yield semantics に従って yield action へ進める。
+- `remaining_count` を本当に継続 budget として扱うため、F5ec `drain_resume`、F5ee `slice_resume`、F5ef `loop_resume` を追加して F5el から呼ぶ形へ計画を修正した。
+- Wegener implementation review は `REVIEW_CHANGES`。F5ec `drain_resume` が caller supplied `remaining_count > max_advance_count` を拒否せず、bounded drain contract を越えられる点が blocker として指摘された。
+- F5ec `drain_resume` で `policy_count` と `count` を比較し、`count > policy_count` を `RemainingCountInvalid` の typed `PolicyInvalid` にするよう修正した。`remaining_count == 0` は引き続き `BudgetExhausted` へ進む。
+- 修正後の Wegener review は `REVIEW_APPROVED`。over-budget rejection、zero-budget yield semantics、F5el から F5ef `loop_resume` 経由で戻す authority boundary、source policy coverage が確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl` を追加した。
+- `RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek policy、scheduler policy、timer policy は保持しない。
+- `real_loop_driver_start` は F5ef `loop_step` と F5eg `loop_action_from_result` を経由して `NeedInput` を返す。
+- `real_loop_driver_after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match し、`StateReady` は `loop_resume` へ戻す。
+- F5ec / F5ee / F5ef に resume boundary を追加し、`remaining_count == 0` は budget exhausted から yield action へ進め、`remaining_count < 0` だけを typed error にする。
+- F5ec `drain_resume` は `remaining_count > max_advance_count` も typed error にし、public resume boundary から budget cap を越えられないようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:"` over F5ec / F5ee / F5ef / F5el / focused F5el doctest target は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: F5ec module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl`。
+- pass: F5ee module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl`。
+- pass: F5ef module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl`。
+- pass: F5el module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl`。
+- pass: F5el focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.n.md`。
+- pass: `stdlib/std/gui.nepl` facade doctest。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残件
+
+- F5el は real loop driver boundary までであり、actual backend clock source、executor backend、headless app-loop integration、native / bare scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI std F5ek virtual scheduler real loop step boundary
 
 ## 目的

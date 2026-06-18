@@ -18,6 +18,18 @@
 
 この gate を満たすまで stdlib / Web / examples の実装変更は行わない。
 
+## Phase F5el: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop driver boundary
+
+2026-06-18 の F5el では、F5ek result を F5ef / F5eg へ接続する real loop driver boundary を追加する。`RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek step policy、scheduler policy、timer policy、backend executor、clock、queue を重複保持しない。`start` は F5ef `loop_step` と F5eg `loop_action_from_result` を 1 回ずつ呼び、`after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match する。`StateReady` は `loop_resume` へ戻し、`remaining_count == 0` は budget-yield semantics に従って yield action へ進め、error / completion / `CompleteAck` / fallback / silent no-op へ変換しない。
+
+変更:
+
+- F5ec drain に `drain_resume` を追加し、負の `remaining_count` だけを typed error にする。
+- F5ee slice に `slice_resume` を追加し、継続 budget を F5ec へ渡す。
+- F5ef loop に `loop_resume` を追加し、F5el が F5ek `StateReady` の budget を捨てずに戻せるようにする。
+- F5el real loop driver module を追加し、`NeedInput` / `Completed` / typed lower error を返す。
+- source policy と focused doctest で policy shape、start/after_step dispatch、zero-budget yield semantics、no backend / no fallback を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:

@@ -90,6 +90,8 @@ const turnVirtualSchedulerLoopYieldComplete = read("stdlib/std/gui/tile_present_
 const turnVirtualSchedulerLoopYieldCompleteImpl = withoutComments(turnVirtualSchedulerLoopYieldComplete);
 const turnVirtualSchedulerRealLoopStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl");
 const turnVirtualSchedulerRealLoopStepImpl = withoutComments(turnVirtualSchedulerRealLoopStep);
+const turnVirtualSchedulerRealLoopDriver = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl");
+const turnVirtualSchedulerRealLoopDriverImpl = withoutComments(turnVirtualSchedulerRealLoopDriver);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
@@ -105,6 +107,7 @@ const guiStdTurnVirtualSchedulerLoopTimerAdvanceTests = read("tests/stdlib/gui_s
 const guiStdTurnVirtualSchedulerLoopExecutorCompleteTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md");
 const guiStdTurnVirtualSchedulerLoopYieldCompleteTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md");
 const guiStdTurnVirtualSchedulerRealLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md");
+const guiStdTurnVirtualSchedulerRealLoopDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.n.md");
 
 assertMatch(
     spec,
@@ -1046,6 +1049,94 @@ assertMatch(
     guiStdTurnVirtualSchedulerRealLoopStepTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_policy_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_input_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_error_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_imports_f5eg_f5eh_f5ei_f5ej_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_dispatch_pairs_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_mismatch_owner_recovery_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_single_timer_policy_authority_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step_no_wildcard_backend_queue_fallback/,
     "std/gui turn virtual scheduler real loop step focused doctest must cover explicit input dispatch and no backend/queue/fallback policy",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler real loop driver contract",
+);
+assertMatch(
+    turnVirtualSchedulerDrain,
+    /RemainingCountInvalid[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_validate_remaining_count[\s\S]*drain_remaining_count_invalid_result[\s\S]*PolicyInvalid[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_resume[\s\S]*Result::Ok\s+policy_count[\s\S]*Result::Ok\s+count[\s\S]*gt\s+count\s+policy_count[\s\S]*drain_remaining_count_invalid_result\s+state[\s\S]*drain_remaining\s+policy\s+state\s+count/,
+    "std/gui turn virtual scheduler drain must expose checked resume budget boundary and reject over-budget resume",
+);
+assertMatch(
+    turnVirtualSchedulerSlice,
+    /gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice_resume[\s\S]*drain_resume\s+drain_policy\s+state\s+remaining_count/,
+    "std/gui turn virtual scheduler slice must resume with caller supplied remaining count",
+);
+assertMatch(
+    turnVirtualSchedulerLoop,
+    /gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_resume[\s\S]*slice_resume\s+slice_policy\s+state\s+remaining_count/,
+    "std/gui turn virtual scheduler loop must resume with caller supplied remaining count",
+);
+assertMatch(
+    turnVirtualSchedulerRealLoopDriver,
+    /RealLoopDriverPolicy[\s\S]*loop_policy\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopPolicy[\s\S]*NeedInput[\s\S]*Completed[\s\S]*LoopStepFailed[\s\S]*StepRemainingInvalid/,
+    "std/gui turn virtual scheduler real loop driver must expose loop-only policy, request result, completion result, and typed errors",
+);
+assertNoMatch(
+    turnVirtualSchedulerRealLoopDriver,
+    /RealLoopStepPolicy|scheduler_policy\s+%|timer_policy\s+%|ExecutorOutcome|ClockDelta|CompleteAck/,
+    "std/gui turn virtual scheduler real loop driver must not own F5ek policy or backend input authority",
+);
+const schedulerRealLoopDriverNeedInputFromLoopResult = functionSlice(turnVirtualSchedulerRealLoopDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_need_input_from_loop_result");
+assertMatch(
+    schedulerRealLoopDriverNeedInputFromLoopResult,
+    /loop_action_from_result\s+loop_result[\s\S]*RealLoopDriverResult::NeedInput/,
+    "std/gui turn virtual scheduler real loop driver must map loop result to action request through F5eg",
+);
+const schedulerRealLoopDriverStart = functionSlice(turnVirtualSchedulerRealLoopDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start");
+assertMatch(
+    schedulerRealLoopDriverStart,
+    /loop_policy_ref\s+policy[\s\S]*virtual_scheduler_loop_step\s+loop_policy\s+state[\s\S]*loop_step_failed_result\s+lower[\s\S]*need_input_from_loop_result\s+loop_result/,
+    "std/gui turn virtual scheduler real loop driver start must call F5ef loop step and F5eg action mapping",
+);
+assert(
+    (schedulerRealLoopDriverStart.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_step\b/g) || []).length === 1,
+    "std/gui turn virtual scheduler real loop driver start must call F5ef loop step exactly once",
+);
+const schedulerRealLoopDriverResumeState = functionSlice(turnVirtualSchedulerRealLoopDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_resume_state");
+assertMatch(
+    schedulerRealLoopDriverResumeState,
+    /loop_policy_ref\s+policy[\s\S]*virtual_scheduler_loop_resume\s+loop_policy\s+state\s+remaining_count[\s\S]*loop_step_failed_result\s+lower[\s\S]*need_input_from_loop_result\s+loop_result/,
+    "std/gui turn virtual scheduler real loop driver resume must call F5ef resume and F5eg action mapping",
+);
+const schedulerRealLoopDriverAfterStep = functionSlice(turnVirtualSchedulerRealLoopDriverImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step");
+assertMatch(
+    schedulerRealLoopDriverAfterStep,
+    /RealLoopStepResult::StateReady\s+ready[\s\S]*state_ready_remaining_count\s+&ready[\s\S]*state_ready_state\s+ready[\s\S]*lt\s+remaining_count\s+0[\s\S]*StepRemainingInvalid[\s\S]*real_loop_driver_resume_state\s+policy\s+state\s+remaining_count[\s\S]*RealLoopStepResult::YieldPending\s+pending[\s\S]*yield_pending_action\s+pending[\s\S]*LoopAction::YieldToClock\s+yield_action[\s\S]*RealLoopStepResult::Completed\s+completed_result[\s\S]*completed_remaining_count\s+&completed_result[\s\S]*completed_completed\s+completed_result/,
+    "std/gui turn virtual scheduler real loop driver after-step must route StateReady/YieldPending/Completed explicitly",
+);
+assertNoMatch(
+    schedulerRealLoopDriverAfterStep,
+    /\b(?:le|eq)\s+remaining_count\s+0|CompleteAck|Result::Err\s+GuiError::|Result::Ok\s+unit/,
+    "std/gui turn virtual scheduler real loop driver must not turn zero remaining budget into completion, CompleteAck, synthetic outcome, or fallback error",
+);
+assertNoMatch(
+    turnVirtualSchedulerRealLoopDriverImpl,
+    /_:/,
+    "std/gui turn virtual scheduler real loop driver must not use wildcard enum matches",
+);
+assertNoMatch(
+    turnVirtualSchedulerRealLoopDriverImpl,
+    /\b(?:while|for|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op|turn_driver_complete|scheduler_decide|virtual_scheduler_decide|loop_timer_advance|loop_executor_complete|loop_yield_complete)\b/i,
+    "std/gui turn virtual scheduler real loop driver must not queue, call platform/raw APIs, bypass authorities, or fallback",
+);
+assertNoMatch(
+    turnVirtualSchedulerRealLoopDriverImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriver[A-Za-z0-9]*\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriver[A-Za-z0-9]*\s*:/,
+    "std/gui turn virtual scheduler real loop driver owner-bearing payloads and error enum must be non-Copy and non-Clone",
+);
+assertNoMatch(
+    turnVirtualSchedulerRealLoopDriverImpl,
+    /[()]/,
+    "std/gui turn virtual scheduler real loop driver implementation must preserve NEPL prefix style without parentheses",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerRealLoopDriverTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_policy_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_error_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start_dispatch_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step_dispatch_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_resume_budget_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_negative_remaining_fail_closed_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_over_budget_fail_closed_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_zero_budget_yield_semantics_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_no_wildcard_backend_queue_fallback/,
+    "std/gui turn virtual scheduler real loop driver focused doctest must cover policy, dispatch, resume budget, zero-budget yield, and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");
