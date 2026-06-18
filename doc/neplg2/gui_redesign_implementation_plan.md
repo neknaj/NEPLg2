@@ -605,6 +605,40 @@ subagent review:
 
 - Aquinas に F5ef 実装計画を渡し、implementation may start を確認した。実装後に、one slice call、F5ee payload 再公開禁止、direct lower call 禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
 
+## Phase 5.10: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop action boundary
+
+目的:
+
+- F5ef loop result を、real scheduler loop / headless app-loop の outer authority が処理する action value へ詰め替える。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` は `YieldToClock`、`AwaitTimerAdvance`、`ExecuteHostAction`、`Complete` を持つ。
+- F5eg は actual loop ではなく、caller supplied F5ef loop result から次 action を total mapping で返す boundary である。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl` を追加し、`loop_action_from_result` を public entry として公開する。
+- F5ef `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` を F5eg `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` へ explicit match で写す。
+- F5ef payload struct を action payload として再公開せず、state / pending / execute / completed と `remaining_count`、`yield_delay_ms` を action-owned payload へ詰め替える。
+- Mapping は total なので F5eg 自体は error `Result` を作らない。実 timer / executor authority は後続 slice で typed `Result` を返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md` を追加し、facade、action variants、F5ef-only import、explicit match、payload rewrap、total mapping、no wildcard、no timer / executor / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.10 / F5eg source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler while loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- F5ee / F5ec / F5ed / F5eb / F5ea、virtual timer、host、platform module を import しない。
+- F5ef `virtual_scheduler_loop_step` を呼ばない。
+
+完了条件:
+
+- F5eg source policy が F5ef-only input、total mapping、F5ef payload 再公開禁止、direct lower call、loop step call、backend、queue、fallback を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は F5eg action を消費する timer advance / executor completion authority であり、これ以上の pure rename layer を増やさない。
+
+subagent review:
+
+- Aquinas に F5eg 実装計画を渡し、implementation may start を確認した。実装後に、F5ef-only input、total mapping、F5ef payload 再公開禁止、direct lower call 禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -692,9 +726,9 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.9 の deterministic virtual scheduler loop boundary までを現在の checkpoint とする。次の再開 target は、F5ef loop result を消費する timer advance event injection、executor completion、real scheduler loop / headless app-loop integration である。
+Phase 5.10 の deterministic virtual scheduler loop action boundary までを現在の checkpoint とする。次の再開 target は、F5eg loop action を消費する timer advance event injection、executor completion、real scheduler loop / headless app-loop integration である。
 
-- scheduler loop は F5ef の `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` loop result を明示的に進める必要がある。
+- scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。

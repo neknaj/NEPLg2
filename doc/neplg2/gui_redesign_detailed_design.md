@@ -274,6 +274,8 @@ F5ef の std layer row tile RLE present host span operation presenter executor s
 
 F5ef public step は F5ee `virtual_scheduler_slice` を 1 回だけ呼ぶ。F5ee payload struct は loop payload として保持せず、state / pending / execute / completed と `remaining_count` を loop-owned payload に詰め替える。`Yield` は state、`remaining_count`、`yield_delay_ms` を保持する。Failure は lower-only slice error として lower F5ee slice error だけを保持する。F5ef は F5ec drain、F5ed transition、F5eb step、F5ea state helper を直接呼ばず、timer advance、executor completion、actual while loop、queue drain、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
+F5eg の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop action boundary は、F5ef loop result を outer real scheduler loop / headless app-loop authority が消費する action value に変換する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` は `YieldToClock`、`AwaitTimerAdvance`、`ExecuteHostAction`、`Complete` を持つ。`loop_action_from_result` は F5ef result の `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を explicit match で action へ写す total mapping である。F5eg は F5ef `loop_step` を呼ばず、F5ef payload struct を action payload として保持しない。Payload は state / pending / execute / completed authority、`remaining_count`、`yield_delay_ms` を action-owned value として保持する。F5eg は timer advance、executor completion、real scheduler loop、queue drain、native / bare / headless real backend、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。
