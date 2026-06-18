@@ -639,6 +639,41 @@ subagent review:
 
 - Aquinas に F5eg 実装計画を渡し、implementation may start を確認した。実装後に、F5ef-only input、total mapping、F5ef payload 再公開禁止、direct lower call 禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
 
+## Phase 5.11: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop timer advance boundary
+
+目的:
+
+- F5eg `AwaitTimerAdvance` action payload を consumed authority として扱い、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- Timer advance の結果を real scheduler loop / headless app-loop が次の loop step へ戻せる typed result にする。
+- pure rename layer を増やさず、F5eg action から timer authority へ進める。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl` を追加し、`loop_timer_advance` を public entry として公開する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceCompleted` は next scheduler state と original `remaining_count` を保持する。
+- `AdvanceFailed` は lower F5ea `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerAdvanceError` と original `remaining_count` を保持する。
+- `loop_timer_advance` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance`、`TurnTimerPolicy`、`delta_ms` だけを受ける。
+- `remaining_count` は pending owner を消費する前に読み、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` を追加し、facade、result shape、F5eg / F5ea import、AwaitTimerAdvance consumed authority、one F5ea call、remaining_count preservation、lower error、no wildcard / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.11 / F5eh source policy を追加する。
+
+非目標:
+
+- general `LoopAction` を受けない。
+- F5eg `loop_action_from_result`、F5ef `loop_step`、F5ee / F5ec / F5ed / F5eb direct call、direct `virtual_timer_advance` は呼ばない。
+- executor completion、yield-to-clock handling、actual scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+
+完了条件:
+
+- F5eh source policy が AwaitTimerAdvance-only input、F5ea advance exactly once、remaining_count before owner consumption、lower error wrapping、backend / queue / fallback 禁止を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は executor completion authority または YieldToClock / Complete を含む real scheduler loop integration である。
+
+subagent review:
+
+- Aquinas に F5eh 実装計画を渡し、implementation may start を確認した。実装後に、F5eg AwaitTimerAdvance only input、F5ea one advance call、remaining_count preservation、lower F5ea error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -726,10 +761,10 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.10 の deterministic virtual scheduler loop action boundary までを現在の checkpoint とする。次の再開 target は、F5eg loop action を消費する timer advance event injection、executor completion、real scheduler loop / headless app-loop integration である。
+Phase 5.11 / F5eh の deterministic virtual scheduler loop timer advance boundary までを現在の checkpoint とする。次の再開 target は、F5eg `ExecuteHostAction` を消費する executor completion authority、`YieldToClock` / `Complete` を含む real scheduler loop / headless app-loop integration、native / bare scheduler backend である。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
-- `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
+- `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。

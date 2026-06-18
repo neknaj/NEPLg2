@@ -56,6 +56,7 @@ pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_t
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice" as *
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop" as *
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance" as *
 pub #import "./gui/tile_present_host_execution_report" as *
 pub #import "./gui/tile_present_host_executor" as *
 pub #import "./gui/tile_present_host_report_loop_bridge" as *

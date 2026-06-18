@@ -1666,6 +1666,56 @@ subagent review:
 - Aquinas に F5eg 実装計画を渡し、implementation may start を確認した。
 - 実装後に、F5ef-only input、total mapping、F5ef payload 再公開禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
 
+## Phase F5eh: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop timer advance boundary
+
+目的:
+
+- F5eg `AwaitTimerAdvance` action payload を consumed authority として扱い、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- Timer advance の結果を、real scheduler loop / headless app-loop が次の F5ef loop step へ戻せる typed result にする。
+- これ以上の pure rename layer を増やさず、F5eg action から実 timer authority へ進む。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceCompleted` は next scheduler state と original `remaining_count` を保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceError` は `AdvanceFailed` を持ち、lower F5ea `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerAdvanceError` と original `remaining_count` を保持する。
+- Public `loop_timer_advance` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance`、`TurnTimerPolicy`、`delta_ms` だけを受け取る。
+- `remaining_count` は pending owner を消費する前に読み、pending は F5eg accessor で消費する。
+- F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` を追加し、facade、result shape、F5eg / F5ea import、AwaitTimerAdvance consumed authority、one F5ea call、remaining_count preservation、lower error、no wildcard / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5eh source policy を追加する。
+
+非目標:
+
+- general `LoopAction` を受けない。
+- F5eg `loop_action_from_result`、F5ef `loop_step`、F5ee / F5ec / F5ed / F5eb direct call、direct `virtual_timer_advance` は呼ばない。
+- executor completion、yield-to-clock handling、actual scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+
+完了条件:
+
+- F5eh source policy が `remaining_count` を owner consumption 前に読む順序、F5ea advance exactly once、lower F5ea error wrapping、no loop / no backend / no fallback を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は `ExecuteHostAction` を消費する executor completion authority または `YieldToClock` / `Complete` を扱う real scheduler loop integration である。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_f5eh.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance_module_f5eh.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Aquinas に F5eh 実装計画を渡し、implementation may start を確認した。
+- 実装後に、F5eg AwaitTimerAdvance only input、F5ea one advance call、remaining_count preservation、lower F5ea error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:
