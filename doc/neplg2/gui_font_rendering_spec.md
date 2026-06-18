@@ -37,6 +37,10 @@ NEPLg2 GUI は Web、native、bare、offscreen、headless で同じ application 
 
 2026-06-18 の F5ep では、Web formal monotonic clock source backend boundary を追加する。`platforms/gui/web/clock` は `nepl_gui_web.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を `performance.now` 由来の floored millisecond sample、-1 を unsupported、その他の負値を `BackendFailure` として扱う。Web worker は `performance.now` を呼んだ後、`Number.isFinite`、0 以上、`i32::MAX` 以下、integer 化後の妥当性を検査してから Wasm 境界へ返す。`i32::MAX` ms を超えた sample は wrap や clamp ではなく `BackendFailure` である。NEPL wrapper は negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor を呼ぶ。`Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、DOM、Canvas、fallback、silent no-op は clock source として使わない。native / bare / headless の actual clock source は後続 slice で実装する。
 
+## F5eq Headless scripted monotonic clock source checkpoint
+
+2026-06-18 の F5eq では、Headless scripted monotonic clock source backend boundary を追加する。`platforms/gui/headless/clock` は deterministic headless / offscreen test 用の actual clock input source であり、wall clock ではなく fixed-slot script から F5eo `BackendClockSample` を 1 件ずつ返す。script は `Option BackendClockSample` の 3 slot、`count`、`cursor` だけを保持し、`count` は 0 から 3、`cursor` は 0 から `count`、slot は count に一致する `Some` / `None` shape でなければならない。constructor は raw i32 sample を F5eo constructor で検査してから保持し、poll も public script を信用せず count / cursor / slot shape / sample を再検査する。`cursor == count` は `Option::None` を返し、zero sample や delta を合成しない。timer、queue、host import、platform API、wall clock、fallback、silent no-op は使わない。native / bare actual clock source と long-running backend loop は後続 slice で実装する。
+
 ## 必須 contract
 
 ### Font identity

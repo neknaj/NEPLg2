@@ -1,0 +1,295 @@
+//: # platforms/gui/headless/clock
+//: Headless backend の deterministic scripted monotonic clock source
+//:
+//: ### [目的/もくてき]
+//: - headless / offscreen test backend へ仮想化された monotonic clock sample を[渡/わた]します。
+//: - F5eo backend clock sample constructor を[通/とお]した値だけを script slot に[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - script は 3 slot の fixed capacity です。
+//: - `count` は 0 から 3、`cursor` は 0 から `count` までです。
+//: - `count` より[前/まえ]の slot は `Some`、`count` 以降の slot は `None` です。
+//: - `cursor == count` は sample 不在を `Option::None` として[返/かえ]し、sample を[合成/ごうせい]しません。
+//: - constructor と poll entry の[両方/りょうほう]で sample を[検査/けんさ]します。
+//: - wall clock、timer、queue、platform API、fallback、silent no-op は[使/つか]いません。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+
+pub struct GuiHeadlessBackendClockScript:
+    first %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample
+    second %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample
+    third %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample
+    count %i32
+    cursor %i32
+
+pub struct GuiHeadlessBackendClockPoll:
+    script %GuiHeadlessBackendClockScript
+    sample %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample
+
+pub enum GuiHeadlessBackendClockScriptErrorKind:
+    CountInvalid
+    CursorInvalid
+    SlotShapeInvalid
+    SampleInvalid
+
+impl Clone for GuiHeadlessBackendClockScriptErrorKind:
+    fn clone %fn &GuiHeadlessBackendClockScriptErrorKind GuiHeadlessBackendClockScriptErrorKind \kind:
+        *kind
+
+impl Copy for GuiHeadlessBackendClockScriptErrorKind:
+    fn copy_mark %fn GuiHeadlessBackendClockScriptErrorKind GuiHeadlessBackendClockScriptErrorKind \kind:
+        kind
+
+pub struct GuiHeadlessBackendClockScriptInvalid:
+    kind %GuiHeadlessBackendClockScriptErrorKind
+    category %Option GuiError
+    script %GuiHeadlessBackendClockScript
+
+pub enum GuiHeadlessBackendClockError:
+    ScriptInvalid %GuiHeadlessBackendClockScriptInvalid
+
+fn gui_headless_backend_clock_script_new %fn Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample fn Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample fn Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample fn i32 fn i32 GuiHeadlessBackendClockScript \first\second\third\count\cursor:
+    GuiHeadlessBackendClockScript first second third count cursor
+
+fn gui_headless_backend_clock_poll_new %fn GuiHeadlessBackendClockScript fn Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiHeadlessBackendClockPoll \script\sample:
+    GuiHeadlessBackendClockPoll script sample
+
+fn gui_headless_backend_clock_script_error_kind_category %fn GuiHeadlessBackendClockScriptErrorKind Option GuiError \kind:
+    match kind:
+        GuiHeadlessBackendClockScriptErrorKind::CountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiHeadlessBackendClockScriptErrorKind::CursorInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiHeadlessBackendClockScriptErrorKind::SampleInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_headless_backend_clock_script_invalid_new %fn GuiHeadlessBackendClockScriptErrorKind fn GuiHeadlessBackendClockScript GuiHeadlessBackendClockScriptInvalid \kind\script:
+    let category %Option GuiError gui_headless_backend_clock_script_error_kind_category kind
+    GuiHeadlessBackendClockScriptInvalid kind category script
+
+fn gui_headless_backend_clock_script_invalid_result %fn GuiHeadlessBackendClockScriptErrorKind fn GuiHeadlessBackendClockScript Result GuiHeadlessBackendClockPoll GuiHeadlessBackendClockError \kind\script:
+    let payload %GuiHeadlessBackendClockScriptInvalid gui_headless_backend_clock_script_invalid_new kind script
+    Result::Err GuiHeadlessBackendClockError::ScriptInvalid payload
+
+fn gui_headless_backend_clock_sample_slot %fn i32 Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiHeadlessBackendClockScriptErrorKind \monotonic_ms:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample monotonic_ms:
+        Result::Ok sample:
+            Result::Ok sample
+        Result::Err kind:
+            Result::Err GuiHeadlessBackendClockScriptErrorKind::SampleInvalid
+
+pub fn gui_headless_backend_clock_script_empty %fn void GuiHeadlessBackendClockScript \void:
+    gui_headless_backend_clock_script_new none none none 0 0
+
+pub fn gui_headless_backend_clock_script_one %fn i32 Result GuiHeadlessBackendClockScript GuiHeadlessBackendClockScriptErrorKind \first:
+    match gui_headless_backend_clock_sample_slot first:
+        Result::Ok first_sample:
+            let first_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some first_sample
+            Result::Ok gui_headless_backend_clock_script_new first_slot none none 1 0
+        Result::Err kind:
+            Result::Err kind
+
+pub fn gui_headless_backend_clock_script_two %fn i32 fn i32 Result GuiHeadlessBackendClockScript GuiHeadlessBackendClockScriptErrorKind \first\second:
+    match gui_headless_backend_clock_sample_slot first:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok first_sample:
+            match gui_headless_backend_clock_sample_slot second:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok second_sample:
+                    let first_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some first_sample
+                    let second_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some second_sample
+                    Result::Ok gui_headless_backend_clock_script_new first_slot second_slot none 2 0
+
+pub fn gui_headless_backend_clock_script_three %fn i32 fn i32 fn i32 Result GuiHeadlessBackendClockScript GuiHeadlessBackendClockScriptErrorKind \first\second\third:
+    match gui_headless_backend_clock_sample_slot first:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok first_sample:
+            match gui_headless_backend_clock_sample_slot second:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok second_sample:
+                    match gui_headless_backend_clock_sample_slot third:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok third_sample:
+                            let first_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some first_sample
+                            let second_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some second_sample
+                            let third_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some third_sample
+                            Result::Ok gui_headless_backend_clock_script_new first_slot second_slot third_slot 3 0
+
+pub fn gui_headless_backend_clock_script_count %fn &GuiHeadlessBackendClockScript i32 \script:
+    *field::get_ref script "count"
+
+pub fn gui_headless_backend_clock_script_cursor %fn &GuiHeadlessBackendClockScript i32 \script:
+    *field::get_ref script "cursor"
+
+pub fn gui_headless_backend_clock_script_first %fn &GuiHeadlessBackendClockScript Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample \script:
+    *field::get_ref script "first"
+
+pub fn gui_headless_backend_clock_script_second %fn &GuiHeadlessBackendClockScript Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample \script:
+    *field::get_ref script "second"
+
+pub fn gui_headless_backend_clock_script_third %fn &GuiHeadlessBackendClockScript Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample \script:
+    *field::get_ref script "third"
+
+pub fn gui_headless_backend_clock_poll_script %fn GuiHeadlessBackendClockPoll GuiHeadlessBackendClockScript \poll:
+    field::get poll "script"
+
+pub fn gui_headless_backend_clock_poll_sample %fn &GuiHeadlessBackendClockPoll Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample \poll:
+    *field::get_ref poll "sample"
+
+pub fn gui_headless_backend_clock_script_invalid_kind %fn &GuiHeadlessBackendClockScriptInvalid GuiHeadlessBackendClockScriptErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_headless_backend_clock_script_invalid_category_value %fn &GuiHeadlessBackendClockScriptInvalid Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_headless_backend_clock_script_invalid_script %fn GuiHeadlessBackendClockScriptInvalid GuiHeadlessBackendClockScript \error:
+    field::get error "script"
+
+fn gui_headless_backend_clock_script_shape_error %fn &GuiHeadlessBackendClockScript Result unit GuiHeadlessBackendClockScriptErrorKind \script:
+    let sample_count %i32 gui_headless_backend_clock_script_count script
+    let cursor %i32 gui_headless_backend_clock_script_cursor script
+    let first %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_first script
+    let second %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_second script
+    let third %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_third script
+    if or lt sample_count 0 gt sample_count 3:
+        then Result::Err GuiHeadlessBackendClockScriptErrorKind::CountInvalid
+        else:
+            if or lt cursor 0 gt cursor sample_count:
+                then Result::Err GuiHeadlessBackendClockScriptErrorKind::CursorInvalid
+                else:
+                    if eq sample_count 0:
+                        then:
+                            if and is_none first and is_none second is_none third:
+                                then Result::Ok unit
+                                else Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                        else:
+                            if eq sample_count 1:
+                                then:
+                                    if and is_some first and is_none second is_none third:
+                                        then Result::Ok unit
+                                        else Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                                else:
+                                    if eq sample_count 2:
+                                        then:
+                                            if and is_some first and is_some second is_none third:
+                                                then Result::Ok unit
+                                                else Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                                        else:
+                                            if and is_some first and is_some second is_some third:
+                                                then Result::Ok unit
+                                                else Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+
+fn gui_headless_backend_clock_validate_sample_value %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample Result unit GuiHeadlessBackendClockScriptErrorKind \sample:
+    let monotonic_ms %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample_monotonic_ms &sample
+    match gui_headless_backend_clock_sample_slot monotonic_ms:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok checked:
+            Result::Ok unit
+
+fn gui_headless_backend_clock_script_sample_error %fn &GuiHeadlessBackendClockScript Result unit GuiHeadlessBackendClockScriptErrorKind \script:
+    let sample_count %i32 gui_headless_backend_clock_script_count script
+    let first %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_first script
+    let second %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_second script
+    let third %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_third script
+    if eq sample_count 0:
+        then Result::Ok unit
+        else:
+            match first:
+                Option::None:
+                    Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                Option::Some first_sample:
+                    match gui_headless_backend_clock_validate_sample_value first_sample:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok first_ok:
+                            if eq sample_count 1:
+                                then Result::Ok unit
+                                else:
+                                    match second:
+                                        Option::None:
+                                            Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                                        Option::Some second_sample:
+                                            match gui_headless_backend_clock_validate_sample_value second_sample:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok second_ok:
+                                                    if eq sample_count 2:
+                                                        then Result::Ok unit
+                                                        else:
+                                                            match third:
+                                                                Option::None:
+                                                                    Result::Err GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid
+                                                                Option::Some third_sample:
+                                                                    match gui_headless_backend_clock_validate_sample_value third_sample:
+                                                                        Result::Err kind:
+                                                                            Result::Err kind
+                                                                        Result::Ok third_ok:
+                                                                            Result::Ok unit
+
+fn gui_headless_backend_clock_poll_checked_sample %fn GuiHeadlessBackendClockScript fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample Result GuiHeadlessBackendClockPoll GuiHeadlessBackendClockError \script\sample:
+    let monotonic_ms %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample_monotonic_ms &sample
+    match gui_headless_backend_clock_sample_slot monotonic_ms:
+        Result::Err kind:
+            gui_headless_backend_clock_script_invalid_result kind script
+        Result::Ok checked:
+            let cursor %i32 gui_headless_backend_clock_script_cursor &script
+            let next_cursor %i32 add cursor 1
+            let first %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_first &script
+            let second %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_second &script
+            let third %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample gui_headless_backend_clock_script_third &script
+            let count %i32 gui_headless_backend_clock_script_count &script
+            let next_script %GuiHeadlessBackendClockScript gui_headless_backend_clock_script_new first second third count next_cursor
+            let sample_slot %Option GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample some checked
+            Result::Ok gui_headless_backend_clock_poll_new next_script sample_slot
+
+pub fn gui_headless_backend_clock_poll %fn GuiHeadlessBackendClockScript Result GuiHeadlessBackendClockPoll GuiHeadlessBackendClockError \script:
+    match gui_headless_backend_clock_script_shape_error &script:
+        Result::Err kind:
+            gui_headless_backend_clock_script_invalid_result kind script
+        Result::Ok ok:
+            match gui_headless_backend_clock_script_sample_error &script:
+                Result::Err kind:
+                    gui_headless_backend_clock_script_invalid_result kind script
+                Result::Ok sample_ok:
+                    let count %i32 gui_headless_backend_clock_script_count &script
+                    let cursor %i32 gui_headless_backend_clock_script_cursor &script
+                    if eq cursor count:
+                        then Result::Ok gui_headless_backend_clock_poll_new script none
+                        else:
+                            if eq cursor 0:
+                                then:
+                                    match gui_headless_backend_clock_script_first &script:
+                                        Option::None:
+                                            gui_headless_backend_clock_script_invalid_result GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid script
+                                        Option::Some sample:
+                                            gui_headless_backend_clock_poll_checked_sample script sample
+                                else:
+                                    if eq cursor 1:
+                                        then:
+                                            match gui_headless_backend_clock_script_second &script:
+                                                Option::None:
+                                                    gui_headless_backend_clock_script_invalid_result GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid script
+                                                Option::Some sample:
+                                                    gui_headless_backend_clock_poll_checked_sample script sample
+                                        else:
+                                            match gui_headless_backend_clock_script_third &script:
+                                                Option::None:
+                                                    gui_headless_backend_clock_script_invalid_result GuiHeadlessBackendClockScriptErrorKind::SlotShapeInvalid script
+                                                Option::Some sample:
+                                                    gui_headless_backend_clock_poll_checked_sample script sample

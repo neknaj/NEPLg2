@@ -90,6 +90,19 @@
 - `Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、fallback、silent no-op は使わない。
 - source policy と focused doctest で Web facade export、raw import、F5eo sample constructor bridge、i32 guard、forbidden fallback を固定する。
 
+## Phase F5eq: Headless scripted monotonic clock source backend boundary
+
+2026-06-18 の F5eq では、Headless scripted monotonic clock source backend boundary を追加する。これは headless / offscreen test 用の deterministic actual clock input source であり、wall clock、native / bare clock source、sleep、scheduler loop、executor backend、queue、DOM / Canvas rendering、video memory presentation は実装しない。
+
+変更:
+
+- `stdlib/platforms/gui/headless.nepl` facade と `stdlib/platforms/gui/headless/clock.nepl` を追加する。
+- `GuiHeadlessBackendClockScript` は fixed-slot の `Option BackendClockSample` 3 件、`count`、`cursor` だけを持つ。
+- constructor は raw i32 sample を F5eo `BackendClockSample` constructor で検査してから slot に保持する。
+- poll は public script の count / cursor / slot shape / sample を再検査し、sample があれば cursor を 1 進める。
+- `cursor == count` は `Option::None` を返し、zero sample、delta、fallback、silent no-op を合成しない。
+- focused doctest と source policy で fixed-slot shape、constructor validation、poll validation、end None、forbidden timer / queue / fallback を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:
