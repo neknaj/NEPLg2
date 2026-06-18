@@ -493,6 +493,46 @@ plan review:
 - focused doctest、module doctest、source policy、`nodesrc/issues.js check --dir issues`、`git diff --check` が通る。
 - subagent implementation review で bare-only scope、F5fy/F5ew/F5ek/F5el 接続、owner recovery、docs / todo / note の一貫性が承認される。
 
+## Phase F5gb: Native / Bare scheduler bounded real-loop runner boundary
+
+2026-06-19 の F5gb では、Native / Bare scheduler bounded real-loop runner boundary として `platforms/gui/native/scheduler_real_loop_runner` と `platforms/gui/bare/scheduler_real_loop_runner` を追加する。これは F5el `real_loop_driver_start` から始め、F5fz / F5ga の platform action step を `max_step_count` の範囲で繰り返す bounded real backend loop checkpoint である。terminal result は `Completed` と `BudgetExhausted` を分離し、fallback、silent no-op、queue drain、sleep、timer wait、DOM、Canvas、minifb、video memory transport には進まない。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl`
+- `stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `doc/neplg2/gui_standard_library_spec.md`
+- `doc/neplg2/gui_tui_implementation_plan.md`
+- `todo.md`
+- `note.n.md`
+
+contract:
+
+- runner policy は platform real-loop step policy と `max_step_count` だけを保持する。
+- F5el driver policy は F5fz / F5ga policy accessor から借用し、runner policy へ重複して保持しない。
+- `max_step_count < 0` は typed `PolicyInvalid` とし、start も step も呼ばない。
+- `max_step_count == 0` でも F5el start は 1 回だけ呼ぶ。start が `NeedInput` を返した場合は step を呼ばず `BudgetExhausted` を返す。
+- native runner の `StepFailed` は lower F5fz error と current clock state を保持する。
+- bare runner の result / error は owner を保持または回収できる。policy invalid と start failure は original owner を返し、F5ga step failure は `gui_bare_scheduler_real_loop_step_error_owner` から owner を回収する。
+- `ClockDelta`、`ExecutorOutcome`、`CompleteAck` は F5fz / F5ga の step path でのみ作られ、runner が synthesized input を作らない。
+
+plan review:
+
+- Heisenberg the 2nd plan review は `PLAN_APPROVED`。
+- 指摘は、native と bare を同時に実装すること、runner policy に F5el driver policy を重複保持しないこと、`max_step_count == 0` でも start は呼ぶこと、native error は runner level で clock state を保持すること、bare error は runner level owner recovery を用意することだった。
+- 本計画では上記を反映し、実装開始可と判断する。
+
+完了条件:
+
+- source policy が F5gb docs、facade export、policy shape、F5el start、F5fz / F5ga step、budget exhaustion、native clock state preservation、bare owner recovery、queue / fallback / silent no-op 禁止を固定する。
+- focused doctest、module doctest、source policy、`nodesrc/issues.js check --dir issues`、`git diff --check` が通る。
+- subagent implementation review で bounded runner 境界、owner recovery、禁止依存、docs / todo / note の一貫性が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

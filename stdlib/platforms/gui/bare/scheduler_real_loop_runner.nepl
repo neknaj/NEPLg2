@@ -1,0 +1,263 @@
+//: # platforms/gui/bare/scheduler_real_loop_runner
+//: Bare scheduler bounded real-loop runner boundary
+//:
+//: ### [目的/もくてき]
+//: - F5gb Bare scheduler bounded real-loop runner boundary として、F5el start から F5ga 1 action step を bounded に[繰/く]り[返/かえ]します。
+//: - `GuiBareDisplayMemoryOwner` を runner result / error から[回収/かいしゅう]できる形で、bare real backend loop checkpoint を[作/つく]ります。
+//:
+//: ### [契約/けいやく]
+//: - policy は bare F5ga real-loop step policy と `max_step_count` だけを[保持/ほじ]します。
+//: - F5el driver policy は F5ga policy accessor から[借用/しゃくよう]し、runner policy へ[重複/ちょうふく]して[保持/ほじ]しません。
+//: - `max_step_count < 0` は typed `PolicyInvalid` であり、start も step も[呼/よ]ばず original owner を[返/かえ]します。
+//: - `max_step_count == 0` でも F5el start は 1 [回/かい]だけ[呼/よ]びます。start が `NeedInput` を[返/かえ]した[場合/ばあい]は step を[呼/よ]ばず `BudgetExhausted` を[返/かえ]します。
+//: - F5ga step failure は `gui_bare_scheduler_real_loop_step_error_owner` で owner を[回収/かいしゅう]でき、runner level の error owner accessor でも同じ owner を[返/かえ]します。
+//: - queue、sleep、timer wait、direct host import、present loop、DOM、Canvas、minifb、video memory、fallback、silent no-op、explicit input の[捏造/ねつぞう]は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/scheduler_real_loop_runner" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/scheduler_real_loop_step" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver" as *
+
+pub struct GuiBareSchedulerRealLoopRunnerPolicy:
+    step_policy %GuiBareSchedulerRealLoopStepPolicy
+    max_step_count %i32
+
+pub enum GuiBareSchedulerRealLoopRunnerPolicyErrorKind:
+    MaxStepCountInvalid
+
+impl Clone for GuiBareSchedulerRealLoopRunnerPolicyErrorKind:
+    fn clone %fn &GuiBareSchedulerRealLoopRunnerPolicyErrorKind GuiBareSchedulerRealLoopRunnerPolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareSchedulerRealLoopRunnerPolicyErrorKind:
+    fn copy_mark %fn GuiBareSchedulerRealLoopRunnerPolicyErrorKind GuiBareSchedulerRealLoopRunnerPolicyErrorKind \kind:
+        kind
+
+pub struct GuiBareSchedulerRealLoopRunnerBudgetExhausted:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    owner %GuiBareDisplayMemoryOwner
+    need %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput
+    step_count %i32
+
+pub struct GuiBareSchedulerRealLoopRunnerCompleted:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    owner %GuiBareDisplayMemoryOwner
+    completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted
+    step_count %i32
+
+pub enum GuiBareSchedulerRealLoopRunnerResult:
+    BudgetExhausted %GuiBareSchedulerRealLoopRunnerBudgetExhausted
+    Completed %GuiBareSchedulerRealLoopRunnerCompleted
+
+pub struct GuiBareSchedulerRealLoopRunnerPolicyInvalid:
+    kind %GuiBareSchedulerRealLoopRunnerPolicyErrorKind
+    category %Option GuiError
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    owner %GuiBareDisplayMemoryOwner
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState
+
+pub struct GuiBareSchedulerRealLoopRunnerStartFailed:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    owner %GuiBareDisplayMemoryOwner
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError
+
+pub struct GuiBareSchedulerRealLoopRunnerStepFailed:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiBareSchedulerRealLoopStepError
+
+pub enum GuiBareSchedulerRealLoopRunnerError:
+    PolicyInvalid %GuiBareSchedulerRealLoopRunnerPolicyInvalid
+    StartFailed %GuiBareSchedulerRealLoopRunnerStartFailed
+    StepFailed %GuiBareSchedulerRealLoopRunnerStepFailed
+
+fn gui_bare_scheduler_real_loop_runner_policy_new %fn GuiBareSchedulerRealLoopStepPolicy fn i32 GuiBareSchedulerRealLoopRunnerPolicy \step_policy\max_step_count:
+    GuiBareSchedulerRealLoopRunnerPolicy step_policy max_step_count
+
+fn gui_bare_scheduler_real_loop_runner_validate_max_step_count %fn i32 Result i32 GuiBareSchedulerRealLoopRunnerPolicyErrorKind \max_step_count:
+    if lt max_step_count 0:
+        then Result::Err GuiBareSchedulerRealLoopRunnerPolicyErrorKind::MaxStepCountInvalid
+        else Result::Ok max_step_count
+
+fn gui_bare_scheduler_real_loop_runner_policy_error_kind_category %fn GuiBareSchedulerRealLoopRunnerPolicyErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareSchedulerRealLoopRunnerPolicyErrorKind::MaxStepCountInvalid:
+            Option::Some GuiError::InvalidCommand
+
+pub fn gui_bare_scheduler_real_loop_runner_policy %fn GuiBareSchedulerRealLoopStepPolicy fn i32 Result GuiBareSchedulerRealLoopRunnerPolicy GuiBareSchedulerRealLoopRunnerPolicyErrorKind \step_policy\max_step_count:
+    match gui_bare_scheduler_real_loop_runner_validate_max_step_count max_step_count:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok count:
+            Result::Ok gui_bare_scheduler_real_loop_runner_policy_new step_policy count
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_step_policy_ref %fn &GuiBareSchedulerRealLoopRunnerPolicy &GuiBareSchedulerRealLoopStepPolicy \policy:
+    field::get_ref policy "step_policy"
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_max_step_count %fn &GuiBareSchedulerRealLoopRunnerPolicy i32 \policy:
+    *field::get_ref policy "max_step_count"
+
+fn gui_bare_scheduler_real_loop_runner_budget_exhausted_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput fn i32 GuiBareSchedulerRealLoopRunnerBudgetExhausted \clock_state\owner\need\step_count:
+    GuiBareSchedulerRealLoopRunnerBudgetExhausted clock_state owner need step_count
+
+fn gui_bare_scheduler_real_loop_runner_completed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted fn i32 GuiBareSchedulerRealLoopRunnerCompleted \clock_state\owner\completed\step_count:
+    GuiBareSchedulerRealLoopRunnerCompleted clock_state owner completed step_count
+
+fn gui_bare_scheduler_real_loop_runner_policy_invalid_new %fn GuiBareSchedulerRealLoopRunnerPolicyErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState GuiBareSchedulerRealLoopRunnerPolicyInvalid \kind\clock_state\owner\state:
+    let category %Option GuiError gui_bare_scheduler_real_loop_runner_policy_error_kind_category kind
+    GuiBareSchedulerRealLoopRunnerPolicyInvalid kind category clock_state owner state
+
+fn gui_bare_scheduler_real_loop_runner_start_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError GuiBareSchedulerRealLoopRunnerStartFailed \clock_state\owner\lower:
+    GuiBareSchedulerRealLoopRunnerStartFailed clock_state owner lower
+
+fn gui_bare_scheduler_real_loop_runner_step_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareSchedulerRealLoopStepError GuiBareSchedulerRealLoopRunnerStepFailed \clock_state\lower:
+    GuiBareSchedulerRealLoopRunnerStepFailed clock_state lower
+
+fn gui_bare_scheduler_real_loop_runner_policy_invalid_result %fn GuiBareSchedulerRealLoopRunnerPolicyErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \kind\clock_state\owner\state:
+    let failed %GuiBareSchedulerRealLoopRunnerPolicyInvalid gui_bare_scheduler_real_loop_runner_policy_invalid_new kind clock_state owner state
+    Result::Err GuiBareSchedulerRealLoopRunnerError::PolicyInvalid failed
+
+fn gui_bare_scheduler_real_loop_runner_start_failed_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \clock_state\owner\lower:
+    let failed %GuiBareSchedulerRealLoopRunnerStartFailed gui_bare_scheduler_real_loop_runner_start_failed_new clock_state owner lower
+    Result::Err GuiBareSchedulerRealLoopRunnerError::StartFailed failed
+
+fn gui_bare_scheduler_real_loop_runner_step_failed_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareSchedulerRealLoopStepError Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \clock_state\lower:
+    let failed %GuiBareSchedulerRealLoopRunnerStepFailed gui_bare_scheduler_real_loop_runner_step_failed_new clock_state lower
+    Result::Err GuiBareSchedulerRealLoopRunnerError::StepFailed failed
+
+fn gui_bare_scheduler_real_loop_runner_from_completed %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted fn i32 Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \clock_state\owner\completed\step_count:
+    let payload %GuiBareSchedulerRealLoopRunnerCompleted gui_bare_scheduler_real_loop_runner_completed_new clock_state owner completed step_count
+    Result::Ok GuiBareSchedulerRealLoopRunnerResult::Completed payload
+
+fn gui_bare_scheduler_real_loop_runner_budget_exhausted_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiBareDisplayMemoryOwner fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput fn i32 Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \clock_state\owner\need\step_count:
+    let payload %GuiBareSchedulerRealLoopRunnerBudgetExhausted gui_bare_scheduler_real_loop_runner_budget_exhausted_new clock_state owner need step_count
+    Result::Ok GuiBareSchedulerRealLoopRunnerResult::BudgetExhausted payload
+
+fn gui_bare_scheduler_real_loop_runner_drain_remaining %impure fn &GuiBareSchedulerRealLoopRunnerPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult impure fn i32 impure fn i32 Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \policy\clock_state\owner\driver_result\remaining_count\step_count:
+    match driver_result:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult::Completed completed:
+            gui_bare_scheduler_real_loop_runner_from_completed clock_state owner completed step_count
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult::NeedInput need:
+            if le remaining_count 0:
+                then gui_bare_scheduler_real_loop_runner_budget_exhausted_result clock_state owner need step_count
+                else:
+                    let step_policy %&GuiBareSchedulerRealLoopStepPolicy gui_bare_scheduler_real_loop_runner_policy_step_policy_ref policy
+                    match gui_bare_scheduler_real_loop_step step_policy clock_state owner need:
+                        Result::Err lower:
+                            gui_bare_scheduler_real_loop_runner_step_failed_result clock_state lower
+                        Result::Ok ready:
+                            let next_clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState gui_bare_scheduler_real_loop_step_ready_clock_state &ready
+                            let next_owner %GuiBareDisplayMemoryOwner gui_bare_scheduler_real_loop_step_ready_owner ready
+                            let next_driver_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult gui_bare_scheduler_real_loop_step_ready_driver_result ready
+                            let next_remaining_count %i32 sub remaining_count 1
+                            let next_step_count %i32 add step_count 1
+                            gui_bare_scheduler_real_loop_runner_drain_remaining policy next_clock_state next_owner next_driver_result next_remaining_count next_step_count
+
+//: gui_bare_scheduler_real_loop_runner_run: bare real-loop を bounded に[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - policy は F5el start の[前/まえ]に[再検査/さいけんさ]します。
+//: - F5el start は valid policy で 1 [回/かい]だけ[呼/よ]び、owner を[消費/しょうひ]しません。
+//: - F5ga step は `NeedInput` かつ remaining budget が positive の[場合/ばあい]だけ[呼/よ]びます。
+pub fn gui_bare_scheduler_real_loop_runner_run %impure fn &GuiBareSchedulerRealLoopRunnerPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiBareSchedulerRealLoopRunnerResult GuiBareSchedulerRealLoopRunnerError \policy\clock_state\owner\state:
+    let max_step_count %i32 gui_bare_scheduler_real_loop_runner_policy_max_step_count policy
+    match gui_bare_scheduler_real_loop_runner_validate_max_step_count max_step_count:
+        Result::Err kind:
+            gui_bare_scheduler_real_loop_runner_policy_invalid_result kind clock_state owner state
+        Result::Ok count:
+            let step_policy %&GuiBareSchedulerRealLoopStepPolicy gui_bare_scheduler_real_loop_runner_policy_step_policy_ref policy
+            let driver_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy gui_bare_scheduler_real_loop_step_policy_driver_policy_ref step_policy
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start driver_policy state:
+                Result::Err lower:
+                    gui_bare_scheduler_real_loop_runner_start_failed_result clock_state owner lower
+                Result::Ok driver_result:
+                    gui_bare_scheduler_real_loop_runner_drain_remaining policy clock_state owner driver_result count 0
+
+pub fn gui_bare_scheduler_real_loop_runner_budget_exhausted_clock_state %fn &GuiBareSchedulerRealLoopRunnerBudgetExhausted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \exhausted:
+    *field::get_ref exhausted "clock_state"
+
+pub fn gui_bare_scheduler_real_loop_runner_budget_exhausted_owner %fn GuiBareSchedulerRealLoopRunnerBudgetExhausted GuiBareDisplayMemoryOwner \exhausted:
+    field::get exhausted "owner"
+
+pub fn gui_bare_scheduler_real_loop_runner_budget_exhausted_need %fn GuiBareSchedulerRealLoopRunnerBudgetExhausted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput \exhausted:
+    field::get exhausted "need"
+
+pub fn gui_bare_scheduler_real_loop_runner_budget_exhausted_step_count %fn &GuiBareSchedulerRealLoopRunnerBudgetExhausted i32 \exhausted:
+    *field::get_ref exhausted "step_count"
+
+pub fn gui_bare_scheduler_real_loop_runner_completed_clock_state %fn &GuiBareSchedulerRealLoopRunnerCompleted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \completed:
+    *field::get_ref completed "clock_state"
+
+pub fn gui_bare_scheduler_real_loop_runner_completed_owner %fn GuiBareSchedulerRealLoopRunnerCompleted GuiBareDisplayMemoryOwner \completed:
+    field::get completed "owner"
+
+pub fn gui_bare_scheduler_real_loop_runner_completed_completed %fn GuiBareSchedulerRealLoopRunnerCompleted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted \completed:
+    field::get completed "completed"
+
+pub fn gui_bare_scheduler_real_loop_runner_completed_step_count %fn &GuiBareSchedulerRealLoopRunnerCompleted i32 \completed:
+    *field::get_ref completed "step_count"
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_invalid_owner %fn GuiBareSchedulerRealLoopRunnerPolicyInvalid GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_scheduler_real_loop_runner_start_failed_owner %fn GuiBareSchedulerRealLoopRunnerStartFailed GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_scheduler_real_loop_runner_step_failed_owner %fn GuiBareSchedulerRealLoopRunnerStepFailed GuiBareDisplayMemoryOwner \error:
+    let lower %GuiBareSchedulerRealLoopStepError field::get error "lower"
+    gui_bare_scheduler_real_loop_step_error_owner lower
+
+pub fn gui_bare_scheduler_real_loop_runner_error_owner %fn GuiBareSchedulerRealLoopRunnerError GuiBareDisplayMemoryOwner \error:
+    match error:
+        GuiBareSchedulerRealLoopRunnerError::PolicyInvalid failure:
+            gui_bare_scheduler_real_loop_runner_policy_invalid_owner failure
+        GuiBareSchedulerRealLoopRunnerError::StartFailed failure:
+            gui_bare_scheduler_real_loop_runner_start_failed_owner failure
+        GuiBareSchedulerRealLoopRunnerError::StepFailed failure:
+            gui_bare_scheduler_real_loop_runner_step_failed_owner failure
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_invalid_kind %fn &GuiBareSchedulerRealLoopRunnerPolicyInvalid GuiBareSchedulerRealLoopRunnerPolicyErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_invalid_category_value %fn &GuiBareSchedulerRealLoopRunnerPolicyInvalid Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_invalid_clock_state %fn &GuiBareSchedulerRealLoopRunnerPolicyInvalid GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_bare_scheduler_real_loop_runner_policy_invalid_state %fn GuiBareSchedulerRealLoopRunnerPolicyInvalid GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \error:
+    field::get error "state"
+
+pub fn gui_bare_scheduler_real_loop_runner_start_failed_clock_state %fn &GuiBareSchedulerRealLoopRunnerStartFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_bare_scheduler_real_loop_runner_start_failed_lower %fn GuiBareSchedulerRealLoopRunnerStartFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError \error:
+    field::get error "lower"
+
+pub fn gui_bare_scheduler_real_loop_runner_step_failed_clock_state %fn &GuiBareSchedulerRealLoopRunnerStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_bare_scheduler_real_loop_runner_step_failed_lower %fn GuiBareSchedulerRealLoopRunnerStepFailed GuiBareSchedulerRealLoopStepError \error:
+    field::get error "lower"

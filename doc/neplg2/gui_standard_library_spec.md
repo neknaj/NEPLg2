@@ -259,6 +259,16 @@ F5ek / F5el failure では、branch、relevant clock state、recovered owner、l
 
 `Complete` branch だけが `RealLoopStepInput::CompleteAck` を作る。clock branch や execute branch は `CompleteAck` を合成しない。F5ga は bare action step bridge であり、not long-running scheduler backend である。timer wait、sleep、queue drain、present loop、direct host import、DOM、Canvas、minifb、video memory transport、hardware flush、fallback、silent no-op は実装しない。
 
+## F5gb Native / Bare scheduler bounded real-loop runner boundary
+
+2026-06-19 の F5gb では、`platforms/gui/native/scheduler_real_loop_runner` と `platforms/gui/bare/scheduler_real_loop_runner` を追加する。これは F5el `real_loop_driver_start` から始め、F5fz / F5ga の platform action step を `max_step_count` の範囲で繰り返し、`Completed` または `BudgetExhausted` を返す bounded real backend loop checkpoint である。
+
+runner policy は platform real-loop step policy と `max_step_count` だけを保持する。F5el driver policy は F5fz / F5ga policy の accessor から借用し、runner policy に二重保持しない。`max_step_count < 0` は `PolicyInvalid` として start / step を呼ばずに fail-closed にする。`max_step_count == 0` でも F5el start は 1 回だけ呼び、start result が `NeedInput` の場合は step を呼ばず `BudgetExhausted` とする。start result が `Completed` の場合は budget に関係なく terminal completion として返す。
+
+native runner の error payload は current clock state と lower error を保持する。特に clock-input failure の場合、lower F5fz error から直接 clock state を復元できないため、runner level の `StepFailed` が clock state を保持する。bare runner の result / error payload は常に `GuiBareDisplayMemoryOwner` を保持または回収できる。policy invalid と start failure は original owner を返し、F5ga step failure は `gui_bare_scheduler_real_loop_step_error_owner` を通して owner を回収する。runner level には `gui_bare_scheduler_real_loop_runner_error_owner` を用意し、caller がどの error variant でも owner を取り戻せるようにする。
+
+F5gb は bounded runner であり、OS window loop、minifb event pump、timer wait、sleep、queue drain、DOM、Canvas、video memory transport、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。`ClockDelta`、`ExecutorOutcome`、`CompleteAck` は F5fz / F5ga の step path でのみ作られ、runner が fallback input や silent no-op を合成しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

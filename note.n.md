@@ -70792,3 +70792,48 @@ MERGE_APPROVED
 ### residual
 
 - F5fz は native one-action step boundary までであり、bare F5fy owner path から real-loop action step へ戻す boundary、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native/bare F5gb scheduler bounded real-loop runner boundary
+
+### scope
+
+- F5gb は F5el `real_loop_driver_start` から開始し、F5fz / F5ga の platform action step を `max_step_count` の範囲で繰り返す bounded real-loop runner boundary である。
+- public policy は platform step policy と `max_step_count` だけを保持し、F5el driver policy は F5fz / F5ga policy accessor から借用する。
+- この slice は native / bare runner、facade export、focused doctest、source-policy、GUI docs、todo の更新だけを扱う。
+- OS window loop、minifb event pump、timer wait、sleep、queue drain、formal `std/gui` present host implementation、DOM、Canvas、video memory transport、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Heisenberg the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、native と bare を同時に実装すること、runner policy に F5el driver policy を重複保持しないこと、`max_step_count == 0` でも start は呼ぶこと、native error は runner level で clock state を保持すること、bare result / error は owner を保持または回収できる形にすることだった。
+- この指摘に従い、F5gb は bounded runner として `Completed` と `BudgetExhausted` を分離し、fallback、silent no-op、synthetic input を持たない設計にした。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl` を追加した。
+- native runner は valid policy で F5el start を 1 回だけ呼び、`NeedInput` かつ positive budget の場合だけ `gui_native_scheduler_real_loop_step` へ進む。
+- native `StepFailed` は lower F5fz error と current clock state を保持する。
+- `stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl` を追加した。
+- bare runner は `GuiBareDisplayMemoryOwner` を result / error payload で保持し、step failure では `gui_bare_scheduler_real_loop_step_error_owner` から owner を回収する。
+- `stdlib/platforms/gui/native.nepl` と `stdlib/platforms/gui/bare.nepl` facade、`tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md`、`tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI docs、`todo.md` を F5gb contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl --no-tree -o tmp_gui_platform_native_scheduler_real_loop_runner_module_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_runner_module_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md --no-tree -o tmp_gui_platform_native_scheduler_real_loop_runner_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_runner_f5gb.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の F5gb source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Planck the 2nd implementation review は `REVIEW_APPROVED`。指定ファイルに concrete blocking issue は無いと判断された。
+- review では F5gb が bounded runner 境界に留まり、policy shape、native clock state preservation、bare owner recovery、no fallback / no silent no-op、no synthetic `ClockDelta` / `ExecutorOutcome` / `CompleteAck` を満たすことを確認した。
+
+### residual
+
+- F5gb は native / bare bounded real-loop runner までであり、formal `std/gui` present host import 接続、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
