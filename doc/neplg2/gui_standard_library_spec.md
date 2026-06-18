@@ -167,6 +167,18 @@ F5fr の owner と owner-bearing write error は `Clone` / `Copy` を実装し�
 
 F5fr は actual hardware driver、host import、long-running scheduler backend、timer queue、present loop、polling input、DOM、Canvas、minifb、video memory transport、zero-fill fallback、silent no-op、bulk readback を実装しない。後続 slice では owner を actual display driver adapter と接続し、bulk byte readback と frame readiness を別の typed evidence として追加する。
 
+## F5fs Bare display memory span write/readback boundary
+
+2026-06-19 の F5fs では、bare `platforms/gui/bare/display_memory_span_readback` を追加する。これは F5fr の `GuiBareDisplayMemoryOwner` が保持する raw RGBA8888 memory に対して、canonical `SpanWrite` step の全 byte を store し、同じ byte range を readback して expected RGBA8888 channel value と一致することを確認する owner-side boundary である。F5fs は actual hardware driver adapter ではなく、frame readiness evidence でもない。
+
+F5fs の public entry は `gui_bare_display_memory_owner_write_span_readback owner memory_step outcome` とする。`GuiBareDisplayDriverSpanWriteAccepted` や `GuiBareDisplayDriverByteEchoVerified` は public Copy value として偽造できるため、public entry の authority にはしない。entry は owner 内の canonical `GuiBareDisplayDriverState` から `gui_bare_display_driver_apply` を再実行し、returned step の action / outcome が `GuiBareDisplayMemoryAction::SpanWrite` / `GuiBareDisplayDriverOutcome::SpanWriteAccepted` である場合だけ span memory write へ進む。Begin / Present / DriverRejected は enum error として fail-closed に返す。
+
+F5fs は canonical accepted span から `byte_start`、`byte_len`、`byte_end`、`surface_byte_count`、`Rgba8888` color を取り出す。`byte_start >= 0`、`byte_len > 0`、`byte_start + byte_len == byte_end`、`byte_end <= owner.surface_byte_count`、accepted surface byte count と owner surface byte count の一致を検査する。span write loop は byte index ごとに `relative % 4` を `Red` / `Green` / `Blue` / `Alpha` へ写し、expected channel value を owner 内 `RegionToken u8` へ store する。store loop が成功した後に readback loop を実行し、全 byte が expected value と一致した場合だけ owner の driver state と verified byte count を進める。state advance は full store と full readback の後でなければならない。
+
+成功 payload `GuiBareDisplayMemoryOwnerSpanReadbackCompleted` は owner と pure `GuiBareDisplayMemoryOwnerSpanReadbackEvidence` を保持する。owner-bearing success / error は `Clone` / `Copy` を実装しない。pure evidence は write / read authority を持たない metadata であり、単独では authority にしない。F5fs 成功時は single byte echo evidence を `Option::None` へ clear し、stale echo evidence が span readback を意味するように見えないようにする。
+
+F5fs は public `RegionToken` / `MemPtr` / storage accessor、raw pointer、raw byte slice、actual hardware driver、host import、long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、frame ready / present ready evidence を実装しない。frame readiness は future slice で、all spans / present command / scheduler completion の別 evidence として扱う。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
