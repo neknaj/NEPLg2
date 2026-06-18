@@ -257,6 +257,8 @@ const platformGuiNativeSchedulerHostExecutor = read("stdlib/platforms/gui/native
 const platformGuiNativeSchedulerHostExecutorImpl = withoutComments(platformGuiNativeSchedulerHostExecutor);
 const platformGuiNativeSchedulerRealLoopStep = read("stdlib/platforms/gui/native/scheduler_real_loop_step.nepl");
 const platformGuiNativeSchedulerRealLoopStepImpl = withoutComments(platformGuiNativeSchedulerRealLoopStep);
+const platformGuiNativeSchedulerRealLoopRunner = read("stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl");
+const platformGuiNativeSchedulerRealLoopRunnerImpl = withoutComments(platformGuiNativeSchedulerRealLoopRunner);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
@@ -272,6 +274,8 @@ const platformGuiBareSchedulerHostExecutor = read("stdlib/platforms/gui/bare/sch
 const platformGuiBareSchedulerHostExecutorImpl = withoutComments(platformGuiBareSchedulerHostExecutor);
 const platformGuiBareSchedulerRealLoopStep = read("stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl");
 const platformGuiBareSchedulerRealLoopStepImpl = withoutComments(platformGuiBareSchedulerRealLoopStep);
+const platformGuiBareSchedulerRealLoopRunner = read("stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl");
+const platformGuiBareSchedulerRealLoopRunnerImpl = withoutComments(platformGuiBareSchedulerRealLoopRunner);
 const platformGuiBareFramebuffer = read("stdlib/platforms/gui/bare/framebuffer.nepl");
 const platformGuiBareFramebufferImpl = withoutComments(platformGuiBareFramebuffer);
 const platformGuiBareDisplayStorage = read("stdlib/platforms/gui/bare/display_storage.nepl");
@@ -412,6 +416,8 @@ const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platf
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
 const guiPlatformNativeSchedulerRealLoopStepTests = read("tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md");
 const guiPlatformBareSchedulerRealLoopStepTests = read("tests/stdlib/gui_platform_bare_scheduler_real_loop_step.n.md");
+const guiPlatformNativeSchedulerRealLoopRunnerTests = read("tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md");
+const guiPlatformBareSchedulerRealLoopRunnerTests = read("tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md");
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
@@ -26670,6 +26676,218 @@ assert(
         "platform_bare_scheduler_real_loop_step_no_clone_copy_owner_values",
     ].every((label) => guiPlatformBareSchedulerRealLoopStepTests.includes(label)),
     "F5ga bare scheduler real-loop step focused doctest must cover executable and source-policy labels",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["GUI/TUI implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5gb") &&
+            doc.includes("Native / Bare scheduler bounded real-loop runner") &&
+            doc.includes("max_step_count") &&
+            doc.includes("BudgetExhausted") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5gb ${name} must document bounded native/bare real-loop runner semantics and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('./native/scheduler_real_loop_runner" as @merge'),
+    "platforms/gui/native facade must export F5gb native scheduler real-loop runner boundary",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/scheduler_real_loop_runner" as @merge'),
+    "platforms/gui/bare facade must export F5gb bare scheduler real-loop runner boundary",
+);
+assert(
+    platformGuiNativeSchedulerRealLoopRunner.includes("Native scheduler bounded real-loop runner boundary") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("F5gb") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("max_step_count") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("BudgetExhausted") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("clock state") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("fallback") &&
+        platformGuiNativeSchedulerRealLoopRunner.includes("silent no-op"),
+    "platforms/gui/native/scheduler_real_loop_runner F5gb must document bounded native runner authority and non-goals",
+);
+assert(
+    platformGuiBareSchedulerRealLoopRunner.includes("Bare scheduler bounded real-loop runner boundary") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("F5gb") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("GuiBareDisplayMemoryOwner") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("gui_bare_scheduler_real_loop_step_error_owner") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("BudgetExhausted") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("fallback") &&
+        platformGuiBareSchedulerRealLoopRunner.includes("silent no-op"),
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb must document bounded bare runner authority, owner recovery, and non-goals",
+);
+assert(
+    textSliceBetween(
+        platformGuiNativeSchedulerRealLoopRunnerImpl,
+        "pub struct GuiNativeSchedulerRealLoopRunnerPolicy:",
+        "pub enum GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:",
+    ).includes("step_policy %GuiNativeSchedulerRealLoopStepPolicy") &&
+        textSliceBetween(
+            platformGuiNativeSchedulerRealLoopRunnerImpl,
+            "pub struct GuiNativeSchedulerRealLoopRunnerPolicy:",
+            "pub enum GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:",
+        ).includes("max_step_count %i32") &&
+        !textSliceBetween(
+            platformGuiNativeSchedulerRealLoopRunnerImpl,
+            "pub struct GuiNativeSchedulerRealLoopRunnerPolicy:",
+            "pub enum GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:",
+        ).includes("driver_policy %"),
+    "platforms/gui/native/scheduler_real_loop_runner F5gb policy must hold only F5fz step policy and max_step_count",
+);
+assert(
+    textSliceBetween(
+        platformGuiBareSchedulerRealLoopRunnerImpl,
+        "pub struct GuiBareSchedulerRealLoopRunnerPolicy:",
+        "pub enum GuiBareSchedulerRealLoopRunnerPolicyErrorKind:",
+    ).includes("step_policy %GuiBareSchedulerRealLoopStepPolicy") &&
+        textSliceBetween(
+            platformGuiBareSchedulerRealLoopRunnerImpl,
+            "pub struct GuiBareSchedulerRealLoopRunnerPolicy:",
+            "pub enum GuiBareSchedulerRealLoopRunnerPolicyErrorKind:",
+        ).includes("max_step_count %i32") &&
+        !textSliceBetween(
+            platformGuiBareSchedulerRealLoopRunnerImpl,
+            "pub struct GuiBareSchedulerRealLoopRunnerPolicy:",
+            "pub enum GuiBareSchedulerRealLoopRunnerPolicyErrorKind:",
+        ).includes("driver_policy %"),
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb policy must hold only F5ga step policy and max_step_count",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopRunnerImpl, "gui_native_scheduler_real_loop_runner_run"),
+    [
+        "gui_native_scheduler_real_loop_runner_validate_max_step_count max_step_count",
+        "Result::Err kind",
+        "gui_native_scheduler_real_loop_runner_policy_invalid_result kind clock_state state",
+        "gui_native_scheduler_real_loop_runner_policy_step_policy_ref policy",
+        "gui_native_scheduler_real_loop_step_policy_driver_policy_ref step_policy",
+        "real_loop_driver_start driver_policy state",
+        "gui_native_scheduler_real_loop_runner_drain_remaining policy clock_state driver_result count 0",
+    ],
+    "platforms/gui/native/scheduler_real_loop_runner F5gb run must validate policy, borrow F5el driver policy through F5fz policy, then start once",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopRunnerImpl, "gui_bare_scheduler_real_loop_runner_run"),
+    [
+        "gui_bare_scheduler_real_loop_runner_validate_max_step_count max_step_count",
+        "Result::Err kind",
+        "gui_bare_scheduler_real_loop_runner_policy_invalid_result kind clock_state owner state",
+        "gui_bare_scheduler_real_loop_runner_policy_step_policy_ref policy",
+        "gui_bare_scheduler_real_loop_step_policy_driver_policy_ref step_policy",
+        "real_loop_driver_start driver_policy state",
+        "gui_bare_scheduler_real_loop_runner_drain_remaining policy clock_state owner driver_result count 0",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb run must validate policy, preserve owner on policy failure, borrow F5el driver policy through F5ga policy, then start once",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiNativeSchedulerRealLoopRunnerImpl, "gui_native_scheduler_real_loop_runner_drain_remaining"),
+    [
+        "RealLoopDriverResult::Completed completed",
+        "gui_native_scheduler_real_loop_runner_from_completed clock_state completed step_count",
+        "RealLoopDriverResult::NeedInput need",
+        "if le remaining_count 0",
+        "gui_native_scheduler_real_loop_runner_budget_exhausted_result clock_state need step_count",
+        "gui_native_scheduler_real_loop_step step_policy clock_state need",
+        "Result::Err lower",
+        "gui_native_scheduler_real_loop_runner_step_failed_result clock_state lower",
+        "next_clock_state",
+        "next_driver_result",
+        "sub remaining_count 1",
+        "add step_count 1",
+    ],
+    "platforms/gui/native/scheduler_real_loop_runner F5gb drain must return budget exhaustion before stepping and preserve clock state on errors",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopRunnerImpl, "gui_bare_scheduler_real_loop_runner_drain_remaining"),
+    [
+        "RealLoopDriverResult::Completed completed",
+        "gui_bare_scheduler_real_loop_runner_from_completed clock_state owner completed step_count",
+        "RealLoopDriverResult::NeedInput need",
+        "if le remaining_count 0",
+        "gui_bare_scheduler_real_loop_runner_budget_exhausted_result clock_state owner need step_count",
+        "gui_bare_scheduler_real_loop_step step_policy clock_state owner need",
+        "Result::Err lower",
+        "gui_bare_scheduler_real_loop_runner_step_failed_result clock_state lower",
+        "next_owner",
+        "next_driver_result",
+        "sub remaining_count 1",
+        "add step_count 1",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb drain must return budget exhaustion before stepping and preserve owner through ready/error paths",
+);
+assert(
+    (platformGuiNativeSchedulerRealLoopRunnerImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start\b/g) || []).length === 1 &&
+        (platformGuiNativeSchedulerRealLoopRunnerImpl.match(/\bgui_native_scheduler_real_loop_step\b/g) || []).length === 1,
+    "platforms/gui/native/scheduler_real_loop_runner F5gb must call F5el start and F5fz step at the expected implementation sites",
+);
+assert(
+    (platformGuiBareSchedulerRealLoopRunnerImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start\b/g) || []).length === 1 &&
+        (platformGuiBareSchedulerRealLoopRunnerImpl.match(/\bgui_bare_scheduler_real_loop_step\b/g) || []).length === 1 &&
+        platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_step_error_owner lower"),
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb must call F5el start, F5ga step, and F5ga owner recovery at the expected implementation sites",
+);
+assert(
+    platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_runner_error_owner") &&
+        platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_runner_policy_invalid_owner") &&
+        platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_runner_start_failed_owner") &&
+        platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_runner_step_failed_owner") &&
+        platformGuiBareSchedulerRealLoopRunnerImpl.includes("gui_bare_scheduler_real_loop_step_error_owner lower"),
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb must expose owner recovery for every runner error variant",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopRunnerImpl,
+    /\b(?:platforms\/gui\/bare|gui_bare_|GuiBare|scheduler_host_executor|#extern|#intrinsic|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|timer_backend|minifb|Canvas|DOM|video_memory|DrawTarget|RenderTarget|ClockDelta|ExecutorOutcome|CompleteAck|fallback|silent no-op)\b/i,
+    "platforms/gui/native/scheduler_real_loop_runner F5gb must not depend on bare, queues, platform renderers, externs, synthesized inputs, or fallback behavior",
+);
+assertNoMatch(
+    platformGuiBareSchedulerRealLoopRunnerImpl,
+    /\b(?:platforms\/gui\/native|gui_native_|GuiNative|scheduler_host_executor|display_presenter_session|display_driver_begin|display_driver_span_write|display_driver_frame_present|GuiBareFramebufferState|GuiBareDisplayStorageState|GuiBareDisplayMemoryState|GuiBareDisplayDriverState|RegionToken|MemPtr|host_status|status %i32|#extern|#intrinsic|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|timer_backend|minifb|Canvas|DOM|video_memory|DrawTarget|RenderTarget|ClockDelta|ExecutorOutcome|CompleteAck|fallback|silent no-op)\b/i,
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb must not depend on native, raw state, host imports, queues, platform renderers, synthesized inputs, or fallback behavior",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopRunnerImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiNativeSchedulerRealLoopRunner(?:Policy|BudgetExhausted|Completed|Result|PolicyInvalid|StartFailed|StepFailed|Error)\b/,
+    "platforms/gui/native/scheduler_real_loop_runner F5gb runner payloads must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareSchedulerRealLoopRunnerImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareSchedulerRealLoopRunner(?:Policy|BudgetExhausted|Completed|Result|PolicyInvalid|StartFailed|StepFailed|Error)\b/,
+    "platforms/gui/bare/scheduler_real_loop_runner F5gb owner-bearing runner payloads must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiNativeSchedulerRealLoopRunnerImpl + "\n" + platformGuiBareSchedulerRealLoopRunnerImpl,
+    /_:|[()]/,
+    "platforms/gui/native and bare scheduler_real_loop_runner F5gb implementations must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    [
+        "platform_native_scheduler_real_loop_runner_facade_ok",
+        "platform_native_scheduler_real_loop_runner_import_ok",
+        "platform_native_scheduler_real_loop_runner_policy_shape_ok",
+        "platform_native_scheduler_real_loop_runner_start_authority_ok",
+        "platform_native_scheduler_real_loop_runner_budget_zero_start_ok",
+        "platform_native_scheduler_real_loop_runner_step_clock_state_error_ok",
+        "platform_native_scheduler_real_loop_runner_bounded_recursion_ok",
+        "platform_native_scheduler_real_loop_runner_no_queue_fallback",
+        "platform_native_scheduler_real_loop_runner_no_clone_copy_runner_values",
+    ].every((label) => guiPlatformNativeSchedulerRealLoopRunnerTests.includes(label)),
+    "F5gb native scheduler real-loop runner focused doctest must cover executable and source-policy labels",
+);
+assert(
+    [
+        "platform_bare_scheduler_real_loop_runner_facade_ok",
+        "platform_bare_scheduler_real_loop_runner_import_ok",
+        "platform_bare_scheduler_real_loop_runner_policy_shape_ok",
+        "platform_bare_scheduler_real_loop_runner_start_authority_ok",
+        "platform_bare_scheduler_real_loop_runner_budget_zero_start_ok",
+        "platform_bare_scheduler_real_loop_runner_owner_recovery_ok",
+        "platform_bare_scheduler_real_loop_runner_bounded_recursion_ok",
+        "platform_bare_scheduler_real_loop_runner_no_raw_queue_fallback",
+        "platform_bare_scheduler_real_loop_runner_no_clone_copy_owner_values",
+    ].every((label) => guiPlatformBareSchedulerRealLoopRunnerTests.includes(label)),
+    "F5gb bare scheduler real-loop runner focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["GUI standard library spec", guiStandardLibrarySpec],

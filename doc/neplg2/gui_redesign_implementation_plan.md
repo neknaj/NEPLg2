@@ -997,7 +997,7 @@ Phase F5fw の Bare display hardware flush accepted boundary を現在の checkp
 - owner-bearing accepted / error は `Clone` / `Copy` にしない。
 - docs、focused doctest、source-policy、note、todo、default bare test import を同じ slice で更新する。
 
-Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。F5fw の次の再開 target は、actual real scheduler loop / headless app-loop integration、native / bare scheduler backend、formal `std/gui` present host import 接続へ進めることである。
+Phase 5.13 / F5ej の deterministic virtual scheduler loop yield complete boundary までは既存 checkpoint として完了済みである。2026-06-19 の F5gb では、Native / Bare scheduler bounded real-loop runner として F5el start から F5fz / F5ga platform step を `max_step_count` で bounded に進める checkpoint を追加した。これは long-running real backend loop へ向かう platform-neutral runner であり、queue、sleep、timer wait、fallback、silent no-op は持たない。F5gb の次の再開 target は、formal `std/gui` present host import 接続、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain へ進めることである。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
