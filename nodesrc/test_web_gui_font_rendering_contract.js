@@ -282,6 +282,8 @@ const platformGuiBareDisplayDriverByteEcho = read("stdlib/platforms/gui/bare/dis
 const platformGuiBareDisplayDriverByteEchoImpl = withoutComments(platformGuiBareDisplayDriverByteEcho);
 const platformGuiBareDisplayMemoryOwner = read("stdlib/platforms/gui/bare/display_memory_owner.nepl");
 const platformGuiBareDisplayMemoryOwnerImpl = withoutComments(platformGuiBareDisplayMemoryOwner);
+const platformGuiBareDisplayMemorySpanReadback = read("stdlib/platforms/gui/bare/display_memory_span_readback.nepl");
+const platformGuiBareDisplayMemorySpanReadbackImpl = withoutComments(platformGuiBareDisplayMemorySpanReadback);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -399,6 +401,7 @@ const guiPlatformBareDisplayDriverTests = read("tests/stdlib/gui_platform_bare_d
 const guiPlatformBareDisplayDriverHostImportTests = read("tests/stdlib/gui_platform_bare_display_driver_host_import.n.md");
 const guiPlatformBareDisplayDriverByteEchoTests = read("tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md");
 const guiPlatformBareDisplayMemoryOwnerTests = read("tests/stdlib/gui_platform_bare_display_memory_owner.n.md");
+const guiPlatformBareDisplayMemorySpanReadbackTests = read("tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -27305,6 +27308,133 @@ assert(
         "platform_bare_display_memory_owner_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayMemoryOwnerTests.includes(label)),
     "F5fr platform bare display memory owner focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fs Bare display memory span write/readback boundary") &&
+        guiStandardLibrarySpec.includes("gui_bare_display_memory_owner_write_span_readback") &&
+        guiStandardLibrarySpec.includes("full store") &&
+        guiStandardLibrarySpec.includes("full readback") &&
+        guiStandardLibrarySpec.includes("frame ready") &&
+        barePlatformBehaviorDoc.includes("F5fs") &&
+        barePlatformBehaviorDoc.includes("Bare display memory span write/readback boundary"),
+    "F5fs docs must describe owner-side span write/readback, full store/readback ordering, and non-frame-ready contract",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_memory_span_readback" as @merge'),
+    "platforms/gui/bare facade must export F5fs display memory span readback boundary",
+);
+assert(
+    platformGuiBareDisplayMemorySpanReadback.includes("Bare display memory span write/readback boundary") &&
+        platformGuiBareDisplayMemorySpanReadback.includes("canonical driver state") &&
+        platformGuiBareDisplayMemorySpanReadback.includes("frame readiness") &&
+        platformGuiBareDisplayMemorySpanReadback.includes("fallback") &&
+        platformGuiBareDisplayMemorySpanReadback.includes("silent no-op"),
+    "platforms/gui/bare/display_memory_span_readback F5fs must document canonical owner-side span readback and non-goals",
+);
+assert(
+    platformGuiBareDisplayMemorySpanReadbackImpl.includes("pub struct GuiBareDisplayMemoryOwnerSpanReadbackEvidence") &&
+        platformGuiBareDisplayMemorySpanReadbackImpl.includes("pub struct GuiBareDisplayMemoryOwnerSpanReadbackCompleted") &&
+        platformGuiBareDisplayMemorySpanReadbackImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareDisplayMemorySpanReadbackImpl.includes("pub struct GuiBareDisplayMemoryOwnerSpanReadbackError") &&
+        platformGuiBareDisplayMemorySpanReadbackImpl.includes("pub fn gui_bare_display_memory_owner_write_span_readback"),
+    "platforms/gui/bare/display_memory_span_readback F5fs must expose typed evidence, owner-bearing success/error, and public entry",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemorySpanReadbackImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayMemoryOwnerSpanReadbackCompleted\b|impl\s+(?:Clone|Copy)\s+for\s+GuiBareDisplayMemoryOwnerSpanReadbackError\b/,
+    "platforms/gui/bare/display_memory_span_readback F5fs owner-bearing success/error must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemorySpanReadbackImpl,
+    /pub fn[^\n]*(?:RegionToken|MemPtr|storage_accessor|storage_ptr|raw_ptr|byte_slice)/,
+    "platforms/gui/bare/display_memory_span_readback F5fs public API must not expose raw storage, pointer, or byte slice accessors",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemorySpanReadbackImpl,
+    /pub fn gui_bare_display_memory_owner_write_span_readback %fn[^\n]*(?:GuiBareDisplayDriverByteEchoVerified|GuiBareDisplayDriverSpanWriteAccepted)/,
+    "platforms/gui/bare/display_memory_span_readback F5fs public entry must not accept forgeable public verified or accepted span authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemorySpanReadbackImpl, "gui_bare_display_memory_owner_write_span_readback"),
+    [
+        "gui_bare_display_memory_owner_driver_state &owner",
+        "gui_bare_display_driver_apply driver_state memory_step outcome",
+        "Result::Err driver_error",
+        "gui_bare_display_memory_owner_span_readback_error_from_driver driver_error owner memory_step outcome",
+        "Result::Ok step",
+        "gui_bare_display_memory_owner_span_readback_apply_step owner memory_step outcome step",
+    ],
+    "platforms/gui/bare/display_memory_span_readback F5fs public entry must use owner canonical driver apply before any span authority",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemorySpanReadbackImpl, "gui_bare_display_memory_owner_span_readback_apply_step"),
+    [
+        "gui_bare_display_driver_step_applied_action &step",
+        "GuiBareDisplayMemoryAction::SpanWrite plan",
+        "gui_bare_display_driver_step_applied_outcome &step",
+        "GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted",
+        "gui_bare_display_memory_owner_span_readback_apply_span owner memory_step outcome step accepted",
+    ],
+    "platforms/gui/bare/display_memory_span_readback F5fs must accept only canonical SpanWrite/SpanWriteAccepted",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemorySpanReadbackImpl, "gui_bare_display_memory_owner_span_readback_apply_span"),
+    [
+        "gui_bare_display_memory_owner_span_readback_range_ok &owner &accepted",
+        "field::get_ref &owner \"storage\"",
+        "gui_bare_display_memory_owner_span_readback_store_loop storage_ref &accepted",
+        "gui_bare_display_memory_owner_span_readback_verify_loop storage_ref &accepted",
+        "gui_bare_display_memory_owner_span_readback_checked_count count byte_len",
+        "gui_bare_display_driver_step_applied_state &step",
+        "field::get owner \"storage\"",
+        "GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count Option::None",
+        "gui_bare_display_memory_owner_span_readback_evidence_new accepted",
+    ],
+    "platforms/gui/bare/display_memory_span_readback F5fs must store and read back before state advance and clear stale byte evidence",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemorySpanReadbackImpl, "gui_bare_display_memory_owner_span_readback_store_loop"),
+    [
+        "gui_bare_display_memory_owner_span_readback_expected_value byte_start byte_index color",
+        "gui_bare_display_memory_owner_span_readback_store_byte storage byte_index expected",
+        "set byte_index add byte_index 1",
+    ],
+    "platforms/gui/bare/display_memory_span_readback F5fs store loop must write every canonical span byte with expected channel value",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayMemorySpanReadbackImpl, "gui_bare_display_memory_owner_span_readback_verify_loop"),
+    [
+        "gui_bare_display_memory_owner_span_readback_expected_value byte_start byte_index color",
+        "gui_bare_display_memory_owner_span_readback_load_byte storage byte_index",
+        "if ne actual expected",
+        "GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ReadbackMismatch",
+    ],
+    "platforms/gui/bare/display_memory_span_readback F5fs readback loop must compare every canonical span byte with expected channel value",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemorySpanReadbackImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|display_driver_begin|display_driver_span_write|display_driver_frame_present|display_presenter_session|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|zero_region|zero_fill|clear|frame_ready|present_ready|fallback)\b/i,
+    "platforms/gui/bare/display_memory_span_readback F5fs must not implement host imports, queues, renderers, zero-fill fallback, or frame readiness",
+);
+assertNoMatch(
+    platformGuiBareDisplayMemorySpanReadbackImpl,
+    /silent|[()]/i,
+    "platforms/gui/bare/display_memory_span_readback F5fs implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_memory_span_readback_facade_ok",
+        "platform_bare_display_memory_span_readback_import_create_free_ok",
+        "platform_bare_display_memory_span_readback_source_policy_driver_apply_authority_ok",
+        "platform_bare_display_memory_span_readback_source_policy_no_copy_owner_payload_ok",
+        "platform_bare_display_memory_span_readback_source_policy_no_forgeable_public_authority_ok",
+        "platform_bare_display_memory_span_readback_source_policy_store_before_readback_ok",
+        "platform_bare_display_memory_span_readback_source_policy_state_advance_after_readback_ok",
+        "platform_bare_display_memory_span_readback_source_policy_clears_single_byte_evidence_ok",
+        "platform_bare_display_memory_span_readback_source_policy_span_not_frame_ready_ok",
+        "platform_bare_display_memory_span_readback_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayMemorySpanReadbackTests.includes(label)),
+    "F5fs platform bare display memory span readback focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

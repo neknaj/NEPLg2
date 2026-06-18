@@ -1,3 +1,53 @@
+# 2026-06-19 Agent2 GUI platform F5fs Bare display memory span write/readback boundary
+
+## 目的
+
+- F5fr Bare raw display memory ownership boundary の後続として、bare display memory span write/readback boundary を追加する。
+- 初期案の pure span readback は F5fr が 1 byte しか raw memory に store しない事実と矛盾するため採用しない。
+- owner 内 canonical driver state から F5fo driver apply を再実行し、canonical `SpanWrite` / `SpanWriteAccepted` の span 全 byte を owner memory に store し、その後 full readback してからだけ owner state を進める。
+- F5fs は span readback evidence までであり、actual hardware driver adapter、frame ready / present ready evidence、host import、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の初回 plan review は `NEEDS_CHANGES`。
+- 指摘内容は、F5fr owner memory には 1 echoed byte しか書かれていないため、そのまま bulk / span readback evidence を成功させると zero-fill / fallback-like assumption または single-byte evidence の拡大解釈になるというもの。
+- 指摘に従い、F5fs は pure readback ではなく、owner-side span memory write/readback boundary として再設計した。
+- 修正版 plan review は `REVIEW_APPROVED`。`gui_bare_display_driver_apply owner_driver_state memory_step outcome` を authority にすること、owner-bearing success / error は `Clone` / `Copy` にしないこと、full store + full readback 後にだけ state を進めること、`last_verified` を stale evidence として残さないことが実装条件になった。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_memory_span_readback.nepl` を追加し、`GuiBareDisplayMemoryOwnerSpanReadbackEvidence`、`GuiBareDisplayMemoryOwnerSpanReadbackCompleted`、`GuiBareDisplayMemoryOwnerSpanReadbackErrorKind`、`GuiBareDisplayMemoryOwnerSpanReadbackError`、`gui_bare_display_memory_owner_write_span_readback` を実装した。
+- public entry は `GuiBareDisplayMemoryOwner`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome` だけを受け、`GuiBareDisplayDriverByteEchoVerified` や `GuiBareDisplayDriverSpanWriteAccepted` を authority として受け取らない。
+- `gui_bare_display_memory_owner_write_span_readback` は owner の canonical driver state から `gui_bare_display_driver_apply` を呼び、returned step の `SpanWrite` / `SpanWriteAccepted` のみを受理する。
+- accepted span の byte range と surface byte count を検査し、owner 内 `RegionToken u8` へ RGBA8888 channel order で全 byte を store した後、同じ range の全 byte を load して expected value と比較する。
+- 成功時は `next_driver_state`、same storage、updated verified byte count、`Option::None` の `last_verified` で next owner を作る。owner-bearing success / error には `Clone` / `Copy` を実装しない。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、focused doctest、source-policy、todo を F5fs に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_span_readback.nepl -o tmp_gui_bare_display_memory_span_readback_module_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md -o tmp_gui_bare_display_memory_span_readback_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_after_f5fs.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。既存の broad warning は 9 件あり、F5fs の direct policy である `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
+
+## subagent implementation review
+
+- Bacon the 2nd の implementation review は `REVIEW_APPROVED`。
+- public entry が owner state から `gui_bare_display_driver_apply` を再実行し、canonical `SpanWrite` / `SpanWriteAccepted` だけを受理すること、全 byte store、全 byte readback、readback 後の state advance、`Option::None` による stale single-byte evidence clear が確認された。
+- public `ByteEchoVerified` / `SpanWriteAccepted` authority、raw storage accessor、host import / DOM / Canvas / minifb / queue / scheduler / fallback / frame-ready leakage は見つからなかった。
+- residual non-blocker として、store loop の途中で失敗した場合は raw memory が部分更新済みの owner が error payload で返るが、driver state は進まず retry / free 可能であると判断された。
+
+## residual
+
+- F5fs は owner-side span write/readback evidence までであり、bare actual hardware display driver adapter、frame readiness evidence、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fr Bare raw display memory ownership boundary
 
 ## 目的

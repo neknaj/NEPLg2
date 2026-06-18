@@ -1,0 +1,380 @@
+//: # platforms/gui/bare/display_memory_span_readback
+//: Bare display memory span write/readback boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fr の raw display memory owner を、canonical span 全体の memory write/readback evidence へ[進/すす]めます。
+//: - public span evidence は Copy として[偽造/ぎぞう]できるため、owner が[保持/ほじ]する canonical driver state から F5fo driver apply を[再実行/さいじっこう]します。
+//: - 成功は span byte range が owner 内 raw memory に store され、同じ range を readback して RGBA8888 channel と一致したことだけを[表/あらわ]します。
+//:
+//: ### [契約/けいやく]
+//: - `GuiBareDisplayMemoryOwner` を value として[受/う]け取り、成功時も失敗時も owner を payload に[保持/ほじ]します。
+//: - driver state は full store と full readback が[成功/せいこう]した後にだけ[進/すす]めます。
+//: - frame readiness、hardware driver、host import、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_memory_span_readback" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_driver_byte_echo" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+
+pub struct GuiBareDisplayMemoryOwnerSpanReadbackEvidence:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+    run_index %i32
+    pixel_start %i32
+    pixel_end %i32
+    byte_start %i32
+    byte_len %i32
+    byte_end %i32
+    surface_byte_count %i32
+    color %Rgba8888
+
+impl Clone for GuiBareDisplayMemoryOwnerSpanReadbackEvidence:
+    fn clone %fn &GuiBareDisplayMemoryOwnerSpanReadbackEvidence GuiBareDisplayMemoryOwnerSpanReadbackEvidence \evidence:
+        *evidence
+
+impl Copy for GuiBareDisplayMemoryOwnerSpanReadbackEvidence:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerSpanReadbackEvidence GuiBareDisplayMemoryOwnerSpanReadbackEvidence \evidence:
+        evidence
+
+pub struct GuiBareDisplayMemoryOwnerSpanReadbackCompleted:
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayMemoryOwnerSpanReadbackEvidence
+
+pub enum GuiBareDisplayMemoryOwnerSpanReadbackErrorKind:
+    DriverStepInvalid %GuiBareDisplayDriverErrorKind
+    NonSpanWriteAction
+    NonSpanWriteOutcome
+    ByteRangeInvalid
+    SurfaceByteCountMismatch
+    VerifiedByteCountOverflow
+    ByteOffsetInvalid
+    PointerProjectionFailed
+    StoreFailed
+    LoadFailed
+    ReadbackMismatch
+
+impl Clone for GuiBareDisplayMemoryOwnerSpanReadbackErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryOwnerSpanReadbackErrorKind GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryOwnerSpanReadbackErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerSpanReadbackErrorKind GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayMemoryOwnerSpanReadbackError:
+    kind %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind
+    category %Option GuiError
+    owner %GuiBareDisplayMemoryOwner
+    memory_step %GuiBareDisplayMemoryStepApplied
+    outcome %GuiBareDisplayDriverOutcome
+    byte_index %i32
+    expected_value %i32
+    actual_value %i32
+
+struct GuiBareDisplayMemoryOwnerSpanReadbackFailure:
+    kind %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind
+    byte_index %i32
+    expected_value %i32
+    actual_value %i32
+
+impl Clone for GuiBareDisplayMemoryOwnerSpanReadbackFailure:
+    fn clone %fn &GuiBareDisplayMemoryOwnerSpanReadbackFailure GuiBareDisplayMemoryOwnerSpanReadbackFailure \failure:
+        *failure
+
+impl Copy for GuiBareDisplayMemoryOwnerSpanReadbackFailure:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerSpanReadbackFailure GuiBareDisplayMemoryOwnerSpanReadbackFailure \failure:
+        failure
+
+fn gui_bare_display_memory_owner_span_readback_evidence_new %fn GuiBareDisplayDriverSpanWriteAccepted GuiBareDisplayMemoryOwnerSpanReadbackEvidence \accepted:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_driver_span_write_accepted_target &accepted
+    let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_driver_span_write_accepted_span &accepted
+    let run_index %i32 gui_bare_display_driver_span_write_accepted_run_index &accepted
+    let pixel_start %i32 gui_bare_display_driver_span_write_accepted_pixel_start &accepted
+    let pixel_end %i32 gui_bare_display_driver_span_write_accepted_pixel_end &accepted
+    let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start &accepted
+    let byte_len %i32 gui_bare_display_driver_span_write_accepted_byte_len &accepted
+    let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end &accepted
+    let surface_byte_count %i32 gui_bare_display_driver_span_write_accepted_surface_byte_count &accepted
+    let color %Rgba8888 gui_bare_display_driver_span_write_accepted_color &accepted
+    GuiBareDisplayMemoryOwnerSpanReadbackEvidence target span run_index pixel_start pixel_end byte_start byte_len byte_end surface_byte_count color
+
+fn gui_bare_display_memory_owner_span_readback_completed_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryOwnerSpanReadbackEvidence GuiBareDisplayMemoryOwnerSpanReadbackCompleted \owner\evidence:
+    GuiBareDisplayMemoryOwnerSpanReadbackCompleted owner evidence
+
+fn gui_bare_display_memory_owner_span_readback_error_category %fn GuiBareDisplayMemoryOwnerSpanReadbackErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::DriverStepInvalid lower:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteAction:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteOutcome:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteRangeInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::SurfaceByteCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::VerifiedByteCountOverflow:
+            Option::Some GuiError::ResourceExhausted
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteOffsetInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::PointerProjectionFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::StoreFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::LoadFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ReadbackMismatch:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_memory_owner_span_readback_error_new %fn GuiBareDisplayMemoryOwnerSpanReadbackErrorKind fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn i32 fn i32 fn i32 GuiBareDisplayMemoryOwnerSpanReadbackError \kind\owner\memory_step\outcome\byte_index\expected_value\actual_value:
+    let category %Option GuiError gui_bare_display_memory_owner_span_readback_error_category kind
+    GuiBareDisplayMemoryOwnerSpanReadbackError kind category owner memory_step outcome byte_index expected_value actual_value
+
+fn gui_bare_display_memory_owner_span_readback_failure_new %fn GuiBareDisplayMemoryOwnerSpanReadbackErrorKind fn i32 fn i32 fn i32 GuiBareDisplayMemoryOwnerSpanReadbackFailure \kind\byte_index\expected_value\actual_value:
+    GuiBareDisplayMemoryOwnerSpanReadbackFailure kind byte_index expected_value actual_value
+
+fn gui_bare_display_memory_owner_span_readback_error_from_failure %fn GuiBareDisplayMemoryOwnerSpanReadbackFailure fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome GuiBareDisplayMemoryOwnerSpanReadbackError \failure\owner\memory_step\outcome:
+    let kind %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind *field::get_ref &failure "kind"
+    let byte_index %i32 *field::get_ref &failure "byte_index"
+    let expected_value %i32 *field::get_ref &failure "expected_value"
+    let actual_value %i32 *field::get_ref &failure "actual_value"
+    gui_bare_display_memory_owner_span_readback_error_new kind owner memory_step outcome byte_index expected_value actual_value
+
+fn gui_bare_display_memory_owner_span_readback_error_from_driver %fn GuiBareDisplayDriverStepError fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome GuiBareDisplayMemoryOwnerSpanReadbackError \driver_error\owner\memory_step\outcome:
+    let lower %GuiBareDisplayDriverErrorKind gui_bare_display_driver_step_error_kind &driver_error
+    let kind %GuiBareDisplayMemoryOwnerSpanReadbackErrorKind GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::DriverStepInvalid lower
+    let category %Option GuiError gui_bare_display_driver_step_error_category_value &driver_error
+    GuiBareDisplayMemoryOwnerSpanReadbackError kind category owner memory_step outcome -1 -1 -1
+
+pub fn gui_bare_display_memory_owner_span_readback_evidence_byte_start %fn &GuiBareDisplayMemoryOwnerSpanReadbackEvidence i32 \evidence:
+    *field::get_ref evidence "byte_start"
+
+pub fn gui_bare_display_memory_owner_span_readback_evidence_byte_len %fn &GuiBareDisplayMemoryOwnerSpanReadbackEvidence i32 \evidence:
+    *field::get_ref evidence "byte_len"
+
+pub fn gui_bare_display_memory_owner_span_readback_evidence_byte_end %fn &GuiBareDisplayMemoryOwnerSpanReadbackEvidence i32 \evidence:
+    *field::get_ref evidence "byte_end"
+
+pub fn gui_bare_display_memory_owner_span_readback_evidence_surface_byte_count %fn &GuiBareDisplayMemoryOwnerSpanReadbackEvidence i32 \evidence:
+    *field::get_ref evidence "surface_byte_count"
+
+pub fn gui_bare_display_memory_owner_span_readback_completed_owner %fn GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwner \completed:
+    field::get completed "owner"
+
+pub fn gui_bare_display_memory_owner_span_readback_completed_evidence %fn &GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwnerSpanReadbackEvidence \completed:
+    *field::get_ref completed "evidence"
+
+pub fn gui_bare_display_memory_owner_span_readback_error_kind %fn &GuiBareDisplayMemoryOwnerSpanReadbackError GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_memory_owner_span_readback_error_category_value %fn &GuiBareDisplayMemoryOwnerSpanReadbackError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_memory_owner_span_readback_error_owner %fn GuiBareDisplayMemoryOwnerSpanReadbackError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_memory_owner_span_readback_error_byte_index %fn &GuiBareDisplayMemoryOwnerSpanReadbackError i32 \error:
+    *field::get_ref error "byte_index"
+
+fn gui_bare_display_memory_owner_span_readback_range_ok %fn &GuiBareDisplayMemoryOwner fn &GuiBareDisplayDriverSpanWriteAccepted Result unit GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \owner\accepted:
+    let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start accepted
+    let byte_len %i32 gui_bare_display_driver_span_write_accepted_byte_len accepted
+    let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end accepted
+    if or lt byte_start 0 le byte_len 0:
+        then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteRangeInvalid
+        else:
+            if ne add byte_start byte_len byte_end:
+                then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteRangeInvalid
+                else:
+                    let owner_surface %i32 gui_bare_display_memory_owner_surface_byte_count owner
+                    let accepted_surface %i32 gui_bare_display_driver_span_write_accepted_surface_byte_count accepted
+                    if ne owner_surface accepted_surface:
+                        then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::SurfaceByteCountMismatch
+                        else:
+                            if gt byte_end owner_surface:
+                                then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteRangeInvalid
+                                else Result::Ok unit
+
+fn gui_bare_display_memory_owner_span_readback_checked_count %fn i32 fn i32 Result i32 GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \base_count\byte_len:
+    if or lt base_count 0 lt byte_len 0:
+        then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::VerifiedByteCountOverflow
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 byte_len
+            if gt base_count max_base:
+                then Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::VerifiedByteCountOverflow
+                else Result::Ok add base_count byte_len
+
+fn gui_bare_display_memory_owner_span_readback_expected_value %fn i32 fn i32 fn Rgba8888 Result i32 GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \byte_start\byte_index\color:
+    let relative %i32 sub byte_index byte_start
+    let offset %i32 rem_s relative 4
+    match gui_bare_display_driver_byte_echo_channel_for_byte_offset offset:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ByteOffsetInvalid
+        Result::Ok channel:
+            Result::Ok gui_bare_display_driver_byte_echo_channel_value channel color
+
+fn gui_bare_display_memory_owner_span_readback_store_byte %fn &RegionToken u8 fn i32 fn i32 Result unit GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \storage\byte_index\value:
+    match region_ptr_at<u8,u8> storage byte_index:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match store_u8 ptr value:
+                Result::Err _:
+                    Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::StoreFailed
+                Result::Ok _:
+                    Result::Ok unit
+
+fn gui_bare_display_memory_owner_span_readback_load_byte %fn &RegionToken u8 fn i32 Result i32 GuiBareDisplayMemoryOwnerSpanReadbackErrorKind \storage\byte_index:
+    match region_ptr_at<u8,u8> storage byte_index:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::LoadFailed
+                Option::Some value:
+                    Result::Ok value
+
+fn gui_bare_display_memory_owner_span_readback_store_loop %fn &RegionToken u8 fn &GuiBareDisplayDriverSpanWriteAccepted Result unit GuiBareDisplayMemoryOwnerSpanReadbackFailure \storage\accepted:
+    let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start accepted
+    let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end accepted
+    let color %Rgba8888 gui_bare_display_driver_span_write_accepted_color accepted
+    let mut byte_index %i32 byte_start
+    let mut done %bool false
+    let mut output %Result unit GuiBareDisplayMemoryOwnerSpanReadbackFailure Result::Ok unit
+    while not done:
+        do:
+            if ge byte_index byte_end:
+                then:
+                    set done true
+                else:
+                    match gui_bare_display_memory_owner_span_readback_expected_value byte_start byte_index color:
+                        Result::Err kind:
+                            set output Result::Err gui_bare_display_memory_owner_span_readback_failure_new kind byte_index -1 -1
+                            set done true
+                        Result::Ok expected:
+                            match gui_bare_display_memory_owner_span_readback_store_byte storage byte_index expected:
+                                Result::Err kind:
+                                    set output Result::Err gui_bare_display_memory_owner_span_readback_failure_new kind byte_index expected -1
+                                    set done true
+                                Result::Ok _:
+                                    set byte_index add byte_index 1
+    output
+
+fn gui_bare_display_memory_owner_span_readback_verify_loop %fn &RegionToken u8 fn &GuiBareDisplayDriverSpanWriteAccepted Result unit GuiBareDisplayMemoryOwnerSpanReadbackFailure \storage\accepted:
+    let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start accepted
+    let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end accepted
+    let color %Rgba8888 gui_bare_display_driver_span_write_accepted_color accepted
+    let mut byte_index %i32 byte_start
+    let mut done %bool false
+    let mut output %Result unit GuiBareDisplayMemoryOwnerSpanReadbackFailure Result::Ok unit
+    while not done:
+        do:
+            if ge byte_index byte_end:
+                then:
+                    set done true
+                else:
+                    match gui_bare_display_memory_owner_span_readback_expected_value byte_start byte_index color:
+                        Result::Err kind:
+                            set output Result::Err gui_bare_display_memory_owner_span_readback_failure_new kind byte_index -1 -1
+                            set done true
+                        Result::Ok expected:
+                            match gui_bare_display_memory_owner_span_readback_load_byte storage byte_index:
+                                Result::Err kind:
+                                    set output Result::Err gui_bare_display_memory_owner_span_readback_failure_new kind byte_index expected -1
+                                    set done true
+                                Result::Ok actual:
+                                    if ne actual expected:
+                                        then:
+                                            set output Result::Err gui_bare_display_memory_owner_span_readback_failure_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::ReadbackMismatch byte_index expected actual
+                                            set done true
+                                        else:
+                                            set byte_index add byte_index 1
+    output
+
+fn gui_bare_display_memory_owner_span_readback_apply_span %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverStepApplied fn GuiBareDisplayDriverSpanWriteAccepted Result GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwnerSpanReadbackError \owner\memory_step\outcome\step\accepted:
+    match gui_bare_display_memory_owner_span_readback_range_ok &owner &accepted:
+        Result::Err kind:
+            Result::Err gui_bare_display_memory_owner_span_readback_error_new kind owner memory_step outcome -1 -1 -1
+        Result::Ok _:
+            let storage_ref %&RegionToken u8 field::get_ref &owner "storage"
+            match gui_bare_display_memory_owner_span_readback_store_loop storage_ref &accepted:
+                Result::Err failure:
+                    Result::Err gui_bare_display_memory_owner_span_readback_error_from_failure failure owner memory_step outcome
+                Result::Ok _:
+                    match gui_bare_display_memory_owner_span_readback_verify_loop storage_ref &accepted:
+                        Result::Err failure:
+                            Result::Err gui_bare_display_memory_owner_span_readback_error_from_failure failure owner memory_step outcome
+                        Result::Ok _:
+                            let byte_len %i32 gui_bare_display_driver_span_write_accepted_byte_len &accepted
+                            let count %i32 gui_bare_display_memory_owner_verified_byte_count &owner
+                            match gui_bare_display_memory_owner_span_readback_checked_count count byte_len:
+                                Result::Err kind:
+                                    Result::Err gui_bare_display_memory_owner_span_readback_error_new kind owner memory_step outcome -1 -1 -1
+                                Result::Ok next_count:
+                                    let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
+                                    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+                                    let storage %RegionToken u8 field::get owner "storage"
+                                    let next_owner %GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwner next_driver_state surface_byte_count storage next_count Option::None
+                                    let evidence %GuiBareDisplayMemoryOwnerSpanReadbackEvidence gui_bare_display_memory_owner_span_readback_evidence_new accepted
+                                    Result::Ok gui_bare_display_memory_owner_span_readback_completed_new next_owner evidence
+
+fn gui_bare_display_memory_owner_span_readback_apply_step %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverStepApplied Result GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwnerSpanReadbackError \owner\memory_step\outcome\step:
+    let action %GuiBareDisplayMemoryAction gui_bare_display_driver_step_applied_action &step
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin begin:
+            Result::Err gui_bare_display_memory_owner_span_readback_error_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteAction owner memory_step outcome -1 -1 -1
+        GuiBareDisplayMemoryAction::SpanWrite plan:
+            let applied_outcome %GuiBareDisplayDriverOutcome gui_bare_display_driver_step_applied_outcome &step
+            match applied_outcome:
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted:
+                    gui_bare_display_memory_owner_span_readback_apply_span owner memory_step outcome step accepted
+                GuiBareDisplayDriverOutcome::BeginAccepted begin_accepted:
+                    Result::Err gui_bare_display_memory_owner_span_readback_error_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteOutcome owner memory_step outcome -1 -1 -1
+                GuiBareDisplayDriverOutcome::FramePresentAccepted present_accepted:
+                    Result::Err gui_bare_display_memory_owner_span_readback_error_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteOutcome owner memory_step outcome -1 -1 -1
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    Result::Err gui_bare_display_memory_owner_span_readback_error_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteOutcome owner memory_step outcome -1 -1 -1
+        GuiBareDisplayMemoryAction::FramePresent present:
+            Result::Err gui_bare_display_memory_owner_span_readback_error_new GuiBareDisplayMemoryOwnerSpanReadbackErrorKind::NonSpanWriteAction owner memory_step outcome -1 -1 -1
+
+//: gui_bare_display_memory_owner_write_span_readback: canonical span を raw memory に[書/か]き、全 byte を[読/よ]み[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - owner 内の canonical driver state から F5fo driver apply を[再実行/さいじっこう]し、public accepted value を[権威/けんい]にしません。
+//: - `SpanWrite` / `SpanWriteAccepted` 以外は fail-closed に[拒否/きょひ]します。
+//: - full store と full readback が[成功/せいこう]した後にだけ owner state を[進/すす]め、single byte echo evidence は[消/け]します。
+pub fn gui_bare_display_memory_owner_write_span_readback %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome Result GuiBareDisplayMemoryOwnerSpanReadbackCompleted GuiBareDisplayMemoryOwnerSpanReadbackError \owner\memory_step\outcome:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state &owner
+    match gui_bare_display_driver_apply driver_state memory_step outcome:
+        Result::Err driver_error:
+            Result::Err gui_bare_display_memory_owner_span_readback_error_from_driver driver_error owner memory_step outcome
+        Result::Ok step:
+            gui_bare_display_memory_owner_span_readback_apply_step owner memory_step outcome step
