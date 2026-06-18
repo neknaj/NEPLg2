@@ -63,6 +63,7 @@ pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_t
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver" as *
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step" as *
 pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner" as *
+pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
 pub #import "./gui/tile_present_host_execution_report" as *
 pub #import "./gui/tile_present_host_executor" as *
 pub #import "./gui/tile_present_host_report_loop_bridge" as *

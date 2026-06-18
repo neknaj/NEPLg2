@@ -71,6 +71,35 @@
 - focused doctest、source policy、F5em regression、`git diff --check` が通る。
 - subagent implementation review で bounded scripted runner と no fallback が承認される。
 
+## Phase F5eo: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler backend clock delta boundary
+
+2026-06-18 の F5eo では、Web / native / bare / headless backend が取得した monotonic clock sample を F5ek `RealLoopStepInput::ClockDelta` へ変換する。これは caller supplied sample を検査する pure std boundary であり、actual clock source、sleep、timer backend、executor backend、queue、platform API、DOM / Canvas / minifb、video memory は実装しない。
+
+実装 target:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.nepl`
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- `BackendClockPolicy` は `max_delta_ms` だけを保持し、negative max を typed error として拒否する。
+- `BackendClockSample` は caller supplied `monotonic_ms` だけを保持し、negative sample を typed error として拒否する。
+- `BackendClockState` は previous `last_monotonic_ms` だけを保持する。public value なので `advance` は forged negative state を typed error として拒否する。
+- `start` は sample を entry で再検査して baseline state を返す。`ClockDelta` は発行しない。
+- `advance` は policy / state / sample を entry で再検査し、backward time と too-large delta を typed error として返す。
+- zero delta は no-op や error にせず `ClockDelta 0` として返す。
+- delta が `max_delta_ms` を超える場合は clamp せず `DeltaTooLarge` を返す。
+- error payload は policy / state / sample / previous / current / delta / max を回収可能な形で保持する。
+
+完了条件:
+
+- F5eo は `RealLoopStepInput::ClockDelta` だけを生成し、`ExecutorOutcome` と `CompleteAck` を生成しない。
+- F5eo は F5ek / F5em / F5el を呼ばず、backend clock source や timer backend も呼ばない。
+- source policy が negative policy、negative sample、forged state、backward time、too-large delta、zero delta、valid delta、no platform / queue / fallback / silent no-op を固定する。
+- focused doctest、source policy、F5ek / F5en regression、`git diff --check` が通る。
+- subagent implementation review で sample / state 再検査、owner recovery、no clamp、no fallback が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

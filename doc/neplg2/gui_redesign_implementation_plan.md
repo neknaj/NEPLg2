@@ -60,6 +60,23 @@
 - `BudgetExhausted` は F5em `advance` を呼ばない。
 - source policy が no Vec / queue / push / backend / fallback / silent no-op を固定する。
 
+## Phase F5eo: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler backend clock delta boundary
+
+2026-06-18 の F5eo では、Web / native / bare / headless backend が取得した monotonic clock sample を F5ek `RealLoopStepInput::ClockDelta` へ変換する。これは caller supplied sample を検査する pure std boundary であり、actual clock source、sleep、timer backend、executor backend、queue、platform API、DOM / Canvas / minifb、video memory は実装しない。
+
+変更:
+
+- F5eo backend clock module を追加し、`BackendClockPolicy`、`BackendClockSample`、`BackendClockState`、`BackendClockAdvance` を定義する。
+- `BackendClockPolicy` は `max_delta_ms` だけを保持し、negative max を typed error として拒否する。
+- `BackendClockSample` は caller supplied `monotonic_ms` だけを保持し、negative sample を typed error として拒否する。
+- `BackendClockState` は previous `last_monotonic_ms` だけを保持する。public value なので `advance` は forged negative state を typed error として拒否する。
+- `start` は sample を entry で再検査して baseline state を返す。`ClockDelta` は発行しない。
+- `advance` は policy / state / sample を entry で再検査し、backward time と too-large delta を typed error として返す。
+- zero delta は no-op や error にせず `ClockDelta 0` として返す。
+- delta が `max_delta_ms` を超える場合は clamp せず `DeltaTooLarge` を返す。
+- error payload は policy / state / sample / previous / current / delta / max を回収可能な形で保持する。
+- source policy が no platform / queue / fallback / silent no-op と `ExecutorOutcome` / `CompleteAck` 非生成を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:
