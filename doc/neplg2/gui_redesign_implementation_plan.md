@@ -674,6 +674,43 @@ subagent review:
 
 - Aquinas に F5eh 実装計画を渡し、implementation may start を確認した。実装後に、F5eg AwaitTimerAdvance only input、F5ea one advance call、remaining_count preservation、lower F5ea error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
 
+## Phase 5.12: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop executor complete boundary
+
+目的:
+
+- F5eg `ExecuteHostAction` action payload を consumed authority として扱い、caller supplied `Result unit GuiError` を F5du `turn_driver_complete` へ 1 回だけ戻す。
+- Driver completion 後の step を F5dv `scheduler_decide`、F5ea `virtual_scheduler_decide` へ順に渡し、real scheduler loop / headless app-loop が次の loop step へ戻せる typed result にする。
+- executor completion authority を actual backend executor から分離し、backend は outcome だけを返す構造にする。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl` を追加し、`loop_executor_complete` を public entry として公開する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompletePolicy` は scheduler policy と timer policy だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteCompleted` は next scheduler state と original `remaining_count` を保持する。
+- `DriverCompleteFailed`、`SchedulerDecisionFailed`、`TimerDecisionFailed` は lower error と original `remaining_count` を保持し、F5du / F5dv 由来の失敗では `category` と `timer_state` も保持する。
+- `loop_executor_complete` は policy、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction`、caller supplied outcome だけを受ける。
+- `remaining_count` と `timer_state` は pending owner を消費する前に読み、F5du `turn_driver_complete`、F5dv `scheduler_decide`、F5ea `virtual_scheduler_decide` をそれぞれ 1 回だけ呼ぶ。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md` を追加し、facade、policy shape、result shape、F5eg / F5du / F5dv / F5ea import、ExecuteHostAction consumed authority、caller supplied outcome、driver / scheduler / timer order、remaining_count preservation、lower error、no wildcard / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.12 / F5ei source policy を追加する。
+
+非目標:
+
+- general `LoopAction` を受けない。
+- F5eg `loop_action_from_result`、F5ef `loop_step`、F5ee / F5ec / F5ed / F5eb direct call、F5dt direct call、direct `virtual_timer_advance` / `virtual_scheduler_advance_timer` は呼ばない。
+- executor outcome を合成しない。
+- yield-to-clock handling、complete handling、actual scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+
+完了条件:
+
+- F5ei source policy が ExecuteHostAction-only input、caller supplied outcome only、F5du / F5dv / F5ea exactly once、remaining_count / timer_state before owner consumption、lower error wrapping、backend / queue / fallback 禁止を検査する。
+- focused doctest が source policy label を持つ。
+- 次の再開 target は YieldToClock / Complete を含む real scheduler loop integration、native / bare scheduler backend、headless app-loop integration である。
+
+subagent review:
+
+- Aquinas に F5ei 実装計画を渡し、implementation may start を確認した。実装後に、ExecuteHostAction only input、caller supplied outcome only、F5du / F5dv / F5ea one call each、remaining_count / timer_state preservation、lower error wrapping、non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -761,10 +798,11 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.11 / F5eh の deterministic virtual scheduler loop timer advance boundary までを現在の checkpoint とする。次の再開 target は、F5eg `ExecuteHostAction` を消費する executor completion authority、`YieldToClock` / `Complete` を含む real scheduler loop / headless app-loop integration、native / bare scheduler backend である。
+Phase 5.12 / F5ei の deterministic virtual scheduler loop executor complete boundary までを現在の checkpoint とする。次の再開 target は、F5eg `YieldToClock` / `Complete` を扱う real scheduler loop / headless app-loop integration、native / bare scheduler backend である。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
+- `ExecuteHostAction` は F5ei の `loop_executor_complete` または later real backend executor authority が返す caller supplied outcome によってだけ再開する必要がある。
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。
