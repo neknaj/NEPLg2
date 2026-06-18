@@ -35,6 +35,15 @@ function functionSlice(source, name) {
     return next < 0 ? source.slice(start) : source.slice(start, next);
 }
 
+function textSliceBetween(source, startNeedle, endNeedle) {
+    const start = source.indexOf(startNeedle);
+    if (start < 0) {
+        return "";
+    }
+    const end = source.indexOf(endNeedle, start + startNeedle.length);
+    return end < 0 ? source.slice(start) : source.slice(start, end);
+}
+
 function assert(condition, message) {
     if (!condition) {
         throw new Error(message);
@@ -69,6 +78,7 @@ function assertOrderedFragments(text, fragments, message) {
 const spec = read("doc/neplg2/gui_font_rendering_spec.md");
 const detailedDesign = read("doc/neplg2/gui_font_rendering_detailed_design.md");
 const implementationPlan = read("doc/neplg2/gui_font_rendering_implementation_plan.md");
+const redesignDetailedDesign = read("doc/neplg2/gui_redesign_detailed_design.md");
 const redesignPlan = read("doc/neplg2/gui_redesign_implementation_plan.md");
 const guiStandardLibrarySpec = read("doc/neplg2/gui_standard_library_spec.md");
 
@@ -190,6 +200,8 @@ const stdGuiTilePresentHostActionSinkDriver = read("stdlib/std/gui/tile_present_
 const stdGuiTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiTilePresentHostActionSinkDriver);
 const stdGuiTilePresentHostActionAttemptDriver = read("stdlib/std/gui/tile_present_host_action_attempt_driver.nepl");
 const stdGuiTilePresentHostActionAttemptDriverImpl = withoutComments(stdGuiTilePresentHostActionAttemptDriver);
+const platformGuiWebTimer = read("stdlib/platforms/gui/web/timer.nepl");
+const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -508,6 +520,7 @@ const webMain = read("web/src/main.ts");
 const webPanelManager = read("web/src/workspace/panel-manager.ts");
 const webTerminal = read("web/src/terminal/terminal.ts");
 const webShell = read("web/src/terminal/shell.ts");
+const webWorker = read("web/src/runtime/worker.ts");
 const webVfs = read("web/src/runtime/vfs.ts");
 const webIndex = read("web/index.html");
 const webFontResourceBehaviorTest = read("nodesrc/test_web_gui_font_resource_vfs_behavior.js");
@@ -22974,6 +22987,198 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_event_validation_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_no_backend_no_queue_no_fallback"),
     "F5dw std tile present host-span-operation-presenter-executor-session-turn-timer focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+]) {
+    assert(
+        doc.includes("Web formal one-shot timer request backend boundary") &&
+            doc.includes("F5dx") &&
+            doc.includes("setTimeout") &&
+            doc.includes("setInterval") &&
+            doc.includes("clear-before-enqueue") &&
+            doc.includes("stdout fallback") &&
+            doc.includes("polling fallback"),
+        `F5dx ${name} must document Web one-shot timer backend, browser timer mode split, clear-before-enqueue, and forbidden fallbacks`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5dx: Web formal one-shot timer request backend boundary") &&
+        implementationPlan.includes("repeating false") &&
+        implementationPlan.includes("setTimeout") &&
+        implementationPlan.includes("setInterval") &&
+        implementationPlan.includes("active timer entry") &&
+        implementationPlan.includes("std / core / alloc") &&
+        implementationPlan.includes("stdout fallback") &&
+        implementationPlan.includes("polling fallback"),
+    "F5dx implementation plan must document Web one-shot timer backend implementation and non-goals",
+);
+for (const [name, doc] of [
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("`repeating == 0`") &&
+            doc.includes("one-shot timer") &&
+            doc.includes("setTimeout") &&
+            doc.includes("setInterval") &&
+            doc.includes("active timer entry"),
+        `F5dx ${name} must replace the old one-shot-invalid Web timer contract`,
+    );
+    assertNoMatch(
+        doc,
+        /one-shot timer[^。]*InvalidArgument|`repeating == 0`[^。]*invalid/,
+        `F5dx ${name} must not retain old one-shot invalid contract`,
+    );
+}
+assertNoMatch(
+    platformGuiWebTimer,
+    /one-shot timer[^。]*InvalidCommand|repeating が false の one-shot timer|初期 checkpoint では repeating timer だけ/,
+    "platforms/gui/web/timer F5dx comments must not retain old one-shot invalid contract",
+);
+assertNoMatch(
+    platformGuiWebTimerImpl,
+    /\bnot repeating\b/,
+    "platforms/gui/web/timer F5dx validation must not reject one-shot timer requests",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebTimerImpl, "gui_web_timer_request_is_invalid"),
+    [
+        "let window %WindowId timer_request_window request",
+        "let timer %TimerId timer_request_timer request",
+        "let window_raw %i32 window_id_raw &window",
+        "let timer_raw %i32 timer_id_raw &timer",
+        "let interval_ms %i32 timer_request_interval_ms request",
+        "if le window_raw 0:",
+        "then true",
+        "if le timer_raw 0:",
+        "then true",
+        "if lt interval_ms 0:",
+        "then true",
+        "else false",
+    ],
+    "platforms/gui/web/timer F5dx invalid helper must validate ids and interval but accept both repeating modes",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebTimerImpl, "gui_web_request_timer"),
+    [
+        "if gui_web_timer_request_is_invalid request:",
+        "Result::Err GuiError::InvalidCommand",
+        "let window %WindowId timer_request_window request",
+        "let timer %TimerId timer_request_timer request",
+        "let window_raw %i32 window_id_raw &window",
+        "let timer_raw %i32 timer_id_raw &timer",
+        "let interval_ms %i32 timer_request_interval_ms request",
+        "let repeating %bool timer_request_repeating request",
+        "let repeating_raw %i32 gui_web_timer_repeating_raw repeating",
+        "gui_web_timer_status_unit gui_web_request_timer_raw window_raw timer_raw interval_ms repeating_raw",
+    ],
+    "platforms/gui/web/timer F5dx request wrapper must pass repeating mode through the host boundary after validation",
+);
+assertNoMatch(
+    platformGuiWebTimerImpl,
+    /\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bDrawTarget\b|\bRenderTarget\b|\bfallback\b|\bsilent no-op\b|\bqueue\b|\bpolling\b|\bNEPLG2_GUI_ANIMATE_MS\b/,
+    "platforms/gui/web/timer F5dx wrapper must not import render APIs, stdout fallback, polling fallback, or queue implementation",
+);
+const f5dxWorkerRequestTimer = textSliceBetween(webWorker, "    nepl_gui_web_request_timer(windowId", "\n    private storeGuiWebInputEventTakeResult");
+assertOrderedFragments(
+    f5dxWorkerRequestTimer,
+    [
+        "nepl_gui_web_request_timer(windowId: number, timerId: number, intervalMs: number, repeatingRaw: number): number {",
+        "!isPositiveInteger(windowId)",
+        "|| !isPositiveInteger(timerId)",
+        "|| !isNonNegativeInteger(intervalMs)",
+        "|| (repeatingRaw !== 0 && repeatingRaw !== 1)",
+        "return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;",
+        "return this.requestGuiRuntimeTimer(windowId, timerId, intervalMs, repeatingRaw === 1);",
+    ],
+    "Worker F5dx request_timer import must accept repeatingRaw 0 and 1 and pass the resulting mode through",
+);
+assertNoMatch(
+    f5dxWorkerRequestTimer,
+    /\|\|\s*repeatingRaw !== 1\s*(?:\n|\r\n)|requestGuiRuntimeTimer\(windowId, timerId, intervalMs, true\)/,
+    "Worker F5dx request_timer import must not retain the old repeating-only path",
+);
+assertNoMatch(
+    f5dxWorkerRequestTimer,
+    /stdout|GuiWebStdoutProtocol|parse|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./,
+    "Worker F5dx request_timer import must not use stdout, command frame, DOM, or Canvas fallback",
+);
+assertMatch(
+    webShell,
+    /type GuiRuntimeTimerHandle = ReturnType<typeof setInterval> \| ReturnType<typeof setTimeout>;[\s\S]*type GuiRuntimeTimerState = {[\s\S]*handle: GuiRuntimeTimerHandle;[\s\S]*intervalMs: number;[\s\S]*repeating: boolean;[\s\S]*tick: number;/,
+    "Shell F5dx timer state must store handle, interval, repeating mode, and tick",
+);
+const f5dxApplyGuiRuntimeTimerRequest = textSliceBetween(webShell, "private applyGuiRuntimeTimerRequest", "\n    private queueGuiRuntimeTimerTick");
+assertOrderedFragments(
+    f5dxApplyGuiRuntimeTimerRequest,
+    [
+        "|| typeof request.repeating !== 'boolean'",
+        "const key = this.guiRuntimeTimerKey(request.windowId, request.timerId);",
+        "if (!this.guiRuntimeInputActive) {",
+        "this.clearGuiRuntimeTimer(key);",
+        "return GUI_TIMER_HOST_STATUS_UNSUPPORTED;",
+        "if (!this.guiRuntimeInputWindowIds.has(request.windowId)) {",
+        "this.clearGuiRuntimeTimer(key);",
+        "return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;",
+        "if (request.intervalMs === 0) {",
+        "this.clearGuiRuntimeTimer(key);",
+        "return GUI_TIMER_HOST_STATUS_OK;",
+        "const existing = this.guiRuntimeTimers.get(key);",
+        "existing && existing.intervalMs === request.intervalMs && existing.repeating === request.repeating",
+        "this.clearGuiRuntimeTimer(key);",
+        "const handle = request.repeating",
+        "? setInterval(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs)",
+        ": setTimeout(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs);",
+        "repeating: request.repeating,",
+    ],
+    "Shell F5dx applyGuiRuntimeTimerRequest must validate active window, preserve clear semantics, compare mode, and choose browser timer API by mode",
+);
+assertNoMatch(
+    f5dxApplyGuiRuntimeTimerRequest,
+    /if \(!request\.repeating\)[\s\S]*GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT/,
+    "Shell F5dx applyGuiRuntimeTimerRequest must not reject one-shot timer requests",
+);
+const f5dxQueueGuiRuntimeTimerTick = textSliceBetween(webShell, "private queueGuiRuntimeTimerTick", "\n    private clearGuiRuntimeTimer");
+assertOrderedFragments(
+    f5dxQueueGuiRuntimeTimerTick,
+    [
+        "const timer = this.guiRuntimeTimers.get(key);",
+        "if (!timer) {",
+        "if (!this.guiRuntimeInputActive || !this.guiRuntimeInputWindowIds.has(timer.windowId)) {",
+        "this.clearGuiRuntimeTimer(key);",
+        "const nextTick = timer.tick >= GUI_RUNTIME_TIMER_MAX_TICK ? 0 : timer.tick + 1;",
+        "const event: GuiWebInputEvent = {",
+        "tick: nextTick,",
+        "if (timer.repeating) {",
+        "timer.tick = nextTick;",
+        "} else {",
+        "this.clearGuiRuntimeTimer(key);",
+        "}",
+        "this.handleGuiInputEvent(event);",
+    ],
+    "Shell F5dx timer tick must validate active state, build timer event, clear one-shot, and then enqueue",
+);
+assert(
+    f5dxQueueGuiRuntimeTimerTick.lastIndexOf("this.clearGuiRuntimeTimer(key);") < f5dxQueueGuiRuntimeTimerTick.indexOf("this.handleGuiInputEvent(event);"),
+    "Shell F5dx one-shot timer must clear active timer entry before enqueueing the event",
+);
+const f5dxClearGuiRuntimeTimer = textSliceBetween(webShell, "private clearGuiRuntimeTimer", "\n    private clearGuiRuntimeTimers");
+assertOrderedFragments(
+    f5dxClearGuiRuntimeTimer,
+    [
+        "const timer = this.guiRuntimeTimers.get(key);",
+        "if (!timer) {",
+        "if (timer.repeating) {",
+        "clearInterval(timer.handle);",
+        "} else {",
+        "clearTimeout(timer.handle);",
+        "}",
+        "this.guiRuntimeTimers.delete(key);",
+    ],
+    "Shell F5dx clearGuiRuntimeTimer must clear interval or timeout according to stored timer mode",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

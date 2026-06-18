@@ -1297,6 +1297,43 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dx: Web formal one-shot timer request backend boundary
+
+目的:
+
+- F5dw が作る `TimerRequest` を Web platform backend の `nepl_gui_web.request_timer` で実際に受ける。
+- `platforms/gui/web/timer` は positive window id、positive timer id、non-negative interval だけを request shape として検査し、`repeating false` を invalid にしない。
+- Web Shell は repeating timer を `setInterval`、one-shot timer を `setTimeout` に接続する。
+- One-shot timer は `GuiEvent::Timer` を enqueue する前に active timer entry を clear する。
+- 既存 timer の idempotent reuse は interval と repeating mode の両方が一致する場合だけ許す。
+- `interval_ms == 0` は same window / timer id の clear request として扱う。
+
+実装:
+
+- `stdlib/platforms/gui/web/timer.nepl` の invalid 判定から `not repeating` rejection を除く。
+- `web/src/terminal/shell.ts` の `GuiRuntimeTimerState` に repeating mode を保持し、clear 時に `clearInterval` / `clearTimeout` を使い分ける。
+- `applyGuiRuntimeTimerRequest` は request mode を含めて existing timer を比較し、mode change では既存 timer を clear して再登録する。
+- `queueGuiRuntimeTimerTick` は one-shot の場合に event payload を構築してから active timer entry を clear し、その後で `handleGuiInputEvent` に渡す。
+- `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` の old one-shot-invalid contract を更新する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dx source policy を追加し、docs、NEPL wrapper validation、TS timer state、setTimeout / setInterval mapping、clear-before-enqueue ordering、forbidden fallback を検査する。
+- `note.n.md` と `todo.md` を更新する。
+
+非目標:
+
+- general scheduler loop、time-slice budget、virtual scheduler / real scheduler unification、native / bare / headless timer backend はこの phase では実装しない。
+- std / core / alloc へ DOM、Canvas、browser handle、stdout fallback、polling fallback を入れない。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+npm --prefix web run build:ts
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/platforms/gui/web/timer.nepl --no-tree -o tmp_platform_gui_web_timer_f5dx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/platforms/gui/web.nepl --no-tree -o tmp_platform_gui_web_facade_f5dx.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

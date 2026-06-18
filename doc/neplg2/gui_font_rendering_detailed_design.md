@@ -8246,6 +8246,14 @@ Invalid policy and invalid scheduled delay are owner-bearing interpret errors. T
 
 F5dw must not call F5du driver start, poll, complete, or pending operation helpers. It must not call `schedule_timer`, queue APIs, real scheduler backend APIs, platform APIs, DOM, Canvas, minifb, video memory, raw storage, DrawTarget, RenderTarget, fallback paths, silent no-op paths, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
 
+F5dx introduces the Web formal one-shot timer request backend boundary. It is the first actual Web platform consumer of the F5dw target-neutral `TimerRequest`, but it remains under `platforms/gui/web` and does not change the std/core/alloc contracts. `platforms/gui/web/timer` validates the request shape before crossing the scalar host import boundary: window id and timer id must be positive, interval must be non-negative, and `interval_ms == 0` is a clear request for the same window / timer pair.
+
+The Web Shell timer registry stores the browser timer handle together with window id, timer id, interval, repeating mode, and tick. Existing timer reuse is allowed only when both interval and repeating mode are equal; changing either mode clears the old handle first. `repeating true` maps to `setInterval`; `repeating false` maps to `setTimeout`. Clearing must dispatch to `clearInterval` or `clearTimeout` according to the stored mode instead of treating every handle as an interval.
+
+One-shot dispatch is clear-before-enqueue. The Shell reads the active timer state, validates that GUI input is still active and the window remains presented, computes the next tick, builds the `GuiEvent::Timer` payload, clears the active one-shot timer entry, and only then passes the event to the shared input queue. This ordering prevents a one-shot timer from firing twice if event handling synchronously causes another timer request or process shutdown. Repeating timers keep their state and update their tick before enqueue. Stale timers are cleared and do not enqueue events.
+
+F5dx does not implement the general scheduler loop, time-slice policy, virtual scheduler / real scheduler unification, native backend, bare backend, or headless backend. It also does not introduce stdout fallback, stdout protocol fallback, polling fallback, DOM / Canvas handles in NEPL stdlib, or silent no-op semantics. Unsupported host runtime remains a typed status translated to `GuiError::Unsupported`, and invalid values remain `GuiError::InvalidCommand`.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.

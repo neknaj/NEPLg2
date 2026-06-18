@@ -682,11 +682,11 @@ class WorkerWASI extends WASI {
             !isPositiveInteger(windowId)
             || !isPositiveInteger(timerId)
             || !isNonNegativeInteger(intervalMs)
-            || repeatingRaw !== 1
+            || (repeatingRaw !== 0 && repeatingRaw !== 1)
         ) {
             return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
         }
-        return this.requestGuiRuntimeTimer(windowId, timerId, intervalMs, true);
+        return this.requestGuiRuntimeTimer(windowId, timerId, intervalMs, repeatingRaw === 1);
     }
 
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {

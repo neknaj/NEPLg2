@@ -374,7 +374,7 @@ Negative status は Web platform module 内で `Result` と `GuiError` へ写す
 -6 StaleFrame
 ```
 
-`request_timer` は formal event loop の timer 登録 request である。`window_id` は既に `present_surface` に成功して Shell が active window として保持している window だけを受ける。未提示 window への timer request は `InvalidArgument` とし、別 window 作成、stdout `NEPLG2_GUI_ANIMATE_MS`、polling loop へ fallback しない。`interval_ms == 0` は同じ window / timer id の timer clear request である。初期 checkpoint では `repeating == 1` の repeating timer だけを受け、one-shot timer は `InvalidArgument` とする。one-shot timer、timeslice budget、virtual scheduler と real scheduler の統合は後続 slice で定義する。
+`request_timer` は formal event loop の timer 登録 request である。`window_id` は既に `present_surface` に成功して Shell が active window として保持している window だけを受ける。未提示 window への timer request は `InvalidArgument` とし、別 window 作成、stdout `NEPLG2_GUI_ANIMATE_MS`、polling loop へ fallback しない。`interval_ms == 0` は同じ window / timer id の timer clear request である。`repeating == 1` は repeating timer、`repeating == 0` は one-shot timer として受ける。Web host は repeating timer を `setInterval`、one-shot timer を `setTimeout` へ接続し、one-shot timer は `GuiEvent::Timer` を input queue へ入れる前に active timer entry を消す。timeslice budget、virtual scheduler と real scheduler の統合、native / bare / headless scheduler backend は後続 slice で定義する。
 
 `discard_write_slot` は未公開 write frame の `Writing -> Free` 状態遷移だけを行う。描画途中の error や application 側の中断で publish しない frame は、surface close ではなくこの import で明示的に破棄する。成功時は dirty metadata を消し、published epoch と presented epoch は進めない。frame が存在しない、既に publish / discard 済み、resize generation が古い場合は typed negative status を返し、stdout protocol や別 surface へ fallback しない。
 

@@ -1,3 +1,57 @@
+# 2026-06-18 Agent2 GUI font F5dx Web formal one-shot timer request backend boundary
+
+## scope
+
+- F5dw が作る `repeating false` の `TimerRequest` を Web platform backend で正式に受ける。
+- Worker の `nepl_gui_web.request_timer` scalar ABI は `repeatingRaw` 0 / 1 を受け、0 を one-shot、1 を repeating として Shell へ渡す。
+- Shell の timer registry は browser timer handle と repeating mode を保持し、one-shot は `setTimeout`、repeating は `setInterval` へ接続する。
+- one-shot timer は `GuiEvent::Timer` を input queue へ渡す前に active timer entry を clear する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、timer state が repeating mode を必ず保持すること、idempotent reuse が interval と mode の両方を見ること、one-shot は event enqueue 前に clear すること、clear が mode に応じて `clearTimeout` / `clearInterval` を使い分けることだった。
+- `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` の old one-shot-invalid contract も更新対象とするよう指摘された。
+- revised plan で上記をすべて source policy に入れる方針へ変更し、Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/platforms/gui/web/timer.nepl` の invalid 判定から `not repeating` rejection を除き、one-shot / repeating の両方を public contract にした。
+- `web/src/runtime/worker.ts` は `repeatingRaw` 0 / 1 を受け、`repeatingRaw === 1` の boolean mode を Shell へ渡すようにした。
+- `web/src/terminal/shell.ts` は timer state に `repeating` を保持し、existing timer reuse を interval + mode の一致に限定した。
+- Shell は repeating timer を `setInterval`、one-shot timer を `setTimeout` で登録し、clear 時は stored mode に応じて `clearInterval` / `clearTimeout` を使い分ける。
+- one-shot tick は event payload を作ってから active timer entry を clear し、その後で `handleGuiInputEvent` へ渡す。
+- GUI / font rendering specs、redesign docs、implementation plan、source policy regression、video memory host import regression を更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_video_memory_host_import.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `npm --prefix web run build:ts`。
+- pass: `node nodesrc/test_web_gui_shared_event_queue.js`。
+- pass: `node nodesrc/test_web_gui_video_memory_host_import.js`。
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`。
+- pass: `stdlib/platforms/gui/web/timer.nepl` doctest。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+- known: `stdlib/platforms/gui/web.nepl` direct input は runnable doctest が無い facade なので `nodesrc/tests/no-runnable-doctests` になる。実装検証は `platforms/gui/web/timer.nepl` と Web regression で行った。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は approved plan に沿っており、content blocker は無いと確認された。
+- `platforms/gui/web/timer.nepl` は `repeating false` を拒否せず、id / interval validation と `Result unit GuiError` mapping を維持している。
+- Worker は `repeatingRaw` 0 / 1 を受け、`repeatingRaw === 1` の mode を Shell へ渡している。
+- Shell は mode を保持し、interval + mode で idempotency 判定し、`setInterval` / `setTimeout` と `clearInterval` / `clearTimeout` を mode で分けている。
+- one-shot tick は event payload 作成後、enqueue 前に active timer entry を clear している。
+- stdout / polling fallback、std / core / alloc への DOM / Canvas / browser handle leakage、scheduler / native / headless / bare への scope creep は見当たらないと確認された。
+- 残 blocker はこの `subagent_review` が pending だったことだけだったため、この節を更新した。
+- Cicero final review は `REVIEW_APPROVED`。F5dx は merge-ready と確認された。
+
+## remaining
+
+- F5dx は Web backend の formal one-shot timer registration までであり、native / bare / headless timer backend、general scheduler loop、timeslice policy、virtual scheduler / real scheduler unification、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dw std host span operation presenter executor session turn timer request boundary
 
 ## scope
