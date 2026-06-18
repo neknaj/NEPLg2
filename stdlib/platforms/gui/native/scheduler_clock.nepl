@@ -1,0 +1,130 @@
+//: # platforms/gui/native/scheduler_clock
+//: Native backend clock one-tick helper
+//:
+//: ### [目的/もくてき]
+//: - native host の monotonic clock sample を F5eo backend clock boundary へ[渡/わた]し、real loop input 用の clock advance を[得/え]ます。
+//: - これは long-running scheduler backend ではなく、1 tick 分の clock input を[作/つく]る helper です。
+//:
+//: ### [契約/けいやく]
+//: - policy は F5eo `BackendClockPolicy` そのものであり、新しい scheduler policy を[保持/ほじ]しません。
+//: - start は `gui_native_backend_clock_sample` を 1 [回/かい]だけ[呼/よ]び、F5eo `backend_clock_start` へ[委譲/いじょう]します。
+//: - tick は `gui_native_backend_clock_sample` を 1 [回/かい]だけ[呼/よ]び、F5eo `backend_clock_advance` へ[委譲/いじょう]します。
+//: - `ClockDelta` は直接[合成/ごうせい]せず、F5eo の `BackendClockAdvance` を[返/かえ]します。
+//: - sample failure は policy、tick では state も error payload に[保持/ほじ]し、caller が[回収/かいしゅう]できるようにします。
+//: - timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/scheduler_clock" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "platforms/gui/native/clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+
+pub struct GuiNativeSchedulerClockStartSampleFailed:
+    policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy
+    error %GuiError
+
+pub struct GuiNativeSchedulerClockStartBackendClockFailed:
+    policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError
+
+pub struct GuiNativeSchedulerClockTickSampleFailed:
+    policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    error %GuiError
+
+pub struct GuiNativeSchedulerClockTickBackendClockFailed:
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError
+
+pub enum GuiNativeSchedulerClockError:
+    StartSampleFailed %GuiNativeSchedulerClockStartSampleFailed
+    StartBackendClockFailed %GuiNativeSchedulerClockStartBackendClockFailed
+    TickSampleFailed %GuiNativeSchedulerClockTickSampleFailed
+    TickBackendClockFailed %GuiNativeSchedulerClockTickBackendClockFailed
+
+fn gui_native_scheduler_clock_start_sample_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy fn GuiError GuiNativeSchedulerClockStartSampleFailed \policy\error:
+    GuiNativeSchedulerClockStartSampleFailed policy error
+
+fn gui_native_scheduler_clock_start_backend_clock_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError GuiNativeSchedulerClockStartBackendClockFailed \policy\lower:
+    GuiNativeSchedulerClockStartBackendClockFailed policy lower
+
+fn gui_native_scheduler_clock_tick_sample_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiError GuiNativeSchedulerClockTickSampleFailed \policy\state\error:
+    GuiNativeSchedulerClockTickSampleFailed policy state error
+
+fn gui_native_scheduler_clock_tick_backend_clock_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError GuiNativeSchedulerClockTickBackendClockFailed \lower:
+    GuiNativeSchedulerClockTickBackendClockFailed lower
+
+//: gui_native_scheduler_clock_start: native clock sample から backend clock state を[開始/かいし]する
+//:
+//: [契約/けいやく]:
+//: - sample source と F5eo start をそれぞれ 1 [回/かい]だけ[呼/よ]びます。
+//: - sample failure では policy を error payload に[保持/ほじ]します。
+pub fn gui_native_scheduler_clock_start %impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState GuiNativeSchedulerClockError \policy:
+    match gui_native_backend_clock_sample:
+        Result::Err error:
+            let payload %GuiNativeSchedulerClockStartSampleFailed gui_native_scheduler_clock_start_sample_failed_new policy error
+            Result::Err GuiNativeSchedulerClockError::StartSampleFailed payload
+        Result::Ok sample:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_start sample:
+                Result::Ok state:
+                    Result::Ok state
+                Result::Err lower:
+                    let payload %GuiNativeSchedulerClockStartBackendClockFailed gui_native_scheduler_clock_start_backend_clock_failed_new policy lower
+                    Result::Err GuiNativeSchedulerClockError::StartBackendClockFailed payload
+
+//: gui_native_scheduler_clock_tick: native clock sample を F5eo clock advance へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - `ClockDelta` は直接[作/つく]らず、F5eo `backend_clock_advance` の[結果/けっか]を[返/かえ]します。
+//: - sample failure では policy と state を error payload に[保持/ほじ]します。
+pub fn gui_native_scheduler_clock_tick %impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockAdvance GuiNativeSchedulerClockError \policy\state:
+    match gui_native_backend_clock_sample:
+        Result::Err error:
+            let payload %GuiNativeSchedulerClockTickSampleFailed gui_native_scheduler_clock_tick_sample_failed_new policy state error
+            Result::Err GuiNativeSchedulerClockError::TickSampleFailed payload
+        Result::Ok sample:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_advance policy state sample:
+                Result::Ok advance:
+                    Result::Ok advance
+                Result::Err lower:
+                    let payload %GuiNativeSchedulerClockTickBackendClockFailed gui_native_scheduler_clock_tick_backend_clock_failed_new lower
+                    Result::Err GuiNativeSchedulerClockError::TickBackendClockFailed payload
+
+pub fn gui_native_scheduler_clock_start_sample_failed_policy %fn GuiNativeSchedulerClockStartSampleFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy \failure:
+    field::get failure "policy"
+
+pub fn gui_native_scheduler_clock_start_sample_failed_error %fn &GuiNativeSchedulerClockStartSampleFailed GuiError \failure:
+    *field::get_ref failure "error"
+
+pub fn gui_native_scheduler_clock_start_backend_clock_failed_policy %fn GuiNativeSchedulerClockStartBackendClockFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy \failure:
+    field::get failure "policy"
+
+pub fn gui_native_scheduler_clock_start_backend_clock_failed_lower %fn GuiNativeSchedulerClockStartBackendClockFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError \failure:
+    field::get failure "lower"
+
+pub fn gui_native_scheduler_clock_tick_sample_failed_policy %fn GuiNativeSchedulerClockTickSampleFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy \failure:
+    field::get failure "policy"
+
+pub fn gui_native_scheduler_clock_tick_sample_failed_state %fn GuiNativeSchedulerClockTickSampleFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \failure:
+    field::get failure "state"
+
+pub fn gui_native_scheduler_clock_tick_sample_failed_error %fn &GuiNativeSchedulerClockTickSampleFailed GuiError \failure:
+    *field::get_ref failure "error"
+
+pub fn gui_native_scheduler_clock_tick_backend_clock_failed_lower %fn GuiNativeSchedulerClockTickBackendClockFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError \failure:
+    field::get failure "lower"

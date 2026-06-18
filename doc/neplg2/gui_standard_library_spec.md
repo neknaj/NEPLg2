@@ -51,6 +51,10 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 2026-06-18 の F5es では、Bare formal monotonic clock source backend boundary を追加する。`platforms/gui/bare/clock` は `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を embedding host が明示提供する monotonic millisecond sample、-1 を `Unsupported`、その他の負値を `BackendFailure` として扱う。Bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op を clock source として使わない。`nodesrc/run_test.js` の `nepl_gui_bare` 既定 import は doctest-only unsupported source であり hidden fallback や hidden mock ではない。native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
 
+## F5et Native and Bare scheduler clock one-tick helper boundary
+
+2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、platform clock source が返す sample を F5eo `BackendClockPolicy` / `BackendClockState` と組み合わせて 1 tick 分だけ処理する境界である。`start` は F5eo `backend_clock_start`、`tick` は F5eo `backend_clock_advance` を authority とし、`ClockDelta` を直接合成しない。成功時の tick は F5eo `BackendClockAdvance` を返す。sample failure は policy、tick では state も保持する typed error とし、unsupported や backend failure を fallback や silent no-op に変換しない。timer、sleep、queue、while loop、present、minifb、Canvas、video memory は扱わない。
+
 ## 層構造
 
 依存方向は次に固定する。

@@ -1,3 +1,42 @@
+# 2026-06-18 Agent2 GUI platform F5et Native/Bare scheduler clock one-tick helper boundary
+
+## 目的
+
+- F5er / F5es clock source の後続として、native / bare host sample を F5eo backend clock boundary へ 1 tick 分だけ接続する。
+- これは long-running scheduler backend ではなく、`BackendClockPolicy` / `BackendClockState` と platform sample を F5eo `backend_clock_start` / `backend_clock_advance` へ渡す helper である。
+- timer、sleep、queue、while loop、present、minifb / Canvas / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Chandrasekhar は `PLAN_CHANGES` として、方向性には blocker なしと判断した。
+- 指摘は、`scheduler_clock` が scheduler backend と誤解されないよう one-tick helper と明記すること、return shape を `BackendClockState` / `BackendClockAdvance` に固定すること、sample failure で policy / state を失わないことだった。
+- 指摘を implementation plan、doc comment、source policy、error payload 設計へ反映して実装した。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_clock.nepl` と `stdlib/platforms/gui/bare/scheduler_clock.nepl` を追加した。
+- start は platform clock sample を 1 回取得し、F5eo `backend_clock_start` へ委譲する。
+- tick は platform clock sample を 1 回取得し、F5eo `backend_clock_advance` へ委譲して `BackendClockAdvance` を返す。
+- start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持する。
+- F5eo lower error は再分類せず lower error として保持する。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、bare behavior note、todo を更新した。
+
+## subagent implementation review
+
+- Noether は `REVIEW_APPROVED` として blocker なしと判断した。
+- F5et は one-tick helper 境界に留まり、native / bare とも F5eo `BackendClockPolicy` / `BackendClockState` / `BackendClockAdvance` へ委譲していることが確認された。
+- `ClockDelta` の直接合成、timer / queue / sleep / loop / present / minifb / Canvas / DOM / video memory / fallback / silent no-op / Vec の導入がないことも確認された。
+- sample failure payload は start で policy、tick で policy / state / error を保持しており、docs / source policy / focused doctest と整合している。
+- 新規 `scheduler_clock.nepl` と focused doctest は未追跡なので、commit 時に明示的に stage する必要がある。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_clock.nepl` と `stdlib/platforms/gui/bare/scheduler_clock.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_clock.n.md` と `tests/stdlib/gui_platform_bare_scheduler_clock.n.md` は通過した。
+- 既存回帰として `tests/stdlib/gui_platform_native_clock.n.md`、`tests/stdlib/gui_platform_bare_clock.n.md`、F5eo backend clock の focused doctest と module doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
 # 2026-06-18 Agent2 GUI platform F5es Bare formal monotonic clock source backend boundary
 
 ## 目的
