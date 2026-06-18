@@ -1,0 +1,46 @@
+# GUI std row tile RLE present host span operation presenter executor session turn virtual scheduler loop doctests
+
+このファイルは、F5ef の std layer deterministic virtual scheduler loop boundary の public import surface を固定する。
+
+F5ef は actual loop を実装せず、F5ee slice result を real scheduler loop / headless app-loop が match できる loop-owned result へ詰め替える。F5ee slice の呼び出し回数、payload rewrap、禁止依存は `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` が source policy として検査する。ここでは actual scheduler loop、timer advance、executor completion、backend timer を再構築せず、doctest timeout を避けるため import smoke だけを実行する。
+
+source policy labels:
+
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_facade_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_policy_owns_f5ee_only_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_result_variants_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_one_slice_call_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_payload_rewrap_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_lower_only_slice_error_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_wildcard_ok
+- std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_timer_executor_backend_queue_fallback
+
+## import smoke
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"std tile present host span operation presenter executor session turn virtual scheduler loop import\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop" as *
+#import "std/test" as test
+
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_facade_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_policy_owns_f5ee_only_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_result_variants_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_one_slice_call_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_payload_rewrap_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_lower_only_slice_error_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_wildcard_ok
+// std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_no_timer_executor_backend_queue_fallback
+
+fn main %impure fn void i32 \void:
+    let report:
+        test::test_report_new "gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop"
+        |> test::test_report_push test::assert_eq_i32 "std tile present host span operation presenter executor session turn virtual scheduler loop import" 0 0
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
+```

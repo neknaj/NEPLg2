@@ -1574,6 +1574,47 @@ subagent review:
 - Hegel に F5ee 実装計画を渡し、policy revalidation、one drain / one transition、F5ec / F5ed payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback の観点で確認させる。
 - 実装後に、slice source policy、focused doctest label、facade export、docs の Phase F5ee 記述が一致していることを確認させる。
 
+## Phase F5ef: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop boundary
+
+目的:
+
+- F5ee `virtual_scheduler_slice` の result を、real scheduler loop / headless app-loop が match できる loop-owned result へ詰め替える。
+- F5ef は actual while loop ではなく、外側 scheduler authority が次に実行すべき `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` を 1 slice ぶん返す boundary とする。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl` を追加する。
+- policy は F5ee slice policy だけを保持する。
+- public `loop_step` は F5ee `virtual_scheduler_slice` を 1 回だけ呼ぶ。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` は `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- loop payload は F5ee payload struct を保持せず、state / pending / execute / completed と `remaining_count` を loop-owned payload として保持する。
+- `Yield` payload は `yield_delay_ms` も保持する。
+- failure は lower-only slice error として F5ee slice error だけを保持する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md` を追加し、facade、policy owns F5ee only、result variants、one slice call、payload rewrap、lower-only slice error、no wildcard、no timer / executor / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ef source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler while loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は提供しない。
+- F5ec drain、F5ed transition、F5eb step、F5ea helper を直接呼ばない。
+- F5ee `virtual_scheduler_slice` を複数回呼ばない。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_f5ef.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_module_f5ef.json -j 1
+```
+
+Subagent review:
+
+- Aquinas に F5ef 実装計画を渡し、implementation may start を確認した。
+- 実装後に、one F5ee slice call、F5ee payload 再公開禁止、lower direct call 禁止、non-Copy / non-Clone、no backend / no queue / no fallback が source policy と実装で揃っていることを確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:
