@@ -42,10 +42,13 @@ const virtualTimer = read("stdlib/std/gui/virtual_timer.nepl");
 const virtualTimerImpl = withoutComments(virtualTimer);
 const turnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl");
 const turnVirtualTimerImpl = withoutComments(turnVirtualTimer);
+const turnVirtualScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl");
+const turnVirtualSchedulerImpl = withoutComments(turnVirtualScheduler);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
 const guiStdTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
+const guiStdTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
 
 assertMatch(
     spec,
@@ -81,6 +84,11 @@ assertMatch(
     implementationPlan,
     /Phase 5\.3:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer\.n\.md/,
     "implementation plan must track the virtual timer turn bridge implementation slice",
+);
+assertMatch(
+    implementationPlan,
+    /Phase 5\.4:[\s\S]*tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler\.nepl[\s\S]*gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler\.n\.md/,
+    "implementation plan must track the virtual scheduler state boundary implementation slice",
 );
 
 assertMatch(
@@ -200,6 +208,36 @@ assertNoMatch(
     /\b(?:DOM|Canvas|KeyboardEvent|MouseEvent|PointerEvent|EventTarget|document\.|window\.|minifb|HWND|stdout|queue|SharedArrayBuffer|setTimeout|setInterval|video_memory|fallback|silent no-op)\b/i,
     "std/gui turn virtual timer bridge must not depend on platform APIs, queues, video memory, or hidden fallback",
 );
+assertMatch(
+    turnVirtualSchedulerImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState:[\s\S]*Turn\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTurn[\s\S]*WaitingTimer\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending[\s\S]*Execute\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute[\s\S]*Completed\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted/,
+    "std/gui turn virtual scheduler must expose phase-owned deterministic scheduler states",
+);
+assertMatch(
+    turnVirtualSchedulerImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTurn:[\s\S]*timer_state\s+%GuiVirtualTimerState[\s\S]*turn_state\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState/,
+    "std/gui turn virtual scheduler must keep dynamic timer state on Turn phase, not policy",
+);
+assertMatch(
+    turnVirtualSchedulerImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ContinueNow\s+turn_state:[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn\s+timer_state\s+turn_state/,
+    "std/gui turn virtual scheduler must map ContinueNow to pollable Turn phase",
+);
+assertMatch(
+    turnVirtualSchedulerImpl,
+    /GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ScheduleTimer\s+pending:[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule\s+pending\s+timer_state/,
+    "std/gui turn virtual scheduler must call F5dz schedule only for ScheduleTimer",
+);
+assertMatch(
+    turnVirtualSchedulerImpl,
+    /gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance\s+pending\s+delta_ms[\s\S]*gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_decide\s+policy\s+gui_virtual_timer_empty\s+decision/,
+    "std/gui turn virtual scheduler must advance F5dz once and re-enter decision with explicit empty one-shot timer state",
+);
+assertNoMatch(
+    turnVirtualSchedulerImpl,
+    /\b(?:while|loop|for|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui turn virtual scheduler must not loop, drain, call backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
 
 assertMatch(
     stdGuiFacade,
@@ -220,6 +258,11 @@ assertMatch(
     stdGuiFacade,
     /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer"\s+as\s+\*/,
     "std/gui facade must re-export the virtual timer turn bridge contract",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler state contract",
 );
 assertMatch(
     guiStdTests,
@@ -245,6 +288,11 @@ assertMatch(
     guiStdTurnVirtualTimerTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule_owner_recovery_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_no_loop_no_backend_no_queue_no_fallback/,
     "std/gui turn virtual timer focused doctest must cover owner recovery and no backend/queue/fallback policy",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_phase_state_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_ready_empty_timer_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_no_loop_no_backend_no_queue_no_fallback/,
+    "std/gui turn virtual scheduler focused doctest must cover phase-owned state, empty one-shot timer state, and no backend/queue/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");

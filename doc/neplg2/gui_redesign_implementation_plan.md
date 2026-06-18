@@ -385,6 +385,48 @@ Subagent review:
 - revised plan では advance-after virtual timer state と lower error を保持する設計に直し、Cicero revised plan review は `PLAN_APPROVED`。
 - 実装後に、指摘がすべて満たされていること、bridge が real scheduler や presentation fallback に進んでいないことを確認させる。
 
+## Phase 5.4: stdlib virtual scheduler state boundary
+
+目的:
+
+- F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic scheduler state として接続する。
+- actual scheduler loop、timeslice policy、event queue、platform timer backend を実装する前に、headless / offscreen test 用の phase-owned state を固定する。
+- `GuiVirtualTimerState` を static policy に入れず、各 phase payload の dynamic state として保持する。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState` は `Turn`、`WaitingTimer`、`Execute`、`Completed` を持つ。
+- `Turn`、`Execute`、`Completed` の payload は `GuiVirtualTimerState` を保持し、`WaitingTimer` は F5dz pending が timer state を保持する。
+- decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼び、`ContinueNow` を reusable decision ではなく `Turn` phase へ写す。
+- `ScheduleTimer` だけが F5dz schedule を呼ぶ。
+- timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼び、`Ready` decision では one-shot complete 済みとして `gui_virtual_timer_empty` を渡して decision boundary へ戻す。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` を追加し、phase-owned state、ContinueNow -> Turn、schedule owner recovery、ready empty timer、exact authority calls、no loop / backend / queue / fallback の source policy label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に source policy を追加する。
+
+完了条件:
+
+- F5ea は DOM、Canvas、minifb、OS timer、browser timer、stdout、event queue、video memory、platform API、fallback、silent no-op、loop drain、timeslice budget を含まない。
+- `GuiVirtualTimerState` が policy ではなく phase payload にある。
+- `ContinueNow` が `Turn` phase へ写り、`Ready` decision 後に `gui_virtual_timer_empty` が明示的に使われる。
+- focused doctest、offscreen/headless source policy、font rendering source policy、`git diff --check` が通る。
+- subagent implementation review で owner recovery、exact authority calls、no backend / queue / fallback が承認される。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+```
+
+Subagent review:
+
+- 初回 review では `PLAN_BLOCKED`。`GuiVirtualTimerState` を policy に入れる設計、`ContinueNow` を reusable decision に戻す no-progress state、`Ready` 後の timer state 消失が指摘された。
+- revised plan では dynamic state を phase payload に移し、`ContinueNow` を `Turn` phase、`Ready` 後を明示 `gui_virtual_timer_empty` として固定し、Cicero revised plan review は `PLAN_APPROVED`。
+- 実装後に、指摘がすべて満たされていること、real scheduler loop や presentation fallback に進んでいないことを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -472,10 +514,10 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 4.1 の `PresentSurfaceEffect -> GuiRuntimeCommand::PresentSurface` bridge は完了済みである。現在の再開 target は Phase 5.1 である。
+Phase 5.4 の deterministic virtual scheduler state boundary までを現在の checkpoint とする。次の再開 target は、F5ea state を使う real scheduler loop / timeslice contract / headless app-loop integration である。
 
-- `OffscreenPixel` は present command を受けて deterministic snapshot metadata を作れる必要がある。
-- `Headless` は screenshot / present の代替先ではなく、`GuiError::Unsupported` を返す必要がある。
-- virtual event replay は platform-specific string や raw DOM event ではなく、正規化済み `GuiEvent` を使う必要がある。
-- std layer は pixel bytes を直接読まず、backend-supplied pixel hash を data contract として受ける。
+- scheduler loop は F5ea の `Turn` / `WaitingTimer` / `Execute` / `Completed` phase を明示的に進める必要がある。
+- `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
+- timeslice policy は `Yield` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
+- headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。

@@ -1,3 +1,55 @@
+# 2026-06-18 Agent2 GUI font F5ea std deterministic virtual scheduler state boundary
+
+## scope
+
+- F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic scheduler state として接続する。
+- actual scheduler loop、timeslice policy、event queue、platform timer backend はまだ実装せず、headless / offscreen test 用の phase-owned state boundary を固定する。
+- `GuiVirtualTimerState` は static policy ではなく dynamic state として phase payload に保持する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。
+- 指摘は、`GuiVirtualTimerState` を policy に入れると dynamic scheduler state が落ちること、`ContinueNow` を reusable decision に戻すと no-progress state になること、F5dz `Ready` 成功後の timer state が暗黙に失われることだった。
+- revised plan では `Turn`、`WaitingTimer`、`Execute`、`Completed` の phase-owned state に変更し、`ContinueNow` は `Turn` phase、F5dz `Ready` 後は one-shot complete 済みとして `gui_virtual_timer_empty` を明示的に使う。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState` は `Turn`、`WaitingTimer`、`Execute`、`Completed` を持つ。
+- `Turn`、`Execute`、`Completed` payload は `GuiVirtualTimerState` を保持し、`WaitingTimer` は F5dz pending が timer state を保持する。
+- decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼び、`ContinueNow` を `Turn` phase、`ScheduleTimer` を F5dz schedule、`Execute` / `Completed` を明示 phase へ写す。
+- timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼び、`Ready` decision では `gui_virtual_timer_empty` を渡して decision boundary へ戻す。
+- `stdlib/std/gui.nepl` facade に F5ea virtual scheduler boundary を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` を追加し、phase state、ContinueNow -> Turn、schedule owner recovery、ready empty timer、exact authority calls、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ea source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ea focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: F5ea module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl`。
+- pass: F5dz regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- content implementation は承認されたが、source policy の non-Copy / non-Clone 検査が top-level enum だけで、owner-bearing payload struct を覆っていないことが指摘された。
+- 修正として `VirtualSchedulerTurn`、`VirtualSchedulerExecute`、`VirtualSchedulerCompleted`、`VirtualSchedulerInterpretFailed`、`VirtualSchedulerScheduleFailed`、`VirtualSchedulerTimerAdvanceFailed`、`VirtualSchedulerReadyDecisionFailed` も non-Copy / non-Clone policy に含めた。
+- procedural 指摘として、新規 F5ea module / focused doctest を stage し、`NUL` と古い `tmp_*` を commit へ含めないことが挙げられた。
+
+## remaining
+
+- F5ea は deterministic virtual scheduler state boundary までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dz std deterministic virtual timer turn bridge
 
 ## scope

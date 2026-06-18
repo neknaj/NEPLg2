@@ -1341,6 +1341,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5ea: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler state boundary
+
+目的:
+
+- F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic scheduler state として接続する。
+- actual scheduler loop、timeslice policy、event queue、platform timer backend を実装する前に、headless / offscreen test が扱う phase-owned state を固定する。
+- `GuiVirtualTimerState` を policy ではなく dynamic state として保持し、`ContinueNow` を no-progress decision reuse にしない。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState` を追加し、`Turn`、`WaitingTimer`、`Execute`、`Completed` を持たせる。
+- `Turn`、`Execute`、`Completed` の payload は current `GuiVirtualTimerState` を保持し、`WaitingTimer` は F5dz pending に保持させる。
+- decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼び、`ContinueNow` を `Turn`、`ScheduleTimer` を F5dz schedule、`Execute` と `Completed` を明示 phase へ写す。
+- timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼び、`Ready` decision では one-shot complete 済みとして `gui_virtual_timer_empty` を渡して decision boundary へ戻す。
+- interpret failure、schedule failure、timer advance failure、ready decision failure は lower error と recovery payload を持つ owner-bearing error にする。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` を追加し、phase state、ContinueNow -> Turn、schedule owner recovery、ready empty timer、exact authority calls、no loop / backend / queue / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ea source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+非目標:
+
+- general scheduler loop、loop drain、timeslice budget、real Web / native / bare timer backend、event queue、platform API、DOM、Canvas、minifb、video memory、DrawTarget、RenderTarget、fallback、silent no-op は実装しない。
+
+検証:
+
+```text
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_f5ea.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_module_f5ea.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer_f5ea_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_virtual_timer.n.md --no-tree -o tmp_gui_std_virtual_timer_f5ea_regression.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- 実装前 review では `PLAN_BLOCKED` として dynamic timer state を policy に入れる設計、`ContinueNow` を reusable decision に戻す no-progress state、`Ready` 後 timer state の暗黙消失が指摘された。
+- revised plan では dynamic state を phase payload に移し、`ContinueNow` を `Turn` phase、`Ready` 後を明示 `gui_virtual_timer_empty` として固定し、Cicero revised plan review は `PLAN_APPROVED`。
+- 実装後に、上記の指摘がすべて満たされていること、bridge が real scheduler loop や presentation fallback に進んでいないことを確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

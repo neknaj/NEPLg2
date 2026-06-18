@@ -186,6 +186,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer = read
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -281,6 +283,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests 
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -23097,6 +23100,92 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_exact_authority_calls_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_no_loop_no_backend_no_queue_no_fallback"),
     "F5dz std tile present host-span-operation-presenter-executor-session-turn-virtual-timer focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn virtual scheduler state boundary") &&
+            doc.includes("F5ea") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState") &&
+            doc.includes("ContinueNow") &&
+            doc.includes("gui_virtual_timer_empty"),
+        `F5ea ${name} must document deterministic virtual scheduler state and one-shot ready empty timer state`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *'), "std/gui facade must export F5ea tile present host span operation presenter executor session turn virtual scheduler boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTurn:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("timer_state %GuiVirtualTimerState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("turn_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("Turn %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTurn") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("WaitingTimer %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("Completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDecisionError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerAdvanceError:"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea must define phase-owned state and owner-bearing errors",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler(?:Turn|Execute|Completed|State|InterpretFailed|ScheduleFailed|DecisionError|TimerAdvanceFailed|ReadyDecisionFailed|AdvanceError)\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler(?:Turn|Execute|Completed|State|InterpretFailed|ScheduleFailed|DecisionError|TimerAdvanceFailed|ReadyDecisionFailed|AdvanceError)\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea owner-bearing state, payloads, and errors must be non-Copy and non-Clone",
+);
+const f5eaDecide = functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_decide");
+assertOrderedFragments(
+    f5eaDecide,
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_decision policy decision",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Execute pending:",
+        "VirtualSchedulerState::Execute execute",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ContinueNow turn_state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn timer_state turn_state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ScheduleTimer pending:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule pending timer_state",
+        "VirtualSchedulerState::WaitingTimer waiting",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Completed:",
+        "VirtualSchedulerState::Completed completed",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea decide must interpret once and map ContinueNow/ScheduleTimer/Completed explicitly",
+);
+assert((f5eaDecide.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_decision\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea decide must call F5dw interpret exactly once");
+assert((f5eaDecide.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea decide must call F5dz schedule exactly once");
+const f5eaAdvance = functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_advance_timer");
+assertOrderedFragments(
+    f5eaAdvance,
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance pending delta_ms",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance::Pending next_pending:",
+        "VirtualSchedulerState::WaitingTimer next_pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance::Ready decision:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_decide policy gui_virtual_timer_empty decision",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea advance must advance once and re-enter decision with empty one-shot timer state",
+);
+assert((f5eaAdvance.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance\b/g) || []).length === 1, "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea advance must call F5dz advance exactly once");
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl,
+    /\b(?:while|loop|for|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea must not loop, drain, call backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler F5ea implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_phase_state_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_continue_now_turn_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_schedule_owner_recovery_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_ready_empty_timer_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_exact_authority_calls_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_no_loop_no_backend_no_queue_no_fallback"),
+    "F5ea std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

@@ -229,6 +229,31 @@ F5dz の std layer row tile RLE present host span operation presenter executor s
 
 `gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance pending delta_ms` は `gui_virtual_timer_advance` を 1 回だけ呼ぶ。event がなければ next pending を返す。`GuiEvent::Timer` が出た場合だけ F5dw `turn_timer_complete` を 1 回だけ呼び、成功時は scheduler decision を返す。unexpected event は F5dw pending、advance-after virtual timer state、event を保持する owner-bearing error にする。timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。ここでは real scheduler loop、actual timer backend、queue、DOM、Canvas、minifb、video memory、presentation fallback、silent no-op、loop drain を持たない。
 
+Virtual scheduler state boundary:
+
+```text
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState:
+    Turn TurnPayload
+    WaitingTimer VirtualTimerPending
+    Execute ExecutePayload
+    Completed CompletedPayload
+
+TurnPayload:
+    timer_state GuiVirtualTimerState
+    turn_state TurnState
+
+ExecutePayload:
+    timer_state GuiVirtualTimerState
+    pending TurnDriverPending
+
+CompletedPayload:
+    timer_state GuiVirtualTimerState
+```
+
+F5ea の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler state boundary は、F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic state として接続する。`GuiVirtualTimerState` は policy ではなく dynamic state なので、`Turn`、`Execute`、`Completed` の payload または F5dz `WaitingTimer` pending に保持する。`ContinueNow` は reusable decision に戻すと no-progress state になり得るため、次に driver poll できる `Turn` phase として保持する。
+
+Decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼ぶ。`ScheduleTimer` だけが F5dz schedule を呼び、success は `WaitingTimer` になる。Timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼ぶ。`Ready` decision が返った場合、F5dw request は one-shot で F5dy / F5dz は completion 前に virtual timer を clear しているため、F5ea は `gui_virtual_timer_empty` を明示的な next dynamic state として decision boundary へ戻す。F5ea は loop drain、timeslice budget、actual backend timer、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。
