@@ -119,6 +119,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub struct NativeRgbColor/);
     assert.match(libSource, /pub struct NativeRgb0PresentBuffer\s*\{[\s\S]*width: i32,[\s\S]*height: i32,[\s\S]*pixels: Vec<u32>/);
     assert.match(libSource, /pub struct NativeRgb0PresenterSink\s*\{[\s\S]*frame_buffer: NativeRgba8888FrameBuffer,[\s\S]*background: NativeRgbColor,[\s\S]*last_present_buffer: Option<NativeRgb0PresentBuffer>,[\s\S]*last_presented_frame_id: Option<i32>/);
+    assert.match(libSource, /pub enum NativeWindowPresenterSurfaceState\s*\{[\s\S]*Drawable\s*\{\s*width: usize,\s*height: usize\s*\},[\s\S]*Unavailable/);
+    assert.match(libSource, /pub enum NativeWindowPresenterError\s*\{[\s\S]*InvalidSurfaceDimensions,[\s\S]*FrameMissing,[\s\S]*FrameIdMissing,[\s\S]*PresenterFrameValidationFailed\(NativePresenterFrameError\),[\s\S]*ResourceExhausted,[\s\S]*DimensionOverflow/);
+    assert.match(libSource, /pub struct NativeWindowPresenterState\s*\{[\s\S]*surface_state: NativeWindowPresenterSurfaceState,[\s\S]*last_frame_id: Option<i32>,[\s\S]*last_frame_width: usize,[\s\S]*last_frame_height: usize,[\s\S]*last_pixels: Vec<u32>/);
     assert.match(libSource, /pub const NATIVE_RGB0_HIGH_BYTE_MASK: u32 = 0xff000000;/);
     assert.match(libSource, /pub enum NativePresenterFrameError/);
     assert.match(libSource, /pub struct NativePresenterFrame<'a>\s*\{[\s\S]*width: usize,[\s\S]*height: usize,[\s\S]*pixels: &'a \[u32\]/);
@@ -139,6 +142,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeSpanOperationHelper, /self\.active_sequence = None;[\s\S]*Ok\(present_buffer\)/);
     assert.match(nativeSpanOperationHelper, /last_present_frame/);
     assert.match(nativeSpanOperationHelper, /last_presented_frame_id/);
+    assert.match(nativeSpanOperationHelper, /fn native_presenter_frame_from_rgb0_parts/);
+    assert.match(nativeSpanOperationHelper, /pub fn present_sink_frame/);
+    assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameMissing\)/);
+    assert.match(nativeSpanOperationHelper, /ok_or\(NativeWindowPresenterError::FrameIdMissing\)/);
+    assert.match(nativeSpanOperationHelper, /try_reserve_exact\(pixel_count\)[\s\S]*self\.last_pixels = next_pixels/);
+    assert.match(nativeSpanOperationHelper, /NativeWindowPresenterSurfaceState::Unavailable/);
     assert.match(nativeSpanOperationHelper, /let source_r = \(\(rgba8888 >> 24\) & 0xff\) as u8/);
     assert.match(nativeSpanOperationHelper, /u32::from\(source\) \* alpha \+ u32::from\(background\) \* inverse_alpha \+ 127/);
     assert.match(libSource, /native_span_operation_records_valid_begin_run_end/);
@@ -164,6 +173,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_rgb0_presenter_sink_keeps_previous_frame_on_invalid_sequence/);
     assert.match(libSource, /native_rgb0_presenter_private_helper_keeps_active_on_conversion_failure/);
     assert.match(libSource, /native_span_framebuffer_end_semantics_still_close_sequence/);
+    assert.match(libSource, /native_window_presenter_state_requires_positive_initial_surface/);
+    assert.match(libSource, /native_window_presenter_state_presents_sink_frame_after_complete_sequence/);
+    assert.match(libSource, /native_window_presenter_state_rejects_missing_completed_frame/);
+    assert.match(libSource, /native_window_presenter_state_rejects_missing_frame_id/);
+    assert.match(libSource, /native_window_presenter_state_tracks_resize_without_stretching_last_frame/);
+    assert.match(libSource, /native_window_presenter_state_failed_present_keeps_previous_frame/);
     assert.doesNotMatch(nativeSpanOperationHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|setTimeout|setInterval|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|from_raw_parts|transmute|to_ne_bytes|to_le_bytes|to_be_bytes|as_bytes|bytemuck/i);
     assert.doesNotMatch(mainSource, /NativeRgba8888FrameBuffer|NativeSpanFramebuffer|native_rgba8888_to_rgb0_over_background/);
 
@@ -199,6 +214,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /Native RGB0 presenter sink checkpoint/);
     assert.match(platformDoc, /last completed/);
     assert.match(platformDoc, /conversion succeeds/);
+    assert.match(platformDoc, /Native window presenter state checkpoint/);
+    assert.match(platformDoc, /NativeWindowPresenterSurfaceState::Unavailable/);
+    assert.match(platformDoc, /does not stretch/);
+    assert.match(platformDoc, /previous frame/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -229,6 +248,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native RGB0 present buffer conversion uses explicit background alpha composition",
             "Native presenter frame adapter validates RGB0 pixels before minifb update",
             "Native RGB0 presenter sink converts complete span sequences into typed frames",
+            "Native window presenter state keeps resize and frame ownership explicit",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

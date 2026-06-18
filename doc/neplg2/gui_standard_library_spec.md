@@ -103,6 +103,14 @@ smoke runner の既存 demo rasterizer から来る pixels は `NativeRgb0Presen
 
 Begin / RunSpan は F5ez と同じ検査を使う。End は descriptor equality と exact `seen_run_count` を満たした後、RGB0 conversion を先に行い、conversion succeeds の後だけ active sequence を閉じて last completed buffer / frame id を更新する。conversion failure、descriptor mismatch、run count mismatch、invalid run は previous completed frame を置き換えない。F5fc は window update call、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
 
+## F5fd Native window presenter state checkpoint
+
+2026-06-18 の F5fd では、F5fc の completed typed presenter frame と frame id を native window presenter state にコピー保持する lib-only boundary を追加する。`NativeWindowPresenterState` は surface state、last presented frame id、last frame dimensions、RGB0 pixels を private field として所有し、read-only accessor だけを公開する。
+
+`resize_surface` は positive drawable size を `NativeWindowPresenterSurfaceState::Drawable`、zero width / height を `NativeWindowPresenterSurfaceState::Unavailable` として明示的に記録する。resize は previous frame を stretch / crop せず、次の present が成功するまで last frame をそのまま保持する。`present_sink_frame` は completed frame と completed frame id の両方を要求し、missing frame、missing frame id、validation failure、resource exhaustion、dimension overflow を distinct `NativeWindowPresenterError` として返す。state replacement は temporary buffer の validation と reservation 成功後だけ行う。
+
+F5fd は minifb / OS window API、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+
 ## 層構造
 
 依存方向は次に固定する。

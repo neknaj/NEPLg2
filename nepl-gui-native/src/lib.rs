@@ -766,6 +766,31 @@ pub struct NativeRgb0PresenterSink {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPresenterSurfaceState {
+    Drawable { width: usize, height: usize },
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPresenterError {
+    InvalidSurfaceDimensions,
+    FrameMissing,
+    FrameIdMissing,
+    PresenterFrameValidationFailed(NativePresenterFrameError),
+    ResourceExhausted,
+    DimensionOverflow,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowPresenterState {
+    surface_state: NativeWindowPresenterSurfaceState,
+    last_frame_id: Option<i32>,
+    last_frame_width: usize,
+    last_frame_height: usize,
+    last_pixels: Vec<u32>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativePresenterFrameError {
     InvalidDimensions,
     DimensionOverflow,
@@ -885,6 +910,107 @@ impl NativeRgb0PresenterSink {
     }
 }
 
+impl NativeWindowPresenterState {
+    pub fn new(
+        surface_width: usize,
+        surface_height: usize,
+    ) -> Result<Self, NativeWindowPresenterError> {
+        if surface_width == 0 || surface_height == 0 {
+            return Err(NativeWindowPresenterError::InvalidSurfaceDimensions);
+        }
+        Ok(Self {
+            surface_state: NativeWindowPresenterSurfaceState::Drawable {
+                width: surface_width,
+                height: surface_height,
+            },
+            last_frame_id: None,
+            last_frame_width: 0,
+            last_frame_height: 0,
+            last_pixels: Vec::new(),
+        })
+    }
+
+    pub fn surface_state(&self) -> NativeWindowPresenterSurfaceState {
+        self.surface_state
+    }
+
+    pub fn resize_surface(
+        &mut self,
+        surface_width: usize,
+        surface_height: usize,
+    ) -> Result<(), NativeWindowPresenterError> {
+        self.surface_state = if surface_width == 0 || surface_height == 0 {
+            NativeWindowPresenterSurfaceState::Unavailable
+        } else {
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: surface_width,
+                height: surface_height,
+            }
+        };
+        Ok(())
+    }
+
+    pub fn last_frame_id(&self) -> Option<i32> {
+        self.last_frame_id
+    }
+
+    pub fn last_frame_size(&self) -> Option<(usize, usize)> {
+        self.last_frame_id
+            .map(|_| (self.last_frame_width, self.last_frame_height))
+    }
+
+    pub fn last_present_frame(
+        &self,
+    ) -> Result<Option<NativePresenterFrame<'_>>, NativeWindowPresenterError> {
+        if self.last_frame_id.is_none() {
+            return Ok(None);
+        }
+        native_presenter_frame_from_rgb0_parts(
+            self.last_frame_width,
+            self.last_frame_height,
+            &self.last_pixels,
+        )
+        .map(Some)
+        .map_err(NativeWindowPresenterError::PresenterFrameValidationFailed)
+    }
+
+    pub fn present_sink_frame(
+        &mut self,
+        sink: &NativeRgb0PresenterSink,
+    ) -> Result<NativePresenterFrame<'_>, NativeWindowPresenterError> {
+        let source_frame = sink
+            .last_present_frame()
+            .map_err(NativeWindowPresenterError::PresenterFrameValidationFailed)?
+            .ok_or(NativeWindowPresenterError::FrameMissing)?;
+        let frame_id = sink
+            .last_presented_frame_id()
+            .ok_or(NativeWindowPresenterError::FrameIdMissing)?;
+        let pixel_count = source_frame
+            .width()
+            .checked_mul(source_frame.height())
+            .ok_or(NativeWindowPresenterError::DimensionOverflow)?;
+        if pixel_count != source_frame.pixels().len() {
+            return Err(NativeWindowPresenterError::PresenterFrameValidationFailed(
+                NativePresenterFrameError::PixelCountMismatch,
+            ));
+        }
+
+        let mut next_pixels = Vec::new();
+        next_pixels
+            .try_reserve_exact(pixel_count)
+            .map_err(|_| NativeWindowPresenterError::ResourceExhausted)?;
+        next_pixels.extend_from_slice(source_frame.pixels());
+
+        self.last_pixels = next_pixels;
+        self.last_frame_width = source_frame.width();
+        self.last_frame_height = source_frame.height();
+        self.last_frame_id = Some(frame_id);
+
+        self.last_present_frame()?
+            .ok_or(NativeWindowPresenterError::FrameMissing)
+    }
+}
+
 impl NativeSpanOperationSink for NativeRgb0PresenterSink {
     fn execute_span_operation(&mut self, operation: NativeSpanOperation) -> i32 {
         let result = match operation {
@@ -924,24 +1050,7 @@ impl<'a> NativePresenterFrame<'a> {
             .map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
         let height = usize::try_from(buffer.height)
             .map_err(|_| NativePresenterFrameError::DimensionOverflow)?;
-        let pixel_count = width
-            .checked_mul(height)
-            .ok_or(NativePresenterFrameError::DimensionOverflow)?;
-        if buffer.pixels.len() != pixel_count {
-            return Err(NativePresenterFrameError::PixelCountMismatch);
-        }
-        if buffer
-            .pixels
-            .iter()
-            .any(|pixel| pixel & NATIVE_RGB0_HIGH_BYTE_MASK != 0)
-        {
-            return Err(NativePresenterFrameError::PixelFormatMismatch);
-        }
-        Ok(Self {
-            width,
-            height,
-            pixels: &buffer.pixels,
-        })
+        native_presenter_frame_from_rgb0_parts(width, height, &buffer.pixels)
     }
 
     pub fn width(&self) -> usize {
@@ -955,6 +1064,33 @@ impl<'a> NativePresenterFrame<'a> {
     pub fn pixels(&self) -> &'a [u32] {
         self.pixels
     }
+}
+
+fn native_presenter_frame_from_rgb0_parts(
+    width: usize,
+    height: usize,
+    pixels: &[u32],
+) -> Result<NativePresenterFrame<'_>, NativePresenterFrameError> {
+    if width == 0 || height == 0 {
+        return Err(NativePresenterFrameError::InvalidDimensions);
+    }
+    let pixel_count = width
+        .checked_mul(height)
+        .ok_or(NativePresenterFrameError::DimensionOverflow)?;
+    if pixels.len() != pixel_count {
+        return Err(NativePresenterFrameError::PixelCountMismatch);
+    }
+    if pixels
+        .iter()
+        .any(|pixel| pixel & NATIVE_RGB0_HIGH_BYTE_MASK != 0)
+    {
+        return Err(NativePresenterFrameError::PixelFormatMismatch);
+    }
+    Ok(NativePresenterFrame {
+        width,
+        height,
+        pixels,
+    })
 }
 
 fn native_rgb0_present_buffer_from_rgba8888_parts(
@@ -1115,7 +1251,6 @@ pub fn native_aspect_ratio_placement(
         height,
     })
 }
-
 pub fn map_native_window_point_to_image(
     window_width: usize,
     window_height: usize,
@@ -2388,6 +2523,189 @@ mod tests {
                 descriptor,
                 seen_run_count: 0,
             }
+        );
+    }
+
+    fn native_complete_rgb0_presenter_sink(frame_id: i32, red: u8) -> NativeRgb0PresenterSink {
+        let mut descriptor = native_framebuffer_descriptor(1);
+        descriptor.frame_id = frame_id;
+        descriptor.packet_frame_id = frame_id;
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut sink = NativeRgb0PresenterSink::new(4, 3, background).unwrap();
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::RunSpan(native_framebuffer_run(
+                0, 0, 1, red,
+            ))),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        sink
+    }
+
+    #[test]
+    fn native_window_presenter_state_requires_positive_initial_surface() {
+        assert_eq!(
+            NativeWindowPresenterState::new(0, 1).unwrap_err(),
+            NativeWindowPresenterError::InvalidSurfaceDimensions
+        );
+        assert_eq!(
+            NativeWindowPresenterState::new(1, 0).unwrap_err(),
+            NativeWindowPresenterError::InvalidSurfaceDimensions
+        );
+
+        let state = NativeWindowPresenterState::new(640, 480).unwrap();
+        assert_eq!(
+            state.surface_state(),
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 640,
+                height: 480,
+            }
+        );
+        assert_eq!(state.last_frame_id(), None);
+        assert_eq!(state.last_frame_size(), None);
+        assert_eq!(state.last_present_frame().unwrap(), None);
+    }
+
+    #[test]
+    fn native_window_presenter_state_presents_sink_frame_after_complete_sequence() {
+        let sink = native_complete_rgb0_presenter_sink(21, 200);
+        let mut state = NativeWindowPresenterState::new(640, 480).unwrap();
+
+        let (frame_width, frame_height, first_pixel) = {
+            let frame = state.present_sink_frame(&sink).unwrap();
+            (frame.width(), frame.height(), frame.pixels()[0])
+        };
+
+        assert_eq!(frame_width, 4);
+        assert_eq!(frame_height, 3);
+        assert_eq!(first_pixel, 0x00c8141e);
+        assert_eq!(state.last_frame_id(), Some(21));
+        assert_eq!(state.last_frame_size(), Some((4, 3)));
+    }
+
+    #[test]
+    fn native_window_presenter_state_rejects_missing_completed_frame() {
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let sink = NativeRgb0PresenterSink::new(4, 3, background).unwrap();
+        let mut state = NativeWindowPresenterState::new(640, 480).unwrap();
+
+        assert_eq!(
+            state.present_sink_frame(&sink).unwrap_err(),
+            NativeWindowPresenterError::FrameMissing
+        );
+        assert_eq!(state.last_frame_id(), None);
+        assert_eq!(state.last_frame_size(), None);
+    }
+
+    #[test]
+    fn native_window_presenter_state_rejects_missing_frame_id() {
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let sink = NativeRgb0PresenterSink {
+            frame_buffer: NativeRgba8888FrameBuffer::new(1, 1).unwrap(),
+            background,
+            last_present_buffer: Some(NativeRgb0PresentBuffer {
+                width: 1,
+                height: 1,
+                pixels: vec![native_pack_rgb0_pixel(1, 2, 3)],
+            }),
+            last_presented_frame_id: None,
+        };
+        let mut state = NativeWindowPresenterState::new(640, 480).unwrap();
+
+        assert_eq!(
+            state.present_sink_frame(&sink).unwrap_err(),
+            NativeWindowPresenterError::FrameIdMissing
+        );
+        assert_eq!(state.last_frame_id(), None);
+        assert_eq!(state.last_frame_size(), None);
+    }
+
+    #[test]
+    fn native_window_presenter_state_tracks_resize_without_stretching_last_frame() {
+        let sink = native_complete_rgb0_presenter_sink(31, 90);
+        let mut state = NativeWindowPresenterState::new(640, 480).unwrap();
+        state.present_sink_frame(&sink).unwrap();
+        let previous_id = state.last_frame_id();
+        let previous_size = state.last_frame_size();
+        let previous_pixels = state
+            .last_present_frame()
+            .unwrap()
+            .unwrap()
+            .pixels()
+            .to_vec();
+
+        state.resize_surface(800, 600).unwrap();
+        assert_eq!(
+            state.surface_state(),
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 800,
+                height: 600,
+            }
+        );
+        assert_eq!(state.last_frame_id(), previous_id);
+        assert_eq!(state.last_frame_size(), previous_size);
+        assert_eq!(
+            state.last_present_frame().unwrap().unwrap().pixels(),
+            previous_pixels.as_slice()
+        );
+
+        state.resize_surface(0, 600).unwrap();
+        assert_eq!(
+            state.surface_state(),
+            NativeWindowPresenterSurfaceState::Unavailable
+        );
+        assert_eq!(state.last_frame_id(), previous_id);
+        assert_eq!(state.last_frame_size(), previous_size);
+        assert_eq!(
+            state.last_present_frame().unwrap().unwrap().pixels(),
+            previous_pixels.as_slice()
+        );
+    }
+
+    #[test]
+    fn native_window_presenter_state_failed_present_keeps_previous_frame() {
+        let valid_sink = native_complete_rgb0_presenter_sink(41, 20);
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut state = NativeWindowPresenterState::new(640, 480).unwrap();
+        state.present_sink_frame(&valid_sink).unwrap();
+        let previous_id = state.last_frame_id();
+        let previous_size = state.last_frame_size();
+        let previous_pixels = state
+            .last_present_frame()
+            .unwrap()
+            .unwrap()
+            .pixels()
+            .to_vec();
+
+        let malformed_sink = NativeRgb0PresenterSink {
+            frame_buffer: NativeRgba8888FrameBuffer::new(4, 3).unwrap(),
+            background,
+            last_present_buffer: Some(NativeRgb0PresentBuffer {
+                width: 4,
+                height: 3,
+                pixels: vec![NATIVE_RGBA8888_PIXEL_TRANSPARENT; 11],
+            }),
+            last_presented_frame_id: Some(42),
+        };
+
+        assert_eq!(
+            state.present_sink_frame(&malformed_sink).unwrap_err(),
+            NativeWindowPresenterError::PresenterFrameValidationFailed(
+                NativePresenterFrameError::PixelCountMismatch
+            )
+        );
+        assert_eq!(state.last_frame_id(), previous_id);
+        assert_eq!(state.last_frame_size(), previous_size);
+        assert_eq!(
+            state.last_present_frame().unwrap().unwrap().pixels(),
+            previous_pixels.as_slice()
         );
     }
 

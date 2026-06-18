@@ -123,6 +123,14 @@ F5fc では formal span operation path から completed `NativeRgb0PresentBuffer
 
 existing `NativeRgba8888FrameBuffer` の End はこれまで通り sequence を閉じるだけであり、present buffer を作らない。`NativeRgb0PresenterSink::last_present_frame` は last completed buffer を immutable typed presenter frame として借用するだけで、mutable pixels、native endian byte view、OS handle は公開しない。
 
+## Native window presenter state checkpoint
+
+F5fd では completed RGB0 presenter frame を native window presenter state に保持する lib-only boundary を追加する。この checkpoint は minifb / OS window API に接続せず、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+
+`NativeWindowPresenterState` は `NativeWindowPresenterSurfaceState` と last presented frame id / dimensions / RGB0 pixels を private に所有する。`resize_surface` は positive size を `Drawable`、zero dimension を `NativeWindowPresenterSurfaceState::Unavailable` として記録する。resize does not stretch or crop last frame pixels; application / layout が新しい frame を present するまで previous frame を保持する。
+
+`present_sink_frame` は `NativeRgb0PresenterSink` から completed typed frame と completed frame id の両方を要求する。frame missing、frame id missing、presenter frame validation failure、resource exhausted、dimension overflow は `NativeWindowPresenterError` の distinct variant で返す。replacement は temporary buffer の validation と reservation が成功した後だけ行うため、failure は previous frame、dimensions、frame id を保持する。
+
 ## 参考
 
 - Apple Developer Documentation: `NSApplication.run` https://developer.apple.com/documentation/appkit/nsapplication/run

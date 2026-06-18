@@ -69733,3 +69733,44 @@ MERGE_APPROVED
 ### residual
 
 - F5fc は native RGB0 presenter sink boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fd window presenter state
+
+### scope
+
+- F5fd は F5fc の completed RGB0 presenter frame と frame id を native window presenter state にコピー保持する lib-only boundary である。
+- この slice は surface resize state と last frame ownership を分離するだけで、minifb / OS window API、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- resize は previous frame を stretch / crop せず、surface drawable state だけを更新する。application / layout は resize event に応じて新しい pixel buffer を生成し、その present 成功時に state が置き換わる。
+
+### plan_review
+
+- Popper the 2nd の初回 plan review は `PLAN_BLOCKED`。`last_present_frame` の raw frame validation error を `NativeWindowPresenterError` に写すこと、completed frame と completed frame id の両方を要求すること、state replacement を validation / reservation 成功後だけにすること、zero-size surface を stale keep ではなく明示 state にすること、lib boundary の scope を source policy で固定することが指摘された。
+- 改訂 plan では `NativeWindowPresenterSurfaceState::Unavailable`、`FrameMissing` / `FrameIdMissing` / `PresenterFrameValidationFailed` / `ResourceExhausted` / `DimensionOverflow` の分離、temporary buffer 成功後 replacement、resize が frame を stretch / crop しない contract、private fields と read-only accessor、source policy regression を追加した。
+- Popper the 2nd の改訂 plan review は `PLAN_APPROVED`。zero-size surface を unavailable として記録する方針、completed frame と frame id の fail-closed requirement、previous frame preservation test、minifb-independent lib boundary が確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowPresenterSurfaceState`、`NativeWindowPresenterError`、`NativeWindowPresenterState` を追加した。state は surface state、last frame id、last frame dimensions、RGB0 pixels を private field として所有し、read-only accessor だけを公開する。
+- `NativeWindowPresenterState::new` は positive initial surface だけを受け入れ、`resize_surface` は positive size を `Drawable`、zero width / height を `Unavailable` として記録する。
+- `present_sink_frame` は `NativeRgb0PresenterSink` から completed typed frame と completed frame id の両方を要求し、missing / validation / resource / overflow を enum error として返す。replacement は `try_reserve_exact` と pixel copy が成功した後だけ行う。
+- `NativePresenterFrame::from_rgb0_present_buffer` の validation を private helper に集約し、state-held pixels の再検査でも同じ invariant を使うようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Popper the 2nd implementation review は `APPROVED`。lib-only boundary が守られ、minifb / platform detail が `lib.rs` に漏れていないこと、explicit surface / frame / error state を使っていること、failed present が previous frame state を保持することが確認された。
+- Popper the 2nd は `cargo test -p nepl-gui-native native_window_presenter_state` と `node nodesrc/test_native_gui_platform_behavior.js` を再実行し、どちらも pass した。
+
+### residual
+
+- F5fd は native window presenter state boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
