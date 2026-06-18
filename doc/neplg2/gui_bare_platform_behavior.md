@@ -22,3 +22,5 @@ Bare backend は次を守る。
 F5es では Bare formal monotonic clock source backend boundary として、`platforms/gui/bare/clock` を追加する。これは bare 環境の clock を stdlib が生成する実装ではなく、embedding host が明示提供する import ABI の contract である。
 
 `nodesrc/run_test.js` の `nepl_gui_bare.monotonic_clock_ms` は doctest-only unsupported source であり、hidden fallback や hidden mock ではない。既定で -1 を返すことで、host が clock を提供しない場合に `Unsupported` が返ることを検査する。bare scheduler backend、bare timer backend、display present、long-running real backend loop は後続 slice で実装する。
+
+F5et の bare scheduler clock は long-running scheduler backend ではなく、bare host の clock sample を F5eo `BackendClockPolicy` / `BackendClockState` へ 1 tick 分だけ接続する helper である。host が `nepl_gui_bare.monotonic_clock_ms` を提供しない場合、start / tick は fallback source を探さず `Unsupported` を保持する typed error を返す。tick sample failure は policy と state を保持し、caller が次の判断を失わないようにする。

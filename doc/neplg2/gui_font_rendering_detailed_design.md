@@ -34,6 +34,10 @@
 
 2026-06-18 の F5es では、Bare formal monotonic clock source backend boundary を追加する。`platforms/gui/bare/clock` は `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を embedding host が明示提供する monotonic millisecond sample、-1 を `Unsupported`、その他の負値を `BackendFailure` として扱う。Bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op を clock source として使わない。`nodesrc/run_test.js` の `nepl_gui_bare` 既定 import は doctest-only unsupported source であり hidden fallback や hidden mock ではない。native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
 
+## F5et Native and Bare scheduler clock one-tick helper boundary
+
+2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、platform clock source と F5eo `BackendClockPolicy` / `BackendClockState` の接続だけを担当する。`start` は platform sample を 1 回取得して F5eo `backend_clock_start` へ渡し、`tick` は platform sample を 1 回取得して F5eo `backend_clock_advance` へ渡す。policy は F5eo `BackendClockPolicy` そのものであり、新しい scheduler policy、timer policy、loop policy は持たない。tick は `ClockDelta` を直接合成せず、F5eo `BackendClockAdvance` を返す。start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持し、F5eo lower error は再分類せず lower error として保持する。timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op は使わない。
+
 ## 責務分離
 
 Font rendering は `core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/*` で責務を分ける。

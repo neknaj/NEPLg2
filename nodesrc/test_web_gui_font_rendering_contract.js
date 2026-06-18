@@ -243,9 +243,13 @@ const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
 const platformGuiNativeFacade = read("stdlib/platforms/gui/native.nepl");
 const platformGuiNativeClock = read("stdlib/platforms/gui/native/clock.nepl");
 const platformGuiNativeClockImpl = withoutComments(platformGuiNativeClock);
+const platformGuiNativeSchedulerClock = read("stdlib/platforms/gui/native/scheduler_clock.nepl");
+const platformGuiNativeSchedulerClockImpl = withoutComments(platformGuiNativeSchedulerClock);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
+const platformGuiBareSchedulerClock = read("stdlib/platforms/gui/bare/scheduler_clock.nepl");
+const platformGuiBareSchedulerClockImpl = withoutComments(platformGuiBareSchedulerClock);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -345,6 +349,8 @@ const guiPlatformWebClockTests = read("tests/stdlib/gui_platform_web_clock.n.md"
 const guiPlatformHeadlessClockTests = read("tests/stdlib/gui_platform_headless_clock.n.md");
 const guiPlatformNativeClockTests = read("tests/stdlib/gui_platform_native_clock.n.md");
 const guiPlatformBareClockTests = read("tests/stdlib/gui_platform_bare_clock.n.md");
+const guiPlatformNativeSchedulerClockTests = read("tests/stdlib/gui_platform_native_scheduler_clock.n.md");
+const guiPlatformBareSchedulerClockTests = read("tests/stdlib/gui_platform_bare_scheduler_clock.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25542,6 +25548,136 @@ assert(
         guiPlatformBareClockTests.includes("bare backend clock unsupported"),
     "F5es platform bare clock focused doctest must cover source-policy labels and unsupported default",
 );
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native and Bare scheduler clock one-tick helper boundary") &&
+            doc.includes("F5et") &&
+            doc.includes("one-tick helper") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("BackendClockPolicy") &&
+            doc.includes("BackendClockAdvance") &&
+            doc.includes("ClockDelta") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5et ${name} must document native/bare scheduler clock one-tick helper, F5eo authority, and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_clock" as @merge'),
+    "platforms/gui/native facade must export F5et native scheduler clock one-tick helper",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_clock" as @merge'),
+    "platforms/gui/bare facade must export F5et bare scheduler clock one-tick helper",
+);
+for (const [name, source, impl, startName, tickName, sampleName, errorName, tests] of [
+    [
+        "native",
+        platformGuiNativeSchedulerClock,
+        platformGuiNativeSchedulerClockImpl,
+        "gui_native_scheduler_clock_start",
+        "gui_native_scheduler_clock_tick",
+        "gui_native_backend_clock_sample",
+        "GuiNativeSchedulerClockError",
+        guiPlatformNativeSchedulerClockTests,
+    ],
+    [
+        "bare",
+        platformGuiBareSchedulerClock,
+        platformGuiBareSchedulerClockImpl,
+        "gui_bare_scheduler_clock_start",
+        "gui_bare_scheduler_clock_tick",
+        "gui_bare_backend_clock_sample",
+        "GuiBareSchedulerClockError",
+        guiPlatformBareSchedulerClockTests,
+    ],
+]) {
+    assert(
+        source.includes("one-tick helper") &&
+            source.includes("long-running scheduler backend") &&
+            source.includes("policy は F5eo `BackendClockPolicy`") &&
+            source.includes("BackendClockAdvance") &&
+            source.includes("fallback") &&
+            source.includes("silent no-op"),
+        `platforms/gui/${name}/scheduler_clock F5et must document one-tick helper boundary and no fallback`,
+    );
+    assert(
+        source.includes(`${errorName}:`) &&
+            source.includes("StartSampleFailed") &&
+            source.includes("StartBackendClockFailed") &&
+            source.includes("TickSampleFailed") &&
+            source.includes("TickBackendClockFailed") &&
+            source.includes("policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy") &&
+            source.includes("state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState") &&
+            source.includes("error %GuiError") &&
+            source.includes("lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockError"),
+        `platforms/gui/${name}/scheduler_clock F5et must expose enum errors and owner recovery payloads`,
+    );
+    const startSlice = functionSlice(impl, startName);
+    const tickSlice = functionSlice(impl, tickName);
+    assert(
+        (startSlice.match(new RegExp(`\\b${sampleName}\\b`, "g")) || []).length === 1,
+        `platforms/gui/${name}/scheduler_clock F5et start must call platform clock sample exactly once`,
+    );
+    assert(
+        (tickSlice.match(new RegExp(`\\b${sampleName}\\b`, "g")) || []).length === 1,
+        `platforms/gui/${name}/scheduler_clock F5et tick must call platform clock sample exactly once`,
+    );
+    assertOrderedFragments(
+        startSlice,
+        [
+            `match ${sampleName}:`,
+            "Result::Err error:",
+            "StartSampleFailed",
+            "Result::Ok sample:",
+            "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_start sample",
+            "Result::Ok state:",
+            "Result::Err lower:",
+            "StartBackendClockFailed",
+        ],
+        `platforms/gui/${name}/scheduler_clock F5et start must preserve sample failure and delegate to F5eo start`,
+    );
+    assertOrderedFragments(
+        tickSlice,
+        [
+            `match ${sampleName}:`,
+            "Result::Err error:",
+            "TickSampleFailed",
+            "Result::Ok sample:",
+            "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_advance policy state sample",
+            "Result::Ok advance:",
+            "Result::Err lower:",
+            "TickBackendClockFailed",
+        ],
+        `platforms/gui/${name}/scheduler_clock F5et tick must preserve sample failure and delegate to F5eo advance`,
+    );
+    assertNoMatch(
+        impl,
+        /\b(?:RealLoopStepPolicy|SchedulerPolicy|TimerPolicy|RealLoopDriver|HeadlessAppLoop|LoopPolicy|RealLoopStepInput::ClockDelta|monotonic_clock_ms_raw|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|present|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|clamp|round)\b/i,
+        `platforms/gui/${name}/scheduler_clock F5et must not implement scheduler policies, synthesize ClockDelta, expose raw sentinel, or use loop/timer/presenter/fallback APIs`,
+    );
+    assertNoMatch(
+        impl,
+        /_:|[()]/,
+        `platforms/gui/${name}/scheduler_clock F5et implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
+    );
+    assert(
+        tests.includes(`platform_${name}_scheduler_clock_facade_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_one_tick_helper_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_f5eo_policy_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_start_sample_error_recovers_policy_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_tick_sample_error_recovers_policy_state_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_start_delegates_f5eo_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_tick_delegates_f5eo_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_no_loop_queue_timer_present_fallback`),
+        `F5et platform ${name} scheduler clock focused doctest must cover source-policy labels`,
+    );
+}
 for (const [name, doc] of [
     ["font rendering spec", spec],
     ["GUI standard library spec", guiStandardLibrarySpec],

@@ -207,6 +207,43 @@
 - focused doctest、source policy、F5eo / F5ep / F5eq / F5er regression、`git diff --check` が通る。
 - subagent implementation review で no fallback、doctest-only unsupported default、layer separation、bare scheduler / present / timer 未実装の分離が承認される。
 
+## Phase F5et: Native and Bare scheduler clock one-tick helper boundary
+
+2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、F5er / F5es clock source が返した sample を F5eo `BackendClockPolicy` / `BackendClockState` と接続する 1 tick helper である。native / bare の actual while loop、queue、timer backend、executor backend、present、minifb / Canvas / video memory は実装しない。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_clock.nepl`
+- `stdlib/platforms/gui/bare/scheduler_clock.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_clock.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_clock.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- public API の policy は F5eo `BackendClockPolicy` そのものを受け、新しい scheduler policy を作らない。
+- `start` は platform clock sample を 1 回だけ取得し、F5eo `backend_clock_start` へ渡す。
+- `tick` は platform clock sample を 1 回だけ取得し、F5eo `backend_clock_advance` へ渡す。
+- `tick` は `ClockDelta` を直接合成せず、F5eo `BackendClockAdvance` を返す。
+- start sample failure は policy と `GuiError` を保持する。
+- tick sample failure は policy / state / `GuiError` を保持する。
+- F5eo lower error は再分類せず lower error として保持する。
+- timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Chandrasekhar plan review は `PLAN_CHANGES`。
+- 変更要件は、`scheduler_clock` が long-running scheduler backend ではなく one-tick helper であることを doc / source policy で明記すること、policy が F5eo `BackendClockPolicy` そのものであること、`start` / `tick` の return shape を明記すること、sample failure で policy / state を失わないことだった。
+- 本計画では上記を反映し、実装開始可と判断する。
+
+完了条件:
+
+- source policy が facade export、one-tick helper docs、F5eo policy 使用、platform sample call 各 1 回、F5eo start / advance 委譲、direct `ClockDelta` 合成禁止、raw sentinel accessor 禁止、timer / queue / loop / present / fallback 禁止、括弧なし prefix style を固定する。
+- focused doctest、source policy、F5eo / F5er / F5es regression、`git diff --check` が通る。
+- subagent implementation review で one-tick helper 境界、owner recovery、F5eo authority、禁止依存が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。
