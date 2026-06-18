@@ -262,6 +262,10 @@ F5ec の std layer row tile RLE present host span operation presenter executor s
 
 `max_advance_count` は construction と drain entry の両方で 0 以上に検査する。0 は step を呼ばない `BudgetExhausted` であり、test / headless runtime が no-progress を明示的に扱うための terminal である。`Advanced` だけが budget を 1 消費し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は budget を消費せずに外側 authority へ返る。`StepFailed` は F5eb lower error だけを保持し、original state を重複保持しない。F5ec は timer advance、executor completion、real scheduler loop、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
+F5ed の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary は、F5ec drain terminal を後続 loop が扱う action boundary へ写す。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。`YieldSlice` は `BudgetExhausted` の state、`AwaitTimer` は `BlockedWaitingTimer` の pending timer、`ExecuteHostAction` は `BlockedExecute` の execute authority、`Done` は `Completed` の completed payload を保持する。
+
+F5ed は F5ec payload struct を transition payload として保持しない。各 branch は F5ec accessor で `remaining_count` を先に読み、owner-bearing payload から state / pending / execute / completed を取り出して transition-owned payload に詰め替える。`remaining_count` は正規化、減算、再計算をしない。F5ed は F5ec drain 再実行、F5eb step、timer advance、executor completion、real scheduler loop、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。

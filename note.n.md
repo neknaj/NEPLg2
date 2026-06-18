@@ -1,3 +1,49 @@
+# 2026-06-18 Agent2 GUI font F5ed std deterministic virtual scheduler transition boundary
+
+## scope
+
+- F5ec deterministic virtual scheduler bounded drain terminal を、real scheduler loop / headless app-loop / host driver が読む transition enum へ写す。
+- `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` へ対応させる。
+- F5ec payload struct を transition payload として公開せず、state / pending / execute / completed と `remaining_count` を transition-owned payload に詰め替える。
+
+## plan_review
+
+- Curie plan review は `PLAN_APPROVED`。
+- 指摘は、F5ec payload struct を直接公開せず accessor で取り出して F5ed payload に詰め替えること、owner-bearing payload は Clone / Copy にしないこと、timer advance / executor completion / backend / queue を含めないことだった。
+- revised implementation plan は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` の 4 variant と `remaining_count` preservation を source policy で固定する形にした。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl` を追加した。
+- transition enum は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- `transition_from_drain_result` は F5ec drain result を 1 回だけ match し、wildcard なしで全 terminal を写す。
+- `remaining_count` は F5ec terminal payload から先に読み、正規化、減算、再計算をしない。
+- `stdlib/std/gui.nepl` facade、focused doctest、docs、source policy を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ed focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md`。
+- pass: F5ed module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl`。
+- pass: F5ec regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Curie implementation review は `REVIEW_APPROVED`。
+- F5ed payload が F5ec drain payload struct を保持しないこと、owner-bearing payload が Clone / Copy ではないこと、4 terminal を wildcard なしで明示 match すること、`remaining_count` を owner 消費前に保持すること、timer advance / executor completion / step / drain rerun / real loop / queue / backend / fallback / silent no-op が無いこと、docs / source policy / focused doctest label が一致することを確認した。
+- procedural 指摘として、`NUL` と大量の古い `tmp_*` を stage せず、F5ed の新規 module / focused doctest を明示的に stage することが挙げられた。
+- この note 更新後、意図した 13 file だけを stage する。
+
+## remaining
+
+- F5ed は transition boundary までであり、timer advance event injection、executor completion、real scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5ec std deterministic virtual scheduler bounded drain boundary
 
 ## scope
