@@ -1480,6 +1480,51 @@ subagent review:
 - Cicero に F5ec 実装計画を渡し、budget terminal、zero-budget no step、F5eb lower-only error、blocked remaining count、no backend / no queue / no fallback の観点で確認させる。
 - 実装後に、helper だけが positive budget で F5eb step を呼ぶこと、policy revalidation、source policy と focused doctest label が一致していることを確認させる。
 
+## Phase F5ed: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary
+
+目的:
+
+- F5ec の bounded drain terminal を、後続の real scheduler loop / headless app-loop / host driver が処理する transition enum へ写す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` に `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を定義する。
+- F5ec payload struct をそのまま公開せず、state / pending / execute / completed と `remaining_count` を transition-owned payload へ詰め替える。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl` を追加する。
+- `BudgetExhausted` は `YieldSlice`、`BlockedWaitingTimer` は `AwaitTimer`、`BlockedExecute` は `ExecuteHostAction`、`Completed` は `Done` に対応させる。
+- `remaining_count` は F5ec terminal から読み、正規化、減算、再計算をしない。
+- owner-bearing transition payload に `Clone` / `Copy` を実装しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md` を追加し、facade、variant、drain terminal mapping、payload rewrap、remaining_count preservation、no wildcard、no timer advance / executor completion、no backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ed source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+非目標:
+
+- F5ed は timer advance、executor completion、real scheduler loop、timeslice policy、backend timer、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+- F5ec drain を再実行しない。
+- F5eb step を直接呼ばない。
+
+検証:
+
+```text
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_f5ed.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_module_f5ed.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_f5ed_regression.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Curie に F5ed 実装計画を渡し、F5ec payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、4 terminal の explicit match、remaining_count preservation、no backend / no queue / no fallback の観点で確認させる。
+- 実装後に、transition source policy、focused doctest label、facade export、docs の Phase F5ed 記述が一致していることを確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

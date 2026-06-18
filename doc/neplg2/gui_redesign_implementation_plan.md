@@ -495,6 +495,40 @@ subagent review:
 - Cicero に F5ec 実装計画を渡し、budget terminal、blocked remaining count、lower-only error、no backend / no queue / no fallback の観点で確認させる。
 - 実装後に、source policy と focused doctest が Phase 5.6 の contract を検査していることを確認させる。
 
+## Phase 5.7: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary
+
+目的:
+
+- F5ec bounded drain result を、real scheduler loop / headless app-loop / host driver が次に処理すべき action enum へ写す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- drain payload struct を public transition payload として再公開せず、accessor で取り出した authority value と `remaining_count` を transition-owned payload へ詰め替える。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl` を追加する。
+- `BudgetExhausted` は `YieldSlice`、`BlockedWaitingTimer` は `AwaitTimer`、`BlockedExecute` は `ExecuteHostAction`、`Completed` は `Done` へ変換する。
+- `remaining_count` は正規化、減算、再計算を行わず、F5ec terminal の値をそのまま保持する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md` を追加し、facade、variant、drain terminal mapping、payload rewrap、remaining_count preservation、no wildcard、no timer advance / executor completion、no backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.7 / F5ed source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler loop、timeslice backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- F5ec drain を再実行しない。
+- F5eb step を直接呼ばない。
+
+完了条件:
+
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` の 4 variant が F5ec の 4 terminal と 1 対 1 で対応する。
+- transition payload は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainBudgetExhausted` などの F5ec payload struct を保持しない。
+- `remaining_count` は各 transition payload で保持され、次の scheduler authority が budget 消費状況を判断できる。
+
+subagent review:
+
+- Curie に F5ed 実装計画を渡し、F5ec payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、4 terminal の explicit match、no timer advance / executor completion / backend / queue / fallback の観点で確認させる。
+- 実装後に、source policy と focused doctest が Phase 5.7 の contract を検査していることを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -582,9 +616,9 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.6 の deterministic virtual scheduler bounded drain boundary までを現在の checkpoint とする。次の再開 target は、F5ec drain result を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
+Phase 5.7 の deterministic virtual scheduler transition boundary までを現在の checkpoint とする。次の再開 target は、F5ed transition を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
 
-- scheduler loop は F5ec の `BudgetExhausted` / `BlockedWaitingTimer` / `BlockedExecute` / `Completed` result を明示的に進める必要がある。
+- scheduler loop は F5ed の `YieldSlice` / `AwaitTimer` / `ExecuteHostAction` / `Done` transition を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
 - timeslice policy は `Yield` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。

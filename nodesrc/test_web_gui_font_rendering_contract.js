@@ -192,6 +192,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStep);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrain = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrain);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -290,6 +292,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimer
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -23406,6 +23409,112 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_no_wildcard_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain_no_backend_queue_fallback"),
     "F5ec std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler-drain focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary") &&
+            doc.includes("F5ed") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition") &&
+            doc.includes("YieldSlice") &&
+            doc.includes("AwaitTimer") &&
+            doc.includes("ExecuteHostAction") &&
+            doc.includes("Done") &&
+            doc.includes("remaining_count"),
+        `F5ed ${name} must document deterministic virtual scheduler transition boundary and remaining-count preservation`,
+    );
+}
+assert(
+    stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition" as *'),
+    "std/gui facade must export F5ed tile present host span operation presenter executor session turn virtual scheduler transition boundary",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionYieldSlice:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionAwaitTimer:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionExecuteHostAction:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionDone:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("YieldSlice %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionYieldSlice") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("AwaitTimer %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionAwaitTimer") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("ExecuteHostAction %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionExecuteHostAction") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition.includes("Done %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionDone"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed must define transition-owned terminal action payloads",
+);
+assertNoMatch(
+    textSliceBetween(
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+        "pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionYieldSlice:",
+        "pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition:",
+    ),
+    /VirtualSchedulerDrain(?:BudgetExhausted|BlockedWaitingTimer|BlockedExecute|Completed)/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed payload structs must not expose F5ec drain payload structs",
+);
+const f5edTransitionFromDrain = functionSlice(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+    "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_from_drain_result",
+);
+assertOrderedFragments(
+    f5edTransitionFromDrain,
+    [
+        "DrainResult::BudgetExhausted exhausted:",
+        "drain_budget_exhausted_remaining_count &exhausted",
+        "drain_budget_exhausted_state exhausted",
+        "Transition::YieldSlice payload",
+        "DrainResult::BlockedWaitingTimer blocked:",
+        "drain_blocked_waiting_timer_remaining_count &blocked",
+        "drain_blocked_waiting_timer_pending blocked",
+        "Transition::AwaitTimer payload",
+        "DrainResult::BlockedExecute blocked:",
+        "drain_blocked_execute_remaining_count &blocked",
+        "drain_blocked_execute_execute blocked",
+        "Transition::ExecuteHostAction payload",
+        "DrainResult::Completed completed:",
+        "drain_completed_remaining_count &completed",
+        "drain_completed_completed completed",
+        "Transition::Done payload",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed must map every F5ec terminal explicitly and preserve remaining_count before owner consumption",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition(?:YieldSlice|AwaitTimer|ExecuteHostAction|Done)?\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition(?:YieldSlice|AwaitTimer|ExecuteHostAction|Done)?\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed owner-bearing transition payloads must be non-Copy and non-Clone",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+    /_:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed must not use wildcard matches",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+    /\b(?:while|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op|virtual_scheduler_step|virtual_scheduler_advance_timer|turn_driver_complete|executor_session_turn_driver_complete)\b/i,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed must not step, advance timers, complete host execution, queue, call platform/raw APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition F5ed implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_variants_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_drain_terminal_mapping_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_payload_rewrap_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_remaining_count_preserved_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_no_wildcard_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_no_timer_advance_executor_completion_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransitionTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_no_backend_queue_fallback"),
+    "F5ed std tile present host-span-operation-presenter-executor-session-turn-virtual-scheduler-transition focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
