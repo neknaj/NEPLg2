@@ -244,6 +244,42 @@ plan review:
 - focused doctest、source policy、F5eo / F5er / F5es regression、`git diff --check` が通る。
 - subagent implementation review で one-tick helper 境界、owner recovery、F5eo authority、禁止依存が承認される。
 
+## Phase F5eu: Native and Bare scheduler clock action input helper boundary
+
+2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。F5eg `YieldToClock` / `AwaitTimerAdvance` typed action payload と F5et `scheduler_clock_tick` を接続し、F5ek `RealLoopStepInput` を caller に返すための境界に留める。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_clock_input.nepl`
+- `stdlib/platforms/gui/bare/scheduler_clock_input.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_clock_input.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- public entry は `YieldToClock` payload 用と `AwaitTimerAdvance` payload 用に分け、general `LoopAction` を受けない。
+- 各 entry は F5et `gui_*_scheduler_clock_tick` を 1 回だけ呼ぶ。
+- success payload は original action、新しい `BackendClockState`、F5eo 由来の `RealLoopStepInput` を保持する。
+- error payload は original action、input clock state、lower `GuiNativeSchedulerClockError` / `GuiBareSchedulerClockError` を保持する。
+- F5eo `backend_clock_advance`、platform raw clock sample、F5ek `real_loop_step`、F5el real loop driver、F5em headless app-loop step は直接呼ばない。
+- `ExecuteHostAction` と `Complete` は対象外であり、`ExecutorOutcome` / `CompleteAck` / direct `ClockDelta` は合成しない。
+- timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Bohr plan review は `PLAN_APPROVED`。
+- 指摘は、entry を `YieldToClock` / `AwaitTimerAdvance` に分けること、success payload に original action / new `BackendClockState` / F5eo-derived `RealLoopStepInput` を保持すること、error payload に original action / input clock state / lower error を保持すること、tick を 1 回だけ呼ぶこと、executor outcome / complete ack を合成しないことだった。
+- 本計画では上記を反映し、実装開始可と判断する。
+
+完了条件:
+
+- source policy が facade export、action input helper docs、Yield / Timer typed input、success payload shape、error owner recovery、tick exactly once、backend / queue / fallback 禁止、括弧なし prefix style を固定する。
+- focused doctest、source policy、F5et / F5eo regression、`git diff --check` が通る。
+- subagent implementation review で action input helper 境界、owner recovery、F5eo authority、禁止依存が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

@@ -245,11 +245,15 @@ const platformGuiNativeClock = read("stdlib/platforms/gui/native/clock.nepl");
 const platformGuiNativeClockImpl = withoutComments(platformGuiNativeClock);
 const platformGuiNativeSchedulerClock = read("stdlib/platforms/gui/native/scheduler_clock.nepl");
 const platformGuiNativeSchedulerClockImpl = withoutComments(platformGuiNativeSchedulerClock);
+const platformGuiNativeSchedulerClockInput = read("stdlib/platforms/gui/native/scheduler_clock_input.nepl");
+const platformGuiNativeSchedulerClockInputImpl = withoutComments(platformGuiNativeSchedulerClockInput);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
 const platformGuiBareSchedulerClock = read("stdlib/platforms/gui/bare/scheduler_clock.nepl");
 const platformGuiBareSchedulerClockImpl = withoutComments(platformGuiBareSchedulerClock);
+const platformGuiBareSchedulerClockInput = read("stdlib/platforms/gui/bare/scheduler_clock_input.nepl");
+const platformGuiBareSchedulerClockInputImpl = withoutComments(platformGuiBareSchedulerClockInput);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -351,6 +355,8 @@ const guiPlatformNativeClockTests = read("tests/stdlib/gui_platform_native_clock
 const guiPlatformBareClockTests = read("tests/stdlib/gui_platform_bare_clock.n.md");
 const guiPlatformNativeSchedulerClockTests = read("tests/stdlib/gui_platform_native_scheduler_clock.n.md");
 const guiPlatformBareSchedulerClockTests = read("tests/stdlib/gui_platform_bare_scheduler_clock.n.md");
+const guiPlatformNativeSchedulerClockInputTests = read("tests/stdlib/gui_platform_native_scheduler_clock_input.n.md");
+const guiPlatformBareSchedulerClockInputTests = read("tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25676,6 +25682,141 @@ for (const [name, source, impl, startName, tickName, sampleName, errorName, test
             tests.includes(`platform_${name}_scheduler_clock_tick_delegates_f5eo_ok`) &&
             tests.includes(`platform_${name}_scheduler_clock_no_loop_queue_timer_present_fallback`),
         `F5et platform ${name} scheduler clock focused doctest must cover source-policy labels`,
+    );
+}
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native and Bare scheduler clock action input helper boundary") &&
+            doc.includes("F5eu") &&
+            doc.includes("action input helper only") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("YieldToClock") &&
+            doc.includes("AwaitTimerAdvance") &&
+            doc.includes("BackendClockState") &&
+            doc.includes("RealLoopStepInput") &&
+            doc.includes("ExecutorOutcome") &&
+            doc.includes("CompleteAck") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5eu ${name} must document native/bare scheduler clock action input helper and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_clock_input" as @merge'),
+    "platforms/gui/native facade must export F5eu native scheduler clock action input helper",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_clock_input" as @merge'),
+    "platforms/gui/bare facade must export F5eu bare scheduler clock action input helper",
+);
+for (const [name, source, impl, tickName, readyPrefix, errorName, tests] of [
+    [
+        "native",
+        platformGuiNativeSchedulerClockInput,
+        platformGuiNativeSchedulerClockInputImpl,
+        "gui_native_scheduler_clock_tick",
+        "GuiNativeSchedulerClock",
+        "GuiNativeSchedulerClockInputError",
+        guiPlatformNativeSchedulerClockInputTests,
+    ],
+    [
+        "bare",
+        platformGuiBareSchedulerClockInput,
+        platformGuiBareSchedulerClockInputImpl,
+        "gui_bare_scheduler_clock_tick",
+        "GuiBareSchedulerClock",
+        "GuiBareSchedulerClockInputError",
+        guiPlatformBareSchedulerClockInputTests,
+    ],
+]) {
+    assert(
+        source.includes("action input helper only") &&
+            source.includes("not long-running scheduler backend") &&
+            source.includes("YieldToClock") &&
+            source.includes("AwaitTimerAdvance") &&
+            source.includes("RealLoopStepInput") &&
+            source.includes("ExecutorOutcome") &&
+            source.includes("CompleteAck") &&
+            source.includes("fallback") &&
+            source.includes("silent no-op"),
+        `platforms/gui/${name}/scheduler_clock_input F5eu must document action input helper boundary and no fallback`,
+    );
+    assert(
+        source.includes(`${readyPrefix}YieldInputReady:`) &&
+            source.includes(`${readyPrefix}TimerInputReady:`) &&
+            source.includes(`${readyPrefix}YieldInputTickFailed:`) &&
+            source.includes(`${readyPrefix}TimerInputTickFailed:`) &&
+            source.includes(`${errorName}:`) &&
+            source.includes("YieldTickFailed") &&
+            source.includes("TimerTickFailed") &&
+            source.includes("action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock") &&
+            source.includes("action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance") &&
+            source.includes("state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState") &&
+            source.includes("input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput"),
+        `platforms/gui/${name}/scheduler_clock_input F5eu must expose typed success and error payloads`,
+    );
+    const yieldSlice = functionSlice(impl, `gui_${name}_scheduler_clock_yield_input`);
+    const timerSlice = functionSlice(impl, `gui_${name}_scheduler_clock_timer_input`);
+    assert(
+        (yieldSlice.match(new RegExp(`\\b${tickName}\\b`, "g")) || []).length === 1,
+        `platforms/gui/${name}/scheduler_clock_input F5eu yield helper must call clock tick exactly once`,
+    );
+    assert(
+        (timerSlice.match(new RegExp(`\\b${tickName}\\b`, "g")) || []).length === 1,
+        `platforms/gui/${name}/scheduler_clock_input F5eu timer helper must call clock tick exactly once`,
+    );
+    assertOrderedFragments(
+        yieldSlice,
+        [
+            `${tickName} policy state`,
+            "Result::Err lower:",
+            "YieldInputTickFailed",
+            "Result::Ok advance:",
+            'field::get advance "state"',
+            'field::get advance "input"',
+            "YieldInputReady",
+            "Result::Ok ready",
+        ],
+        `platforms/gui/${name}/scheduler_clock_input F5eu yield helper must preserve action/state/lower and use F5eo advance output`,
+    );
+    assertOrderedFragments(
+        timerSlice,
+        [
+            `${tickName} policy state`,
+            "Result::Err lower:",
+            "TimerInputTickFailed",
+            "Result::Ok advance:",
+            'field::get advance "state"',
+            'field::get advance "input"',
+            "TimerInputReady",
+            "Result::Ok ready",
+        ],
+        `platforms/gui/${name}/scheduler_clock_input F5eu timer helper must preserve action/state/lower and use F5eo advance output`,
+    );
+    assertNoMatch(
+        impl,
+        /\b(?:LoopAction::|real_loop_step|real_loop_driver|headless_app_loop_step|loop_yield_complete|loop_timer_advance|loop_executor_complete|ExecutorOutcome|CompleteAck|RealLoopStepInput::ClockDelta|backend_clock_advance|backend_clock_start|backend_clock_sample|monotonic_clock_ms_raw|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|present|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|Result::Ok unit|Result::Err GuiError)\b/i,
+        `platforms/gui/${name}/scheduler_clock_input F5eu must not bypass action input helper boundaries or implement backend/queue/fallback behavior`,
+    );
+    assertNoMatch(
+        impl,
+        /_:|[()]/,
+        `platforms/gui/${name}/scheduler_clock_input F5eu implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
+    );
+    assert(
+        tests.includes(`platform_${name}_scheduler_clock_input_facade_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_action_input_helper_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_yield_timer_only_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_success_payload_state_input_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_error_recovers_action_state_lower_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_tick_once_ok`) &&
+            tests.includes(`platform_${name}_scheduler_clock_input_no_executor_complete_backend_queue_fallback`),
+        `F5eu platform ${name} scheduler clock input focused doctest must cover source-policy labels`,
     );
 }
 for (const [name, doc] of [

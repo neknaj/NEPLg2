@@ -53,6 +53,10 @@ NEPLg2 GUI は Web、native、bare、offscreen、headless で同じ application 
 
 2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、platform clock source が返した sample を F5eo `BackendClockPolicy` / `BackendClockState` と組み合わせ、F5eo `backend_clock_start` / `backend_clock_advance` へ渡す 1 tick 分の helper である。API は F5eo `BackendClockPolicy` そのものを受け、新しい scheduler policy、timer policy、loop policy を作らない。tick は `ClockDelta` を直接合成せず、F5eo が返す `BackendClockAdvance` を返す。start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持し、F5eo lower error は再分類せず lower error として保持する。timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op は使わない。
 
+## F5eu Native and Bare scheduler clock action input helper boundary
+
+2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。F5eg `YieldToClock` / `AwaitTimerAdvance` typed action payload と F5et `scheduler_clock_tick` を接続し、success payload は original action、新しい `BackendClockState`、F5eo 由来の F5ek `RealLoopStepInput` を保持する。error payload は original action、input clock state、lower platform scheduler clock error を保持する。general `LoopAction`、`ExecuteHostAction`、`Complete` は受け取らず、`ExecutorOutcome` や `CompleteAck` は合成しない。timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
 ## 必須 contract
 
 ### Font identity
