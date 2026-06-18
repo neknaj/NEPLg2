@@ -1,0 +1,146 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn scheduler decision の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5du turn driver step result を actual Web / native / bare / headless runtime が[扱/あつか]う target-neutral scheduler decision へ[写/うつ]します。
+//: - `Yield` は policy で[検査/けんさ]された delay を[持/も]つ `ScheduleOneShot` にし、timer backend や queue backend は[呼/よ]びません。
+//:
+//: ### [契約/けいやく]
+//: - policy constructor と `scheduler_decide` の[両方/りょうほう]で `yield_delay_ms >= 0` を[検査/けんさ]します。
+//: - invalid policy は owner-bearing policy error として original step owner を[保持/ほじ]します。
+//: - `Execute`、`Continue`、`Yield`、`Completed` はそれぞれ `Execute`、`ContinueNow`、`ScheduleOneShot`、`Completed` へ[写/うつ]します。
+//: - scheduled state は consuming accessor で turn state を[回収/かいしゅう]できます。
+//: - real scheduler backend、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy:
+    yield_delay_ms %i32
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind:
+    YieldDelayInvalid
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState:
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    delay_ms %i32
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision:
+    Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending
+    ContinueNow %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    ScheduleOneShot %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState
+    Completed
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind:
+    PolicyInvalid %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError:
+    kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind
+    category %Option GuiError
+    step %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_new %fn i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy \yield_delay_ms:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy yield_delay_ms
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState fn i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState \state\delay_ms:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState state delay_ms
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_error_kind_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind::YieldDelayInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_kind_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind::PolicyInvalid policy_kind:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_error_kind_category policy_kind
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError \kind\step:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_kind_category kind
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError kind category step
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_validate_policy_for_decision %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy Result i32 GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind \policy:
+    let yield_delay_ms %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_yield_delay_ms policy
+    if lt yield_delay_ms 0:
+        then Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind::YieldDelayInvalid
+        else Result::Ok yield_delay_ms
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy: turn scheduler policy を[検査/けんさ]して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `yield_delay_ms` は 0 以上でなければなりません。
+//: - ここで[作/つく]った policy でも `scheduler_decide` で[再検査/さいけんさ]し、手作り value による contract 破りを[防/ふせ]ぎます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy %fn i32 Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind \yield_delay_ms:
+    if lt yield_delay_ms 0:
+        then Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind::YieldDelayInvalid
+        else Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_new yield_delay_ms
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_yield_delay_ms %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy i32 \policy:
+    *field::get_ref policy "yield_delay_ms"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decide: driver step を scheduler decision へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - policy は decision [直前/ちょくぜん]に[再検査/さいけんさ]します。
+//: - policy invalid の[場合/ばあい]、original step owner を error に[保持/ほじ]して caller が[回収/かいしゅう]できます。
+//: - `ScheduleOneShot` は[検査済/けんさず]み delay だけを[使/つか]います。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decide %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError \policy\step:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_validate_policy_for_decision policy:
+        Result::Err policy_error_kind:
+            let kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind::PolicyInvalid policy_error_kind
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_new kind step
+        Result::Ok delay_ms:
+            match step:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Execute pending:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Execute pending
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Continue state:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Yield state:
+                    let scheduled %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_new state delay_ms
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Completed:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Completed
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_turn_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState \state:
+    field::get state "state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_delay_ms %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState i32 \state:
+    *field::get_ref state "delay_ms"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_kind %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_step %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult \error:
+    field::get error "step"

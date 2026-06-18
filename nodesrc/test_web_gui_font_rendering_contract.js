@@ -170,6 +170,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStep = read(
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStepImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnStep);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -260,6 +262,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTests = read("te
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -22678,6 +22681,140 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_lower_recovery_authority_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_no_scheduler_no_platform_no_fallback"),
     "F5du std tile present host-span-operation-presenter-executor-session-turn-driver focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn scheduler decision boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision") &&
+            doc.includes("ScheduleOneShot") &&
+            doc.includes("owner-bearing policy error") &&
+            doc.includes("target-neutral scheduler decision"),
+        `F5dv ${name} must document target-neutral scheduler decision, ScheduleOneShot, and owner-bearing policy error`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *'), "std/gui facade must export F5dv tile present host span operation presenter executor session turn scheduler boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("yield_delay_ms %i32") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("YieldDelayInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("delay_ms %i32") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("ContinueNow %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("ScheduleOneShot %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("Completed") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("PolicyInvalid %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler.includes("step %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv must define policy, decisions, scheduled state, and owner-bearing decision error",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv owner-bearing scheduled state, decision, and error must be non-Copy and non-Clone",
+);
+assertMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl,
+    /#import "std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_driver" as \*/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv must consume F5du driver step results",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy"),
+    [
+        "if lt yield_delay_ms 0:",
+        "Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind::YieldDelayInvalid",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_new yield_delay_ms",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv policy constructor must validate negative delay",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_validate_policy_for_decision"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_yield_delay_ms policy",
+        "if lt yield_delay_ms 0:",
+        "Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicyErrorKind::YieldDelayInvalid",
+        "Result::Ok yield_delay_ms",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv scheduler_decide must revalidate policy and return validated delay",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_new"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_kind_category kind",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError kind category step",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv decision error must retain original step and category",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decide"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_validate_policy_for_decision policy",
+        "Result::Err policy_error_kind:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionErrorKind::PolicyInvalid policy_error_kind",
+        "Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_new kind step",
+        "Result::Ok delay_ms:",
+        "match step:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Execute pending:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Execute pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Continue state:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Yield state:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_new state delay_ms",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Completed",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv scheduler_decide must map all driver steps after policy revalidation",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_turn_state"),
+    [
+        "field::get state \"state\"",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv scheduled state must expose consuming turn-state recovery",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_delay_ms"),
+    [
+        "*field::get_ref state \"delay_ms\"",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv scheduled state delay accessor must borrow",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_step"),
+    [
+        "field::get error \"step\"",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv policy error must recover the original step owner",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation\b|\bstd\/gui\/timer\b|\bTimerRequest\b|\btimer_request\b|\bschedule_timer\b|\bqueue\b|\bGuiHost\b|\bstd\/gui\/host\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\bVec\b|\bResult::Ok unit\b|\bResult::Err GuiError::|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv must not call driver execution, timer, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler F5dv implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_policy_validation_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_mapping_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_schedule_one_shot_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_owner_bearing_error_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_recovery_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_no_timer_no_platform_no_fallback"),
+    "F5dv std tile present host-span-operation-presenter-executor-session-turn-scheduler focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

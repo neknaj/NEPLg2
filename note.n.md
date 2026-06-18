@@ -1,3 +1,51 @@
+# 2026-06-18 Agent2 GUI font F5dv std host span operation presenter executor session turn scheduler decision boundary
+
+## scope
+
+- F5du driver step result を target-neutral scheduler decision へ写す std layer boundary を追加する。
+- `ScheduleOneShot` は validated delay と turn state を持つ typed request であり、actual timer backend、queue、platform API には進まない。
+- policy constructor と `scheduler_decide` の両方で `yield_delay_ms >= 0` を検査し、invalid policy は owner-bearing policy error として original step owner を返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、public policy struct を信頼すると negative delay を手作り value で `ScheduleOneShot` にできるため、`scheduler_decide` が policy を再検査して `Result SchedulerDecision SchedulerDecisionError` を返す必要があるというものだった。
+- revised plan では validation が validated delay を返し、invalid policy error が original step owner を保持する形に変更した。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl` を追加した。
+- `SchedulerPolicy`、`PolicyErrorKind::YieldDelayInvalid`、`SchedulerScheduledState`、`SchedulerDecision`、`SchedulerDecisionErrorKind::PolicyInvalid`、`SchedulerDecisionError` を追加した。
+- `scheduler_policy` と private validation の両方で negative delay を拒否し、`scheduler_decide` は validated delay だけを `ScheduleOneShot` に渡す。
+- policy invalid では original driver step owner を `SchedulerDecisionError` に保持し、`decision_error_step` で回収できるようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering specs、implementation plan、source policy regression、todo を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dv focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md`。
+- pass: F5dv module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl`。
+- pass: F5du regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は clean と判断された。
+- F5dv は実 timer / queue / platform / scheduler backend / fallback に踏み込んでいない。
+- `scheduler_decide` の policy 再検証と owner-bearing error recovery は前回 blocker を満たしている。
+- `ScheduleOneShot` は validated delay のみを使っている。
+- 唯一の blocker はこの `note.n.md` の F5dv `subagent_review` が pending のままだったことだったため、この節を更新した。
+- Cicero final review は `REVIEW_APPROVED`。F5dv は merge-ready と確認された。
+
+## remaining
+
+- F5dv は decision boundary までであり、actual Web / native / bare / headless scheduler backend、one-shot timer interpreter、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5du std host span operation presenter executor session turn driver boundary
 
 ## scope

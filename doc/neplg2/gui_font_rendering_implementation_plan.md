@@ -1205,6 +1205,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dv: std layer row tile RLE present host span operation presenter executor session turn scheduler decision boundary
+
+目的:
+
+- F5du driver step result を target-neutral scheduler decision に写し、actual Web / native / bare / headless scheduler backend の直前で実行方針だけを型で固定する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision` は `Execute`、`ContinueNow`、`ScheduleOneShot`、`Completed` を持つ。
+- `ScheduleOneShot` は validated delay と turn state を持つ scheduled state であり、actual timer backend や queue backend は呼ばない。
+- policy constructor と `scheduler_decide` はどちらも `yield_delay_ms >= 0` を検査する。
+- invalid policy は owner-bearing policy error として original driver step owner を保持し、caller が pending executor request または turn state を回収できる。
+- F5du start / poll / complete / pending operation helper、timer API、queue、real scheduler backend、platform API、DOM / Canvas / minifb、video memory、raw storage、DrawTarget / RenderTarget、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` に進まない。
+
+plan review:
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、public policy を信頼すると手作り value の negative delay を `ScheduleOneShot` にできるため、`scheduler_decide` が `Result SchedulerDecision SchedulerDecisionError` を返し、policy を再検査する必要があるというものだった。
+- invalid policy error は kind だけではなく original step owner を保持する owner-bearing policy error にし、caller recovery を失わないことが要求された。
+- revised plan では private validation が validated delay を返し、`ScheduleOneShot` はその delay だけを使う。Cicero revised plan review は `PLAN_APPROVED`。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl` を追加する。
+- `SchedulerPolicy`、`SchedulerPolicyErrorKind`、`SchedulerScheduledState`、`SchedulerDecision`、`SchedulerDecisionErrorKind`、`SchedulerDecisionError` を定義する。
+- `scheduler_policy` は negative delay を `YieldDelayInvalid` にする。
+- `scheduler_decide` は policy を再検査し、`Execute` / `Continue` / `Yield` / `Completed` を `Execute` / `ContinueNow` / `ScheduleOneShot` / `Completed` へ写す。
+- `scheduled_state_turn_state` は consuming accessor とし、`scheduled_state_delay_ms` は borrowed accessor とする。
+- `decision_error_step` は owner-bearing policy error から original step owner を回収する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md` を追加し、facade、policy validation、decision mapping、ScheduleOneShot、owner-bearing error、scheduled state recovery、no timer / platform / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dv source policy を追加し、docs、facade、type shape、policy revalidation、validated delay use、owner recovery、forbidden timer / queue / platform / fallback、括弧なし prefix style を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler_f5dv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler_module_f5dv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver_f5dv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dv.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

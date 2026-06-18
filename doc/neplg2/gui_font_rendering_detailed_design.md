@@ -8224,6 +8224,16 @@ The key contract is caller supplied outcome only. `turn_driver_pending_operation
 
 F5du may use F5do only for `executor_request_operation` and `executor_attempt`. It must not call F5do complete or request, F5dr / F5dp / F5dq direct completion paths, old action paths, raw storage, host import, platform API, DOM, Canvas, minifb, video memory, queue, timer, real scheduler, fallback path, silent no-op path, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
 
+## Std layer row tile RLE present host span operation presenter executor session turn scheduler decision boundary
+
+F5dv introduces the std layer row tile RLE present host span operation presenter executor session turn scheduler decision boundary. It sits above F5du and below any real scheduler backend, queue, timer, platform executor, DOM, Canvas, minifb, video memory presenter, or fallback path. Its purpose is to map the owner-bearing F5du driver step result into a target-neutral scheduler decision that later Web, native, bare, and headless runtimes can interpret.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision` has four outcomes. `Execute` carries the F5du driver pending value, `ContinueNow` carries a turn state that can be polled immediately, `ScheduleOneShot` carries a scheduled state plus a validated delay, and `Completed` is a terminal transient decision. `ScheduleOneShot` does not register a timer itself. It is only a typed request for the next layer.
+
+The scheduler policy contains `yield_delay_ms`. Both the public policy constructor and `scheduler_decide` validate that the delay is non-negative. The second validation is part of the contract because public structs can be manually constructed. If the policy is invalid during decision, the result is an owner-bearing policy error. The error stores `PolicyInvalid`, a `GuiError::InvalidCommand` category, and the original F5du driver step value so the caller can recover the pending executor request or turn state.
+
+F5dv must not call F5du start, poll, complete, or pending operation helpers. It only consumes a driver step value that was supplied by the caller. It also must not call timer APIs, one-shot timer registration, queue APIs, real scheduler backend APIs, platform APIs, DOM, Canvas, minifb, video memory, raw storage, DrawTarget, RenderTarget, fallback paths, silent no-op paths, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.
