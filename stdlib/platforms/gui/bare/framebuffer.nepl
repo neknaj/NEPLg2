@@ -1,0 +1,901 @@
+//: # platforms/gui/bare/framebuffer
+//: Bare display framebuffer adapter boundary
+//:
+//: ### [目的/もくてき]
+//: - Bare display backend が[受/う]ける RGBA8888 row span operation を、host import へ[渡/わた]す[前/まえ]に state machine として[検査/けんさ]します。
+//: - Begin、RunSpan、End の[順序/じゅんじょ]、target、surface、frame、shape、row-major progress を[確認/かくにん]します。
+//: - RunSpan / End は active state の descriptor contract と seen count [範囲/はんい]を[再検査/さいけんさ]し、public state [偽造/ぎぞう]を host executor に[渡/わた]しません。
+//: - [成功/せいこう]した adapter wrapper だけが F5fk の existing bare scheduler host executor を 1 [回/かい]だけ[呼/よ]びます。
+//:
+//: ### [契約/けいやく]
+//: - pure validation は host import を[呼/よ]ばないため、CLI-only / doctest でも[検査/けんさ]できます。
+//: - wrapper は validation [成功/せいこう]後だけ host executor を[呼/よ]び、host failure では original state を error に[保持/ほじ]します。
+//: - validation failure、host failure は state と operation を[保持/ほじ]する typed error で[返/かえ]します。
+//: - display storage、long-running loop、timer wait、platform window、fallback presentation、silent no-op はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/framebuffer" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/scheduler_host_executor" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareFramebufferConfig:
+    surface %SurfaceId
+    width %i32
+    height %i32
+    stride_bytes %i32
+
+impl Clone for GuiBareFramebufferConfig:
+    fn clone %fn &GuiBareFramebufferConfig GuiBareFramebufferConfig \config:
+        *config
+
+impl Copy for GuiBareFramebufferConfig:
+    fn copy_mark %fn GuiBareFramebufferConfig GuiBareFramebufferConfig \config:
+        config
+
+pub struct GuiBareFramebufferActiveSequence:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    seen_run_count %i32
+    seen_pixel_count %i32
+
+impl Clone for GuiBareFramebufferActiveSequence:
+    fn clone %fn &GuiBareFramebufferActiveSequence GuiBareFramebufferActiveSequence \active:
+        *active
+
+impl Copy for GuiBareFramebufferActiveSequence:
+    fn copy_mark %fn GuiBareFramebufferActiveSequence GuiBareFramebufferActiveSequence \active:
+        active
+
+pub enum GuiBareFramebufferPhase:
+    Idle
+    Active %GuiBareFramebufferActiveSequence
+
+impl Clone for GuiBareFramebufferPhase:
+    fn clone %fn &GuiBareFramebufferPhase GuiBareFramebufferPhase \phase:
+        *phase
+
+impl Copy for GuiBareFramebufferPhase:
+    fn copy_mark %fn GuiBareFramebufferPhase GuiBareFramebufferPhase \phase:
+        phase
+
+pub struct GuiBareFramebufferState:
+    config %GuiBareFramebufferConfig
+    phase %GuiBareFramebufferPhase
+    last_completed_frame %Option FrameId
+
+impl Clone for GuiBareFramebufferState:
+    fn clone %fn &GuiBareFramebufferState GuiBareFramebufferState \state:
+        *state
+
+impl Copy for GuiBareFramebufferState:
+    fn copy_mark %fn GuiBareFramebufferState GuiBareFramebufferState \state:
+        state
+
+pub enum GuiBareFramebufferErrorKind:
+    SurfaceIdInvalid
+    WidthInvalid
+    HeightInvalid
+    StrideOverflow
+    StrideMismatch
+    BeginWhileActive
+    RunWithoutBegin
+    EndWithoutBegin
+    TargetMismatch
+    DescriptorInvalid %GuiRgba8888RowTileRlePresentFramePrepareErrorKind
+    SurfaceMismatch
+    ShapeMismatch
+    DescriptorMismatch
+    RunXInvalid
+    RunYInvalid
+    RunWidthInvalid
+    RunRightOverflow
+    RunOutOfBounds
+    RunGap
+    RunOverlap
+    ActiveSeenRunCountInvalid
+    ActiveSeenPixelCountInvalid
+    RunCountOverflow
+    PixelCountOverflow
+    RunCountExceeded
+    PixelCountExceeded
+    IncompleteEnd
+    HostExecutionFailed %GuiError
+
+impl Clone for GuiBareFramebufferErrorKind:
+    fn clone %fn &GuiBareFramebufferErrorKind GuiBareFramebufferErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareFramebufferErrorKind:
+    fn copy_mark %fn GuiBareFramebufferErrorKind GuiBareFramebufferErrorKind \kind:
+        kind
+
+pub struct GuiBareFramebufferStepApplied:
+    state %GuiBareFramebufferState
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+impl Clone for GuiBareFramebufferStepApplied:
+    fn clone %fn &GuiBareFramebufferStepApplied GuiBareFramebufferStepApplied \applied:
+        *applied
+
+impl Copy for GuiBareFramebufferStepApplied:
+    fn copy_mark %fn GuiBareFramebufferStepApplied GuiBareFramebufferStepApplied \applied:
+        applied
+
+pub struct GuiBareFramebufferStepError:
+    kind %GuiBareFramebufferErrorKind
+    category %Option GuiError
+    state %GuiBareFramebufferState
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+impl Clone for GuiBareFramebufferStepError:
+    fn clone %fn &GuiBareFramebufferStepError GuiBareFramebufferStepError \error:
+        *error
+
+impl Copy for GuiBareFramebufferStepError:
+    fn copy_mark %fn GuiBareFramebufferStepError GuiBareFramebufferStepError \error:
+        error
+
+fn gui_bare_framebuffer_config_new %fn SurfaceId fn i32 fn i32 fn i32 GuiBareFramebufferConfig \surface\width\height\stride_bytes:
+    GuiBareFramebufferConfig surface width height stride_bytes
+
+fn gui_bare_framebuffer_active_sequence_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 fn i32 GuiBareFramebufferActiveSequence \target\descriptor\seen_run_count\seen_pixel_count:
+    GuiBareFramebufferActiveSequence target descriptor seen_run_count seen_pixel_count
+
+fn gui_bare_framebuffer_state_new %fn GuiBareFramebufferConfig fn GuiBareFramebufferPhase fn Option FrameId GuiBareFramebufferState \config\phase\last_completed_frame:
+    GuiBareFramebufferState config phase last_completed_frame
+
+fn gui_bare_framebuffer_step_applied %fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiBareFramebufferStepApplied \state\operation:
+    GuiBareFramebufferStepApplied state operation
+
+fn gui_bare_framebuffer_error_category %fn GuiBareFramebufferErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareFramebufferErrorKind::SurfaceIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::WidthInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::HeightInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::StrideOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::StrideMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::BeginWhileActive:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::RunWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::EndWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::TargetMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::DescriptorInvalid lower:
+            match lower:
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::SurfaceIdInvalid:
+                    Option::Some GuiError::InvalidCommand
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdInvalid:
+                    Option::Some GuiError::InvalidCommand
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdMismatch:
+                    Option::Some GuiError::InvalidCommand
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileIndexInvalid:
+                    Option::Some GuiError::InvalidCommand
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileIndexOutOfBounds:
+                    Option::Some GuiError::InvalidCommand
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::WidthInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::HeightInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowStartInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowExtentOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowExtentOutOfBounds:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowStartInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowExtentOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowExtentOutOfBounds:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowOutsidePlanRange:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideMismatch:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileRowsInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountMismatch:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountMismatch:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TotalRunCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountInvalid:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountOverflow:
+                    Option::Some GuiError::InvalidGeometry
+                GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountMismatch:
+                    Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::SurfaceMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::ShapeMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::DescriptorMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::RunXInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::RunYInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::RunWidthInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::RunRightOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::RunOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareFramebufferErrorKind::RunGap:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::RunOverlap:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::ActiveSeenRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::ActiveSeenPixelCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::RunCountOverflow:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::PixelCountOverflow:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::RunCountExceeded:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::PixelCountExceeded:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::IncompleteEnd:
+            Option::Some GuiError::InvalidCommand
+        GuiBareFramebufferErrorKind::HostExecutionFailed error:
+            Option::Some error
+
+fn gui_bare_framebuffer_step_error %fn GuiBareFramebufferErrorKind fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiBareFramebufferStepError \kind\state\operation:
+    let category %Option GuiError gui_bare_framebuffer_error_category kind
+    GuiBareFramebufferStepError kind category state operation
+
+fn gui_bare_framebuffer_checked_add %fn i32 fn i32 fn GuiBareFramebufferErrorKind Result i32 GuiBareFramebufferErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_bare_framebuffer_checked_mul %fn i32 fn i32 fn GuiBareFramebufferErrorKind Result i32 GuiBareFramebufferErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+pub fn gui_bare_framebuffer_config_checked %fn SurfaceId fn i32 fn i32 Result GuiBareFramebufferConfig GuiBareFramebufferErrorKind \surface\width\height:
+    let surface_raw %i32 surface_id_raw &surface
+    if le surface_raw 0:
+        then Result::Err GuiBareFramebufferErrorKind::SurfaceIdInvalid
+        else:
+            if le width 0:
+                then Result::Err GuiBareFramebufferErrorKind::WidthInvalid
+                else:
+                    if le height 0:
+                        then Result::Err GuiBareFramebufferErrorKind::HeightInvalid
+                        else:
+                            match gui_bare_framebuffer_checked_mul width 4 GuiBareFramebufferErrorKind::StrideOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok stride_bytes:
+                                    Result::Ok gui_bare_framebuffer_config_new surface width height stride_bytes
+
+pub fn gui_bare_framebuffer_state_initial %fn GuiBareFramebufferConfig GuiBareFramebufferState \config:
+    gui_bare_framebuffer_state_new config GuiBareFramebufferPhase::Idle Option::None
+
+pub fn gui_bare_framebuffer_config_surface %fn &GuiBareFramebufferConfig SurfaceId \config:
+    *field::get_ref config "surface"
+
+pub fn gui_bare_framebuffer_config_width %fn &GuiBareFramebufferConfig i32 \config:
+    *field::get_ref config "width"
+
+pub fn gui_bare_framebuffer_config_height %fn &GuiBareFramebufferConfig i32 \config:
+    *field::get_ref config "height"
+
+pub fn gui_bare_framebuffer_config_stride_bytes %fn &GuiBareFramebufferConfig i32 \config:
+    *field::get_ref config "stride_bytes"
+
+pub fn gui_bare_framebuffer_state_config %fn &GuiBareFramebufferState GuiBareFramebufferConfig \state:
+    *field::get_ref state "config"
+
+pub fn gui_bare_framebuffer_state_phase %fn &GuiBareFramebufferState GuiBareFramebufferPhase \state:
+    *field::get_ref state "phase"
+
+pub fn gui_bare_framebuffer_state_last_completed_frame %fn &GuiBareFramebufferState Option FrameId \state:
+    *field::get_ref state "last_completed_frame"
+
+pub fn gui_bare_framebuffer_active_sequence_target %fn &GuiBareFramebufferActiveSequence GuiRgba8888RowTileRlePresentHostSpanOperationTarget \active:
+    *field::get_ref active "target"
+
+pub fn gui_bare_framebuffer_active_sequence_descriptor %fn &GuiBareFramebufferActiveSequence GuiRgba8888RowTileRlePresentDescriptor \active:
+    *field::get_ref active "descriptor"
+
+pub fn gui_bare_framebuffer_active_sequence_seen_run_count %fn &GuiBareFramebufferActiveSequence i32 \active:
+    *field::get_ref active "seen_run_count"
+
+pub fn gui_bare_framebuffer_active_sequence_seen_pixel_count %fn &GuiBareFramebufferActiveSequence i32 \active:
+    *field::get_ref active "seen_pixel_count"
+
+pub fn gui_bare_framebuffer_step_applied_state %fn &GuiBareFramebufferStepApplied GuiBareFramebufferState \applied:
+    *field::get_ref applied "state"
+
+pub fn gui_bare_framebuffer_step_applied_operation %fn &GuiBareFramebufferStepApplied GuiRgba8888RowTileRlePresentHostSpanOperation \applied:
+    *field::get_ref applied "operation"
+
+pub fn gui_bare_framebuffer_step_error_kind %fn &GuiBareFramebufferStepError GuiBareFramebufferErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_framebuffer_step_error_category_value %fn &GuiBareFramebufferStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_framebuffer_step_error_state %fn &GuiBareFramebufferStepError GuiBareFramebufferState \error:
+    *field::get_ref error "state"
+
+pub fn gui_bare_framebuffer_step_error_operation %fn &GuiBareFramebufferStepError GuiRgba8888RowTileRlePresentHostSpanOperation \error:
+    *field::get_ref error "operation"
+
+fn gui_bare_framebuffer_target_equal %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget bool \left\right:
+    match left:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window left_window:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window:
+                    eq window_id_raw &left_window window_id_raw &right_window
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    true
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching2:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    true
+
+fn gui_bare_framebuffer_descriptor_error %fn GuiRgba8888RowTileRlePresentFramePrepareErrorKind GuiBareFramebufferErrorKind \kind:
+    GuiBareFramebufferErrorKind::DescriptorInvalid kind
+
+fn gui_bare_framebuffer_present_checked_mul %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentFramePrepareErrorKind Result i32 GuiRgba8888RowTileRlePresentFramePrepareErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_bare_framebuffer_present_checked_add %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentFramePrepareErrorKind Result i32 GuiRgba8888RowTileRlePresentFramePrepareErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_bare_framebuffer_present_tile_count_checked %fn i32 fn i32 Result i32 GuiRgba8888RowTileRlePresentFramePrepareErrorKind \plan_row_count\tile_rows:
+    if le plan_row_count 0:
+        then Result::Err GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowCountInvalid
+        else:
+            if le tile_rows 0:
+                then Result::Err GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileRowsInvalid
+                else:
+                    let quotient %i32 div_s plan_row_count tile_rows
+                    let remainder %i32 rem_s plan_row_count tile_rows
+                    let tile_count %i32 if eq remainder 0 quotient add quotient 1
+                    if le tile_count 0:
+                        then Result::Err GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountOverflow
+                        else Result::Ok tile_count
+
+fn gui_bare_framebuffer_descriptor_validate_surface_frame %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \descriptor\packet:
+    let surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    if le surface_raw 0:
+        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::SurfaceIdInvalid
+        else:
+            let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame descriptor
+            let frame_raw %i32 frame_id_raw &frame
+            if le frame_raw 0:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdInvalid
+                else:
+                    let packet_frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id packet
+                    if ne packet_frame_id frame_raw:
+                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdMismatch
+                        else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_positive_shape %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width packet
+    if le width 0:
+        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::WidthInvalid
+        else:
+            let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height packet
+            if le height 0:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::HeightInvalid
+                else:
+                    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start packet
+                    if lt plan_row_start 0:
+                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowStartInvalid
+                        else:
+                            let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count packet
+                            if le plan_row_count 0:
+                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowCountInvalid
+                                else:
+                                    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start packet
+                                    if lt row_start 0:
+                                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowStartInvalid
+                                        else:
+                                            let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count packet
+                                            if le row_count 0:
+                                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowCountInvalid
+                                                else:
+                                                    let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes packet
+                                                    if le stride_bytes 0:
+                                                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideInvalid
+                                                        else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_positive_counts %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+    if le tile_rows 0:
+        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileRowsInvalid
+        else:
+            let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count packet
+            if le tile_count 0:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountInvalid
+                else:
+                    let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index packet
+                    if lt tile_index 0:
+                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileIndexInvalid
+                        else:
+                            let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count packet
+                            if le pixel_count 0:
+                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountInvalid
+                                else:
+                                    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count packet
+                                    if le total_run_count 0:
+                                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TotalRunCountInvalid
+                                        else:
+                                            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count packet
+                                            if le encoded_byte_count 0:
+                                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountInvalid
+                                                else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_row_extent %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height packet
+    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start packet
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count packet
+    match gui_bare_framebuffer_present_checked_add plan_row_start plan_row_count GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowExtentOverflow:
+        Result::Err kind:
+            Result::Err gui_bare_framebuffer_descriptor_error kind
+        Result::Ok plan_bottom:
+            if gt plan_bottom height:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowExtentOutOfBounds
+                else:
+                    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start packet
+                    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count packet
+                    match gui_bare_framebuffer_present_checked_add row_start row_count GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowExtentOverflow:
+                        Result::Err kind:
+                            Result::Err gui_bare_framebuffer_descriptor_error kind
+                        Result::Ok row_bottom:
+                            if gt row_bottom height:
+                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowExtentOutOfBounds
+                                else:
+                                    if lt row_start plan_row_start:
+                                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowOutsidePlanRange
+                                        else:
+                                            if gt row_bottom plan_bottom:
+                                                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowOutsidePlanRange
+                                                else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_stride %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width packet
+    match gui_bare_framebuffer_present_checked_mul width 4 GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideOverflow:
+        Result::Err kind:
+            Result::Err gui_bare_framebuffer_descriptor_error kind
+        Result::Ok expected_stride:
+            let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes packet
+            if ne expected_stride stride_bytes:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::StrideMismatch
+                else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_tile_count %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count packet
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+    match gui_bare_framebuffer_present_tile_count_checked plan_row_count tile_rows:
+        Result::Err kind:
+            Result::Err gui_bare_framebuffer_descriptor_error kind
+        Result::Ok expected_tile_count:
+            let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count packet
+            if ne expected_tile_count tile_count:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountMismatch
+                else:
+                    let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index packet
+                    if ge tile_index tile_count:
+                        then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileIndexOutOfBounds
+                        else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_pixel_count %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count packet
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width packet
+    match gui_bare_framebuffer_present_checked_mul row_count width GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountOverflow:
+        Result::Err kind:
+            Result::Err gui_bare_framebuffer_descriptor_error kind
+        Result::Ok expected_pixel_count:
+            let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count packet
+            if ne expected_pixel_count pixel_count:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountMismatch
+                else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_encoded_byte_count %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \packet:
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count packet
+    match gui_bare_framebuffer_present_checked_mul total_run_count 12 GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountOverflow:
+        Result::Err kind:
+            Result::Err gui_bare_framebuffer_descriptor_error kind
+        Result::Ok expected_encoded_byte_count:
+            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count packet
+            if ne expected_encoded_byte_count encoded_byte_count:
+                then Result::Err gui_bare_framebuffer_descriptor_error GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountMismatch
+                else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_validate_present_contract %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiBareFramebufferErrorKind \descriptor\packet:
+    match gui_bare_framebuffer_descriptor_validate_surface_frame descriptor packet:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok surface_frame_valid:
+            match gui_bare_framebuffer_descriptor_validate_positive_shape packet:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok positive_shape_valid:
+                    match gui_bare_framebuffer_descriptor_validate_positive_counts packet:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok positive_count_valid:
+                            match gui_bare_framebuffer_descriptor_validate_row_extent packet:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok row_extent_valid:
+                                    match gui_bare_framebuffer_descriptor_validate_stride packet:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok stride_valid:
+                                            match gui_bare_framebuffer_descriptor_validate_tile_count packet:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok tile_count_valid:
+                                                    match gui_bare_framebuffer_descriptor_validate_pixel_count packet:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok pixel_count_valid:
+                                                            gui_bare_framebuffer_descriptor_validate_encoded_byte_count packet
+
+fn gui_bare_framebuffer_descriptor_matches_config %fn &GuiBareFramebufferConfig fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiBareFramebufferErrorKind \config\descriptor:
+    let config_surface %SurfaceId gui_bare_framebuffer_config_surface config
+    let descriptor_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface descriptor
+    if ne surface_id_raw &config_surface surface_id_raw &descriptor_surface:
+        then Result::Err GuiBareFramebufferErrorKind::SurfaceMismatch
+        else:
+            let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet descriptor
+            match gui_bare_framebuffer_descriptor_validate_present_contract descriptor &packet:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok present_contract_valid:
+                    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+                    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+                    let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+                    let config_width %i32 gui_bare_framebuffer_config_width config
+                    let config_height %i32 gui_bare_framebuffer_config_height config
+                    let config_stride %i32 gui_bare_framebuffer_config_stride_bytes config
+                    let width_mismatch %bool ne width config_width
+                    let height_mismatch %bool ne height config_height
+                    let stride_mismatch %bool ne stride_bytes config_stride
+                    let size_mismatch %bool or width_mismatch height_mismatch
+                    if or size_mismatch stride_mismatch:
+                        then Result::Err GuiBareFramebufferErrorKind::ShapeMismatch
+                        else Result::Ok unit
+
+fn gui_bare_framebuffer_validate_active_invariant %fn &GuiBareFramebufferConfig fn &GuiBareFramebufferActiveSequence Result unit GuiBareFramebufferErrorKind \config\active:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor active
+    match gui_bare_framebuffer_descriptor_matches_config config &descriptor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok descriptor_matches_config:
+            let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+            let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+            let seen_run_count %i32 gui_bare_framebuffer_active_sequence_seen_run_count active
+            let seen_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count active
+            if lt seen_run_count 0:
+                then Result::Err GuiBareFramebufferErrorKind::ActiveSeenRunCountInvalid
+                else:
+                    if lt seen_pixel_count 0:
+                        then Result::Err GuiBareFramebufferErrorKind::ActiveSeenPixelCountInvalid
+                        else:
+                            if gt seen_run_count total_run_count:
+                                then Result::Err GuiBareFramebufferErrorKind::RunCountExceeded
+                                else:
+                                    if gt seen_pixel_count pixel_count:
+                                        then Result::Err GuiBareFramebufferErrorKind::PixelCountExceeded
+                                        else Result::Ok unit
+
+fn gui_bare_framebuffer_descriptor_equal %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &right_packet
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &right_packet
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &right_packet
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &right_packet
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &right_packet
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_start &right_packet
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_count &right_packet
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_width &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_width &right_packet
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_height &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_height &right_packet
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &right_packet
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &right_packet
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &right_packet
+                                                            and:
+                                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &right_packet
+                                                                and:
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &right_packet
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &right_packet
+
+fn gui_bare_framebuffer_validate_begin %fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareFramebufferStepApplied GuiBareFramebufferStepError \state\target\descriptor\operation:
+    match gui_bare_framebuffer_state_phase &state:
+        GuiBareFramebufferPhase::Active already_active:
+            Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::BeginWhileActive state operation
+        GuiBareFramebufferPhase::Idle:
+            let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &state
+            match gui_bare_framebuffer_descriptor_matches_config &config &descriptor:
+                Result::Err kind:
+                    Result::Err gui_bare_framebuffer_step_error kind state operation
+                Result::Ok descriptor_matches_config:
+                    let active %GuiBareFramebufferActiveSequence gui_bare_framebuffer_active_sequence_new target descriptor 0 0
+                    let next_state %GuiBareFramebufferState gui_bare_framebuffer_state_new config GuiBareFramebufferPhase::Active active gui_bare_framebuffer_state_last_completed_frame &state
+                    Result::Ok gui_bare_framebuffer_step_applied next_state operation
+
+fn gui_bare_framebuffer_expected_span_position %fn &GuiBareFramebufferActiveSequence Result i32 GuiBareFramebufferErrorKind \active:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor active
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+    let seen_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count active
+    let local_row %i32 div_s seen_pixel_count width
+    gui_bare_framebuffer_checked_add row_start local_row GuiBareFramebufferErrorKind::PixelCountOverflow
+
+fn gui_bare_framebuffer_validate_run %fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareFramebufferStepApplied GuiBareFramebufferStepError \state\target\span\operation:
+    match gui_bare_framebuffer_state_phase &state:
+        GuiBareFramebufferPhase::Idle:
+            Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunWithoutBegin state operation
+        GuiBareFramebufferPhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target &active
+            if not gui_bare_framebuffer_target_equal active_target target:
+                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::TargetMismatch state operation
+                else:
+                    let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &state
+                    match gui_bare_framebuffer_validate_active_invariant &config &active:
+                        Result::Err kind:
+                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                        Result::Ok active_invariant_valid:
+                            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor &active
+                            let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+                            let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+                            let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+                            let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+                            let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+                            let span_x %i32 gui_rgba8888_row_tile_rle_present_run_row_span_x &span
+                            let span_y %i32 gui_rgba8888_row_tile_rle_present_run_row_span_y &span
+                            let span_width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width &span
+                            if lt span_x 0:
+                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunXInvalid state operation
+                                else:
+                                    if lt span_y 0:
+                                        then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunYInvalid state operation
+                                        else:
+                                            if le span_width 0:
+                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunWidthInvalid state operation
+                                                else:
+                                                    match gui_bare_framebuffer_checked_add span_x span_width GuiBareFramebufferErrorKind::RunRightOverflow:
+                                                        Result::Err kind:
+                                                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                                                        Result::Ok span_right:
+                                                            if gt span_right width:
+                                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunOutOfBounds state operation
+                                                                else:
+                                                                    match gui_bare_framebuffer_expected_span_position &active:
+                                                                        Result::Err kind:
+                                                                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                                                                        Result::Ok expected_y:
+                                                                            let seen_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count &active
+                                                                            let expected_x %i32 rem_s seen_pixel_count width
+                                                                            let same_expected_row %bool eq span_y expected_y
+                                                                            let before_expected_x %bool and same_expected_row lt span_x expected_x
+                                                                            let before_expected_position %bool or lt span_y expected_y before_expected_x
+                                                                            if before_expected_position:
+                                                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunOverlap state operation
+                                                                                else:
+                                                                                    let after_expected_x %bool and same_expected_row gt span_x expected_x
+                                                                                    let after_expected_position %bool or gt span_y expected_y after_expected_x
+                                                                                    if after_expected_position:
+                                                                                        then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunGap state operation
+                                                                                        else:
+                                                                                            let local_y %i32 sub span_y gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+                                                                                            if or lt local_y 0 ge local_y row_count:
+                                                                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunOutOfBounds state operation
+                                                                                                else:
+                                                                                                    match gui_bare_framebuffer_checked_add seen_pixel_count span_width GuiBareFramebufferErrorKind::PixelCountOverflow:
+                                                                                                        Result::Err kind:
+                                                                                                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                                                                                                        Result::Ok next_pixel_count:
+                                                                                                            if gt next_pixel_count pixel_count:
+                                                                                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::PixelCountExceeded state operation
+                                                                                                                else:
+                                                                                                                    let seen_run_count %i32 gui_bare_framebuffer_active_sequence_seen_run_count &active
+                                                                                                                    match gui_bare_framebuffer_checked_add seen_run_count 1 GuiBareFramebufferErrorKind::RunCountOverflow:
+                                                                                                                        Result::Err kind:
+                                                                                                                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                                                                                                                        Result::Ok next_run_count:
+                                                                                                                            if gt next_run_count total_run_count:
+                                                                                                                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::RunCountExceeded state operation
+                                                                                                                                else:
+                                                                                                                                    let next_active %GuiBareFramebufferActiveSequence gui_bare_framebuffer_active_sequence_new active_target descriptor next_run_count next_pixel_count
+                                                                                                                                    let last_completed %Option FrameId gui_bare_framebuffer_state_last_completed_frame &state
+                                                                                                                                    let next_state %GuiBareFramebufferState gui_bare_framebuffer_state_new config GuiBareFramebufferPhase::Active next_active last_completed
+                                                                                                                                    Result::Ok gui_bare_framebuffer_step_applied next_state operation
+
+fn gui_bare_framebuffer_validate_end %fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareFramebufferStepApplied GuiBareFramebufferStepError \state\target\descriptor\operation:
+    match gui_bare_framebuffer_state_phase &state:
+        GuiBareFramebufferPhase::Idle:
+            Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::EndWithoutBegin state operation
+        GuiBareFramebufferPhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target &active
+            if not gui_bare_framebuffer_target_equal active_target target:
+                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::TargetMismatch state operation
+                else:
+                    let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &state
+                    match gui_bare_framebuffer_validate_active_invariant &config &active:
+                        Result::Err kind:
+                            Result::Err gui_bare_framebuffer_step_error kind state operation
+                        Result::Ok active_invariant_valid:
+                            let active_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor &active
+                            if not gui_bare_framebuffer_descriptor_equal &active_descriptor &descriptor:
+                                then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::DescriptorMismatch state operation
+                                else:
+                                    let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count &descriptor
+                                    let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count &descriptor
+                                    let seen_run_count %i32 gui_bare_framebuffer_active_sequence_seen_run_count &active
+                                    let seen_pixel_count %i32 gui_bare_framebuffer_active_sequence_seen_pixel_count &active
+                                    if or ne seen_run_count expected_run_count ne seen_pixel_count expected_pixel_count:
+                                        then Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::IncompleteEnd state operation
+                                        else:
+                                            let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+                                            let next_state %GuiBareFramebufferState gui_bare_framebuffer_state_new config GuiBareFramebufferPhase::Idle Option::Some frame
+                                            Result::Ok gui_bare_framebuffer_step_applied next_state operation
+
+pub fn gui_bare_framebuffer_validate_operation %fn GuiBareFramebufferState fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareFramebufferStepApplied GuiBareFramebufferStepError \state\operation:
+    match operation:
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowBegin payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_begin_descriptor &payload
+            gui_bare_framebuffer_validate_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window descriptor operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowRunSpan payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_window &payload
+            let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_host_span_operation_window_run_span_span &payload
+            gui_bare_framebuffer_validate_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window span operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::WindowEnd payload:
+            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_window &payload
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_span_operation_window_end_descriptor &payload
+            gui_bare_framebuffer_validate_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window descriptor operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenBegin descriptor:
+            gui_bare_framebuffer_validate_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen descriptor operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenRunSpan span:
+            gui_bare_framebuffer_validate_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen span operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::OffscreenEnd descriptor:
+            gui_bare_framebuffer_validate_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen descriptor operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceBegin descriptor:
+            gui_bare_framebuffer_validate_begin state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device descriptor operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceRunSpan span:
+            gui_bare_framebuffer_validate_run state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device span operation
+        GuiRgba8888RowTileRlePresentHostSpanOperation::DeviceEnd descriptor:
+            gui_bare_framebuffer_validate_end state GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device descriptor operation
+
+//: gui_bare_framebuffer_execute_operation: validation [成功/せいこう]後だけ F5fk host executor を[呼/よ]ぶ
+//:
+//: [契約/けいやく]:
+//: - validation failure では host executor を[呼/よ]びません。
+//: - host executor failure では advanced state を[採用/さいよう]せず、original state と operation を error に[保持/ほじ]します。
+pub fn gui_bare_framebuffer_execute_operation %impure fn GuiBareFramebufferState impure fn GuiRgba8888RowTileRlePresentHostSpanOperation Result GuiBareFramebufferStepApplied GuiBareFramebufferStepError \state\operation:
+    match gui_bare_framebuffer_validate_operation state operation:
+        Result::Err error:
+            Result::Err error
+        Result::Ok applied:
+            match gui_bare_scheduler_host_executor_execute_operation operation:
+                Result::Err host_error:
+                    Result::Err gui_bare_framebuffer_step_error GuiBareFramebufferErrorKind::HostExecutionFailed host_error state operation
+                Result::Ok host_execution_done:
+                    Result::Ok applied

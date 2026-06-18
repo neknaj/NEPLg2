@@ -268,6 +268,8 @@ const platformGuiBareSchedulerExecutorStep = read("stdlib/platforms/gui/bare/sch
 const platformGuiBareSchedulerExecutorStepImpl = withoutComments(platformGuiBareSchedulerExecutorStep);
 const platformGuiBareSchedulerHostExecutor = read("stdlib/platforms/gui/bare/scheduler_host_executor.nepl");
 const platformGuiBareSchedulerHostExecutorImpl = withoutComments(platformGuiBareSchedulerHostExecutor);
+const platformGuiBareFramebuffer = read("stdlib/platforms/gui/bare/framebuffer.nepl");
+const platformGuiBareFramebufferImpl = withoutComments(platformGuiBareFramebuffer);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -378,6 +380,7 @@ const guiPlatformNativeSchedulerExecutorStepTests = read("tests/stdlib/gui_platf
 const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md");
 const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
+const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26290,6 +26293,204 @@ assert(
 assert(
     /function defaultNeplGuiBareImports\(\)[\s\S]*display_presenter_session_begin: \(\) => -1[\s\S]*display_presenter_session_run: \(\) => -1[\s\S]*display_presenter_session_end: \(\) => -1/.test(runTestSource),
     "run_test bare default imports must fail closed for F5fk display presenter session host import ABI",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["bare platform behavior notes", barePlatformBehaviorDoc],
+]) {
+    assert(
+        doc.includes("Bare display framebuffer adapter boundary") &&
+            doc.includes("F5fl") &&
+            doc.includes("pure validation") &&
+            doc.includes("existing bare scheduler host executor") &&
+            doc.includes("HostExecutionFailed") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fl ${name} must document bare framebuffer validation adapter and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/framebuffer" as @merge'),
+    "platforms/gui/bare facade must export F5fl bare framebuffer adapter boundary",
+);
+assert(
+    platformGuiBareFramebuffer.includes("Bare display framebuffer adapter boundary") &&
+        platformGuiBareFramebuffer.includes("pure validation") &&
+        platformGuiBareFramebuffer.includes("F5fk") &&
+        platformGuiBareFramebuffer.includes("existing bare scheduler host executor") &&
+        platformGuiBareFramebuffer.includes("HostExecutionFailed") &&
+        platformGuiBareFramebuffer.includes("state") &&
+        platformGuiBareFramebuffer.includes("operation") &&
+        platformGuiBareFramebuffer.includes("fallback") &&
+        platformGuiBareFramebuffer.includes("silent no-op"),
+    "platforms/gui/bare/framebuffer F5fl must document stateful validation adapter and no fallback",
+);
+assertNoMatch(
+    platformGuiBareFramebuffer,
+    /#extern\s+"nepl_gui_bare"/,
+    "platforms/gui/bare/framebuffer F5fl must not define new bare host imports",
+);
+assert(
+    platformGuiBareFramebufferImpl.includes("pub struct GuiBareFramebufferConfig") &&
+        platformGuiBareFramebufferImpl.includes("pub enum GuiBareFramebufferPhase") &&
+        platformGuiBareFramebufferImpl.includes("pub struct GuiBareFramebufferState") &&
+        platformGuiBareFramebufferImpl.includes("pub enum GuiBareFramebufferErrorKind") &&
+        platformGuiBareFramebufferImpl.includes("pub struct GuiBareFramebufferStepError") &&
+        platformGuiBareFramebufferImpl.includes("pub fn gui_bare_framebuffer_validate_operation") &&
+        platformGuiBareFramebufferImpl.includes("pub fn gui_bare_framebuffer_execute_operation"),
+    "platforms/gui/bare/framebuffer F5fl must expose typed config/state/phase/error and validation/wrapper APIs",
+);
+for (const pureValidationName of [
+    "gui_bare_framebuffer_validate_begin",
+    "gui_bare_framebuffer_validate_run",
+    "gui_bare_framebuffer_validate_end",
+    "gui_bare_framebuffer_validate_active_invariant",
+    "gui_bare_framebuffer_validate_operation",
+]) {
+    assertNoMatch(
+        functionSlice(platformGuiBareFramebufferImpl, pureValidationName),
+        /gui_bare_scheduler_host_executor_execute_operation|#extern|display_presenter_session/,
+        `platforms/gui/bare/framebuffer F5fl ${pureValidationName} must remain pure validation`,
+    );
+}
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_execute_operation"),
+    [
+        "gui_bare_framebuffer_validate_operation state operation",
+        "Result::Err error",
+        "Result::Ok applied",
+        "gui_bare_scheduler_host_executor_execute_operation operation",
+        "GuiBareFramebufferErrorKind::HostExecutionFailed host_error state operation",
+        "Result::Ok applied",
+    ],
+    "platforms/gui/bare/framebuffer F5fl wrapper must validate first, call existing host executor once, and recover original state on host failure",
+);
+assert(
+    platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::RunWithoutBegin") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::EndWithoutBegin") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::TargetMismatch") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::DescriptorInvalid") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::DescriptorMismatch") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::RunGap") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::RunOverlap") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::ActiveSeenRunCountInvalid") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::ActiveSeenPixelCountInvalid") &&
+        platformGuiBareFramebufferImpl.includes("GuiBareFramebufferErrorKind::IncompleteEnd"),
+    "platforms/gui/bare/framebuffer F5fl must model ordering, target, descriptor, active state invariant, gap/overlap, and incomplete-end errors explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_descriptor_validate_present_contract"),
+    [
+        "gui_bare_framebuffer_descriptor_validate_surface_frame descriptor packet",
+        "gui_bare_framebuffer_descriptor_validate_positive_shape packet",
+        "gui_bare_framebuffer_descriptor_validate_positive_counts packet",
+        "gui_bare_framebuffer_descriptor_validate_row_extent packet",
+        "gui_bare_framebuffer_descriptor_validate_stride packet",
+        "gui_bare_framebuffer_descriptor_validate_tile_count packet",
+        "gui_bare_framebuffer_descriptor_validate_pixel_count packet",
+        "gui_bare_framebuffer_descriptor_validate_encoded_byte_count packet",
+    ],
+    "platforms/gui/bare/framebuffer F5fl descriptor validation must replay the std present descriptor contract before host execution",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_descriptor_validate_surface_frame"),
+    [
+        "frame_id_raw &frame",
+        "gui_rgba8888_row_tile_rle_packet_descriptor_frame_id packet",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdMismatch",
+    ],
+    "platforms/gui/bare/framebuffer F5fl descriptor validation must reject forged packet frame ids",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_descriptor_validate_row_extent"),
+    [
+        "gui_bare_framebuffer_present_checked_add plan_row_start plan_row_count",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PlanRowExtentOutOfBounds",
+        "gui_bare_framebuffer_present_checked_add row_start row_count",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowExtentOutOfBounds",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::RowOutsidePlanRange",
+    ],
+    "platforms/gui/bare/framebuffer F5fl descriptor validation must reject row ranges outside the framebuffer or tile plan",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_descriptor_validate_pixel_count"),
+    [
+        "gui_bare_framebuffer_present_checked_mul row_count width",
+        "gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count packet",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountMismatch",
+    ],
+    "platforms/gui/bare/framebuffer F5fl descriptor validation must reject pixel-count mismatches",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_descriptor_validate_encoded_byte_count"),
+    [
+        "gui_bare_framebuffer_present_checked_mul total_run_count 12",
+        "gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count packet",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountMismatch",
+    ],
+    "platforms/gui/bare/framebuffer F5fl descriptor validation must reject encoded byte-count mismatches",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_validate_active_invariant"),
+    [
+        "gui_bare_framebuffer_descriptor_matches_config config &descriptor",
+        "GuiBareFramebufferErrorKind::ActiveSeenRunCountInvalid",
+        "GuiBareFramebufferErrorKind::ActiveSeenPixelCountInvalid",
+        "GuiBareFramebufferErrorKind::RunCountExceeded",
+        "GuiBareFramebufferErrorKind::PixelCountExceeded",
+    ],
+    "platforms/gui/bare/framebuffer F5fl active invariant validation must reject forged descriptors and forged seen-count state before run/end",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_validate_run"),
+    [
+        "gui_bare_framebuffer_state_config &state",
+        "gui_bare_framebuffer_validate_active_invariant &config &active",
+        "Result::Err kind",
+        "Result::Ok active_invariant_valid",
+        "gui_bare_framebuffer_expected_span_position &active",
+    ],
+    "platforms/gui/bare/framebuffer F5fl RunSpan validation must validate active state before reading span progress",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareFramebufferImpl, "gui_bare_framebuffer_validate_end"),
+    [
+        "gui_bare_framebuffer_state_config &state",
+        "gui_bare_framebuffer_validate_active_invariant &config &active",
+        "Result::Err kind",
+        "Result::Ok active_invariant_valid",
+        "gui_bare_framebuffer_descriptor_equal &active_descriptor &descriptor",
+    ],
+    "platforms/gui/bare/framebuffer F5fl End validation must validate active state before accepting descriptor equality or completion",
+);
+assertNoMatch(
+    platformGuiBareFramebufferImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+    "platforms/gui/bare/framebuffer F5fl must not implement loop, timer, renderer, queue, or fallback transports",
+);
+assertNoMatch(
+    platformGuiBareFramebufferImpl,
+    /_:|[()]/,
+    "platforms/gui/bare/framebuffer F5fl implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    [
+        "platform_bare_framebuffer_facade_ok",
+        "platform_bare_framebuffer_state_machine_ok",
+        "platform_bare_framebuffer_valid_sequence_ok",
+        "platform_bare_framebuffer_run_without_begin_ok",
+        "platform_bare_framebuffer_target_mismatch_ok",
+        "platform_bare_framebuffer_gap_overlap_ok",
+        "platform_bare_framebuffer_descriptor_contract_ok",
+        "platform_bare_framebuffer_bounds_and_count_ok",
+        "platform_bare_framebuffer_incomplete_end_ok",
+        "platform_bare_framebuffer_active_invariant_ok",
+        "platform_bare_framebuffer_host_execution_failed_ok",
+        "platform_bare_framebuffer_host_wrapper_no_new_extern",
+        "platform_bare_framebuffer_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareFramebufferTests.includes(label)),
+    "F5fl platform bare framebuffer focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
