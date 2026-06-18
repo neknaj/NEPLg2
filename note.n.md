@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI platform F5fo Bare display driver outcome ledger boundary
+
+## 目的
+
+- F5fn Bare display memory write plan boundary の後続として、bare display driver outcome ledger boundary を追加する。
+- `GuiBareDisplayMemoryStepApplied` は public value なので、その supplied state / action を信用せず、driver state が保持する canonical `GuiBareDisplayMemoryState` から `gui_bare_display_memory_apply` を再適用した expected state / action と照合する。
+- 成功時だけ caller supplied driver outcome と checked action evidence を exact match し、actual hardware write、raw byte buffer ownership、host import、present loop、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装条件として、F5fo は pure driver outcome ledger boundary に限定すること、supplied memory step を canonical memory state で再適用してから信用すること、`BeginAccepted` / `SpanWriteAccepted` / `FramePresentAccepted` を checked action evidence と exact match すること、outcome mismatch / driver rejected / forged step を enum error と `Result` で返すこと、host import / loop / queue / DOM / Canvas / minifb / video memory / fallback / silent no-op を入れないことが示された。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_driver.nepl` を追加し、`GuiBareDisplayDriverState`、`GuiBareDisplayDriverPhase`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverErrorKind`、`GuiBareDisplayDriverStepApplied`、`gui_bare_display_driver_apply` を追加した。
+- `gui_bare_display_driver_apply` は driver state invariant を確認し、supplied `GuiBareDisplayMemoryStepApplied` から storage step を取り出し、canonical memory state で `gui_bare_display_memory_apply` を再適用して expected state / action と supplied state / action を照合する。
+- outcome match は Begin / SpanWrite / FramePresent の typed evidence を field ごとに確認し、`DriverRejected` は lower `GuiError` を保持した driver error として返す。
+- F5fo source-policy のため、`display_memory` に plan / action / state の public accessor と equality helper を追加し、`platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を更新した。
+
+## verification
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_f5fo_after_review3.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver.nepl -o tmp_gui_bare_display_driver_module_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory.nepl -o tmp_gui_bare_display_memory_module_after_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+
+## subagent implementation review
+
+- Faraday the 2nd の初回 implementation review は `NEEDS_CHANGES`。実装本体には矛盾を見つけなかったが、F5fo source-policy と executable doctest が `SpanWriteAccepted` の pixel start / end、row byte start、x byte offset を十分に固定していないと指摘した。
+- 指摘対応として、source-policy の ordered fragments に missing field と mismatch kind を追加し、`display_driver` に accepted evidence accessor を追加し、focused doctest で target、span、run index、pixel range、row / x byte offset、byte range、surface byte count、color を確認するようにした。
+- 再レビューは `REVIEW_APPROVED`。追加の変更要求はない。
+
+## residual
+
+- F5fo は driver outcome ledger boundary までであり、actual hardware display driver write、raw byte buffer ownership、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fn Bare display memory write plan boundary
 
 ## 目的

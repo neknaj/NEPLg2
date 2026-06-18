@@ -274,6 +274,8 @@ const platformGuiBareDisplayStorage = read("stdlib/platforms/gui/bare/display_st
 const platformGuiBareDisplayStorageImpl = withoutComments(platformGuiBareDisplayStorage);
 const platformGuiBareDisplayMemory = read("stdlib/platforms/gui/bare/display_memory.nepl");
 const platformGuiBareDisplayMemoryImpl = withoutComments(platformGuiBareDisplayMemory);
+const platformGuiBareDisplayDriver = read("stdlib/platforms/gui/bare/display_driver.nepl");
+const platformGuiBareDisplayDriverImpl = withoutComments(platformGuiBareDisplayDriver);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -387,6 +389,7 @@ const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platfor
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
+const guiPlatformBareDisplayDriverTests = read("tests/stdlib/gui_platform_bare_display_driver.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26785,6 +26788,134 @@ assert(
         "platform_bare_display_memory_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayMemoryTests.includes(label)),
     "F5fn platform bare display memory focused doctest must cover executable and source-policy labels",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["bare platform behavior notes", barePlatformBehaviorDoc],
+]) {
+    assert(
+        doc.includes("Bare display driver outcome ledger boundary") &&
+            doc.includes("F5fo") &&
+            doc.includes("canonical memory state") &&
+            doc.includes("GuiBareDisplayMemoryStepApplied") &&
+            doc.includes("driver outcome") &&
+            doc.includes("BeginAccepted") &&
+            doc.includes("SpanWriteAccepted") &&
+            doc.includes("FramePresentAccepted") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fo ${name} must document bare display driver outcome ledger and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/display_driver" as @merge'),
+    "platforms/gui/bare facade must export F5fo bare display driver outcome ledger boundary",
+);
+assert(
+    platformGuiBareDisplayDriver.includes("Bare display driver outcome ledger boundary") &&
+        platformGuiBareDisplayDriver.includes("canonical memory state") &&
+        platformGuiBareDisplayDriver.includes("driver outcome") &&
+        platformGuiBareDisplayDriver.includes("raw byte buffer write") &&
+        platformGuiBareDisplayDriver.includes("scheduler loop"),
+    "platforms/gui/bare/display_driver F5fo must document pure outcome ledger and non-goals",
+);
+assert(
+    platformGuiBareDisplayDriverImpl.includes("pub struct GuiBareDisplayDriverState") &&
+        platformGuiBareDisplayDriverImpl.includes("memory_state %GuiBareDisplayMemoryState") &&
+        platformGuiBareDisplayDriverImpl.includes("pub enum GuiBareDisplayDriverPhase") &&
+        platformGuiBareDisplayDriverImpl.includes("pub enum GuiBareDisplayDriverOutcome") &&
+        platformGuiBareDisplayDriverImpl.includes("BeginAccepted") &&
+        platformGuiBareDisplayDriverImpl.includes("SpanWriteAccepted") &&
+        platformGuiBareDisplayDriverImpl.includes("FramePresentAccepted") &&
+        platformGuiBareDisplayDriverImpl.includes("DriverRejected") &&
+        platformGuiBareDisplayDriverImpl.includes("pub enum GuiBareDisplayDriverErrorKind") &&
+        platformGuiBareDisplayDriverImpl.includes("pub fn gui_bare_display_driver_apply"),
+    "platforms/gui/bare/display_driver F5fo must expose driver state, phase, outcome, error, and apply APIs",
+);
+assert(
+    platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::MemoryApplyFailed") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::MemoryStepStateMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::MemoryStepActionMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::OutcomeActionMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::DriverRejected") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::SpanByteStartMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::SpanByteLenMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::SpanByteEndMismatch") &&
+        platformGuiBareDisplayDriverImpl.includes("GuiBareDisplayDriverErrorKind::PresentSurfaceByteCountMismatch"),
+    "platforms/gui/bare/display_driver F5fo must model memory mismatch, outcome mismatch, rejected driver, and byte evidence errors explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverImpl, "gui_bare_display_driver_apply"),
+    [
+        "gui_bare_display_driver_state_invariant &state",
+        "gui_bare_display_memory_step_applied_storage_step &memory_step",
+        "gui_bare_display_driver_state_memory_state &state",
+        "gui_bare_display_memory_apply current_memory_state storage_step",
+        "GuiBareDisplayDriverErrorKind::MemoryApplyFailed memory_kind",
+        "gui_bare_display_memory_step_applied_state &expected_memory_step",
+        "gui_bare_display_memory_step_applied_state &memory_step",
+        "GuiBareDisplayDriverErrorKind::MemoryStepStateMismatch",
+        "gui_bare_display_memory_step_applied_action &expected_memory_step",
+        "gui_bare_display_memory_step_applied_action &memory_step",
+        "GuiBareDisplayDriverErrorKind::MemoryStepActionMismatch",
+        "gui_bare_display_driver_outcome_matches_action expected_action outcome",
+        "gui_bare_display_driver_phase_from_memory_state &expected_memory_state",
+        "gui_bare_display_driver_last_write_after_outcome last_write outcome",
+        "gui_bare_display_driver_last_present_after_outcome last_present outcome",
+        "gui_bare_display_driver_state_new expected_memory_state next_phase next_write next_present",
+    ],
+    "platforms/gui/bare/display_driver F5fo apply must reapply memory step from canonical state before matching outcome and advancing state",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverImpl, "gui_bare_display_driver_span_matches"),
+    [
+        "gui_bare_display_memory_span_write_plan_target plan",
+        "GuiBareDisplayDriverErrorKind::SpanTargetMismatch",
+        "gui_bare_display_memory_span_write_plan_span plan",
+        "GuiBareDisplayDriverErrorKind::SpanRunSpanMismatch",
+        "gui_bare_display_memory_span_write_plan_run_index plan",
+        "GuiBareDisplayDriverErrorKind::SpanRunIndexMismatch",
+        "gui_bare_display_memory_span_write_plan_pixel_start plan",
+        "GuiBareDisplayDriverErrorKind::SpanPixelStartMismatch",
+        "gui_bare_display_memory_span_write_plan_pixel_end plan",
+        "GuiBareDisplayDriverErrorKind::SpanPixelEndMismatch",
+        "gui_bare_display_memory_span_write_plan_row_byte_start plan",
+        "GuiBareDisplayDriverErrorKind::SpanRowByteStartMismatch",
+        "gui_bare_display_memory_span_write_plan_x_byte_offset plan",
+        "GuiBareDisplayDriverErrorKind::SpanXByteOffsetMismatch",
+        "gui_bare_display_memory_span_write_plan_byte_start plan",
+        "GuiBareDisplayDriverErrorKind::SpanByteStartMismatch",
+        "gui_bare_display_memory_span_write_plan_byte_len plan",
+        "GuiBareDisplayDriverErrorKind::SpanByteLenMismatch",
+        "gui_bare_display_memory_span_write_plan_byte_end plan",
+        "GuiBareDisplayDriverErrorKind::SpanByteEndMismatch",
+        "gui_bare_display_memory_span_write_plan_surface_byte_count plan",
+        "GuiBareDisplayDriverErrorKind::SpanSurfaceByteCountMismatch",
+        "gui_bare_display_memory_color_equal plan_color accepted_color",
+    ],
+    "platforms/gui/bare/display_driver F5fo span outcome match must compare the complete checked byte write evidence",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverImpl,
+    /#extern|#intrinsic|\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+    "platforms/gui/bare/display_driver F5fo must not implement host imports, loops, queues, renderers, or fallback transports",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverImpl,
+    /fallback|silent|[()]/i,
+    "platforms/gui/bare/display_driver F5fo implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_driver_facade_ok",
+        "platform_bare_display_driver_span_outcome_evidence_ok",
+        "platform_bare_display_driver_source_policy_canonical_memory_reapply_ok",
+        "platform_bare_display_driver_source_policy_forged_memory_step_rejected_ok",
+        "platform_bare_display_driver_source_policy_outcome_match_before_advance_ok",
+        "platform_bare_display_driver_source_policy_driver_rejected_result_ok",
+        "platform_bare_display_driver_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayDriverTests.includes(label)),
+    "F5fo platform bare display driver focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],

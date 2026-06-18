@@ -304,6 +304,36 @@ pub fn gui_bare_display_memory_active_frame_accepted_run_count %fn &GuiBareDispl
 pub fn gui_bare_display_memory_active_frame_accepted_pixel_count %fn &GuiBareDisplayMemoryActiveFrame i32 \active:
     *field::get_ref active "accepted_pixel_count"
 
+pub fn gui_bare_display_memory_begin_plan_target %fn &GuiBareDisplayMemoryFrameBeginPlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_begin_plan_descriptor %fn &GuiBareDisplayMemoryFrameBeginPlan GuiRgba8888RowTileRlePresentDescriptor \plan:
+    *field::get_ref plan "descriptor"
+
+pub fn gui_bare_display_memory_begin_plan_surface_byte_count %fn &GuiBareDisplayMemoryFrameBeginPlan i32 \plan:
+    *field::get_ref plan "surface_byte_count"
+
+pub fn gui_bare_display_memory_span_write_plan_target %fn &GuiBareDisplayMemorySpanWritePlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_span_write_plan_span %fn &GuiBareDisplayMemorySpanWritePlan GuiRgba8888RowTileRlePresentRunRowSpan \plan:
+    *field::get_ref plan "span"
+
+pub fn gui_bare_display_memory_span_write_plan_run_index %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "run_index"
+
+pub fn gui_bare_display_memory_span_write_plan_pixel_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "pixel_start"
+
+pub fn gui_bare_display_memory_span_write_plan_pixel_end %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "pixel_end"
+
+pub fn gui_bare_display_memory_span_write_plan_row_byte_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "row_byte_start"
+
+pub fn gui_bare_display_memory_span_write_plan_x_byte_offset %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "x_byte_offset"
+
 pub fn gui_bare_display_memory_span_write_plan_byte_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
     *field::get_ref plan "byte_start"
 
@@ -314,6 +344,27 @@ pub fn gui_bare_display_memory_span_write_plan_byte_end %fn &GuiBareDisplayMemor
     *field::get_ref plan "byte_end"
 
 pub fn gui_bare_display_memory_span_write_plan_surface_byte_count %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "surface_byte_count"
+
+pub fn gui_bare_display_memory_span_write_plan_color %fn &GuiBareDisplayMemorySpanWritePlan Rgba8888 \plan:
+    *field::get_ref plan "color"
+
+pub fn gui_bare_display_memory_present_plan_target %fn &GuiBareDisplayMemoryFramePresentPlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_present_plan_descriptor %fn &GuiBareDisplayMemoryFramePresentPlan GuiRgba8888RowTileRlePresentDescriptor \plan:
+    *field::get_ref plan "descriptor"
+
+pub fn gui_bare_display_memory_present_plan_frame %fn &GuiBareDisplayMemoryFramePresentPlan FrameId \plan:
+    *field::get_ref plan "frame"
+
+pub fn gui_bare_display_memory_present_plan_run_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    *field::get_ref plan "run_count"
+
+pub fn gui_bare_display_memory_present_plan_pixel_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    *field::get_ref plan "pixel_count"
+
+pub fn gui_bare_display_memory_present_plan_surface_byte_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
     *field::get_ref plan "surface_byte_count"
 
 pub fn gui_bare_display_memory_step_applied_state %fn &GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryState \applied:
@@ -411,7 +462,7 @@ pub fn gui_bare_display_memory_state_initial %fn GuiBareFramebufferConfig Result
             let storage_state %GuiBareDisplayStorageState gui_bare_display_storage_state_initial config
             Result::Ok gui_bare_display_memory_state_new storage_state GuiBareDisplayMemoryPhase::Idle total_byte_count Option::None
 
-fn gui_bare_display_memory_target_equal %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget bool \left\right:
+pub fn gui_bare_display_memory_target_equal %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget bool \left\right:
     match left:
         GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window left_window:
             match right:
@@ -438,7 +489,7 @@ fn gui_bare_display_memory_target_equal %fn GuiRgba8888RowTileRlePresentHostSpan
                 GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
                     true
 
-fn gui_bare_display_memory_descriptor_equal %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+pub fn gui_bare_display_memory_descriptor_equal %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
     let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
     let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
     let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
@@ -661,7 +712,7 @@ fn gui_bare_display_memory_storage_state_equal %fn &GuiBareDisplayStorageState f
             gui_bare_display_memory_storage_phase_equal left_phase right_phase
             gui_bare_display_memory_option_frame_equal left_presented right_presented
 
-fn gui_bare_display_memory_color_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
+pub fn gui_bare_display_memory_color_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
     and:
         eq rgba8888_r &left rgba8888_r &right
         and:
@@ -670,7 +721,7 @@ fn gui_bare_display_memory_color_equal %fn Rgba8888 fn Rgba8888 bool \left\right
                 eq rgba8888_b &left rgba8888_b &right
                 eq rgba8888_a &left rgba8888_a &right
 
-fn gui_bare_display_memory_span_equal %fn &GuiRgba8888RowTileRlePresentRunRowSpan fn &GuiRgba8888RowTileRlePresentRunRowSpan bool \left\right:
+pub fn gui_bare_display_memory_span_equal %fn &GuiRgba8888RowTileRlePresentRunRowSpan fn &GuiRgba8888RowTileRlePresentRunRowSpan bool \left\right:
     let left_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color left
     let right_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color right
     and:
@@ -922,6 +973,143 @@ fn gui_bare_display_memory_last_write_after_action %fn Option GuiBareDisplayMemo
             Option::Some plan
         GuiBareDisplayMemoryAction::FramePresent present:
             last_write
+
+pub fn gui_bare_display_memory_span_write_plan_equal %fn &GuiBareDisplayMemorySpanWritePlan fn &GuiBareDisplayMemorySpanWritePlan bool \left\right:
+    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target left
+    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target right
+    let left_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span left
+    let right_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span right
+    let left_color %Rgba8888 gui_bare_display_memory_span_write_plan_color left
+    let right_color %Rgba8888 gui_bare_display_memory_span_write_plan_color right
+    and:
+        gui_bare_display_memory_target_equal left_target right_target
+        and:
+            gui_bare_display_memory_span_equal &left_span &right_span
+            and:
+                eq gui_bare_display_memory_span_write_plan_run_index left gui_bare_display_memory_span_write_plan_run_index right
+                and:
+                    eq gui_bare_display_memory_span_write_plan_pixel_start left gui_bare_display_memory_span_write_plan_pixel_start right
+                    and:
+                        eq gui_bare_display_memory_span_write_plan_pixel_end left gui_bare_display_memory_span_write_plan_pixel_end right
+                        and:
+                            eq gui_bare_display_memory_span_write_plan_row_byte_start left gui_bare_display_memory_span_write_plan_row_byte_start right
+                            and:
+                                eq gui_bare_display_memory_span_write_plan_x_byte_offset left gui_bare_display_memory_span_write_plan_x_byte_offset right
+                                and:
+                                    eq gui_bare_display_memory_span_write_plan_byte_start left gui_bare_display_memory_span_write_plan_byte_start right
+                                    and:
+                                        eq gui_bare_display_memory_span_write_plan_byte_len left gui_bare_display_memory_span_write_plan_byte_len right
+                                        and:
+                                            eq gui_bare_display_memory_span_write_plan_byte_end left gui_bare_display_memory_span_write_plan_byte_end right
+                                            and:
+                                                eq gui_bare_display_memory_span_write_plan_surface_byte_count left gui_bare_display_memory_span_write_plan_surface_byte_count right
+                                                gui_bare_display_memory_color_equal left_color right_color
+
+fn gui_bare_display_memory_option_write_plan_equal %fn Option GuiBareDisplayMemorySpanWritePlan fn Option GuiBareDisplayMemorySpanWritePlan bool \left\right:
+    match left:
+        Option::None:
+            match right:
+                Option::None:
+                    true
+                Option::Some right_plan:
+                    false
+        Option::Some left_plan:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_plan:
+                    gui_bare_display_memory_span_write_plan_equal &left_plan &right_plan
+
+pub fn gui_bare_display_memory_action_equal %fn GuiBareDisplayMemoryAction fn GuiBareDisplayMemoryAction bool \left\right:
+    match left:
+        GuiBareDisplayMemoryAction::FrameBegin left_begin:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &left_begin
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &right_begin
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &left_begin
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &right_begin
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            eq gui_bare_display_memory_begin_plan_surface_byte_count &left_begin gui_bare_display_memory_begin_plan_surface_byte_count &right_begin
+                GuiBareDisplayMemoryAction::SpanWrite right_span:
+                    false
+                GuiBareDisplayMemoryAction::FramePresent right_present:
+                    false
+        GuiBareDisplayMemoryAction::SpanWrite left_span:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin2:
+                    false
+                GuiBareDisplayMemoryAction::SpanWrite right_span:
+                    gui_bare_display_memory_span_write_plan_equal &left_span &right_span
+                GuiBareDisplayMemoryAction::FramePresent right_present2:
+                    false
+        GuiBareDisplayMemoryAction::FramePresent left_present:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin3:
+                    false
+                GuiBareDisplayMemoryAction::SpanWrite right_span2:
+                    false
+                GuiBareDisplayMemoryAction::FramePresent right_present:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &left_present
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &right_present
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &left_present
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &right_present
+                    let left_frame %FrameId gui_bare_display_memory_present_plan_frame &left_present
+                    let right_frame %FrameId gui_bare_display_memory_present_plan_frame &right_present
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq frame_id_raw &left_frame frame_id_raw &right_frame
+                                and:
+                                    eq gui_bare_display_memory_present_plan_run_count &left_present gui_bare_display_memory_present_plan_run_count &right_present
+                                    and:
+                                        eq gui_bare_display_memory_present_plan_pixel_count &left_present gui_bare_display_memory_present_plan_pixel_count &right_present
+                                        eq gui_bare_display_memory_present_plan_surface_byte_count &left_present gui_bare_display_memory_present_plan_surface_byte_count &right_present
+
+fn gui_bare_display_memory_phase_equal %fn GuiBareDisplayMemoryPhase fn GuiBareDisplayMemoryPhase bool \left\right:
+    match left:
+        GuiBareDisplayMemoryPhase::Idle:
+            match right:
+                GuiBareDisplayMemoryPhase::Idle:
+                    true
+                GuiBareDisplayMemoryPhase::Active right_active:
+                    false
+        GuiBareDisplayMemoryPhase::Active left_active:
+            match right:
+                GuiBareDisplayMemoryPhase::Idle:
+                    false
+                GuiBareDisplayMemoryPhase::Active right_active:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &left_active
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &right_active
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor &left_active
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor &right_active
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq gui_bare_display_memory_active_frame_accepted_run_count &left_active gui_bare_display_memory_active_frame_accepted_run_count &right_active
+                                eq gui_bare_display_memory_active_frame_accepted_pixel_count &left_active gui_bare_display_memory_active_frame_accepted_pixel_count &right_active
+
+pub fn gui_bare_display_memory_state_equal %fn &GuiBareDisplayMemoryState fn &GuiBareDisplayMemoryState bool \left\right:
+    let left_storage %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state left
+    let right_storage %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state right
+    let left_phase %GuiBareDisplayMemoryPhase gui_bare_display_memory_state_phase left
+    let right_phase %GuiBareDisplayMemoryPhase gui_bare_display_memory_state_phase right
+    let left_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_state_last_write left
+    let right_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_state_last_write right
+    and:
+        gui_bare_display_memory_storage_state_equal &left_storage &right_storage
+        and:
+            gui_bare_display_memory_phase_equal left_phase right_phase
+            and:
+                eq gui_bare_display_memory_state_total_byte_count left gui_bare_display_memory_state_total_byte_count right
+                gui_bare_display_memory_option_write_plan_equal left_write right_write
 
 //: gui_bare_display_memory_apply: storage ledger を checked byte write plan へ[変換/へんかん]する
 //:
