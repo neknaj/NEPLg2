@@ -83,7 +83,15 @@ F5fh は formal native window presenter integration への lib boundary であ�
 
 validation failure は `NativeWindowPresenterSessionHostError::ValidationFailed NativeSpanOperationStatus` として返し、session / sink / presenter state を変更しない。session execution failure は `NativeWindowPresenterSessionHostError::SessionFailed` として返し、lower `NativeWindowPresenterSessionError::SinkFailed` / `PresenterFailed` を保つ。Begin / RunSpan の success は `NotPresented`、End success だけが `Presented { frame_id, width, height }` になる。
 
-F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal NEPL `#extern` 差し替え、Canvas、DOM、video memory host import を持たない。raw status projection は outer ABI のための `status` helper に閉じ、内部 contract は enum / `Result` で保持する。
+F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal NEPL `#extern` import 名の差し替え、Canvas、DOM、video memory host import を持たない。raw status projection は outer ABI のための `status` helper に閉じ、内部 contract は enum / `Result` で保持する。
+
+## F5fj Native presenter session host import boundary
+
+2026-06-18 の F5fj では、native `platforms/gui/native/scheduler_host_executor` の formal NEPL host import ABI を F5fi の Rust `NativeWindowPresenterSession` helper contract へ接続する。native host import 名は `window_presenter_session_begin`、`window_presenter_session_run`、`window_presenter_session_end` とし、generic `execute_span_operation_*` は native public import contract として出さない。
+
+F5fj は existing scalar ABI shape を保ち、status `0` を `Result::Ok unit`、`-1` を `GuiError::Unsupported`、その他の negative sentinel を typed `GuiError` へ写す。host が session import を提供しない doctest / CLI-only runtime では default stub が `-1` を返すため、fallback、silent no-op、blank frame 合成、old stdout transport へ落ちない。
+
+F5fj は native NEPL `#extern` boundary だけを扱う。bare runtime host import、long-running scheduler backend、queue、timer wait、minifb loop、formal `std/gui` host implementation、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 slice に分ける。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

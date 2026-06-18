@@ -69988,3 +69988,47 @@ MERGE_APPROVED
 ### residual
 
 - F5fi は Rust lib-only helper boundary までであり、formal NEPL `#extern` import 接続、native / bare long-running scheduler backend、bare runtime host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fj presenter session host import
+
+### scope
+
+- F5fj は native `platforms/gui/native/scheduler_host_executor` の formal NEPL host import 名を、F5fi の Rust `NativeWindowPresenterSession` helper contract へ寄せる checkpoint である。
+- この slice は native `#extern` import 名、doctest runtime stub、source-policy、docs、todo の更新だけを扱う。
+- bare runtime host import、native / bare long-running scheduler backend、timer、queue、minifb loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Laplace the 2nd の plan review は承認。F5fj は actual `#extern` import 名を `window_presenter_session_begin` / `run` / `end` へ変更する場合のみ、F5fi 後続として十分な意味を持つと判断された。
+- 条件として、native default doctest runtime は `-1` unsupported を返すこと、bare は今回 scope から外すこと、old native `execute_span_operation_*` extern を残さないこと、docs / source-policy / doctest を同時に更新することが示された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_host_executor.nepl` の native host import を `window_presenter_session_begin`、`window_presenter_session_run`、`window_presenter_session_end` に変更した。scalar ABI shape と `Result unit GuiError` mapping は既存 F5ex path を保つ。
+- `nodesrc/run_test.js` の native doctest default import を session-specific 名へ更新し、host 未提供時は `-1` から `GuiError::Unsupported` へ写る fail-closed path を維持した。bare default import は既存 `execute_span_operation_*` のまま残した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は native と bare の scheduler host executor check を分け、native では old generic `execute_span_operation_*` extern が残らないことを検査するようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`、GUI / font docs、`todo.md` を F5fj contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_native_scheduler_host_executor_f5fj.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl --no-tree -o tmp_gui_platform_native_scheduler_host_executor_module_f5fj.json -j 1`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native GUI source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Helmholtz the 2nd implementation review は `REVIEW_APPROVED`。native `#extern` 名が `window_presenter_session_begin` / `run` / `end` に変わり、call site が対応する raw import を使うこと、scalar ABI shape と `-1 -> GuiError::Unsupported` mapping が維持されること、bare executor が既存 `execute_span_operation_*` のまま scope 外に残ることが確認された。
+- `nodesrc/run_test.js` の native default stub が session-specific name で `-1` を返すこと、source-policy が native / bare を分けて old native generic extern を禁止すること、docs / todo / note が native-only F5fj boundary と non-goal を記録していることも確認された。
+
+### residual
+
+- F5fj は native formal NEPL host import 名の接続までであり、bare runtime host import、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。

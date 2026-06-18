@@ -173,7 +173,15 @@ F5fi では F5ey / F5ex の scalar host ABI validation path と F5fh の `Native
 
 Begin と RunSpan の成功は `NativeWindowPresenterSessionOutcome::NotPresented` のままであり、End 成功だけが `NativeWindowPresenterSessionOutcome::Presented` を返す。session 側の失敗は `NativeWindowPresenterSessionHostError::SessionFailed` に包まれ、lower error は `SinkFailed` と `PresenterFailed` の区別を保つ。
 
-F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal `#extern` 差し替え、Canvas、DOM、video memory host import、fallback、silent no-op へ進まない。raw `i32` status への投影は `NativeSpanOperationStatus::as_raw` と `NativeWindowPresenterSessionHostError::status` に閉じ、内部の contract は enum / `Result` として保持する。
+F5fi は long-running scheduler backend、queue、timer wait、minifb loop、bare runtime host import、formal NEPL `#extern` import 名の差し替え、Canvas、DOM、video memory host import、fallback、silent no-op へ進まない。raw `i32` status への投影は `NativeSpanOperationStatus::as_raw` と `NativeWindowPresenterSessionHostError::status` に閉じ、内部の contract は enum / `Result` として保持する。
+
+## Native presenter session host import checkpoint
+
+F5fj では native `platforms/gui/native/scheduler_host_executor` の formal NEPL host import ABI を、F5fi の Rust helper と同じ presenter session 境界へ寄せる。`#extern "nepl_gui_native" "window_presenter_session_begin"`、`window_presenter_session_run`、`window_presenter_session_end` は existing scalar ABI shape を保ったまま、native host 側の `execute_native_window_presenter_session_begin`、`execute_native_window_presenter_session_run`、`execute_native_window_presenter_session_end` へ対応する。
+
+この境界は generic `execute_span_operation_begin` / `run` / `end` を native public import contract として出さない。default doctest runtime は `window_presenter_session_*` を `-1` にして explicit `Unsupported` を返すため、native session host が未提供の環境でも fallback や silent no-op にはならない。
+
+F5fj は NEPL `#extern` 名と status mapping の formalization だけを扱う。bare runtime host import、native / bare long-running scheduler backend、queue、timer wait、minifb loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 slice に分ける。
 
 ## 参考
 
