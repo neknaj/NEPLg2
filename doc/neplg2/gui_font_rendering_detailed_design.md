@@ -54,6 +54,14 @@
 
 F5ew は input packaging と F5ek の間の接続を固定するだけで、actual host action executor ではない。F5ek `real_loop_step` を 1 回だけ呼び、戻り値の `Result RealLoopStepResult RealLoopStepError` は再分類せずに返す。`Result::Ok unit` / `Result::Err GuiError` の合成、unsupported error 合成、F5ei executor complete の直接呼び出し、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は持たない。長時間 scheduler backend は、F5ew の one-step bridge を使う別 slice として実装する。
 
+## F5ex Native and Bare scheduler host action executor backend bridge
+
+2026-06-18 の F5ex では、Native and Bare scheduler host action executor backend bridge を追加する。これは backend-facing bridge であり、not long-running scheduler backend である。F5ew までは caller supplied outcome を F5ek に渡すだけだったため、actual platform host import を呼ぶ境界が残っていた。F5ex は typed `ExecuteHostAction` だけを入口にし、borrowed accessor で `VirtualSchedulerExecute` と `TurnDriverPending` を読み、`turn_driver_pending_operation` で expected span operation を復元する。
+
+operation 実行は target と operation kind を scalar ABI に展開する。Begin / End は `GuiRgba8888RowTileRlePresentDescriptor` から window、surface、frame、packet metadata を読む。Run は `GuiRgba8888RowTileRlePresentRunRowSpan` から x、y、width、height、RGBA channel を読む。Native と Bare はそれぞれ `nepl_gui_native` / `nepl_gui_bare` namespace の `execute_span_operation_begin`、`execute_span_operation_run`、`execute_span_operation_end` を呼ぶ。各 branch は該当 host import を 1 回だけ呼び、status `0` を `Ok unit`、負 status を `GuiError` に写して `Result unit GuiError` として返す。
+
+F5ex は host import の outcome を F5ev/F5ew path に渡し、F5ek `real_loop_step` へ戻す。これにより platform executor bridge は actual host execution と status mapping だけに集中し、scheduler state mutation と completion authority は std layer に残る。Bare では host ABI が未提供なら `Unsupported` で fail closed し、fallback や silent no-op は行わない。long-running scheduler backend、queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb / DOM / Canvas / video memory、old action sink / driver、raw RenderCommand accessor はこの phase に含めない。
+
 ## 責務分離
 
 Font rendering は `core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/*` で責務を分ける。

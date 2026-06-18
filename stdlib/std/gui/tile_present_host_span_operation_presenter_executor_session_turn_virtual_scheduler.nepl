@@ -164,6 +164,17 @@ pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending \execute:
     field::get execute "pending"
 
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending_ref: execute phase の pending を borrowed に[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - actual platform executor が original execute owner を[残/のこ]したまま、expected span operation を[読/よ]めるようにします。
+//:
+//: [契約/けいやく]:
+//: - execute を[消費/しょうひ]しません。
+//: - scheduler step、executor completion、fallback は[行/おこな]いません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending \execute:
+    field::get_ref execute "pending"
+
 pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_completed_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted GuiVirtualTimerState \completed:
     *field::get_ref completed "timer_state"
 

@@ -142,12 +142,18 @@ function defaultNeplGuiWebImports() {
 function defaultNeplGuiNativeImports() {
     return {
         monotonic_clock_ms: () => 0,
+        execute_span_operation_begin: () => -1,
+        execute_span_operation_run: () => -1,
+        execute_span_operation_end: () => -1,
     };
 }
 
 function defaultNeplGuiBareImports() {
     return {
         monotonic_clock_ms: () => -1,
+        execute_span_operation_begin: () => -1,
+        execute_span_operation_run: () => -1,
+        execute_span_operation_end: () => -1,
     };
 }
 

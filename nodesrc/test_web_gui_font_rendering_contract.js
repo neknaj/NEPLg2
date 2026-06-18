@@ -251,6 +251,8 @@ const platformGuiNativeSchedulerExecutorInput = read("stdlib/platforms/gui/nativ
 const platformGuiNativeSchedulerExecutorInputImpl = withoutComments(platformGuiNativeSchedulerExecutorInput);
 const platformGuiNativeSchedulerExecutorStep = read("stdlib/platforms/gui/native/scheduler_executor_step.nepl");
 const platformGuiNativeSchedulerExecutorStepImpl = withoutComments(platformGuiNativeSchedulerExecutorStep);
+const platformGuiNativeSchedulerHostExecutor = read("stdlib/platforms/gui/native/scheduler_host_executor.nepl");
+const platformGuiNativeSchedulerHostExecutorImpl = withoutComments(platformGuiNativeSchedulerHostExecutor);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
@@ -262,6 +264,8 @@ const platformGuiBareSchedulerExecutorInput = read("stdlib/platforms/gui/bare/sc
 const platformGuiBareSchedulerExecutorInputImpl = withoutComments(platformGuiBareSchedulerExecutorInput);
 const platformGuiBareSchedulerExecutorStep = read("stdlib/platforms/gui/bare/scheduler_executor_step.nepl");
 const platformGuiBareSchedulerExecutorStepImpl = withoutComments(platformGuiBareSchedulerExecutorStep);
+const platformGuiBareSchedulerHostExecutor = read("stdlib/platforms/gui/bare/scheduler_host_executor.nepl");
+const platformGuiBareSchedulerHostExecutorImpl = withoutComments(platformGuiBareSchedulerHostExecutor);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -369,6 +373,8 @@ const guiPlatformNativeSchedulerExecutorInputTests = read("tests/stdlib/gui_plat
 const guiPlatformBareSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md");
 const guiPlatformNativeSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_native_scheduler_executor_step.n.md");
 const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md");
+const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
+const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26021,6 +26027,127 @@ for (const [name, source, impl, readyType, tests] of [
         `F5ew platform ${name} scheduler executor step focused doctest must cover source-policy labels`,
     );
 }
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native and Bare scheduler host action executor backend bridge") &&
+            doc.includes("F5ex") &&
+            doc.includes("typed `ExecuteHostAction`") &&
+            doc.includes("borrowed accessor") &&
+            doc.includes("host import") &&
+            doc.includes("Result unit GuiError") &&
+            doc.includes("F5ev/F5ew") &&
+            doc.includes("Unsupported") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5ex ${name} must document scheduler host action executor backend bridge and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_host_executor" as @merge'),
+    "platforms/gui/native facade must export F5ex native scheduler host action executor bridge",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_host_executor" as @merge'),
+    "platforms/gui/bare facade must export F5ex bare scheduler host action executor bridge",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction.includes("execute_host_action_execute_ref") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction.includes("field::get_ref payload \"execute\""),
+    "F5ex std loop action must expose borrowed execute accessor for platform executor bridge",
+);
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("virtual_scheduler_execute_pending_ref") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualScheduler.includes("field::get_ref execute \"pending\""),
+    "F5ex std virtual scheduler must expose borrowed pending accessor for platform executor bridge",
+);
+for (const [name, source, impl, tests] of [
+    ["native", platformGuiNativeSchedulerHostExecutor, platformGuiNativeSchedulerHostExecutorImpl, guiPlatformNativeSchedulerHostExecutorTests],
+    ["bare", platformGuiBareSchedulerHostExecutor, platformGuiBareSchedulerHostExecutorImpl, guiPlatformBareSchedulerHostExecutorTests],
+]) {
+    assert(
+        source.includes("scheduler host action executor backend bridge") &&
+            source.includes("typed `ExecuteHostAction`") &&
+            source.includes("borrowed accessor") &&
+            source.includes("host import") &&
+            source.includes("Result unit GuiError") &&
+            source.includes("F5ev/F5ew") &&
+            source.includes("Unsupported") &&
+            source.includes("not long-running scheduler backend") &&
+            source.includes("fallback") &&
+            source.includes("silent no-op"),
+        `platforms/gui/${name}/scheduler_host_executor F5ex must document typed backend bridge and no fallback`,
+    );
+    assert(
+        source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_begin"`) &&
+            source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_run"`) &&
+            source.includes(`#extern "nepl_gui_${name}" "execute_span_operation_end"`),
+        `platforms/gui/${name}/scheduler_host_executor F5ex must define explicit begin/run/end host imports`,
+    );
+    const beginSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_descriptor_begin`);
+    const runSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_run_span`);
+    const endSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_descriptor_end`);
+    assert(
+        (beginSlice.match(new RegExp(`gui_${name}_execute_span_operation_begin_raw`, "g")) || []).length === 1 &&
+            (runSlice.match(new RegExp(`gui_${name}_execute_span_operation_run_raw`, "g")) || []).length === 1 &&
+            (endSlice.match(new RegExp(`gui_${name}_execute_span_operation_end_raw`, "g")) || []).length === 1,
+        `platforms/gui/${name}/scheduler_host_executor F5ex must call exactly one platform import per operation helper`,
+    );
+    assert(
+        impl.includes(`gui_${name}_scheduler_host_executor_status_unit`) &&
+            impl.includes("Result::Ok unit") &&
+            impl.includes("GuiError::Unsupported") &&
+            impl.includes("GuiError::BackendFailure"),
+        `platforms/gui/${name}/scheduler_host_executor F5ex must map host status to typed Result`,
+    );
+    const stepSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_step`);
+    assertOrderedFragments(
+        stepSlice,
+        [
+            "fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy",
+            "impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction",
+            "execute_host_action_execute_ref &action",
+            "virtual_scheduler_execute_pending_ref execute",
+            "turn_driver_pending_operation pending",
+            `gui_${name}_scheduler_host_executor_execute_operation operation`,
+            `gui_${name}_scheduler_executor_input action outcome`,
+            `gui_${name}_scheduler_executor_step policy ready`,
+        ],
+        `platforms/gui/${name}/scheduler_host_executor F5ex step must borrow operation, execute host once, then reuse F5ev/F5ew`,
+    );
+    assertNoMatch(
+        impl,
+        /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|RealLoopStepInput::ClockDelta|ClockDelta|scheduler_clock|backend_clock|loop_executor_complete|real_loop_driver|headless_app_loop_step|tile_present_host_action_sink|tile_present_host_action_sink_driver|tile_present_host_execution_driver|host_executor_require_supported|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+        `platforms/gui/${name}/scheduler_host_executor F5ex must not implement loop, timer, old action sink, rendering, or storage fallback behavior`,
+    );
+    assertNoMatch(
+        impl,
+        /_:|[()]/,
+        `platforms/gui/${name}/scheduler_host_executor F5ex implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
+    );
+    assert(
+        tests.includes(`platform_${name}_scheduler_host_executor_facade_ok`) &&
+            tests.includes(`platform_${name}_scheduler_host_executor_backend_boundary_ok`) &&
+            tests.includes(`platform_${name}_scheduler_host_executor_host_import_status_ok`) &&
+            tests.includes(`platform_${name}_scheduler_host_executor_borrowed_operation_ok`) &&
+            tests.includes(`platform_${name}_scheduler_host_executor_reuses_f5ev_f5ew_ok`) &&
+            tests.includes(`platform_${name}_scheduler_host_executor_no_loop_queue_fallback`),
+        `F5ex platform ${name} scheduler host executor focused doctest must cover source-policy labels`,
+    );
+}
+assert(
+    /function defaultNeplGuiNativeImports\(\)[\s\S]*execute_span_operation_begin: \(\) => -1[\s\S]*execute_span_operation_run: \(\) => -1[\s\S]*execute_span_operation_end: \(\) => -1/.test(runTestSource),
+    "run_test native default imports must fail closed for F5ex host executor ABI",
+);
+assert(
+    /function defaultNeplGuiBareImports\(\)[\s\S]*execute_span_operation_begin: \(\) => -1[\s\S]*execute_span_operation_run: \(\) => -1[\s\S]*execute_span_operation_end: \(\) => -1/.test(runTestSource),
+    "run_test bare default imports must fail closed for F5ex host executor ABI",
+);
 for (const [name, doc] of [
     ["font rendering spec", spec],
     ["GUI standard library spec", guiStandardLibrarySpec],

@@ -67,6 +67,12 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
 
+## F5ex Native and Bare scheduler host action executor backend bridge
+
+2026-06-18 の F5ex では、Native and Bare scheduler host action executor backend bridge を追加する。これは typed `ExecuteHostAction` payload を actual platform host import へ 1 operation だけ渡す backend-facing boundary であり、not long-running scheduler backend である。platform bridge は `ExecuteHostAction` の owner を保持したまま borrowed accessor で pending span operation を読み、operation variant ごとに begin / run / end のいずれか 1 host import を呼ぶ。raw status は `Result unit GuiError` へ写し、bare で executor ABI が提供されない場合も `Unsupported` を返す。fallback や silent no-op は禁止する。
+
+F5ex は F5ev/F5ew と接続される。host import outcome は F5ev `scheduler_executor_input` で `RealLoopStepInput::ExecutorOutcome` に包み、F5ew `scheduler_executor_step` が F5ek `real_loop_step` へ渡す。これにより platform execution は platform module に閉じ、scheduler completion の authority は std scheduler driver 側に残る。queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb / DOM / Canvas / video memory 操作、old action sink / driver、raw RenderCommand accessor、fallback はこの phase の責務ではない。
+
 ## 層構造
 
 依存方向は次に固定する。

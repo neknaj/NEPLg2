@@ -350,6 +350,45 @@ plan review:
 - focused doctest、module doctest、source policy、F5ev / F5ek regression、`git diff --check` が通る。
 - subagent implementation review で executor one-step bridge 境界、F5ek delegation、禁止依存が承認される。
 
+## Phase F5ex: Native and Bare scheduler host action executor backend bridge
+
+2026-06-18 の F5ex では、Native and Bare scheduler host action executor backend bridge を追加する。これは typed `ExecuteHostAction` を actual platform host import へ 1 operation だけ渡す backend-facing boundary であり、not long-running scheduler backend である。F5ew の caller supplied outcome から一歩進め、platform import の status を `Result unit GuiError` へ写したうえで F5ev/F5ew path に戻す。
+
+実装 target:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl`
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl`
+- `stdlib/platforms/gui/native/scheduler_host_executor.nepl`
+- `stdlib/platforms/gui/bare/scheduler_host_executor.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`
+- `nodesrc/run_test.js`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- `ExecuteHostAction` と `VirtualSchedulerExecute` に borrowed accessor を追加し、platform bridge が original action owner を消費せず pending operation を読めるようにする。
+- Native / Bare platform module は pending span operation を wildcard なしで網羅し、begin / run / end のいずれか 1 host import だけを呼ぶ。
+- descriptor は surface、frame、packet metadata を scalar ABI へ展開し、run span は x、y、width、height、RGBA channel を scalar ABI へ展開する。
+- status `0` は `Ok unit`、negative status は `Unsupported` / `InvalidCommand` / `ResourceExhausted` / `BackendFailure` などの `GuiError` に写す。
+- outcome は F5ev `scheduler_executor_input` へ渡し、F5ew `scheduler_executor_step` で F5ek `real_loop_step` に戻す。
+- Bare default test host import は `-1` を返し、executor ABI 未提供を `Unsupported` として fail closed する。
+- long-running scheduler backend、queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb、DOM、Canvas、video memory、old action sink / driver、raw RenderCommand accessor、fallback、silent no-op には進まない。
+
+plan review:
+
+- Kuhn plan review は `PLAN_APPROVED`。
+- 指摘は、typed `ExecuteHostAction` payload のみを受けること、pending operation は既存 owner/accessor boundary から読むこと、actual native/bare host execution を 1 回だけ呼び `Result unit GuiError` に写すこと、F5ev/F5ew path へ戻すこと、Bare は unsupported で fail closed することだった。
+- 本計画では borrowed accessor を追加し、raw field access と fallback を避けるため、実装開始可と判断する。
+
+完了条件:
+
+- source policy が F5ex docs、facade export、borrowed accessor、host import status mapping、1 operation 1 import、F5ev/F5ew reuse、fallback / silent no-op / queue / loop 禁止を固定する。
+- focused doctest、module doctest、source policy、F5ev / F5ew regression、`git diff --check` が通る。
+- subagent implementation review で backend bridge、typed error、禁止依存が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

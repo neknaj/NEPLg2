@@ -69497,3 +69497,43 @@ MERGE_APPROVED
 ### residual
 
 - F5dh は scheduled span operation boundary までであり、actual Web / native / bare / headless presenter operation sink、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI platforms F5ex native/bare scheduler host executor bridge
+
+### scope
+
+- F5ex は virtual scheduler の `ExecuteHostAction` pending payload を native / bare platform backend の host import 境界へ 1 action だけ渡す bridge である。
+- host import の戻り値は fail-closed な status code とし、`Result unit GuiError` へ変換してから F5ev executor input と F5ew scheduler executor step へ戻す。
+- この slice は long-running loop、queue、timer、present scheduler、DOM / Canvas、minifb、video memory、fallback、silent no-op へ進まない。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_host_executor.nepl` と `stdlib/platforms/gui/bare/scheduler_host_executor.nepl` を追加した。
+- Begin / RunSpan / End の各 operation を match で網羅し、Window / Offscreen / Device target は branch-local な scalar 値へ明示的に落としてから host import へ渡す。
+- host status は `0` だけを `Ok unit` とし、unsupported / invalid command / resource exhausted / backend failure を `GuiError` として返す。
+- virtual scheduler 側に pending execute payload の borrowed accessor を追加し、operation owner を不必要に消費しない形にした。
+- native / bare facade と doctest default imports を更新し、host 実装が未接続の環境では `-1` により unsupported として fail-closed にした。
+- GUI / font rendering docs と source policy regression に F5ex contract を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_executor_input.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_executor_step.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Kuhn the 2nd implementation review は `APPROVED`。typed `ExecuteHostAction` 1 件だけを扱い、borrowed accessor、`Result unit GuiError` mapping、F5ev / F5ew reuse、no fallback / no loop / no queue / no timer / no present / no platform renderer 逸脱が確認された。
+
+### residual
+
+- F5ex は native / bare host import へ typed action を渡す bridge までであり、actual native / bare runtime の host import 実装、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
