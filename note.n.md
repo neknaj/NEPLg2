@@ -70669,3 +70669,44 @@ MERGE_APPROVED
 ### residual
 
 - F5fk は bare formal NEPL host import 名の接続までであり、bare actual display driver、framebuffer adapter、polling input、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI bare F5fy display presenter input boundary
+
+### scope
+
+- F5fy は F5fx `display_operation_driver_bridge` を bare scheduler executor input path へ戻す platform boundary である。
+- この slice は `platforms/gui/bare/display_presenter_input`、focused doctest、source-policy、docs、note、todo の更新だけを扱う。
+- public input は `GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction` だけであり、general `LoopAction`、scheduler completed payload、raw operation、framebuffer / storage / memory state、driver step、host status、raw storage は受け取らない。
+- native / bare long-running scheduler backend、timer queue、present loop、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Pauli the 2nd の plan review は `PLAN_CHANGES`。方向性は妥当だが、`display_presenter_input` は `GuiBareDisplayMemoryOwner` を扱うため `std/gui` ではなく bare platform module に置くこと、input を owner + `ExecuteHostAction` のみに絞ること、pending operation を action 消費前に読むこと、F5fx bridge を 1 回だけ呼ぶこと、category 無し bridge failure では scheduler ready を作らず original action と recovered owner / lower bridge error を保持することが条件として示された。
+- この指摘に従い、F5fy は `GuiBareDisplayMemoryOwner + ExecuteHostAction` のみを受ける boundary とし、direct host import、fallback、silent no-op、rollback claim を持たない設計にした。
+
+### implementation
+
+- `stdlib/platforms/gui/bare/display_presenter_input.nepl` を追加した。
+- `gui_bare_display_presenter_input` は typed `ExecuteHostAction` から borrowed accessor で pending operation を読み、`gui_bare_display_operation_driver_bridge_step owner operation` を 1 回だけ呼ぶ。
+- bridge success では `Result::Ok unit` を `gui_bare_scheduler_executor_input` へ渡し、operation identity、bridge completed value、scheduler ready を `GuiBareDisplayPresenterInputReady` に保持する。
+- bridge failure で category がある場合は `Result::Err GuiError` を `gui_bare_scheduler_executor_input` へ渡し、lower bridge error と scheduler ready を `GuiBareDisplayPresenterInputBridgeFailedReady` に保持する。
+- bridge failure で category が無い場合は scheduler ready を作らず、original action と lower bridge error を `GuiBareDisplayPresenterInputBridgeFailedMissingCategory` に保持する。
+- `stdlib/platforms/gui/bare.nepl` facade、`tests/stdlib/gui_platform_bare_display_presenter_input.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI docs、`todo.md` を F5fy contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_presenter_input.nepl --no-tree -o tmp_gui_bare_display_presenter_input_module_f5fy_postreview.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_presenter_input.n.md --no-tree -o tmp_gui_platform_bare_display_presenter_input_f5fy_postreview.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Pauli the 2nd implementation review は `REVIEW_APPROVED`。F5fy が bare platform scope に留まり、public input を `GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction` に限定していること、pending operation を action 消費前に読み、F5fx bridge を 1 回だけ呼ぶこと、category 無し failure で scheduler ready を作らず original action と lower bridge error を保持することが確認された。
+- review 後に doc 表記と source-policy の期待文字列だけを読みやすい形へ揃え、focused source-policy と doctest を再実行した。
+
+### residual
+
+- F5fy は bare display presenter input boundary までであり、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
