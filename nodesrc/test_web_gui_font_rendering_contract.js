@@ -243,7 +243,12 @@ const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
 const platformGuiNativeFacade = read("stdlib/platforms/gui/native.nepl");
 const platformGuiNativeClock = read("stdlib/platforms/gui/native/clock.nepl");
 const platformGuiNativeClockImpl = withoutComments(platformGuiNativeClock);
+const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
+const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
+const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
+const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
+const runTestSource = read("nodesrc/run_test.js");
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -339,6 +344,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSched
 const guiPlatformWebClockTests = read("tests/stdlib/gui_platform_web_clock.n.md");
 const guiPlatformHeadlessClockTests = read("tests/stdlib/gui_platform_headless_clock.n.md");
 const guiPlatformNativeClockTests = read("tests/stdlib/gui_platform_native_clock.n.md");
+const guiPlatformBareClockTests = read("tests/stdlib/gui_platform_bare_clock.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25447,6 +25453,94 @@ assert(
         guiPlatformNativeClockTests.includes("platform_native_clock_no_timer_queue_fallback") &&
         guiPlatformNativeClockTests.includes("native_runner_clock_instant_i32_guard_ok"),
     "F5er platform native clock focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI redesign detailed design", redesignDetailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+    ["GUI redesign implementation plan", redesignPlan],
+]) {
+    assert(
+        doc.includes("Bare formal monotonic clock source backend boundary") &&
+            doc.includes("F5es") &&
+            doc.includes("nepl_gui_bare.monotonic_clock_ms") &&
+            doc.includes("Unsupported") &&
+            doc.includes("BackendFailure") &&
+            doc.includes("doctest-only unsupported source") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5es ${name} must document bare host supplied clock source, unsupported default, and forbidden fallbacks`,
+    );
+}
+assert(
+    barePlatformBehaviorDoc.includes("Bare formal monotonic clock source backend boundary") &&
+        barePlatformBehaviorDoc.includes("nepl_gui_bare.monotonic_clock_ms") &&
+        barePlatformBehaviorDoc.includes("doctest-only unsupported source") &&
+        barePlatformBehaviorDoc.includes("hidden fallback") &&
+        barePlatformBehaviorDoc.includes("hidden mock") &&
+        barePlatformBehaviorDoc.includes("Unsupported") &&
+        barePlatformBehaviorDoc.includes("BackendFailure"),
+    "bare platform behavior notes must separate host supplied clock boundary from hidden fallback or mock behavior",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/clock" as @merge'),
+    "platforms/gui/bare facade must export F5es bare monotonic clock backend boundary",
+);
+assert(
+    platformGuiBareClock.includes('#extern "nepl_gui_bare" "monotonic_clock_ms" fn gui_bare_monotonic_clock_ms_raw %impure fn void i32') &&
+        platformGuiBareClock.includes("pub fn gui_bare_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError"),
+    "platforms/gui/bare/clock F5es must expose single i32 raw import and Result BackendClockSample wrapper",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareClockImpl, "gui_bare_monotonic_clock_status_error"),
+    [
+        "if eq raw -1:",
+        "GuiError::Unsupported",
+        "GuiError::BackendFailure",
+    ],
+    "platforms/gui/bare/clock F5es must map negative raw sentinel values explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareClockImpl, "gui_bare_backend_clock_sample"),
+    [
+        "let raw %i32 gui_bare_monotonic_clock_ms_raw",
+        "if lt raw 0:",
+        "Result::Err gui_bare_monotonic_clock_status_error raw",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw",
+        "Result::Ok sample",
+        "Result::Err kind",
+        "Result::Err gui_bare_backend_clock_sample_error kind",
+    ],
+    "platforms/gui/bare/clock F5es wrapper must map sentinels before delegating to F5eo sample constructor",
+);
+assertNoMatch(
+    platformGuiBareClockImpl,
+    /\b(?:Date|performance|Instant|SystemTime|setTimeout|setInterval|sleep|queue|stdout_protocol|polling|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|platforms\/gui\/web|platforms\/gui\/native|platforms\/gui\/headless|fallback|silent no-op|while|clamp|round)\b/i,
+    "platforms/gui/bare/clock F5es wrapper must not use fallback transports, wall clocks, timers, rendering APIs, queues, clamp, or round",
+);
+assertNoMatch(
+    platformGuiBareClockImpl,
+    /_:|[()]/,
+    "platforms/gui/bare/clock F5es implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    runTestSource.includes("function defaultNeplGuiBareImports()") &&
+        runTestSource.includes("monotonic_clock_ms: () => -1") &&
+        runTestSource.includes("nepl_gui_bare: extraNeplGuiBareImports = {}") &&
+        runTestSource.includes("...defaultNeplGuiBareImports()"),
+    "doctest runner F5es must provide only a doctest unsupported bare clock import by default",
+);
+assert(
+    guiPlatformBareClockTests.includes("platform_bare_clock_facade_ok") &&
+        guiPlatformBareClockTests.includes("platform_bare_clock_import_ok") &&
+        guiPlatformBareClockTests.includes("platform_bare_clock_sample_constructor_bridge_ok") &&
+        guiPlatformBareClockTests.includes("platform_bare_clock_negative_sentinel_result_ok") &&
+        guiPlatformBareClockTests.includes("platform_bare_clock_no_timer_queue_fallback") &&
+        guiPlatformBareClockTests.includes("bare_runner_clock_unsupported_default_ok") &&
+        guiPlatformBareClockTests.includes("bare backend clock unsupported"),
+    "F5es platform bare clock focused doctest must cover source-policy labels and unsupported default",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
