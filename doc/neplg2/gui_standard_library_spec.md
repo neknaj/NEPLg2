@@ -237,6 +237,16 @@ adapter failure では `GuiBareDisplayDriverAdapterError` を lower error とし
 
 bridge failure では lower bridge error を失わない。category がある failure は `Result::Err GuiError` として `gui_bare_scheduler_executor_input action outcome` に渡し、`GuiBareDisplayPresenterInputBridgeFailedReady` が lower bridge error と scheduler ready を同時に保持する。category が無い bridge failure では別の `GuiError` へ丸めず、scheduler ready を作らず、original `ExecuteHostAction` と lower bridge error を `GuiBareDisplayPresenterInputBridgeFailedMissingCategory` に保持する。F5fy は direct host import、long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、hardware flush、fallback、silent no-op、host side effect rollback claim へは進まない。
 
+## F5fz Native scheduler real-loop action step boundary
+
+2026-06-19 の F5fz では、native-only `platforms/gui/native/scheduler_real_loop_step` を追加する。これは F5el `NeedInput` を native clock helper と native presenter host executor へ 1 action だけ接続し、success した F5ek result を F5el `real_loop_driver_after_step` まで戻す boundary である。public input authority は native policy、backend clock state、F5el `NeedInput` だけであり、general queue、raw host event、bare owner、renderer、surface、video memory は受け取らない。
+
+`GuiNativeSchedulerRealLoopStepPolicy` は F5ek real-loop step policy、F5el real-loop driver policy、F5eo backend clock policy だけを保持する。`YieldToClock` と `AwaitTimerAdvance` は F5eu native clock helper を 1 回だけ呼び、その success payload に含まれる next clock state、action、F5ek input をそのまま使う。clock branch は `ClockDelta` を再合成せず、helper が返した action / input だけを F5ek へ渡す。
+
+`ExecuteHostAction` は `gui_native_scheduler_host_executor_step` を 1 回だけ呼ぶ。host import failure は F5fz の direct error ではなく、F5fj / F5ex path で `Result unit GuiError` outcome として包まれ、F5ek / F5el path へ戻る。したがって F5fz execute branch は追加で F5ek を呼ばない。`Complete` branch だけが `RealLoopStepInput::CompleteAck` を作り、clock branch や execute branch は `CompleteAck` を合成しない。
+
+F5fz は native action step bridge であり、not long-running scheduler backend である。timer wait、sleep、queue drain、present loop、minifb window loop、DOM、Canvas、video memory transport、bare display owner path、fallback、silent no-op は実装しない。bare の同等接続は F5fy owner path から別 slice で設計する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
