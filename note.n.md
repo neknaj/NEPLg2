@@ -1,3 +1,44 @@
+# 2026-06-18 Agent2 GUI font F5ee std deterministic virtual scheduler slice boundary
+
+## 目的
+
+- F5ec bounded drain と F5ed transition を 1 work slice の public boundary として接続する。
+- `yield_delay_ms` を typed policy と `YieldSlice` payload で保持し、後続 real scheduler loop が yield timing を明示的に扱えるようにする。
+- まだ timer advance、executor completion、actual scheduler loop、platform backend、queue drain には踏み込まない。
+
+## subagent review
+
+- Hegel に F5ee 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、policy revalidation、one drain / one transition、F5ec / F5ed payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback を source policy と doctest label で固定することだった。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5ee slice boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5ee source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5ee checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ee focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md`。
+- pass: F5ee module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl`。
+- pass: F5ed regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md`。
+- pass: `git diff --check`。
+
+## 残り
+
+- subagent 実装レビューの指摘は note の実装状況更新漏れのみだったため、本 section を修正した。
+- F5ee commit 後、main に merge / push して Discord に報告する。
+- F5ee の次は real scheduler loop / headless app-loop integration / native・bare backend timer の実装である。
+
 # 2026-06-18 Agent2 GUI font F5ed std deterministic virtual scheduler transition boundary
 
 ## scope
