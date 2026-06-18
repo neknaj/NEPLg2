@@ -135,6 +135,18 @@ driver outcome は `BeginAccepted`、`SpanWriteAccepted`、`FramePresentAccepted
 
 F5fo は raw byte buffer ownership、actual hardware write、host import、long-running scheduler backend、timer queue、present loop、Canvas、DOM、minifb、video memory host import、fallback、silent no-op を実装しない。後続 slice では F5fo の driver outcome ledger を実際の bare display driver adapter または formal host import と接続する。
 
+## F5fp Bare display driver host import boundary
+
+2026-06-19 の F5fp では、bare `platforms/gui/bare/display_driver_host_import` を追加する。これは F5fo の pure driver outcome ledger を、embedding host が提供する actual bare display driver import へ接続する backend boundary である。host import 名は `display_driver_begin`、`display_driver_span_write`、`display_driver_frame_present` とし、F5fk の `display_presenter_session_*` とは別の raw display driver contract として扱う。
+
+`gui_bare_display_driver_host_import_step` は、caller supplied `GuiBareDisplayMemoryStepApplied` を host import へ渡す前に F5fo ledger で preflight する。preflight は driver state の canonical memory state から supplied memory step を再適用し、expected state / action と supplied state / action を照合する。preflight が失敗した場合は host import を呼ばない。preflight が成功した場合だけ、preflight で得た action variant に対応する import を 1 回だけ呼び、raw status を `GuiBareDisplayDriverOutcome` へ写してから F5fo ledger へ再適用する。
+
+status `0` だけを accepted outcome として扱う。`-1` は `GuiError::Unsupported`、既知の負 status は `InvalidCommand` または `ResourceExhausted`、未知の負 status と positive non-zero status は `GuiError::BackendFailure` として `DriverRejected` に変換する。success outcome は host import が accepted status を返し、F5fo ledger が同じ action/outcome を受け入れたことを示すだけである。raw byte buffer を読み戻して actual bytes を検証した証明ではないため、byte-readable framebuffer ownership や echo evidence は後続 slice とする。
+
+`display_driver_span_write` には x / y / width / height だけでなく、F5fn が checked arithmetic で計算した run index、pixel start / end、row byte start、x byte offset、byte_start、byte_len、byte_end、surface byte count、RGBA8888 color evidence を渡す。`display_driver_begin` と `display_driver_frame_present` は descriptor の surface / frame / packet metadata と surface byte count を渡す。これにより host 側は same app code の checked action evidence を使って actual device / offscreen display に反映できる。
+
+F5fp は long-running scheduler backend、timer queue、present loop、polling input、raw byte buffer ownership、byte echo verification、DOM、Canvas、minifb、video memory host import、fallback、silent no-op を実装しない。host が import を提供しない doctest / CLI-only runtime では `nodesrc/run_test.js` の default stub が `-1` を返し、`Unsupported` として検出される。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

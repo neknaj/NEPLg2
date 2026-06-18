@@ -1,0 +1,210 @@
+//: # platforms/gui/bare/display_driver_host_import
+//: Bare display driver host import boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fo の pure driver outcome ledger を、bare embedding host が[提供/ていきょう]する display driver import へ[接続/せつぞく]します。
+//: - public memory step はそのまま[信用/しんよう]せず、host import の[前/まえ]に F5fo ledger で preflight し、stale / forged step を[副作用/ふくさよう]なしで[拒否/きょひ]します。
+//: - host status は typed `GuiBareDisplayDriverOutcome` に[変換/へんかん]し、最後に F5fo ledger へ[再適用/さいてきよう]します。
+//:
+//: ### [契約/けいやく]
+//: - status `0` だけを accepted outcome として[扱/あつか]い、負 status と正の non-zero status は fail-closed に[返/かえ]します。
+//: - success outcome は host が import call を accepted status で[返/かえ]したことと ledger 一致を[示/しめ]すだけで、raw byte buffer を[検証/けんしょう]した証明ではありません。
+//: - span write import には row span だけでなく、F5fn が[計算/けいさん]した byte range、surface byte count、run/pixel 範囲、color evidence を[渡/わた]します。
+//: - long-running scheduler backend、timer、queue、present loop、DOM、Canvas、minifb、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_driver_host_import" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/cast" as *
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+#extern "nepl_gui_bare" "display_driver_begin" fn gui_bare_display_driver_begin_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_bare" "display_driver_span_write" fn gui_bare_display_driver_span_write_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_bare" "display_driver_frame_present" fn gui_bare_display_driver_frame_present_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+fn gui_bare_display_driver_host_import_target_kind %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget i32 \target:
+    match target:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window:
+            1
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            2
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            3
+
+fn gui_bare_display_driver_host_import_window_raw %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget i32 \target:
+    match target:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window window:
+            window_id_raw &window
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            0
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            0
+
+pub fn gui_bare_display_driver_host_import_status_error %fn i32 GuiError \status:
+    if eq status -1:
+        then GuiError::Unsupported
+        else:
+            if eq status -2:
+                then GuiError::InvalidCommand
+                else:
+                    if eq status -3:
+                        then GuiError::ResourceExhausted
+                        else:
+                            if eq status -4:
+                                then GuiError::ResourceExhausted
+                                else:
+                                    if eq status -6:
+                                        then GuiError::InvalidCommand
+                                        else GuiError::BackendFailure
+
+pub fn gui_bare_display_driver_host_import_success_outcome %fn GuiBareDisplayMemoryAction GuiBareDisplayDriverOutcome \action:
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin plan:
+            gui_bare_display_driver_begin_outcome_from_plan plan
+        GuiBareDisplayMemoryAction::SpanWrite plan:
+            gui_bare_display_driver_span_write_outcome_from_plan plan
+        GuiBareDisplayMemoryAction::FramePresent plan:
+            gui_bare_display_driver_present_outcome_from_plan plan
+
+pub fn gui_bare_display_driver_host_import_status_outcome %fn GuiBareDisplayMemoryAction fn i32 GuiBareDisplayDriverOutcome \action\status:
+    if eq status 0:
+        then gui_bare_display_driver_host_import_success_outcome action
+        else GuiBareDisplayDriverOutcome::DriverRejected gui_bare_display_driver_host_import_status_error status
+
+fn gui_bare_display_driver_host_import_preflight %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied Result GuiBareDisplayDriverStepApplied GuiBareDisplayDriverStepError \state\memory_step:
+    let memory_action %GuiBareDisplayMemoryAction gui_bare_display_memory_step_applied_action &memory_step
+    let preview_outcome %GuiBareDisplayDriverOutcome gui_bare_display_driver_host_import_success_outcome memory_action
+    gui_bare_display_driver_apply state memory_step preview_outcome
+
+fn gui_bare_display_driver_host_import_descriptor_begin %impure fn GuiBareDisplayMemoryFrameBeginPlan i32 \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &plan
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &plan
+    let surface_byte_count %i32 gui_bare_display_memory_begin_plan_surface_byte_count &plan
+    let target_kind %i32 gui_bare_display_driver_host_import_target_kind target
+    let window_raw %i32 gui_bare_display_driver_host_import_window_raw target
+    let surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface &descriptor
+    let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    let frame_raw %i32 frame_id_raw &frame
+    let packet_frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &packet
+    let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &packet
+    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &packet
+    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &packet
+    gui_bare_display_driver_begin_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count surface_byte_count
+
+fn gui_bare_display_driver_host_import_span_write %impure fn GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target &plan
+    let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span &plan
+    let color %Rgba8888 gui_bare_display_memory_span_write_plan_color &plan
+    let target_kind %i32 gui_bare_display_driver_host_import_target_kind target
+    let window_raw %i32 gui_bare_display_driver_host_import_window_raw target
+    let x %i32 gui_rgba8888_row_tile_rle_present_run_row_span_x &span
+    let y %i32 gui_rgba8888_row_tile_rle_present_run_row_span_y &span
+    let width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width &span
+    let height %i32 gui_rgba8888_row_tile_rle_present_run_row_span_height &span
+    let run_index %i32 gui_bare_display_memory_span_write_plan_run_index &plan
+    let pixel_start %i32 gui_bare_display_memory_span_write_plan_pixel_start &plan
+    let pixel_end %i32 gui_bare_display_memory_span_write_plan_pixel_end &plan
+    let row_byte_start %i32 gui_bare_display_memory_span_write_plan_row_byte_start &plan
+    let x_byte_offset %i32 gui_bare_display_memory_span_write_plan_x_byte_offset &plan
+    let byte_start %i32 gui_bare_display_memory_span_write_plan_byte_start &plan
+    let byte_len %i32 gui_bare_display_memory_span_write_plan_byte_len &plan
+    let byte_end %i32 gui_bare_display_memory_span_write_plan_byte_end &plan
+    let surface_byte_count %i32 gui_bare_display_memory_span_write_plan_surface_byte_count &plan
+    let r %i32 cast rgba8888_r &color
+    let g %i32 cast rgba8888_g &color
+    let b %i32 cast rgba8888_b &color
+    let a %i32 cast rgba8888_a &color
+    gui_bare_display_driver_span_write_raw target_kind window_raw x y width height run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count r g b a
+
+fn gui_bare_display_driver_host_import_frame_present %impure fn GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &plan
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &plan
+    let target_kind %i32 gui_bare_display_driver_host_import_target_kind target
+    let window_raw %i32 gui_bare_display_driver_host_import_window_raw target
+    let surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface &descriptor
+    let descriptor_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    let descriptor_frame_raw %i32 frame_id_raw &descriptor_frame
+    let packet_frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &packet
+    let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &packet
+    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &packet
+    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &packet
+    let plan_frame %FrameId gui_bare_display_memory_present_plan_frame &plan
+    let plan_frame_raw %i32 frame_id_raw &plan_frame
+    let run_count %i32 gui_bare_display_memory_present_plan_run_count &plan
+    let plan_pixel_count %i32 gui_bare_display_memory_present_plan_pixel_count &plan
+    let surface_byte_count %i32 gui_bare_display_memory_present_plan_surface_byte_count &plan
+    gui_bare_display_driver_frame_present_raw target_kind window_raw surface_raw descriptor_frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count plan_frame_raw run_count plan_pixel_count surface_byte_count
+
+fn gui_bare_display_driver_host_import_call %impure fn GuiBareDisplayMemoryAction i32 \action:
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin plan:
+            gui_bare_display_driver_host_import_descriptor_begin plan
+        GuiBareDisplayMemoryAction::SpanWrite plan:
+            gui_bare_display_driver_host_import_span_write plan
+        GuiBareDisplayMemoryAction::FramePresent plan:
+            gui_bare_display_driver_host_import_frame_present plan
+
+//: gui_bare_display_driver_host_import_step: checked memory step を bare display driver import へ 1 [回/かい]だけ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - preflight が[失敗/しっぱい]した場合は host import を[呼/よ]びません。
+//: - preflight success action に[対応/たいおう]する import だけを 1 [回/かい]呼びます。
+//: - host status と F5fo ledger の最終[照合/しょうごう]が[成功/せいこう]した場合だけ state を[進/すす]めます。
+pub fn gui_bare_display_driver_host_import_step %impure fn GuiBareDisplayDriverState impure fn GuiBareDisplayMemoryStepApplied Result GuiBareDisplayDriverStepApplied GuiBareDisplayDriverStepError \state\memory_step:
+    match gui_bare_display_driver_host_import_preflight state memory_step:
+        Result::Err preflight_error:
+            Result::Err preflight_error
+        Result::Ok preview:
+            let action %GuiBareDisplayMemoryAction gui_bare_display_driver_step_applied_action &preview
+            let status %i32 gui_bare_display_driver_host_import_call action
+            let outcome %GuiBareDisplayDriverOutcome gui_bare_display_driver_host_import_status_outcome action status
+            gui_bare_display_driver_apply state memory_step outcome

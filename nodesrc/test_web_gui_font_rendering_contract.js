@@ -276,6 +276,8 @@ const platformGuiBareDisplayMemory = read("stdlib/platforms/gui/bare/display_mem
 const platformGuiBareDisplayMemoryImpl = withoutComments(platformGuiBareDisplayMemory);
 const platformGuiBareDisplayDriver = read("stdlib/platforms/gui/bare/display_driver.nepl");
 const platformGuiBareDisplayDriverImpl = withoutComments(platformGuiBareDisplayDriver);
+const platformGuiBareDisplayDriverHostImport = read("stdlib/platforms/gui/bare/display_driver_host_import.nepl");
+const platformGuiBareDisplayDriverHostImportImpl = withoutComments(platformGuiBareDisplayDriverHostImport);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -390,6 +392,7 @@ const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_fra
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
 const guiPlatformBareDisplayDriverTests = read("tests/stdlib/gui_platform_bare_display_driver.n.md");
+const guiPlatformBareDisplayDriverHostImportTests = read("tests/stdlib/gui_platform_bare_display_driver_host_import.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26916,6 +26919,110 @@ assert(
         "platform_bare_display_driver_no_host_import_fallback",
     ].every((label) => guiPlatformBareDisplayDriverTests.includes(label)),
     "F5fo platform bare display driver focused doctest must cover executable and source-policy labels",
+);
+assert(
+    guiStandardLibrarySpec.includes("## F5fp Bare display driver host import boundary") &&
+        guiStandardLibrarySpec.includes("display_driver_begin") &&
+        guiStandardLibrarySpec.includes("display_driver_span_write") &&
+        guiStandardLibrarySpec.includes("display_driver_frame_present") &&
+        guiStandardLibrarySpec.includes("preflight") &&
+        guiStandardLibrarySpec.includes("positive non-zero") &&
+        guiStandardLibrarySpec.includes("fallback") &&
+        guiStandardLibrarySpec.includes("silent no-op") &&
+        barePlatformBehaviorDoc.includes("F5fp") &&
+        barePlatformBehaviorDoc.includes("Bare display driver host import boundary") &&
+        barePlatformBehaviorDoc.includes("DriverRejected"),
+    "F5fp docs must describe bare display driver host import preflight, import names, fail-closed status, and forbidden fallback/no-op behavior",
+);
+assert(
+    platformGuiBareFacade.includes('./bare/display_driver_host_import" as @merge'),
+    "platforms/gui/bare facade must export F5fp display driver host import boundary",
+);
+assert(
+    runTestSource.includes("display_driver_begin: () => -1") &&
+        runTestSource.includes("display_driver_span_write: () => -1") &&
+        runTestSource.includes("display_driver_frame_present: () => -1"),
+    "nodesrc/run_test.js default bare imports must expose F5fp display driver unsupported stubs",
+);
+assert(
+    platformGuiBareDisplayDriverHostImportImpl.includes('#extern "nepl_gui_bare" "display_driver_begin"') &&
+        platformGuiBareDisplayDriverHostImportImpl.includes('#extern "nepl_gui_bare" "display_driver_span_write"') &&
+        platformGuiBareDisplayDriverHostImportImpl.includes('#extern "nepl_gui_bare" "display_driver_frame_present"') &&
+        platformGuiBareDisplayDriverHostImportImpl.includes("pub fn gui_bare_display_driver_host_import_step"),
+    "platforms/gui/bare/display_driver_host_import F5fp must expose explicit bare display driver host imports and step boundary",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverHostImportImpl, "gui_bare_display_driver_host_import_step"),
+    [
+        "gui_bare_display_driver_host_import_preflight state memory_step",
+        "Result::Err preflight_error",
+        "Result::Ok preview",
+        "gui_bare_display_driver_step_applied_action &preview",
+        "gui_bare_display_driver_host_import_call action",
+        "gui_bare_display_driver_host_import_status_outcome action status",
+        "gui_bare_display_driver_apply state memory_step outcome",
+    ],
+    "platforms/gui/bare/display_driver_host_import F5fp step must preflight before host import and then reapply through F5fo ledger",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverHostImportImpl, "gui_bare_display_driver_host_import_status_outcome"),
+    [
+        "if eq status 0",
+        "gui_bare_display_driver_host_import_success_outcome action",
+        "GuiBareDisplayDriverOutcome::DriverRejected gui_bare_display_driver_host_import_status_error status",
+    ],
+    "platforms/gui/bare/display_driver_host_import F5fp status outcome must treat only status 0 as accepted",
+);
+assert(
+    functionSlice(platformGuiBareDisplayDriverHostImportImpl, "gui_bare_display_driver_host_import_status_error").includes("else GuiError::BackendFailure"),
+    "platforms/gui/bare/display_driver_host_import F5fp status error must fail closed for unknown negative and positive non-zero statuses",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayDriverHostImportImpl, "gui_bare_display_driver_host_import_span_write"),
+    [
+        "gui_bare_display_memory_span_write_plan_run_index &plan",
+        "gui_bare_display_memory_span_write_plan_pixel_start &plan",
+        "gui_bare_display_memory_span_write_plan_pixel_end &plan",
+        "gui_bare_display_memory_span_write_plan_row_byte_start &plan",
+        "gui_bare_display_memory_span_write_plan_x_byte_offset &plan",
+        "gui_bare_display_memory_span_write_plan_byte_start &plan",
+        "gui_bare_display_memory_span_write_plan_byte_len &plan",
+        "gui_bare_display_memory_span_write_plan_byte_end &plan",
+        "gui_bare_display_memory_span_write_plan_surface_byte_count &plan",
+        "cast rgba8888_r &color",
+        "cast rgba8888_a &color",
+        "gui_bare_display_driver_span_write_raw",
+    ],
+    "platforms/gui/bare/display_driver_host_import F5fp span write must pass F5fn byte/range/color evidence to the host import",
+);
+assert(
+    [
+        "GuiBareDisplayMemoryAction::FrameBegin",
+        "GuiBareDisplayMemoryAction::SpanWrite",
+        "GuiBareDisplayMemoryAction::FramePresent",
+    ].every((fragment) => functionSlice(platformGuiBareDisplayDriverHostImportImpl, "gui_bare_display_driver_host_import_call").includes(fragment)),
+    "platforms/gui/bare/display_driver_host_import F5fp must match action variants explicitly",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverHostImportImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+    "platforms/gui/bare/display_driver_host_import F5fp must not implement loops, queues, renderers, or old transports",
+);
+assertNoMatch(
+    platformGuiBareDisplayDriverHostImportImpl,
+    /fallback|silent|[()]/i,
+    "platforms/gui/bare/display_driver_host_import F5fp implementation must preserve no-fallback wording only in comments and must not use parentheses",
+);
+assert(
+    [
+        "platform_bare_display_driver_host_import_facade_ok",
+        "platform_bare_display_driver_host_import_status_mapping_ok",
+        "platform_bare_display_driver_host_import_preflight_before_host_ok",
+        "platform_bare_display_driver_host_import_default_unsupported_ok",
+        "platform_bare_display_driver_host_import_span_byte_evidence_ok",
+        "platform_bare_display_driver_host_import_no_loop_queue_fallback",
+    ].every((label) => guiPlatformBareDisplayDriverHostImportTests.includes(label)),
+    "F5fp platform bare display driver host import focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
