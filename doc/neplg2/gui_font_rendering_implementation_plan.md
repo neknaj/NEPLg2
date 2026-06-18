@@ -280,6 +280,42 @@ plan review:
 - focused doctest、source policy、F5et / F5eo regression、`git diff --check` が通る。
 - subagent implementation review で action input helper 境界、owner recovery、F5eo authority、禁止依存が承認される。
 
+## Phase F5ev: Native and Bare scheduler executor outcome input helper boundary
+
+2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。F5eg `ExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome を受け、F5ek `RealLoopStepInput::ExecutorOutcome` へ total packaging するだけの境界に留める。
+
+実装 target:
+
+- `stdlib/platforms/gui/native/scheduler_executor_input.nepl`
+- `stdlib/platforms/gui/bare/scheduler_executor_input.nepl`
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_native_scheduler_executor_input.n.md`
+- `tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+
+実装内容:
+
+- public entry は `ExecuteHostAction` payload だけを受け、general `LoopAction` は受けない。
+- caller supplied outcome は `Result unit GuiError` のまま受け、`Result::Ok unit` や `Result::Err GuiError::*` を合成しない。
+- helper は F5ek `RealLoopStepInput::ExecutorOutcome` を 1 回だけ構築し、original action と一緒に ready payload へ保持する。
+- typed action と explicit outcome が渡された時点で total packaging なので、helper は does not return Result である。
+- unsupported path は型で除外される。fallback branch、silent no-op、best effort branch は持たない。
+- F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory には進まない。
+- `YieldToClock`、`AwaitTimerAdvance`、`Complete` は対象外であり、`ClockDelta` や `CompleteAck` は合成しない。
+
+plan review:
+
+- Volta plan review は `PLAN_APPROVED`。
+- 指摘は、typed `ExecuteHostAction` だけを受けること、caller supplied `Result unit GuiError` をそのまま保存すること、`RealLoopStepInput::ExecutorOutcome` を構築して original action と返すこと、`Result` を重ねないこと、unsupported variants は型で除外すること、F5ei / F5ek / action sink / queue / timer / rendering / fallback へ進まないことだった。
+- 本計画では上記を反映し、実装開始可と判断する。
+
+完了条件:
+
+- source policy が facade export、backend-facing input boundary docs、typed `ExecuteHostAction` input、total packaging、caller supplied outcome preservation、executor complete / backend / queue / fallback 禁止、括弧なし prefix style を固定する。
+- focused doctest、module doctest、source policy、F5eu / F5ek regression、`git diff --check` が通る。
+- subagent implementation review で executor outcome input helper 境界、synthetic outcome 禁止、禁止依存が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

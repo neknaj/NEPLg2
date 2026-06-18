@@ -42,6 +42,12 @@
 
 2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。`platforms/gui/native/scheduler_clock_input` と `platforms/gui/bare/scheduler_clock_input` は F5eg `LoopActionYieldToClock` / `LoopActionAwaitTimerAdvance` を typed authority として受け、F5et `gui_*_scheduler_clock_tick` を entry ごとに 1 回だけ呼ぶ。成功時は F5eo `BackendClockAdvance` が保持する新しい `BackendClockState` と F5ek `RealLoopStepInput` を取り出し、original action と一緒に success payload へ保存する。失敗時は original action、input clock state、lower platform scheduler clock error を owner-bearing error として返す。general `LoopAction`、`ExecuteHostAction`、`Complete` は対象外であり、`ExecutorOutcome` / `CompleteAck` / `ClockDelta` はこの層で合成しない。real loop driver、headless app-loop step、queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は持たない。
 
+## F5ev Native and Bare scheduler executor outcome input helper boundary
+
+2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。`platforms/gui/native/scheduler_executor_input` と `platforms/gui/bare/scheduler_executor_input` は F5eg `LoopActionExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome だけを受ける。helper は outcome を F5ek `RealLoopStepInput::ExecutorOutcome` として 1 回だけ total packaging し、original action と同じ ready payload に保存する。
+
+この helper は does not return Result である。理由は、general `LoopAction`、`YieldToClock`、`AwaitTimerAdvance`、`Complete` が public entry の型で除外され、unsupported operation を runtime 分岐で検出する必要がないためである。executor success / failure は caller supplied outcome の中身であり、この boundary は `Result::Ok unit` や `Result::Err GuiError::*` を合成しない。F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op には進まない。
+
 ## 責務分離
 
 Font rendering は `core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/*` で責務を分ける。

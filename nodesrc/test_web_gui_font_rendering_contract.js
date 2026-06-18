@@ -247,6 +247,8 @@ const platformGuiNativeSchedulerClock = read("stdlib/platforms/gui/native/schedu
 const platformGuiNativeSchedulerClockImpl = withoutComments(platformGuiNativeSchedulerClock);
 const platformGuiNativeSchedulerClockInput = read("stdlib/platforms/gui/native/scheduler_clock_input.nepl");
 const platformGuiNativeSchedulerClockInputImpl = withoutComments(platformGuiNativeSchedulerClockInput);
+const platformGuiNativeSchedulerExecutorInput = read("stdlib/platforms/gui/native/scheduler_executor_input.nepl");
+const platformGuiNativeSchedulerExecutorInputImpl = withoutComments(platformGuiNativeSchedulerExecutorInput);
 const platformGuiBareFacade = read("stdlib/platforms/gui/bare.nepl");
 const platformGuiBareClock = read("stdlib/platforms/gui/bare/clock.nepl");
 const platformGuiBareClockImpl = withoutComments(platformGuiBareClock);
@@ -254,6 +256,8 @@ const platformGuiBareSchedulerClock = read("stdlib/platforms/gui/bare/scheduler_
 const platformGuiBareSchedulerClockImpl = withoutComments(platformGuiBareSchedulerClock);
 const platformGuiBareSchedulerClockInput = read("stdlib/platforms/gui/bare/scheduler_clock_input.nepl");
 const platformGuiBareSchedulerClockInputImpl = withoutComments(platformGuiBareSchedulerClockInput);
+const platformGuiBareSchedulerExecutorInput = read("stdlib/platforms/gui/bare/scheduler_executor_input.nepl");
+const platformGuiBareSchedulerExecutorInputImpl = withoutComments(platformGuiBareSchedulerExecutorInput);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -357,6 +361,8 @@ const guiPlatformNativeSchedulerClockTests = read("tests/stdlib/gui_platform_nat
 const guiPlatformBareSchedulerClockTests = read("tests/stdlib/gui_platform_bare_scheduler_clock.n.md");
 const guiPlatformNativeSchedulerClockInputTests = read("tests/stdlib/gui_platform_native_scheduler_clock_input.n.md");
 const guiPlatformBareSchedulerClockInputTests = read("tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md");
+const guiPlatformNativeSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_native_scheduler_executor_input.n.md");
+const guiPlatformBareSchedulerExecutorInputTests = read("tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -25817,6 +25823,103 @@ for (const [name, source, impl, tickName, readyPrefix, errorName, tests] of [
             tests.includes(`platform_${name}_scheduler_clock_input_tick_once_ok`) &&
             tests.includes(`platform_${name}_scheduler_clock_input_no_executor_complete_backend_queue_fallback`),
         `F5eu platform ${name} scheduler clock input focused doctest must cover source-policy labels`,
+    );
+}
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Native and Bare scheduler executor outcome input helper boundary") &&
+            doc.includes("F5ev") &&
+            doc.includes("backend-facing input boundary") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("total packaging") &&
+            doc.includes("ExecuteHostAction") &&
+            doc.includes("Result unit GuiError") &&
+            doc.includes("RealLoopStepInput::ExecutorOutcome") &&
+            doc.includes("does not return Result") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5ev ${name} must document scheduler executor outcome input helper and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiNativeFacade.includes('pub #import "./native/scheduler_executor_input" as @merge'),
+    "platforms/gui/native facade must export F5ev native scheduler executor outcome input helper",
+);
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_executor_input" as @merge'),
+    "platforms/gui/bare facade must export F5ev bare scheduler executor outcome input helper",
+);
+for (const [name, source, impl, readyPrefix, tests] of [
+    [
+        "native",
+        platformGuiNativeSchedulerExecutorInput,
+        platformGuiNativeSchedulerExecutorInputImpl,
+        "GuiNativeSchedulerExecutorInput",
+        guiPlatformNativeSchedulerExecutorInputTests,
+    ],
+    [
+        "bare",
+        platformGuiBareSchedulerExecutorInput,
+        platformGuiBareSchedulerExecutorInputImpl,
+        "GuiBareSchedulerExecutorInput",
+        guiPlatformBareSchedulerExecutorInputTests,
+    ],
+]) {
+    assert(
+        source.includes("backend-facing input boundary") &&
+            source.includes("not long-running scheduler backend") &&
+            source.includes("total packaging") &&
+            source.includes("ExecuteHostAction") &&
+            source.includes("Result unit GuiError") &&
+            source.includes("RealLoopStepInput::ExecutorOutcome") &&
+            source.includes("does not return Result") &&
+            source.includes("fallback") &&
+            source.includes("silent no-op"),
+        `platforms/gui/${name}/scheduler_executor_input F5ev must document executor input helper boundary and no fallback`,
+    );
+    assert(
+        source.includes(`${readyPrefix}Ready:`) &&
+            source.includes("action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction") &&
+            source.includes("input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput"),
+        `platforms/gui/${name}/scheduler_executor_input F5ev must expose typed ready payload`,
+    );
+    const inputSlice = functionSlice(impl, `gui_${name}_scheduler_executor_input`);
+    assert(
+        (inputSlice.match(/\bGuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome\b/g) || []).length === 1,
+        `platforms/gui/${name}/scheduler_executor_input F5ev helper must construct ExecutorOutcome exactly once`,
+    );
+    assertOrderedFragments(
+        inputSlice,
+        [
+            "fn Result unit GuiError",
+            "RealLoopStepInput::ExecutorOutcome outcome",
+            `gui_${name}_scheduler_executor_input_ready_new action input`,
+        ],
+        `platforms/gui/${name}/scheduler_executor_input F5ev helper must preserve caller supplied outcome and original action`,
+    );
+    assertNoMatch(
+        impl,
+        /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|RealLoopStepInput::ClockDelta|ClockDelta|loop_executor_complete|real_loop_step\s+|real_loop_driver|headless_app_loop_step|tile_present_host_action_sink|tile_present_host_action_sink_driver|tile_present_host_execution_driver|host_executor_require_supported|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|present|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget|fallback|silent no-op|Result::Ok unit|Result::Err GuiError)\b/i,
+        `platforms/gui/${name}/scheduler_executor_input F5ev must not implement unsupported variants, executor complete, backend queues, rendering, or fallback behavior`,
+    );
+    assertNoMatch(
+        impl,
+        /_:|[()]/,
+        `platforms/gui/${name}/scheduler_executor_input F5ev implementation must preserve NEPL prefix style without wildcard matches or parentheses`,
+    );
+    assert(
+        tests.includes(`platform_${name}_scheduler_executor_input_facade_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_input_backend_boundary_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_input_execute_only_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_input_total_packaging_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_input_preserves_outcome_ok`) &&
+            tests.includes(`platform_${name}_scheduler_executor_input_no_executor_complete_backend_queue_fallback`),
+        `F5ev platform ${name} scheduler executor input focused doctest must cover source-policy labels`,
     );
 }
 for (const [name, doc] of [

@@ -59,6 +59,10 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。Native / bare backend は F5eg `YieldToClock` / `AwaitTimerAdvance` typed payload だけを受け、F5et の one-tick helper を 1 回呼び、その F5eo `BackendClockAdvance` から `BackendClockState` と F5ek `RealLoopStepInput` を success payload に保存する。error payload は original action、input clock state、lower `GuiNativeSchedulerClockError` / `GuiBareSchedulerClockError` を保持する。`ExecuteHostAction` / `Complete` / `ExecutorOutcome` / `CompleteAck` / real loop driver / headless app-loop step には進まない。fallback と silent no-op は禁止であり、unsupported clock source は lower error を持つ `Result` として返す。
 
+## F5ev Native and Bare scheduler executor outcome input helper boundary
+
+2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。Native / bare backend は F5eg `ExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome だけを受け、F5ek `RealLoopStepInput::ExecutorOutcome` へ total packaging する。ready payload は original action と `RealLoopStepInput` を保持し、helper は does not return Result である。unsupported path は型で除外されるため silent no-op や fallback branch を持たない。`YieldToClock` / `AwaitTimerAdvance` / `Complete` / `ClockDelta` / `CompleteAck` / F5ei executor complete / F5ek real loop step / action sink / driver / support validation / queue / timer / present / platform renderer には進まない。
+
 ## 層構造
 
 依存方向は次に固定する。

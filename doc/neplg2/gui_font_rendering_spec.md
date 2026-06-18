@@ -57,6 +57,10 @@ NEPLg2 GUI は Web、native、bare、offscreen、headless で同じ application 
 
 2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。F5eg `YieldToClock` / `AwaitTimerAdvance` typed action payload と F5et `scheduler_clock_tick` を接続し、success payload は original action、新しい `BackendClockState`、F5eo 由来の F5ek `RealLoopStepInput` を保持する。error payload は original action、input clock state、lower platform scheduler clock error を保持する。general `LoopAction`、`ExecuteHostAction`、`Complete` は受け取らず、`ExecutorOutcome` や `CompleteAck` は合成しない。timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
 
+## F5ev Native and Bare scheduler executor outcome input helper boundary
+
+2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。F5eg `ExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome を受け、F5ek `RealLoopStepInput::ExecutorOutcome` へ total packaging し、original action と一緒に保持する。helper は does not return Result であり、typed action と explicit outcome が渡された時点で unsupported path は型で除外される。`YieldToClock`、`AwaitTimerAdvance`、`Complete` は対象外であり、`ClockDelta` や `CompleteAck` は合成しない。F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
 ## 必須 contract
 
 ### Font identity
