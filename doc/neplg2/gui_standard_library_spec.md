@@ -93,6 +93,14 @@ F5fj は existing scalar ABI shape を保ち、status `0` を `Result::Ok unit`�
 
 F5fj は native NEPL `#extern` boundary だけを扱う。bare runtime host import、long-running scheduler backend、queue、timer wait、minifb loop、formal `std/gui` host implementation、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 slice に分ける。
 
+## F5fk Bare display presenter session host import boundary
+
+2026-06-18 の F5fk では、bare `platforms/gui/bare/scheduler_host_executor` の formal NEPL host import ABI を bare display presenter session contract へ接続する。bare host import 名は `display_presenter_session_begin`、`display_presenter_session_run`、`display_presenter_session_end` とし、generic `execute_span_operation_*` は bare public import contract として出さない。
+
+Bare は window manager を持つとは限らないため、native の `window_presenter_session_*` とは異なり、device / offscreen / display surface へ接続される presenter session として扱う。scalar ABI shape と status mapping は F5ex と同じであり、status `0` は `Result::Ok unit`、`-1` は `GuiError::Unsupported`、その他の negative sentinel は typed `GuiError` へ写す。host が display presenter session import を提供しない doctest / CLI-only runtime では default stub が `-1` を返し、fallback、silent no-op、blank frame 合成、old stdout transport へ落ちない。
+
+F5fk は bare NEPL `#extern` boundary だけを扱う。bare actual display driver、framebuffer adapter、polling input、long-running scheduler backend、queue、timer wait、present loop、formal `std/gui` host implementation、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 slice に分ける。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

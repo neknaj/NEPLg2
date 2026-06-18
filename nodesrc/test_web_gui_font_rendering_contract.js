@@ -26178,7 +26178,8 @@ for (const hostExecutorCase of [
         extraLabels: [
             "platform_native_scheduler_host_executor_session_host_import_ok",
         ],
-        forbidOldNativeExtern: true,
+        forbiddenGenericExternPattern: /#extern\s+"nepl_gui_native"\s+"execute_span_operation_(?:begin|run|end)"/,
+        forbiddenGenericExternMessage: "platforms/gui/native scheduler_host_executor F5fj must not expose old generic native span-operation extern names",
     },
     {
         name: "bare",
@@ -26186,20 +26187,23 @@ for (const hostExecutorCase of [
         impl: platformGuiBareSchedulerHostExecutorImpl,
         tests: guiPlatformBareSchedulerHostExecutorTests,
         externNames: [
-            "execute_span_operation_begin",
-            "execute_span_operation_run",
-            "execute_span_operation_end",
+            "display_presenter_session_begin",
+            "display_presenter_session_run",
+            "display_presenter_session_end",
         ],
         rawNames: [
-            "gui_bare_execute_span_operation_begin_raw",
-            "gui_bare_execute_span_operation_run_raw",
-            "gui_bare_execute_span_operation_end_raw",
+            "gui_bare_display_presenter_session_begin_raw",
+            "gui_bare_display_presenter_session_run_raw",
+            "gui_bare_display_presenter_session_end_raw",
         ],
-        extraLabels: [],
-        forbidOldNativeExtern: false,
+        extraLabels: [
+            "platform_bare_scheduler_host_executor_display_session_host_import_ok",
+        ],
+        forbiddenGenericExternPattern: /#extern\s+"nepl_gui_bare"\s+"execute_span_operation_(?:begin|run|end)"/,
+        forbiddenGenericExternMessage: "platforms/gui/bare scheduler_host_executor F5fk must not expose old generic bare span-operation extern names",
     },
 ]) {
-    const { name, source, impl, tests, externNames, rawNames, extraLabels, forbidOldNativeExtern } = hostExecutorCase;
+    const { name, source, impl, tests, externNames, rawNames, extraLabels, forbiddenGenericExternPattern, forbiddenGenericExternMessage } = hostExecutorCase;
     assert(
         source.includes("scheduler host action executor backend bridge") &&
             source.includes("typed `ExecuteHostAction`") &&
@@ -26217,11 +26221,11 @@ for (const hostExecutorCase of [
         externNames.every((externName) => source.includes(`#extern "nepl_gui_${name}" "${externName}"`)),
         `platforms/gui/${name}/scheduler_host_executor F5ex must define explicit begin/run/end host imports`,
     );
-    if (forbidOldNativeExtern) {
+    if (forbiddenGenericExternPattern) {
         assertNoMatch(
             source,
-            /#extern\s+"nepl_gui_native"\s+"execute_span_operation_(?:begin|run|end)"/,
-            "platforms/gui/native scheduler_host_executor F5fj must not expose old generic native span-operation extern names",
+            forbiddenGenericExternPattern,
+            forbiddenGenericExternMessage,
         );
     }
     const beginSlice = functionSlice(impl, `gui_${name}_scheduler_host_executor_descriptor_begin`);
@@ -26284,8 +26288,8 @@ assert(
     "run_test native default imports must fail closed for F5fj presenter session host import ABI",
 );
 assert(
-    /function defaultNeplGuiBareImports\(\)[\s\S]*execute_span_operation_begin: \(\) => -1[\s\S]*execute_span_operation_run: \(\) => -1[\s\S]*execute_span_operation_end: \(\) => -1/.test(runTestSource),
-    "run_test bare default imports must fail closed for F5ex host executor ABI",
+    /function defaultNeplGuiBareImports\(\)[\s\S]*display_presenter_session_begin: \(\) => -1[\s\S]*display_presenter_session_run: \(\) => -1[\s\S]*display_presenter_session_end: \(\) => -1/.test(runTestSource),
+    "run_test bare default imports must fail closed for F5fk display presenter session host import ABI",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
