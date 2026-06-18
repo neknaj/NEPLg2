@@ -1,3 +1,48 @@
+# 2026-06-19 Agent2 GUI platform F5ft Bare actual display driver adapter boundary
+
+## 目的
+
+- F5fs Bare display memory span write/readback boundary の後続として、F5fp host import accepted step と F5fs owner-side span write/readback を接続する bare actual display driver adapter boundary を追加する。
+- public driver step / outcome / accepted span / byte echo は Copy value として偽造できるため adapter の authority にせず、owner 内 canonical driver state から F5fp `gui_bare_display_driver_host_import_step` を実行する。
+- SpanWrite は host accepted と owner full span write/readback の両方が成功した場合だけ owner state を進める。
+- Begin / Present は host accepted ledger step completed evidence に限定し、frame ready / present ready / byte readback evidence とは扱わない。
+
+## subagent review
+
+- Jason the 2nd の実装前 plan review は `REVIEW_APPROVED`。
+- 実装条件は、owner 内 state から F5fp を呼ぶこと、returned step だけを authority にすること、SpanWrite は F5fs readback success だけで owner を進めること、Begin / Present は frame-ready を主張しないこと、owner-bearing success / error は Clone / Copy にしないこと、host import failure と span readback failure の両方で owner を回収できることだった。
+- 実装後 review も `REVIEW_APPROVED`。F5ft は approved plan と一致し、Begin / Present の evidence 過大主張、raw storage accessor、loop / queue / renderer / fallback / silent no-op leakage は見つからなかった。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_adapter.nepl` を追加した。
+- public entry `gui_bare_display_driver_adapter_step owner memory_step` は owner 内 `GuiBareDisplayDriverState` を取り出し、`gui_bare_display_driver_host_import_step driver_state memory_step` を呼ぶ。
+- host import failure は `GuiBareDisplayDriverAdapterErrorKind::HostImportFailed` として owner-bearing error にし、owner state は進めない。
+- returned step の action / outcome は enum `match` で明示的に分け、`SpanWrite` / `SpanWriteAccepted` では returned outcome を F5fs `gui_bare_display_memory_owner_write_span_readback` へ渡す。
+- F5fs span readback failure は F5fs error payload から owner を回収し、lower kind/category を `SpanReadbackFailed` として保持する。host 側 side effect は rollback されたものとは扱わない。
+- `FrameBegin` / `BeginAccepted` と `FramePresent` / `FramePresentAccepted` は storage と verified byte count を保持し、returned next driver state を owner へ反映し、`last_verified` を `Option::None` に clear する。
+- owner-bearing `GuiBareDisplayDriverAdapterCompleted` / `GuiBareDisplayDriverAdapterError` には Clone / Copy を実装しない。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5ft に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_adapter.nepl -o tmp_gui_bare_display_driver_adapter_module_f5ft_second.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_adapter.n.md -o tmp_gui_bare_display_driver_adapter_f5ft_second.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md -o tmp_gui_bare_display_memory_span_readback_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。既存 broad warning は 9 件で、F5ft の direct policy である `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
+- `stdlib/platforms/gui/bare.nepl` の直接指定は facade-only file のため runnable doctest なしであり、focused F5ft doctest と source-policy で facade export を確認した。
+
+## residual
+
+- F5ft は actual display driver adapter の 1 step boundary までであり、frame readiness evidence、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5fs Bare display memory span write/readback boundary
 
 ## 目的

@@ -179,6 +179,18 @@ F5fs は canonical accepted span から `byte_start`、`byte_len`、`byte_end`�
 
 F5fs は public `RegionToken` / `MemPtr` / storage accessor、raw pointer、raw byte slice、actual hardware driver、host import、long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、frame ready / present ready evidence を実装しない。frame readiness は future slice で、all spans / present command / scheduler completion の別 evidence として扱う。
 
+## F5ft Bare actual display driver adapter boundary
+
+2026-06-19 の F5ft では、bare `platforms/gui/bare/display_driver_adapter` を追加する。これは F5fp の actual bare display driver host import と、F5fs の owner-side span write/readback を接続する adapter boundary である。F5ft の public entry は `gui_bare_display_driver_adapter_step owner memory_step` であり、caller supplied `GuiBareDisplayDriverStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverSpanWriteAccepted`、`GuiBareDisplayDriverByteEchoVerified` は authority として受け取らない。
+
+adapter step はまず owner 内の canonical `GuiBareDisplayDriverState` を取り出し、`gui_bare_display_driver_host_import_step driver_state memory_step` を呼ぶ。これにより F5fo ledger preflight、actual host import 1 回、status outcome 変換、F5fo ledger reapply が通った returned `GuiBareDisplayDriverStepApplied` だけを host accepted ledger authority とする。host import failure は owner-bearing `GuiBareDisplayDriverAdapterError` として返し、owner state は進めない。
+
+returned step の action / outcome は enum `match` で明示的に分ける。`SpanWrite` / `SpanWriteAccepted` の場合だけ、returned outcome を `gui_bare_display_memory_owner_write_span_readback owner memory_step outcome` へ渡す。F5fs が full store と full readback を完了した場合だけ、adapter success は next owner と `SpanHostAcceptedAndReadback` evidence を返す。span readback failure after host accepted は owner を unadvanced state として error payload に回収する。ただし external host side effect は rollback された証明ではなく、verified owner memory としても扱わない。
+
+`FrameBegin` / `BeginAccepted` と `FramePresent` / `FramePresentAccepted` は raw memory store を行わず、returned step の next driver state を owner に反映し、storage と verified byte count を保持し、stale single-byte evidence を `Option::None` へ clear する。これらの success kind は `BeginHostAccepted` / `FramePresentHostAccepted` であり、frame ready、present ready、byte readback evidence ではない。returned step に `DriverRejected` や action/outcome mismatch が現れた場合は adapter error として fail-closed に返す。
+
+F5ft の owner-bearing success / error は `Clone` / `Copy` を実装しない。pure evidence は copyable metadata であり、それ単独では write / read authority にならない。F5ft は public raw storage accessor、scheduler loop、queue、timer backend、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、frame readiness evidence を実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
