@@ -296,7 +296,7 @@ Native:
 
 2026-06-02 checkpoint では、workspace member `nepl-gui-native` を追加し、pure framebuffer renderer と minifb window runner を分けて実装した。CI / headless 環境では `cargo test -p nepl-gui-native --lib` が framebuffer 変換と metric contract だけを検査する。実 window は target-specific optional dependency の `window` feature で有効化し、`cargo run -p nepl-gui-native --features window -- mandelbrot` のように明示実行する。
 
-2026-06-02 native platform behavior checkpoint では、macOS AppKit、Windows Win32、Linux Wayland / X11 の window lifecycle を調べ、smoke runner を固定 size window から OS window manager が与える resize / close / event pump を受ける構造へ寄せた。`WindowOptions.resize = true`、`ScaleMode::AspectRatioStretch`、`set_target_fps 60`、current window size の監視、letterbox-aware hit test、zero-size surface の `Unavailable` model を追加し、close button または Escape で process が正常終了するようにした。調査内容と backend contract は `doc/neplg2/gui_native_platform_behavior.md` に分けて記録する。
+2026-06-02 native platform behavior checkpoint では、macOS AppKit、Windows Win32、Linux Wayland / X11 の window lifecycle を調べ、smoke runner を固定 size window から OS window manager が与える resize / close / event pump を受ける構造へ寄せた。`WindowOptions.resize = true`、`ScaleMode::UpperLeft`、`set_target_fps 60`、current window size の監視、resize 後の exact-size RGB0 buffer redraw、letterbox-aware hit test、zero-size surface の `Unavailable` model を追加し、close button または Escape で process が正常終了するようにした。調査内容と backend contract は `doc/neplg2/gui_native_platform_behavior.md` に分けて記録する。
 
 この crate も現時点では正式な `std/gui::GuiHost` 実装ではない。次の native checkpoint では `std/gui` の host contract が固まった後、`nepl-gui-native` の framebuffer renderer を `platforms/gui/native` 側の `present` 実装へ寄せる。
 
