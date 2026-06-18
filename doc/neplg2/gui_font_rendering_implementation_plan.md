@@ -452,6 +452,47 @@ plan review:
 - focused doctest、module doctest、source policy、`nodesrc/issues.js check --dir issues`、`git diff --check` が通る。
 - subagent implementation review で native-only scope、F5ek/F5el 接続、owner-bearing value の Clone/Copy 禁止、docs / todo / note の一貫性が承認される。
 
+## Phase F5ga: Bare scheduler real-loop action step boundary
+
+2026-06-19 の F5ga では、Bare scheduler real-loop action step boundary として `platforms/gui/bare/scheduler_real_loop_step` を追加する。これは bare-only boundary であり、F5el `NeedInput` を 1 action だけ bare clock helper / F5fy display presenter input owner path へ接続し、success した F5ek result を F5el `real_loop_driver_after_step` へ戻す。not long-running scheduler backend であり、queue、timer wait、sleep、present loop、direct host import、Canvas、DOM、minifb、video memory、raw display state、fallback、silent no-op へは進まない。
+
+実装 target:
+
+- `stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl`
+- `stdlib/platforms/gui/bare.nepl`
+- `tests/stdlib/gui_platform_bare_scheduler_real_loop_step.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `doc/neplg2/gui_standard_library_spec.md`
+- `doc/neplg2/gui_tui_implementation_plan.md`
+- `todo.md`
+- `note.n.md`
+
+contract:
+
+- public entry は bare policy、F5eo backend clock state、`GuiBareDisplayMemoryOwner`、F5el `NeedInput` だけを受ける。
+- policy は F5ek real-loop step policy、F5el real-loop driver policy、F5eo backend clock policy だけを保持する。
+- ready payload は next clock state、recovered owner、F5el driver result を保持する。
+- `YieldToClock` と `AwaitTimerAdvance` は bare clock helper の success payload から next clock state、action、F5ek input を取り出し、その action / input を F5ek へ渡す。ClockDelta は F5ga で再合成しない。
+- clock helper failure は original owner と lower `GuiBareSchedulerClockInputError` を保持する。
+- `ExecuteHostAction` は F5fy `gui_bare_display_presenter_input` を 1 回だけ呼ぶ。success では `bridge_completed` から recovered owner を先に取り出し、その後 scheduler ready を F5ew へ渡す。
+- F5fy `BridgeFailedReady` は category 付き bridge failure を `Result unit GuiError` outcome として包んでいるため、F5ga でも F5ew へ 1 回だけ渡す。
+- F5fy `BridgeFailedMissingCategory` は direct error とし、`GuiError` を捏造しない。
+- `RealStepFailed` と `DriverAfterStepFailed` は branch、relevant clock state、recovered owner、lower error を保持する。
+- `Complete` branch だけが `CompleteAck` を作る。clock branch と execute branch では `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を合成しない。
+
+plan review:
+
+- Boole the 2nd plan review は `PLAN_CHANGES`。F5ga 自体は F5eu / F5ew / F5el / F5fy が揃っているため delay 不要だが、全失敗経路の owner recovery を強める必要があると指摘された。
+- 指摘に従い、clock failure は original owner、execute success / category-bearing failure は F5fx/F5fy 由来の recovered owner、complete は original owner を error payload へ戻す。
+- `BridgeFailedReady` は F5ew へ通し、`BridgeFailedMissingCategory` は direct error として扱う。missing category では `GuiError` を捏造しない。
+- source policy は F5fy / F5ew / F5eu / F5ek / F5el の意図した接続、F5fy 1 回、F5ew 1 箇所、missing category direct path、owner recovery、direct host import / raw state / queue / fallback / silent no-op 禁止を固定する。
+
+完了条件:
+
+- source policy が F5ga docs、facade export、policy fields、public entry signature、clock helper / presenter input / executor step / F5ek / F5el の呼び出し回数、owner recovery、raw state / queue / direct host import / fallback / silent no-op 禁止を固定する。
+- focused doctest、module doctest、source policy、`nodesrc/issues.js check --dir issues`、`git diff --check` が通る。
+- subagent implementation review で bare-only scope、F5fy/F5ew/F5ek/F5el 接続、owner recovery、docs / todo / note の一貫性が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

@@ -270,6 +270,8 @@ const platformGuiBareSchedulerExecutorStep = read("stdlib/platforms/gui/bare/sch
 const platformGuiBareSchedulerExecutorStepImpl = withoutComments(platformGuiBareSchedulerExecutorStep);
 const platformGuiBareSchedulerHostExecutor = read("stdlib/platforms/gui/bare/scheduler_host_executor.nepl");
 const platformGuiBareSchedulerHostExecutorImpl = withoutComments(platformGuiBareSchedulerHostExecutor);
+const platformGuiBareSchedulerRealLoopStep = read("stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl");
+const platformGuiBareSchedulerRealLoopStepImpl = withoutComments(platformGuiBareSchedulerRealLoopStep);
 const platformGuiBareFramebuffer = read("stdlib/platforms/gui/bare/framebuffer.nepl");
 const platformGuiBareFramebufferImpl = withoutComments(platformGuiBareFramebuffer);
 const platformGuiBareDisplayStorage = read("stdlib/platforms/gui/bare/display_storage.nepl");
@@ -409,6 +411,7 @@ const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platfor
 const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
 const guiPlatformNativeSchedulerRealLoopStepTests = read("tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md");
+const guiPlatformBareSchedulerRealLoopStepTests = read("tests/stdlib/gui_platform_bare_scheduler_real_loop_step.n.md");
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
 const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiPlatformBareDisplayMemoryTests = read("tests/stdlib/gui_platform_bare_display_memory.n.md");
@@ -26481,6 +26484,192 @@ assert(
         "platform_native_scheduler_real_loop_step_no_clone_copy_owner_values",
     ].every((label) => guiPlatformNativeSchedulerRealLoopStepTests.includes(label)),
     "F5fz native scheduler real-loop step focused doctest must cover executable and source-policy labels",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("Bare scheduler real-loop action step boundary") &&
+            doc.includes("F5ga") &&
+            doc.includes("bare-only") &&
+            doc.includes("NeedInput") &&
+            doc.includes("GuiBareDisplayMemoryOwner") &&
+            doc.includes("BridgeFailedReady") &&
+            doc.includes("BridgeFailedMissingCategory") &&
+            doc.includes("GuiError") &&
+            doc.includes("recovered owner") &&
+            doc.includes("not long-running scheduler backend") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5ga ${name} must document bare-only real-loop action step, owner recovery, and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/scheduler_real_loop_step" as @merge'),
+    "platforms/gui/bare facade must export F5ga bare scheduler real-loop action step boundary",
+);
+assert(
+    platformGuiBareSchedulerRealLoopStep.includes("Bare scheduler real-loop action step boundary") &&
+        platformGuiBareSchedulerRealLoopStep.includes("F5ga") &&
+        platformGuiBareSchedulerRealLoopStep.includes("F5el `NeedInput`") &&
+        platformGuiBareSchedulerRealLoopStep.includes("GuiBareDisplayMemoryOwner") &&
+        platformGuiBareSchedulerRealLoopStep.includes("gui_bare_display_presenter_input") &&
+        platformGuiBareSchedulerRealLoopStep.includes("BridgeFailedReady") &&
+        platformGuiBareSchedulerRealLoopStep.includes("BridgeFailedMissingCategory") &&
+        platformGuiBareSchedulerRealLoopStep.includes("recovered owner") &&
+        platformGuiBareSchedulerRealLoopStep.includes("long-running loop") &&
+        platformGuiBareSchedulerRealLoopStep.includes("fallback") &&
+        platformGuiBareSchedulerRealLoopStep.includes("silent no-op"),
+    "platforms/gui/bare/scheduler_real_loop_step F5ga must document bare action dispatch boundary and non-goals",
+);
+assert(
+    platformGuiBareSchedulerRealLoopStep.includes("pub struct GuiBareSchedulerRealLoopStepPolicy:") &&
+        platformGuiBareSchedulerRealLoopStep.includes("step_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy") &&
+        platformGuiBareSchedulerRealLoopStep.includes("driver_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy") &&
+        platformGuiBareSchedulerRealLoopStep.includes("clock_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy") &&
+        platformGuiBareSchedulerRealLoopStep.includes("pub struct GuiBareSchedulerRealLoopStepReady:") &&
+        platformGuiBareSchedulerRealLoopStep.includes("clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState") &&
+        platformGuiBareSchedulerRealLoopStep.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareSchedulerRealLoopStep.includes("driver_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult"),
+    "platforms/gui/bare/scheduler_real_loop_step F5ga must expose step, driver, clock policy, recovered owner, and ready payload",
+);
+assert(
+    /pub fn gui_bare_scheduler_real_loop_step %impure fn &GuiBareSchedulerRealLoopStepPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiBareDisplayMemoryOwner impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput Result GuiBareSchedulerRealLoopStepReady GuiBareSchedulerRealLoopStepError/.test(platformGuiBareSchedulerRealLoopStep),
+    "platforms/gui/bare/scheduler_real_loop_step F5ga public entry must accept only policy, clock state, owner, and F5el NeedInput",
+);
+const bareRealLoopStepPublicSlice = functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step");
+assertOrderedFragments(
+    bareRealLoopStepPublicSlice,
+    [
+        "real_loop_driver_need_input_action need",
+        "LoopAction::YieldToClock yield_action",
+        "gui_bare_scheduler_real_loop_step_yield policy clock_state owner yield_action",
+        "LoopAction::AwaitTimerAdvance timer_action",
+        "gui_bare_scheduler_real_loop_step_timer policy clock_state owner timer_action",
+        "LoopAction::ExecuteHostAction execute_action",
+        "gui_bare_scheduler_real_loop_step_execute policy clock_state owner execute_action",
+        "LoopAction::Complete complete_action",
+        "gui_bare_scheduler_real_loop_step_complete policy clock_state owner complete_action",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga public entry must dispatch F5el NeedInput without wildcard",
+);
+assert(
+    (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_bare_scheduler_clock_yield_input\b/g) || []).length === 1 &&
+        (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_bare_scheduler_clock_timer_input\b/g) || []).length === 1 &&
+        (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_bare_display_presenter_input\b/g) || []).length === 1 &&
+        (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_bare_scheduler_executor_step\b/g) || []).length === 1 &&
+        (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step\b/g) || []).length === 3 &&
+        (platformGuiBareSchedulerRealLoopStepImpl.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_after_step\b/g) || []).length === 1,
+    "platforms/gui/bare/scheduler_real_loop_step F5ga must call clock helpers, presenter input, executor step, F5ek, and F5el at the expected counts",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step_yield"),
+    [
+        "gui_bare_scheduler_clock_yield_input clock_policy clock_state yield_action",
+        "field::get ready \"state\"",
+        "field::get ready \"action\"",
+        "field::get ready \"input\"",
+        "LoopAction::YieldToClock ready_action",
+        "real_loop_step step_policy action input",
+        "gui_bare_scheduler_real_loop_step_from_step_result policy branch next_clock_state owner step_outcome",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga yield branch must use clock helper payload before F5ek and retain owner",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step_timer"),
+    [
+        "gui_bare_scheduler_clock_timer_input clock_policy clock_state timer_action",
+        "field::get ready \"state\"",
+        "field::get ready \"action\"",
+        "field::get ready \"input\"",
+        "LoopAction::AwaitTimerAdvance ready_action",
+        "real_loop_step step_policy action input",
+        "gui_bare_scheduler_real_loop_step_from_step_result policy branch next_clock_state owner step_outcome",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga timer branch must use clock helper payload before F5ek and retain owner",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step_execute"),
+    [
+        "gui_bare_display_presenter_input owner execute_action",
+        "BridgeFailedReady failed",
+        "gui_bare_display_presenter_input_bridge_failed_ready_lower failed",
+        "gui_bare_scheduler_real_loop_step_bridge_error_owner bridge_error",
+        "gui_bare_display_presenter_input_bridge_failed_ready_scheduler_ready failed",
+        "gui_bare_scheduler_real_loop_step_from_executor_ready policy clock_state next_owner scheduler_ready",
+        "BridgeFailedMissingCategory missing",
+        "gui_bare_scheduler_real_loop_step_execute_from_missing_category clock_state missing",
+        "Result::Ok presenter_ready",
+        "gui_bare_display_presenter_input_ready_bridge_completed presenter_ready",
+        "gui_bare_display_operation_driver_bridge_completed_owner bridge_completed",
+        "gui_bare_display_presenter_input_ready_scheduler_ready presenter_ready",
+        "gui_bare_scheduler_real_loop_step_from_executor_ready policy clock_state next_owner scheduler_ready",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga execute branch must recover owner before F5ew and keep missing category direct",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step_from_executor_ready"),
+    [
+        "gui_bare_scheduler_real_loop_step_policy_step_policy_ref policy",
+        "GuiBareSchedulerRealLoopStepBranch::ExecuteHostAction",
+        "gui_bare_scheduler_executor_step step_policy scheduler_ready",
+        "gui_bare_scheduler_real_loop_step_from_step_result policy branch clock_state owner step_outcome",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga executor helper must call F5ew once and preserve recovered owner",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareSchedulerRealLoopStepImpl, "gui_bare_scheduler_real_loop_step_complete"),
+    [
+        "LoopAction::Complete complete_action",
+        "RealLoopStepInput::CompleteAck",
+        "real_loop_step step_policy action input",
+        "gui_bare_scheduler_real_loop_step_from_step_result policy branch clock_state owner step_outcome",
+    ],
+    "platforms/gui/bare/scheduler_real_loop_step F5ga complete branch must create CompleteAck only in complete path",
+);
+assert(
+    platformGuiBareSchedulerRealLoopStepImpl.includes("owner %GuiBareDisplayMemoryOwner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_error_owner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_yield_clock_input_failed_owner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_timer_clock_input_failed_owner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_presenter_input_missing_category_owner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_real_step_failed_owner") &&
+        platformGuiBareSchedulerRealLoopStepImpl.includes("gui_bare_scheduler_real_loop_step_driver_after_step_failed_owner"),
+    "platforms/gui/bare/scheduler_real_loop_step F5ga must expose owner recovery for every error variant",
+);
+assertNoMatch(
+    platformGuiBareSchedulerRealLoopStepImpl,
+    /\b(?:platforms\/gui\/native|gui_native_|GuiNative|scheduler_host_executor|display_presenter_session|display_driver_begin|display_driver_span_write|display_driver_frame_present|GuiBareFramebufferState|GuiBareDisplayStorageState|GuiBareDisplayMemoryState|GuiBareDisplayDriverState|RegionToken|MemPtr|host_status|status %i32|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|timer_backend|minifb|Canvas|DOM|video_memory|DrawTarget|RenderTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "platforms/gui/bare/scheduler_real_loop_step F5ga must not depend on native, raw state, host imports, queues, platform renderers, externs, or fallback behavior",
+);
+assertNoMatch(
+    platformGuiBareSchedulerRealLoopStepImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiBareSchedulerRealLoopStep(?:Policy|Ready|YieldClockInputFailed|TimerClockInputFailed|PresenterInputMissingCategory|RealStepFailed|DriverAfterStepFailed|Error)\b/,
+    "platforms/gui/bare/scheduler_real_loop_step F5ga owner-bearing policy, ready, and error values must not be Clone or Copy",
+);
+assertNoMatch(
+    platformGuiBareSchedulerRealLoopStepImpl,
+    /_:|[()]/,
+    "platforms/gui/bare/scheduler_real_loop_step F5ga implementation must preserve NEPL prefix style without wildcard matches or parentheses",
+);
+assert(
+    [
+        "platform_bare_scheduler_real_loop_step_facade_ok",
+        "platform_bare_scheduler_real_loop_step_import_ok",
+        "platform_bare_scheduler_real_loop_step_policy_fields_ok",
+        "platform_bare_scheduler_real_loop_step_need_input_owner_authority_ok",
+        "platform_bare_scheduler_real_loop_step_clock_helpers_once_ok",
+        "platform_bare_scheduler_real_loop_step_presenter_input_once_ok",
+        "platform_bare_scheduler_real_loop_step_executor_ready_path_ok",
+        "platform_bare_scheduler_real_loop_step_missing_category_direct_ok",
+        "platform_bare_scheduler_real_loop_step_owner_recovery_ok",
+        "platform_bare_scheduler_real_loop_step_complete_ack_only_ok",
+        "platform_bare_scheduler_real_loop_step_f5ek_f5el_dispatch_ok",
+        "platform_bare_scheduler_real_loop_step_no_raw_queue_fallback",
+        "platform_bare_scheduler_real_loop_step_no_clone_copy_owner_values",
+    ].every((label) => guiPlatformBareSchedulerRealLoopStepTests.includes(label)),
+    "F5ga bare scheduler real-loop step focused doctest must cover executable and source-policy labels",
 );
 for (const [name, doc] of [
     ["GUI standard library spec", guiStandardLibrarySpec],
