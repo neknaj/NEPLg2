@@ -75,6 +75,421 @@ pub fn native_monotonic_clock_ms_since(start: &Instant) -> i32 {
     native_monotonic_clock_ms_from_elapsed_ms(start.elapsed().as_millis())
 }
 
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_OK: i32 = 0;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_UNSUPPORTED: i32 = -1;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT: i32 = -2;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED: i32 = -3;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT: i32 = -4;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE: i32 = -5;
+pub const GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME: i32 = -6;
+
+pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW: i32 = 1;
+pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_OFFSCREEN: i32 = 2;
+pub const GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_DEVICE: i32 = 3;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeSpanOperationTarget {
+    Window { window_id: i32 },
+    Offscreen,
+    Device,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeSpanOperationDescriptor {
+    pub target: NativeSpanOperationTarget,
+    pub surface_id: i32,
+    pub frame_id: i32,
+    pub packet_frame_id: i32,
+    pub batch_index: i32,
+    pub tile_index: i32,
+    pub plan_row_start: i32,
+    pub plan_row_count: i32,
+    pub row_start: i32,
+    pub row_count: i32,
+    pub width: i32,
+    pub height: i32,
+    pub stride_bytes: i32,
+    pub tile_rows: i32,
+    pub tile_count: i32,
+    pub pixel_count: i32,
+    pub total_run_count: i32,
+    pub encoded_byte_count: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeSpanOperationRunSpan {
+    pub target: NativeSpanOperationTarget,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeSpanOperation {
+    Begin(NativeSpanOperationDescriptor),
+    RunSpan(NativeSpanOperationRunSpan),
+    End(NativeSpanOperationDescriptor),
+}
+
+/// Receives already validated native span operations from the Wasm host ABI.
+pub trait NativeSpanOperationSink {
+    fn execute_span_operation(&mut self, operation: NativeSpanOperation) -> i32;
+}
+
+pub fn normalize_native_span_operation_status(status: i32) -> i32 {
+    match status {
+        GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_UNSUPPORTED
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_NO_WRITABLE_SLOT
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+        | GUI_NATIVE_SPAN_OPERATION_STATUS_STALE_FRAME => status,
+        _ => GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE,
+    }
+}
+
+pub fn execute_native_span_operation_begin<S: NativeSpanOperationSink>(
+    sink: &mut S,
+    target_kind: i32,
+    window_raw: i32,
+    surface_raw: i32,
+    frame_raw: i32,
+    packet_frame_id: i32,
+    batch_index: i32,
+    tile_index: i32,
+    plan_row_start: i32,
+    plan_row_count: i32,
+    row_start: i32,
+    row_count: i32,
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    tile_rows: i32,
+    tile_count: i32,
+    pixel_count: i32,
+    total_run_count: i32,
+    encoded_byte_count: i32,
+) -> i32 {
+    let descriptor = match validate_native_span_operation_descriptor(
+        target_kind,
+        window_raw,
+        surface_raw,
+        frame_raw,
+        packet_frame_id,
+        batch_index,
+        tile_index,
+        plan_row_start,
+        plan_row_count,
+        row_start,
+        row_count,
+        width,
+        height,
+        stride_bytes,
+        tile_rows,
+        tile_count,
+        pixel_count,
+        total_run_count,
+        encoded_byte_count,
+    ) {
+        Ok(descriptor) => descriptor,
+        Err(status) => return status,
+    };
+
+    normalize_native_span_operation_status(
+        sink.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+    )
+}
+
+pub fn execute_native_span_operation_run<S: NativeSpanOperationSink>(
+    sink: &mut S,
+    target_kind: i32,
+    window_raw: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    r: i32,
+    g: i32,
+    b: i32,
+    a: i32,
+) -> i32 {
+    let run_span = match validate_native_span_operation_run_span(
+        target_kind,
+        window_raw,
+        x,
+        y,
+        width,
+        height,
+        r,
+        g,
+        b,
+        a,
+    ) {
+        Ok(run_span) => run_span,
+        Err(status) => return status,
+    };
+
+    normalize_native_span_operation_status(
+        sink.execute_span_operation(NativeSpanOperation::RunSpan(run_span)),
+    )
+}
+
+pub fn execute_native_span_operation_end<S: NativeSpanOperationSink>(
+    sink: &mut S,
+    target_kind: i32,
+    window_raw: i32,
+    surface_raw: i32,
+    frame_raw: i32,
+    packet_frame_id: i32,
+    batch_index: i32,
+    tile_index: i32,
+    plan_row_start: i32,
+    plan_row_count: i32,
+    row_start: i32,
+    row_count: i32,
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    tile_rows: i32,
+    tile_count: i32,
+    pixel_count: i32,
+    total_run_count: i32,
+    encoded_byte_count: i32,
+) -> i32 {
+    let descriptor = match validate_native_span_operation_descriptor(
+        target_kind,
+        window_raw,
+        surface_raw,
+        frame_raw,
+        packet_frame_id,
+        batch_index,
+        tile_index,
+        plan_row_start,
+        plan_row_count,
+        row_start,
+        row_count,
+        width,
+        height,
+        stride_bytes,
+        tile_rows,
+        tile_count,
+        pixel_count,
+        total_run_count,
+        encoded_byte_count,
+    ) {
+        Ok(descriptor) => descriptor,
+        Err(status) => return status,
+    };
+
+    normalize_native_span_operation_status(
+        sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
+    )
+}
+
+fn validate_native_span_operation_descriptor(
+    target_kind: i32,
+    window_raw: i32,
+    surface_raw: i32,
+    frame_raw: i32,
+    packet_frame_id: i32,
+    batch_index: i32,
+    tile_index: i32,
+    plan_row_start: i32,
+    plan_row_count: i32,
+    row_start: i32,
+    row_count: i32,
+    width: i32,
+    height: i32,
+    stride_bytes: i32,
+    tile_rows: i32,
+    tile_count: i32,
+    pixel_count: i32,
+    total_run_count: i32,
+    encoded_byte_count: i32,
+) -> Result<NativeSpanOperationDescriptor, i32> {
+    let target = validate_native_span_operation_target(target_kind, window_raw)?;
+    let surface_id = require_positive_i32(surface_raw)?;
+    let frame_id = require_positive_i32(frame_raw)?;
+    let packet_frame_id = require_positive_i32(packet_frame_id)?;
+    if packet_frame_id != frame_id {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    let batch_index = require_non_negative_i32(batch_index)?;
+    let tile_index = require_non_negative_i32(tile_index)?;
+    let plan_row_start = require_non_negative_i32(plan_row_start)?;
+    let row_start = require_non_negative_i32(row_start)?;
+    let plan_row_count = require_positive_i32(plan_row_count)?;
+    let row_count = require_positive_i32(row_count)?;
+    let width = require_positive_i32(width)?;
+    let height = require_positive_i32(height)?;
+    let stride_bytes = require_positive_i32(stride_bytes)?;
+    let tile_rows = require_positive_i32(tile_rows)?;
+    let tile_count = require_positive_i32(tile_count)?;
+    let pixel_count = require_positive_i32(pixel_count)?;
+    let total_run_count = require_positive_i32(total_run_count)?;
+    let encoded_byte_count = require_positive_i32(encoded_byte_count)?;
+
+    let plan_row_end = checked_extent_end(plan_row_start, plan_row_count)?;
+    let row_end = checked_extent_end(row_start, row_count)?;
+    if plan_row_end > height
+        || row_end > height
+        || row_start < plan_row_start
+        || row_end > plan_row_end
+    {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    let expected_stride = checked_mul_i32(width, 4)?;
+    if stride_bytes != expected_stride {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    let expected_pixel_count = checked_mul_i32(width, row_count)?;
+    if pixel_count != expected_pixel_count {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    let expected_encoded_byte_count = checked_mul_i32(total_run_count, 12)?;
+    if encoded_byte_count != expected_encoded_byte_count {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    let expected_tile_count = checked_ceil_div_i32(plan_row_count, tile_rows)?;
+    if tile_count != expected_tile_count || tile_index >= tile_count {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+
+    Ok(NativeSpanOperationDescriptor {
+        target,
+        surface_id,
+        frame_id,
+        packet_frame_id,
+        batch_index,
+        tile_index,
+        plan_row_start,
+        plan_row_count,
+        row_start,
+        row_count,
+        width,
+        height,
+        stride_bytes,
+        tile_rows,
+        tile_count,
+        pixel_count,
+        total_run_count,
+        encoded_byte_count,
+    })
+}
+
+fn validate_native_span_operation_run_span(
+    target_kind: i32,
+    window_raw: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    r: i32,
+    g: i32,
+    b: i32,
+    a: i32,
+) -> Result<NativeSpanOperationRunSpan, i32> {
+    let target = validate_native_span_operation_target(target_kind, window_raw)?;
+    let x = require_non_negative_i32(x)?;
+    let y = require_non_negative_i32(y)?;
+    let width = require_positive_i32(width)?;
+    if height != 1 {
+        return Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+    }
+    let r = require_rgba_channel(r)?;
+    let g = require_rgba_channel(g)?;
+    let b = require_rgba_channel(b)?;
+    let a = require_rgba_channel(a)?;
+
+    Ok(NativeSpanOperationRunSpan {
+        target,
+        x,
+        y,
+        width,
+        height,
+        r,
+        g,
+        b,
+        a,
+    })
+}
+
+fn validate_native_span_operation_target(
+    target_kind: i32,
+    window_raw: i32,
+) -> Result<NativeSpanOperationTarget, i32> {
+    match target_kind {
+        GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW => {
+            let window_id = require_positive_i32(window_raw)?;
+            Ok(NativeSpanOperationTarget::Window { window_id })
+        }
+        GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_OFFSCREEN => {
+            if window_raw == 0 {
+                Ok(NativeSpanOperationTarget::Offscreen)
+            } else {
+                Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+            }
+        }
+        GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_DEVICE => {
+            if window_raw == 0 {
+                Ok(NativeSpanOperationTarget::Device)
+            } else {
+                Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+            }
+        }
+        _ => Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT),
+    }
+}
+
+fn require_positive_i32(value: i32) -> Result<i32, i32> {
+    if value > 0 {
+        Ok(value)
+    } else {
+        Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+    }
+}
+
+fn require_non_negative_i32(value: i32) -> Result<i32, i32> {
+    if value >= 0 {
+        Ok(value)
+    } else {
+        Err(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+    }
+}
+
+fn require_rgba_channel(value: i32) -> Result<u8, i32> {
+    u8::try_from(value).map_err(|_| GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+}
+
+fn checked_extent_end(start: i32, count: i32) -> Result<i32, i32> {
+    start
+        .checked_add(count)
+        .ok_or(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+}
+
+fn checked_mul_i32(left: i32, right: i32) -> Result<i32, i32> {
+    left.checked_mul(right)
+        .ok_or(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)
+}
+
+fn checked_ceil_div_i32(value: i32, divisor: i32) -> Result<i32, i32> {
+    let adjusted = value
+        .checked_add(divisor - 1)
+        .ok_or(GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT)?;
+    Ok(adjusted / divisor)
+}
+
 impl FromStr for GuiDemo {
     type Err = String;
 
@@ -664,5 +1079,277 @@ mod tests {
         let start = Instant::now();
         let sample = native_monotonic_clock_ms_since(&start);
         assert!(sample >= 0);
+    }
+
+    #[derive(Debug, Default)]
+    struct RecordingSpanOperationSink {
+        operations: Vec<NativeSpanOperation>,
+        next_status: i32,
+    }
+
+    impl RecordingSpanOperationSink {
+        fn with_next_status(next_status: i32) -> Self {
+            Self {
+                operations: Vec::new(),
+                next_status,
+            }
+        }
+    }
+
+    impl NativeSpanOperationSink for RecordingSpanOperationSink {
+        fn execute_span_operation(&mut self, operation: NativeSpanOperation) -> i32 {
+            self.operations.push(operation);
+            self.next_status
+        }
+    }
+
+    fn execute_valid_begin(sink: &mut RecordingSpanOperationSink) -> i32 {
+        execute_native_span_operation_begin(
+            sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            10,
+            11,
+            11,
+            0,
+            1,
+            2,
+            4,
+            4,
+            2,
+            4,
+            8,
+            16,
+            2,
+            2,
+            8,
+            3,
+            36,
+        )
+    }
+
+    #[test]
+    fn native_span_operation_records_valid_begin_run_end() {
+        let mut sink = RecordingSpanOperationSink::default();
+
+        assert_eq!(
+            execute_valid_begin(&mut sink),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            execute_native_span_operation_run(
+                &mut sink,
+                GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+                7,
+                1,
+                4,
+                2,
+                1,
+                10,
+                20,
+                30,
+                255,
+            ),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            execute_native_span_operation_end(
+                &mut sink,
+                GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+                7,
+                10,
+                11,
+                11,
+                0,
+                1,
+                2,
+                4,
+                4,
+                2,
+                4,
+                8,
+                16,
+                2,
+                2,
+                8,
+                3,
+                36,
+            ),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+
+        assert_eq!(sink.operations.len(), 3);
+        assert!(matches!(sink.operations[0], NativeSpanOperation::Begin(_)));
+        assert_eq!(
+            sink.operations[1],
+            NativeSpanOperation::RunSpan(NativeSpanOperationRunSpan {
+                target: NativeSpanOperationTarget::Window { window_id: 7 },
+                x: 1,
+                y: 4,
+                width: 2,
+                height: 1,
+                r: 10,
+                g: 20,
+                b: 30,
+                a: 255,
+            })
+        );
+        assert!(matches!(sink.operations[2], NativeSpanOperation::End(_)));
+    }
+
+    #[test]
+    fn native_span_operation_rejects_invalid_descriptor_before_sink() {
+        let mut sink = RecordingSpanOperationSink::default();
+        let status = execute_native_span_operation_begin(
+            &mut sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            10,
+            11,
+            11,
+            0,
+            1,
+            2,
+            4,
+            4,
+            2,
+            4,
+            8,
+            20,
+            2,
+            2,
+            8,
+            3,
+            36,
+        );
+
+        assert_eq!(status, GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT);
+        assert!(sink.operations.is_empty());
+    }
+
+    #[test]
+    fn native_span_operation_requires_exact_tile_count_and_frame_id() {
+        let mut sink = RecordingSpanOperationSink::default();
+        let wrong_tile_count = execute_native_span_operation_begin(
+            &mut sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            10,
+            11,
+            11,
+            0,
+            2,
+            2,
+            4,
+            4,
+            2,
+            4,
+            8,
+            16,
+            2,
+            3,
+            8,
+            3,
+            36,
+        );
+        let wrong_packet_frame = execute_native_span_operation_begin(
+            &mut sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            10,
+            11,
+            12,
+            0,
+            1,
+            2,
+            4,
+            4,
+            2,
+            4,
+            8,
+            16,
+            2,
+            2,
+            8,
+            3,
+            36,
+        );
+
+        assert_eq!(
+            wrong_tile_count,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            wrong_packet_frame,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert!(sink.operations.is_empty());
+    }
+
+    #[test]
+    fn native_span_operation_rejects_invalid_run_span_before_sink() {
+        let mut sink = RecordingSpanOperationSink::default();
+        let wrong_height = execute_native_span_operation_run(
+            &mut sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            1,
+            4,
+            2,
+            2,
+            10,
+            20,
+            30,
+            255,
+        );
+        let wrong_channel = execute_native_span_operation_run(
+            &mut sink,
+            GUI_NATIVE_SPAN_OPERATION_TARGET_KIND_WINDOW,
+            7,
+            1,
+            4,
+            2,
+            1,
+            10,
+            20,
+            30,
+            256,
+        );
+
+        assert_eq!(
+            wrong_height,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            wrong_channel,
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert!(sink.operations.is_empty());
+    }
+
+    #[test]
+    fn native_span_operation_normalizes_sink_status() {
+        let mut resource_exhausted = RecordingSpanOperationSink::with_next_status(
+            GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED,
+        );
+        assert_eq!(
+            execute_valid_begin(&mut resource_exhausted),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_RESOURCE_EXHAUSTED
+        );
+        assert_eq!(resource_exhausted.operations.len(), 1);
+
+        let mut unknown_positive = RecordingSpanOperationSink::with_next_status(99);
+        assert_eq!(
+            execute_valid_begin(&mut unknown_positive),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+        );
+        assert_eq!(unknown_positive.operations.len(), 1);
+
+        let mut unknown_negative = RecordingSpanOperationSink::with_next_status(-99);
+        assert_eq!(
+            execute_valid_begin(&mut unknown_negative),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_BACKEND_FAILURE
+        );
+        assert_eq!(unknown_negative.operations.len(), 1);
     }
 }

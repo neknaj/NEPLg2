@@ -73,6 +73,12 @@ NEPLg2 の GUI 標準ライブラリは、単一の GUI framework ではなく�
 
 F5ex は F5ev/F5ew と接続される。host import outcome は F5ev `scheduler_executor_input` で `RealLoopStepInput::ExecutorOutcome` に包み、F5ew `scheduler_executor_step` が F5ek `real_loop_step` へ渡す。これにより platform execution は platform module に閉じ、scheduler completion の authority は std scheduler driver 側に残る。queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb / DOM / Canvas / video memory 操作、old action sink / driver、raw RenderCommand accessor、fallback はこの phase の責務ではない。
 
+## F5ey Native Rust span operation host ABI validator checkpoint
+
+2026-06-18 の F5ey では、F5ex native host import の Rust side boundary として、`nepl-gui-native` に scalar span operation validator と injected `NativeSpanOperationSink` を追加する。これは actual renderer ではなく、Wasm host ABI から届く begin / run / end payload を typed `NativeSpanOperation` へ変換する直前の検証境界である。status sentinel は Web video memory host ABI と同じ 0 / -1 / -2 / -3 / -4 / -5 / -6 系にそろえ、unknown sink status は `BackendFailure` に正規化する。
+
+descriptor は sink を呼ぶ前に、positive id、frame id 一致、checked extent、`stride_bytes == width * 4`、`pixel_count == width * row_count`、`encoded_byte_count == total_run_count * 12`、`tile_count == ceil(plan_row_count / tile_rows)`、`tile_index < tile_count` をすべて満たす必要がある。run span は current row の span として `height == 1`、positive width、non-negative x / y、0..255 の RGBA channel を要求する。invalid scalar input は sink に渡さず `InvalidArgument` を返す。minifb rendering、window loop、queue、timer、video memory、DOM、Canvas、fallback、silent no-op はこの checkpoint の責務ではない。
+
 ## 層構造
 
 依存方向は次に固定する。

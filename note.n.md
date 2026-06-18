@@ -69537,3 +69537,42 @@ MERGE_APPROVED
 ### residual
 
 - F5ex は native / bare host import へ typed action を渡す bridge までであり、actual native / bare runtime の host import 実装、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ey span operation host ABI validator
+
+### scope
+
+- F5ey は F5ex native host import scalar payload を Rust side で検証し、typed `NativeSpanOperation` として injected sink へ渡す境界である。
+- この slice は actual renderer、window presenter、minifb runner、long-running scheduler、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- Peirce the 2nd の初回 plan review は `PLAN_BLOCKED`。`stride_bytes` は `width * 4` 以上ではなく完全一致、`tile_count` は `ceil(plan_row_count / tile_rows)` と完全一致させる必要があると指摘された。
+- 改訂 plan では stride と tile count を契約完全一致に変更し、invalid scalar input は sink を呼ぶ前に `-2` を返す方針にした。
+- Peirce the 2nd の改訂 plan review は `APPROVED`。native Rust validator と non-rendering injected sink に限定する条件で実装開始が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に span operation ABI status、target kind、`NativeSpanOperationTarget`、`NativeSpanOperationDescriptor`、`NativeSpanOperationRunSpan`、`NativeSpanOperation`、`NativeSpanOperationSink` を追加した。
+- `execute_native_span_operation_begin` / `run` / `end` は scalar payload を検証してから sink を呼び、known status は保持し、unknown positive / negative status は `BackendFailure` へ正規化する。
+- descriptor validation は positive ids/counts、`packet_frame_id == frame_id`、checked extent、row extent containment、`stride_bytes == width * 4`、`pixel_count == width * row_count`、`encoded_byte_count == total_run_count * 12`、`tile_count == ceil(plan_row_count / tile_rows)`、`tile_index < tile_count` を検査する。
+- run span validation は `height == 1`、positive width、non-negative x / y、RGBA channel 0..255 を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ契約へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Peirce the 2nd implementation review は `APPROVED`。F5ey の範囲は native Rust ABI validation と injected sink に収まっており、`main.rs` / minifb / rendering / scheduler wiring へ進んでいないことが確認された。
+- invalid scalar payload は sink の前で `-2` になり、typed operation は検証後にだけ構築され、sink status は文書化済み ABI status へ正規化されると確認された。
+- test-only recorder は fallback renderer や runtime backend ではなく、injected sink contract の検証だけに使われているため許容された。
+
+### residual
+
+- F5ey は Rust side validator までであり、actual native window presenter sink、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
