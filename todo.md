@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5dv host span operation presenter executor session turn scheduler decision boundary の後続として、actual Web・native・bare・headless scheduler backend、one-shot timer interpreter、timeslice policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationへ進める。zero-fill fallback 禁止、silent no-op 禁止、raw RenderCommand accessor 禁止、old per-sample FillRect bridge 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、checked arithmetic、SourceOver-only validation、write-success-before-advance、mask resource missing / unsupported の `Result` 化を維持する
+- F5dw host span operation presenter executor session turn timer request boundary の後続として、actual Web・native・bare・headless timer backend、real scheduler loop、timeslice policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationへ進める。zero-fill fallback 禁止、silent no-op 禁止、raw RenderCommand accessor 禁止、old per-sample FillRect bridge 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、checked arithmetic、SourceOver-only validation、write-success-before-advance、mask resource missing / unsupported の `Result` 化を維持する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

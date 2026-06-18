@@ -1,0 +1,244 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn timer request の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5dv scheduler decision の `ScheduleOneShot` を actual backend へ[渡/わた]せる `TimerRequest` value に[変換/へんかん]します。
+//: - timer 発火 event は pending scheduled state と照合し、同じ turn state を `ContinueNow` decision として[再開/さいかい]します。
+//:
+//: ### [契約/けいやく]
+//: - policy constructor と interpret の[両方/りょうほう]で timer id が positive raw id であることを[検査/けんさ]します。
+//: - `TimerRequest` は policy と scheduled delay の[検査/けんさ]が[終/お]わるまで[作/つく]りません。
+//: - `TimerRequest` は one-shot request として `repeating false` を[固定/こてい]します。
+//: - invalid policy や invalid scheduled delay は owner-bearing error として original decision を[保持/ほじ]します。
+//: - completion は pending request の timer id と incoming `TimerEvent` の timer id / tick を[検査/けんさ]し、成功時だけ scheduled turn state を[回収/かいしゅう]します。
+//: - real timer backend、queue、platform API、DOM、Canvas、minifb、video memory、DrawTarget、RenderTarget、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/event" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/timer" as *
+#import "std/gui/window" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy:
+    window %WindowId
+    timer %TimerId
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind:
+    TimerIdInvalid
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending:
+    scheduled %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState
+    request %TimerRequest
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady:
+    Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending
+    ContinueNow %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    ScheduleTimer %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    Completed
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind:
+    PolicyInvalid %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind
+    ScheduledDelayInvalid
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError:
+    kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind
+    category %Option GuiError
+    decision %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind:
+    PendingTimerIdInvalid
+    TimerEventIdInvalid
+    TimerEventTickInvalid
+    TimerEventIdMismatch
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError:
+    kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind
+    category %Option GuiError
+    pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    event %TimerEvent
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_new %fn WindowId fn TimerId GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy \window\timer:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy window timer
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState fn TimerRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \scheduled\request:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending scheduled request
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_error_kind_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind::TimerIdInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_kind_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::PolicyInvalid policy_kind:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_error_kind_category policy_kind
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::ScheduledDelayInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError \kind\decision:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_kind_category kind
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError kind category decision
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_kind_category %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::PendingTimerIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventIdInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventTickInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventIdMismatch:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn TimerEvent GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError \kind\pending\event:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_kind_category kind
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError kind category pending event
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_validate_policy_for_interpret %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy Result TimerId GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind \policy:
+    let timer %TimerId gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_timer policy
+    let raw %i32 timer_id_raw &timer
+    if gt raw 0:
+        then Result::Ok timer
+        else Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind::TimerIdInvalid
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy: timer request policy を[検査/けんさ]して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - timer id raw value は 1 以上でなければなりません。
+//: - public struct を手作りした場合に備え、interpret 側でも同じ[検査/けんさ]を[行/おこな]います。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy %fn WindowId fn TimerId Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind \window\timer:
+    let raw %i32 timer_id_raw &timer
+    if gt raw 0:
+        then Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_new window timer
+        else Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind::TimerIdInvalid
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_window %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy WindowId \policy:
+    *field::get_ref policy "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_timer %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy TimerId \policy:
+    *field::get_ref policy "timer"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_request %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending TimerRequest \pending:
+    *field::get_ref pending "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_scheduled_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState \pending:
+    field::get pending "scheduled"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_decision: scheduler decision を timer-ready value へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - policy を[再検査/さいけんさ]してから decision を[消費/しょうひ]します。
+//: - `ScheduleOneShot` の delay も[再検査/さいけんさ]し、invalid な場合は original decision owner を error に[保持/ほじ]します。
+//: - `TimerRequest` は検査済み window、timer、delay だけで[作/つく]り、`repeating false` を[固定/こてい]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_decision %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError \policy\decision:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_validate_policy_for_interpret policy:
+        Result::Err policy_error_kind:
+            let kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::PolicyInvalid policy_error_kind
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new kind decision
+        Result::Ok timer:
+            match decision:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Execute pending:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Execute pending
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ContinueNow state
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled:
+                    let delay_ms %i32 gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_delay_ms &scheduled
+                    if lt delay_ms 0:
+                        then:
+                            let kind %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::ScheduledDelayInvalid
+                            let original %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled
+                            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new kind original
+                        else:
+                            let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_window policy
+                            let request %TimerRequest timer_request window timer delay_ms false
+                            let pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_new scheduled request
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ScheduleTimer pending
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Completed:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Completed
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete: timer event で scheduled turn を[再開/さいかい]する
+//:
+//: [契約/けいやく]:
+//: - pending request の timer id と event の timer id がどちらも positive で、同じ id の場合だけ turn state を[回収/かいしゅう]します。
+//: - tick は 0 以上でなければなりません。
+//: - error は pending と event を保持し、caller が scheduled owner を[回収/かいしゅう]できます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending fn TimerEvent Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError \pending\event:
+    let request %TimerRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_request &pending
+    let timer %TimerId timer_request_timer &request
+    let expected_raw %i32 timer_id_raw &timer
+    let actual_raw %i32 timer_event_timer_id &event
+    let tick %i32 timer_event_tick &event
+    if le expected_raw 0:
+        then Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_new GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::PendingTimerIdInvalid pending event
+        else:
+            if le actual_raw 0:
+                then Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_new GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventIdInvalid pending event
+                else:
+                    if lt tick 0:
+                        then Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_new GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventTickInvalid pending event
+                        else:
+                            if not eq expected_raw actual_raw:
+                                then Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_new GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind::TimerEventIdMismatch pending event
+                                else:
+                                    let scheduled %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_scheduled_state pending
+                                    let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_turn_state scheduled
+                                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_kind %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_decision %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision \error:
+    field::get error "decision"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_kind %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_pending %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending \error:
+    field::get error "pending"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_error_event %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError TimerEvent \error:
+    *field::get_ref error "event"

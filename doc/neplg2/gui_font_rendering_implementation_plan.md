@@ -1249,6 +1249,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.
 git diff --check
 ```
 
+## Phase F5dw: std layer row tile RLE present host span operation presenter executor session turn timer request boundary
+
+目的:
+
+- F5dv scheduler decision を actual Web / native / bare / headless timer backend の直前で target-neutral timer request value に写す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady` は `Execute`、`ContinueNow`、`ScheduleTimer`、`Completed` を持つ。
+- `ScheduleTimer` は owner-bearing timer pending を持ち、pending は F5dv scheduled state と std `TimerRequest` を所有する。
+- timer policy は `WindowId` と `TimerId` を持つ。`TimerId` は unchecked raw wrapper なので、policy constructor と interpret の両方で `timer_id_raw > 0` を検査する。
+- `TimerRequest` は policy と scheduled delay を検査した後だけ作り、one-shot timer request として `repeating false` を固定する。
+- invalid policy と invalid scheduled delay は original scheduler decision を保持する owner-bearing interpret error にする。
+- timer completion は pending request timer id、incoming `TimerEvent` timer id、tick を検査し、成功時だけ scheduled turn state を回収して F5dv `ContinueNow` decision を返す。
+- F5du start / poll / complete / pending operation helper、actual timer backend registration、queue、real scheduler backend、platform API、DOM / Canvas / minifb、video memory、raw storage、DrawTarget / RenderTarget、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` に進まない。
+
+plan review:
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、`TimerId` が unchecked raw wrapper であるため、timer policy は `Result Policy PolicyErrorKind` にし、`TimerIdInvalid` を持つ必要があるというものだった。
+- `interpret_decision` は `SchedulerDecision` を match / consume する前に borrowed policy を再検査し、invalid policy path では original decision owner を保持する必要がある。
+- `TimerRequest` は policy validation と scheduled delay validation の後にだけ作る。invalid scheduled delay path も original `ScheduleOneShot scheduled` decision を再構成して保持する。
+- `complete_timer` は F5dv `SchedulerDecision::ContinueNow state` を返す形が正しい。pending と `TimerEvent` を保持する owner-bearing complete error は acceptable。
+- revised plan では timer id positive validation、decision before-consume validation、scheduled delay revalidation、no pre-validation `TimerRequest`、no queue / platform / fallback を source policy で固定する。Cicero revised plan review は `PLAN_APPROVED`。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl` を追加する。
+- `TurnTimerPolicy`、`TurnTimerPolicyErrorKind`、`TurnTimerPending`、`TurnTimerReady`、`TurnTimerInterpretErrorKind`、`TurnTimerInterpretError`、`TurnTimerCompleteErrorKind`、`TurnTimerCompleteError` を定義する。
+- `turn_timer_policy` は `timer_id_raw > 0` を検査して `Result Policy PolicyErrorKind` を返す。
+- private `validate_policy_for_interpret` は borrowed policy を再検査し、checked `TimerId` を返す。
+- `turn_timer_interpret_decision` は policy を再検査してから scheduler decision を match し、`ScheduleOneShot` では delay を再検査してから `timer_request window timer delay_ms false` を作る。
+- `turn_timer_complete` は pending request timer id、event timer id、tick、id match の順で検査し、成功時だけ scheduled turn state を回収して `SchedulerDecision::ContinueNow state` を返す。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md` を追加し、facade、policy validation、interpret order、one-shot request、owner-bearing interpret error、complete event validation、no backend / queue / fallback の coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5dw source policy を追加し、docs、facade、type shape、policy revalidation、TimerRequest creation order、completion validation、forbidden backend / queue / platform / fallback、括弧なし prefix style を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+検証:
+
+```powershell
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer_f5dw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer_module_f5dw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler_f5dw_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dw.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

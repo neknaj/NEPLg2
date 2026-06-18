@@ -1,3 +1,56 @@
+# 2026-06-18 Agent2 GUI font F5dw std host span operation presenter executor session turn timer request boundary
+
+## scope
+
+- F5dv scheduler decision を target-neutral timer request value に写す std layer boundary を追加する。
+- `ScheduleOneShot` は owner-bearing timer pending と `TimerRequest` に変換するが、actual timer backend、queue、platform API には進まない。
+- `TimerId` は unchecked raw wrapper なので、policy constructor と interpret の両方で `timer_id_raw > 0` を検査する。
+- timer completion は pending request timer id、incoming `TimerEvent` timer id、tick を検査し、成功時だけ scheduled turn state を回収して F5dv `ContinueNow` decision を返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、`TimerId` が unchecked raw wrapper であるため、policy は `Result Policy PolicyErrorKind` とし、`TimerIdInvalid` を持つ必要があるというものだった。
+- `interpret_decision` は scheduler decision を match / consume する前に borrowed policy を再検査し、invalid policy path では original decision owner を保持する必要がある。
+- invalid scheduled delay path でも original `ScheduleOneShot scheduled` decision を再構成して保持し、`TimerRequest` は policy validation と delay validation の後にだけ作る必要がある。
+- revised plan では positive timer id validation、owner-preserving invalid policy、owner-preserving invalid scheduled delay、`timer_request window timer delay_ms false` の作成順を source policy で固定する。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl` を追加した。
+- `TimerPolicy`、`PolicyErrorKind::TimerIdInvalid`、`TimerPending`、`TimerReady`、`InterpretErrorKind`、`InterpretError`、`CompleteErrorKind`、`CompleteError` を追加した。
+- `turn_timer_policy` と private validation の両方で timer id を positive raw id として検査する。
+- `turn_timer_interpret_decision` は policy を再検査してから decision を match し、`ScheduleOneShot` では delay を再検査してから one-shot `TimerRequest` を作る。
+- `turn_timer_complete` は pending request timer id、event timer id、tick、id match を検査してから scheduled turn state を回収する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering specs、implementation plan、source policy regression、todo を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dw focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md`。
+- pass: F5dw module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl`。
+- pass: F5dv regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は approved plan に沿っており、content blocker は無いと確認された。
+- `TimerId` policy constructor と interpret revalidation はどちらも raw `> 0` を検査している。
+- `interpret_decision` は decision match の前に policy を検査し、invalid policy / invalid scheduled delay は scheduler decision owner を保持している。
+- `TimerRequest` は validation 後に `timer_request window timer delay_ms false` として作られ、backend timer registration、queue、platform、fallback、silent no-op には進んでいない。
+- `complete` は pending id、event id、tick、id match を検査してから scheduled state を消費している。
+- 指摘された残 blocker はこの `note.n.md` の F5dw `subagent_review` が pending だったことと、新規 intended files を commit 対象へ含めることだったため、この節を更新した。
+- 新規 F5dw files を含む intended change set を stage した後、Cicero final review は `REVIEW_APPROVED`。F5dw は merge-ready と確認された。
+
+## remaining
+
+- F5dw は request boundary までであり、actual Web / native / bare / headless timer backend、real scheduler loop、timeslice policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI font F5dv std host span operation presenter executor session turn scheduler decision boundary
 
 ## scope

@@ -8234,6 +8234,18 @@ The scheduler policy contains `yield_delay_ms`. Both the public policy construct
 
 F5dv must not call F5du start, poll, complete, or pending operation helpers. It only consumes a driver step value that was supplied by the caller. It also must not call timer APIs, one-shot timer registration, queue APIs, real scheduler backend APIs, platform APIs, DOM, Canvas, minifb, video memory, raw storage, DrawTarget, RenderTarget, fallback paths, silent no-op paths, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
 
+## Std layer row tile RLE present host span operation presenter executor session turn timer request boundary
+
+F5dw introduces the std layer row tile RLE present host span operation presenter executor session turn timer request boundary. It sits above the F5dv scheduler decision and below actual Web, native, bare, and headless timer backends. Its purpose is to turn `ScheduleOneShot` into a target-neutral timer request value without registering that timer or selecting a platform scheduler.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady` has four outcomes. `Execute` and `ContinueNow` pass through scheduler work that can proceed immediately, `ScheduleTimer` carries an owner-bearing timer pending value, and `Completed` is terminal. The timer pending value owns the F5dv scheduled state and the std `TimerRequest`; it is intentionally not Clone or Copy because it is the authority for resuming that delayed turn.
+
+The timer policy contains a checked `WindowId` and a `TimerId`. `TimerId` is still an opaque raw-id wrapper, so F5dw validates `timer_id_raw > 0` in both the public policy constructor and the decision interpreter. This second validation is required because public structs can be manually constructed. `TimerRequest` is created only after policy validation and scheduled delay validation. The request uses the checked window, checked timer, validated delay, and `repeating false`, so the boundary expresses exactly one one-shot wakeup request.
+
+Invalid policy and invalid scheduled delay are owner-bearing interpret errors. The error stores the original scheduler decision, a typed error kind, and a `GuiError::InvalidCommand` category. Timer completion is also owner-bearing: pending request timer id, incoming `TimerEvent` timer id, and `TimerEvent` tick are validated before the scheduled turn state is consumed. Success returns the F5dv `SchedulerDecision::ContinueNow state`; failure keeps both pending and event in the complete error so the caller can recover the scheduled owner.
+
+F5dw must not call F5du driver start, poll, complete, or pending operation helpers. It must not call `schedule_timer`, queue APIs, real scheduler backend APIs, platform APIs, DOM, Canvas, minifb, video memory, raw storage, DrawTarget, RenderTarget, fallback paths, silent no-op paths, synthetic `Result::Ok unit`, or synthetic `Result::Err GuiError::` construction.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.

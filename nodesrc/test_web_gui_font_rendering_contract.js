@@ -172,6 +172,8 @@ const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver = rea
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnDriver);
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl");
 const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnScheduler);
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl");
+const stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl = withoutComments(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
@@ -263,6 +265,7 @@ const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTests = read
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md");
 const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md");
+const guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -22815,6 +22818,162 @@ assert(
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_recovery_ok") &&
         guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_no_timer_no_platform_no_fallback"),
     "F5dv std tile present host-span-operation-presenter-executor-session-turn-scheduler focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host span operation presenter executor session turn timer request boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady") &&
+            doc.includes("TimerRequest") &&
+            doc.includes("repeating false") &&
+            doc.includes("owner-bearing timer pending") &&
+            doc.includes("target-neutral timer request"),
+        `F5dw ${name} must document target-neutral timer request, repeating false, and owner-bearing pending state`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_span_operation_presenter_executor_session_turn_timer" as *'), "std/gui facade must export F5dw tile present host span operation presenter executor session turn timer boundary");
+assert(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("window %WindowId") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("timer %TimerId") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("TimerIdInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("scheduled %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerScheduledState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("request %TimerRequest") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("ContinueNow %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("ScheduleTimer %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("PolicyInvalid %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("ScheduledDelayInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("decision %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteErrorKind:") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("PendingTimerIdInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("TimerEventIdInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("TimerEventTickInvalid") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("TimerEventIdMismatch") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending") &&
+        stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimer.includes("event %TimerEvent"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw must define policy, ready values, owner-bearing pending, and owner-bearing errors",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl,
+    /impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError\s*:|impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError\s*:|impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerCompleteError\s*:/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw owner-bearing pending, ready, and errors must be non-Copy and non-Clone",
+);
+assertMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl,
+    /#import "std\/gui\/timer" as \*[\s\S]*#import "std\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as \*/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw must connect scheduler decision to TimerRequest value types",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy"),
+    [
+        "let raw %i32 timer_id_raw &timer",
+        "if gt raw 0:",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_new window timer",
+        "Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind::TimerIdInvalid",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw policy constructor must validate positive timer id",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_validate_policy_for_interpret"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_timer policy",
+        "timer_id_raw &timer",
+        "if gt raw 0:",
+        "Result::Ok timer",
+        "Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicyErrorKind::TimerIdInvalid",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw interpret path must revalidate policy and return checked timer id",
+);
+const f5dwInterpretDecision = functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_decision");
+assertOrderedFragments(
+    f5dwInterpretDecision,
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_validate_policy_for_interpret policy",
+        "Result::Err policy_error_kind:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::PolicyInvalid policy_error_kind",
+        "Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new kind decision",
+        "Result::Ok timer:",
+        "match decision:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Execute pending:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Execute pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ContinueNow state",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled:",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_delay_ms &scheduled",
+        "if lt delay_ms 0:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretErrorKind::ScheduledDelayInvalid",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ScheduleOneShot scheduled",
+        "Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new kind original",
+        "let window %WindowId gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_window policy",
+        "let request %TimerRequest timer_request window timer delay_ms false",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::ScheduleTimer pending",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::Completed:",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady::Completed",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw interpret_decision must validate policy and delay before one-shot TimerRequest",
+);
+assert(
+    f5dwInterpretDecision.indexOf("let request %TimerRequest timer_request window timer delay_ms false") > f5dwInterpretDecision.indexOf("Result::Ok timer:"),
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw must not create TimerRequest before policy validation",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_new"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_error_kind_category kind",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerInterpretError kind category decision",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw interpret error must retain original decision and category",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete"),
+    [
+        "let request %TimerRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_request &pending",
+        "timer_request_timer &request",
+        "timer_id_raw &timer",
+        "timer_event_timer_id &event",
+        "timer_event_tick &event",
+        "if le expected_raw 0:",
+        "PendingTimerIdInvalid pending event",
+        "if le actual_raw 0:",
+        "TimerEventIdInvalid pending event",
+        "if lt tick 0:",
+        "TimerEventTickInvalid pending event",
+        "if not eq expected_raw actual_raw:",
+        "TimerEventIdMismatch pending event",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_pending_scheduled_state pending",
+        "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_scheduled_state_turn_state scheduled",
+        "GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision::ContinueNow state",
+    ],
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw complete must validate event identity and recover scheduled turn state",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl,
+    /\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_start\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_complete\b|\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation\b|\bschedule_timer\b|\bGuiHost\b|\bstd\/gui\/host\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\bResult::Ok unit\b|\bResult::Err GuiError::|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw must not call driver execution, backend timers, queue, platform APIs, raw render APIs, or fallback",
+);
+assertNoMatch(
+    stdGuiTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerImpl,
+    /[()]/,
+    "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer F5dw implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_facade_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_policy_validation_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_interpret_order_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_one_shot_request_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_owner_bearing_interpret_error_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_complete_event_validation_ok") &&
+        guiStdTilePresentHostSpanOperationPresenterExecutorSessionTurnTimerTests.includes("std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_timer_no_backend_no_queue_no_fallback"),
+    "F5dw std tile present host-span-operation-presenter-executor-session-turn-timer focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
