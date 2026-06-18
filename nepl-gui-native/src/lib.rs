@@ -699,6 +699,30 @@ impl NativeRgba8888FrameBuffer {
         self.active_sequence = None;
         Ok(())
     }
+
+    fn end_sequence_to_rgb0_present_buffer(
+        &mut self,
+        descriptor: NativeSpanOperationDescriptor,
+        background: NativeRgbColor,
+    ) -> Result<NativeRgb0PresentBuffer, NativeSpanFramebufferError> {
+        let active = self
+            .active_sequence
+            .ok_or(NativeSpanFramebufferError::SequenceMissing)?;
+        if descriptor != active.descriptor {
+            return Err(NativeSpanFramebufferError::DescriptorMismatch);
+        }
+        if active.seen_run_count != descriptor.total_run_count {
+            return Err(NativeSpanFramebufferError::RunCountMismatch);
+        }
+        let present_buffer = native_rgb0_present_buffer_from_rgba8888_parts(
+            self.width,
+            self.height,
+            &self.pixels,
+            background,
+        )?;
+        self.active_sequence = None;
+        Ok(present_buffer)
+    }
 }
 
 impl NativeSpanOperationSink for NativeRgba8888FrameBuffer {
@@ -733,6 +757,14 @@ pub struct NativeRgb0PresentBuffer {
     pixels: Vec<u32>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeRgb0PresenterSink {
+    frame_buffer: NativeRgba8888FrameBuffer,
+    background: NativeRgbColor,
+    last_present_buffer: Option<NativeRgb0PresentBuffer>,
+    last_presented_frame_id: Option<i32>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativePresenterFrameError {
     InvalidDimensions,
@@ -760,29 +792,12 @@ impl NativeRgb0PresentBuffer {
         if frame_buffer.active_sequence().is_some() {
             return Err(NativeSpanFramebufferError::SequenceAlreadyActive);
         }
-        let pixel_count = frame_buffer
-            .width
-            .checked_mul(frame_buffer.height)
-            .ok_or(NativeSpanFramebufferError::DimensionOverflow)?;
-        let pixel_count = usize::try_from(pixel_count)
-            .map_err(|_| NativeSpanFramebufferError::DimensionOverflow)?;
-        if pixel_count != frame_buffer.pixels.len() {
-            return Err(NativeSpanFramebufferError::InternalIndexOverflow);
-        }
-
-        let mut pixels = Vec::new();
-        pixels
-            .try_reserve_exact(pixel_count)
-            .map_err(|_| NativeSpanFramebufferError::ResourceExhausted)?;
-        for pixel in &frame_buffer.pixels {
-            pixels.push(native_rgba8888_to_rgb0_over_background(*pixel, background));
-        }
-
-        Ok(Self {
-            width: frame_buffer.width,
-            height: frame_buffer.height,
-            pixels,
-        })
+        native_rgb0_present_buffer_from_rgba8888_parts(
+            frame_buffer.width,
+            frame_buffer.height,
+            &frame_buffer.pixels,
+            background,
+        )
     }
 
     pub fn width(&self) -> i32 {
@@ -834,6 +849,69 @@ impl NativeRgb0PresentBuffer {
     }
 }
 
+impl NativeRgb0PresenterSink {
+    pub fn new(
+        width: i32,
+        height: i32,
+        background: NativeRgbColor,
+    ) -> Result<Self, NativeSpanFramebufferError> {
+        Ok(Self {
+            frame_buffer: NativeRgba8888FrameBuffer::new(width, height)?,
+            background,
+            last_present_buffer: None,
+            last_presented_frame_id: None,
+        })
+    }
+
+    pub fn background(&self) -> NativeRgbColor {
+        self.background
+    }
+
+    pub fn frame_buffer(&self) -> &NativeRgba8888FrameBuffer {
+        &self.frame_buffer
+    }
+
+    pub fn last_presented_frame_id(&self) -> Option<i32> {
+        self.last_presented_frame_id
+    }
+
+    pub fn last_present_frame(
+        &self,
+    ) -> Result<Option<NativePresenterFrame<'_>>, NativePresenterFrameError> {
+        match &self.last_present_buffer {
+            Some(buffer) => NativePresenterFrame::from_rgb0_present_buffer(buffer).map(Some),
+            None => Ok(None),
+        }
+    }
+}
+
+impl NativeSpanOperationSink for NativeRgb0PresenterSink {
+    fn execute_span_operation(&mut self, operation: NativeSpanOperation) -> i32 {
+        let result = match operation {
+            NativeSpanOperation::Begin(descriptor) => self.frame_buffer.begin_sequence(descriptor),
+            NativeSpanOperation::RunSpan(run_span) => self.frame_buffer.write_run_span(run_span),
+            NativeSpanOperation::End(descriptor) => {
+                let frame_id = descriptor.frame_id;
+                match self
+                    .frame_buffer
+                    .end_sequence_to_rgb0_present_buffer(descriptor, self.background)
+                {
+                    Ok(present_buffer) => {
+                        self.last_present_buffer = Some(present_buffer);
+                        self.last_presented_frame_id = Some(frame_id);
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                }
+            }
+        };
+        match result {
+            Ok(()) => GUI_NATIVE_SPAN_OPERATION_STATUS_OK,
+            Err(error) => error.status(),
+        }
+    }
+}
+
 impl<'a> NativePresenterFrame<'a> {
     /// Borrows a checked RGB0 buffer as a presenter-ready immutable frame.
     pub fn from_rgb0_present_buffer(
@@ -877,6 +955,39 @@ impl<'a> NativePresenterFrame<'a> {
     pub fn pixels(&self) -> &'a [u32] {
         self.pixels
     }
+}
+
+fn native_rgb0_present_buffer_from_rgba8888_parts(
+    width: i32,
+    height: i32,
+    rgba8888_pixels: &[u32],
+    background: NativeRgbColor,
+) -> Result<NativeRgb0PresentBuffer, NativeSpanFramebufferError> {
+    if width <= 0 || height <= 0 {
+        return Err(NativeSpanFramebufferError::InvalidDimensions);
+    }
+    let pixel_count = width
+        .checked_mul(height)
+        .ok_or(NativeSpanFramebufferError::DimensionOverflow)?;
+    let pixel_count =
+        usize::try_from(pixel_count).map_err(|_| NativeSpanFramebufferError::DimensionOverflow)?;
+    if pixel_count != rgba8888_pixels.len() {
+        return Err(NativeSpanFramebufferError::InternalIndexOverflow);
+    }
+
+    let mut pixels = Vec::new();
+    pixels
+        .try_reserve_exact(pixel_count)
+        .map_err(|_| NativeSpanFramebufferError::ResourceExhausted)?;
+    for pixel in rgba8888_pixels {
+        pixels.push(native_rgba8888_to_rgb0_over_background(*pixel, background));
+    }
+
+    Ok(NativeRgb0PresentBuffer {
+        width,
+        height,
+        pixels,
+    })
 }
 
 pub fn native_pack_rgb0_pixel(r: u8, g: u8, b: u8) -> u32 {
@@ -2190,5 +2301,140 @@ mod tests {
             NativePresenterFrame::from_rgb0_present_buffer(&invalid_format).unwrap_err(),
             NativePresenterFrameError::PixelFormatMismatch
         );
+    }
+
+    #[test]
+    fn native_rgb0_presenter_sink_updates_last_frame_on_complete_sequence() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut sink = NativeRgb0PresenterSink::new(4, 3, background).unwrap();
+
+        assert_eq!(sink.background(), background);
+        assert_eq!(sink.last_presented_frame_id(), None);
+        assert_eq!(sink.last_present_frame().unwrap(), None);
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::RunSpan(native_framebuffer_run(
+                0, 0, 1, 255,
+            ))),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+
+        assert_eq!(sink.last_presented_frame_id(), Some(descriptor.frame_id));
+        assert_eq!(sink.frame_buffer().active_sequence(), None);
+        let present_frame = sink.last_present_frame().unwrap().unwrap();
+        assert_eq!(present_frame.width(), 4);
+        assert_eq!(present_frame.height(), 3);
+        assert_eq!(present_frame.pixels()[0], 0x00ff141e);
+        assert_eq!(present_frame.pixels()[1], native_pack_rgb0_pixel(1, 2, 3));
+    }
+
+    #[test]
+    fn native_rgb0_presenter_sink_keeps_previous_frame_on_invalid_sequence() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let background = NativeRgbColor { r: 1, g: 2, b: 3 };
+        let mut sink = NativeRgb0PresenterSink::new(4, 3, background).unwrap();
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::RunSpan(native_framebuffer_run(
+                0, 0, 1, 40,
+            ))),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        let previous_pixels = sink
+            .last_present_frame()
+            .unwrap()
+            .unwrap()
+            .pixels()
+            .to_vec();
+
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::RunSpan(native_framebuffer_run(
+                3, 0, 2, 90,
+            ))),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            sink.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_INVALID_ARGUMENT
+        );
+
+        assert_eq!(sink.last_presented_frame_id(), Some(descriptor.frame_id));
+        assert_eq!(
+            sink.last_present_frame().unwrap().unwrap().pixels(),
+            previous_pixels.as_slice()
+        );
+        assert_eq!(
+            sink.frame_buffer().active_sequence().unwrap(),
+            NativeSpanFramebufferActiveSequence {
+                descriptor,
+                seen_run_count: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn native_rgb0_presenter_private_helper_keeps_active_on_conversion_failure() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let active = NativeSpanFramebufferActiveSequence {
+            descriptor,
+            seen_run_count: 1,
+        };
+        let mut frame_buffer = NativeRgba8888FrameBuffer {
+            width: 4,
+            height: 3,
+            stride_bytes: 16,
+            pixels: vec![NATIVE_RGBA8888_PIXEL_TRANSPARENT; 11],
+            active_sequence: Some(active),
+        };
+        let background = NativeRgbColor { r: 0, g: 0, b: 0 };
+
+        assert_eq!(
+            frame_buffer
+                .end_sequence_to_rgb0_present_buffer(descriptor, background)
+                .unwrap_err(),
+            NativeSpanFramebufferError::InternalIndexOverflow
+        );
+        assert_eq!(frame_buffer.active_sequence(), Some(active));
+    }
+
+    #[test]
+    fn native_span_framebuffer_end_semantics_still_close_sequence() {
+        let descriptor = native_framebuffer_descriptor(1);
+        let mut frame_buffer = NativeRgba8888FrameBuffer::new(4, 3).unwrap();
+
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::Begin(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::RunSpan(
+                native_framebuffer_run(0, 0, 1, 10),
+            )),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(
+            frame_buffer.execute_span_operation(NativeSpanOperation::End(descriptor)),
+            GUI_NATIVE_SPAN_OPERATION_STATUS_OK
+        );
+        assert_eq!(frame_buffer.active_sequence(), None);
     }
 }
