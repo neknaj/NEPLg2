@@ -568,6 +568,43 @@ subagent review:
 - Hegel に F5ee 実装計画を渡し、policy revalidation、one drain / one transition、F5ec / F5ed payload struct 再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback の観点で確認させる。
 - 実装後に、source policy と focused doctest が Phase 5.8 の contract を検査していることを確認させる。
 
+## Phase 5.9: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop boundary
+
+目的:
+
+- F5ee slice result を、real scheduler loop / headless app-loop が match する loop-owned public result へ詰め替える。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` は `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- F5ef は actual while loop ではなく、外側 loop authority が次に実行する request を 1 slice ぶんだけ返す境界である。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl` を追加し、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` を public loop result として公開する。
+- policy は F5ee slice policy だけを保持する。
+- public step は F5ee `virtual_scheduler_slice` を 1 回だけ呼ぶ。
+- F5ee payload struct を loop payload として再公開せず、state / pending / execute / completed と `remaining_count` を loop-owned payload へ詰め替える。
+- `Yield` payload は state、`remaining_count`、`yield_delay_ms` を保持する。
+- failure は lower-only slice error として F5ee slice error だけを保持する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md` を追加し、facade、policy owns F5ee only、result variants、one slice call、payload rewrap、lower-only slice error、no wildcard、no timer / executor / backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.9 / F5ef source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler while loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- F5ec drain、F5ed transition、F5eb step、F5ea helper を直接呼ばない。
+- F5ee `virtual_scheduler_slice` を複数回呼ばない。
+
+完了条件:
+
+- F5ee の `YieldSlice` / `AwaitTimer` / `ExecuteHostAction` / `Done` が F5ef の `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` へ explicit match で写る。
+- F5ef payload は F5ee payload struct を保持せず、loop-owned payload だけを公開する。
+- F5ef error は lower F5ee slice error だけを保持する。
+- F5ef source policy が F5ec / F5ed / F5eb / F5ea direct call、backend、queue、fallback を禁止する。
+
+subagent review:
+
+- Aquinas に F5ef 実装計画を渡し、implementation may start を確認した。実装後に、one slice call、F5ee payload 再公開禁止、direct lower call 禁止、owner-bearing payload の non-Copy / non-Clone、no backend / no queue / no fallback の観点で再確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -655,9 +692,9 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.8 の deterministic virtual scheduler slice boundary までを現在の checkpoint とする。次の再開 target は、F5ee slice result を消費する real scheduler loop / headless app-loop integration である。
+Phase 5.9 の deterministic virtual scheduler loop boundary までを現在の checkpoint とする。次の再開 target は、F5ef loop result を消費する timer advance event injection、executor completion、real scheduler loop / headless app-loop integration である。
 
-- scheduler loop は F5ee の `YieldSlice` / `AwaitTimer` / `ExecuteHostAction` / `Done` slice result を明示的に進める必要がある。
+- scheduler loop は F5ef の `Yield` / `AwaitTimer` / `ExecuteHostAction` / `Done` loop result を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。

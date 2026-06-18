@@ -270,6 +270,10 @@ F5ee の std layer row tile RLE present host span operation presenter executor s
 
 F5ee は policy construction と slice entry の両方で `yield_delay_ms >= 0` を検査する。public slice entry は F5ec drain を 1 回だけ呼び、成功時だけ F5ed transition mapping を 1 回だけ呼ぶ。F5ec / F5ed payload struct は slice payload として保持せず、state / pending / execute / completed と `remaining_count` を slice-owned payload に詰め替える。`YieldSlice` は state、`remaining_count`、`yield_delay_ms` を保持する。Drain failure は lower F5ec error だけを保持し、original scheduler state を重複保持しない。F5ee は F5eb step 直接呼び出し、timer advance、executor completion、real scheduler loop、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
+F5ef の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop boundary は、F5ee `virtual_scheduler_slice` の結果を real scheduler loop / headless app-loop が扱う loop-owned result に変換する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` は `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。Policy は F5ee slice policy だけを保持し、dynamic timer state、backend handle、queue owner を保持しない。
+
+F5ef public step は F5ee `virtual_scheduler_slice` を 1 回だけ呼ぶ。F5ee payload struct は loop payload として保持せず、state / pending / execute / completed と `remaining_count` を loop-owned payload に詰め替える。`Yield` は state、`remaining_count`、`yield_delay_ms` を保持する。Failure は lower-only slice error として lower F5ee slice error だけを保持する。F5ef は F5ec drain、F5ed transition、F5eb step、F5ea state helper を直接呼ばず、timer advance、executor completion、actual while loop、queue drain、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
 Pixel hash:
 
 - `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。
