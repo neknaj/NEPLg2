@@ -44,6 +44,22 @@
 - `Completed` は terminal output だけであり、advance input にはしない。
 - F5em は `CompleteAck`、executor outcome、clock delta、fallback success、silent no-op を合成しない。
 
+## Phase F5en: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded headless app-loop runner boundary
+
+2026-06-18 の F5en では、F5em `NeedInput` / `Completed` result を fixed-slot script と explicit `max_advance_count` で bounded に進める。これは deterministic test / headless replay 用の boundary であり、not long-running real backend loop である。actual backend clock source、native / bare scheduler backend、executor backend、queue、platform API、DOM / Canvas / minifb、video memory は実装しない。
+
+変更:
+
+- F5en headless app-loop runner module を追加し、`BudgetExhausted` / `InputMissing` / `Completed` / typed lower error を返す。
+- `HeadlessAppLoopRunnerPolicy` は F5em `HeadlessAppLoopStepPolicy` と `max_advance_count` だけを保持する。
+- `HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを保持する。
+- script の `count` / `cursor` / slot hole は `ScriptInvalid` として typed error で返す。
+- `run` は policy と script を検査してから F5em `start` を 1 回だけ呼ぶ。
+- `Completed` は script を消費しない。
+- `InputMissing` は `ClockDelta` / `ExecutorOutcome` / `CompleteAck` を合成しない。
+- `BudgetExhausted` は F5em `advance` を呼ばない。
+- source policy が no Vec / queue / push / backend / fallback / silent no-op を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:

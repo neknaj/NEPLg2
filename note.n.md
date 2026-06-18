@@ -1,3 +1,40 @@
+# 2026-06-18 Agent2 GUI std F5en virtual scheduler bounded headless app-loop runner boundary
+
+## 目的
+
+- F5em `NeedInput` / `Completed` result を、fixed-slot script と explicit `max_advance_count` で bounded に進める deterministic std boundary へ接続する。
+- `HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを持ち、queue / Vec / push を使わない。
+- `InputMissing` は input を合成せず、`BudgetExhausted` は F5em `advance` を呼ばず、`Completed` は script を消費しない。
+
+## subagent review
+
+- Rawls plan review は `PLAN_CHANGES`。
+- 指摘は、`InputMissing` 名称を統一すること、F5em `start` error も `StartFailed` として包むこと、script の負 cursor / capacity 超過 / slot hole を `ScriptInvalid` にすることだった。
+- `max_advance_count < 0` は typed policy error、`max_advance_count == 0` かつ `NeedInput` は script を読まず `BudgetExhausted` にする条件も追加した。
+- F5en は F5em `start` / `advance` だけを実行 authority にし、F5ek は `RealLoopStepInput` type surface のためだけに参照する方針へ修正した。
+- Mendel implementation review は `REVIEW_APPROVED`。bounded scripted runner、fixed-slot script、typed policy / script errors、zero-budget guard、completed no-consume、input no-synthesis、F5em-only authority、括弧なし / wildcard なし、doc / source policy coverage が確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.nepl` を追加した。
+- `HeadlessAppLoopRunnerPolicy` は F5em step policy と `max_advance_count` だけを保持する。
+- `HeadlessAppLoopRunnerScript` は fixed 3 slot と cursor / count invariant を持つ。
+- `headless_app_loop_runner_run` は policy と script を検査してから F5em `start` を 1 回だけ呼び、`drain_remaining` が positive budget と `Some input` の時だけ F5em `advance` を呼ぶ。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md -n 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_f5en.json -j 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_f5en_pair.json -j 1`。
+- pass: `git diff --check`。CRLF normalization warning のみ。
+
+## 残件
+
+- F5en は bounded scripted headless runner までであり、actual backend clock source、native / bare scheduler backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-18 Agent2 GUI std F5em virtual scheduler headless app-loop step boundary
 
 ## 目的
