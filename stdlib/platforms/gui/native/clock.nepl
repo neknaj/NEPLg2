@@ -1,0 +1,60 @@
+//: # platforms/gui/native/clock
+//: Native backend の formal monotonic clock host boundary
+//:
+//: ### [目的/もくてき]
+//: - native host が[取得/しゅとく]した monotonic clock sample を `nepl_gui_native` host import から[受/う]け[取/と]ります。
+//: - raw sentinel はこの module で `Result BackendClockSample GuiError` へ[写/うつ]し、application code へ漏らしません。
+//:
+//: ### [契約/けいやく]
+//: - host import は 0 以上の i32 millisecond sample を[返/かえ]します。
+//: - raw value が -1 なら clock unsupported として `GuiError::Unsupported` です。
+//: - raw value がその他の負値なら clock backend failure として `GuiError::BackendFailure` です。
+//: - native host は monotonic source の overflow を wrap / clamp せず backend failure sentinel にします。
+//: - window、present、scheduler backend、timer、queue、rendering API、fallback は[扱/あつか]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/native/clock" as *
+//: ```
+
+#indent 4
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+
+#extern "nepl_gui_native" "monotonic_clock_ms" fn gui_native_monotonic_clock_ms_raw %impure fn void i32
+
+fn gui_native_monotonic_clock_status_error %fn i32 GuiError \raw:
+    if eq raw -1:
+        then GuiError::Unsupported
+        else GuiError::BackendFailure
+
+fn gui_native_backend_clock_sample_error %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind::MonotonicMsInvalid:
+            GuiError::InvalidCommand
+
+//: gui_native_backend_clock_sample: native host から monotonic clock sample を[取得/しゅとく]する
+//:
+//: [目的/もくてき]:
+//: - native runtime の `Instant` 由来 sample を F5eo backend clock sample constructor へ[渡/わた]します。
+//:
+//: [契約/けいやく]:
+//: - raw sentinel は public API へ漏らさず `GuiError` へ[写/うつ]します。
+//: - 成功時も F5eo の sample constructor を[通/とお]し、platform module で sample value を直接[組/く]み[立/た]てません。
+//: - timer、sleep、queue、window loop、rendering API、stdout protocol、fallback は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_native_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError \void:
+    let raw %i32 gui_native_monotonic_clock_ms_raw
+    if lt raw 0:
+        then Result::Err gui_native_monotonic_clock_status_error raw
+        else:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw:
+                Result::Ok sample:
+                    Result::Ok sample
+                Result::Err kind:
+                    Result::Err gui_native_backend_clock_sample_error kind

@@ -1,4 +1,9 @@
 use std::str::FromStr;
+use std::time::Instant;
+
+pub const GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS: u128 = 2_147_483_647;
+pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_UNSUPPORTED: i32 = -1;
+pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE: i32 = -2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GuiDemo {
@@ -56,6 +61,18 @@ pub struct NativeSurfacePlacement {
 pub enum NativeSurfaceState {
     Drawable(NativeSurfacePlacement),
     Unavailable,
+}
+
+pub fn native_monotonic_clock_ms_from_elapsed_ms(elapsed_ms: u128) -> i32 {
+    if elapsed_ms > GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS {
+        GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE
+    } else {
+        elapsed_ms as i32
+    }
+}
+
+pub fn native_monotonic_clock_ms_since(start: &Instant) -> i32 {
+    native_monotonic_clock_ms_from_elapsed_ms(start.elapsed().as_millis())
 }
 
 impl FromStr for GuiDemo {
@@ -627,5 +644,25 @@ mod tests {
             map_native_window_point_to_image(800, 600, 400, 400, f32::INFINITY, 10.0),
             None
         );
+    }
+
+    #[test]
+    fn native_monotonic_clock_elapsed_conversion_checks_i32_range() {
+        assert_eq!(native_monotonic_clock_ms_from_elapsed_ms(0), 0);
+        assert_eq!(
+            native_monotonic_clock_ms_from_elapsed_ms(GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS),
+            i32::MAX
+        );
+        assert_eq!(
+            native_monotonic_clock_ms_from_elapsed_ms(GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS + 1),
+            GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE
+        );
+    }
+
+    #[test]
+    fn native_monotonic_clock_since_uses_instant_source() {
+        let start = Instant::now();
+        let sample = native_monotonic_clock_ms_since(&start);
+        assert!(sample >= 0);
     }
 }

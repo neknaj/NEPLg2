@@ -9,12 +9,37 @@ function readRepoFile(...parts) {
     return fs.readFileSync(path.resolve(__dirname, "..", ...parts), "utf8");
 }
 
+function withoutComments(text) {
+    return text
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("//"))
+        .join("\n");
+}
+
+function textSliceBetween(source, startNeedle, endNeedle) {
+    const start = source.indexOf(startNeedle);
+    if (start < 0) {
+        return "";
+    }
+    const end = source.indexOf(endNeedle, start + startNeedle.length);
+    return end < 0 ? source.slice(start) : source.slice(start, end);
+}
+
 function runNativeGuiPlatformBehaviorRegression() {
     const mainSource = readRepoFile("nepl-gui-native", "src", "main.rs");
     const libSource = readRepoFile("nepl-gui-native", "src", "lib.rs");
     const platformDoc = readRepoFile("doc", "neplg2", "gui_native_platform_behavior.md");
     const implementationPlan = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
     const standardSpec = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
+    const nativeFacade = readRepoFile("stdlib", "platforms", "gui", "native.nepl");
+    const nativeClock = readRepoFile("stdlib", "platforms", "gui", "native", "clock.nepl");
+    const nativeClockImpl = withoutComments(nativeClock);
+    const nativeClockTest = readRepoFile("tests", "stdlib", "gui_platform_native_clock.n.md");
+    const nativeClockHelper = textSliceBetween(
+        libSource,
+        "pub fn native_monotonic_clock_ms_from_elapsed_ms",
+        "impl FromStr for GuiDemo",
+    );
 
     assert.match(mainSource, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::AspectRatioStretch/);
     assert.match(mainSource, /window\.set_target_fps\(60\)/);
@@ -39,6 +64,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_point_mapping_handles_shrunken_window/);
     assert.match(libSource, /native_window_point_mapping_rejects_top_bottom_letterbox/);
     assert.match(libSource, /native_window_point_mapping_rejects_unavailable_and_invalid_points/);
+    assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS: u128 = 2_147_483_647;/);
+    assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_UNSUPPORTED: i32 = -1;/);
+    assert.match(libSource, /pub const GUI_NATIVE_BACKEND_CLOCK_STATUS_BACKEND_FAILURE: i32 = -2;/);
+    assert.match(libSource, /pub fn native_monotonic_clock_ms_from_elapsed_ms\(elapsed_ms: u128\) -> i32/);
+    assert.match(libSource, /pub fn native_monotonic_clock_ms_since\(start: &Instant\) -> i32/);
+    assert.match(libSource, /if elapsed_ms > GUI_NATIVE_BACKEND_CLOCK_I32_MAX_MS/);
+    assert.match(libSource, /native_monotonic_clock_elapsed_conversion_checks_i32_range/);
+    assert.match(libSource, /native_monotonic_clock_since_uses_instant_source/);
+    assert.doesNotMatch(nativeClockHelper, /saturating_|wrapping_|clamp|std::thread::sleep|SystemTime|UNIX_EPOCH|fallback|silent no-op/);
 
     assert.match(platformDoc, /macOS AppKit/);
     assert.match(platformDoc, /Windows Win32/);
@@ -63,12 +97,22 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /macOS AppKit、Windows Win32、Linux Wayland \/ X11/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
+    assert.match(standardSpec, /F5er Native formal monotonic clock source checkpoint/);
+
+    assert.match(nativeFacade, /pub #import "\.\/native\/clock" as @merge/);
+    assert.match(nativeClock, /#extern "nepl_gui_native" "monotonic_clock_ms"/);
+    assert.match(nativeClock, /GuiError::Unsupported/);
+    assert.match(nativeClock, /GuiError::BackendFailure/);
+    assert.match(nativeClock, /gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw/);
+    assert.doesNotMatch(nativeClockImpl, /Date|performance|setTimeout|setInterval|sleep|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|clamp|round/);
+    assert.match(nativeClockTest, /native_runner_clock_instant_i32_guard_ok/);
 
     return {
         ok: true,
         checks: [
             "Native smoke runner uses OS-managed resize and close state",
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
+            "Native monotonic clock source uses Instant with i32 range failure",
             "Native platform behavior notes cite macOS, Windows, Linux, and minifb contracts",
         ],
     };

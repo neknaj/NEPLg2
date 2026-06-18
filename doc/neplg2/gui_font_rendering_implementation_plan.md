@@ -152,6 +152,34 @@
 - focused doctest、source policy、F5eo / F5ep regression、`git diff --check` が通る。
 - subagent implementation review で no fallback、virtualized headless source、layer separation が承認される。
 
+## Phase F5er: Native formal monotonic clock source backend boundary
+
+2026-06-18 の F5er では、native runtime の actual monotonic clock source を `platforms/gui/native/clock` へ接続する。これは Native formal monotonic clock source backend boundary だけの変更であり、bare clock source、sleep、scheduler loop、executor backend、queue、DOM / Canvas rendering、minifb rendering、video memory presentation は実装しない。
+
+実装 target:
+
+- `stdlib/platforms/gui/native.nepl`
+- `stdlib/platforms/gui/native/clock.nepl`
+- `nepl-gui-native/src/lib.rs`
+- `tests/stdlib/gui_platform_native_clock.n.md`
+- `nodesrc/run_test.js`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `nodesrc/test_native_gui_platform_behavior.js`
+
+実装内容:
+
+- `nepl_gui_native.monotonic_clock_ms` は単一 `i32` return ABI とし、0 以上を sample、-1 を unsupported、その他の負値を backend failure とする。
+- NEPL wrapper は negative sentinel を `GuiError` へ写し、成功値だけを F5eo `BackendClockSample` constructor へ渡す。
+- `nepl-gui-native` は `Instant` 由来 elapsed millisecond を `i32::MAX` 以下で検査し、範囲外は `BackendFailure` sentinel にする。
+- wrap、clamp、saturating cast、wall clock、timer、sleep、queue、stdout protocol、fallback、silent no-op は使わない。
+- `nodesrc/run_test.js` の native import stub は doctest import surface 用だけであり、native runtime wiring の証拠として扱わない。
+
+完了条件:
+
+- source policy が native facade export、raw import、negative sentinel mapping、F5eo sample constructor bridge、Rust `Instant` helper、i32 range failure、forbidden fallback を固定する。
+- focused doctest、source policy、native platform behavior regression、F5eo / F5ep / F5eq regression、`cargo test -p nepl-gui-native`、`git diff --check` が通る。
+- subagent implementation review で no fallback、i32 range failure、layer separation、doctest stub と native runtime source の分離が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

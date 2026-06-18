@@ -103,6 +103,19 @@
 - `cursor == count` は `Option::None` を返し、zero sample、delta、fallback、silent no-op を合成しない。
 - focused doctest と source policy で fixed-slot shape、constructor validation、poll validation、end None、forbidden timer / queue / fallback を固定する。
 
+## Phase F5er: Native formal monotonic clock source backend boundary
+
+2026-06-18 の F5er では、native runtime の actual monotonic clock source を `platforms/gui/native/clock` へ接続する。これは Native formal monotonic clock source backend boundary だけの変更であり、bare clock source、scheduler backend、executor backend、queue、DOM / Canvas rendering、minifb rendering、video memory presentation は実装しない。
+
+変更:
+
+- `stdlib/platforms/gui/native.nepl` facade と `stdlib/platforms/gui/native/clock.nepl` を追加する。
+- `nepl_gui_native.monotonic_clock_ms` は単一 `i32` return ABI とし、0 以上を sample、-1 を unsupported、その他の負値を backend failure とする。
+- NEPL wrapper は negative sentinel を `GuiError` へ写し、成功値だけを F5eo `BackendClockSample` constructor へ渡す。
+- `nepl-gui-native` は `Instant` 由来 elapsed millisecond を `i32::MAX` 以下で検査し、範囲外は `BackendFailure` sentinel にする。
+- wrap、clamp、saturating cast、wall clock、timer、sleep、queue、stdout protocol、fallback、silent no-op は使わない。
+- focused doctest、source policy、native platform behavior regression で native facade export、raw import、F5eo sample constructor bridge、i32 guard、forbidden fallback を固定する。
+
 ## Phase 1: documentation and policy
 
 変更:
