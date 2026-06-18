@@ -1525,6 +1525,55 @@ subagent review:
 - Curie に F5ed 実装計画を渡し、F5ec payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、4 terminal の explicit match、remaining_count preservation、no backend / no queue / no fallback の観点で確認させる。
 - 実装後に、transition source policy、focused doctest label、facade export、docs の Phase F5ed 記述が一致していることを確認させる。
 
+## Phase F5ee: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler slice boundary
+
+目的:
+
+- F5ec bounded drain と F5ed transition を、後続 real scheduler loop / headless app-loop が 1 work slice として扱う std-layer public boundary にする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSliceResult` に `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を定義する。
+- `YieldSlice` は state、`remaining_count`、`yield_delay_ms` を slice-owned payload として保持し、real scheduler loop が次の turn をいつ再開するかを明示的に判断できるようにする。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl` を追加する。
+- policy は F5ec drain policy と `yield_delay_ms` だけを保持する。
+- `yield_delay_ms` は policy construction と slice entry の両方で 0 以上に検査する。
+- public slice entry は F5ec drain を 1 回だけ呼び、成功時だけ F5ed transition mapping を 1 回だけ呼ぶ。
+- F5ec / F5ed payload struct を slice payload として再公開せず、state / pending / execute / completed と `remaining_count` を slice-owned payload へ詰め替える。
+- drain failure は lower F5ec error だけを `DrainFailed` に保持する。
+- owner-bearing slice policy / payload / result / error に `Clone` / `Copy` を実装しない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` を追加し、facade、policy validation、result variant、one drain / one transition、yield payload、payload rewrap、lower-only drain failure、no wildcard、no timer advance / executor completion、no backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ee source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`note.n.md`、`todo.md` を更新する。
+
+非目標:
+
+- F5ee は timer advance、executor completion、real scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+- F5eb step を直接呼ばない。
+- F5ec drain を複数回呼ばない。
+- F5ed transition mapping を複数回呼ばない。
+
+検証:
+
+```text
+rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice_f5ee.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice_module_f5ee.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition_f5ee_regression.json -j 1
+git diff --check
+```
+
+subagent review:
+
+- Hegel に F5ee 実装計画を渡し、policy revalidation、one drain / one transition、F5ec / F5ed payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback の観点で確認させる。
+- 実装後に、slice source policy、focused doctest label、facade export、docs の Phase F5ee 記述が一致していることを確認させる。
+
 ## Phase F5dx: Web formal one-shot timer request backend boundary
 
 目的:

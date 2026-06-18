@@ -529,6 +529,45 @@ subagent review:
 - Curie に F5ed 実装計画を渡し、F5ec payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、4 terminal の explicit match、no timer advance / executor completion / backend / queue / fallback の観点で確認させる。
 - 実装後に、source policy と focused doctest が Phase 5.7 の contract を検査していることを確認させる。
 
+## Phase 5.8: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler slice boundary
+
+目的:
+
+- F5ec bounded drain と F5ed transition を、real scheduler loop / headless app-loop が 1 work slice として消費できる public boundary に接続する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSliceResult` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- `YieldSlice` は F5ed transition payload をそのまま公開せず、state、`remaining_count`、`yield_delay_ms` を slice-owned payload として保持する。
+
+実装:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl` を追加する。
+- policy は F5ec drain policy と `yield_delay_ms` だけを保持する。
+- `yield_delay_ms` は policy construction と slice entry の両方で 0 以上に検査する。
+- public slice entry は F5ec drain を 1 回だけ呼び、成功時だけ F5ed transition mapping を 1 回だけ呼ぶ。
+- F5ec / F5ed payload struct を slice payload として再公開せず、state / pending / execute / completed と `remaining_count` を slice-owned payload へ詰め替える。
+- drain failure は lower F5ec error だけを `DrainFailed` に保持する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` を追加し、facade、policy validation、result variant、one drain / one transition、yield payload、payload rewrap、lower-only drain failure、no wildcard、no timer advance / executor completion、no backend / queue / fallback label を固定する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に Phase 5.8 / F5ee source policy を追加する。
+
+非目標:
+
+- timer advance、executor completion、actual scheduler loop、native / bare / headless real backend、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op は含めない。
+- F5eb step を直接呼ばない。
+- F5ec drain を複数回呼ばない。
+- F5ed transition mapping を複数回呼ばない。
+
+完了条件:
+
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSliceResult` の 4 variant が F5ed の 4 transition と 1 対 1 で対応する。
+- policy construction と entry revalidation の両方で negative `yield_delay_ms` が拒否される。
+- `remaining_count` は各 slice payload で保持され、`YieldSlice` は `yield_delay_ms` も保持する。
+- drain failure は F5ec lower error だけを持ち、duplicate scheduler state を保持しない。
+
+subagent review:
+
+- Hegel に F5ee 実装計画を渡し、policy revalidation、one drain / one transition、F5ec / F5ed payload struct 再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback の観点で確認させる。
+- 実装後に、source policy と focused doctest が Phase 5.8 の contract を検査していることを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -616,10 +655,10 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 5.7 の deterministic virtual scheduler transition boundary までを現在の checkpoint とする。次の再開 target は、F5ed transition を消費する real scheduler loop / timeslice contract / headless app-loop integration である。
+Phase 5.8 の deterministic virtual scheduler slice boundary までを現在の checkpoint とする。次の再開 target は、F5ee slice result を消費する real scheduler loop / headless app-loop integration である。
 
-- scheduler loop は F5ed の `YieldSlice` / `AwaitTimer` / `ExecuteHostAction` / `Done` transition を明示的に進める必要がある。
+- scheduler loop は F5ee の `YieldSlice` / `AwaitTimer` / `ExecuteHostAction` / `Done` slice result を明示的に進める必要がある。
 - `WaitingTimer` は event queue drain ではなく timer backend または virtual timer advance によってだけ再開する必要がある。
-- timeslice policy は `Yield` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
+- slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。
