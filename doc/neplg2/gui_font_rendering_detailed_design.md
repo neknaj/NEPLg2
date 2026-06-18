@@ -8204,6 +8204,16 @@ F5ds introduces the std layer row tile RLE present host span operation presenter
 
 `turn_complete` consumes the pending request and executor attempt by calling F5dr session complete exactly once. F5dr remains the authority for request completion and Continue / Yield classification. F5ds only wraps the returned F5dr session state back into `TurnState::Session`. F5ds must not call F5dp or F5dq directly, must not create synthetic executor outcomes, and must not touch platform APIs, raw packet storage, video memory, DOM, Canvas, minifb, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer row tile RLE present host span operation presenter executor session turn step boundary
+
+F5dt introduces the std layer row tile RLE present host span operation presenter executor session turn step boundary. It sits directly above F5ds and still below any real scheduler, queue, timer, or platform executor. Its purpose is not to run a scheduler; its purpose is to normalize F5ds poll and complete outcomes into one transient result enum that a future Web, native, bare, or headless driver can consume without inspecting lower session variants.
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult` has `Execute`, `Continue`, `Yield`, and `Completed`. `Execute` owns the F5dr session pending request, while `Continue` and `Yield` own the F5ds turn state. `Completed` is a transient Completed result, not a persistent state. This keeps terminal ownership in F5dr / F5ds and prevents a second completed state from appearing in the step layer.
+
+The start function delegates to F5ds `turn_start` exactly once and returns the F5ds turn state directly. This follows the rule that start is setup authority, not a scheduler tick outcome. The poll function delegates to F5ds `turn_poll` exactly once and maps `Execute` and `Completed` into the unified step result. The complete function delegates to F5ds `turn_complete` exactly once and maps `Continue` and `Yield` into the same step result enum.
+
+F5dt must not call F5dr, F5dp, F5dq, presenter loop, old action driver, virtual executor, dispatch loop, raw storage, host import, platform API, DOM, Canvas, minifb, video memory, queue, timer, real scheduler, fallback path, or silent no-op path directly. Error recovery is also delegated to F5ds wrapper errors, with category values exposed only through F5ds category accessors.
+
 ## Std layer row tile RLE present host execution driver boundary
 
 F5da introduces the std layer row tile RLE present host execution driver boundary. It still does not execute a host import. Its job is to hold the F5cv `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` together with the F5cw `GuiRgba8888RowTileRlePresentHostExecutionAction` that an actual Web, native, bare, or headless executor must perform.
