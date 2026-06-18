@@ -42,6 +42,35 @@
 - focused doctest、source policy、F5el / F5ek regression、`git diff --check` が通る。
 - subagent implementation review で terminal-only `Completed`、no synthetic `CompleteAck`、zero-budget semantics preservation が承認される。
 
+## Phase F5en: std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded headless app-loop runner boundary
+
+2026-06-18 の F5en では、F5em `NeedInput` / `Completed` result を fixed-slot script と explicit `max_advance_count` で bounded に進める。これは deterministic test / headless replay 用の boundary であり、not long-running real backend loop である。actual backend clock source、native / bare scheduler backend、executor backend、queue、platform API、DOM / Canvas / minifb、video memory は実装しない。
+
+実装 target:
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.nepl`
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md`
+- `nodesrc/test_web_gui_font_rendering_contract.js`
+- `nodesrc/test_web_gui_offscreen_headless_contract.js`
+
+実装内容:
+
+- `HeadlessAppLoopRunnerPolicy` は F5em `HeadlessAppLoopStepPolicy` と `max_advance_count` だけを保持する。
+- `HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを保持する。
+- script の `count` / `cursor` / slot hole は `ScriptInvalid` として typed error で返す。
+- `run` は policy と script を検査してから F5em `start` を 1 回だけ呼ぶ。
+- `Completed` は script を消費しない。
+- `InputMissing` は `ClockDelta` / `ExecutorOutcome` / `CompleteAck` を合成しない。
+- `BudgetExhausted` は F5em `advance` を呼ばない。
+- F5em lower error は `StartFailed` / `StepFailed` に包む。
+
+完了条件:
+
+- F5en は F5em `start` / `advance` だけを実行 authority とする。
+- source policy が no Vec / queue / push / backend / fallback / silent no-op を固定する。
+- focused doctest、source policy、F5em regression、`git diff --check` が通る。
+- subagent implementation review で bounded scripted runner と no fallback が承認される。
+
 ## 実装開始 gate
 
 実装前に次を満たす。

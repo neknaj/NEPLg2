@@ -94,6 +94,8 @@ const turnVirtualSchedulerRealLoopDriver = read("stdlib/std/gui/tile_present_hos
 const turnVirtualSchedulerRealLoopDriverImpl = withoutComments(turnVirtualSchedulerRealLoopDriver);
 const turnVirtualSchedulerHeadlessAppLoopStep = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.nepl");
 const turnVirtualSchedulerHeadlessAppLoopStepImpl = withoutComments(turnVirtualSchedulerHeadlessAppLoopStep);
+const turnVirtualSchedulerHeadlessAppLoopRunner = read("stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.nepl");
+const turnVirtualSchedulerHeadlessAppLoopRunnerImpl = withoutComments(turnVirtualSchedulerHeadlessAppLoopRunner);
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiStdVirtualTimerTests = read("tests/stdlib/gui_std_virtual_timer.n.md");
@@ -111,6 +113,7 @@ const guiStdTurnVirtualSchedulerLoopYieldCompleteTests = read("tests/stdlib/gui_
 const guiStdTurnVirtualSchedulerRealLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md");
 const guiStdTurnVirtualSchedulerRealLoopDriverTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.n.md");
 const guiStdTurnVirtualSchedulerHeadlessAppLoopStepTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md");
+const guiStdTurnVirtualSchedulerHeadlessAppLoopRunnerTests = read("tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md");
 
 assertMatch(
     spec,
@@ -1220,6 +1223,61 @@ assertMatch(
     guiStdTurnVirtualSchedulerHeadlessAppLoopStepTests,
     /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_policy_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_error_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_start_dispatch_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_advance_dispatch_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_completed_terminal_only_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_no_synthetic_complete_ack_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_lower_error_order_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_no_wildcard_backend_queue_fallback/,
     "std/gui turn virtual scheduler headless app-loop step focused doctest must cover policy, dispatch, terminal completion, CompleteAck non-synthesis, and no backend/queue/fallback policy",
+);
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner"\s+as\s+\*/,
+    "std/gui facade must re-export the virtual scheduler bounded headless app-loop runner contract",
+);
+assertMatch(
+    turnVirtualSchedulerHeadlessAppLoopRunner,
+    /HeadlessAppLoopRunnerPolicy[\s\S]*step_policy\s+%GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerHeadlessAppLoopStepPolicy[\s\S]*max_advance_count\s+%i32[\s\S]*HeadlessAppLoopRunnerScript:[\s\S]*first\s+%Option\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput[\s\S]*second\s+%Option\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput[\s\S]*third\s+%Option\s+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput[\s\S]*count\s+%i32[\s\S]*cursor\s+%i32/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner must expose F5em policy plus fixed-slot script",
+);
+assertMatch(
+    turnVirtualSchedulerHeadlessAppLoopRunner,
+    /BudgetExhausted[\s\S]*InputMissing[\s\S]*Completed[\s\S]*PolicyInvalid[\s\S]*ScriptInvalid[\s\S]*StartFailed[\s\S]*StepFailed/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner must expose typed terminal results and lower errors",
+);
+assertMatch(
+    turnVirtualSchedulerHeadlessAppLoopRunnerImpl,
+    /script_shape_error[\s\S]*lt\s+input_count\s+0[\s\S]*gt\s+input_count\s+3[\s\S]*lt\s+cursor\s+0[\s\S]*eq\s+input_count\s+0[\s\S]*is_none\s+first[\s\S]*is_none\s+second[\s\S]*is_none\s+third[\s\S]*eq\s+input_count\s+1[\s\S]*is_some\s+first[\s\S]*is_none\s+second[\s\S]*is_none\s+third[\s\S]*eq\s+input_count\s+2[\s\S]*is_some\s+first[\s\S]*is_some\s+second[\s\S]*is_none\s+third[\s\S]*is_some\s+first[\s\S]*is_some\s+second[\s\S]*is_some\s+third/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner must validate script count, cursor, and slot holes",
+);
+const schedulerHeadlessAppLoopRunnerRun = functionSlice(turnVirtualSchedulerHeadlessAppLoopRunnerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_run");
+assertMatch(
+    schedulerHeadlessAppLoopRunnerRun,
+    /validate_max_advance_count\s+max_advance_count[\s\S]*script_shape_error\s+&script[\s\S]*headless_app_loop_step_start\s+step_policy\s+state[\s\S]*StartFailed[\s\S]*drain_remaining\s+policy\s+current\s+script\s+count/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner run must validate policy/script before one F5em start",
+);
+assert(
+    (schedulerHeadlessAppLoopRunnerRun.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_start\b/g) || []).length === 1,
+    "std/gui turn virtual scheduler bounded headless app-loop runner run must call F5em start exactly once",
+);
+const schedulerHeadlessAppLoopRunnerDrain = functionSlice(turnVirtualSchedulerHeadlessAppLoopRunnerImpl, "gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_drain_remaining");
+assertMatch(
+    schedulerHeadlessAppLoopRunnerDrain,
+    /HeadlessAppLoopStepResult::Completed\s+completed[\s\S]*HeadlessAppLoopRunnerResult::Completed[\s\S]*HeadlessAppLoopStepResult::NeedInput\s+need[\s\S]*le\s+remaining_count\s+0[\s\S]*HeadlessAppLoopRunnerResult::BudgetExhausted[\s\S]*script_take_next\s+script[\s\S]*Option::None:[\s\S]*HeadlessAppLoopRunnerResult::InputMissing[\s\S]*Option::Some\s+input:[\s\S]*headless_app_loop_step_advance\s+step_policy\s+need\s+input[\s\S]*StepFailed[\s\S]*sub\s+remaining_count\s+1[\s\S]*drain_remaining\s+policy\s+next\s+next_script\s+next_count/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner drain must complete without consuming, block without synthesis, and advance only with input and positive budget",
+);
+assert(
+    (schedulerHeadlessAppLoopRunnerDrain.match(/\bgui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_advance\b/g) || []).length === 1,
+    "std/gui turn virtual scheduler bounded headless app-loop runner drain must call F5em advance exactly once in the input branch",
+);
+assertNoMatch(
+    turnVirtualSchedulerHeadlessAppLoopRunnerImpl,
+    /\b(?:while|Vec|push|queue|timeslice|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|platforms\/gui|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op|real_loop_step\s+|real_loop_driver_start|real_loop_driver_after_step|ClockDelta|ExecutorOutcome|CompleteAck)\b/i,
+    "std/gui turn virtual scheduler bounded headless app-loop runner must not use Vec/queue/push/backend/fallback or bypass F5em",
+);
+assertNoMatch(
+    turnVirtualSchedulerHeadlessAppLoopRunnerImpl,
+    /_:|[()]/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner implementation must avoid wildcard matches and parentheses",
+);
+assertMatch(
+    guiStdTurnVirtualSchedulerHeadlessAppLoopRunnerTests,
+    /std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_facade_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_policy_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_script_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_result_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_error_shape_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_start_once_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_advance_guard_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_completed_no_consume_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_input_missing_no_synthesis_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_budget_exhausted_no_advance_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_script_invariant_ok[\s\S]*std_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_no_vec_queue_backend_fallback/,
+    "std/gui turn virtual scheduler bounded headless app-loop runner focused doctest must cover fixed script, no synthesis, budget guard, and no backend/fallback policy",
 );
 
 console.log("web GUI offscreen/headless contract passed");
