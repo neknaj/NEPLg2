@@ -270,6 +270,8 @@ const platformGuiBareSchedulerHostExecutor = read("stdlib/platforms/gui/bare/sch
 const platformGuiBareSchedulerHostExecutorImpl = withoutComments(platformGuiBareSchedulerHostExecutor);
 const platformGuiBareFramebuffer = read("stdlib/platforms/gui/bare/framebuffer.nepl");
 const platformGuiBareFramebufferImpl = withoutComments(platformGuiBareFramebuffer);
+const platformGuiBareDisplayStorage = read("stdlib/platforms/gui/bare/display_storage.nepl");
+const platformGuiBareDisplayStorageImpl = withoutComments(platformGuiBareDisplayStorage);
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
@@ -381,6 +383,7 @@ const guiPlatformBareSchedulerExecutorStepTests = read("tests/stdlib/gui_platfor
 const guiPlatformNativeSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_native_scheduler_host_executor.n.md");
 const guiPlatformBareSchedulerHostExecutorTests = read("tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md");
 const guiPlatformBareFramebufferTests = read("tests/stdlib/gui_platform_bare_framebuffer.n.md");
+const guiPlatformBareDisplayStorageTests = read("tests/stdlib/gui_platform_bare_display_storage.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md");
@@ -26491,6 +26494,129 @@ assert(
         "platform_bare_framebuffer_no_loop_queue_fallback",
     ].every((label) => guiPlatformBareFramebufferTests.includes(label)),
     "F5fl platform bare framebuffer focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["bare platform behavior notes", barePlatformBehaviorDoc],
+]) {
+    assert(
+        doc.includes("Bare display storage adapter boundary") &&
+            doc.includes("F5fm") &&
+            doc.includes("typed effect ledger") &&
+            doc.includes("GuiBareFramebufferStepApplied") &&
+            doc.includes("canonical framebuffer state") &&
+            doc.includes("actual display driver") &&
+            doc.includes("fallback") &&
+            doc.includes("silent no-op"),
+        `F5fm ${name} must document bare display storage adapter and forbidden fallback behavior`,
+    );
+}
+assert(
+    platformGuiBareFacade.includes('pub #import "./bare/display_storage" as @merge'),
+    "platforms/gui/bare facade must export F5fm bare display storage adapter boundary",
+);
+assert(
+    platformGuiBareDisplayStorage.includes("Bare display storage adapter boundary") &&
+        platformGuiBareDisplayStorage.includes("typed effect ledger") &&
+        platformGuiBareDisplayStorage.includes("GuiBareFramebufferStepApplied") &&
+        platformGuiBareDisplayStorage.includes("canonical framebuffer state") &&
+        platformGuiBareDisplayStorage.includes("raw memory") &&
+        platformGuiBareDisplayStorage.includes("fallback") &&
+        platformGuiBareDisplayStorage.includes("silent no-op"),
+    "platforms/gui/bare/display_storage F5fm must document typed storage ledger and no fallback",
+);
+assertNoMatch(
+    platformGuiBareDisplayStorage,
+    /#extern\s+"nepl_gui_bare"/,
+    "platforms/gui/bare/display_storage F5fm must not define new bare host imports",
+);
+assert(
+    platformGuiBareDisplayStorageImpl.includes("pub struct GuiBareDisplayStorageState") &&
+        platformGuiBareDisplayStorageImpl.includes("pub enum GuiBareDisplayStoragePhase") &&
+        platformGuiBareDisplayStorageImpl.includes("pub enum GuiBareDisplayStorageEffect") &&
+        platformGuiBareDisplayStorageImpl.includes("pub enum GuiBareDisplayStorageErrorKind") &&
+        platformGuiBareDisplayStorageImpl.includes("pub struct GuiBareDisplayStorageStepApplied") &&
+        platformGuiBareDisplayStorageImpl.includes("pub struct GuiBareDisplayStorageStepError") &&
+        platformGuiBareDisplayStorageImpl.includes("pub fn gui_bare_display_storage_apply"),
+    "platforms/gui/bare/display_storage F5fm must expose typed state, effect, error, and apply APIs",
+);
+assert(
+    platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageEffect::FrameBegin") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageEffect::SpanWrite") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageEffect::FramePresent"),
+    "platforms/gui/bare/display_storage F5fm must expose begin/span-write/present effect variants",
+);
+assert(
+    platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::FramebufferValidationFailed") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::AppliedStateMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::StoragePhaseMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::TargetMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::DescriptorMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::AcceptedRunCountMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::AcceptedPixelCountMismatch") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::BeginWhileActive") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::RunWithoutBegin") &&
+        platformGuiBareDisplayStorageImpl.includes("GuiBareDisplayStorageErrorKind::EndWithoutBegin"),
+    "platforms/gui/bare/display_storage F5fm must model framebuffer, applied-state, storage invariant, target, descriptor, count, and phase errors explicitly",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayStorageImpl, "gui_bare_display_storage_state_invariant"),
+    [
+        "gui_bare_framebuffer_state_phase &framebuffer_state",
+        "GuiBareFramebufferPhase::Idle",
+        "GuiBareDisplayStoragePhase::Idle",
+        "GuiBareFramebufferPhase::Active framebuffer_active",
+        "gui_bare_display_storage_active_matches_framebuffer &storage_active &framebuffer_active",
+    ],
+    "platforms/gui/bare/display_storage F5fm state invariant must mirror canonical framebuffer phase and active counters",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiBareDisplayStorageImpl, "gui_bare_display_storage_apply"),
+    [
+        "gui_bare_display_storage_state_invariant &state",
+        "gui_bare_framebuffer_step_applied_operation &framebuffer_step",
+        "gui_bare_display_storage_state_framebuffer_state &state",
+        "gui_bare_framebuffer_validate_operation current_framebuffer_state operation",
+        "GuiBareDisplayStorageErrorKind::FramebufferValidationFailed framebuffer_kind",
+        "gui_bare_framebuffer_step_applied_state &expected_step",
+        "gui_bare_framebuffer_step_applied_state &framebuffer_step",
+        "GuiBareDisplayStorageErrorKind::AppliedStateMismatch",
+        "gui_bare_display_storage_effect_for_operation &state operation",
+        "gui_bare_display_storage_phase_from_framebuffer_state &supplied_next",
+        "gui_bare_display_storage_next_last_presented last_presented effect",
+        "gui_bare_display_storage_state_new supplied_next next_phase next_presented",
+    ],
+    "platforms/gui/bare/display_storage F5fm apply must validate storage invariant, revalidate operation from canonical state, reject stale applied state, then emit effect and advance state",
+);
+assertNoMatch(
+    functionSlice(platformGuiBareDisplayStorageImpl, "gui_bare_display_storage_apply"),
+    /gui_bare_scheduler_host_executor_execute_operation|#extern|display_presenter_session|Result::Ok\s+state|silent|fallback/i,
+    "platforms/gui/bare/display_storage F5fm apply must stay pure and must not call host import or silently accept stale state",
+);
+assertNoMatch(
+    platformGuiBareDisplayStorageImpl,
+    /\b(?:LoopAction::|YieldToClock|AwaitTimerAdvance|CompleteAck|ClockDelta|scheduler_clock|backend_clock|real_loop_driver|headless_app_loop_step|while|Vec|push|queue|setTimeout|setInterval|sleep|request_timer|Canvas|DOM|minifb|video_memory|DrawTarget|RenderTarget)\b/i,
+    "platforms/gui/bare/display_storage F5fm must not implement loop, timer, renderer, queue, or fallback transports",
+);
+assertNoMatch(
+    platformGuiBareDisplayStorageImpl,
+    /[()]/,
+    "platforms/gui/bare/display_storage F5fm implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    [
+        "platform_bare_display_storage_facade_ok",
+        "platform_bare_display_storage_forged_applied_state_ok",
+        "platform_bare_display_storage_source_policy_valid_sequence_ok",
+        "platform_bare_display_storage_source_policy_replay_rejected_ok",
+        "platform_bare_display_storage_source_policy_double_begin_ok",
+        "platform_bare_display_storage_source_policy_run_without_begin_ok",
+        "platform_bare_display_storage_source_policy_incomplete_end_ok",
+        "platform_bare_display_storage_source_policy_frame_mismatch_ok",
+        "platform_bare_display_storage_source_policy_state_invariant_ok",
+        "platform_bare_display_storage_no_host_import_fallback",
+    ].every((label) => guiPlatformBareDisplayStorageTests.includes(label)),
+    "F5fm platform bare display storage focused doctest must cover source-policy labels",
 );
 for (const [name, doc] of [
     ["font rendering spec", spec],
