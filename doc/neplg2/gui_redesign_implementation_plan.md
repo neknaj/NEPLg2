@@ -1562,6 +1562,31 @@ subagent review:
 - 修正版では `FrameIntervalTimerRegistered` outcome で timer registration evidence と pacing completion を型で分離する方針へ変更し、再 review は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gy: Native window host-loop timer fire/wakeup backend boundary
+
+Phase F5gy では、F5gx の `FrameIntervalTimerRegistered` を、実際に backend が観測した timer fire / wakeup evidence へ接続する。ここで実装するのは OS 固有 timer API ではなく、registered timer id と fired timer id の照合境界である。
+
+実装:
+
+- `NativeWindowHostLoopTimerFireWaiter` trait を追加し、`wait_for_timer_fire` は `NativeWindowHostLoopTimerRegistrationId` を受け取って backend-observed raw fired id を返す。
+- `NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired` を追加し、`presentation`、`window_size`、`size_changed`、`wait_nanos`、`timer_registration_id` を保持する。
+- `NativeWindowHostLoopTimerFireError` は `HostEventPumpOutcomeUnsupported`、`FramePresentOutcomeUnsupported`、`InvalidFiredTimerRegistrationId`、`FiredTimerRegistrationMismatch`、`WaiterFailed` を持つ。
+- `execute_native_window_host_loop_timer_fire_wait_with_waiter` は `FrameIntervalTimerRegistered` の場合だけ waiter を 1 回呼ぶ。already-paced outcome は waiter を呼ばず unsupported とする。
+- fired raw id `0` と registered id に一致しない fired raw id は success にしない。
+- source policy は registration backend と fire backend を分離し、registration backend が `FramePresentAlreadyPaced` を含まないこと、fire backend が already-paced outcome を success にしないことを検査する。
+
+非目標:
+
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続は含めない。
+- thread sleep、busy loop、message pump、event queue wait を timer fire backend で代替しない。
+- scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、mismatched id の成功扱いは含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gy 計画を渡し、registration success と fire success を分けること、timer id mismatch を fail closed にすること、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

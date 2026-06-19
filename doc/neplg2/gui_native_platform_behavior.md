@@ -263,6 +263,16 @@ host event wait は F5gt の `HostEventTimerRegistrationUnsupported` のまま f
 
 minifb smoke backend の wait hook は F5gx helper へ接続しない。minifb は引き続き `Window::set_target_fps` / `update_with_buffer` の pacing authority を使い、frame interval wait では `FramePresentAlreadyPaced` を返す。F5gx は timer registration outcome boundary までであり、actual timer fire / wakeup、real OS timer backend connection、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+## Native window host-loop timer fire/wakeup backend checkpoint
+
+F5gy では、F5gx の `FrameIntervalTimerRegistered` outcome を、backend が観測した timer fire / wakeup evidence へ接続する。登録成功と fire 成功は別の event であるため、registered id と fired id が一致した場合だけ `FrameIntervalTimerFired` を返す。
+
+`NativeWindowHostLoopTimerFireWaiter` は registered timer id を受け取り、backend-observed fired raw id を返す。`execute_native_window_host_loop_timer_fire_wait_with_waiter` は `FrameIntervalTimerRegistered` の場合だけ waiter を呼ぶ。fired raw id `0` は invalid、registered raw id と異なる fired raw id は mismatch として fail closed にする。
+
+`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` は timer fire input ではないため unsupported として拒否し、waiter を呼ばない。minifb smoke backend の already-paced frame outcome を timer fire success として扱わない。
+
+F5gy は timer fire / wakeup backend boundary までであり、OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -281,6 +291,7 @@ minifb smoke backend の wait hook は F5gx helper へ接続しない。minifb �
 - `NativeWindowHostLoopThreadSleeper` と `execute_native_window_host_loop_thread_wait_with_sleeper` により、formal native thread wait backend は frame interval instruction を sleep 実行境界へ渡せる。host event wait は queue 未実装として fail closed にする。
 - `NativeWindowHostLoopTimerRegistrar` と `execute_native_window_host_loop_timer_registration_with_registrar` により、formal native timer registration backend は frame interval instruction を raw timer id registration 境界へ渡せる。host event wait は queue 未実装として fail closed にする。
 - `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` と `execute_native_window_host_loop_timer_registration_wait_with_registrar` により、timer registration 成功を already-paced outcome ではなく timer registration evidence として host wait outcome へ渡せる。
+- `NativeWindowHostLoopTimerFireWaiter` と `execute_native_window_host_loop_timer_fire_wait_with_waiter` により、registered timer id と backend-observed fired timer id を照合し、完全一致だけを `FrameIntervalTimerFired` evidence へ進められる。
 - `NativeWindowHostLoopEventQueueWaiter` と `execute_native_window_host_loop_event_queue_wait_with_waiter` により、formal native event queue wait backend は host event instruction を queue wait 境界へ渡せる。frame interval wait は timer / sleep backend の責務として fail closed にする。
 - `NativeWindowHostLoopEventQueueStatusAdapter` と `NativeWindowHostLoopEventQueueStatusWaiter` により、platform adapter が返す normalized raw status を検証して F5gu waiter 境界へ接続できる。
 - `NativeWindowHostLoopMessagePumpAdapter` と `NativeWindowHostLoopMessagePumpStatusAdapter` により、platform message pump の実行成功を F5gv の normalized ready status へ写せる。

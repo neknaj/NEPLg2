@@ -491,6 +491,16 @@ F5gw は message pump adapter boundary までであり、real OS timer backend�
 
 F5gx は timer registration outcome boundary までであり、actual timer fire / wakeup、real OS timer backend connection、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
+## F5gy Native window host-loop timer fire/wakeup backend boundary
+
+2026-06-19 の F5gy では、F5gx の `FrameIntervalTimerRegistered` を backend-observed timer fire evidence へ接続する。registration は timer を予約した証拠であり、fire / wakeup はその timer が実際に ready になった証拠であるため、両者を同じ success outcome として扱わない。
+
+`NativeWindowHostLoopTimerFireWaiter` は `wait_for_timer_fire` に registered timer id を受け取り、backend が観測した fired raw id を返す。`execute_native_window_host_loop_timer_fire_wait_with_waiter` は `FrameIntervalTimerRegistered` の場合だけ waiter を呼び、fired raw id `0` を `InvalidFiredTimerRegistrationId`、registered id と異なる fired raw id を `FiredTimerRegistrationMismatch` として返す。
+
+`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` は timer fire input ではないため、それぞれ `HostEventPumpOutcomeUnsupported` と `FramePresentOutcomeUnsupported` で拒否する。already-paced outcome を timer fire success として扱うことは禁止する。
+
+F5gy は timer fire / wakeup backend boundary までであり、OS 固有 timer API、selector wakeup ownership、minifb wait hook への接続、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
