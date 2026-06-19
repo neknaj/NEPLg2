@@ -1180,6 +1180,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - native runner / CLI connection、minifb wait path、generic dispatch から producer を呼ぶ接続、Linux minifb platform wait runner、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - pre-signal busy loop、synthetic `HostEventReady`、timer fired evidence の偽装、`dup` による close-on-exec 欠落、raw fd escape、eventfd full / `EAGAIN` を成功扱いする fallback は導入しない。
 
+### Phase F5id: Native Linux minifb observed-input signal bridge boundary
+
+目的:
+
+- F5ic の duplicated host event signal producer を、minifb が既に観測した keyboard / text input callback から wake request として呼べるようにする。
+- minifb `InputCallback` は `window.update` / `update_with_buffer` による event processing 中に呼ばれるため、blocking wait を起こす完全な Linux event source ではない。この phase は observed-input signal bridge だけを固定し、Linux platform wait runner / CLI dispatch へは接続しない。
+- callback は `Result` を返せないため、signal failure を silent no-op にせず共有 state に保存し、wait boundary で typed error として表面化する。
+
+実装:
+
+- `NativeWindowHostEventSignalWaitError WaitError` を追加し、host event signal failure と delegate wait failure を別 variant として保持する。
+- `NativeWindowHostEventSignalErrorState` と `NativeWindowHostEventSignalWaitGuardRunLoopHost` を追加する。wait guard は `wait_after_budget_exhausted` の先頭で signal state を確認し、error があれば delegate wait を呼ばずに `HostEventSignalFailed` を返す。error が無い場合だけ inner host wait へ委譲する。
+- cfg Linux + window の `MinifbNativeWindowLinuxHostEventSignalCallbackState` は F5ic producer を所有し、最初の signal error だけを保存する。以後の callback は同じ error を上書きしない。
+- cfg Linux + window の `MinifbNativeWindowLinuxHostEventSignalInputCallback` は `add_char` と `set_key_state` で `signal_observed_input` を呼ぶ。これは observed input に対する wake request であり、`HostEventReady` outcome や timer fired evidence を生成しない。
+
+検証:
+
+- Rust unit tests で、signal state error が delegate wait より先に返ること、signal state が clean な場合は delegate wait failure がそのまま typed variant で返ることを検査する。
+- cfg Linux + window tests で、minifb input callback が producer signal を呼ぶこと、signal failure は first error として 1 回だけ記録されることを検査する。
+- source policy で F5id docs、wait guard、callback state、callback test、runner / CLI 非接続、synthetic readiness / timer evidence / fallback 禁止を固定する。
+
+非目標:
+
+- Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd selector integration、minifb wait replacement、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- minifb callback signal success を `HostEventReady` outcome として扱わない。callback bridge は eventfd producer request だけであり、blocking wait readiness の証明ではない。
+- sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

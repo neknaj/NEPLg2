@@ -839,6 +839,16 @@ cfg Linux sys shim は `fcntl F_DUPFD_CLOEXEC` で duplicated signal fd を作�
 
 F5ic は producer handle boundary までであり、native runner / CLI / minifb wait path、generic dispatch から producer を呼ぶ接続、Linux minifb platform wait runner、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、pre-signal busy loop、synthetic readiness、timer fired evidence の偽装は禁止する。
 
+## F5id Native Linux minifb observed-input signal bridge boundary
+
+2026-06-20 の F5id では、F5ic の duplicated host event signal producer を minifb の observed input callback へ接続する最小境界を追加する。minifb `InputCallback` は minifb が event processing を行った結果として呼ばれるため、X11 / Wayland の fd readiness を直接 selector へ渡すものではない。このため F5id は Linux blocking wait runner の完成ではなく、observed keyboard / text input を eventfd wake request として送るための bridge である。
+
+`NativeWindowHostEventSignalWaitError WaitError` は `HostEventSignalFailed` と `DelegateWaitFailed` を分ける。callback は `Result` を返せないので、producer signal failure は `MinifbNativeWindowLinuxHostEventSignalCallbackState` に first error として保存される。`NativeWindowHostEventSignalWaitGuardRunLoopHost` は `wait_after_budget_exhausted` の前にこの state を確認し、error があれば inner host の wait を呼ばず typed error を返す。これにより eventfd full / `EAGAIN` などの producer failure を silent no-op にしない。
+
+`MinifbNativeWindowLinuxHostEventSignalInputCallback` は `add_char` と `set_key_state` で `signal_observed_input` を呼ぶ。signal success は wake request の成功だけを表し、`HostEventReady` outcome、scheduler resume evidence、timer fired evidence を生成しない。state に error が無い場合、wait guard は inner host wait へ通常どおり委譲するため、signal success だけで wait outcome を合成しない。
+
+F5id は Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland event fd selector integration、minifb wait replacement へは進まない。minifb `InputCallback` だけでは blocking wait 中に新規 OS event を起こす source にならないため、runner 有効化は実 event source fd integration または同等の externally-wakeable host event source を別 phase で扱う。fallback、silent no-op、sleep、busy loop、synthetic host event、timer fired evidence の偽装は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

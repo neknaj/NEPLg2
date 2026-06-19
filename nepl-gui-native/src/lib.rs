@@ -1488,6 +1488,96 @@ pub trait NativeWindowRunLoopHost {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Separates observed-input signal failures from the host wait implementation error.
+pub enum NativeWindowHostEventSignalWaitError<WaitError> {
+    HostEventSignalFailed(NativeWindowHostLoopLinuxHostEventSignalProducerError),
+    DelegateWaitFailed(WaitError),
+}
+
+/// Exposes deferred signal failure state collected outside the wait call path.
+pub trait NativeWindowHostEventSignalErrorState {
+    fn take_host_event_signal_error(
+        &mut self,
+    ) -> Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>;
+}
+
+/// Wraps a run-loop host and checks deferred signal failures before delegating wait.
+pub struct NativeWindowHostEventSignalWaitGuardRunLoopHost<Host, SignalState> {
+    host: Host,
+    signal_state: SignalState,
+}
+
+impl<Host, SignalState> NativeWindowHostEventSignalWaitGuardRunLoopHost<Host, SignalState> {
+    pub fn new(host: Host, signal_state: SignalState) -> Self {
+        Self { host, signal_state }
+    }
+
+    pub fn host(&self) -> &Host {
+        &self.host
+    }
+
+    pub fn host_mut(&mut self) -> &mut Host {
+        &mut self.host
+    }
+
+    pub fn signal_state(&self) -> &SignalState {
+        &self.signal_state
+    }
+
+    pub fn signal_state_mut(&mut self) -> &mut SignalState {
+        &mut self.signal_state
+    }
+
+    pub fn into_parts(self) -> (Host, SignalState) {
+        (self.host, self.signal_state)
+    }
+}
+
+impl<Host, SignalState> NativeWindowRunLoopHost
+    for NativeWindowHostEventSignalWaitGuardRunLoopHost<Host, SignalState>
+where
+    Host: NativeWindowRunLoopHost,
+    SignalState: NativeWindowHostEventSignalErrorState,
+{
+    type EventError = Host::EventError;
+    type PresentError = Host::PresentError;
+    type WaitError = NativeWindowHostEventSignalWaitError<Host::WaitError>;
+
+    fn poll_event_snapshot(
+        &mut self,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::EventError> {
+        self.host.poll_event_snapshot(input)
+    }
+
+    fn set_window_title(&mut self, title: &str) {
+        self.host.set_window_title(title);
+    }
+
+    fn pump_events_only(&mut self) {
+        self.host.pump_events_only();
+    }
+
+    fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError> {
+        self.host.present_frame(frame)
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        instruction: NativeWindowHostLoopWaitInstruction,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        if let Some(error) = self.signal_state.take_host_event_signal_error() {
+            return Err(NativeWindowHostEventSignalWaitError::HostEventSignalFailed(
+                error,
+            ));
+        }
+        self.host
+            .wait_after_budget_exhausted(instruction)
+            .map_err(NativeWindowHostEventSignalWaitError::DelegateWaitFailed)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopError<EventError, PresentError, WaitError> {
     HostEventPumpFailed(EventError),
     HostActionFailed(NativeWindowHostActionError),
@@ -7951,6 +8041,99 @@ enum MinifbNativeWindowVisualHostWaitError {
     VisualHostWaitUnsupported {
         instruction: NativeWindowHostLoopWaitInstruction,
     },
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+#[derive(Debug)]
+/// Stores the Linux host-event signal producer used by minifb observed input callbacks.
+pub struct MinifbNativeWindowLinuxHostEventSignalCallbackState<
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+> {
+    producer: NativeWindowHostLoopLinuxHostEventSignalProducer<Api>,
+    first_error: Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>,
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+impl<Api> MinifbNativeWindowLinuxHostEventSignalCallbackState<Api>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn new(producer: NativeWindowHostLoopLinuxHostEventSignalProducer<Api>) -> Self {
+        Self {
+            producer,
+            first_error: None,
+        }
+    }
+
+    #[cfg(test)]
+    fn producer(&self) -> &NativeWindowHostLoopLinuxHostEventSignalProducer<Api> {
+        &self.producer
+    }
+
+    pub fn signal_observed_input(&mut self) {
+        if self.first_error.is_some() {
+            return;
+        }
+        if let Err(error) = self.producer.signal_host_event() {
+            self.first_error = Some(error);
+        }
+    }
+
+    pub fn take_first_error(
+        &mut self,
+    ) -> Option<NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        self.first_error.take()
+    }
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+impl<Api> NativeWindowHostEventSignalErrorState
+    for std::rc::Rc<std::cell::RefCell<MinifbNativeWindowLinuxHostEventSignalCallbackState<Api>>>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    fn take_host_event_signal_error(
+        &mut self,
+    ) -> Option<NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        self.borrow_mut().take_first_error()
+    }
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+/// Signals a Linux host-event fd when minifb reports already observed keyboard or text input.
+pub struct MinifbNativeWindowLinuxHostEventSignalInputCallback<
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+> {
+    state:
+        std::rc::Rc<std::cell::RefCell<MinifbNativeWindowLinuxHostEventSignalCallbackState<Api>>>,
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+impl<Api> MinifbNativeWindowLinuxHostEventSignalInputCallback<Api>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn new(
+        state: std::rc::Rc<
+            std::cell::RefCell<MinifbNativeWindowLinuxHostEventSignalCallbackState<Api>>,
+        >,
+    ) -> Self {
+        Self { state }
+    }
+}
+
+#[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+impl<Api> minifb::InputCallback for MinifbNativeWindowLinuxHostEventSignalInputCallback<Api>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi + 'static,
+{
+    fn add_char(&mut self, _uni_char: u32) {
+        self.state.borrow_mut().signal_observed_input();
+    }
+
+    fn set_key_state(&mut self, _key: minifb::Key, _state: bool) {
+        self.state.borrow_mut().signal_observed_input();
+    }
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
@@ -15893,6 +16076,60 @@ mod tests {
         );
     }
 
+    #[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+    #[test]
+    fn native_window_linux_minifb_input_callback_signals_observed_input() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(92);
+        let producer = backend
+            .create_host_event_signal_producer(producer_api)
+            .unwrap();
+        let state = std::rc::Rc::new(std::cell::RefCell::new(
+            MinifbNativeWindowLinuxHostEventSignalCallbackState::new(producer),
+        ));
+        let mut callback = MinifbNativeWindowLinuxHostEventSignalInputCallback::new(state.clone());
+
+        minifb::InputCallback::add_char(&mut callback, 0x3042);
+        minifb::InputCallback::set_key_state(&mut callback, minifb::Key::A, true);
+
+        let state = state.borrow();
+        assert_eq!(state.producer().api().signal_calls, vec![92, 92]);
+        assert_eq!(state.first_error, None);
+    }
+
+    #[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
+    #[test]
+    fn native_window_linux_minifb_input_callback_records_first_signal_error() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(93)
+            .with_signal_result(false)
+            .with_last_error_code(77);
+        let producer = backend
+            .create_host_event_signal_producer(producer_api)
+            .unwrap();
+        let state = std::rc::Rc::new(std::cell::RefCell::new(
+            MinifbNativeWindowLinuxHostEventSignalCallbackState::new(producer),
+        ));
+        let mut callback = MinifbNativeWindowLinuxHostEventSignalInputCallback::new(state.clone());
+
+        minifb::InputCallback::set_key_state(&mut callback, minifb::Key::A, true);
+        minifb::InputCallback::add_char(&mut callback, 0x3042);
+
+        let mut state = state.borrow_mut();
+        assert_eq!(state.producer().api().signal_calls, vec![93]);
+        assert_eq!(
+            state.take_first_error(),
+            Some(
+                NativeWindowHostLoopLinuxHostEventSignalProducerError::SignalHostEventSignalFdFailed {
+                    code: 77,
+                }
+            )
+        );
+        assert_eq!(state.take_first_error(), None);
+    }
+
     #[test]
     fn native_window_linux_selector_timer_fd_backend_wait_for_host_event_uses_event_only_wait() {
         let window_size = NativeWindowSize::new(640, 480);
@@ -17902,6 +18139,92 @@ mod tests {
             self.wait_outcomes.push(outcome.clone());
             Ok(outcome)
         }
+    }
+
+    #[derive(Debug)]
+    struct ScriptedNativeWindowHostEventSignalErrorState {
+        error: Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>,
+        take_calls: usize,
+    }
+
+    impl ScriptedNativeWindowHostEventSignalErrorState {
+        fn clean() -> Self {
+            Self {
+                error: None,
+                take_calls: 0,
+            }
+        }
+
+        fn with_error(error: NativeWindowHostLoopLinuxHostEventSignalProducerError) -> Self {
+            Self {
+                error: Some(error),
+                take_calls: 0,
+            }
+        }
+    }
+
+    impl NativeWindowHostEventSignalErrorState for ScriptedNativeWindowHostEventSignalErrorState {
+        fn take_host_event_signal_error(
+            &mut self,
+        ) -> Option<NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+            self.take_calls += 1;
+            self.error.take()
+        }
+    }
+
+    #[test]
+    fn native_window_host_event_signal_wait_guard_returns_signal_error_before_delegate_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let delegate = ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("wait");
+        let state = ScriptedNativeWindowHostEventSignalErrorState::with_error(
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::SignalHostEventSignalFdFailed {
+                code: 11,
+            },
+        );
+        let mut host = NativeWindowHostEventSignalWaitGuardRunLoopHost::new(delegate, state);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap_err(),
+            NativeWindowHostEventSignalWaitError::HostEventSignalFailed(
+                NativeWindowHostLoopLinuxHostEventSignalProducerError::SignalHostEventSignalFdFailed {
+                    code: 11,
+                },
+            )
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(host.signal_state().take_calls, 1);
+    }
+
+    #[test]
+    fn native_window_host_event_signal_wait_guard_delegates_without_synthetic_outcome() {
+        let window_size = NativeWindowSize::new(320, 240);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 42,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let delegate = ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("wait");
+        let state = ScriptedNativeWindowHostEventSignalErrorState::clean();
+        let mut host = NativeWindowHostEventSignalWaitGuardRunLoopHost::new(delegate, state);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction.clone())
+                .unwrap_err(),
+            NativeWindowHostEventSignalWaitError::DelegateWaitFailed("wait")
+        );
+        assert_eq!(host.host().wait_instructions, vec![instruction]);
+        assert_eq!(host.signal_state().take_calls, 1);
     }
 
     struct ScriptedNativeWindowHostLoopThreadSleeper {

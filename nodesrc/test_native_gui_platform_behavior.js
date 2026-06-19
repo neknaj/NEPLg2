@@ -137,6 +137,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost",
         "pub enum NativeWindowHostLoopPlatformKind",
     );
+    const nativeWindowHostEventSignalWaitGuardRunLoopHost = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostEventSignalWaitError",
+        "pub enum NativeWindowHostLoopError",
+    );
     const nativeWindowPlatformWaitBackendKind = textSliceBetween(
         libSource,
         "pub enum NativeWindowHostLoopPlatformKind",
@@ -217,6 +222,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowMinifbFramePacingAuthority",
         "pub fn step_native_window_host_loop",
     );
+    const minifbNativeWindowLinuxObservedInputSignalBridge = textSliceBetween(
+        libSource,
+        "pub struct MinifbNativeWindowLinuxHostEventSignalCallbackState",
+        "fn wait_minifb_window_host_event_message_pump",
+    );
     const nativeWindowHostLoopTurnCore = textSliceBetween(
         libSource,
         "pub fn step_native_window_host_loop",
@@ -226,7 +236,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         libSource,
         "struct MinifbNativeWindowHostLoopMessagePumpAdapter",
         "struct MinifbNativeWindowVisualRunLoopHost",
-    );
+    ).replace(minifbNativeWindowLinuxObservedInputSignalBridge, "");
     const nativeWindowMinifbVisualHostAdapter = textSliceBetween(
         libSource,
         "struct MinifbNativeWindowVisualRunLoopHost",
@@ -576,6 +586,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /type WaitError = NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<[\s\S]*<Backend as NativeWindowHostLoopDeadlineTimerClock>::Error/);
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter\([\s\S]*instruction,[\s\S]*&mut self\.wait_adapter/);
     assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /self\.host\.wait_after_budget_exhausted|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopWaitOwner|stringify|to_string|format!|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /pub enum NativeWindowHostEventSignalWaitError<WaitError>\s*\{[\s\S]*HostEventSignalFailed\(NativeWindowHostLoopLinuxHostEventSignalProducerError\),[\s\S]*DelegateWaitFailed\(WaitError\)/);
+    assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /pub trait NativeWindowHostEventSignalErrorState\s*\{[\s\S]*take_host_event_signal_error[\s\S]*Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>/);
+    assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /pub struct NativeWindowHostEventSignalWaitGuardRunLoopHost<Host,\s*SignalState>\s*\{[\s\S]*host: Host,[\s\S]*signal_state: SignalState/);
+    assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /impl<Host,\s*SignalState> NativeWindowRunLoopHost[\s\S]*for NativeWindowHostEventSignalWaitGuardRunLoopHost<Host,\s*SignalState>[\s\S]*type WaitError = NativeWindowHostEventSignalWaitError<Host::WaitError>/);
+    assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /wait_after_budget_exhausted\([\s\S]*if let Some\(error\) = self\.signal_state\.take_host_event_signal_error\(\)[\s\S]*HostEventSignalFailed[\s\S]*self\.host[\s\S]*\.wait_after_budget_exhausted\(instruction\)[\s\S]*DelegateWaitFailed/);
+    assert.match(libSource, /native_window_host_event_signal_wait_guard_returns_signal_error_before_delegate_wait/);
+    assert.match(libSource, /native_window_host_event_signal_wait_guard_delegates_without_synthetic_outcome/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformKind\s*\{[\s\S]*Macos,[\s\S]*Windows,[\s\S]*Linux,[\s\S]*Unsupported/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendKind\s*\{[\s\S]*MacosRunLoopTimer,[\s\S]*WindowsWaitableTimerMessageWait,[\s\S]*LinuxSelectorTimerFd,[\s\S]*HeadlessScripted/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendSupportError\s*\{[\s\S]*DefaultBackendUnsupportedPlatform[\s\S]*RequestedBackendUnsupportedPlatform[\s\S]*BackendPlatformMismatch/);
@@ -693,6 +710,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub struct NativeWindowHostLoopLinuxHostEventSignalProducer<[\s\S]*api: Api,[\s\S]*signal: Option<NativeWindowHostLoopLinuxHostEventSignalFd>/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> NativeWindowHostLoopLinuxHostEventSignalProducer<Api>[\s\S]*pub fn close_signal_handle_if_open\(&mut self\) -> bool[\s\S]*self\.signal\.take\(\)[\s\S]*close_host_event_signal_fd_raw\(&signal\)[\s\S]*pub fn signal_host_event[\s\S]*signal = self\.signal\.as_ref\(\)[\s\S]*InvalidHostEventSignalRawFd\s*\{\s*raw_fd: -1,?\s*\}[\s\S]*signal_host_event_signal_fd_raw\(signal\)[\s\S]*SignalHostEventSignalFdFailed\s*\{[\s\S]*code: self\.api\.last_error_code\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> Drop for NativeWindowHostLoopLinuxHostEventSignalProducer<Api>[\s\S]*self\.close_signal_handle_if_open\(\)/);
+    assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /pub struct MinifbNativeWindowLinuxHostEventSignalCallbackState<[\s\S]*producer: NativeWindowHostLoopLinuxHostEventSignalProducer<Api>,[\s\S]*first_error: Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>/);
+    assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /signal_observed_input[\s\S]*if self\.first_error\.is_some\(\)[\s\S]*return;[\s\S]*self\.producer\.signal_host_event\(\)[\s\S]*self\.first_error = Some\(error\)/);
+    assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /impl<Api> NativeWindowHostEventSignalErrorState[\s\S]*Rc<std::cell::RefCell<MinifbNativeWindowLinuxHostEventSignalCallbackState<Api>>>[\s\S]*borrow_mut\(\)\.take_first_error\(\)/);
+    assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /pub struct MinifbNativeWindowLinuxHostEventSignalInputCallback<[\s\S]*state: std::rc::Rc/);
+    assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /impl<Api> minifb::InputCallback[\s\S]*for MinifbNativeWindowLinuxHostEventSignalInputCallback<Api>[\s\S]*fn add_char[\s\S]*signal_observed_input\(\)[\s\S]*fn set_key_state[\s\S]*signal_observed_input\(\)/);
+    assert.doesNotMatch(minifbNativeWindowLinuxObservedInputSignalBridge, /NativeWindowHostLoopWaitOutcome|HostEventReady|FrameIntervalTimerFired|TimerFired|run_linux_platform_wait_window_loop|set_target_fps|window\.update\(|update_with_buffer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_minifb_input_callback_signals_observed_input/);
+    assert.match(libSource, /native_window_linux_minifb_input_callback_records_first_signal_error/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn wait_for_host_event[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*selector_wait_for_event_raw\(selector,\s*host_event\)[\s\S]*native_window_host_loop_linux_selector_timer_fd_host_event_from_status/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn wait_until_deadline_or_host_event[\s\S]*native_window_host_loop_linux_selector_timer_fd_deadline_plan[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*arm_timer_fd_relative_timespec\(timer,\s*timespec\)[\s\S]*selector_wait_for_timer_or_event_raw\(selector,\s*timer,\s*host_event\)[\s\S]*native_window_host_loop_linux_selector_timer_fd_wake_from_status/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> Drop for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>[\s\S]*self\.close_handles_if_open\(\)/);
@@ -730,6 +755,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /native_window_host_loop_linux_selector_timer_fd_backend_from_selection[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /#\[cfg\(target_os = "linux"\)\][\s\S]*pub fn native_window_host_loop_platform_wait_backend_from_selection\([\s\S]*NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi[\s\S]*>[\s\S]*build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api\([\s\S]*selection,[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new\(\)/);
     assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdSysApi, /native_window_run_loop_platform_wait_backend_from_config|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|saturating|clamp/i);
+    assert.doesNotMatch(libSource, /run_linux_platform_wait_window_loop|LinuxPlatformWaitHostLoopFailed|set_target_fps\(0\)/);
+    assert.doesNotMatch(mainSource, /run_linux_platform_wait_window_loop|LinuxPlatformWaitHostLoopFailed|target_os = "linux"/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_handles_accept_zero_and_reject_negative_raw_fds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_timespec_uses_checked_seconds_and_nanoseconds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_deadline_plan_uses_already_reached_or_timespec/);
@@ -1376,6 +1403,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /create_host_event_signal_producer/);
     assert.match(platformDoc, /F_DUPFD_CLOEXEC/);
     assert.match(platformDoc, /synthetic readiness、pre-signal busy loop/);
+    assert.match(platformDoc, /F5id/);
+    assert.match(platformDoc, /MinifbNativeWindowLinuxHostEventSignalInputCallback/);
+    assert.match(platformDoc, /keyboard \/ text input callback/);
+    assert.match(platformDoc, /blocking wait の実 event source ではなく/);
+    assert.match(platformDoc, /HostEventSignalFailed/);
+    assert.match(platformDoc, /run_linux_platform_wait_window_loop/);
     assert.match(platformDoc, /F5hf/);
     assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
     assert.match(platformDoc, /HostOwnedDeadlineTimer/);
@@ -1545,6 +1578,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopLinuxHostEventSignalProducerError/);
     assert.match(implementationPlan, /fcntl F_DUPFD_CLOEXEC/);
     assert.match(implementationPlan, /pre-signal busy loop/);
+    assert.match(implementationPlan, /Phase F5id: Native Linux minifb observed-input signal bridge boundary/);
+    assert.match(implementationPlan, /NativeWindowHostEventSignalWaitError WaitError/);
+    assert.match(implementationPlan, /MinifbNativeWindowLinuxHostEventSignalCallbackState/);
+    assert.match(implementationPlan, /HostEventReady` outcome や timer fired evidence を生成しない/);
+    assert.match(implementationPlan, /Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`/);
     assert.match(implementationPlan, /Phase F5hx: Native platform wait multi-backend owner boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi/);
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis/);
@@ -1706,6 +1744,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopLinuxHostEventSignalRawApi/);
     assert.match(standardSpec, /fcntl F_DUPFD_CLOEXEC/);
     assert.match(standardSpec, /pre-signal busy loop/);
+    assert.match(standardSpec, /F5id Native Linux minifb observed-input signal bridge boundary/);
+    assert.match(standardSpec, /observed keyboard \/ text input/);
+    assert.match(standardSpec, /HostEventSignalFailed/);
+    assert.match(standardSpec, /DelegateWaitFailed/);
+    assert.match(standardSpec, /Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

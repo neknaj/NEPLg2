@@ -399,6 +399,12 @@ F5ic では、F5ib の backend-owned producer を、blocking wait 中の backend
 
 cfg Linux sys shim は producer fd を `fcntl F_DUPFD_CLOEXEC` で作り、duplicated fd への signal も `u64` 値 `1` の exact write だけを成功にする。producer close は close-once cleanup であり、drop cleanup failure は通常 wait result と混ぜない。F5ic は external window / event source が wait backend owner を占有せず wake request を送るための境界であり、runner / CLI / minifb wait path、generic dispatch、synthetic readiness、pre-signal busy loop へはまだ接続しない。
 
+F5id では、minifb が既に観測した keyboard / text input callback から F5ic producer を呼ぶ bridge だけを追加する。minifb `InputCallback` は `window.update` / `update_with_buffer` による event processing 中に呼ばれるので、blocking wait 中の OS event readiness source ではない。したがって F5id は Linux platform wait runner を有効化せず、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb default runner には接続しない。
+
+callback は `Result` を返せないため、`MinifbNativeWindowLinuxHostEventSignalCallbackState` が最初の signal failure を保存する。`NativeWindowHostEventSignalWaitGuardRunLoopHost` は wait 前にその state を確認し、error があれば inner host wait を呼ばず `HostEventSignalFailed` を返す。error が無い場合だけ delegate wait へ進むため、signal success を `HostEventReady` outcome として合成しない。eventfd full / `EAGAIN`、short write、producer close 後 signal は silent no-op にせず typed error として残す。
+
+実 Linux blocking wait runner では、minifb callback だけでなく X11 / Wayland / window toolkit の externally-wakeable event source を selector に渡す必要がある。その設計までは後続 phase とし、F5id では sleep、busy loop、fallback、synthetic host event、timer fired evidence の偽装を導入しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -443,6 +449,7 @@ cfg Linux sys shim は producer fd を `fcntl F_DUPFD_CLOEXEC` で作り、dupli
 - cfg Linux では `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` により、actual `epoll` / `timerfd` / `eventfd` syscall を raw API implementation として使える。host-event-only wait は host event fd readiness と eventfd drain だけを成功にする。
 - `NativeWindowHostLoopLinuxSelectorTimerFdBackend::signal_host_event` により、owned host event fd へ explicit wake request を書ける。cfg Linux sys shim は `u64 1` の exact eventfd write だけを success にし、failure は typed error として保持する。
 - `NativeWindowHostLoopLinuxHostEventSignalProducer` により、backend-owned host event fd から duplicated producer fd を作り、blocking wait 中の backend とは別 owner が wake request を送れる。cfg Linux sys shim は `F_DUPFD_CLOEXEC` で producer fd を作り、producer close は close-once cleanup として扱う。ただし runner / CLI / minifb wait path にはまだ接続していない。
+- `MinifbNativeWindowLinuxHostEventSignalInputCallback` により、cfg Linux + window では minifb が観測済みの keyboard / text input callback から producer signal を呼べる。ただしこれは blocking wait の実 event source ではなく、`run_linux_platform_wait_window_loop` や CLI dispatch には接続していない。signal failure は `MinifbNativeWindowLinuxHostEventSignalCallbackState` に保存され、`NativeWindowHostEventSignalWaitGuardRunLoopHost` が wait 前に typed error として返せる。
 - `NativeWindowHostLoopLinuxOnlyPlatformWaitBackend` と `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` により、cfg Linux sys API を generic platform wait owner の Linux helper から構築できる。ただし CLI selection、runner dispatch、minifb wait path にはまだ接続していない。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。

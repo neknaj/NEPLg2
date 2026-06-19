@@ -1,3 +1,53 @@
+# 2026-06-20 Agent2 GUI native F5id Linux minifb observed-input signal bridge boundary
+
+## scope
+
+- F5ic の duplicated host event signal producer を、minifb が既に観測した keyboard / text input callback から wake request として呼べる境界へ進める。
+- minifb `InputCallback` は `window.update` / `update_with_buffer` による event processing 中に呼ばれるため、blocking wait 中の OS event readiness source とは扱わない。
+- signal failure を callback 内で silent no-op にせず、wait boundary で typed error として表面化する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`set_target_fps 0`、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `REQUIRED_CHANGES`。Linux runner / CLI dispatch を同時に追加すると、eventfd signal が minifb event processing を必要とし、blocking wait 中に自力で wake できない readiness cycle になると指摘された。
+- 修正版では F5id を observed-input signal bridge boundary のみに狭め、Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement を非目標にした。
+- 修正版 plan は `PLAN_APPROVED`。required constraints は、F5id を `run_linux_platform_wait_window_loop` / CLI dispatch / existing minifb default runner から切り離すこと、callback signal success を readiness evidence にしないこと、signal failure と delegate wait failure を typed enum variant として保持すること、source policy で `run_linux_platform_wait_window_loop` / `run_platform_wait_window` / `set_target_fps(0)` / synthetic `HostEventReady` / timer-fired evidence を禁止することだった。
+
+## implementation
+
+- `NativeWindowHostEventSignalWaitError`、`NativeWindowHostEventSignalErrorState`、`NativeWindowHostEventSignalWaitGuardRunLoopHost` を追加した。
+- wait guard は `wait_after_budget_exhausted` の先頭で signal state を確認し、error があれば delegate wait を呼ばず `HostEventSignalFailed` を返す。error が無い場合だけ inner host wait へ進む。
+- cfg Linux + window の `MinifbNativeWindowLinuxHostEventSignalCallbackState` と `MinifbNativeWindowLinuxHostEventSignalInputCallback` を追加した。
+- callback は `add_char` と `set_key_state` で `signal_observed_input` を呼ぶ。signal failure は first error として保存され、後続 callback で上書きしない。
+- GUI spec / implementation plan / native platform behavior / `todo.md` を F5id scope に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_event_signal_wait_guard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_host_event_signal_producer -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は cfg Linux target 上の existing dead_code であり、F5id の blocker ではない。
+- pass: `cargo fmt --check`
+- pass: `git diff --check`
+- not run to completion: `cargo check -p nepl-gui-native --features window --target x86_64-unknown-linux-gnu` は `minifb` build script が `x86_64-linux-gnu-gcc` を要求し、この Windows 環境に cross C compiler が無いため失敗した。F5id code blocker ではなく environment blocker と判断した。
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5id section に `verification_current` と `implementation_review` が無いことだった。
+- 指摘時点で、F5id の責務が observed-input signal bridge boundary に留まること、minifb callback を blocking wait readiness と偽装しないこと、signal failure と delegate wait failure を typed enum variant として分けること、runner / CLI / synthetic readiness / timer evidence を追加しないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / main merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux platform wait runner / CLI dispatch は未実装である。minifb callback だけでは blocking wait source にならないため、actual X11 / Wayland event source fd integration または同等の externally-wakeable source を別 phase で設計する必要がある。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ic Linux host event signal producer handle boundary
 
 ## scope
