@@ -1809,6 +1809,29 @@ subagent review:
 
 - Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、config backend を typed enum にすること、validation が F5hf authority type を再利用すること、default が minifb internal pacing であること、minifb runner は `HostOwnedDeadlineTimer` を side effect 前に拒否すること、fallback を禁止すること、source policy で ordering と deadline-timer 禁止を固定することである。
 
+## Phase F5hi: Native host-owned deadline wait run-loop host wrapper boundary
+
+Phase F5hi では、formal wait owner を native run-loop host contract に接続できる wrapper を追加する。F5hg までで host event wait と frame interval timer wait の owner は独立していたため、この phase では future native OS backend / deterministic test backend が同じ `NativeWindowRunLoopHost` interface から owner wait を使えるようにする。
+
+実装:
+
+- `NativeWindowHostOwnedDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopWaitOwner` を所有する。
+- `poll_event_snapshot`、`set_window_title`、`pump_events_only`、`present_frame` は inner host へ委譲する。
+- `wait_after_budget_exhausted` は inner host の wait hook を呼ばず、`execute_native_window_host_loop_wait_with_owner` だけを呼ぶ。
+- associated type は `EventError = Host::EventError`、`PresentError = Host::PresentError`、`WaitError = NativeWindowHostLoopWaitOwnerError<...>` とし、error を文字列化しない。
+- unit test は non-wait operation の委譲、host-event wait が event queue waiter だけを使うこと、frame-interval wait が deadline timer だけを使うこと、owner wait error が typed enum のまま返ることを検査する。
+- source policy は wrapper と minifb smoke path を分け、minifb runner / host adapter / wait method が wrapper、wait owner、deadline timer adapter、std deadline helper を参照しないことを固定する。
+
+非目標:
+
+- minifb runner を host-owned wait owner へ接続しない。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、wait hook が owner helper だけを呼ぶこと、inner host wait hook を呼ばない test を入れること、non-wait operation は inner host に正確に委譲すること、owner wait error を typed error のまま保持すること、host-event wait と frame-interval wait の dispatch 先を分けて検査すること、minifb path へ wrapper を混ぜないことである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

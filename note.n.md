@@ -1,3 +1,46 @@
+# 2026-06-19 Agent2 GUI native F5hi host-owned deadline wait run-loop host wrapper boundary
+
+## scope
+
+- F5hh の後続として、formal wait owner を `NativeWindowRunLoopHost` の wait hook から使える wrapper 境界を追加する。
+- non-wait operation は inner host に委譲し、wait だけを `NativeWindowHostLoopWaitOwner` へ渡す。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、wrapper wait が inner host の wait hook を呼ばず `execute_native_window_host_loop_wait_with_owner` だけを使うこと、non-wait operation が inner host error 型を保持して委譲されること、wait error を typed owner error として保持すること、host-event wait と frame-interval wait の owner dispatch を test すること、minifb path に wrapper / wait owner / deadline timer adapter を混入させないことである。
+
+## implementation_current
+
+- `NativeWindowHostOwnedDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopWaitOwner` を所有するようにした。
+- event polling、title update、pump-only、present は inner host へ委譲し、wait は `execute_native_window_host_loop_wait_with_owner` に委譲する。
+- `EventError` / `PresentError` は inner host の型を保持し、`WaitError` は `NativeWindowHostLoopWaitOwnerError` のまま返す。
+- source-policy に wrapper boundary と minifb path 非混入の検査を追加した。
+- docs と `todo.md` を F5hi contract に更新した。
+
+## residual
+
+- real selector / message-loop timer backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo test -p nepl-gui-native --lib native_window_host_owned_deadline_wait_host -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューでは、コードと source-policy に blocker は無いことを確認した。
+- `todo.md` に F5hg 表記が残る documentation finding があり、F5hi 表記へ修正した。
+- follow-up review で `APPROVED_TO_COMMIT` を得た。
+
 # 2026-06-19 Agent2 GUI native F5hh run-loop frame interval wait backend selection boundary
 
 ## scope
