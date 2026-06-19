@@ -604,7 +604,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowMacosRunLoopTimerBackend, /pub fn wait_until_deadline_or_host_event[\s\S]*native_window_host_loop_macos_run_loop_deadline_plan[\s\S]*schedule_run_loop_timer_relative_nanos[\s\S]*run_loop_wait_for_timer_or_event_raw[\s\S]*native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status/);
     assert.match(nativeWindowMacosRunLoopTimerBackend, /impl<Api> Drop for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>[\s\S]*self\.invalidate_handle_if_open\(\)/);
     assert.match(nativeWindowMacosRunLoopTimerBackend, /build_native_window_host_loop_macos_run_loop_timer_backend_from_selection[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform[\s\S]*NativeWindowHostLoopPlatformKind::Macos[\s\S]*NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer[\s\S]*RunLoopTimerBackendFailed/);
-    assert.doesNotMatch(nativeWindowMacosRunLoopTimerBackend, /impl<Api> NativeWindowHostLoopDeadlineTimerClock|impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter|NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer|build_native_window_host_loop_platform_wait_backend_from_selection_with_macos_api|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|saturating|clamp/i);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /impl<Api> NativeWindowHostLoopDeadlineTimerClock[\s\S]*for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>[\s\S]*type Error = NativeWindowHostLoopMacosRunLoopTimerBackendError[\s\S]*self\.elapsed_nanos\(\)/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter[\s\S]*for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>[\s\S]*wait_for_host_event[\s\S]*NativeWindowHostLoopMacosRunLoopTimerBackend::wait_for_host_event[\s\S]*wait_until_deadline_or_host_event[\s\S]*TimerFired[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached[\s\S]*HostEventReady[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady/);
+    assert.doesNotMatch(nativeWindowMacosRunLoopTimerBackend, /NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer|build_native_window_host_loop_platform_wait_backend_from_selection_with_macos_api|#\[cfg\(target_os = "macos"\)\]|CoreFoundation|CFRunLoop|AppKit|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|saturating|clamp/i);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub struct NativeWindowHostLoopLinuxSelectorFd\s*\{[\s\S]*raw_fd: i32/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub struct NativeWindowHostLoopLinuxTimerFd\s*\{[\s\S]*raw_fd: i32/);
     assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdBackend, /pub raw_fd:|pub fn raw_fd|pub fn fd\(/);
@@ -680,6 +682,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_macos_run_loop_backend_invalidates_handle_once/);
     assert.match(libSource, /native_window_macos_run_loop_backend_builder_requires_validated_macos_selection/);
     assert.match(libSource, /native_window_macos_run_loop_backend_builder_preserves_raw_api_failure/);
+    assert.match(libSource, /native_window_macos_run_loop_wait_trait_maps_timer_to_deadline_reached/);
+    assert.match(libSource, /native_window_macos_run_loop_wait_trait_keeps_host_ready_non_timer/);
+    assert.match(libSource, /native_window_macos_run_loop_wait_trait_rejects_timer_status_for_event_wait/);
+    assert.match(libSource, /native_window_macos_run_loop_wait_trait_preserves_schedule_error/);
     assert.match(libSource, /native_window_windows_wait_handle_rejects_null_and_invalid_raw_handles/);
     assert.match(libSource, /native_window_windows_deadline_plan_uses_already_reached_or_rounded_relative_100ns/);
     assert.match(libSource, /native_window_windows_wait_status_maps_timer_message_and_failures/);
@@ -1364,6 +1370,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopInterruptibleDeadlineWaiter/);
     assert.match(implementationPlan, /TimerFired` を `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached/);
     assert.match(implementationPlan, /actual Linux syscall shim や generic platform wait enum 統合へは進まない/);
+    assert.match(implementationPlan, /Phase F5hw: Native macOS run loop timer single-owner wait trait boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopMacosRunLoopTimerBackend` は monotonic origin からの checked elapsed nanoseconds/);
+    assert.match(implementationPlan, /macOS raw wake の `TimerFired` を `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached/);
+    assert.match(implementationPlan, /generic `NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1479,6 +1489,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /single-owner interruptible deadline wait contract/);
     assert.match(standardSpec, /`TimerFired` を `DeadlineReached`/);
     assert.match(standardSpec, /generic `NativeWindowHostLoopPlatformWaitBackend` の Linux owner variant/);
+    assert.match(standardSpec, /F5hw Native macOS run loop timer single-owner wait trait boundary/);
+    assert.match(standardSpec, /macOS raw wake の `TimerFired` は `DeadlineReached`/);
+    assert.match(standardSpec, /host-event-only wait では timer-fired status を host event として受け入れない/);
+    assert.match(standardSpec, /generic `NativeWindowHostLoopPlatformWaitBackend` の macOS owner variant/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

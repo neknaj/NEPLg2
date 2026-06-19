@@ -597,6 +597,18 @@ subagent review:
 
 - Darwin the 2nd の plan review は `APPROVED`。generic platform owner 統合へ飛ぶ前に F5ho single-owner adapter との semantic 接続を固定する root-cause slice として妥当であり、generic enum variant / actual Linux sys shim / runner 接続は後続へ残すよう確認された。
 
+## Phase F5hw: Native macOS run loop timer single-owner wait trait boundary
+
+F5hw では、F5ht の macOS run loop timer raw backend を `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` に接続し、F5ho の single-owner interruptible deadline wait adapter で扱える境界を追加する。これは raw backend を run-loop wait owner contract へ接続する最小 slice であり、actual macOS sys shim や generic platform wait enum 統合へは進まない。
+
+`NativeWindowHostLoopMacosRunLoopTimerBackend` は monotonic origin からの checked elapsed nanoseconds を `now_nanos` として返す。host-event-only wait は F5ht の event-only raw wait をそのまま使い、timer-fired status を host event として扱わない。frame interval wait は macOS raw wake の `TimerFired` を `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached` に、`HostEventReady` を `HostEventReady` に写す。timer fired evidence は single-owner executor の deadline reached branch だけで作られ、host event ready を timer fired と偽装しない。
+
+この phase では、generic `NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(...)` owner variant、`build_native_window_host_loop_platform_wait_backend_from_selection_with_macos_api`、`#[cfg(target_os = "macos")]` actual sys shim、CoreFoundation / AppKit binding、CLI / native runner dispatch、minifb wait path、sleep、busy loop、fallback、silent no-op は追加しない。
+
+subagent review:
+
+- Darwin the 2nd の plan review は `APPROVED`。F5hv と対称の trait-connection slice として妥当であり、typed boundary、no fallback、platform separation を維持するよう確認された。required constraint として、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像、event-only wait で timer-fired status を `UnexpectedRunLoopStatus` として保持すること、generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback を scope 外に残すことが確認された。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

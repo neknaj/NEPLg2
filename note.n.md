@@ -1,3 +1,44 @@
+# 2026-06-20 Agent2 GUI native F5hw macOS run loop timer single-owner wait trait boundary
+
+## scope
+
+- F5ht の後続として、macOS run loop timer raw backend を `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` へ接続する。
+- F5ho の single-owner interruptible deadline wait adapter から macOS backend を扱えるようにし、timer fired と host event ready を enum 境界で分ける。
+- actual macOS sys shim、generic platform wait enum への macOS owner variant、CLI dispatch、native runner 接続は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。
+- required constraint として、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像だけにすること、event-only wait で timer-fired status を `UnexpectedRunLoopStatus` のまま保持すること、error type を `NativeWindowHostLoopMacosRunLoopTimerBackendError` として保持すること、generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopMacosRunLoopTimerBackend` に `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装した。
+- macOS raw wake の `TimerFired` は `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached` へ、`HostEventReady` は `HostEventReady` へ写す。
+- host-event-only wait では timer fired raw status を event として受け入れず、typed `UnexpectedRunLoopStatus` のまま残す。
+- single-owner wait adapter / run-loop host 経由の tests を追加し、timer fired が frame interval timer fired outcome へ進むこと、host ready が non-timer outcome に留まること、event-only wait の timer status と schedule failure が typed error として残ることを固定した。
+- source policy と GUI docs を F5hw contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native native_window_macos_run_loop_wait_trait --lib`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、F5hw scope 内で generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback へ進んでいないこと、event-only wait が timer-fired status を `UnexpectedRunLoopStatus` として保持すること、typed error が `NativeWindowHostLoopMacosRunLoopTimerBackendError` のまま保持されることを確認した。
+- 指摘は `note.n.md` の `implementation_review` が未実施のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED`。追加修正は不要と確認された。
+
+## remaining
+
+- macOS actual sys shim、generic `NativeWindowHostLoopPlatformWaitBackend` macOS owner integration、Linux actual sys shim、generic Linux owner integration、native runner / CLI dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hv Linux selector timerfd single-owner wait trait boundary
 
 ## scope

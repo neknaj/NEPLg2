@@ -3589,6 +3589,60 @@ where
     }
 }
 
+impl<Api> NativeWindowHostLoopDeadlineTimerClock
+    for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>
+where
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+{
+    type Error = NativeWindowHostLoopMacosRunLoopTimerBackendError;
+
+    fn now_nanos(&mut self) -> Result<u64, Self::Error> {
+        self.elapsed_nanos()
+    }
+}
+
+impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter
+    for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>
+where
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+{
+    type Error = NativeWindowHostLoopMacosRunLoopTimerBackendError;
+
+    fn wait_for_host_event(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<(), Self::Error> {
+        NativeWindowHostLoopMacosRunLoopTimerBackend::wait_for_host_event(
+            self,
+            window_size,
+            size_changed,
+        )
+    }
+
+    fn wait_until_deadline_or_host_event(
+        &mut self,
+        deadline_nanos: u64,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<NativeWindowHostLoopInterruptibleDeadlineWake, Self::Error> {
+        let wake = NativeWindowHostLoopMacosRunLoopTimerBackend::wait_until_deadline_or_host_event(
+            self,
+            deadline_nanos,
+            window_size,
+            size_changed,
+        )?;
+        Ok(match wake {
+            NativeWindowHostLoopMacosRunLoopWake::TimerFired => {
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached
+            }
+            NativeWindowHostLoopMacosRunLoopWake::HostEventReady => {
+                NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady
+            }
+        })
+    }
+}
+
 pub fn build_native_window_host_loop_macos_run_loop_timer_backend_from_selection<Api>(
     selection: NativeWindowHostLoopPlatformWaitBackendSelection,
     api: Api,
@@ -13882,6 +13936,160 @@ mod tests {
                 }
             )
         );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_wait_trait_maps_timer_to_deadline_reached() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let wait_nanos = frame_interval.nanos_per_frame();
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 24,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval,
+            wait_nanos,
+        };
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(88)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+            ]);
+        let backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+        let mut adapter =
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new(backend);
+
+        assert_eq!(
+            execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter,
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+            }
+        );
+        assert_eq!(adapter.backend().api().timer_wait_calls, vec![88]);
+        assert_eq!(adapter.backend().api().event_wait_calls, 0);
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_wait_trait_keeps_host_ready_non_timer() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let wait_nanos = frame_interval.nanos_per_frame();
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 25,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval,
+            wait_nanos,
+        };
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(89)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY,
+            ]);
+        let backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+        let mut host = NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost::new(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new(backend),
+        );
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(
+            host.wait_adapter().backend().api().timer_wait_calls,
+            vec![89]
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_wait_trait_rejects_timer_status_for_event_wait() {
+        let window_size = NativeWindowSize::new(800, 600);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(90).with_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+            ]);
+        let backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+        let mut adapter =
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new(backend);
+
+        assert_eq!(
+            execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::HostEventWaitFailed(
+                NativeWindowHostLoopMacosRunLoopTimerBackendError::UnexpectedRunLoopStatus {
+                    status: NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+                }
+            )
+        );
+        assert_eq!(adapter.backend().api().event_wait_calls, 1);
+        assert!(adapter.backend().api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_wait_trait_preserves_schedule_error() {
+        let window_size = NativeWindowSize::new(640, 360);
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let wait_nanos = frame_interval.nanos_per_frame();
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 26,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval,
+            wait_nanos,
+        };
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(91)
+            .with_last_error_code(92)
+            .with_schedule_result(false);
+        let backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+        let mut adapter =
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new(backend);
+
+        assert_eq!(
+            execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitFailed(
+                NativeWindowHostLoopMacosRunLoopTimerBackendError::ScheduleRunLoopTimerFailed {
+                    code: 92,
+                }
+            )
+        );
+        assert!(adapter.backend().api().timer_wait_calls.is_empty());
     }
 
     #[test]

@@ -765,6 +765,14 @@ F5hu は raw API / fake raw API tests / source policy の boundary であり、g
 
 F5hv は trait adapter boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` の Linux owner variant、Linux actual sys shim、CLI dispatch、native runner connection、minifb wait path、sleep / busy loop / fallback / silent no-op は追加しない。
 
+## F5hw Native macOS run loop timer single-owner wait trait boundary
+
+2026-06-20 の F5hw では、F5ht の macOS run loop timer raw backend を single-owner interruptible deadline wait contract へ接続する。`NativeWindowHostLoopMacosRunLoopTimerBackend` は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装し、F5ho の single-owner adapter から扱える。
+
+`now_nanos` は backend が保持する monotonic origin からの elapsed nanoseconds を checked conversion で返す。frame interval wait では macOS raw wake の `TimerFired` は `DeadlineReached`、`HostEventReady` は `HostEventReady` へ写す。host-event-only wait では timer-fired status を host event として受け入れない。これにより host event wake と timer fired evidence は enum の境界で分離される。
+
+F5hw は trait adapter boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` の macOS owner variant、macOS actual sys shim、CoreFoundation / AppKit binding、CLI dispatch、native runner connection、minifb wait path、sleep / busy loop / fallback / silent no-op は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
