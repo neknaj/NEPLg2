@@ -365,6 +365,14 @@ F5gk は frame pacing policy の明示化までであり、formal OS wait strate
 
 F5gl の `4096` 上限は OS wait / timer wait / FHD 60fps の保証ではなく、bounded turn budget の sanity bound である。formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、`usize::MAX` による unbounded slice、sleep、queue、timer、DOM / Canvas / video memory transport も導入しない。
 
+## F5gm Native window host-loop turn evidence boundary
+
+2026-06-19 の F5gm では、native host-loop turn の `Continue` に実行証拠を持たせる。`NativeWindowHostLoopContinueEvidence` は `PumpedEventsOnly window_size size_changed` と `PresentedFrame presentation window_size size_changed` を持つ。これは future native OS wait strategy が surface-unavailable pump と successfully-presented frame を型で分岐するための evidence であり、wait strategy そのものではない。
+
+`PresentedFrame` evidence の `presentation` は `NativeWindowBackendLoopPresentation` value だけであり、pixel borrow を持たない。`step_native_window_host_loop` は host present が成功した後だけ `PresentedFrame` evidence を返し、present failure では既存の `NativeWindowHostLoopError::HostPresentFailed` を返す。bounded runner と policy runner は `Continue _` として turn count だけを進め、evidence をまだ scheduler policy へ渡さない。
+
+F5gm は turn evidence の明示化までであり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、sleep、queue、timer、DOM / Canvas / video memory transport も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

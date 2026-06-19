@@ -1,3 +1,41 @@
+# 2026-06-19 Agent2 GUI platform F5gm Native window host-loop turn evidence boundary
+
+## scope
+
+- F5gl Native window host-loop run policy boundary の後続として、`NativeWindowHostLoopTurn::Continue` に pump-only / present-frame の実行証拠を持たせる。
+- `NativeWindowHostLoopContinueEvidence` を追加し、future OS wait strategy が surface-unavailable pump と successfully-presented frame を型で分岐できる前提を作る。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。F5gi の plain turn 方針とは衝突せず、generic や scheduler state を混ぜない value-only evidence であれば問題ないと確認された。名前は `NativeWindowHostLoopContinueEvidence` を推奨されたため採用する。
+
+## implementation_current
+
+- `NativeWindowHostLoopContinueEvidence::PumpedEventsOnly` は window size と size changed flag を保持する。
+- `NativeWindowHostLoopContinueEvidence::PresentedFrame` は `NativeWindowBackendLoopPresentation`、window size、size changed flag を保持する。pixel borrow は保持しない。
+- `step_native_window_host_loop` は pump / present の host operation 成功後だけ `Continue evidence` を返す。
+- bounded runner と policy runner は `Continue _` を turn count として扱い、evidence をまだ scheduler policy へ渡さない。
+- tests、source-policy、GUI 関連 doc、todo を F5gm に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 104 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gm native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`Continue` が `PumpedEventsOnly` / `PresentedFrame` の typed evidence を持つこと、present evidence が `current_present_frame_for_window` と `host.present_frame` 成功後だけ返ること、pixel borrow / scheduler state / queue / timer / sleep / fallback / silent no-op が混ざっていないこと、bounded / policy runner が `Continue _` を turn count としてだけ扱うことが確認された。
+
+## residual
+
+- F5gm は native host-loop turn evidence boundary までであり、formal native OS scheduler loop、OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gl Native window host-loop run policy boundary
 
 ## scope

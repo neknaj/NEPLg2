@@ -1248,6 +1248,31 @@ subagent review:
 - Feynman the 2nd に F5gl 計画を渡し、default turn slice、upper bound、CLI 非公開、policy runner delegation、source-policy の観点で確認させる。指摘があれば実装前に反映する。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gm: Native window host-loop turn evidence boundary
+
+Phase F5gm では、F5gi / F5gj / F5gl の host loop turn boundary に、future wait decision 用の value evidence を追加する。現状の `NativeWindowHostLoopTurn::Continue` は pump-only と present-frame を同じ signal に潰すため、後続の formal native OS scheduler / window backend loop が surface-unavailable pump と successfully-presented frame を型で区別できない。
+
+実装:
+
+- `NativeWindowHostLoopContinueEvidence` enum を追加し、`PumpedEventsOnly window_size size_changed` と `PresentedFrame presentation window_size size_changed` を持たせる。
+- `NativeWindowHostLoopTurn::Continue` は `NativeWindowHostLoopContinueEvidence` を保持する。
+- `step_native_window_host_loop` は `PumpEventsOnly` branch では `host.pump_events_only` 後に `PumpedEventsOnly` evidence を返す。
+- `step_native_window_host_loop` は `PresentFrame` branch では `current_present_frame_for_window` と `host.present_frame` が成功した後だけ `PresentedFrame` evidence を返す。pixel borrow は evidence に含めない。
+- `run_native_window_host_loop_bounded` と policy runner は `Continue _` を turn count として扱い、evidence を scheduler policy に先取り利用しない。
+- tests は pump-only resize evidence、drawable resize evidence、drawable no-resize evidence、bounded runner count preservation、present error で evidence が返らないことを検査する。
+- source policy は plain `Continue` への逆戻り、queue / timer / sleep / fallback / silent no-op、pixel borrow 混入を禁止する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- CLI option、sleep、queue、timer、DOM / Canvas / video memory transport、fallback、silent no-op は作らない。
+
+subagent review:
+
+- Feynman the 2nd に F5gm 計画を渡し、F5gi の plain turn 方針との整合、evidence name、present 成功後だけ evidence を返すこと、source-policy の観点で確認させる。指摘があれば実装前に反映する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

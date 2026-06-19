@@ -121,6 +121,14 @@ source policy は policy type、range constants、default policy delegation、`r
 
 この phase は native host-loop run policy の明示化であり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+## Phase F5gm: Native window host-loop turn evidence boundary
+
+F5gm では、`NativeWindowHostLoopTurn::Continue` を単なる継続 signal から、host turn の実行証拠を持つ value に拡張する。F5gl で bounded run policy は入ったが、`Continue` が pump-only と present-frame を潰していると、future native OS wait strategy が frame-paced wait と surface-unavailable pump behavior を型で分岐できない。
+
+`NativeWindowHostLoopContinueEvidence` は `PumpedEventsOnly window_size size_changed` と `PresentedFrame presentation window_size size_changed` を持つ。`PresentedFrame` の `presentation` は `NativeWindowBackendLoopPresentation` の value evidence であり、pixel borrow は持たない。`PresentedFrame` evidence は host present が成功した後だけ返し、present error 時には evidence を返さない。
+
+bounded runner と policy runner はこの evidence をまだ消費せず、`Continue _` として turn count だけを進める。これは future wait decision 用の evidence 境界であり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、sleep、queue、timer、DOM / Canvas / video memory transport も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

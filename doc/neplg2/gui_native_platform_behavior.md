@@ -141,6 +141,12 @@ F5gl では、native smoke window loop の long-running path を `NativeWindowHo
 
 `run_native_window_host_loop_with_policy` は `NativeWindowHostLoopRunnerState` を保持したまま bounded runner を繰り返す。`BudgetExhausted` は同じ initialized state で次 slice へ進み、`Exited` は terminal reason を返す。`run_native_window_host_loop` は default policy を使う wrapper であり、minifb adapter は `NativeWindowRunLoopConfig.host_loop_policy` を渡す。`usize::MAX`、sleep、queue、timer、fallback、silent no-op は導入しない。
 
+## Native window host-loop turn evidence checkpoint
+
+F5gm では、`NativeWindowHostLoopTurn::Continue` が `NativeWindowHostLoopContinueEvidence` を保持する。`PumpedEventsOnly` は unavailable surface などで host pump だけを行った turn を表し、`PresentedFrame` は `NativeWindowBackendLoopPresentation` と observed window size を保持して successful present turn を表す。
+
+`PresentedFrame` evidence は pixel borrow を持たない。host present が失敗した場合は evidence を返さず、`NativeWindowHostLoopError::HostPresentFailed` を返す。bounded runner と policy runner はまだ evidence を消費せず、turn count だけを進める。これは future wait decision 用の evidence boundary であり、OS wait strategy、queue / timer wait、sleep、fallback、silent no-op は実装しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -151,6 +157,7 @@ F5gl では、native smoke window loop の long-running path を `NativeWindowHo
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `NativeWindowTargetFps` で検査した target FPS を `Window::set_target_fps` に渡し、event pump loop の busy spin を避ける。
 - `NativeWindowHostLoopRunPolicy` で検査した turn slice により、minifb host loop は bounded runner を明示的に反復する。
+- `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
