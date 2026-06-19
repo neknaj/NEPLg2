@@ -1,3 +1,45 @@
+# 2026-06-19 Agent2 GUI native F5gz timer wakeup executor boundary
+
+## scope
+
+- F5gy の後続として、timer registration wait と timer fire wait を 1 つの wakeup executor へ合成する。
+- registration failure と fire failure を `NativeWindowHostLoopTimerWakeError` で分け、どちらで止まったかを enum として保持する。
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、scheduler resume policy、thread sleep、busy loop、message pump、event queue substitution、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。F5gx/F5gy helper を順に合成し、registration/fire の error を分離する boundary として進めてよいと確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopTimerWakeError` を追加した。
+- `execute_native_window_host_loop_timer_wakeup_with_backend` を追加し、registration wait helper の成功後だけ fire wait helper を呼ぶようにした。
+- registration failure では waiter を呼ばず、fire failure は `FireFailed` として保持する focused tests を追加した。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gz contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_wakeup -- --nocapture` は 6 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture` は 20 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 152 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gz native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `APPROVED_TO_COMMIT`。
+- F5gz は pure rename ではなく、registration から fire wait へ順序付きで合成する wakeup executor として妥当であること、registration failure で waiter を呼ばないこと、`RegistrationFailed` / `FireFailed` の enum evidence が保持されていることが確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_timer_wakeup -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が pass した。
+
+## residual
+
+- 次 slice では timer fire 後の scheduler resume policy と real OS timer adapter へ進む。
+- F5gz は typed wakeup executor boundary までであり、selector wakeup ownership、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gp Native window host-loop scheduler slice boundary
 
 ## scope
