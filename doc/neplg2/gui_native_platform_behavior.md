@@ -163,6 +163,16 @@ wait hook は `NativeWindowHostLoopWaitOutcome` を返す。minifb smoke backend
 
 `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` の場合だけ host wait hook を呼び、`None` は `WaitDecisionMissing` として fail closed にする。zero turn slice は validation により作れないが、bounded runner API 自体は zero budget を許すため、long-running policy runner 側で missing decision を silent no-op にしない。
 
+## Native window host-loop scheduler slice checkpoint
+
+F5gp では、F5go まで `run_native_window_host_loop_with_policy` の内部に閉じていた `bounded run -> wait dispatch -> repeat` の 1 cycle を、external scheduler が呼べる typed slice として切り出す。
+
+`NativeWindowHostLoopSchedulerState` は `NativeWindowHostLoopRunnerState` を所有し、initial title が slice を跨いで二重設定されないようにする。`run_native_window_host_loop_scheduler_slice_with_policy` は policy の turn slice から bounded runner を 1 回だけ実行し、結果を `NativeWindowHostLoopSchedulerSliceResult` に写す。`Exited` は terminal exit と completed turn count を返し、`Waited` は completed turn count、wait decision、host wait outcome を返す。
+
+F5gp の目的は hidden long loop authority を外へ出し、formal native OS scheduler / window backend loop が同じ slice contract を消費できるようにすることである。wait outcome を unit success に潰さず result enum に残すため、test / future scheduler は host-event wait と frame-interval wait のどちらが発生したかを検査できる。
+
+F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -176,13 +186,14 @@ wait hook は `NativeWindowHostLoopWaitOutcome` を返す。minifb smoke backend
 - `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
 - `NativeWindowHostLoopWaitDecision` により、bounded runner の最後の continue turn を host-event wait class または frame-interval wait class として分類する。
 - `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait decision を host wait boundary へ渡す。
+- `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - minifb smoke backend の wait hook は additional `window.update` や sleep を行わず、`Window::set_target_fps` による既存 pacing を `NativeWindowHostLoopWaitOutcome` として記録する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
 - `step_native_window_host_loop` が host event snapshot 1 件、host action 1 件、pump / present / exit の 1 turn だけを実行する。
 - `run_native_window_host_loop_bounded` が bounded turn count で `Exited` と `BudgetExhausted` を分け、budget exhaustion 時は最後の wait decision を保持する。
-- `run_native_window_host_loop` が initial title を設定し、`step_native_window_host_loop` の `Continue` / `Exit` を long loop として反復する。
+- `run_native_window_host_loop` が scheduler slice API を long loop として反復する。
 - `MinifbNativeWindowRunLoopHost` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
 - `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。
 - counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。

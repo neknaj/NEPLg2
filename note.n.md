@@ -1,3 +1,40 @@
+# 2026-06-19 Agent2 GUI platform F5gp Native window host-loop scheduler slice boundary
+
+## scope
+
+- F5go Native window host-loop wait dispatch boundary の後続として、hidden long loop 内の bounded run と wait dispatch を external scheduler が呼べる typed slice に切り出す。
+- `NativeWindowHostLoopSchedulerState` が `NativeWindowHostLoopRunnerState` を所有し、initial title initialization を slice 間で保持する。
+- `NativeWindowHostLoopSchedulerSliceResult` は `Exited` と `Waited` を分け、`Waited` では completed turn count、wait decision、wait outcome を保持する。
+
+## plan_review
+
+- Ptolemy the 2nd の plan review は `APPROVE`。`run_native_window_host_loop_with_policy` の hidden `bounded run -> wait dispatch -> repeat` を typed slice に分けることは pure rename ではなく、formal native OS scheduler / window backend loop の root boundary として妥当だと確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopSchedulerState`、`NativeWindowHostLoopSchedulerSliceResult`、`run_native_window_host_loop_scheduler_slice_with_policy` を追加した。
+- scheduler slice は policy の turn slice から `run_native_window_host_loop_bounded` を 1 回だけ実行し、`Exited` または `Waited` を返す。
+- `BudgetExhausted last_wait_decision = Some decision` では host wait hook を 1 回だけ呼び、wait outcome を `Waited` に保持する。
+- `BudgetExhausted last_wait_decision = None` は `WaitDecisionMissing` として fail closed にする。
+- `run_native_window_host_loop_with_policy` は scheduler slice API を反復する wrapper に縮小した。
+- tests、source-policy、GUI 関連 doc、todo を F5gp に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 112 tests passed。
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- additional verification は implementation review 後に実行する。
+
+## implementation_review
+
+- implementation review はこれから subagent に依頼する。
+
+## residual
+
+- F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5go Native window host-loop wait dispatch boundary
 
 ## scope

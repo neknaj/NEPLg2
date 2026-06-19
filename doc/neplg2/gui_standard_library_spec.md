@@ -393,6 +393,16 @@ F5gn は wait decision classification までであり、formal OS wait strategy�
 
 F5go は wait dispatch boundary までであり、formal OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## F5gp Native window host-loop scheduler slice boundary
+
+2026-06-19 の F5gp では、F5go まで long runner 内部に隠れていた bounded slice execution と wait dispatch を、external scheduler が 1 slice ずつ呼べる boundary として公開する。`NativeWindowHostLoopSchedulerState` は `NativeWindowHostLoopRunnerState` を所有し、initial title initialization state を slice 間で保持する。
+
+`run_native_window_host_loop_scheduler_slice_with_policy` は policy の `turn_slice` から max turn count を取り、`run_native_window_host_loop_bounded` を 1 回だけ呼ぶ。bounded result が `Exited` なら `NativeWindowHostLoopSchedulerSliceResult::Exited exit completed_turns` を返す。bounded result が `BudgetExhausted last_wait_decision = Some decision` なら host wait hook を 1 回だけ呼び、`Waited completed_turns decision outcome` を返す。`last_wait_decision = None` は `WaitDecisionMissing` とする。
+
+`run_native_window_host_loop_with_policy` はこの scheduler slice API を反復する wrapper へ縮小する。これにより future native OS scheduler / window backend loop は long loop を再実装せず、同じ typed slice と state を所有できる。
+
+F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

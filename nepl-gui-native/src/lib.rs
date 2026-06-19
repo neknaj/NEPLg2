@@ -1439,6 +1439,29 @@ impl Default for NativeWindowHostLoopRunnerState {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopSchedulerState {
+    runner_state: NativeWindowHostLoopRunnerState,
+}
+
+impl NativeWindowHostLoopSchedulerState {
+    pub fn new() -> Self {
+        Self {
+            runner_state: NativeWindowHostLoopRunnerState::new(),
+        }
+    }
+
+    pub fn title_initialized(&self) -> bool {
+        self.runner_state.title_initialized()
+    }
+}
+
+impl Default for NativeWindowHostLoopSchedulerState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopInitialization {
     Initialized,
@@ -1454,6 +1477,19 @@ pub enum NativeWindowHostLoopBoundedRunResult {
     BudgetExhausted {
         completed_turns: usize,
         last_wait_decision: Option<NativeWindowHostLoopWaitDecision>,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopSchedulerSliceResult {
+    Exited {
+        exit: NativeWindowRunLoopExit,
+        completed_turns: usize,
+    },
+    Waited {
+        completed_turns: usize,
+        decision: NativeWindowHostLoopWaitDecision,
+        outcome: NativeWindowHostLoopWaitOutcome,
     },
 }
 
@@ -2660,6 +2696,52 @@ where
     })
 }
 
+pub fn run_native_window_host_loop_scheduler_slice_with_policy<Host>(
+    scheduler_state: &mut NativeWindowHostLoopSchedulerState,
+    backend_loop: &mut NativeWindowBackendLoop,
+    host: &mut Host,
+    policy: NativeWindowHostLoopRunPolicy,
+) -> Result<
+    NativeWindowHostLoopSchedulerSliceResult,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError, Host::WaitError>,
+>
+where
+    Host: NativeWindowRunLoopHost,
+{
+    let max_turn_count = policy.turn_slice.as_usize();
+    match run_native_window_host_loop_bounded(
+        &mut scheduler_state.runner_state,
+        backend_loop,
+        host,
+        max_turn_count,
+    )? {
+        NativeWindowHostLoopBoundedRunResult::Exited {
+            exit,
+            completed_turns,
+        } => Ok(NativeWindowHostLoopSchedulerSliceResult::Exited {
+            exit,
+            completed_turns,
+        }),
+        NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+            completed_turns,
+            last_wait_decision: Some(decision),
+        } => {
+            let outcome = host
+                .wait_after_budget_exhausted(decision.clone())
+                .map_err(NativeWindowHostLoopError::HostWaitFailed)?;
+            Ok(NativeWindowHostLoopSchedulerSliceResult::Waited {
+                completed_turns,
+                decision,
+                outcome,
+            })
+        }
+        NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+            last_wait_decision: None,
+            ..
+        } => Err(NativeWindowHostLoopError::WaitDecisionMissing),
+    }
+}
+
 pub fn run_native_window_host_loop<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
@@ -2688,27 +2770,16 @@ pub fn run_native_window_host_loop_with_policy<Host>(
 where
     Host: NativeWindowRunLoopHost,
 {
-    let mut runner_state = NativeWindowHostLoopRunnerState::new();
-    let max_turn_count = policy.turn_slice.as_usize();
+    let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
     loop {
-        match run_native_window_host_loop_bounded(
-            &mut runner_state,
+        match run_native_window_host_loop_scheduler_slice_with_policy(
+            &mut scheduler_state,
             backend_loop,
             host,
-            max_turn_count,
+            policy,
         )? {
-            NativeWindowHostLoopBoundedRunResult::Exited { exit, .. } => return Ok(exit),
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
-                last_wait_decision: Some(decision),
-                ..
-            } => {
-                host.wait_after_budget_exhausted(decision)
-                    .map_err(NativeWindowHostLoopError::HostWaitFailed)?;
-            }
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
-                last_wait_decision: None,
-                ..
-            } => return Err(NativeWindowHostLoopError::WaitDecisionMissing),
+            NativeWindowHostLoopSchedulerSliceResult::Exited { exit, .. } => return Ok(exit),
+            NativeWindowHostLoopSchedulerSliceResult::Waited { .. } => {}
         }
     }
 }
@@ -5938,6 +6009,189 @@ mod tests {
                 NativeWindowBackendLoopError::SurfaceUnavailable
             )
         );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_waits_after_budget_exhaustion() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable)]);
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        let result = run_native_window_host_loop_scheduler_slice_with_policy(
+            &mut scheduler_state,
+            &mut loop_state,
+            &mut host,
+            NativeWindowHostLoopRunPolicy::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            NativeWindowHostLoopSchedulerSliceResult::Waited {
+                completed_turns: 1,
+                decision: NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                    window_size: unavailable_size,
+                    size_changed: true,
+                },
+                outcome: NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                    window_size: unavailable_size,
+                    size_changed: true,
+                },
+            }
+        );
+        assert!(scheduler_state.title_initialized());
+        assert_eq!(host.cursor, 1);
+        assert_eq!(host.pump_count, 1);
+        assert_eq!(
+            host.wait_decisions,
+            vec![NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size: unavailable_size,
+                size_changed: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_keeps_initial_title_across_calls() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            unavailable_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable), Ok(close)]);
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        assert!(matches!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap(),
+            NativeWindowHostLoopSchedulerSliceResult::Waited { .. }
+        ));
+        assert_eq!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap(),
+            NativeWindowHostLoopSchedulerSliceResult::Exited {
+                exit: NativeWindowRunLoopExit {
+                    reason: NativeWindowHostTerminalReason::OsCloseRequested,
+                },
+                completed_turns: 1,
+            }
+        );
+        assert_eq!(host.cursor, 2);
+        assert_eq!(
+            host.titles,
+            vec![
+                native_window_title(GuiDemo::Counter, initial_size),
+                native_window_title(GuiDemo::Counter, unavailable_size),
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_preserves_wait_error_without_next_poll() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            unavailable_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable), Ok(close)])
+            .with_wait_error("wait failed");
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        assert_eq!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopError::HostWaitFailed("wait failed")
+        );
+        assert_eq!(host.cursor, 1);
+        assert_eq!(
+            host.wait_decisions,
+            vec![NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size: unavailable_size,
+                size_changed: true,
+            }]
+        );
+        assert!(host.wait_outcomes.is_empty());
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_exits_without_wait() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(close)]);
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        assert_eq!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap(),
+            NativeWindowHostLoopSchedulerSliceResult::Exited {
+                exit: NativeWindowRunLoopExit {
+                    reason: NativeWindowHostTerminalReason::OsCloseRequested,
+                },
+                completed_turns: 1,
+            }
+        );
+        assert!(host.wait_decisions.is_empty());
+        assert!(host.wait_outcomes.is_empty());
     }
 
     #[test]

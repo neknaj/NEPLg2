@@ -1321,6 +1321,32 @@ subagent review:
 - Feynman the 2nd に F5go 計画を渡し、wait hook の配置、minifb pacing の二重実行回避、`HostWaitFailed` / `WaitDecisionMissing` の fail-closed contract、source-policy の観点で確認させる。指摘があれば実装前に反映する。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gp: Native window host-loop scheduler slice boundary
+
+Phase F5gp では、F5go の long runner 内部に閉じている bounded slice execution と wait dispatch を、external scheduler が呼び出せる typed boundary に切り出す。これは pure rename layer ではなく、future formal native OS scheduler / window backend loop が hidden infinite loop を再実装せずに同じ state と result enum を消費するための root boundary である。
+
+実装:
+
+- `NativeWindowHostLoopSchedulerState` を追加し、`NativeWindowHostLoopRunnerState` を所有させる。
+- `NativeWindowHostLoopSchedulerSliceResult` を追加し、`Exited exit completed_turns` と `Waited completed_turns decision outcome` を分ける。
+- `run_native_window_host_loop_scheduler_slice_with_policy` を追加し、policy の `turn_slice` で `run_native_window_host_loop_bounded` を 1 回だけ呼ぶ。
+- bounded result が `BudgetExhausted last_wait_decision = Some decision` の場合だけ `wait_after_budget_exhausted` を 1 回呼び、wait outcome を `Waited` result に保持する。
+- bounded result が `last_wait_decision = None` の場合は `WaitDecisionMissing` として fail closed にする。
+- `run_native_window_host_loop_with_policy` は scheduler slice API を反復する wrapper にする。
+- tests は slice が wait hook を 1 回だけ呼ぶこと、slice 間で initial title を二重設定しないこと、wait failure が次 poll を消費しないこと、close event では wait hook を呼ばないことを検査する。
+- source policy は scheduler slice と long runner に追加の `window.update`、`update_with_buffer`、`Duration`、`std::thread::sleep`、queue、timer、fallback、silent no-op が入らないことを固定する。
+
+非目標:
+
+- stdlib NEPL 側 scheduler runner と minifb window loop の一気接続は行わない。
+- formal OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- wait outcome を unit success に潰さない。
+
+subagent review:
+
+- Ptolemy the 2nd に F5gp 計画を渡し、hidden long loop authority を typed slice に切る妥当性、pure rename でないこと、wait outcome preservation、source-policy の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
