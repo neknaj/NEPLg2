@@ -309,6 +309,10 @@ F5hf では、frame interval wait authority を `NativeWindowFrameIntervalWaitAu
 
 `combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れる。minifb と host-owned の混在、または target fps が異なる minifb mode 同士は `ConflictingFrameIntervalAuthorities` として fail closed にする。`validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction の target fps を検査し、host-owned mode では wait evidence を作らない。`NativeWindowMinifbFramePacingAuthority` は `FramePresentAlreadyPaced` を返す前にこの validation helper を通る。
 
+F5hg では、F5hf の authority mode を `NativeWindowHostLoopWaitOwner` の frame interval branch に接続する。owner は `frame_interval_wait_authority_mode` として `HostOwnedDeadlineTimer` を返し、`execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` は explicit requested authority mode を受け取る。
+
+frame interval branch は `combine_native_window_frame_interval_wait_authority_mode` と `validate_native_window_frame_interval_wait_authority_mode` を通ってから deadline timer wakeup helper へ進む。minifb authority が混入した場合は `FrameIntervalAuthorityFailed` として返し、timer registration、clock read、sleeper call、active timer mutation は起こさない。host event wait は authority を参照しない。F5hg は real selector / message-loop timer backend ではなく、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は後続で扱う。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -339,6 +343,7 @@ F5hf では、frame interval wait authority を `NativeWindowFrameIntervalWaitAu
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。
 - `NativeWindowFrameIntervalWaitAuthorityMode` と `validate_native_window_frame_interval_wait_authority_mode` により、minifb internal target-fps pacing と future host-owned deadline timer authority を同時に frame interval authority として扱わない。host-owned mode validation は compatibility check だけで、wait evidence は生成しない。
+- `execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` により、formal wait owner の frame interval branch は `HostOwnedDeadlineTimer` authority を deadline timer wakeup より前に検査する。minifb authority が渡された場合は timer state を変更せず `FrameIntervalAuthorityFailed` を返す。
 - minifb smoke backend の host event wait hook は `MinifbNativeWindowHostLoopMessagePumpAdapter` の `window.update` だけを message pump adapter として呼ぶ。frame interval wait は additional sleep や timer registration を行わず、F5hd wait owner / F5gx helper / std deadline timer adapter へは接続していない。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。

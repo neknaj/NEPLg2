@@ -355,6 +355,20 @@ subagent review:
 
 - Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
 
+## Phase F5hg: Native wait owner frame interval authority connection boundary
+
+F5hg では、F5hf の authority mode を F5hd の formal wait owner の frame interval branch に接続する。これは macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。selector / message-loop timer ownership へ進む前に、formal owner path が `HostOwnedDeadlineTimer` authority であることを明示し、minifb internal pacing authority が混入した場合に timer registration より前で fail closed にする boundary である。
+
+`NativeWindowHostLoopWaitOwner` は `frame_interval_wait_authority_mode` として `HostOwnedDeadlineTimer` を返す。`execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` は frame interval branch で、owner の active authority と requested authority を `combine_native_window_frame_interval_wait_authority_mode` に通し、その後 `validate_native_window_frame_interval_wait_authority_mode` を通る。この検査に成功した場合だけ `execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter` を呼ぶ。
+
+authority mismatch は `NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed` として返し、deadline timer registration、clock read、sleeper call、active timer mutation は起こさない。host event wait は frame interval authority を参照せず、event queue waiter だけへ進む。既存の `execute_native_window_host_loop_wait_with_owner` は owner 自身の `HostOwnedDeadlineTimer` mode を渡す wrapper として残す。
+
+F5hg でも minifb wait hook は F5hd wait owner / std deadline timer adapter へ接続しない。`set_target_fps 0`、fallback、silent no-op、busy loop は禁止する。
+
+subagent review:
+
+- Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、deadline timer registration / clock read / sleeper call / active timer mutation より前に authority を検査すること、minifb authority rejection で timer state が無変更であることを test すること、host event wait が authority を参照しないこと、既存 helper を explicit-authority helper の wrapper にすること、minifb path を変更しないことである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

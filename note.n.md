@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI native F5hg wait owner frame interval authority connection boundary
+
+## scope
+
+- F5hf の authority mode を F5hd formal wait owner の frame interval branch に接続する。
+- selector / message-loop timer ownership へ進む前の ownership safety boundary であり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+- minifb internal target-fps pacing と host-owned deadline timer authority を混ぜず、minifb wait hook は F5hd wait owner / std deadline timer adapter へ接続しない。
+
+## plan_review
+
+- Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、deadline timer registration / clock read / sleeper call / active timer mutation より前に authority を検査すること、minifb authority rejection で timer state が無変更であることを test すること、host event wait が authority を参照しないこと、既存 helper を explicit-authority helper の wrapper にすること、minifb path を変更しないことである。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOwner::frame_interval_wait_authority_mode` を追加し、formal owner path の frame interval authority を `HostOwnedDeadlineTimer` として明示した。
+- `NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed` を追加した。
+- `execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` を追加し、frame interval branch で `combine_native_window_frame_interval_wait_authority_mode` と `validate_native_window_frame_interval_wait_authority_mode` を deadline timer wakeup より前に通すようにした。
+- 既存の `execute_native_window_host_loop_wait_with_owner` は owner 自身の authority mode を渡す wrapper にした。
+- minifb authority が requested authority として渡された場合、clock / sleeper / active timer state を変更せず `FrameIntervalAuthorityFailed` を返す unit test を追加した。
+- host event wait は frame interval authority を参照せず、event queue waiter だけへ進む unit test を追加した。
+- GUI docs、source-policy、`todo.md` を F5hg contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_frame_interval_wait_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: wait owner focused test は 6 件 pass した。
+- info: frame interval authority focused test は 5 件 pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 185 件 pass した。
+- info: native platform source-policy は pass し、F5hg docs/source contract を検査対象に加えた。
+- info: source policy regression は 255 秒で exit 0 完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。formal wait owner は `HostOwnedDeadlineTimer` authority を公開し、frame branch では deadline timer wakeup より前に combine / validate していること、rejection test が timer state 無変更を証明していること、host event dispatch が authority 非依存であること、既存 helper が explicit-authority helper wrapper であること、minifb path が未変更であることが確認された。
+
 # 2026-06-19 Agent2 GUI native F5hf frame interval wait authority mode boundary
 
 ## scope
