@@ -73,6 +73,16 @@ source policy は `run_minifb_window_loop` slice に minifb lifecycle API を許
 
 この phase は minifb adapter boundary であり、formal native OS scheduler loop、queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
 
+## Phase F5gh: Native window host-loop core boundary
+
+F5gh では、F5gg の minifb window run-loop から `NativeWindowRunLoopHost` と `run_native_window_host_loop` を切り出す。core loop は `&mut NativeWindowBackendLoop` と host trait を受け、event snapshot polling、`step_host_action`、title update、pump-only、present を実行する。backend loop を value で消費しないため、host event failure、host action failure、presenter frame unavailable、host present failure のいずれでも caller が backend state を回収できる。
+
+minifb 固有の `Window`、`set_title`、`window.update`、`update_with_buffer` は private `MinifbNativeWindowRunLoopHost` に閉じる。`run_minifb_window_loop` は backend loop と minifb window を初期化し、host adapter を作って `run_native_window_host_loop` を呼ぶだけになる。direct input API は引き続き `poll_minifb_window_event_pump` に閉じ、core loop と adapter のどちらも `Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` を直接読まない。
+
+source policy は core loop slice と minifb host adapter slice を分ける。core loop slice は minifb / `window.update` / `update_with_buffer` を禁止し、minifb host adapter slice は direct input API、queue、timer、fallback、silent no-op を禁止する。
+
+この phase は host-loop core boundary であり、formal native OS scheduler loop、queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

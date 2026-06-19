@@ -61,6 +61,21 @@ function runNativeGuiPlatformBehaviorRegression() {
         "impl NativeWindowRunLoopConfig",
         "pub fn render_demo_frame",
     );
+    const nativeWindowHostLoopCore = textSliceBetween(
+        libSource,
+        "pub fn run_native_window_host_loop",
+        "struct MinifbNativeWindowRunLoopHost",
+    );
+    const nativeWindowMinifbHostAdapter = textSliceBetween(
+        libSource,
+        "struct MinifbNativeWindowRunLoopHost",
+        "pub fn run_minifb_window_loop",
+    );
+    const nativeWindowMinifbRunner = textSliceBetween(
+        libSource,
+        "pub fn run_minifb_window_loop",
+        "pub fn render_demo_frame",
+    );
     const nativeSpanOperationHelperWithoutEventPump = nativeSpanOperationHelper.replace(
         nativeWindowEventPumpHelper,
         "",
@@ -81,6 +96,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub struct NativeWindowRunLoopConfig\s*\{[\s\S]*pub demo: GuiDemo,[\s\S]*pub counter_value: i32,[\s\S]*pub scale: usize/);
     assert.match(libSource, /pub struct NativeWindowRunLoopExit\s*\{[\s\S]*pub reason: NativeWindowHostTerminalReason/);
     assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed/);
+    assert.match(libSource, /pub trait NativeWindowRunLoopHost\s*\{[\s\S]*type EventError;[\s\S]*type PresentError;[\s\S]*poll_event_snapshot[\s\S]*set_window_title[\s\S]*pump_events_only[\s\S]*present_frame/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopError<EventError, PresentError>\s*\{[\s\S]*HostEventPumpFailed\(EventError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*HostPresentFailed\(PresentError\)/);
     assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
     assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
@@ -96,19 +113,29 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /NativeWindowHostActionError::UnsupportedCloseState/);
     assert.match(libSource, /NativeWindowHostActionError::StepFailed/);
     assert.match(nativeWindowRunLoopHelper, /pub fn native_window_title\(demo: GuiDemo, size: NativeWindowSize\) -> String/);
+    assert.match(nativeWindowHostLoopCore, /pub fn run_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
+    assert.match(nativeWindowHostLoopCore, /Host: NativeWindowRunLoopHost/);
+    assert.match(nativeWindowHostLoopCore, /host\.set_window_title\(&initial_title\)/);
+    assert.match(nativeWindowHostLoopCore, /host[\s\S]*\.poll_event_snapshot\(backend_loop\.event_pump_input\(\)\)/);
+    assert.match(nativeWindowHostLoopCore, /backend_loop[\s\S]*\.step_host_action\(event_snapshot\)/);
+    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::Terminate/);
+    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::PumpEventsOnly[\s\S]*host\.pump_events_only\(\)/);
+    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::PresentFrame[\s\S]*current_present_frame_for_window\(\)[\s\S]*host\.present_frame\(present_frame\)/);
+    assert.doesNotMatch(nativeWindowHostLoopCore, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|set_background_color|\bKey\b|\bMouseButton\b|\bMouseMode\b|is_open\(|is_key_down\(|get_mouse_down\(|get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowMinifbHostAdapter, /impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost/);
+    assert.match(nativeWindowMinifbHostAdapter, /poll_minifb_window_event_pump\(self\.window,\s*input\)/);
+    assert.match(nativeWindowMinifbHostAdapter, /self\.window\.set_title\(title\)/);
+    assert.match(nativeWindowMinifbHostAdapter, /self\.window\.update\(\)/);
+    assert.match(nativeWindowMinifbHostAdapter, /self\.window[\s\S]*\.update_with_buffer\(frame\.pixels\(\),\s*frame\.width\(\),\s*frame\.height\(\)\)/);
+    assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowRunLoopHelper, /pub fn run_minifb_window_loop\([\s\S]*NativeWindowRunLoopConfig[\s\S]*NativeWindowRunLoopExit/);
     assert.match(nativeWindowRunLoopHelper, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
     assert.match(nativeWindowRunLoopHelper, /window\.set_target_fps\(60\)/);
     assert.match(nativeWindowRunLoopHelper, /window\.set_background_color\(9,\s*13,\s*18\)/);
-    assert.match(nativeWindowRunLoopHelper, /poll_minifb_window_event_pump\(&window,\s*backend_loop\.event_pump_input\(\)\)/);
-    assert.match(nativeWindowRunLoopHelper, /backend_loop[\s\S]*\.step_host_action\(event_snapshot\)/);
-    assert.match(nativeWindowRunLoopHelper, /NativeWindowHostAction::Terminate/);
-    assert.match(nativeWindowRunLoopHelper, /NativeWindowHostAction::PumpEventsOnly\s*\{[\s\S]*window\.update\(\)/);
-    assert.match(nativeWindowRunLoopHelper, /NativeWindowHostAction::PresentFrame/);
-    assert.match(nativeWindowRunLoopHelper, /current_present_frame_for_window\(\)/);
-    assert.match(nativeWindowRunLoopHelper, /update_with_buffer\(/);
+    assert.match(nativeWindowRunLoopHelper, /let mut host = MinifbNativeWindowRunLoopHost/);
+    assert.match(nativeWindowRunLoopHelper, /run_native_window_host_loop\(&mut backend_loop,\s*&mut host\)/);
     assert.match(nativeWindowRunLoopHelper, /NativeWindowRunLoopError::WindowPresentFailed/);
-    assert.doesNotMatch(nativeWindowRunLoopHelper, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowMinifbRunner, /poll_minifb_window_event_pump|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|update_with_buffer\(/);
     assert.match(nativeWindowBackendLoopHelper, /CloseRequested[\s\S]*return Ok\(NativeWindowBackendLoopStepOutcome::CloseRequested/);
     assert.match(nativeWindowBackendLoopHelper, /NativeWindowBackendLoopStepOutcome::Unavailable/);
     assert.match(nativeWindowBackendLoopHelper, /present_frame_to_surface_after_success/);
@@ -120,6 +147,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
     assert.match(libSource, /native_window_run_loop_config_preserves_demo_state/);
     assert.match(libSource, /native_window_title_reports_drawable_and_unavailable_surface/);
+    assert.match(libSource, /native_window_host_loop_preserves_terminal_reason/);
+    assert.match(libSource, /native_window_host_loop_pumps_unavailable_surface_without_presenting/);
+    assert.match(libSource, /native_window_host_loop_presents_exact_current_frame/);
+    assert.match(libSource, /native_window_host_loop_preserves_event_pump_error/);
+    assert.match(libSource, /native_window_host_loop_preserves_present_error/);
+    assert.match(libSource, /native_window_host_loop_preserves_host_action_error/);
+    assert.match(libSource, /native_window_host_loop_preserves_presenter_frame_error/);
     assert.doesNotMatch(nativeWindowBackendLoopHelper, /minifb|DOM|Canvas|video_memory|stdout_protocol|window\.update\(|update_with_buffer|fallback|silent no-op/i);
 
     assert.match(libSource, /pub struct NativeSurfacePlacement/);
@@ -404,6 +438,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /WindowPresentFailed/);
     assert.match(platformDoc, /direct minifb input API を読まない/);
     assert.match(platformDoc, /set_target_fps\(60\).*busy spin 抑制/);
+    assert.match(platformDoc, /Native window host-loop core checkpoint/);
+    assert.match(platformDoc, /NativeWindowRunLoopHost/);
+    assert.match(platformDoc, /run_native_window_host_loop/);
+    assert.match(platformDoc, /NativeWindowHostLoopError/);
+    assert.match(platformDoc, /backend state を失わない/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -427,6 +466,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowRunLoopConfig/);
     assert.match(implementationPlan, /WindowPresentFailed/);
     assert.match(implementationPlan, /source policy は `run_minifb_window_loop` slice/);
+    assert.match(implementationPlan, /Phase F5gh: Native window host-loop core boundary/);
+    assert.match(implementationPlan, /NativeWindowRunLoopHost/);
+    assert.match(implementationPlan, /run_native_window_host_loop/);
+    assert.match(implementationPlan, /&mut NativeWindowBackendLoop/);
+    assert.match(implementationPlan, /core loop slice と minifb host adapter slice/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -442,6 +486,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5gg Native minifb window run-loop adapter boundary/);
     assert.match(standardSpec, /NativeWindowRunLoopConfig/);
     assert.match(standardSpec, /WindowPresentFailed/);
+    assert.match(standardSpec, /F5gh Native window host-loop core boundary/);
+    assert.match(standardSpec, /NativeWindowRunLoopHost/);
+    assert.match(standardSpec, /run_native_window_host_loop/);
+    assert.match(standardSpec, /NativeWindowHostLoopError/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -480,6 +528,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner redraws exact-size buffers after resize",
             "Native host action boundary separates backend loop outcomes from host execution",
             "Native minifb run-loop adapter keeps main.rs out of window lifecycle execution",
+            "Native host-loop core separates backend state from window host execution",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",

@@ -103,6 +103,16 @@ run-loop adapter は direct minifb input API を読まない。`Key`、`MouseBut
 
 `native_window_title` は title text construction を lib 側の deterministic helper とし、surface unavailable と drawable size を同じ規則で表す。`set_target_fps(60)` は smoke runner の busy spin 抑制であり、formal timer queue、OS wait strategy、scheduler policy ではない。この checkpoint は minifb adapter boundary であり、formal `std/gui` host import execution、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、DOM / Canvas / video memory transport、fallback、silent no-op へは進まない。
 
+## Native window host-loop core checkpoint
+
+F5gh では、F5gg の minifb window run-loop から minifb 非依存の host-loop core を切り出す。`NativeWindowRunLoopHost` は host が実装する event snapshot polling、title update、pump-only update、present operation の境界であり、`run_native_window_host_loop` は `NativeWindowBackendLoop` と host を `&mut` で受けて 1 つの long loop を進める。
+
+core loop は initial title を設定し、各 iteration で `poll_event_snapshot`、`step_host_action`、host action execution を行う。`Terminate` は `NativeWindowRunLoopExit` を返し、`PumpEventsOnly` は unavailable surface 中に host pump だけを呼び、`PresentFrame` は `current_present_frame_for_window` から exact-size frame を借用して host present へ渡す。title は initial と size changed 時だけ更新する。
+
+`NativeWindowHostLoopError` は host event pump error、`NativeWindowHostActionError`、`NativeWindowBackendLoopError`、host present error を分ける。backend loop は `&mut` で渡されるため、error path でも caller は backend state を失わない。minifb smoke backend は private `MinifbNativeWindowRunLoopHost` で trait を実装し、direct minifb input API は引き続き `poll_minifb_window_event_pump` に閉じる。
+
+この checkpoint は host-loop core boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、DOM / Canvas / video memory transport、fallback、silent no-op へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -115,7 +125,8 @@ run-loop adapter は direct minifb input API を読まない。`Key`、`MouseBut
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
-- `run_minifb_window_loop` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
+- `run_native_window_host_loop` が minifb 非依存の host-loop core として、event snapshot、host action、title update、pump-only、present を trait 境界へ流す。
+- `MinifbNativeWindowRunLoopHost` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
 - `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。
 - counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
 - zero size または invalid size は `NativeSurfaceState::Unavailable` として扱い、hit test を行わない。

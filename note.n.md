@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI platform F5gh Native window host-loop core boundary
+
+## scope
+
+- F5gg Native minifb window run-loop adapter boundary の後続として、minifb 非依存の native host-loop core を追加する。
+- F5gh は `NativeWindowRunLoopHost`、`NativeWindowHostLoopError`、`run_native_window_host_loop` を追加する。
+- `run_minifb_window_loop` は backend loop と minifb window / host adapter を初期化して core loop を呼ぶだけにし、minifb 固有 API は private host adapter に閉じる。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`run_native_window_host_loop` は backend loop を value で消費せず `&mut NativeWindowBackendLoop` を受けること、new core-loop error variant 全ての test を追加すること、source policy slice を core loop と minifb adapter に分けること、F5gg の古い source-policy 期待を F5gh 構造へ更新することが指摘された。
+- 指摘に従い、core loop は `&mut` backend loop を受け、`NativeWindowHostLoopError` は host event / host action / presenter frame unavailable / host present error を分ける。tests は terminal reason、unavailable pump-only、exact frame present、event error、present error、host action error、presenter frame error を検査する形にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowRunLoopHost` と `NativeWindowHostLoopError` を追加した。
+- `run_native_window_host_loop` は initial title を設定し、host event snapshot、`step_host_action`、`Terminate` / `PumpEventsOnly` / `PresentFrame` を実行する。
+- private `MinifbNativeWindowRunLoopHost` が minifb `set_title`、`window.update`、`update_with_buffer` を担当する。
+- `run_minifb_window_loop` は minifb window creation 後、host adapter を作って `run_native_window_host_loop` を呼ぶだけに変更した。
+- source-policy と GUI 関連 doc を F5gh に合わせて更新した。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。core loop が minifb 非依存であること、backend state を `&mut` で保持していること、event / action / presenter / present error を typed variant として保存していること、minifb input が `poll_minifb_window_event_pump` に隔離されていることが確認された。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gh native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5gh は native host-loop core boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gg Native minifb window run-loop adapter boundary
 
 ## scope

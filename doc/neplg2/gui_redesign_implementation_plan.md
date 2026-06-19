@@ -1120,6 +1120,31 @@ Phase F5gg では、F5gf の `NativeWindowHostAction` を実際の minifb smoke 
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gh: Native window host-loop core boundary
+
+Phase F5gh では、F5gg の `run_minifb_window_loop` から minifb 非依存の host-loop core を切り出す。`NativeWindowRunLoopHost` は event snapshot polling、title update、pump-only、present を表す trait であり、`run_native_window_host_loop` は `&mut NativeWindowBackendLoop` と `&mut Host` を受けて host action を実行する。
+
+実装:
+
+- `NativeWindowRunLoopHost` trait と `NativeWindowHostLoopError EventError PresentError` を追加する。
+- `run_native_window_host_loop` は backend loop を value で消費せず、`&mut NativeWindowBackendLoop` を受ける。error path でも caller が backend state を回収できるようにする。
+- core loop は initial title 設定、`poll_event_snapshot`、`step_host_action`、`Terminate` / `PumpEventsOnly` / `PresentFrame` の execution だけを行う。
+- `PresentFrame` では `current_present_frame_for_window` から借用した exact-size frame だけを host present へ渡す。
+- minifb 依存 API は private `MinifbNativeWindowRunLoopHost` に移し、`run_minifb_window_loop` は backend loop / minifb window / host adapter を初期化して `run_native_window_host_loop` を呼ぶだけにする。
+- tests は terminal reason、unavailable pump-only、exact frame present、host event error、host present error、host action error、presenter frame unavailable error を検査する。
+- source policy は core loop slice と minifb host adapter slice を分ける。core loop は minifb、direct input API、`window.update`、`update_with_buffer`、DOM / Canvas / video memory、queue / timer / sleep、fallback、silent no-op を禁止する。minifb host adapter は direct input API と queue / timer / fallback を禁止する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- DOM / Canvas / video memory transport、fallback、silent no-op は作らない。
+
+完了条件:
+
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

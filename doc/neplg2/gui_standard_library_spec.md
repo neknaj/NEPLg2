@@ -323,6 +323,16 @@ run-loop adapter は毎 iteration で `poll_minifb_window_event_pump` と `step_
 
 F5gg は native smoke backend の minifb adapter boundary であり、formal `std/gui` host import execution、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。`set_target_fps(60)` は minifb smoke runner の busy spin 抑制だけであり、formal timer / scheduler policy ではない。fallback、silent no-op、blank frame、DOM / Canvas / video memory transport は導入しない。
 
+## F5gh Native window host-loop core boundary
+
+2026-06-19 の F5gh では、F5gg の minifb 固有 long loop から backend loop と host execution の core を切り出し、`NativeWindowRunLoopHost` と `run_native_window_host_loop` を追加する。これは minifb を formal host abstraction に見せかける層ではなく、`NativeWindowBackendLoop` が保持する state transition と、host が持つ event pump / title / pump-only / present operation を分ける境界である。
+
+`run_native_window_host_loop` は `&mut NativeWindowBackendLoop` と `&mut NativeWindowRunLoopHost` を受ける。backend loop を value で消費しないため、event pump failure、host action failure、presenter frame unavailable、host present failure のいずれでも caller は backend loop state を回収できる。error は `NativeWindowHostLoopError EventError PresentError` として、host event error、`NativeWindowHostActionError`、`NativeWindowBackendLoopError`、host present error を潰さず保持する。
+
+`NativeWindowRunLoopHost` は `poll_event_snapshot`、`set_window_title`、`pump_events_only`、`present_frame` を持つ。core loop は minifb 型、`window.update`、`update_with_buffer`、direct input API を知らない。minifb smoke backend は private `MinifbNativeWindowRunLoopHost` でこの trait を実装し、`poll_minifb_window_event_pump` と minifb presentation API をそこへ閉じる。`run_minifb_window_loop` は backend loop と minifb window / host adapter を初期化し、`run_native_window_host_loop` を呼ぶだけにする。
+
+F5gh は native host-loop core boundary であり、formal `std/gui` host import execution、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、blank frame、DOM / Canvas / video memory transport も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
