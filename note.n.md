@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5ic Linux host event signal producer handle boundary
+
+## scope
+
+- F5ib の backend-owned eventfd signal 境界を、blocking wait 中の backend とは別 owner が使える producer handle 境界へ進める。
+- Linux selector / timerfd / eventfd backend は wait 中に backend owner を占有するため、runner / CLI 接続前に duplicated signal fd owner を分離する。
+- producer success は wake request だけを表し、`HostEventReady` outcome、scheduler resume evidence、timer fired evidence を生成しない。
+- runner / CLI / minifb wait path、generic dispatch、pre-signal busy loop、synthetic readiness、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5ib の `&mut backend` producer では backend が blocking wait 中に外部 event source から signal できないため、Linux runner 接続前に single producer handle owner を切ることは root-cause 寄りで妥当と確認された。
+- 必須制約として、fd `0` valid / negative invalid、raw accessor 非公開、producer handle が scheduler evidence を作らないこと、clone / signal failure の typed error、closed backend の fail-closed、cfg Linux duplicate は `F_DUPFD_CLOEXEC` 優先、exact `u64 1` write、close-once cleanup、runner / CLI / minifb / fallback / synthetic readiness 禁止が確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxHostEventSignalFd`、`NativeWindowHostLoopLinuxHostEventSignalRawApi`、`NativeWindowHostLoopLinuxHostEventSignalProducerError`、`NativeWindowHostLoopLinuxHostEventSignalProducer` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend::create_host_event_signal_producer` は backend の host event fd owner から duplicated signal fd producer を作る。closed backend は `InvalidHostEventRawFd { raw_fd: -1 }` として拒否する。
+- cfg Linux sys shim は `fcntl F_DUPFD_CLOEXEC` で producer fd を作り、duplicated fd への signal は既存 helper と同じ exact `u64 1` eventfd write を使う。
+- producer close は explicit close と Drop の両方で close-once cleanup として扱う。cleanup failure は通常 wait result に混ぜない。
+- focused Rust unit tests、source policy、GUI docs、`todo.md` を F5ic contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_host_event_signal_producer -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`。warning は `native_window_host_loop_windows_wait_handle_raw` の cfg Linux target 上の dead_code であり、F5ic の producer handle blocker ではない。
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code/docs/source policy の content blocker ではなく、この `implementation_review` が `pending` のままであることだった。
+- 指摘時点で、producer fd owner split、`F_DUPFD_CLOEXEC`、exact `u64 1` write、close-once cleanup、closed backend fail-closed、synthetic `HostEventReady` / timer evidence 不生成、runner / CLI / minifb 未接続は F5ic plan と Zenn / doc 方針に沿っていると確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux producer handle と actual window / event source の wait hook 接続、native runner / CLI dispatch、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5ib Linux host event fd producer boundary
 
 ## scope

@@ -1152,6 +1152,34 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - native runner / CLI connection、minifb wait path、generic dispatch からの producer 呼び出し、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - eventfd full / `EAGAIN` を成功扱いする fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
 
+### Phase F5ic: Native Linux host event signal producer handle boundary
+
+目的:
+
+- F5ib の backend-owned producer を、blocking wait 中の backend とは別 owner から使える producer handle 境界へ分離する。
+- Linux platform wait runner / CLI dispatch を有効にする前に、external window / event source が wait backend を所有せず host event fd を wake できる contract を固定する。
+- producer signal success を `HostEventReady` outcome や scheduler resume evidence に直結させず、wake request だけを表す。
+
+実装:
+
+- `NativeWindowHostLoopLinuxHostEventSignalFd` を duplicated eventfd handle の private owner として追加する。fd `0` は有効、負値だけ invalid とする。
+- `NativeWindowHostLoopLinuxHostEventSignalRawApi` を追加し、host event fd の clone、duplicated signal fd への exact write、duplicated signal fd close、last error retrieval を分ける。
+- `NativeWindowHostLoopLinuxHostEventSignalProducerError` を追加し、closed backend、invalid duplicated fd、clone failure、signal failure を typed error として保持する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend::create_host_event_signal_producer` は backend の host event fd を producer API で duplicate し、`NativeWindowHostLoopLinuxHostEventSignalProducer Api` を返す。backend closed は `InvalidHostEventRawFd { raw_fd: -1 }` として拒否する。
+- cfg Linux `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` は `fcntl F_DUPFD_CLOEXEC` で producer fd を作り、signal は `u64` 値 `1` の exact write だけを success にする。
+- producer owner は explicit close と Drop の両方で close-once cleanup を行う。cleanup failure は通常 wait result と混ぜない。
+
+検証:
+
+- Rust unit tests で signal fd の fd `0` valid / negative invalid、producer duplication、clone failure、closed backend rejection、signal failure、close-once を検査する。
+- source policy で private signal fd owner、producer raw API、typed error、`F_DUPFD_CLOEXEC`、exact write、unit test 名、runner / CLI / minifb 未接続、fallback / silent no-op / synthetic readiness 禁止を固定する。
+- `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu` で cfg Linux producer shim が型検査されることを確認する。
+
+非目標:
+
+- native runner / CLI connection、minifb wait path、generic dispatch から producer を呼ぶ接続、Linux minifb platform wait runner、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- pre-signal busy loop、synthetic `HostEventReady`、timer fired evidence の偽装、`dup` による close-on-exec 欠落、raw fd escape、eventfd full / `EAGAIN` を成功扱いする fallback は導入しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

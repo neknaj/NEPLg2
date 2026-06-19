@@ -3720,6 +3720,11 @@ pub struct NativeWindowHostLoopLinuxHostEventFd {
     raw_fd: i32,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopLinuxHostEventSignalFd {
+    raw_fd: i32,
+}
+
 #[cfg(any(test, target_os = "linux"))]
 fn native_window_host_loop_linux_selector_fd_raw(
     handle: &NativeWindowHostLoopLinuxSelectorFd,
@@ -3735,6 +3740,13 @@ fn native_window_host_loop_linux_timer_fd_raw(handle: &NativeWindowHostLoopLinux
 #[cfg(any(test, target_os = "linux"))]
 fn native_window_host_loop_linux_host_event_fd_raw(
     handle: &NativeWindowHostLoopLinuxHostEventFd,
+) -> i32 {
+    handle.raw_fd
+}
+
+#[cfg(any(test, target_os = "linux"))]
+fn native_window_host_loop_linux_host_event_signal_fd_raw(
+    handle: &NativeWindowHostLoopLinuxHostEventSignalFd,
 ) -> i32 {
     handle.raw_fd
 }
@@ -3788,6 +3800,14 @@ pub enum NativeWindowHostLoopLinuxSelectorTimerFdBackendError {
     ElapsedNanosOverflow,
     DeadlineDeltaOverflow { now_nanos: u64, deadline_nanos: u64 },
     TimespecSecondsOverflow { delta_nanos: u64 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxHostEventSignalProducerError {
+    InvalidHostEventRawFd { raw_fd: i32 },
+    InvalidHostEventSignalRawFd { raw_fd: i32 },
+    CreateHostEventSignalFdFailed { code: u32 },
+    SignalHostEventSignalFdFailed { code: u32 },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -3851,6 +3871,25 @@ pub trait NativeWindowHostLoopLinuxSelectorTimerFdRawApi {
     fn last_error_code(&mut self) -> u32;
 }
 
+pub trait NativeWindowHostLoopLinuxHostEventSignalRawApi {
+    fn clone_host_event_signal_fd_raw(
+        &mut self,
+        host_event: &NativeWindowHostLoopLinuxHostEventFd,
+    ) -> i32;
+
+    fn signal_host_event_signal_fd_raw(
+        &mut self,
+        signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+    ) -> bool;
+
+    fn close_host_event_signal_fd_raw(
+        &mut self,
+        signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+    ) -> bool;
+
+    fn last_error_code(&mut self) -> u32;
+}
+
 pub fn native_window_host_loop_linux_selector_fd_from_raw(
     raw_fd: i32,
 ) -> Result<NativeWindowHostLoopLinuxSelectorFd, NativeWindowHostLoopLinuxSelectorTimerFdBackendError>
@@ -3887,6 +3926,22 @@ pub fn native_window_host_loop_linux_host_event_fd_from_raw(
         );
     }
     Ok(NativeWindowHostLoopLinuxHostEventFd { raw_fd })
+}
+
+pub fn native_window_host_loop_linux_host_event_signal_fd_from_raw(
+    raw_fd: i32,
+) -> Result<
+    NativeWindowHostLoopLinuxHostEventSignalFd,
+    NativeWindowHostLoopLinuxHostEventSignalProducerError,
+> {
+    if raw_fd < 0 {
+        return Err(
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
+                raw_fd,
+            },
+        );
+    }
+    Ok(NativeWindowHostLoopLinuxHostEventSignalFd { raw_fd })
 }
 
 pub fn native_window_host_loop_linux_timer_fd_timespec_from_nanos(
@@ -4105,6 +4160,45 @@ where
         closed
     }
 
+    pub fn create_host_event_signal_producer<ProducerApi>(
+        &self,
+        mut producer_api: ProducerApi,
+    ) -> Result<
+        NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>,
+        NativeWindowHostLoopLinuxHostEventSignalProducerError,
+    >
+    where
+        ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+    {
+        let host_event = self.host_event.as_ref().ok_or(
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventRawFd {
+                raw_fd: -1,
+            },
+        )?;
+        let signal_raw_fd = producer_api.clone_host_event_signal_fd_raw(host_event);
+        let signal = match native_window_host_loop_linux_host_event_signal_fd_from_raw(
+            signal_raw_fd,
+        ) {
+            Ok(signal) => signal,
+            Err(
+                NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
+                    ..
+                },
+            ) => {
+                return Err(
+                    NativeWindowHostLoopLinuxHostEventSignalProducerError::CreateHostEventSignalFdFailed {
+                        code: producer_api.last_error_code(),
+                    },
+                );
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(NativeWindowHostLoopLinuxHostEventSignalProducer::new(
+            producer_api,
+            signal,
+        ))
+    }
+
     pub fn signal_host_event(
         &mut self,
     ) -> Result<(), NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
@@ -4201,6 +4295,74 @@ where
             0
         };
         native_window_host_loop_linux_selector_timer_fd_wake_from_status(status, last_error_code)
+    }
+}
+
+#[derive(Debug)]
+pub struct NativeWindowHostLoopLinuxHostEventSignalProducer<
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+> {
+    api: Api,
+    signal: Option<NativeWindowHostLoopLinuxHostEventSignalFd>,
+}
+
+impl<Api> NativeWindowHostLoopLinuxHostEventSignalProducer<Api>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn new(api: Api, signal: NativeWindowHostLoopLinuxHostEventSignalFd) -> Self {
+        Self {
+            api,
+            signal: Some(signal),
+        }
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn are_handles_open(&self) -> bool {
+        self.signal.is_some()
+    }
+
+    pub fn close_signal_handle_if_open(&mut self) -> bool {
+        let signal = self.signal.take();
+        if let Some(signal) = signal {
+            let _ = self.api.close_host_event_signal_fd_raw(&signal);
+            return true;
+        }
+        false
+    }
+
+    pub fn signal_host_event(
+        &mut self,
+    ) -> Result<(), NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        let signal = self.signal.as_ref().ok_or(
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
+                raw_fd: -1,
+            },
+        )?;
+        if !self.api.signal_host_event_signal_fd_raw(signal) {
+            return Err(
+                NativeWindowHostLoopLinuxHostEventSignalProducerError::SignalHostEventSignalFdFailed {
+                    code: self.api.last_error_code(),
+                },
+            );
+        }
+        Ok(())
+    }
+}
+
+impl<Api> Drop for NativeWindowHostLoopLinuxHostEventSignalProducer<Api>
+where
+    Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    fn drop(&mut self) {
+        self.close_signal_handle_if_open();
     }
 }
 
@@ -4361,6 +4523,27 @@ impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
     fn drain_host_event_fd(&mut self, host_event: &NativeWindowHostLoopLinuxHostEventFd) -> bool {
         self.drain_u64_fd(native_window_host_loop_linux_host_event_fd_raw(host_event))
     }
+
+    fn write_eventfd_counter_raw(&mut self, raw_fd: i32) -> bool {
+        let counter = 1_u64;
+        let write_result = unsafe {
+            libc::write(
+                raw_fd,
+                (&counter as *const u64).cast::<libc::c_void>(),
+                std::mem::size_of::<u64>(),
+            )
+        };
+        if write_result < 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        if write_result != std::mem::size_of::<u64>() as libc::ssize_t {
+            self.set_error_code(libc::EIO);
+            return false;
+        }
+        self.clear_error();
+        true
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -4456,24 +4639,7 @@ impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
         &mut self,
         host_event: &NativeWindowHostLoopLinuxHostEventFd,
     ) -> bool {
-        let counter = 1_u64;
-        let write_result = unsafe {
-            libc::write(
-                native_window_host_loop_linux_host_event_fd_raw(host_event),
-                (&counter as *const u64).cast::<libc::c_void>(),
-                std::mem::size_of::<u64>(),
-            )
-        };
-        if write_result < 0 {
-            self.set_last_os_error();
-            return false;
-        }
-        if write_result != std::mem::size_of::<u64>() as libc::ssize_t {
-            self.set_error_code(libc::EIO);
-            return false;
-        }
-        self.clear_error();
-        true
+        self.write_eventfd_counter_raw(native_window_host_loop_linux_host_event_fd_raw(host_event))
     }
 
     fn arm_timer_fd_relative_timespec(
@@ -4634,6 +4800,54 @@ impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
             return false;
         }
         true
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        self.last_error_code
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowHostLoopLinuxHostEventSignalRawApi
+    for NativeWindowHostLoopLinuxSelectorTimerFdSysApi
+{
+    fn clone_host_event_signal_fd_raw(
+        &mut self,
+        host_event: &NativeWindowHostLoopLinuxHostEventFd,
+    ) -> i32 {
+        let raw_fd = unsafe {
+            libc::fcntl(
+                native_window_host_loop_linux_host_event_fd_raw(host_event),
+                libc::F_DUPFD_CLOEXEC,
+                0,
+            )
+        };
+        if raw_fd < 0 {
+            self.set_last_os_error();
+        } else {
+            self.clear_error();
+        }
+        raw_fd
+    }
+
+    fn signal_host_event_signal_fd_raw(
+        &mut self,
+        signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+    ) -> bool {
+        self.write_eventfd_counter_raw(native_window_host_loop_linux_host_event_signal_fd_raw(
+            signal,
+        ))
+    }
+
+    fn close_host_event_signal_fd_raw(
+        &mut self,
+        signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+    ) -> bool {
+        unsafe {
+            libc::close(native_window_host_loop_linux_host_event_signal_fd_raw(
+                signal,
+            )) == 0
+        }
     }
 
     fn last_error_code(&mut self) -> u32 {
@@ -15355,14 +15569,25 @@ mod tests {
                 raw_fd: -1,
             }
         );
+        assert_eq!(
+            native_window_host_loop_linux_host_event_signal_fd_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
+                raw_fd: -1,
+            }
+        );
 
         let selector = native_window_host_loop_linux_selector_fd_from_raw(0).unwrap();
         let timer = native_window_host_loop_linux_timer_fd_from_raw(0).unwrap();
         let host_event = native_window_host_loop_linux_host_event_fd_from_raw(0).unwrap();
+        let signal = native_window_host_loop_linux_host_event_signal_fd_from_raw(0).unwrap();
         assert_eq!(native_window_host_loop_linux_selector_fd_raw(&selector), 0);
         assert_eq!(native_window_host_loop_linux_timer_fd_raw(&timer), 0);
         assert_eq!(
             native_window_host_loop_linux_host_event_fd_raw(&host_event),
+            0
+        );
+        assert_eq!(
+            native_window_host_loop_linux_host_event_signal_fd_raw(&signal),
             0
         );
     }
@@ -15573,6 +15798,99 @@ mod tests {
             }
         );
         assert!(backend.api().signal_host_event_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_linux_host_event_signal_producer_duplicates_and_signals_handle() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+        let mut producer = backend
+            .create_host_event_signal_producer(producer_api)
+            .unwrap();
+
+        assert!(producer.are_handles_open());
+        assert_eq!(producer.api().clone_calls, vec![6]);
+        assert_eq!(producer.signal_host_event().unwrap(), ());
+        assert_eq!(producer.api().signal_calls, vec![20]);
+        assert_eq!(producer.api().last_error_calls, 0);
+    }
+
+    #[test]
+    fn native_window_linux_host_event_signal_producer_preserves_clone_failure() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(-1)
+            .with_last_error_code(21);
+
+        assert_eq!(
+            backend
+                .create_host_event_signal_producer(producer_api)
+                .unwrap_err(),
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::CreateHostEventSignalFdFailed {
+                code: 21,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_host_event_signal_producer_rejects_closed_backend() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let mut backend =
+            NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        assert_eq!(backend.close_handles_if_open(), true);
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+
+        assert_eq!(
+            backend
+                .create_host_event_signal_producer(producer_api)
+                .unwrap_err(),
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventRawFd {
+                raw_fd: -1,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_host_event_signal_producer_preserves_signal_failure() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20)
+            .with_last_error_code(22)
+            .with_signal_result(false);
+        let mut producer = backend
+            .create_host_event_signal_producer(producer_api)
+            .unwrap();
+
+        assert_eq!(
+            producer.signal_host_event().unwrap_err(),
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::SignalHostEventSignalFdFailed {
+                code: 22,
+            }
+        );
+        assert_eq!(producer.api().signal_calls, vec![20]);
+        assert_eq!(producer.api().last_error_calls, 1);
+        assert!(producer.are_handles_open());
+    }
+
+    #[test]
+    fn native_window_linux_host_event_signal_producer_closes_signal_handle_once() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+        let mut producer = backend
+            .create_host_event_signal_producer(producer_api)
+            .unwrap();
+
+        assert_eq!(producer.close_signal_handle_if_open(), true);
+        assert_eq!(producer.close_signal_handle_if_open(), false);
+        assert_eq!(producer.api().close_calls, vec![20]);
+        assert_eq!(
+            producer.signal_host_event().unwrap_err(),
+            NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
+                raw_fd: -1,
+            }
+        );
     }
 
     #[test]
@@ -18267,6 +18585,81 @@ mod tests {
 
         fn last_error_code(&mut self) -> u32 {
             self.count_raw_method_call();
+            self.last_error_calls += 1;
+            self.last_error_code
+        }
+    }
+
+    #[derive(Debug)]
+    struct ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi {
+        clone_raw_fd: i32,
+        signal_result: bool,
+        last_error_code: u32,
+        clone_calls: Vec<i32>,
+        signal_calls: Vec<i32>,
+        close_calls: Vec<i32>,
+        last_error_calls: usize,
+    }
+
+    impl ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi {
+        fn new(clone_raw_fd: i32) -> Self {
+            Self {
+                clone_raw_fd,
+                signal_result: true,
+                last_error_code: 0,
+                clone_calls: Vec::new(),
+                signal_calls: Vec::new(),
+                close_calls: Vec::new(),
+                last_error_calls: 0,
+            }
+        }
+
+        fn with_last_error_code(mut self, code: u32) -> Self {
+            self.last_error_code = code;
+            self
+        }
+
+        fn with_signal_result(mut self, result: bool) -> Self {
+            self.signal_result = result;
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopLinuxHostEventSignalRawApi
+        for ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi
+    {
+        fn clone_host_event_signal_fd_raw(
+            &mut self,
+            host_event: &NativeWindowHostLoopLinuxHostEventFd,
+        ) -> i32 {
+            self.clone_calls
+                .push(native_window_host_loop_linux_host_event_fd_raw(host_event));
+            self.clone_raw_fd
+        }
+
+        fn signal_host_event_signal_fd_raw(
+            &mut self,
+            signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+        ) -> bool {
+            self.signal_calls
+                .push(native_window_host_loop_linux_host_event_signal_fd_raw(
+                    signal,
+                ));
+            self.signal_result
+        }
+
+        fn close_host_event_signal_fd_raw(
+            &mut self,
+            signal: &NativeWindowHostLoopLinuxHostEventSignalFd,
+        ) -> bool {
+            self.close_calls
+                .push(native_window_host_loop_linux_host_event_signal_fd_raw(
+                    signal,
+                ));
+            true
+        }
+
+        fn last_error_code(&mut self) -> u32 {
             self.last_error_calls += 1;
             self.last_error_code
         }

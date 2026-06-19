@@ -827,6 +827,18 @@ cfg Linux sys shim は `eventfd` に `u64` 値 `1` を `libc::write` で exactly
 
 F5ib は eventfd producer boundary までであり、native runner / CLI / minifb wait path からこの producer を呼ぶ接続、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic readiness、timer fired evidence の偽装は禁止する。
 
+## F5ic Native Linux host event signal producer handle boundary
+
+2026-06-20 の F5ic では、F5ib の backend-owned `signal_host_event` から一段進め、blocking wait 中の backend とは別 owner が host event fd を signal できるようにする。Linux の selector / timerfd backend は `wait_for_host_event` や `wait_until_deadline_or_host_event` の間に `&mut self` を占有するため、runner 接続前に producer handle を分離しないと、外部 window / event source から安全に wake を送れない。
+
+`NativeWindowHostLoopLinuxHostEventSignalFd` は duplicated eventfd handle の private owner である。fd `0` は有効、`raw_fd < 0` だけを invalid とし、public raw fd accessor は作らない。`NativeWindowHostLoopLinuxHostEventSignalRawApi` は host event fd の duplicate、duplicated fd への exact signal write、duplicated fd close、last error retrieval を分離する。clone / write failure は `NativeWindowHostLoopLinuxHostEventSignalProducerError` の typed variant として返す。
+
+`NativeWindowHostLoopLinuxSelectorTimerFdBackend::create_host_event_signal_producer` は backend が保持する `NativeWindowHostLoopLinuxHostEventFd` を producer API で複製し、`NativeWindowHostLoopLinuxHostEventSignalProducer Api` を返す。backend が closed の場合は `InvalidHostEventRawFd { raw_fd: -1 }` として fail closed にする。producer は duplicated signal fd だけを所有し、`signal_host_event` 成功時も `HostEventReady` outcome や scheduler resume evidence を生成しない。
+
+cfg Linux sys shim は `fcntl F_DUPFD_CLOEXEC` で duplicated signal fd を作る。`dup` による close-on-exec 欠落、raw fd escape、short write / `EAGAIN` の success 化は禁止する。signal は `u64` 値 `1` を `libc::write` で exactly 8 bytes 書けた場合だけ成功にし、producer close は close-once cleanup として扱う。drop cleanup failure は通常 wait contract へ混ぜない。
+
+F5ic は producer handle boundary までであり、native runner / CLI / minifb wait path、generic dispatch から producer を呼ぶ接続、Linux minifb platform wait runner、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、pre-signal busy loop、synthetic readiness、timer fired evidence の偽装は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
