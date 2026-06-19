@@ -1832,6 +1832,34 @@ subagent review:
 
 - Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、wait hook が owner helper だけを呼ぶこと、inner host wait hook を呼ばない test を入れること、non-wait operation は inner host に正確に委譲すること、owner wait error を typed error のまま保持すること、host-event wait と frame-interval wait の dispatch 先を分けて検査すること、minifb path へ wrapper を混ぜないことである。
 
+## Phase F5hj: Native interruptible deadline wait boundary
+
+Phase F5hj では、real selector / message-loop timer backend の前段として、host event readiness と frame deadline のどちらでも wake できる interruptible wait boundary を追加する。これは actual OS selector / message-loop/timerfd/waitable-timer implementation ではなく、timer-only deadline wait の semantic gap を先に閉じる checkpoint である。
+
+実装:
+
+- `NativeWindowHostLoopInterruptibleDeadlineWake` を追加し、`HostEventReady` と `DeadlineReached` を持たせる。
+- `NativeWindowHostLoopInterruptibleDeadlineWaiter` を追加し、host event wait と deadline-or-host-event wait を別 method にする。
+- `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を追加し、clock、waiter、positive timer id cursor を所有させる。
+- `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` は `NativeWindowHostLoopWaitInstruction` を受け、`NativeWindowHostLoopWaitOutcome` を返す。
+- `WaitForHostEvent` は host event waiter だけを呼び、`HostEventPumpAlreadyPaced` に写す。
+- `WaitForFrameInterval` は wait nanos を clock/id/waiter side effect より前に検査し、checked timer id、checked deadline arithmetic、interruptible waiter call を順に実行する。
+- deadline 到達時だけ `FrameIntervalTimerFired` を返す。host event readiness で wake した場合は `HostEventPumpAlreadyPaced` を返し、timer fired evidence を生成しない。
+- candidate timer id は wait 開始前に advance するため、host event wake や frame wait failure の場合も id reuse はしない。
+- unit test は host-event-only wait、deadline reached、host event interrupt、wait-nanos mismatch no-side-effect、host-event error、clock error、deadline overflow、id overflow、frame wait error を検査する。
+- source policy は new boundary が minifb / DOM / Canvas / video memory / fallback / silent no-op を含まないこと、minifb runner / adapter / wait method が interruptible adapter を参照しないことを固定する。
+
+非目標:
+
+- minifb runner を interruptible deadline wait adapter へ接続しない。
+- timer-only deadline wait、thread sleep、busy loop、minifb internal pacing、synthetic fired evidence へ fallback しない。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、wait-nanos validation を side effect より前に行うこと、host event wake を timer fired と偽装しないこと、distinct error stages を保持すること、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、docs が OS-specific implementation ではなく semantic interruptible wake boundary だと明記することである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

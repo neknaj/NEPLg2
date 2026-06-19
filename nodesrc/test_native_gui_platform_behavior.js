@@ -94,6 +94,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowDeadlineTimerAdapter = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostLoopDeadlineTimerRecord",
+        "pub enum NativeWindowHostLoopInterruptibleDeadlineWake",
+    );
+    const nativeWindowInterruptibleDeadlineWaitAdapter = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopInterruptibleDeadlineWake",
         "pub enum NativeWindowHostLoopEventQueueWaitError",
     );
     const nativeWindowEventQueueWaitBackend = textSliceBetween(
@@ -178,6 +183,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
@@ -192,6 +198,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
@@ -206,6 +213,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
@@ -375,6 +383,26 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_deadline_timer_adapter_rejects_deadline_overflow/);
     assert.match(libSource, /native_window_deadline_timer_adapter_preserves_clock_error/);
     assert.match(libSource, /native_window_deadline_timer_adapter_preserves_active_timer_on_sleep_error/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWake[\s\S]*HostEventReady[\s\S]*DeadlineReached/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<ClockError,\s*WaiterError>[\s\S]*HostEventWaitFailed\(WaiterError\)[\s\S]*FrameIntervalWaitNanosMismatch[\s\S]*TimerRegistrationIdOverflow[\s\S]*DeadlineNanosOverflow[\s\S]*ClockFailed\(ClockError\)[\s\S]*FrameIntervalWaitFailed\(WaiterError\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /pub trait NativeWindowHostLoopInterruptibleDeadlineWaiter[\s\S]*wait_for_host_event\([\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool[\s\S]*wait_until_deadline_or_host_event\([\s\S]*deadline_nanos: u64,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /pub struct NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock,\s*Waiter>[\s\S]*next_raw_id: u32,[\s\S]*clock: Clock,[\s\S]*waiter: Waiter/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /execute_native_window_host_loop_interruptible_deadline_wait_with_adapter[\s\S]*WaitForHostEvent[\s\S]*wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*HostEventWaitFailed[\s\S]*HostEventPumpAlreadyPaced/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /WaitForFrameInterval[\s\S]*let nanos_per_frame = frame_interval\.nanos_per_frame\(\)[\s\S]*wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame \+ 1[\s\S]*FrameIntervalWaitNanosMismatch/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /let raw_id = adapter\.next_raw_id[\s\S]*checked_add\(1\)[\s\S]*TimerRegistrationIdOverflow[\s\S]*clock[\s\S]*\.now_nanos\(\)[\s\S]*ClockFailed[\s\S]*checked_add\(u64::from\(wait_nanos\)\)[\s\S]*DeadlineNanosOverflow/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /adapter\.next_raw_id = next_raw_id[\s\S]*wait_until_deadline_or_host_event\(deadline_nanos,\s*window_size,\s*size_changed\)[\s\S]*FrameIntervalWaitFailed/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady[\s\S]*NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached[\s\S]*NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired/);
+    assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitAdapter, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_waits_for_host_event_only/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_returns_timer_fired_on_deadline/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_returns_host_ready_without_timer_fire/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_rejects_invalid_wait_before_side_effects/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_preserves_host_event_wait_error/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_preserves_clock_error/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_rejects_deadline_overflow/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_rejects_timer_id_overflow/);
+    assert.match(libSource, /native_window_interruptible_deadline_wait_preserves_frame_wait_error/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForHostEvent\s*\{[\s\S]*waiter[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueWaitError::WaiterFailed/);
     assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
@@ -490,8 +518,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForHostEvent[\s\S]*wait_minifb_window_host_event_message_pump\(self\.window,\s*window_size,\s*size_changed\)[\s\S]*MinifbNativeWindowHostLoopWaitError::EventQueueWaitFailed/);
     assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForFrameInterval[\s\S]*frame_interval,[\s\S]*wait_nanos,[\s\S]*self[\s\S]*\.frame_pacing_authority[\s\S]*\.frame_interval_wait_outcome\([\s\S]*presentation,[\s\S]*window_size,[\s\S]*size_changed,[\s\S]*frame_interval,[\s\S]*wait_nanos/);
     assert.match(nativeWindowMinifbWaitMethod, /MinifbNativeWindowHostLoopWaitError::FramePacingAuthorityFailed/);
-    assert.doesNotMatch(nativeWindowMinifbWaitMethod, /FramePresentAlreadyPaced|window\.update\(|update_with_buffer|limit_update_rate|NativeWindowHostOwnedDeadlineWaitRunLoopHost|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|fallback|silent no-op/i);
-    assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|NativeWindowHostOwnedDeadlineWaitRunLoopHost|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowMinifbWaitMethod, /FramePresentAlreadyPaced|window\.update\(|update_with_buffer|limit_update_rate|NativeWindowHostOwnedDeadlineWaitRunLoopHost|NativeWindowHostLoopInterruptibleDeadline|execute_native_window_host_loop_wait_with_owner|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|NativeWindowHostOwnedDeadlineWaitRunLoopHost|NativeWindowHostLoopInterruptibleDeadline|execute_native_window_host_loop_wait_with_owner|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowRunLoopHelper, /pub fn run_minifb_window_loop\([\s\S]*NativeWindowRunLoopConfig[\s\S]*NativeWindowRunLoopExit/);
     assert.match(nativeWindowRunLoopHelper, /pub fn validate_minifb_window_run_loop_frame_interval_wait_backend[\s\S]*NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps[\s\S]*\.authority_mode\(target_fps\)[\s\S]*requested\.authority_mode\(target_fps\)[\s\S]*combine_native_window_frame_interval_wait_authority_mode[\s\S]*NativeWindowRunLoopFrameIntervalWaitBackendError::Unsupported/);
     assert.match(nativeWindowRunLoopHelper, /run_minifb_window_loop[\s\S]*validate_minifb_window_run_loop_frame_interval_wait_backend\([\s\S]*config\.frame_interval_wait_backend,[\s\S]*config\.target_fps,[\s\S]*\)[\s\S]*NativeWindowRunLoopError::FrameIntervalWaitBackendUnsupported[\s\S]*let frame_pacing_authority = minifb_native_window_frame_pacing_authority\(config\.target_fps\)[\s\S]*NativeWindowBackendLoop::new_for_scale[\s\S]*Window::new[\s\S]*configure_minifb_window_frame_pacing/);
@@ -506,7 +534,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowRunLoopHelper, /NativeWindowRunLoopError::WindowPresentFailed/);
     assert.match(nativeWindowRunLoopHelper, /NativeWindowRunLoopError::WaitDecisionMissing/);
     assert.match(nativeWindowRunLoopHelper, /minifb_native_window_host_loop_wait_error_message/);
-    assert.doesNotMatch(nativeWindowRunLoopHelper, /NativeWindowHostOwnedDeadlineWaitRunLoopHost|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter/);
+    assert.doesNotMatch(nativeWindowRunLoopHelper, /NativeWindowHostOwnedDeadlineWaitRunLoopHost|NativeWindowHostLoopInterruptibleDeadline|execute_native_window_host_loop_wait_with_owner|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter/);
     assert.doesNotMatch(nativeWindowMinifbRunner, /poll_minifb_window_event_pump|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|update_with_buffer\(/);
     assert.match(nativeWindowBackendLoopHelper, /CloseRequested[\s\S]*return Ok\(NativeWindowBackendLoopStepOutcome::CloseRequested/);
     assert.match(nativeWindowBackendLoopHelper, /NativeWindowBackendLoopStepOutcome::Unavailable/);
