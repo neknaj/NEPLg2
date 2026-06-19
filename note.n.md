@@ -71398,3 +71398,46 @@ MERGE_APPROVED
 ### residual
 
 - F5gb は native / bare bounded real-loop runner までであり、formal `std/gui` present host import 接続、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gq host-loop wait request plan boundary
+
+### scope
+
+- F5gq は F5gp の scheduler slice が保持する wait decision を、actual backend が消費できる typed wait request plan へ変換する boundary である。
+- `NativeWindowFrameIntervalRequest` は validated `NativeWindowTargetFps` から `nanos_per_frame` と `remainder_nanos_per_second` を計算し、暗黙 rounding、clamp、sentinel を使わない。
+- `NativeWindowHostLoopWaitRequest` は host event wait と frame interval wait を分ける。host event wait は event payload や queue owner を持たない。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+- `run_native_window_host_loop_with_policy_and_target_fps` と explicit target fps scheduler slice を追加し、minifb runner は `config.target_fps` を request plan へ渡す。
+- actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、pure rename にせず target fps 由来の checked millis / nanos request を作ること、`std::time::Duration` / `std::thread::sleep` / queue / timer registration / minifb wait update を入れないこと、入力 authority を wait decision と validated target fps に限定することだった。
+- この指摘に従い、F5gq は `NativeWindowFrameIntervalRequest` と `NativeWindowHostLoopWaitRequest` を追加し、wait hook 入力を request plan へ切り替えた。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に frame interval request、wait request、request builder、explicit target fps runner を追加した。
+- scheduler slice result は `decision`、`request`、`outcome` を保持し、future scheduler が分類元、backend request plan、host outcome を別々に検査できるようにした。
+- minifb wait hook は request を受け取るが、追加の update / sleep / timer を実行しない。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gq contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+
+### residual
+
+- 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gq は wait request plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
