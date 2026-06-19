@@ -151,9 +151,17 @@ F5gm では、`NativeWindowHostLoopTurn::Continue` が `NativeWindowHostLoopCont
 
 F5gn では、`NativeWindowHostLoopContinueEvidence` を `NativeWindowHostLoopWaitDecision` へ分類する。`PumpedEventsOnly` は `WaitForHostEvent`、`PresentedFrame` は `WaitForFrameInterval` になる。これは future OS wait strategy の入力 class であり、実際の wait 実装ではない。
 
-`run_native_window_host_loop_bounded` の `BudgetExhausted` は `completed_turns` と `last_wait_decision` を返す。turn budget が 0 の場合は `None`、継続 turn を処理した場合は最後の `Continue` evidence から得た decision を返す。policy runner は現 checkpoint では `last_wait_decision` を明示的に捨てる。`WaitForFrameInterval` は frame-paced wait class evidence であり、timer registration、sleep、FHD 60fps guarantee ではない。
+`run_native_window_host_loop_bounded` の `BudgetExhausted` は `completed_turns` と `last_wait_decision` を返す。turn budget が 0 の場合は `None`、継続 turn を処理した場合は最後の `Continue` evidence から得た decision を返す。F5gn の時点では decision の分類までを責務とし、実 wait dispatch は次 checkpoint の F5go で扱う。`WaitForFrameInterval` は frame-paced wait class evidence であり、timer registration、sleep、FHD 60fps guarantee ではない。
 
 wait decision は pixel borrow、host handle、scheduler state を持たない。queue / timer wait、`Duration`、`std::thread::sleep`、fallback、silent no-op、DOM / Canvas / video memory transport はこの checkpoint の責務ではない。
+
+## Native window host-loop wait dispatch checkpoint
+
+F5go では、F5gn の `NativeWindowHostLoopWaitDecision` を policy runner が `NativeWindowRunLoopHost::wait_after_budget_exhausted` へ渡す。host trait は `WaitError` associated type を持ち、wait hook の失敗は `NativeWindowHostLoopError::HostWaitFailed` として event pump / present / host action failure と分離する。
+
+wait hook は `NativeWindowHostLoopWaitOutcome` を返す。minifb smoke backend では `Window::set_target_fps` による `Window::update` / `update_with_buffer` 内部の pacing が wait authority であるため、F5go の hook は `HostEventPumpAlreadyPaced` または `FramePresentAlreadyPaced` の typed outcome を返すだけで追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration`、queue、timer を実行しない。これにより event pump の重複と二重 pacing を避ける。
+
+`run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` の場合だけ host wait hook を呼び、`None` は `WaitDecisionMissing` として fail closed にする。zero turn slice は validation により作れないが、bounded runner API 自体は zero budget を許すため、long-running policy runner 側で missing decision を silent no-op にしない。
 
 ## Current implementation
 
@@ -167,6 +175,8 @@ wait decision は pixel borrow、host handle、scheduler state を持たない�
 - `NativeWindowHostLoopRunPolicy` で検査した turn slice により、minifb host loop は bounded runner を明示的に反復する。
 - `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
 - `NativeWindowHostLoopWaitDecision` により、bounded runner の最後の continue turn を host-event wait class または frame-interval wait class として分類する。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait decision を host wait boundary へ渡す。
+- minifb smoke backend の wait hook は additional `window.update` や sleep を行わず、`Window::set_target_fps` による既存 pacing を `NativeWindowHostLoopWaitOutcome` として記録する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。

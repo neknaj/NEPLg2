@@ -1283,7 +1283,7 @@ Phase F5gn では、F5gm の turn evidence を future native OS scheduler が消
 - `native_window_host_loop_wait_decision` は `NativeWindowHostLoopContinueEvidence` を受け、`PumpedEventsOnly` を `WaitForHostEvent`、`PresentedFrame` を `WaitForFrameInterval` へ写す pure helper とする。
 - `NativeWindowHostLoopBoundedRunResult::BudgetExhausted` は `completed_turns` と `last_wait_decision Option NativeWindowHostLoopWaitDecision` を持つ。
 - `run_native_window_host_loop_bounded` は zero budget では `None`、各 `Continue evidence` で `last_wait_decision` を更新し、最後の decision だけを返す。
-- policy runner は `BudgetExhausted last_wait_decision _` を明示的に捨てる。実 wait への接続は後続 phase とする。
+- policy runner での実 wait dispatch は F5go に分け、F5gn は分類結果を bounded runner output として保持するところまでにする。
 - tests は helper の全域写像、zero budget の `None`、pump-only budget exhaustion の `WaitForHostEvent`、pump-only 後 present の `WaitForFrameInterval` 上書きを検査する。
 - source policy は helper / bounded runner に pixel borrow、host handle、scheduler state、queue / timer、sleep / Duration、minifb / DOM / Canvas / video memory / stdout、fallback、silent no-op が混入しないことを固定する。
 
@@ -1295,6 +1295,30 @@ Phase F5gn では、F5gm の turn evidence を future native OS scheduler が消
 subagent review:
 
 - Feynman the 2nd に F5gn 計画を渡し、`last_continue_evidence` で止めず wait decision に写像する妥当性、pure helper、`BudgetExhausted` の `last_wait_decision`、source-policy の観点で確認させる。指摘があれば実装前に反映する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+## Phase F5go: Native window host-loop wait dispatch boundary
+
+Phase F5go では、F5gn の wait decision classification を `NativeWindowRunLoopHost` の wait hook に接続する。F5gn のままでは policy runner が bounded slice を繰り返すだけで、host 側の wait authority が型として表に出ない。F5go は `NativeWindowHostLoopWaitDecision` を `wait_after_budget_exhausted` に渡し、host wait failure と missing wait evidence を enum error として分離する。
+
+実装:
+
+- `NativeWindowRunLoopHost` に `type WaitError` と `wait_after_budget_exhausted decision` を追加する。
+- `NativeWindowHostLoopWaitOutcome` enum を追加し、`HostEventPumpAlreadyPaced window_size size_changed` と `FramePresentAlreadyPaced presentation window_size size_changed` を持たせる。
+- `NativeWindowHostLoopError` を `EventError`、`PresentError`、`WaitError` の 3 generic にし、`HostWaitFailed WaitError` と `WaitDecisionMissing` を追加する。
+- `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` で host wait hook を呼び、`None` は `WaitDecisionMissing` として返す。
+- minifb adapter の `WaitError` は `std::convert::Infallible` とし、wait hook は `Window::set_target_fps` によって `window.update` / `update_with_buffer` 内部ですでに pace されたことを outcome に写すだけにする。
+- tests は wait dispatch が次の event poll より前に呼ばれること、`WaitForFrameInterval` が outcome へ渡ること、wait error が次 poll を発生させず preserved されることを検査する。
+- source policy は wait method slice に追加の `window.update`、`update_with_buffer`、`Duration`、`std::thread::sleep`、queue、timer、fallback、silent no-op が入らないことを固定する。
+
+非目標:
+
+- formal OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- minifb adapter は F5go で追加の event pump や frame present を行わない。minifb の rate limit authority は `Window::set_target_fps` と、その後の `Window::update` / `update_with_buffer` call path に残す。
+
+subagent review:
+
+- Feynman the 2nd に F5go 計画を渡し、wait hook の配置、minifb pacing の二重実行回避、`HostWaitFailed` / `WaitDecisionMissing` の fail-closed contract、source-policy の観点で確認させる。指摘があれば実装前に反映する。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。

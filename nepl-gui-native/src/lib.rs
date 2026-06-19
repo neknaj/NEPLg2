@@ -1336,11 +1336,13 @@ pub enum NativeWindowRunLoopError {
     WindowPresentFailed {
         message: String,
     },
+    WaitDecisionMissing,
 }
 
 pub trait NativeWindowRunLoopHost {
     type EventError;
     type PresentError;
+    type WaitError;
 
     fn poll_event_snapshot(
         &mut self,
@@ -1352,14 +1354,21 @@ pub trait NativeWindowRunLoopHost {
     fn pump_events_only(&mut self);
 
     fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError>;
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        decision: NativeWindowHostLoopWaitDecision,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum NativeWindowHostLoopError<EventError, PresentError> {
+pub enum NativeWindowHostLoopError<EventError, PresentError, WaitError> {
     HostEventPumpFailed(EventError),
     HostActionFailed(NativeWindowHostActionError),
     PresenterFrameUnavailable(NativeWindowBackendLoopError),
     HostPresentFailed(PresentError),
+    HostWaitFailed(WaitError),
+    WaitDecisionMissing,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1382,6 +1391,19 @@ pub enum NativeWindowHostLoopWaitDecision {
         size_changed: bool,
     },
     WaitForFrameInterval {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWaitOutcome {
+    HostEventPumpAlreadyPaced {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    FramePresentAlreadyPaced {
         presentation: NativeWindowBackendLoopPresentation,
         window_size: NativeWindowSize,
         size_changed: bool,
@@ -2607,7 +2629,7 @@ pub fn run_native_window_host_loop_bounded<Host>(
     max_turn_count: usize,
 ) -> Result<
     NativeWindowHostLoopBoundedRunResult,
-    NativeWindowHostLoopError<Host::EventError, Host::PresentError>,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError, Host::WaitError>,
 >
 where
     Host: NativeWindowRunLoopHost,
@@ -2641,7 +2663,10 @@ where
 pub fn run_native_window_host_loop<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
-) -> Result<NativeWindowRunLoopExit, NativeWindowHostLoopError<Host::EventError, Host::PresentError>>
+) -> Result<
+    NativeWindowRunLoopExit,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError, Host::WaitError>,
+>
 where
     Host: NativeWindowRunLoopHost,
 {
@@ -2656,7 +2681,10 @@ pub fn run_native_window_host_loop_with_policy<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
     policy: NativeWindowHostLoopRunPolicy,
-) -> Result<NativeWindowRunLoopExit, NativeWindowHostLoopError<Host::EventError, Host::PresentError>>
+) -> Result<
+    NativeWindowRunLoopExit,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError, Host::WaitError>,
+>
 where
     Host: NativeWindowRunLoopHost,
 {
@@ -2671,9 +2699,16 @@ where
         )? {
             NativeWindowHostLoopBoundedRunResult::Exited { exit, .. } => return Ok(exit),
             NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
-                last_wait_decision: _,
+                last_wait_decision: Some(decision),
                 ..
-            } => {}
+            } => {
+                host.wait_after_budget_exhausted(decision)
+                    .map_err(NativeWindowHostLoopError::HostWaitFailed)?;
+            }
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                last_wait_decision: None,
+                ..
+            } => return Err(NativeWindowHostLoopError::WaitDecisionMissing),
         }
     }
 }
@@ -2681,7 +2716,10 @@ where
 pub fn step_native_window_host_loop<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
-) -> Result<NativeWindowHostLoopTurn, NativeWindowHostLoopError<Host::EventError, Host::PresentError>>
+) -> Result<
+    NativeWindowHostLoopTurn,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError, Host::WaitError>,
+>
 where
     Host: NativeWindowRunLoopHost,
 {
@@ -2747,6 +2785,7 @@ struct MinifbNativeWindowRunLoopHost<'window> {
 impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
     type EventError = NativeWindowEventPumpError;
     type PresentError = String;
+    type WaitError = std::convert::Infallible;
 
     fn poll_event_snapshot(
         &mut self,
@@ -2767,6 +2806,30 @@ impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
         self.window
             .update_with_buffer(frame.pixels(), frame.width(), frame.height())
             .map_err(|error| error.to_string())
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        decision: NativeWindowHostLoopWaitDecision,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        Ok(match decision {
+            NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size,
+                size_changed,
+            } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed,
+            },
+            NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+                presentation,
+                window_size,
+                size_changed,
+            } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                presentation,
+                window_size,
+                size_changed,
+            },
+        })
     }
 }
 
@@ -2806,7 +2869,7 @@ pub fn run_minifb_window_loop(
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn native_window_run_loop_error_from_host_loop(
-    error: NativeWindowHostLoopError<NativeWindowEventPumpError, String>,
+    error: NativeWindowHostLoopError<NativeWindowEventPumpError, String, std::convert::Infallible>,
 ) -> NativeWindowRunLoopError {
     match error {
         NativeWindowHostLoopError::HostEventPumpFailed(error) => {
@@ -2820,6 +2883,10 @@ fn native_window_run_loop_error_from_host_loop(
         }
         NativeWindowHostLoopError::HostPresentFailed(message) => {
             NativeWindowRunLoopError::WindowPresentFailed { message }
+        }
+        NativeWindowHostLoopError::HostWaitFailed(error) => match error {},
+        NativeWindowHostLoopError::WaitDecisionMissing => {
+            NativeWindowRunLoopError::WaitDecisionMissing
         }
     }
 }
@@ -5909,11 +5976,85 @@ mod tests {
         assert_eq!(host.pump_count, 1);
         assert!(host.present_frames.is_empty());
         assert_eq!(
+            host.wait_decisions,
+            vec![NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size: unavailable_size,
+                size_changed: true,
+            }]
+        );
+        assert_eq!(
+            host.wait_outcomes,
+            vec![NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size: unavailable_size,
+                size_changed: true,
+            }]
+        );
+        assert_eq!(
             host.titles,
             vec![
                 native_window_title(GuiDemo::Counter, initial_size),
                 native_window_title(GuiDemo::Counter, unavailable_size),
             ]
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_with_policy_dispatches_frame_interval_wait() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable), Ok(close)]);
+
+        let exit = run_native_window_host_loop_with_policy(
+            &mut loop_state,
+            &mut host,
+            NativeWindowHostLoopRunPolicy::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            exit.reason,
+            NativeWindowHostTerminalReason::OsCloseRequested
+        );
+        assert_eq!(host.cursor, 2);
+        assert_eq!(host.pump_count, 0);
+        assert_eq!(
+            host.present_frames,
+            vec![(initial_size.width, initial_size.height)]
+        );
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 1,
+            width: initial_size.width,
+            height: initial_size.height,
+        };
+        assert_eq!(
+            host.wait_decisions,
+            vec![NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+                presentation,
+                window_size: initial_size,
+                size_changed: false,
+            }]
+        );
+        assert_eq!(
+            host.wait_outcomes,
+            vec![NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                presentation,
+                window_size: initial_size,
+                size_changed: false,
+            }]
         );
     }
 
@@ -5929,6 +6070,49 @@ mod tests {
                 .unwrap_err(),
             NativeWindowHostLoopError::HostEventPumpFailed("event failed")
         );
+    }
+
+    #[test]
+    fn native_window_host_loop_with_policy_preserves_wait_error_without_next_poll() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            unavailable_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable), Ok(close)])
+            .with_wait_error("wait failed");
+
+        assert_eq!(
+            run_native_window_host_loop_with_policy(
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopError::HostWaitFailed("wait failed")
+        );
+        assert_eq!(host.cursor, 1);
+        assert_eq!(host.pump_count, 1);
+        assert_eq!(
+            host.wait_decisions,
+            vec![NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size: unavailable_size,
+                size_changed: true,
+            }]
+        );
+        assert!(host.wait_outcomes.is_empty());
     }
 
     #[test]
@@ -6138,7 +6322,10 @@ mod tests {
         titles: Vec<String>,
         pump_count: usize,
         present_frames: Vec<(usize, usize)>,
+        wait_decisions: Vec<NativeWindowHostLoopWaitDecision>,
+        wait_outcomes: Vec<NativeWindowHostLoopWaitOutcome>,
         present_error: Option<&'static str>,
+        wait_error: Option<&'static str>,
     }
 
     impl ScriptedNativeWindowRunLoopHost {
@@ -6149,7 +6336,10 @@ mod tests {
                 titles: Vec::new(),
                 pump_count: 0,
                 present_frames: Vec::new(),
+                wait_decisions: Vec::new(),
+                wait_outcomes: Vec::new(),
                 present_error: None,
+                wait_error: None,
             }
         }
 
@@ -6157,11 +6347,17 @@ mod tests {
             self.present_error = Some(error);
             self
         }
+
+        fn with_wait_error(mut self, error: &'static str) -> Self {
+            self.wait_error = Some(error);
+            self
+        }
     }
 
     impl NativeWindowRunLoopHost for ScriptedNativeWindowRunLoopHost {
         type EventError = &'static str;
         type PresentError = &'static str;
+        type WaitError = &'static str;
 
         fn poll_event_snapshot(
             &mut self,
@@ -6191,6 +6387,36 @@ mod tests {
             }
             self.present_frames.push((frame.width(), frame.height()));
             Ok(())
+        }
+
+        fn wait_after_budget_exhausted(
+            &mut self,
+            decision: NativeWindowHostLoopWaitDecision,
+        ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+            self.wait_decisions.push(decision.clone());
+            if let Some(error) = self.wait_error {
+                return Err(error);
+            }
+            let outcome = match decision.clone() {
+                NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                    window_size,
+                    size_changed,
+                } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                    window_size,
+                    size_changed,
+                },
+                NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+                    presentation,
+                    window_size,
+                    size_changed,
+                } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                    presentation,
+                    window_size,
+                    size_changed,
+                },
+            };
+            self.wait_outcomes.push(outcome.clone());
+            Ok(outcome)
         }
     }
 

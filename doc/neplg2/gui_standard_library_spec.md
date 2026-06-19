@@ -379,9 +379,19 @@ F5gm は turn evidence の明示化までであり、formal OS wait strategy、q
 
 `native_window_host_loop_wait_decision` は total mapping の pure helper であり、`Result` を返さず、fallback や silent no-op を持たない。`WaitForFrameInterval` は frame-paced wait class evidence であって、実時間 sleep、timer registration、FHD 60fps 保証ではない。decision は `NativeWindowSize`、`size_changed`、必要な場合の `NativeWindowBackendLoopPresentation` だけを保持し、pixel borrow、host handle、scheduler state を保持しない。
 
-`NativeWindowHostLoopBoundedRunResult::BudgetExhausted` は `completed_turns` と `last_wait_decision Option NativeWindowHostLoopWaitDecision` を返す。zero budget では `None`、`Continue evidence` を 1 回以上処理した場合は最後の evidence を分類した `Some decision` を返す。policy runner は現 checkpoint ではこの decision を明示的に捨てるだけで、実 wait へは接続しない。
+`NativeWindowHostLoopBoundedRunResult::BudgetExhausted` は `completed_turns` と `last_wait_decision Option NativeWindowHostLoopWaitDecision` を返す。zero budget では `None`、`Continue evidence` を 1 回以上処理した場合は最後の evidence を分類した `Some decision` を返す。実 wait dispatch は F5go の責務であり、F5gn は decision の生成と保持までを標準契約にする。
 
 F5gn は wait decision classification までであり、formal OS wait strategy、queue / timer wait backend、`Duration` 計算、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、minifb / DOM / Canvas / video memory transport も導入しない。
+
+## F5go Native window host-loop wait dispatch boundary
+
+2026-06-19 の F5go では、F5gn の wait decision を host wait boundary へ渡す。`NativeWindowRunLoopHost` は `WaitError` associated type と `wait_after_budget_exhausted` を持つ。`NativeWindowHostLoopError EventError PresentError WaitError` は `HostWaitFailed WaitError` と `WaitDecisionMissing` を含み、host wait failure と missing wait evidence を他の error class から分離する。
+
+`NativeWindowHostLoopWaitOutcome` は wait hook の outcome evidence であり、`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を持つ。minifb smoke backend は `Window::set_target_fps` を rate limit authority とし、wait hook では追加の `window.update`、`update_with_buffer`、`Duration`、`std::thread::sleep`、queue、timer を実行しない。`Window::update` と `update_with_buffer` が内部で pacing されるため、wait hook は already-paced outcome を返すだけである。
+
+`run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` の場合だけ `wait_after_budget_exhausted` を呼ぶ。`last_wait_decision = None` は `NativeWindowRunLoopError::WaitDecisionMissing` へ写る fail-closed path であり、zero budget や missing evidence を silent no-op にしない。
+
+F5go は wait dispatch boundary までであり、formal OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

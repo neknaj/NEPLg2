@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI platform F5go Native window host-loop wait dispatch boundary
+
+## scope
+
+- F5gn Native window host-loop wait decision boundary の後続として、`NativeWindowHostLoopWaitDecision` を host wait boundary に渡す。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted`、`NativeWindowHostLoopWaitOutcome`、`HostWaitFailed`、`WaitDecisionMissing` を追加し、wait dispatch failure を enum で分離する。
+- minifb smoke backend では `Window::set_target_fps` による existing pacing を authority とし、wait hook で追加の `window.update`、`update_with_buffer`、sleep、queue、timer を実行しない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`AlreadyPaced` outcome は妥当であり、minifb `Window::update` / `update_with_buffer` は `set_target_fps` による rate limit を内部で通るため、wait hook で追加の update や sleep を実装してはいけないと確認された。
+
+## implementation_current
+
+- `NativeWindowRunLoopHost` に `WaitError` associated type と `wait_after_budget_exhausted` を追加した。
+- `NativeWindowHostLoopWaitOutcome` は `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を持つ。
+- `NativeWindowHostLoopError` は `HostWaitFailed WaitError` と `WaitDecisionMissing` を持つ 3 generic enum になった。
+- `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` で host wait hook を呼び、`None` は `WaitDecisionMissing` として返す。
+- minifb host adapter の `WaitError` は `std::convert::Infallible` であり、wait hook は decision を already-paced outcome へ写すだけにした。
+- tests、source-policy、GUI 関連 doc、todo を F5go に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 108 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5go native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `REVIEW_APPROVED_TO_COMMIT`。blocking issue は無く、`BudgetExhausted Some decision` の wait hook dispatch、`WaitDecisionMissing` の fail-closed path、minifb wait hook が additional update / sleep / timer / queue を実装しないこと、`HostWaitFailed` が wait error を保持することが確認された。
+- review では untracked `tmp_*` / `NUL` 系を commit に巻き込まないよう指摘されたため、F5go の 8 変更ファイルだけを stage 対象にする。
+
+## residual
+
+- F5go は wait dispatch boundary までであり、formal native OS scheduler / window backend loop、actual OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gn Native window host-loop wait decision boundary
 
 ## scope
