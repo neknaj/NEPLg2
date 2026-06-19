@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5if Linux platform wait backend event source config gate
+
+## scope
+
+- F5ie の Linux event source capability gate を、Linux platform wait backend construction helper の入口へ接続する。
+- Linux-only helper、multi-backend raw API builder の Linux branch、cfg Linux helper で event source capability を explicit input にする。
+- `ObservedInputOnly` は backend construction でも raw API 呼び出し前に typed error として拒否する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 既存 Linux helper の signature を変える方針は root fix として妥当だが、cfg Linux helper が暗黙に `ExternallyWakeableEventSource` を渡すと F5if の bypass になると指摘された。
+- 修正版では cfg Linux helper も explicit `event_source_capability` parameter を要求し、selection validation、event-source capability validation、Linux raw API call の順序を守る。
+
+## implementation
+
+- `NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed` を追加し、Linux event source support error を build error として保持するようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` に `event_source_capability` を追加し、Linux raw API method call より前に F5ie validator を通すようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` に `linux_event_source_capability` を追加し、selected Linux branch でも同じ validation を通すようにした。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` に explicit `event_source_capability` を追加し、暗黙の `ExternallyWakeableEventSource` 注入を避けた。
+- Rust unit tests と source policy を更新し、observed-input-only source が Linux raw call count 0 のまま拒否されること、externally-wakeable source が従来通り backend construction へ進むことを固定した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_raw_apis -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5if section に `implementation_review` が無いことだった。
+- Linux helper が explicit event-source capability を要求すること、selection validation の後で capability validation を行い、Linux raw API call より前に `ObservedInputOnly` を拒否すること、fallback / synthetic readiness / runner / CLI dispatch を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ie Linux blocking wait event source capability gate
 
 ## scope

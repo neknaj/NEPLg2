@@ -1110,9 +1110,9 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 実装:
 
 - `NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi` を追加し、Windows / macOS type parameter には never raw API を使う。
-- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` を追加する。selection validation を raw API method より前に行い、Linux + `LinuxSelectorTimerFd` の場合だけ existing Linux backend builder を呼ぶ。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` を追加する。selection validation を raw API method より前に行い、Linux + `LinuxSelectorTimerFd` の場合だけ existing Linux backend builder を呼ぶ。F5if 以降は event source capability も explicit input とし、Linux raw API 呼び出し前に検査する。
 - Windows / macOS の validated selection は `BackendImplementationUnavailable`、mismatch / unsupported / HeadlessScripted は `BackendSupportFailed`、Linux raw construction failure は `LinuxSelectorTimerFdBackendFailed` として返す。
-- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入して Linux-only helper を呼ぶ。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` は explicit event source capability と `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を Linux-only helper へ渡す。
 
 検証:
 
@@ -1232,6 +1232,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd selector integration、minifb wait replacement、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - `ExternallyWakeableEventSource` を受理しても、その場で `HostEventReady` outcome、scheduler resume evidence、timer fired evidence、selector registration を作らない。
 - callback-only source を fallback / best effort として blocking wait source に昇格しない。
+
+### Phase F5if: Native Linux platform wait backend event source config gate
+
+目的:
+
+- F5ie の event source capability gate を Linux platform wait backend construction helper の入口へ接続し、future runner が helper を通るだけで observed-input-only source を拒否できるようにする。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` と cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` の両方で event source capability を explicit input にし、暗黙に `ExternallyWakeableEventSource` を渡す bypass を作らない。
+- multi-backend raw API builder の Linux branch でも同じ gate を使い、selected Linux backend construction の全入口で raw API 呼び出し前に event source capability を検査する。
+
+実装:
+
+- `NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed` を追加し、`NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError` を保持する。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` は `event_source_capability` を受け取り、selection validation の後、Linux raw API method 呼び出しの前に `validate_native_window_host_loop_linux_blocking_wait_event_source_capability` を実行する。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` は `linux_event_source_capability` を受け取り、Linux branch に入った場合だけ同じ validation を通す。Windows / macOS branch は Linux capability を readiness evidence として使わない。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` は `event_source_capability` を explicit input とし、caller が source capability を指定しないまま Linux backend を作れないようにする。
+
+検証:
+
+- Rust unit tests で、Linux-only helper と multi-backend raw API builder の両方について `ObservedInputOnly` が `LinuxEventSourceSupportFailed` になり、Linux raw API method call count が 0 のままであることを検査する。
+- Rust unit tests で、`ExternallyWakeableEventSource` の場合は従来通り Linux selector / timerfd backend を構築できることを検査する。
+- source policy で旧 two-argument Linux helper call、no-capability cfg Linux helper、runner / CLI dispatch、synthetic readiness、timer fired evidence、fallback / silent no-op を禁止する。
+
+非目標:
+
+- Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd selector integration、minifb wait replacement、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `ExternallyWakeableEventSource` を backend construction success 以外の readiness evidence として扱わない。selector fd creation / registration は backend owner construction であり、runner readiness や scheduler resume evidence ではない。
+- Windows / macOS branch の behavior は変えない。
 
 ## Checkpoint Commit Rule
 

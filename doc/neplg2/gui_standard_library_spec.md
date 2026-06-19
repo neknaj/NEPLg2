@@ -813,9 +813,9 @@ F5hz は host event fd owner / registration / readiness mapping までであり�
 
 2026-06-20 の F5ia では、F5hz までに実装した cfg Linux `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を、generic platform wait owner の Linux-only helper へ接続する。これは Linux sys API を使って `NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd` を構築できるようにする convenience / support helper であり、runner、CLI、minifb wait path へ接続する phase ではない。
 
-`NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi` は Windows / macOS 側を never raw API にし、LinuxApi だけを所有できる type alias とする。`build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` は selection を先に再検査し、mismatch、unsupported platform、HeadlessScripted は raw API method を呼ぶ前に `BackendSupportFailed` として返す。Windows / macOS の validated selection は `BackendImplementationUnavailable` として返し、fallback や dummy backend にはしない。Linux raw construction failure は `LinuxSelectorTimerFdBackendFailed` として保持する。
+`NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi` は Windows / macOS 側を never raw API にし、LinuxApi だけを所有できる type alias とする。`build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` は selection を先に再検査し、mismatch、unsupported platform、HeadlessScripted は raw API method を呼ぶ前に `BackendSupportFailed` として返す。Windows / macOS の validated selection は `BackendImplementationUnavailable` として返し、fallback や dummy backend にはしない。F5if 以降は Linux event source capability も explicit input として受け、Linux raw construction より前に検査する。Linux raw construction failure は `LinuxSelectorTimerFdBackendFailed` として保持する。
 
-cfg Linux の `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入して Linux-only helper を呼ぶだけである。eventfd write / signal producer、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic readiness、host-consuming fallible builderは禁止する。
+cfg Linux の `native_window_host_loop_platform_wait_backend_from_selection` は explicit event source capability と `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を Linux-only helper へ渡すだけである。eventfd write / signal producer、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic readiness、host-consuming fallible builderは禁止する。
 
 ## F5ib Native Linux host event fd producer boundary
 
@@ -856,6 +856,16 @@ F5ie では、Linux blocking platform wait runner が受け入れられる event
 `validate_native_window_host_loop_linux_blocking_wait_event_source_capability` は `ObservedInputOnly` を `NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait` として返す。error は requested capability を保持する。`ExternallyWakeableEventSource` は分類値として受理するが、これは fd owner、selector registration、wait outcome、runner dispatch を作ったことを意味しない。actual X11 / Wayland fd integration または同等の externally-wakeable event source は後続 phase で扱う。
 
 この boundary は fail-closed support gate である。`HostEventReady`、timer fired evidence、scheduler resume evidence、fallback success、best-effort success、sleep、busy loop、minifb wait replacement、`set_target_fps 0`、`run_linux_platform_wait_window_loop`、CLI dispatch は追加しない。
+
+## F5if Native Linux platform wait backend event source config gate
+
+F5if では、F5ie の event source capability gate を Linux platform wait backend construction helper へ接続する。`build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` は `event_source_capability` を explicit input として受ける。validation order は selection validation、event source capability validation、Linux raw API method call の順である。
+
+`ObservedInputOnly` が渡された場合は `NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed` を返し、Linux selector / timerfd / eventfd の raw creation や registration を呼ばない。error は `NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError` を保持する。`ExternallyWakeableEventSource` が渡された場合だけ Linux selector / timerfd backend construction へ進む。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` も `linux_event_source_capability` を explicit input とし、selected Linux branch では同じ validation を通す。Windows / macOS branch は Linux event source capability を readiness evidence として使わない。cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` も explicit event source capability を要求し、暗黙に `ExternallyWakeableEventSource` を渡す bypass を持たない。
+
+F5if は backend construction gate であり、Linux platform wait runner、CLI dispatch、actual X11 / Wayland fd selector integration、minifb wait replacement、`HostEventReady` synthesis、timer fired evidence、scheduler resume evidence、fallback、silent no-op、sleep、busy loop は追加しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

@@ -3405,6 +3405,7 @@ pub fn native_window_run_loop_platform_wait_backend_selection(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopPlatformWaitHostBuildError {
     BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    LinuxEventSourceSupportFailed(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError),
     BackendImplementationUnavailable {
         platform: NativeWindowHostLoopPlatformKind,
         backend: NativeWindowHostLoopPlatformWaitBackendKind,
@@ -4993,6 +4994,7 @@ pub fn native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
 #[cfg(target_os = "linux")]
 pub fn native_window_host_loop_platform_wait_backend_from_selection(
     selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    event_source_capability: NativeWindowHostLoopLinuxEventSourceCapability,
 ) -> Result<
     NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<
         NativeWindowHostLoopLinuxSelectorTimerFdSysApi,
@@ -5002,6 +5004,7 @@ pub fn native_window_host_loop_platform_wait_backend_from_selection(
     build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
         selection,
         NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new(),
+        event_source_capability,
     )
 }
 
@@ -5581,6 +5584,7 @@ pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_r
     windows_api: WindowsApi,
     macos_api: MacosApi,
     linux_api: LinuxApi,
+    linux_event_source_capability: NativeWindowHostLoopLinuxEventSourceCapability,
 ) -> Result<
     NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>,
     NativeWindowHostLoopPlatformWaitHostBuildError,
@@ -5634,25 +5638,33 @@ where
         (
             NativeWindowHostLoopPlatformKind::Linux,
             NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
-        ) => build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
-            checked_selection,
-            linux_api,
-        )
-        .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
-        .map_err(|error| {
-            match error {
-            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
-                error,
-            ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
-            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
-                error,
-            ) => {
-                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+        ) => {
+            validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+                linux_event_source_capability,
+            )
+            .map_err(
+                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed,
+            )?;
+            build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+                checked_selection,
+                linux_api,
+            )
+            .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
+            .map_err(|error| {
+                match error {
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
                     error,
-                )
+                ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
+                    error,
+                ) => {
+                    NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                        error,
+                    )
+                }
             }
+            })
         }
-        }),
         (platform, backend) => Err(
             NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
                 platform,
@@ -5709,6 +5721,7 @@ where
 pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api<LinuxApi>(
     selection: NativeWindowHostLoopPlatformWaitBackendSelection,
     api: LinuxApi,
+    event_source_capability: NativeWindowHostLoopLinuxEventSourceCapability,
 ) -> Result<
     NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<LinuxApi>,
     NativeWindowHostLoopPlatformWaitHostBuildError,
@@ -5726,25 +5739,33 @@ where
         (
             NativeWindowHostLoopPlatformKind::Linux,
             NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
-        ) => build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
-            checked_selection,
-            api,
-        )
-        .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
-        .map_err(|error| {
-            match error {
-            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
-                error,
-            ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
-            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
-                error,
-            ) => {
-                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+        ) => {
+            validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+                event_source_capability,
+            )
+            .map_err(
+                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed,
+            )?;
+            build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+                checked_selection,
+                api,
+            )
+            .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
+            .map_err(|error| {
+                match error {
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
                     error,
-                )
+                ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
+                    error,
+                ) => {
+                    NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                        error,
+                    )
+                }
             }
+            })
         }
-        }),
         (platform, backend) => Err(
             NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
                 platform,
@@ -14926,7 +14947,9 @@ mod tests {
 
         let backend =
             build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
-                selection, api,
+                selection,
+                api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap();
 
@@ -14967,7 +14990,9 @@ mod tests {
 
             assert_eq!(
                 build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
-                    selection, api,
+                    selection,
+                    api,
+                    NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
                 )
                 .unwrap_err(),
                 NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
@@ -14992,7 +15017,9 @@ mod tests {
 
         assert_eq!(
             build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
-                selection, api,
+                selection,
+                api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap_err(),
             NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(
@@ -15018,7 +15045,9 @@ mod tests {
 
         assert_eq!(
             build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
-                selection, api,
+                selection,
+                api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap_err(),
             NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
@@ -15027,6 +15056,35 @@ mod tests {
                 }
             )
         );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_linux_api_rejects_observed_input_source_before_raw_calls(
+    ) {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let raw_method_calls = std::rc::Rc::new(std::cell::Cell::new(0));
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(111, 112)
+            .with_raw_method_call_counter(std::rc::Rc::clone(&raw_method_calls));
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+                selection,
+                api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed(
+                NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                    requested: NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+                }
+            )
+        );
+        assert_eq!(raw_method_calls.get(), 0);
     }
 
     #[test]
@@ -15047,6 +15105,7 @@ mod tests {
                 windows_api,
                 macos_api,
                 linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap();
 
@@ -15077,6 +15136,7 @@ mod tests {
                 windows_api,
                 macos_api,
                 linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap();
 
@@ -15111,6 +15171,7 @@ mod tests {
                 windows_api,
                 macos_api,
                 linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap_err(),
             NativeWindowHostLoopPlatformWaitHostBuildError::MacosRunLoopTimerBackendFailed(
@@ -15140,6 +15201,7 @@ mod tests {
                 windows_api,
                 macos_api,
                 linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap_err(),
             NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
@@ -15168,6 +15230,7 @@ mod tests {
                 windows_api,
                 macos_api,
                 linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap_err(),
             NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(
@@ -15177,6 +15240,39 @@ mod tests {
                 }
             )
         );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_rejects_observed_input_source_before_linux_raw_calls(
+    ) {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let linux_raw_method_calls = std::rc::Rc::new(std::cell::Cell::new(0));
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0);
+        let macos_api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(113, 114)
+            .with_raw_method_call_counter(std::rc::Rc::clone(&linux_raw_method_calls));
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+                NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed(
+                NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                    requested: NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+                }
+            )
+        );
+        assert_eq!(linux_raw_method_calls.get(), 0);
     }
 
     #[test]
@@ -15301,6 +15397,7 @@ mod tests {
                         NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
                     ]),
                 ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, -1),
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap();
         let window_size = NativeWindowSize::new(320, 200);
@@ -15357,6 +15454,7 @@ mod tests {
                     .with_timer_or_event_statuses(vec![
                         NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
                     ]),
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
             )
             .unwrap();
         let window_size = NativeWindowSize::new(640, 480);
