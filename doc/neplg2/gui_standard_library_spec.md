@@ -631,6 +631,22 @@ error は host-event wait failure、frame wait nanos mismatch、timer id overflo
 
 F5hk は future native OS backend / deterministic test backend が interruptible wait semantics を run-loop host contract から使うための接続境界である。現在の minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は後続である。fallback、thread sleep、busy loop、minifb internal pacing への代替、synthetic fired evidence は禁止する。
 
+## F5hl Native platform wait backend selection boundary
+
+2026-06-19 の F5hl では、real native wait backend の actual OS API を実装する前に、current platform と platform-specific wait backend の対応を typed enum と `Result` で固定する。
+
+`NativeWindowHostLoopPlatformKind` は `Macos`、`Windows`、`Linux`、`Unsupported` を持つ。`native_window_host_loop_current_platform_kind` は `cfg(target_os = ...)` だけから current platform を返し、runtime string、environment variable、process argument、filesystem probe によって platform を推定しない。
+
+`NativeWindowHostLoopPlatformWaitBackendKind` は `MacosRunLoopTimer`、`WindowsWaitableTimerMessageWait`、`LinuxSelectorTimerFd`、`HeadlessScripted` を持つ。`HeadlessScripted` は deterministic headless / test backend 用の future kind であり、native platform の default や fallback として成功させない。
+
+`NativeWindowHostLoopPlatformWaitBackendSupportError` は `DefaultBackendUnsupportedPlatform`、`RequestedBackendUnsupportedPlatform`、`BackendPlatformMismatch` を持つ。validation failure は string ではなく、current platform と requested backend を typed data として返す。
+
+`validate_native_window_host_loop_platform_wait_backend_kind_for_platform` は、macOS と `MacosRunLoopTimer`、Windows と `WindowsWaitableTimerMessageWait`、Linux と `LinuxSelectorTimerFd` の一致だけを成功にする。unsupported platform は requested backend を保持して `RequestedBackendUnsupportedPlatform` を返す。mismatch は `BackendPlatformMismatch` を返す。
+
+`native_window_host_loop_default_platform_wait_backend_kind_for_platform` は macOS、Windows、Linux の default backend だけを返す。unsupported platform では `DefaultBackendUnsupportedPlatform` を返し、`HeadlessScripted` や minifb internal pacing へ fallback しない。
+
+F5hl は selector / message-loop timer backend の selection contract であり、macOS AppKit / CoreFoundation run loop timer、Win32 waitable timer / message wait、Linux selector / timerfd の actual implementation ではない。minifb runner、`Window::set_target_fps` authority、thread sleep、busy loop、synthetic timer-fired evidence、DOM / Canvas / video memory transport へは接続しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

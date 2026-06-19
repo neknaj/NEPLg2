@@ -119,6 +119,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowInterruptibleDeadlineWaitRunLoopHost = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost",
+        "pub enum NativeWindowHostLoopPlatformKind",
+    );
+    const nativeWindowPlatformWaitBackendKind = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopPlatformKind",
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
     );
     const nativeWindowEventQueueStatusAdapter = textSliceBetween(
@@ -193,6 +198,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowPlatformWaitBackendKind, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -209,6 +215,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowPlatformWaitBackendKind, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -225,6 +232,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowPlatformWaitBackendKind, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -452,6 +460,20 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /present_frame[\s\S]*self\.host\.present_frame\(frame\)/);
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_interruptible_deadline_wait_with_adapter\([\s\S]*instruction,[\s\S]*&mut self\.wait_adapter/);
     assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /self\.host\.wait_after_budget_exhausted|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopWaitOwner|stringify|to_string|format!|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformKind\s*\{[\s\S]*Macos,[\s\S]*Windows,[\s\S]*Linux,[\s\S]*Unsupported/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendKind\s*\{[\s\S]*MacosRunLoopTimer,[\s\S]*WindowsWaitableTimerMessageWait,[\s\S]*LinuxSelectorTimerFd,[\s\S]*HeadlessScripted/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendSupportError\s*\{[\s\S]*DefaultBackendUnsupportedPlatform[\s\S]*RequestedBackendUnsupportedPlatform[\s\S]*BackendPlatformMismatch/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub fn native_window_host_loop_current_platform_kind\(\) -> NativeWindowHostLoopPlatformKind[\s\S]*#\[cfg\(target_os = "macos"\)\][\s\S]*Macos[\s\S]*#\[cfg\(target_os = "windows"\)\][\s\S]*Windows[\s\S]*#\[cfg\(target_os = "linux"\)\][\s\S]*Linux[\s\S]*#\[cfg\(not\(any\(target_os = "macos", target_os = "windows", target_os = "linux"\)\)\)\][\s\S]*Unsupported/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /validate_native_window_host_loop_platform_wait_backend_kind_for_platform[\s\S]*NativeWindowHostLoopPlatformKind::Unsupported[\s\S]*RequestedBackendUnsupportedPlatform[\s\S]*Macos[\s\S]*MacosRunLoopTimer[\s\S]*Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*Linux[\s\S]*LinuxSelectorTimerFd[\s\S]*BackendPlatformMismatch/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /native_window_host_loop_default_platform_wait_backend_kind_for_platform[\s\S]*Macos[\s\S]*MacosRunLoopTimer[\s\S]*Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*Linux[\s\S]*LinuxSelectorTimerFd[\s\S]*Unsupported[\s\S]*DefaultBackendUnsupportedPlatform/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /native_window_host_loop_default_platform_wait_backend_kind\(\)[\s\S]*native_window_host_loop_current_platform_kind\(\)/);
+    assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /std::env|env::var|env::consts|from_str|parse::<|stringify|to_string|format!|HeadlessScripted\s*\)|=>\s*Ok\(\s*NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted|Minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|execute_native_window_host_loop_wait_with_owner|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(libSource, /native_window_platform_wait_backend_validation_accepts_matching_backend/);
+    assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_all_real_platform_mismatches/);
+    assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_unsupported_platform/);
+    assert.match(libSource, /native_window_platform_wait_backend_default_maps_real_platforms_without_headless_fallback/);
+    assert.match(libSource, /native_window_platform_wait_backend_default_rejects_unsupported_platform/);
+    assert.match(libSource, /native_window_current_platform_wait_backend_default_matches_cfg_platform/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_delegates_non_wait_operations/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_host_event_wait/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_frame_interval_wait/);

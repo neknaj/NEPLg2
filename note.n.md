@@ -1,3 +1,50 @@
+# 2026-06-19 Agent2 GUI native F5hl platform wait backend selection boundary
+
+## scope
+
+- F5hk の後続として、actual OS wait backend の前段になる typed platform/backend selection 境界を追加する。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd を backend kind として分け、current platform との対応を `Result` で検査する。
+- actual macOS / Windows / Linux OS API、minifb runner 接続、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+## plan_review
+
+- Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、`HeadlessScripted` を native fallback にしないこと、standard spec も同期すること、typed enum と `cfg` selection を source policy で固定し runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformKind`、`NativeWindowHostLoopPlatformWaitBackendKind`、`NativeWindowHostLoopPlatformWaitBackendSupportError` を追加した。
+- current platform は `cfg(target_os = ...)` だけで選び、runtime string や env probe を使わない。
+- platform/backend validation は macOS + macOS backend、Windows + Windows backend、Linux + Linux backend の一致だけを成功にする。
+- default backend selection は real platform の backend だけを返し、unsupported platform では typed error を返す。`HeadlessScripted` は default や native validation の fallback として成功させない。
+- source-policy、docs、`todo.md` を F5hl contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 5 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 212 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、current platform が `cfg` で選ばれること、default mapping が `HeadlessScripted` を返さないこと、native validation が real platform/backend の一致だけを success にすること、unsupported / mismatch が typed error evidence を保持すること、docs/spec/todo が actual backend implementation を残件として分離していること、source policy が string / env probing、fallback、silent no-op、minifb integration、sleep/platform wait implementation を拒否していることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual backend は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI native F5hk interruptible deadline wait run-loop host wrapper boundary
 
 ## scope

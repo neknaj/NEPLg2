@@ -331,6 +331,12 @@ F5hk では、`NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` が inn
 
 この wrapper は future native OS backend / deterministic test backend が interruptible wait semantics を `NativeWindowRunLoopHost` interface から使うための境界である。inner host の wait hook は呼ばない。minifb smoke backend はこの wrapper を使わず、F5hh の minifb internal target-fps pacing authority を維持する。F5hk でも macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual implementation はまだ実装しない。
 
+F5hl では、actual OS wait backend の前段として、current platform と platform-specific wait backend の対応を typed enum と `Result` で固定する。`NativeWindowHostLoopPlatformKind` は macOS、Windows、Linux、unsupported を分け、current platform は `cfg(target_os = ...)` だけで決める。
+
+`NativeWindowHostLoopPlatformWaitBackendKind` は macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、headless scripted を分ける。native platform の validation は macOS と macOS backend、Windows と Windows backend、Linux と Linux backend の一致だけを success とし、headless scripted を native fallback として成功させない。unsupported platform は default でも requested backend でも typed error として返す。
+
+F5hl は backend selection contract であり、macOS AppKit / CoreFoundation、Win32、Wayland/X11 selector、timerfd の actual implementation ではない。minifb smoke runner、`Window::set_target_fps` authority、thread sleep、busy loop、synthetic timer fire、fallback、silent no-op へ接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。

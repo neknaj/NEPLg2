@@ -1884,6 +1884,32 @@ subagent review:
 
 - Darwin the 2nd に F5hk 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、F5hi を変更せず別 wrapper として追加すること、wait hook が interruptible helper だけを呼ぶこと、inner wait hook を呼ばないことを test すること、deadline reached / host event ready の evidence を区別すること、typed wait error を保持すること、minifb path に新 wrapper を混ぜないことである。
 
+## Phase F5hl: Native platform wait backend selection boundary
+
+Phase F5hl では、F5hk の interruptible wait wrapper を real native backend へ接続する前段として、現在 platform と platform-specific wait backend の対応を typed enum と `Result` で固定する。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd はそれぞれ別 backend kind として表し、runtime string、environment probe、fallback、silent no-op で backend を選ばない。
+
+実装:
+
+- `NativeWindowHostLoopPlatformKind` を追加し、`Macos`、`Windows`、`Linux`、`Unsupported` を持たせる。
+- `NativeWindowHostLoopPlatformWaitBackendKind` を追加し、`MacosRunLoopTimer`、`WindowsWaitableTimerMessageWait`、`LinuxSelectorTimerFd`、`HeadlessScripted` を持たせる。
+- `NativeWindowHostLoopPlatformWaitBackendSupportError` は default unsupported platform、requested unsupported platform、platform/backend mismatch を分け、current platform と requested backend を typed data として保持する。
+- `native_window_host_loop_current_platform_kind` は `cfg(target_os = ...)` だけで current platform を決める。
+- `validate_native_window_host_loop_platform_wait_backend_kind_for_platform` は current platform と requested backend の一致だけを success とし、`HeadlessScripted` を native platform fallback として成功させない。
+- `native_window_host_loop_default_platform_wait_backend_kind_for_platform` は macOS、Windows、Linux の default backend を返し、unsupported platform では error を返す。default は `HeadlessScripted` を返さない。
+- unit test は matching backend、全 real platform mismatch、unsupported platform rejection、default mapping、default headless fallback 禁止、cfg current platform sanity を検査する。
+- source policy は typed enum / `cfg` / `Result` 境界を要求し、`std::env`、runtime OS string、format/stringify、fallback、silent no-op、minifb 接続を拒否する。
+
+非目標:
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual OS API は実装しない。
+- `HeadlessScripted` は headless/test backend 用の future kind であり、native platform default や native platform validation の fallback にしない。
+- minifb runner、minifb host adapter、frame pacing authority には接続しない。
+- thread sleep、busy loop、timer-only wait、synthetic fired evidence、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、`HeadlessScripted` を default / native fallback にしないこと、standard spec も同期すること、source policy が typed enum と `cfg` selection を固定し runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -2793,6 +2793,124 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopPlatformKind {
+    Macos,
+    Windows,
+    Linux,
+    Unsupported,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopPlatformWaitBackendKind {
+    MacosRunLoopTimer,
+    WindowsWaitableTimerMessageWait,
+    LinuxSelectorTimerFd,
+    HeadlessScripted,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopPlatformWaitBackendSupportError {
+    DefaultBackendUnsupportedPlatform {
+        current: NativeWindowHostLoopPlatformKind,
+    },
+    RequestedBackendUnsupportedPlatform {
+        current: NativeWindowHostLoopPlatformKind,
+        requested: NativeWindowHostLoopPlatformWaitBackendKind,
+    },
+    BackendPlatformMismatch {
+        current: NativeWindowHostLoopPlatformKind,
+        requested: NativeWindowHostLoopPlatformWaitBackendKind,
+    },
+}
+
+pub fn native_window_host_loop_current_platform_kind() -> NativeWindowHostLoopPlatformKind {
+    #[cfg(target_os = "macos")]
+    {
+        NativeWindowHostLoopPlatformKind::Macos
+    }
+    #[cfg(target_os = "windows")]
+    {
+        NativeWindowHostLoopPlatformKind::Windows
+    }
+    #[cfg(target_os = "linux")]
+    {
+        NativeWindowHostLoopPlatformKind::Linux
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    {
+        NativeWindowHostLoopPlatformKind::Unsupported
+    }
+}
+
+pub fn validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+    current: NativeWindowHostLoopPlatformKind,
+    requested: NativeWindowHostLoopPlatformWaitBackendKind,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendKind,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    match (current, requested) {
+        (NativeWindowHostLoopPlatformKind::Unsupported, requested) => {
+            Err(NativeWindowHostLoopPlatformWaitBackendSupportError::RequestedBackendUnsupportedPlatform {
+                current,
+                requested,
+            })
+        }
+        (
+            NativeWindowHostLoopPlatformKind::Macos,
+            NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+        )
+        | (
+            NativeWindowHostLoopPlatformKind::Windows,
+            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+        )
+        | (
+            NativeWindowHostLoopPlatformKind::Linux,
+            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        ) => Ok(requested),
+        (current, requested) => {
+            Err(NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                current,
+                requested,
+            })
+        }
+    }
+}
+
+pub fn native_window_host_loop_default_platform_wait_backend_kind_for_platform(
+    current: NativeWindowHostLoopPlatformKind,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendKind,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    match current {
+        NativeWindowHostLoopPlatformKind::Macos => Ok(
+            NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+        ),
+        NativeWindowHostLoopPlatformKind::Windows => Ok(
+            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+        ),
+        NativeWindowHostLoopPlatformKind::Linux => Ok(
+            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        ),
+        NativeWindowHostLoopPlatformKind::Unsupported => {
+            Err(NativeWindowHostLoopPlatformWaitBackendSupportError::DefaultBackendUnsupportedPlatform {
+                current,
+            })
+        }
+    }
+}
+
+pub fn native_window_host_loop_default_platform_wait_backend_kind() -> Result<
+    NativeWindowHostLoopPlatformWaitBackendKind,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    native_window_host_loop_default_platform_wait_backend_kind_for_platform(
+        native_window_host_loop_current_platform_kind(),
+    )
+}
+
 pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10558,6 +10676,176 @@ mod tests {
         );
         assert!(host.wait_adapter().waiter().frame_interval_calls.is_empty());
         assert_eq!(host.wait_adapter().clock().now_calls, 0);
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_validation_accepts_matching_backend() {
+        let cases = [
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            ),
+        ];
+
+        for (current, requested) in cases {
+            assert_eq!(
+                validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+                    current, requested,
+                )
+                .unwrap(),
+                requested
+            );
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_validation_rejects_all_real_platform_mismatches() {
+        let cases = [
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted,
+            ),
+        ];
+
+        for (current, requested) in cases {
+            assert_eq!(
+                validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+                    current, requested,
+                )
+                .unwrap_err(),
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current,
+                    requested,
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_validation_rejects_unsupported_platform() {
+        let requested =
+            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait;
+
+        assert_eq!(
+            validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+                NativeWindowHostLoopPlatformKind::Unsupported,
+                requested,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitBackendSupportError::RequestedBackendUnsupportedPlatform {
+                current: NativeWindowHostLoopPlatformKind::Unsupported,
+                requested,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_default_maps_real_platforms_without_headless_fallback() {
+        let cases = [
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            ),
+        ];
+
+        for (current, expected) in cases {
+            let actual =
+                native_window_host_loop_default_platform_wait_backend_kind_for_platform(current)
+                    .unwrap();
+            assert_eq!(actual, expected);
+            assert_ne!(
+                actual,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted
+            );
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_default_rejects_unsupported_platform() {
+        assert_eq!(
+            native_window_host_loop_default_platform_wait_backend_kind_for_platform(
+                NativeWindowHostLoopPlatformKind::Unsupported,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitBackendSupportError::DefaultBackendUnsupportedPlatform {
+                current: NativeWindowHostLoopPlatformKind::Unsupported,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_current_platform_wait_backend_default_matches_cfg_platform() {
+        let current = native_window_host_loop_current_platform_kind();
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(current, NativeWindowHostLoopPlatformKind::Macos);
+        #[cfg(target_os = "windows")]
+        assert_eq!(current, NativeWindowHostLoopPlatformKind::Windows);
+        #[cfg(target_os = "linux")]
+        assert_eq!(current, NativeWindowHostLoopPlatformKind::Linux);
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+        assert_eq!(current, NativeWindowHostLoopPlatformKind::Unsupported);
+
+        match native_window_host_loop_default_platform_wait_backend_kind() {
+            Ok(backend) => assert_ne!(
+                backend,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted
+            ),
+            Err(error) => assert_eq!(
+                error,
+                NativeWindowHostLoopPlatformWaitBackendSupportError::DefaultBackendUnsupportedPlatform {
+                    current: NativeWindowHostLoopPlatformKind::Unsupported,
+                }
+            ),
+        }
     }
 
     #[test]

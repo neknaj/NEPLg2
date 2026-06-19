@@ -411,6 +411,32 @@ subagent review:
 
 - Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、frame wait の wait-nanos validation が clock/id/waiter side effect より前であること、host event wake を timer fired と偽装しないこと、distinct error stages を保つこと、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、source policy で new boundary と minifb path の分離を固定することである。
 
+## Phase F5hk: Native interruptible deadline wait run-loop host wrapper boundary
+
+F5hk では、F5hj の interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える wrapper を追加する。wrapper は inner `NativeWindowRunLoopHost` と interruptible wait adapter を所有し、event polling、title update、pump-only、present は inner host に委譲する。budget exhaustion 後の wait だけは inner wait hook を呼ばず、`execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` へ渡す。
+
+F5hk は future native OS backend / deterministic test backend が interruptible wait semantics を run-loop host contract から使うための接続境界である。minifb runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は後続で扱う。
+
+subagent review:
+
+- Darwin the 2nd に F5hk 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、F5hi を変更せず別 wrapper として追加すること、wait hook が interruptible helper だけを呼ぶこと、inner wait hook を呼ばないことを test すること、deadline reached / host event ready の evidence を区別すること、typed wait error を保持すること、minifb path に新 wrapper を混ぜないことである。
+
+## Phase F5hl: Native platform wait backend selection boundary
+
+F5hl では、F5hk の wrapper を actual OS backend へ接続する前に、current platform と platform-specific wait backend の対応を typed enum と `Result` で固定する。macOS は run loop timer、Windows は waitable timer / message wait、Linux は selector / timerfd を、それぞれ別 backend kind として表す。
+
+`NativeWindowHostLoopPlatformKind` は `Macos`、`Windows`、`Linux`、`Unsupported` を持つ。`native_window_host_loop_current_platform_kind` は `cfg(target_os = ...)` だけで current platform を決め、runtime string、environment probing、filesystem probing を使わない。
+
+`NativeWindowHostLoopPlatformWaitBackendKind` は `MacosRunLoopTimer`、`WindowsWaitableTimerMessageWait`、`LinuxSelectorTimerFd`、`HeadlessScripted` を持つ。`HeadlessScripted` は deterministic headless / test backend 用の future kind であり、native backend default や native platform validation の fallback として成功させない。
+
+validation は current platform と requested backend の一致だけを success とし、unsupported platform や mismatch は typed error として返す。default backend selection は macOS、Windows、Linux だけに定義し、unsupported platform では `Result::Err` にする。
+
+F5hl は backend selection contract であり、macOS AppKit / CoreFoundation run loop timer、Win32 waitable timer / message wait、Linux selector / timerfd の actual implementation ではない。minifb runner、`Window::set_target_fps` authority、thread sleep、busy loop、fallback、silent no-op、synthetic timer fire は導入しない。
+
+subagent review:
+
+- Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、`HeadlessScripted` を default / native fallback にしないこと、standard spec も同期すること、typed enum と `cfg` selection を source policy で固定すること、runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
