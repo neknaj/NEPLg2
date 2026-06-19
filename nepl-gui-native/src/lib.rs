@@ -3195,6 +3195,38 @@ pub enum NativeWindowHostLoopPlatformKind {
     Unsupported,
 }
 
+/// Classifies whether a Linux host event source can wake a blocking platform wait.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxEventSourceCapability {
+    ObservedInputOnly,
+    ExternallyWakeableEventSource,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError {
+    ObservedInputOnlyUnsupportedForBlockingWait {
+        requested: NativeWindowHostLoopLinuxEventSourceCapability,
+    },
+}
+
+pub fn validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+    requested: NativeWindowHostLoopLinuxEventSourceCapability,
+) -> Result<
+    NativeWindowHostLoopLinuxEventSourceCapability,
+    NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError,
+> {
+    match requested {
+        NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly => {
+            Err(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                requested,
+            })
+        }
+        NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource => {
+            Ok(requested)
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopPlatformWaitBackendKind {
     MacosRunLoopTimer,
@@ -14489,6 +14521,30 @@ mod tests {
                 requested
             );
         }
+    }
+
+    #[test]
+    fn native_window_linux_blocking_wait_event_source_rejects_observed_input_only() {
+        assert_eq!(
+            validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+                NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                requested: NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_blocking_wait_event_source_accepts_externally_wakeable_classification() {
+        assert_eq!(
+            validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+            )
+            .unwrap(),
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource
+        );
     }
 
     #[test]

@@ -1,3 +1,48 @@
+# 2026-06-20 Agent2 GUI native F5ie Linux blocking wait event source capability gate
+
+## scope
+
+- F5id の observed-input signal bridge を、Linux blocking platform wait runner の readiness source と誤認しない support gate として型に落とす。
+- minifb `InputCallback` のような already observed input は `ObservedInputOnly` として表し、blocking wait support では typed error で拒否する。
+- actual X11 / Wayland fd integration または同等の externally-wakeable source は後続 phase とし、F5ie では分類値と fail-closed validation だけを追加する。
+- Linux runner / CLI dispatch、actual fd registration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5id で問題になった readiness cycle を、runner 実装前に typed capability と fail-closed validation で固定する slice として妥当と確認された。
+- 必須条件として、`ObservedInputOnly` を blocking platform wait runner support で必ず typed error にすること、`ExternallyWakeableEventSource` は readiness evidence ではなく分類値として扱うこと、actual externally-wakeable fd integration は後続であること、accept path が `HostEventReady` / timer-fired outcome / fd registration / runner dispatch を生成しないことを source policy と tests で固定することが確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxEventSourceCapability` を追加し、`ObservedInputOnly` と `ExternallyWakeableEventSource` を分けた。
+- `NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError` を追加し、`ObservedInputOnlyUnsupportedForBlockingWait` が requested capability を保持するようにした。
+- `validate_native_window_host_loop_linux_blocking_wait_event_source_capability` を追加した。`ObservedInputOnly` は拒否し、`ExternallyWakeableEventSource` は分類値としてのみ受理する。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ie contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_blocking_wait_event_source -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ie section に `implementation_review` が無いことだった。
+- F5ie の責務が fail-closed capability gate に留まること、`ObservedInputOnly` を requested capability 付き typed error として拒否すること、`ExternallyWakeableEventSource` を分類値としてだけ扱うこと、runner / CLI / fd registration / synthetic readiness / timer evidence を追加しないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / main merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration、Linux platform wait runner / CLI dispatch は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5id Linux minifb observed-input signal bridge boundary
 
 ## scope

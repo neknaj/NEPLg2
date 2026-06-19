@@ -1207,6 +1207,32 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - minifb callback signal success を `HostEventReady` outcome として扱わない。callback bridge は eventfd producer request だけであり、blocking wait readiness の証明ではない。
 - sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
 
+### Phase F5ie: Native Linux blocking wait event source capability gate
+
+目的:
+
+- F5id の observed-input signal bridge を、Linux blocking platform wait runner の readiness source と誤認しないための support gate を追加する。
+- minifb `InputCallback` は already observed input の callback であり、blocking wait 中に OS event readiness を直接提供する source ではない。この性質を `ObservedInputOnly` として型に残す。
+- actual X11 / Wayland fd integration または同等の externally-wakeable source は後続 phase とし、この phase では分類値と fail-closed validation だけを追加する。
+
+実装:
+
+- `NativeWindowHostLoopLinuxEventSourceCapability` を追加し、`ObservedInputOnly` と `ExternallyWakeableEventSource` を分ける。
+- `NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError` を追加し、blocking platform wait が `ObservedInputOnly` を要求された場合は `ObservedInputOnlyUnsupportedForBlockingWait` として typed error を返す。
+- `validate_native_window_host_loop_linux_blocking_wait_event_source_capability` を追加する。`ObservedInputOnly` は拒否し、`ExternallyWakeableEventSource` は分類値としてだけ受理する。受理は fd owner、selector registration、wait outcome、runner dispatch を意味しない。
+
+検証:
+
+- Rust unit tests で、`ObservedInputOnly` が blocking wait support では拒否されること、`ExternallyWakeableEventSource` が分類値として受理されることを検査する。
+- source policy で、F5ie gate が `HostEventReady`、timer fired evidence、fd creation / registration、runner dispatch、minifb wait replacement、fallback / silent no-op を生成しないことを固定する。
+- GUI spec / native behavior notes / `todo.md` / `note.n.md` に F5ie scope と後続残件を記録する。
+
+非目標:
+
+- Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd selector integration、minifb wait replacement、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `ExternallyWakeableEventSource` を受理しても、その場で `HostEventReady` outcome、scheduler resume evidence、timer fired evidence、selector registration を作らない。
+- callback-only source を fallback / best effort として blocking wait source に昇格しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

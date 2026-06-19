@@ -142,6 +142,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub enum NativeWindowHostEventSignalWaitError",
         "pub enum NativeWindowHostLoopError",
     );
+    const nativeWindowLinuxEventSourceCapabilityGate = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopLinuxEventSourceCapability",
+        "pub enum NativeWindowHostLoopPlatformWaitBackendKind",
+    );
     const nativeWindowPlatformWaitBackendKind = textSliceBetween(
         libSource,
         "pub enum NativeWindowHostLoopPlatformKind",
@@ -593,6 +598,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowHostEventSignalWaitGuardRunLoopHost, /wait_after_budget_exhausted\([\s\S]*if let Some\(error\) = self\.signal_state\.take_host_event_signal_error\(\)[\s\S]*HostEventSignalFailed[\s\S]*self\.host[\s\S]*\.wait_after_budget_exhausted\(instruction\)[\s\S]*DelegateWaitFailed/);
     assert.match(libSource, /native_window_host_event_signal_wait_guard_returns_signal_error_before_delegate_wait/);
     assert.match(libSource, /native_window_host_event_signal_wait_guard_delegates_without_synthetic_outcome/);
+    assert.match(nativeWindowLinuxEventSourceCapabilityGate, /pub enum NativeWindowHostLoopLinuxEventSourceCapability\s*\{[\s\S]*ObservedInputOnly,[\s\S]*ExternallyWakeableEventSource/);
+    assert.match(nativeWindowLinuxEventSourceCapabilityGate, /pub enum NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError\s*\{[\s\S]*ObservedInputOnlyUnsupportedForBlockingWait\s*\{[\s\S]*requested: NativeWindowHostLoopLinuxEventSourceCapability/);
+    assert.match(nativeWindowLinuxEventSourceCapabilityGate, /validate_native_window_host_loop_linux_blocking_wait_event_source_capability[\s\S]*NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly[\s\S]*ObservedInputOnlyUnsupportedForBlockingWait[\s\S]*NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource[\s\S]*Ok\(requested\)/);
+    assert.doesNotMatch(nativeWindowLinuxEventSourceCapabilityGate, /NativeWindowHostLoopWaitOutcome|HostEventReady|FrameIntervalTimerFired|TimerFired|register_|create_|signal_|selector_wait|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb_window_loop|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_blocking_wait_event_source_rejects_observed_input_only/);
+    assert.match(libSource, /native_window_linux_blocking_wait_event_source_accepts_externally_wakeable_classification/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformKind\s*\{[\s\S]*Macos,[\s\S]*Windows,[\s\S]*Linux,[\s\S]*Unsupported/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendKind\s*\{[\s\S]*MacosRunLoopTimer,[\s\S]*WindowsWaitableTimerMessageWait,[\s\S]*LinuxSelectorTimerFd,[\s\S]*HeadlessScripted/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendSupportError\s*\{[\s\S]*DefaultBackendUnsupportedPlatform[\s\S]*RequestedBackendUnsupportedPlatform[\s\S]*BackendPlatformMismatch/);
@@ -1409,6 +1420,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /blocking wait の実 event source ではなく/);
     assert.match(platformDoc, /HostEventSignalFailed/);
     assert.match(platformDoc, /run_linux_platform_wait_window_loop/);
+    assert.match(platformDoc, /F5ie/);
+    assert.match(platformDoc, /NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly/);
+    assert.match(platformDoc, /ObservedInputOnlyUnsupportedForBlockingWait/);
+    assert.match(platformDoc, /ExternallyWakeableEventSource/);
+    assert.match(platformDoc, /fd owner、selector registration、`HostEventReady` outcome/);
     assert.match(platformDoc, /F5hf/);
     assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
     assert.match(platformDoc, /HostOwnedDeadlineTimer/);
@@ -1583,6 +1599,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /MinifbNativeWindowLinuxHostEventSignalCallbackState/);
     assert.match(implementationPlan, /HostEventReady` outcome や timer fired evidence を生成しない/);
     assert.match(implementationPlan, /Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`/);
+    assert.match(implementationPlan, /Phase F5ie: Native Linux blocking wait event source capability gate/);
+    assert.match(implementationPlan, /NativeWindowHostLoopLinuxEventSourceCapability/);
+    assert.match(implementationPlan, /ObservedInputOnlyUnsupportedForBlockingWait/);
+    assert.match(implementationPlan, /fd owner、selector registration、wait outcome、runner dispatch を意味しない/);
+    assert.match(implementationPlan, /ExternallyWakeableEventSource` を受理しても/);
     assert.match(implementationPlan, /Phase F5hx: Native platform wait multi-backend owner boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi/);
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis/);
@@ -1749,6 +1770,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /HostEventSignalFailed/);
     assert.match(standardSpec, /DelegateWaitFailed/);
     assert.match(standardSpec, /Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`/);
+    assert.match(standardSpec, /F5ie Native Linux blocking wait event source capability gate/);
+    assert.match(standardSpec, /NativeWindowHostLoopLinuxEventSourceCapability/);
+    assert.match(standardSpec, /ObservedInputOnlyUnsupportedForBlockingWait/);
+    assert.match(standardSpec, /fd owner、selector registration、wait outcome、runner dispatch/);
+    assert.match(standardSpec, /actual X11 \/ Wayland fd integration/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
