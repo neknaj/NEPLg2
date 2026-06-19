@@ -1207,10 +1207,16 @@ pub enum NativeWindowRunLoopFrameIntervalWaitBackend {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowRunLoopPlatformWaitBackendConfig {
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    linux_event_source_capability: Option<NativeWindowHostLoopLinuxEventSourceCapability>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopWaitBackend {
     MinifbInternalTargetFps,
     HostOwnedDeadlineTimer,
-    PlatformWait(NativeWindowHostLoopPlatformWaitBackendSelection),
+    PlatformWait(NativeWindowRunLoopPlatformWaitBackendConfig),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1231,6 +1237,9 @@ pub enum NativeWindowRunLoopFrameIntervalWaitBackendError {
 pub enum NativeWindowRunLoopPlatformWaitBackendConfigError {
     NotPlatformWaitBackend {
         requested: NativeWindowRunLoopWaitBackend,
+    },
+    MissingLinuxEventSourceCapability {
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
     },
 }
 
@@ -1393,6 +1402,35 @@ impl From<NativeWindowRunLoopFrameIntervalWaitBackend> for NativeWindowRunLoopWa
                 Self::HostOwnedDeadlineTimer
             }
         }
+    }
+}
+
+impl NativeWindowRunLoopPlatformWaitBackendConfig {
+    pub fn new(selection: NativeWindowHostLoopPlatformWaitBackendSelection) -> Self {
+        Self {
+            selection,
+            linux_event_source_capability: None,
+        }
+    }
+
+    pub fn new_with_linux_event_source_capability(
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        linux_event_source_capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    ) -> Self {
+        Self {
+            selection,
+            linux_event_source_capability: Some(linux_event_source_capability),
+        }
+    }
+
+    pub fn selection(self) -> NativeWindowHostLoopPlatformWaitBackendSelection {
+        self.selection
+    }
+
+    pub fn linux_event_source_capability(
+        self,
+    ) -> Option<NativeWindowHostLoopLinuxEventSourceCapability> {
+        self.linux_event_source_capability
     }
 }
 
@@ -3388,18 +3426,43 @@ pub fn native_window_host_loop_default_platform_wait_backend_selection() -> Resu
     )
 }
 
+pub fn native_window_run_loop_platform_wait_backend_config(
+    config: NativeWindowRunLoopConfig,
+) -> Result<
+    NativeWindowRunLoopPlatformWaitBackendConfig,
+    NativeWindowRunLoopPlatformWaitBackendConfigError,
+> {
+    match config.wait_backend {
+        NativeWindowRunLoopWaitBackend::PlatformWait(platform_wait_config) => {
+            Ok(platform_wait_config)
+        }
+        requested => Err(
+            NativeWindowRunLoopPlatformWaitBackendConfigError::NotPlatformWaitBackend { requested },
+        ),
+    }
+}
+
 pub fn native_window_run_loop_platform_wait_backend_selection(
     config: NativeWindowRunLoopConfig,
 ) -> Result<
     NativeWindowHostLoopPlatformWaitBackendSelection,
     NativeWindowRunLoopPlatformWaitBackendConfigError,
 > {
-    match config.wait_backend {
-        NativeWindowRunLoopWaitBackend::PlatformWait(selection) => Ok(selection),
-        requested => Err(
-            NativeWindowRunLoopPlatformWaitBackendConfigError::NotPlatformWaitBackend { requested },
-        ),
-    }
+    native_window_run_loop_platform_wait_backend_config(config).map(|config| config.selection())
+}
+
+pub fn native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+    config: NativeWindowRunLoopPlatformWaitBackendConfig,
+) -> Result<
+    NativeWindowHostLoopLinuxEventSourceCapability,
+    NativeWindowRunLoopPlatformWaitBackendConfigError,
+> {
+    let selection = config.selection();
+    config.linux_event_source_capability().ok_or(
+        NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability {
+            selection,
+        },
+    )
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -5008,6 +5071,29 @@ pub fn native_window_host_loop_platform_wait_backend_from_selection(
     )
 }
 
+#[cfg(target_os = "linux")]
+pub fn native_window_run_loop_platform_wait_backend_from_config(
+    config: NativeWindowRunLoopConfig,
+) -> Result<
+    NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<
+        NativeWindowHostLoopLinuxSelectorTimerFdSysApi,
+    >,
+    NativeWindowRunLoopPlatformWaitBackendFromConfigError,
+> {
+    let platform_wait_config = native_window_run_loop_platform_wait_backend_config(config)
+        .map_err(NativeWindowRunLoopPlatformWaitBackendFromConfigError::Config)?;
+    let event_source_capability =
+        native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+            platform_wait_config,
+        )
+        .map_err(NativeWindowRunLoopPlatformWaitBackendFromConfigError::Config)?;
+    native_window_host_loop_platform_wait_backend_from_selection(
+        platform_wait_config.selection(),
+        event_source_capability,
+    )
+    .map_err(NativeWindowRunLoopPlatformWaitBackendFromConfigError::Build)
+}
+
 #[derive(Debug)]
 pub enum NativeWindowHostLoopNeverWindowsWaitRawApi {}
 
@@ -5909,9 +5995,9 @@ pub fn native_window_run_loop_platform_wait_backend_from_config(
     NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
     NativeWindowRunLoopPlatformWaitBackendFromConfigError,
 > {
-    let selection = native_window_run_loop_platform_wait_backend_selection(config)
+    let platform_wait_config = native_window_run_loop_platform_wait_backend_config(config)
         .map_err(NativeWindowRunLoopPlatformWaitBackendFromConfigError::Config)?;
-    native_window_host_loop_platform_wait_backend_from_selection(selection)
+    native_window_host_loop_platform_wait_backend_from_selection(platform_wait_config.selection())
         .map_err(NativeWindowRunLoopPlatformWaitBackendFromConfigError::Build)
 }
 
@@ -7347,13 +7433,31 @@ impl NativeWindowRunLoopConfig {
         host_loop_policy: NativeWindowHostLoopRunPolicy,
         selection: NativeWindowHostLoopPlatformWaitBackendSelection,
     ) -> Self {
+        Self::new_with_platform_wait_backend_config(
+            demo,
+            counter_value,
+            scale,
+            target_fps,
+            host_loop_policy,
+            NativeWindowRunLoopPlatformWaitBackendConfig::new(selection),
+        )
+    }
+
+    pub fn new_with_platform_wait_backend_config(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+        target_fps: NativeWindowTargetFps,
+        host_loop_policy: NativeWindowHostLoopRunPolicy,
+        platform_wait_config: NativeWindowRunLoopPlatformWaitBackendConfig,
+    ) -> Self {
         Self {
             demo,
             counter_value,
             scale,
             target_fps,
             host_loop_policy,
-            wait_backend: NativeWindowRunLoopWaitBackend::PlatformWait(selection),
+            wait_backend: NativeWindowRunLoopWaitBackend::PlatformWait(platform_wait_config),
         }
     }
 
@@ -11427,7 +11531,9 @@ mod tests {
                 scale: 1,
                 target_fps: custom_fps,
                 host_loop_policy: custom_policy,
-                wait_backend: NativeWindowRunLoopWaitBackend::PlatformWait(selection),
+                wait_backend: NativeWindowRunLoopWaitBackend::PlatformWait(
+                    NativeWindowRunLoopPlatformWaitBackendConfig::new(selection),
+                ),
             }
         );
         assert_eq!(
@@ -11467,13 +11573,16 @@ mod tests {
             NativeWindowRunLoopWaitBackend::HostOwnedDeadlineTimer
         );
         assert_eq!(
-            NativeWindowRunLoopWaitBackend::PlatformWait(selection).authority_mode(target_fps),
+            NativeWindowRunLoopWaitBackend::PlatformWait(
+                NativeWindowRunLoopPlatformWaitBackendConfig::new(selection),
+            )
+            .authority_mode(target_fps),
             native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer()
         );
     }
 
     #[test]
-    fn native_window_run_loop_platform_wait_config_extracts_only_platform_selection() {
+    fn native_window_run_loop_platform_wait_config_extracts_typed_config_and_selection() {
         let target_fps = NativeWindowTargetFps::default();
         let policy = NativeWindowHostLoopRunPolicy::default();
         let selection =
@@ -11490,7 +11599,13 @@ mod tests {
             policy,
             selection,
         );
+        let expected_platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new(selection);
 
+        assert_eq!(
+            native_window_run_loop_platform_wait_backend_config(config).unwrap(),
+            expected_platform_wait_config
+        );
         assert_eq!(
             native_window_run_loop_platform_wait_backend_selection(config).unwrap(),
             selection
@@ -11505,6 +11620,52 @@ mod tests {
             NativeWindowRunLoopPlatformWaitBackendConfigError::NotPlatformWaitBackend {
                 requested: NativeWindowRunLoopWaitBackend::MinifbInternalTargetFps,
             }
+        );
+    }
+
+    #[test]
+    fn native_window_run_loop_platform_wait_config_requires_explicit_linux_event_source() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let selection_only_config = NativeWindowRunLoopPlatformWaitBackendConfig::new(selection);
+
+        assert_eq!(selection_only_config.selection(), selection);
+        assert_eq!(selection_only_config.linux_event_source_capability(), None);
+        assert_eq!(
+            native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+                selection_only_config
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability {
+                selection,
+            }
+        );
+
+        let observed_input_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection,
+                NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            );
+        assert_eq!(
+            native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+                observed_input_config
+            )
+            .unwrap(),
+            NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly
+        );
+
+        let externally_wakeable_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+            );
+        assert_eq!(
+            externally_wakeable_config.linux_event_source_capability(),
+            Some(NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource)
         );
     }
 
@@ -11540,7 +11701,9 @@ mod tests {
                 NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
             )
             .unwrap();
-        let requested = NativeWindowRunLoopWaitBackend::PlatformWait(selection);
+        let requested = NativeWindowRunLoopWaitBackend::PlatformWait(
+            NativeWindowRunLoopPlatformWaitBackendConfig::new(selection),
+        );
         let active_authority =
             native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
         let requested_authority =

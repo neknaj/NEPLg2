@@ -867,6 +867,16 @@ F5if では、F5ie の event source capability gate を Linux platform wait back
 
 F5if は backend construction gate であり、Linux platform wait runner、CLI dispatch、actual X11 / Wayland fd selector integration、minifb wait replacement、`HostEventReady` synthesis、timer fired evidence、scheduler resume evidence、fallback、silent no-op、sleep、busy loop は追加しない。
 
+## F5ig Native run-loop platform wait config event source gate
+
+F5ig では、run-loop config の platform wait 設定を bare selection から typed config へ移す。`NativeWindowRunLoopPlatformWaitBackendConfig` は selection と optional Linux event source capability を private field として保持し、constructor / accessor 経由でだけ扱う。これにより、future Linux runner が `NativeWindowRunLoopConfig` から selection だけを取り出して F5ie / F5if の event source gate を bypass する経路を作らない。
+
+`NativeWindowRunLoopWaitBackend::PlatformWait` は `NativeWindowRunLoopPlatformWaitBackendConfig` を保持する。`new_with_platform_wait_backend_selection` は Windows compatibility の selection-only config constructor として残す。Linux capability を持つ config は `NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability` で明示的に作る。
+
+cfg Linux `native_window_run_loop_platform_wait_backend_from_config` は platform wait config を抽出し、`linux_event_source_capability` が無ければ `NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability` を返す。暗黙に `ExternallyWakeableEventSource` を補わない。capability がある場合だけ cfg Linux helper へ selection と capability を渡し、F5if の validation order に従う。
+
+cfg Windows from-config は config から selection を読むだけで、Linux event source capability を readiness evidence として使わない。F5ig は config gate であり、Linux platform wait runner、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` synthesis、timer fired evidence、scheduler resume evidence、fallback、silent no-op、sleep、busy loop は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

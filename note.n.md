@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5ig run-loop platform wait config event source gate
+
+## scope
+
+- F5if の explicit Linux event source capability gate を run-loop config 側へ接続する。
+- `NativeWindowRunLoopWaitBackend::PlatformWait` を bare selection から typed config へ移し、future Linux runner が selection だけで F5ie / F5if gate を bypass できないようにする。
+- Windows CLI compatibility の `new_with_platform_wait_backend_selection` は selection-only config constructor として残す。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5if 後の root-cause slice として、run-loop config に Linux event source capability の保持場所を作る方針は妥当と確認された。
+- 必須条件として、config fields は private にし constructor / accessor 経由で扱うこと、cfg Linux from-config は capability 未指定を typed error にすること、旧 constructor は Windows compatibility の selection-only config として残すこと、runner / CLI dispatch / synthetic readiness / fallback を追加しないことが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` を追加し、selection と optional Linux event source capability を private field として保持するようにした。
+- `NativeWindowRunLoopWaitBackend::PlatformWait` は typed config を保持するように変更した。
+- `native_window_run_loop_platform_wait_backend_config` を追加し、既存の selection extractor は config から selection を読む compatibility helper にした。
+- `MissingLinuxEventSourceCapability` を `NativeWindowRunLoopPlatformWaitBackendConfigError` に追加した。
+- cfg Linux `native_window_run_loop_platform_wait_backend_from_config` を追加し、capability 未指定なら cfg Linux helper を呼ぶ前に typed error を返すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ig contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_run_loop_platform_wait_config -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ig section の `verification_current` に `node --check nodesrc/test_native_gui_platform_behavior.js` と `git diff --check` の記録が無いこと、および `implementation_review` が無いことだった。
+- `NativeWindowRunLoopPlatformWaitBackendConfig` が private fields + accessor / constructor になっていること、`PlatformWait` が bare selection ではなく typed config を保持すること、cfg Linux from-config が capability 未指定を typed error にしてから cfg Linux helper を呼ぶこと、暗黙の `ExternallyWakeableEventSource` 注入や runner / CLI / minifb 接続を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5if Linux platform wait backend event source config gate
 
 ## scope

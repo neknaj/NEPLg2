@@ -1260,6 +1260,35 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `ExternallyWakeableEventSource` を backend construction success 以外の readiness evidence として扱わない。selector fd creation / registration は backend owner construction であり、runner readiness や scheduler resume evidence ではない。
 - Windows / macOS branch の behavior は変えない。
 
+### Phase F5ig: Native run-loop platform wait config event source gate
+
+目的:
+
+- F5if で Linux backend construction helper が explicit event source capability を要求するようになったため、`NativeWindowRunLoopConfig` 側にも platform wait config と Linux event source capability の保持場所を作る。
+- `NativeWindowRunLoopWaitBackend::PlatformWait` を bare selection ではなく typed config にし、future Linux runner が selection だけで F5ie / F5if gate を bypass できないようにする。
+- Windows CLI compatibility のため `new_with_platform_wait_backend_selection` は selection-only config を作る入口として残す。ただし cfg Linux from-config path では capability 未指定を typed error にする。
+
+実装:
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` を追加し、selection と optional Linux event source capability を private field として保持する。
+- config は `new`、`new_with_linux_event_source_capability`、`selection`、`linux_event_source_capability` accessor からだけ組み立てる。
+- `native_window_run_loop_platform_wait_backend_config` を追加し、既存の selection extractor は config から selection を読む compatibility helper にする。
+- `MissingLinuxEventSourceCapability` を `NativeWindowRunLoopPlatformWaitBackendConfigError` に追加する。
+- cfg Linux `native_window_run_loop_platform_wait_backend_from_config` は platform wait config 抽出後に explicit Linux capability を要求し、未指定なら `MissingLinuxEventSourceCapability` を返す。capability がある場合だけ F5if の cfg Linux helper へ渡す。
+- cfg Windows from-config は config から selection を読むだけで、Linux capability を readiness evidence として扱わない。
+
+検証:
+
+- Rust unit tests で default minifb config、selection-only platform config、Linux capability missing error、explicit Linux event source capability accessor を検査する。
+- `cargo check --target x86_64-unknown-linux-gnu` で cfg Linux from-config path が compile できることを検査する。
+- source policy で private config fields、constructor / accessor、cfg Linux missing capability gate、no implicit `ExternallyWakeableEventSource`、runner / CLI dispatch / synthetic readiness / fallback 禁止を固定する。
+
+非目標:
+
+- Linux platform wait runner、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd selector integration、minifb wait replacement、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `new_with_platform_wait_backend_selection` を rename / remove しない。
+- `ExternallyWakeableEventSource` を config に入れただけで readiness evidence、scheduler resume evidence、timer fired evidence を作らない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
