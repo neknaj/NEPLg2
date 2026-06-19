@@ -511,6 +511,16 @@ success は `NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired` の�
 
 F5gz は scheduler resume policy が後続で消費できる typed wakeup boundary までであり、OS 固有 timer API、selector ownership、minifb wait hook 接続、real scheduler driver、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
+## F5ha Native window host-loop scheduler timer resume gate boundary
+
+2026-06-19 の F5ha では、scheduler long runner の resume gate を追加する。`NativeWindowHostLoopSchedulerSliceResult::Waited` は「host wait hook が戻った」ことだけを表し、常に application loop を再開してよいことを意味しない。
+
+`NativeWindowHostLoopSchedulerResumeState` は `Ready` と `WaitingForFrameIntervalTimer` を分ける。`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` は ready evidence として扱えるが、`FrameIntervalTimerRegistered` は timer fire を待つための pending state である。timer fire が実際に観測された場合だけ、`NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired` から `NativeWindowHostLoopSchedulerResumeReady::FrameIntervalTimerFired` を作れる。
+
+`run_native_window_host_loop_with_policy_and_target_fps` は `Waited` outcome を resume gate に通し、`WaitingForFrameIntervalTimer` の場合は `NativeWindowHostLoopError::TimerFireResumeRequired` を返す。これにより、timer registration を wait completion と誤認して次の event poll や present へ進むことを禁止する。
+
+F5ha は resume gate までであり、real OS timer adapter、selector ownership、minifb timer path、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、sleep / busy-loop による timer fire 代替は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -1339,6 +1339,9 @@ pub enum NativeWindowRunLoopError {
     HostWaitFailed {
         message: String,
     },
+    TimerFireResumeRequired {
+        timer_registration_id: u32,
+    },
     WaitDecisionMissing,
 }
 
@@ -1371,6 +1374,13 @@ pub enum NativeWindowHostLoopError<EventError, PresentError, WaitError> {
     PresenterFrameUnavailable(NativeWindowBackendLoopError),
     HostPresentFailed(PresentError),
     HostWaitFailed(WaitError),
+    TimerFireResumeRequired {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        wait_nanos: u32,
+        timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
+    },
     WaitDecisionMissing,
 }
 
@@ -2176,6 +2186,38 @@ pub enum NativeWindowHostLoopSchedulerSliceResult {
         request: NativeWindowHostLoopWaitRequest,
         instruction: NativeWindowHostLoopWaitInstruction,
         outcome: NativeWindowHostLoopWaitOutcome,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopSchedulerResumeReady {
+    HostEventPumped {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    FramePresentPaced {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    FrameIntervalTimerFired {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        wait_nanos: u32,
+        timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopSchedulerResumeState {
+    Ready(NativeWindowHostLoopSchedulerResumeReady),
+    WaitingForFrameIntervalTimer {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        wait_nanos: u32,
+        timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
     },
 }
 
@@ -3436,6 +3478,66 @@ pub fn native_window_host_loop_wait_instruction_plan(
     }
 }
 
+pub fn native_window_host_loop_scheduler_resume_state_from_wait_outcome(
+    outcome: NativeWindowHostLoopWaitOutcome,
+) -> NativeWindowHostLoopSchedulerResumeState {
+    match outcome {
+        NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+            window_size,
+            size_changed,
+        } => NativeWindowHostLoopSchedulerResumeState::Ready(
+            NativeWindowHostLoopSchedulerResumeReady::HostEventPumped {
+                window_size,
+                size_changed,
+            },
+        ),
+        NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+            presentation,
+            window_size,
+            size_changed,
+        } => NativeWindowHostLoopSchedulerResumeState::Ready(
+            NativeWindowHostLoopSchedulerResumeReady::FramePresentPaced {
+                presentation,
+                window_size,
+                size_changed,
+            },
+        ),
+        NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered {
+            presentation,
+            window_size,
+            size_changed,
+            wait_nanos,
+            timer_registration_id,
+        } => NativeWindowHostLoopSchedulerResumeState::WaitingForFrameIntervalTimer {
+            presentation,
+            window_size,
+            size_changed,
+            wait_nanos,
+            timer_registration_id,
+        },
+    }
+}
+
+pub fn native_window_host_loop_scheduler_resume_ready_from_timer_fire(
+    outcome: NativeWindowHostLoopTimerFireOutcome,
+) -> NativeWindowHostLoopSchedulerResumeReady {
+    match outcome {
+        NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired {
+            presentation,
+            window_size,
+            size_changed,
+            wait_nanos,
+            timer_registration_id,
+        } => NativeWindowHostLoopSchedulerResumeReady::FrameIntervalTimerFired {
+            presentation,
+            window_size,
+            size_changed,
+            wait_nanos,
+            timer_registration_id,
+        },
+    }
+}
+
 pub fn run_native_window_host_loop_bounded<Host>(
     runner_state: &mut NativeWindowHostLoopRunnerState,
     backend_loop: &mut NativeWindowBackendLoop,
@@ -3608,7 +3710,26 @@ where
             target_fps,
         )? {
             NativeWindowHostLoopSchedulerSliceResult::Exited { exit, .. } => return Ok(exit),
-            NativeWindowHostLoopSchedulerSliceResult::Waited { .. } => {}
+            NativeWindowHostLoopSchedulerSliceResult::Waited { outcome, .. } => {
+                match native_window_host_loop_scheduler_resume_state_from_wait_outcome(outcome) {
+                    NativeWindowHostLoopSchedulerResumeState::Ready(_) => {}
+                    NativeWindowHostLoopSchedulerResumeState::WaitingForFrameIntervalTimer {
+                        presentation,
+                        window_size,
+                        size_changed,
+                        wait_nanos,
+                        timer_registration_id,
+                    } => {
+                        return Err(NativeWindowHostLoopError::TimerFireResumeRequired {
+                            presentation,
+                            window_size,
+                            size_changed,
+                            wait_nanos,
+                            timer_registration_id,
+                        });
+                    }
+                }
+            }
         }
     }
 }
@@ -3854,6 +3975,12 @@ fn native_window_run_loop_error_from_host_loop(
                 message: format!("{error:?}"),
             }
         }
+        NativeWindowHostLoopError::TimerFireResumeRequired {
+            timer_registration_id,
+            ..
+        } => NativeWindowRunLoopError::TimerFireResumeRequired {
+            timer_registration_id: timer_registration_id.raw_id(),
+        },
         NativeWindowHostLoopError::WaitDecisionMissing => {
             NativeWindowRunLoopError::WaitDecisionMissing
         }
@@ -6815,6 +6942,107 @@ mod tests {
     }
 
     #[test]
+    fn native_window_host_loop_scheduler_resume_state_accepts_already_paced_waits() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 8,
+            width: window_size.width,
+            height: window_size.height,
+        };
+
+        assert_eq!(
+            native_window_host_loop_scheduler_resume_state_from_wait_outcome(
+                NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                    window_size,
+                    size_changed: true,
+                }
+            ),
+            NativeWindowHostLoopSchedulerResumeState::Ready(
+                NativeWindowHostLoopSchedulerResumeReady::HostEventPumped {
+                    window_size,
+                    size_changed: true,
+                }
+            )
+        );
+        assert_eq!(
+            native_window_host_loop_scheduler_resume_state_from_wait_outcome(
+                NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                    presentation,
+                    window_size,
+                    size_changed: false,
+                }
+            ),
+            NativeWindowHostLoopSchedulerResumeState::Ready(
+                NativeWindowHostLoopSchedulerResumeReady::FramePresentPaced {
+                    presentation,
+                    window_size,
+                    size_changed: false,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_resume_state_requires_timer_fire() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 9,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let timer_registration_id = NativeWindowHostLoopTimerRegistrationId { raw_id: 101 };
+
+        assert_eq!(
+            native_window_host_loop_scheduler_resume_state_from_wait_outcome(
+                NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered {
+                    presentation,
+                    window_size,
+                    size_changed: false,
+                    wait_nanos: 16_666_666,
+                    timer_registration_id,
+                }
+            ),
+            NativeWindowHostLoopSchedulerResumeState::WaitingForFrameIntervalTimer {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+                timer_registration_id,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_resume_ready_accepts_timer_fire_evidence() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 10,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let timer_registration_id = NativeWindowHostLoopTimerRegistrationId { raw_id: 102 };
+
+        assert_eq!(
+            native_window_host_loop_scheduler_resume_ready_from_timer_fire(
+                NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired {
+                    presentation,
+                    window_size,
+                    size_changed: true,
+                    wait_nanos: 16_666_667,
+                    timer_registration_id,
+                }
+            ),
+            NativeWindowHostLoopSchedulerResumeReady::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: true,
+                wait_nanos: 16_666_667,
+                timer_registration_id,
+            }
+        );
+    }
+
+    #[test]
     fn native_window_thread_wait_sleeps_for_frame_interval_instruction() {
         let window_size = NativeWindowSize::new(320, 200);
         let presentation = NativeWindowBackendLoopPresentation {
@@ -8451,6 +8679,83 @@ mod tests {
     }
 
     #[test]
+    fn native_window_host_loop_with_policy_requires_timer_fire_before_resume() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 1,
+            width: initial_size.width,
+            height: initial_size.height,
+        };
+        let timer_registration_id = NativeWindowHostLoopTimerRegistrationId { raw_id: 103 };
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable), Ok(close)])
+            .with_wait_outcome(
+                NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered {
+                    presentation,
+                    window_size: initial_size,
+                    size_changed: false,
+                    wait_nanos: 16_666_666,
+                    timer_registration_id,
+                },
+            );
+
+        assert_eq!(
+            run_native_window_host_loop_with_policy(
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopError::TimerFireResumeRequired {
+                presentation,
+                window_size: initial_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+                timer_registration_id,
+            }
+        );
+        assert_eq!(host.cursor, 1);
+        assert_eq!(
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                presentation,
+                window_size: initial_size,
+                size_changed: false,
+                frame_interval: native_window_frame_interval_request(
+                    NativeWindowTargetFps::default()
+                ),
+                wait_nanos: 16_666_666,
+            }]
+        );
+        assert_eq!(
+            host.wait_outcomes,
+            vec![
+                NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered {
+                    presentation,
+                    window_size: initial_size,
+                    size_changed: false,
+                    wait_nanos: 16_666_666,
+                    timer_registration_id,
+                }
+            ]
+        );
+    }
+
+    #[test]
     fn native_window_host_loop_with_policy_uses_explicit_target_fps_for_wait_request() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -8768,6 +9073,7 @@ mod tests {
         wait_outcomes: Vec<NativeWindowHostLoopWaitOutcome>,
         present_error: Option<&'static str>,
         wait_error: Option<&'static str>,
+        wait_outcome_override: Option<NativeWindowHostLoopWaitOutcome>,
     }
 
     impl ScriptedNativeWindowRunLoopHost {
@@ -8782,6 +9088,7 @@ mod tests {
                 wait_outcomes: Vec::new(),
                 present_error: None,
                 wait_error: None,
+                wait_outcome_override: None,
             }
         }
 
@@ -8792,6 +9099,11 @@ mod tests {
 
         fn with_wait_error(mut self, error: &'static str) -> Self {
             self.wait_error = Some(error);
+            self
+        }
+
+        fn with_wait_outcome(mut self, outcome: NativeWindowHostLoopWaitOutcome) -> Self {
+            self.wait_outcome_override = Some(outcome);
             self
         }
     }
@@ -8839,25 +9151,29 @@ mod tests {
             if let Some(error) = self.wait_error {
                 return Err(error);
             }
-            let outcome = match instruction {
-                NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
-                    window_size,
-                    size_changed,
-                } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
-                    window_size,
-                    size_changed,
-                },
-                NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
-                    presentation,
-                    window_size,
-                    size_changed,
-                    frame_interval: _,
-                    wait_nanos: _,
-                } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
-                    presentation,
-                    window_size,
-                    size_changed,
-                },
+            let outcome = if let Some(outcome) = self.wait_outcome_override.clone() {
+                outcome
+            } else {
+                match instruction {
+                    NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+                        window_size,
+                        size_changed,
+                    } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                        window_size,
+                        size_changed,
+                    },
+                    NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                        presentation,
+                        window_size,
+                        size_changed,
+                        frame_interval: _,
+                        wait_nanos: _,
+                    } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                        presentation,
+                        window_size,
+                        size_changed,
+                    },
+                }
             };
             self.wait_outcomes.push(outcome.clone());
             Ok(outcome)
