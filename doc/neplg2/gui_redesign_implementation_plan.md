@@ -1611,6 +1611,32 @@ subagent review:
 - Darwin the 2nd に F5gz 計画を渡し、registration/fire の error 分離と helper 合成に限定すること、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5ha: Native window host-loop scheduler timer resume gate boundary
+
+Phase F5ha では、scheduler long runner が `Waited` result を常に再開可能として扱う問題を修正する。`FrameIntervalTimerRegistered` は timer fire を待つための registration evidence であり、scheduler resume evidence ではない。
+
+実装:
+
+- `NativeWindowHostLoopSchedulerResumeReady` を追加し、`HostEventPumped`、`FramePresentPaced`、`FrameIntervalTimerFired` を分ける。
+- `NativeWindowHostLoopSchedulerResumeState` を追加し、`Ready` と `WaitingForFrameIntervalTimer` を分ける。
+- `native_window_host_loop_scheduler_resume_state_from_wait_outcome` を追加し、already-paced outcome だけを ready にし、`FrameIntervalTimerRegistered` は waiting にする。
+- `native_window_host_loop_scheduler_resume_ready_from_timer_fire` を追加し、F5gy/F5gz の `FrameIntervalTimerFired` evidence を ready へ写す。
+- `NativeWindowHostLoopError::TimerFireResumeRequired` を追加する。
+- `run_native_window_host_loop_with_policy_and_target_fps` は `Waited` outcome を resume gate に通し、`WaitingForFrameIntervalTimer` の場合は `TimerFireResumeRequired` を返して次の poll へ進まない。
+- source policy は `Waited { .. }` の無条件継続を禁止し、resume gate 呼び出しと `TimerFireResumeRequired` path を検査する。
+
+非目標:
+
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続は含めない。
+- timer fire を long runner 内で待たない。
+- thread sleep、busy loop、message pump、event queue wait、fallback、silent no-op で timer fire を代替しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5ha 計画を渡し、`Waited` 無条件継続を止めること、timer fire wait 実装へ踏み込まないこと、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1,3 +1,48 @@
+# 2026-06-19 Agent2 GUI native F5ha scheduler timer resume gate boundary
+
+## scope
+
+- F5gz の後続として、scheduler long runner が `Waited` outcome を無条件に再開可能として扱う問題を修正する。
+- `FrameIntervalTimerRegistered` は timer fire 待ちの pending state として扱い、long runner では `TimerFireResumeRequired` を返して fail closed にする。
+- OS 固有 timer API、selector wakeup ownership、minifb timer path、thread sleep、busy loop、message pump、event queue substitution、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。`Waited` 無条件継続を止める root-cause slice として妥当であり、timer fire wait 実装へ踏み込まないこと、source policy で再発防止することが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopSchedulerResumeReady` と `NativeWindowHostLoopSchedulerResumeState` を追加した。
+- `native_window_host_loop_scheduler_resume_state_from_wait_outcome` を追加し、already-paced outcome だけを ready にし、`FrameIntervalTimerRegistered` は `WaitingForFrameIntervalTimer` に写すようにした。
+- `native_window_host_loop_scheduler_resume_ready_from_timer_fire` を追加し、`FrameIntervalTimerFired` evidence を ready evidence へ写せるようにした。
+- `NativeWindowHostLoopError::TimerFireResumeRequired` と `NativeWindowRunLoopError::TimerFireResumeRequired` を追加した。
+- `run_native_window_host_loop_with_policy_and_target_fps` は `Waited` outcome を resume gate に通し、timer fire が必要な場合は次 poll に進まず `TimerFireResumeRequired` を返すようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5ha contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_loop_scheduler_resume -- --nocapture` は 3 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy_requires_timer_fire_before_resume -- --nocapture` は 1 test passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 156 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5ha native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `IMPLEMENTATION_APPROVED`。
+- F5ha は `FrameIntervalTimerRegistered` を unconditional resume evidence として扱わず、timer fire が必要な pending state として fail closed にする root fix として妥当であることが確認された。
+- ready / pending resume state と timer-fire evidence が enum / Result 系の明示的な境界として分離され、real OS timer adapter / selector wakeup ownership を残件として分けている点も確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_host_loop_scheduler_resume -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy_requires_timer_fire_before_resume -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js` が pass した。
+
+## residual
+
+- 次 slice では real OS timer adapter と selector wakeup ownership へ進む。
+- F5ha は resume gate までであり、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI native F5gz timer wakeup executor boundary
 
 ## scope

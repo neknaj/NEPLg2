@@ -268,6 +268,21 @@ subagent review:
 - Darwin the 2nd に F5gz 計画を渡し、registration/fire の error 分離、helper 合成に限定すること、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5ha: Native window host-loop scheduler timer resume gate boundary
+
+F5ha では、scheduler の long runner が `NativeWindowHostLoopSchedulerSliceResult::Waited` を無条件に次 loop へ進める状態を止める。`FrameIntervalTimerRegistered` は timer reservation evidence であり、timer fire evidence ではないため、long runner は `TimerFireResumeRequired` として fail closed する。
+
+`NativeWindowHostLoopSchedulerResumeState` は `Ready NativeWindowHostLoopSchedulerResumeReady` と `WaitingForFrameIntervalTimer` を持つ。`native_window_host_loop_scheduler_resume_state_from_wait_outcome` は `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を ready に写し、`FrameIntervalTimerRegistered` を waiting に写す。`native_window_host_loop_scheduler_resume_ready_from_timer_fire` は `NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired` だけを ready evidence へ写す。
+
+`run_native_window_host_loop_with_policy_and_target_fps` は `Waited` の outcome を resume gate に通し、ready の場合だけ次 slice へ進む。`WaitingForFrameIntervalTimer` の場合は `NativeWindowHostLoopError::TimerFireResumeRequired` を返し、次の event poll、present、sleep、queue、busy loop へ進まない。
+
+この phase は resume gate までであり、OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、real timer wait、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5ha 計画を渡し、`Waited` の無条件継続を止める root-cause slice であること、timer fire wait 実装へ踏み込まないこと、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
