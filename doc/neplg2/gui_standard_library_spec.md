@@ -439,6 +439,18 @@ F5gr は wait strategy instruction boundary までであり、actual OS wait str
 
 F5gs は native thread sleep backend boundary までであり、host event queue、timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。minifb smoke backend は引き続き `Window::set_target_fps` による already-paced outcome を返し、F5gs の thread sleep backend を呼ばない。
 
+## F5gt Native window host-loop timer registration backend boundary
+
+2026-06-19 の F5gt では、F5gr の `NativeWindowHostLoopWaitInstruction` を native timer registration backend へ渡す境界を追加する。これは F5gs の thread sleep backend とは別の実行境界であり、formal native scheduler が frame interval wait を timer registration として扱うための contract である。
+
+`NativeWindowHostLoopTimerRegistrar` は raw `u32` timer id を返す host boundary である。library 側は raw id をそのまま authority にせず、`raw_id > 0` を検査してから `NativeWindowHostLoopTimerRegistrationId` へ変換する。raw id `0` は `InvalidTimerRegistrationId` として `Result::Err` になる。これにより platform backend の sentinel や invalid handle を silent success にしない。
+
+`WaitForFrameInterval` は `wait_nanos` が `nanos_per_frame` または `nanos_per_frame + 1` の場合だけ registrar を呼ぶ。不一致は `FrameIntervalWaitNanosMismatch` として fail closed にする。registrar の失敗は `RegistrarFailed` として元の error value を保持する。
+
+`WaitForHostEvent` は `HostEventTimerRegistrationUnsupported` として fail closed にする。host event blocking は OS event queue / selector / message pump backend が必要であり、timer registration、thread sleep、busy loop、silent no-op で代替しない。
+
+F5gt は native timer registration backend boundary までであり、host event queue、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

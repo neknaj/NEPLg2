@@ -71534,3 +71534,49 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では host event queue / timer registration backend へ進む。F5gs は frame interval thread sleep backend までであり、host event queue、timer registration、FHD 60fps measurement harness は未実装である。
+
+## 2026-06-19 GUI native F5gt host-loop timer registration backend boundary
+
+### scope
+
+- F5gt は F5gr の wait instruction を native timer registration backend へ渡す execution boundary である。
+- F5gs の thread sleep backend とは別に、formal native scheduler が frame interval wait を timer registration として扱える境界を追加する。
+- registrar は host boundary として raw `u32` timer id を返し、library 側で positive id を検査してから `NativeWindowHostLoopTimerRegistrationId` に変換する。
+- host event wait は OS event queue backend が未実装のため `HostEventTimerRegistrationUnsupported` を返す。timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+- minifb smoke backend の wait hook へは接続しない。minifb は引き続き `Window::set_target_fps` による already-paced outcome を使う。
+
+### plan_review
+
+- Darwin the 2nd の initial plan review は `PLAN_CHANGES`。
+- 指摘は、registrar が typed id を返すと `InvalidTimerRegistrationId` が表現不能になり dead design になることだった。
+- revised plan では registrar が raw `u32` を返し、`execute_native_window_host_loop_timer_registration_with_registrar` が positive id を検査して typed id へ変換する方針に変更した。
+- Darwin the 2nd の revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopTimerRegistrationId`、`NativeWindowHostLoopTimerRegistrationError`、`NativeWindowHostLoopTimerRegistrationOutcome`、`NativeWindowHostLoopTimerRegistrar` を追加する。
+- `execute_native_window_host_loop_timer_registration_with_registrar` を追加し、frame interval instruction だけ registrar を 1 回呼ぶようにする。
+- scripted registrar tests により、frame interval success、host event unsupported、invalid wait nanos、invalid raw timer id、registrar failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gt contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_registration -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib` は 127 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass_with_existing_warnings: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gt の native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はない。
+- raw `u32` id が registrar boundary で返され、`raw_id == 0` は typed id 構築前に拒否されること、invalid `wait_nanos` と host-event path は registrar を呼ばないこと、registrar error は保持されること、minifb や thread sleep へ接続していないことが確認された。
+
+### residual
+
+- 次 slice では host event queue / real OS timer backend connection へ進む。F5gt は timer registration backend boundary までであり、host event queue、selector、message pump、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。

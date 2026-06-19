@@ -1430,6 +1430,35 @@ subagent review:
 - Darwin the 2nd に F5gs 計画を渡し、minifb double pacing を避けること、host event wait が unsupported として fail closed になること、sleep が F5gs backend helper に閉じることを確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gt: Native window host-loop timer registration backend boundary
+
+Phase F5gt では、F5gr の `NativeWindowHostLoopWaitInstruction` を native timer registration backend へ渡す execution boundary を追加する。F5gs は thread sleep backend であり、F5gt は later native scheduler が frame interval wait を timer registration として扱うための separate backend contract である。
+
+実装:
+
+- `NativeWindowHostLoopTimerRegistrationId` を追加し、positive raw timer id だけを typed id として扱う。
+- `NativeWindowHostLoopTimerRegistrar` trait を追加し、`register_timer_nanos wait_nanos` は host boundary として raw `u32` id を返す。
+- `NativeWindowHostLoopTimerRegistrationError` を追加し、`HostEventTimerRegistrationUnsupported`、`FrameIntervalWaitNanosMismatch`、`InvalidTimerRegistrationId`、`RegistrarFailed` を分ける。
+- `NativeWindowHostLoopTimerRegistrationOutcome` を追加し、frame interval timer registration 成功を typed outcome として返す。
+- `execute_native_window_host_loop_timer_registration_with_registrar` を追加し、frame interval instruction の場合だけ registrar を 1 回呼ぶ。
+- `wait_nanos` は実行前に `nanos_per_frame` または `nanos_per_frame + 1` であることを再検査し、不一致なら registrar を呼ばず fail closed にする。
+- registrar が返した raw id が `0` の場合は `InvalidTimerRegistrationId` として拒否し、typed id を作らない。
+- host event wait は OS event queue backend がないため `HostEventTimerRegistrationUnsupported` を返す。
+- source policy は timer registration backend が minifb、window update、thread sleep、`Duration`、queue/event payload、DOM、Canvas、video memory、fallback、silent no-op を持たないことを検査する。
+
+非目標:
+
+- minifb wait hook へ timer registration を接続しない。
+- host event queue、selector、message pump、real OS timer backend は含めない。
+- `std::thread::sleep` / `Duration` は使わない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、busy loop は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gt 計画を渡し、raw timer id validation、host event wait unsupported、timer registration と thread wait / minifb pacing の分離、source-policy の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

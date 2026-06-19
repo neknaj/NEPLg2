@@ -209,6 +209,18 @@ host event wait は `HostEventWaitUnsupported` を返す。OS event queue / sele
 
 F5gs は native thread wait backend boundary までであり、host event queue、timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、DOM / Canvas / video memory transport も導入しない。
 
+## Native window host-loop timer registration backend checkpoint
+
+F5gt では、F5gr の wait instruction を native timer registration backend へ渡す実行境界を追加する。ただし minifb smoke backend の wait hook へは接続しない。
+
+`NativeWindowHostLoopTimerRegistrar` は injected registrar interface である。test は scripted registrar を使う。registrar は host boundary として raw `u32` timer id を返し、`execute_native_window_host_loop_timer_registration_with_registrar` が positive id を `NativeWindowHostLoopTimerRegistrationId` へ変換する。raw id `0` は `InvalidTimerRegistrationId` として拒否する。
+
+`execute_native_window_host_loop_timer_registration_with_registrar` は frame interval instruction だけを実行し、`wait_nanos` が `nanos_per_frame` または `nanos_per_frame + 1` であることを再検査する。不一致は `FrameIntervalWaitNanosMismatch` として返し、registrar を呼ばない。registrar failure は `RegistrarFailed` に保持する。
+
+host event wait は `HostEventTimerRegistrationUnsupported` を返す。OS event queue / selector / message pump backend が未実装の段階で host event wait を timer registration、thread sleep、busy loop、silent no-op に変換しない。
+
+F5gt は native timer registration backend boundary までであり、host event queue、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、DOM / Canvas / video memory transport も導入しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -225,6 +237,7 @@ F5gs は native thread wait backend boundary までであり、host event queue�
 - `NativeWindowHostLoopWaitInstruction` と `NativeWindowHostLoopWaitStrategyState` により、frame interval remainder を scheduler slice 間で配分し、host wait boundary へ渡す typed instruction を作る。
 - `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait instruction を host wait boundary へ渡す。
 - `NativeWindowHostLoopThreadSleeper` と `execute_native_window_host_loop_thread_wait_with_sleeper` により、formal native thread wait backend は frame interval instruction を sleep 実行境界へ渡せる。host event wait は queue 未実装として fail closed にする。
+- `NativeWindowHostLoopTimerRegistrar` と `execute_native_window_host_loop_timer_registration_with_registrar` により、formal native timer registration backend は frame interval instruction を raw timer id registration 境界へ渡せる。host event wait は queue 未実装として fail closed にする。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - minifb smoke backend の wait hook は additional `window.update` や sleep を行わず、`Window::set_target_fps` による既存 pacing を `NativeWindowHostLoopWaitOutcome` として記録する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
