@@ -911,6 +911,16 @@ F5ik では、platform wait runner support gate の failure shape を精密化�
 
 F5ik は error modeling checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
 
+## F5il Native Linux externally-wakeable event source owner boundary
+
+F5il では、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる。これは F5ik の `LinuxExternallyWakeableEventSourceOwnerMissing` を解消するための前段であり、runner support gate を成功させる phase ではない。
+
+`NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` は Linux selector / timerfd backend と host-event signal producer を private field として持つ。builder は構築済み backend と producer raw API を受け取り、backend が open であることを確認してから `create_host_event_signal_producer` を呼ぶ。closed backend は `BackendClosed`、producer 作成失敗は `HostEventSignalProducerFailed` として backend owner を返す。
+
+owner の `signal_host_event` は producer にだけ委譲する。backend の direct `signal_host_event`、wait outcome synthesis、`HostEventReady` / timer fired evidence / scheduler-ready evidence の生成は行わない。
+
+F5il は owner contract checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -1394,6 +1394,34 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - `ExternallyWakeableEventSource` を runner readiness、scheduler resume evidence、timer fired evidence として扱わない。
 
+### Phase F5il: Native Linux externally-wakeable event source owner boundary
+
+目的:
+
+- F5ik の `LinuxExternallyWakeableEventSourceOwnerMissing` を解消する前段として、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる contract を追加する。
+- `ExternallyWakeableEventSource` を分類値のままにせず、actual readiness source へ進むためには backend owner と wake producer owner が同時に存在する必要があることを型で表す。
+- producer 作成に失敗した場合、backend owner を失わず typed error で返す。
+
+実装:
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` を追加し、`NativeWindowHostLoopLinuxSelectorTimerFdBackend` と `NativeWindowHostLoopLinuxHostEventSignalProducer` を private field として保持する。
+- builder は既に構築済みの Linux selector / timerfd backend と producer raw API を受け取り、backend が open であることを確認してから `create_host_event_signal_producer` を呼ぶ。
+- backend が閉じている場合は `BackendClosed`、producer 作成失敗は `HostEventSignalProducerFailed` として backend owner と typed lower error を返す。
+- owner の `signal_host_event` は producer にだけ委譲し、backend 側の direct signal や wait outcome synthesis は行わない。
+
+検証:
+
+- Rust unit tests で owner builder が backend と producer を保持し、producer duplicate が host event fd に対して行われることを検査する。
+- Rust unit tests で owner の signal が producer raw API だけを使い、backend direct signal を使わないことを検査する。
+- Rust unit tests で producer 作成失敗と closed backend が backend owner を返すことを検査する。
+- source policy で owner fields、builder の `create_host_event_signal_producer` 呼び出し、owner-bearing error、Linux runner / CLI / minifb / sleep / fallback / synthetic evidence 非導入を固定する。
+
+非目標:
+
+- Linux platform wait runner support gate を `Ok` にしない。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- minifb `InputCallback` を blocking wait readiness source として扱わない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

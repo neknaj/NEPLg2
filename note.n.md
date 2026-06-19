@@ -1,3 +1,51 @@
+# 2026-06-20 Agent2 GUI native F5il Linux externally-wakeable event source owner boundary
+
+## scope
+
+- F5ik の `LinuxExternallyWakeableEventSourceOwnerMissing` の後続として、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる。
+- owner は backend と producer を保持し、host event signal は producer にだけ委譲する。
+- producer 作成失敗や closed backend は backend owner を返す typed error として扱い、backend owner を暗黙に失わない。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence / scheduler-ready evidence の生成は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5ik support gate behavior を維持し、Linux `ExternallyWakeableEventSource` は引き続き `PlatformRunnerIntegrationMissing` を返すことが条件として確認された。
+- build error は closed backend と producer creation failure を分け、producer failure では `{ backend, error }` を返すことが条件として確認された。
+- owner の `signal_host_event` は producer にだけ委譲し、backend direct signal、`HostEventReady`、`TimerFired`、scheduler-ready evidence、wait outcome を生成しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` を追加し、Linux selector / timerfd backend と host-event signal producer を同一 owner に束ねた。
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError` を追加し、closed backend と producer creation failure を分け、どちらも backend owner を返すようにした。
+- owner の `signal_host_event` は producer にだけ委譲し、backend direct signal や wait outcome synthesis を行わないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5il contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable_owner -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘 1: owner の `pub fn new` が builder invariant を迂回し、backend と無関係な producer を組み合わせられるため、constructor を private にする必要がある。
+- 指摘 2: この F5il section の `implementation_review` が pending のままで commit readiness を満たしていなかった。
+- 指摘対応として、owner constructor を private にし、source policy に public owner constructor 禁止を追加し、この欄へ review result を記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。constructor bypass は閉じられ、source policy で固定され、backend recovery / producer-only signaling / F5ik support-gate behavior は維持されていると確認された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ik platform wait runner missing-integration reason boundary
 
 ## scope

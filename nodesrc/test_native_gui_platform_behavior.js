@@ -177,6 +177,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowHostLoopLinuxSelectorFd",
         "#[cfg(target_os = \"linux\")]",
     );
+    const nativeWindowLinuxExternallyWakeableEventSourceOwner = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError",
+        "impl<Api> Drop for NativeWindowHostLoopLinuxHostEventSignalProducer",
+    );
     const nativeWindowLinuxSelectorTimerFdSysApi = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
@@ -747,6 +752,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn signal_host_event[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*InvalidHostEventRawFd\s*\{\s*raw_fd: -1,?\s*\}[\s\S]*signal_host_event_fd_raw\(host_event\)[\s\S]*SignalHostEventFdFailed\s*\{[\s\S]*code: self\.api\.last_error_code\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub struct NativeWindowHostLoopLinuxHostEventSignalProducer<[\s\S]*api: Api,[\s\S]*signal: Option<NativeWindowHostLoopLinuxHostEventSignalFd>/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> NativeWindowHostLoopLinuxHostEventSignalProducer<Api>[\s\S]*pub fn close_signal_handle_if_open\(&mut self\) -> bool[\s\S]*self\.signal\.take\(\)[\s\S]*close_host_event_signal_fd_raw\(&signal\)[\s\S]*pub fn signal_host_event[\s\S]*signal = self\.signal\.as_ref\(\)[\s\S]*InvalidHostEventSignalRawFd\s*\{\s*raw_fd: -1,?\s*\}[\s\S]*signal_host_event_signal_fd_raw\(signal\)[\s\S]*SignalHostEventSignalFdFailed\s*\{[\s\S]*code: self\.api\.last_error_code\(\)/);
+    assert.match(nativeWindowLinuxExternallyWakeableEventSourceOwner, /pub enum NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError<BackendApi>[\s\S]*BackendClosed\s*\{[\s\S]*backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>[\s\S]*HostEventSignalProducerFailed\s*\{[\s\S]*backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,[\s\S]*error: NativeWindowHostLoopLinuxHostEventSignalProducerError/);
+    assert.match(nativeWindowLinuxExternallyWakeableEventSourceOwner, /pub struct NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi,\s*ProducerApi>[\s\S]*backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,[\s\S]*producer: NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>/);
+    assert.match(nativeWindowLinuxExternallyWakeableEventSourceOwner, /pub fn native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend<[\s\S]*backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,[\s\S]*producer_api: ProducerApi[\s\S]*if !backend\.are_handles_open\(\)[\s\S]*BackendClosed\s*\{[\s\S]*backend,[\s\S]*create_host_event_signal_producer\(producer_api\)[\s\S]*HostEventSignalProducerFailed\s*\{[\s\S]*backend,[\s\S]*error/);
+    assert.match(nativeWindowLinuxExternallyWakeableEventSourceOwner, /pub fn signal_host_event\([\s\S]*&mut self,[\s\S]*Result<\(\), NativeWindowHostLoopLinuxHostEventSignalProducerError>[\s\S]*self\.producer\.signal_host_event\(\)/);
+    assert.doesNotMatch(nativeWindowLinuxExternallyWakeableEventSourceOwner, /pub fn new\(/);
+    assert.doesNotMatch(nativeWindowLinuxExternallyWakeableEventSourceOwner, /self\.backend\.signal_host_event|NativeWindowHostLoopWaitOutcome|HostEventReady|FrameIntervalTimerFired|TimerFired|SchedulerResume|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb_window_loop|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|poll\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> Drop for NativeWindowHostLoopLinuxHostEventSignalProducer<Api>[\s\S]*self\.close_signal_handle_if_open\(\)/);
     assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /pub struct MinifbNativeWindowLinuxHostEventSignalCallbackState<[\s\S]*producer: NativeWindowHostLoopLinuxHostEventSignalProducer<Api>,[\s\S]*first_error: Option<NativeWindowHostLoopLinuxHostEventSignalProducerError>/);
     assert.match(minifbNativeWindowLinuxObservedInputSignalBridge, /signal_observed_input[\s\S]*if self\.first_error\.is_some\(\)[\s\S]*return;[\s\S]*self\.producer\.signal_host_event\(\)[\s\S]*self\.first_error = Some\(error\)/);
@@ -820,6 +831,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_host_event_signal_producer_rejects_closed_backend/);
     assert.match(libSource, /native_window_linux_host_event_signal_producer_preserves_signal_failure/);
     assert.match(libSource, /native_window_linux_host_event_signal_producer_closes_signal_handle_once/);
+    assert.match(libSource, /native_window_linux_externally_wakeable_owner_keeps_backend_and_producer/);
+    assert.match(libSource, /native_window_linux_externally_wakeable_owner_signals_through_producer_only/);
+    assert.match(libSource, /native_window_linux_externally_wakeable_owner_preserves_backend_on_producer_failure/);
+    assert.match(libSource, /native_window_linux_externally_wakeable_owner_rejects_closed_backend/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_closes_selector_timer_and_host_event_once/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_requires_validated_linux_selection/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_preserves_raw_api_failure/);

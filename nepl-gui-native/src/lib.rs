@@ -4658,6 +4658,117 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError<BackendApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    BackendClosed {
+        backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+    },
+    HostEventSignalProducerFailed {
+        backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+        error: NativeWindowHostLoopLinuxHostEventSignalProducerError,
+    },
+}
+
+#[derive(Debug)]
+pub struct NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+    producer: NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>,
+}
+
+impl<BackendApi, ProducerApi>
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    fn new(
+        backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+        producer: NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>,
+    ) -> Self {
+        Self { backend, producer }
+    }
+
+    pub fn backend(&self) -> &NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi> {
+        &self.backend
+    }
+
+    pub fn backend_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi> {
+        &mut self.backend
+    }
+
+    pub fn producer(&self) -> &NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi> {
+        &self.producer
+    }
+
+    pub fn producer_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi> {
+        &mut self.producer
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+        NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>,
+    ) {
+        (self.backend, self.producer)
+    }
+
+    pub fn are_handles_open(&self) -> bool {
+        self.backend.are_handles_open() && self.producer.are_handles_open()
+    }
+
+    pub fn signal_host_event(
+        &mut self,
+    ) -> Result<(), NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        self.producer.signal_host_event()
+    }
+}
+
+pub fn native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend<
+    BackendApi,
+    ProducerApi,
+>(
+    backend: NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
+    producer_api: ProducerApi,
+) -> Result<
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError<BackendApi>,
+>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    if !backend.are_handles_open() {
+        return Err(
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::BackendClosed {
+                backend,
+            },
+        );
+    }
+    match backend.create_host_event_signal_producer(producer_api) {
+        Ok(producer) => Ok(
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner::new(backend, producer),
+        ),
+        Err(error) => Err(
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::HostEventSignalProducerFailed {
+                backend,
+                error,
+            },
+        ),
+    }
+}
+
 impl<Api> Drop for NativeWindowHostLoopLinuxHostEventSignalProducer<Api>
 where
     Api: NativeWindowHostLoopLinuxHostEventSignalRawApi,
@@ -16816,6 +16927,107 @@ mod tests {
                 raw_fd: -1,
             }
         );
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_owner_keeps_backend_and_producer() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+
+        let owner =
+            native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+                backend,
+                producer_api,
+            )
+            .unwrap();
+
+        assert!(owner.are_handles_open());
+        assert_eq!(
+            owner.backend().api().register_host_event_calls,
+            vec![(4, 6)]
+        );
+        assert_eq!(owner.producer().api().clone_calls, vec![6]);
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_owner_signals_through_producer_only() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+        let mut owner =
+            native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+                backend,
+                producer_api,
+            )
+            .unwrap();
+
+        assert_eq!(owner.signal_host_event().unwrap(), ());
+        assert_eq!(owner.producer().api().signal_calls, vec![20]);
+        assert!(owner.backend().api().signal_host_event_calls.is_empty());
+        assert!(owner.are_handles_open());
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_owner_preserves_backend_on_producer_failure() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(-1)
+            .with_last_error_code(21);
+
+        match native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+            backend,
+            producer_api,
+        )
+        .unwrap_err()
+        {
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::HostEventSignalProducerFailed {
+                backend,
+                error,
+            } => {
+                assert_eq!(
+                    error,
+                    NativeWindowHostLoopLinuxHostEventSignalProducerError::CreateHostEventSignalFdFailed {
+                        code: 21,
+                    }
+                );
+                assert!(backend.are_handles_open());
+                assert!(backend.api().close_selector_calls.is_empty());
+                assert!(backend.api().close_timer_calls.is_empty());
+                assert!(backend.api().close_host_event_calls.is_empty());
+            }
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::BackendClosed {
+                ..
+            } => panic!("producer failure must not be reported as closed backend"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_owner_rejects_closed_backend() {
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let mut backend =
+            NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        assert_eq!(backend.close_handles_if_open(), true);
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+
+        match native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+            backend,
+            producer_api,
+        )
+        .unwrap_err()
+        {
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::BackendClosed {
+                backend,
+            } => {
+                assert!(!backend.are_handles_open());
+                assert_eq!(backend.api().close_host_event_calls, vec![6]);
+                assert_eq!(backend.api().close_timer_calls, vec![5]);
+                assert_eq!(backend.api().close_selector_calls, vec![4]);
+            }
+            NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError::HostEventSignalProducerFailed {
+                ..
+            } => panic!("closed backend must be reported before producer creation"),
+        }
     }
 
     #[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
