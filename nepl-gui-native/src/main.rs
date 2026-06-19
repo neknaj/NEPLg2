@@ -4,6 +4,9 @@ use std::process::ExitCode;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 use nepl_gui_native::{run_minifb_window_loop, NativeWindowRunLoopConfig};
+use nepl_gui_native::{
+    NativeWindowTargetFps, NativeWindowTargetFpsError, NativeWindowTargetFpsInvalidReason,
+};
 
 fn main() -> ExitCode {
     let options = match NativeGuiOptions::parse(env::args().skip(1)) {
@@ -34,6 +37,7 @@ struct NativeGuiOptions {
     demo: GuiDemo,
     scale: usize,
     counter_value: i32,
+    target_fps: NativeWindowTargetFps,
     headless: bool,
 }
 
@@ -43,6 +47,7 @@ impl NativeGuiOptions {
             demo: GuiDemo::Mandelbrot,
             scale: 4,
             counter_value: 0,
+            target_fps: NativeWindowTargetFps::default(),
             headless: false,
         };
 
@@ -69,6 +74,16 @@ impl NativeGuiOptions {
                     options.counter_value = raw
                         .parse::<i32>()
                         .map_err(|_| "--counter must be an integer".to_string())?;
+                }
+                "--fps" => {
+                    let Some(raw) = iter.next() else {
+                        return Err("--fps requires a value".to_string());
+                    };
+                    let target_fps = raw
+                        .parse::<usize>()
+                        .map_err(|_| "--fps must be a positive integer".to_string())?;
+                    options.target_fps = NativeWindowTargetFps::new(target_fps)
+                        .map_err(native_window_target_fps_cli_error)?;
                 }
                 "mandelbrot" | "life" | "counter" => {
                     options.demo = arg.parse::<GuiDemo>()?;
@@ -113,14 +128,29 @@ fn print_headless_frame(demo: GuiDemo, counter_value: i32, scale: usize) {
 
 fn print_usage() {
     eprintln!(
-        "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N]"
+        "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N] [--fps N]"
     );
+    eprintln!("--fps is used by window mode only and must be in the supported target FPS range");
     eprintln!("window mode requires: cargo run -p nepl-gui-native --features window -- <demo>");
+}
+
+fn native_window_target_fps_cli_error(error: NativeWindowTargetFpsError) -> String {
+    match error.reason {
+        NativeWindowTargetFpsInvalidReason::Zero => "--fps must be greater than zero".to_string(),
+        NativeWindowTargetFpsInvalidReason::TooHigh { max } => {
+            format!("--fps must be less than or equal to {max}")
+        }
+    }
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn run_window(options: NativeGuiOptions) -> Result<(), String> {
-    let config = NativeWindowRunLoopConfig::new(options.demo, options.counter_value, options.scale);
+    let config = NativeWindowRunLoopConfig::new_with_target_fps(
+        options.demo,
+        options.counter_value,
+        options.scale,
+        options.target_fps,
+    );
     run_minifb_window_loop(config)
         .map(|_| ())
         .map_err(|error| format!("native window run loop failed: {error:?}"))

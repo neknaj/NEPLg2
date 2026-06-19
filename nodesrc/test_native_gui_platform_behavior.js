@@ -96,7 +96,9 @@ function runNativeGuiPlatformBehaviorRegression() {
         "",
     );
 
-    assert.match(mainSource, /NativeWindowRunLoopConfig::new\(options\.demo,\s*options\.counter_value,\s*options\.scale\)/);
+    assert.match(mainSource, /NativeWindowTargetFps::new\(target_fps\)/);
+    assert.match(mainSource, /"--fps"/);
+    assert.match(mainSource, /NativeWindowRunLoopConfig::new_with_target_fps\([\s\S]*options\.demo,[\s\S]*options\.counter_value,[\s\S]*options\.scale,[\s\S]*options\.target_fps/);
     assert.match(mainSource, /run_minifb_window_loop\(config\)/);
     assert.doesNotMatch(mainSource, /WindowOptions|ScaleMode|NativeWindowBackendLoop|NativeWindowHostAction|NativeWindowBackendLoopStepOutcome|poll_minifb_window_event_pump|current_present_frame_for_window|update_with_buffer|window\.update\(|window\.set_target_fps|window\.set_background_color|use\s+minifb|minifb::|let mut previous_size|previous_mouse_down|NativeWindowEventPumpInput\s*\{|NativeWindowPresenterState|counter_hit\(|map_native_window_point_to_image\(|checked_add\(|rasterize_frame_to_surface\(|present_buffer\(|resize_surface\(|let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
     assert.doesNotMatch(mainSource, /get_mouse_pos\(MouseMode::Clamp\)/);
@@ -108,9 +110,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostTerminalReason\s*\{[\s\S]*OsCloseRequested,[\s\S]*ExitShortcutRequested/);
     assert.match(libSource, /pub enum NativeWindowHostAction\s*\{[\s\S]*Terminate[\s\S]*PumpEventsOnly[\s\S]*PresentFrame/);
     assert.match(libSource, /pub enum NativeWindowHostActionError\s*\{[\s\S]*UnsupportedCloseState[\s\S]*StepFailed\(NativeWindowBackendLoopError\)/);
-    assert.match(libSource, /pub struct NativeWindowRunLoopConfig\s*\{[\s\S]*pub demo: GuiDemo,[\s\S]*pub counter_value: i32,[\s\S]*pub scale: usize/);
+    assert.match(libSource, /pub struct NativeWindowTargetFps\s*\{[\s\S]*value: u16/);
+    assert.match(libSource, /pub enum NativeWindowTargetFpsInvalidReason\s*\{[\s\S]*Zero,[\s\S]*TooHigh\s*\{\s*max: u16\s*\}/);
+    assert.match(libSource, /pub const NATIVE_WINDOW_RUN_LOOP_MIN_TARGET_FPS: u16 = 1/);
+    assert.match(libSource, /pub const NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS: u16 = 240/);
+    assert.match(libSource, /pub const NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS: u16 = 60/);
+    assert.match(libSource, /pub struct NativeWindowRunLoopConfig\s*\{[\s\S]*pub demo: GuiDemo,[\s\S]*pub counter_value: i32,[\s\S]*pub scale: usize,[\s\S]*pub target_fps: NativeWindowTargetFps/);
     assert.match(libSource, /pub struct NativeWindowRunLoopExit\s*\{[\s\S]*pub reason: NativeWindowHostTerminalReason/);
-    assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed/);
+    assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*TargetFpsInvalid\s*\{[\s\S]*value: usize,[\s\S]*reason: NativeWindowTargetFpsInvalidReason,[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed/);
     assert.match(libSource, /pub trait NativeWindowRunLoopHost\s*\{[\s\S]*type EventError;[\s\S]*type PresentError;[\s\S]*poll_event_snapshot[\s\S]*set_window_title[\s\S]*pump_events_only[\s\S]*present_frame/);
     assert.match(libSource, /pub enum NativeWindowHostLoopError<EventError, PresentError>\s*\{[\s\S]*HostEventPumpFailed\(EventError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*HostPresentFailed\(PresentError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTurn\s*\{[\s\S]*Continue,[\s\S]*Exit\(NativeWindowRunLoopExit\)/);
@@ -169,7 +176,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowRunLoopHelper, /pub fn run_minifb_window_loop\([\s\S]*NativeWindowRunLoopConfig[\s\S]*NativeWindowRunLoopExit/);
     assert.match(nativeWindowRunLoopHelper, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
-    assert.match(nativeWindowRunLoopHelper, /window\.set_target_fps\(60\)/);
+    assert.match(nativeWindowRunLoopHelper, /let target_fps = config\.target_fps\.as_usize\(\)/);
+    assert.match(nativeWindowRunLoopHelper, /window\.set_target_fps\(target_fps\)/);
+    assert.doesNotMatch(nativeWindowRunLoopHelper, /set_target_fps\(60\)|set_target_fps\(config\.target_fps/);
     assert.match(nativeWindowRunLoopHelper, /window\.set_background_color\(9,\s*13,\s*18\)/);
     assert.match(nativeWindowRunLoopHelper, /let mut host = MinifbNativeWindowRunLoopHost/);
     assert.match(nativeWindowRunLoopHelper, /run_native_window_host_loop\(&mut backend_loop,\s*&mut host\)/);
@@ -184,6 +193,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_rejects_impossible_open_close/);
     assert.match(libSource, /native_window_backend_loop_host_action_unavailable_pumps_events_only/);
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
+    assert.match(libSource, /native_window_target_fps_accepts_default_and_custom_values/);
+    assert.match(libSource, /native_window_target_fps_rejects_zero_and_too_high_values/);
     assert.match(libSource, /native_window_run_loop_config_preserves_demo_state/);
     assert.match(libSource, /native_window_title_reports_drawable_and_unavailable_surface/);
     assert.match(libSource, /initialize_native_window_host_loop_reports_idempotent_title_state/);
@@ -492,7 +503,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowRunLoopError/);
     assert.match(platformDoc, /WindowPresentFailed/);
     assert.match(platformDoc, /direct minifb input API を読まない/);
-    assert.match(platformDoc, /set_target_fps\(60\).*busy spin 抑制/);
+    assert.match(platformDoc, /Native window frame pacing config checkpoint/);
+    assert.match(platformDoc, /NativeWindowTargetFps/);
+    assert.match(platformDoc, /NativeWindowRunLoopConfig\.target_fps/);
+    assert.match(platformDoc, /1\.\.=240/);
+    assert.match(platformDoc, /Window::set_target_fps/);
     assert.match(platformDoc, /Native window host-loop core checkpoint/);
     assert.match(platformDoc, /NativeWindowRunLoopHost/);
     assert.match(platformDoc, /run_native_window_host_loop/);
@@ -544,6 +559,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopInitialization/);
     assert.match(implementationPlan, /run_native_window_host_loop_bounded/);
     assert.match(implementationPlan, /BudgetExhausted/);
+    assert.match(implementationPlan, /Phase F5gk: Native window frame pacing config boundary/);
+    assert.match(implementationPlan, /NativeWindowTargetFps/);
+    assert.match(implementationPlan, /NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS = 240/);
+    assert.match(implementationPlan, /set_target_fps 60/);
+    assert.match(implementationPlan, /CLI に `--fps N`/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -570,6 +590,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopRunnerState/);
     assert.match(standardSpec, /initialize_native_window_host_loop/);
     assert.match(standardSpec, /run_native_window_host_loop_bounded/);
+    assert.match(standardSpec, /F5gk Native window frame pacing config boundary/);
+    assert.match(standardSpec, /NativeWindowTargetFps/);
+    assert.match(standardSpec, /NativeWindowRunLoopConfig\.target_fps/);
+    assert.match(standardSpec, /NativeWindowRunLoopError::TargetFpsInvalid/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

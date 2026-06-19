@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI platform F5gk Native window frame pacing config boundary
+
+## scope
+
+- native smoke window loop の frame pacing を hidden constant から typed config へ移す。
+- `NativeWindowTargetFps`、FPS range constants、`NativeWindowRunLoopConfig.target_fps`、CLI `--fps` を追加し、validation 済み値だけを minifb `set_target_fps` へ渡す。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。bare `usize` の公開ではなく typed newtype または上限付き policy にすること、invalid error に value と reason を持たせること、上限を定数化すること、CLI `--fps` は入れてよいが headless では使わないことを docs / usage に明記すること、source-policy で raw config 直渡しではなく validation 済み値だけを `set_target_fps` へ渡すことが指摘された。
+- 指摘に従い、`NativeWindowTargetFps` は `1..=240` の範囲を持つ newtype とし、`Zero` / `TooHigh max` を typed reason として保持する。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowTargetFps`、`NativeWindowTargetFpsInvalidReason`、`NativeWindowTargetFpsError`、FPS range constants を追加した。
+- `NativeWindowRunLoopConfig` は `target_fps` を保持し、既存 `new` は default 60、custom path は `new_with_target_fps` / raw helper を使う。
+- `run_minifb_window_loop` は `config.target_fps.as_usize` で得た validation 済み値だけを `window.set_target_fps` へ渡す。
+- CLI に `--fps N` を追加し、invalid value は CLI boundary で error にする。usage には window mode 用 option であることを追記した。
+- tests、source-policy、GUI 関連 doc、todo を F5gk に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo run -p nepl-gui-native -- --headless --fps 120 counter`
+- pass: `cargo run -p nepl-gui-native -- --headless --fps 0 counter` は exit 2 で `--fps must be greater than zero` と usage を返す。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gk native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowTargetFps` newtype と `1..=240` validation、`Zero` / `TooHigh` typed error、`NativeWindowRunLoopError::TargetFpsInvalid` raw helper が揃い、clamp / fallback / silent no-op になっていないことが確認された。`run_minifb_window_loop` は `config.target_fps.as_usize` の validation 済み値だけを `window.set_target_fps` に渡し、固定 60 を run-loop body に残していないことも確認された。
+
+## residual
+
+- F5gk は frame pacing config boundary までであり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gj Native window host-loop bounded runner boundary
 
 ## scope

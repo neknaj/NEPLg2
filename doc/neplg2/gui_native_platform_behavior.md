@@ -129,6 +129,12 @@ F5gj では、F5gi の one-turn function を bounded に反復する `run_native
 
 bounded runner は `step_native_window_host_loop` だけで turn を進める。`Continue` は completed turn count を増やし、`Exit` は exit turn を含めた count で `Exited` を返す。F5gj は future native scheduler の cooperative timeslice boundary であり、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、fallback、silent no-op へは進まない。
 
+## Native window frame pacing config checkpoint
+
+F5gk では、native smoke window loop の frame pacing を固定値ではなく `NativeWindowTargetFps` と `NativeWindowRunLoopConfig.target_fps` で表す。target FPS は `1..=240` の typed config とし、`0` は `Zero`、上限超過は `TooHigh max` として返す。invalid value は clamp せず、`NativeWindowRunLoopError::TargetFpsInvalid value reason` または CLI parse error として表面化する。
+
+minifb adapter は validation 済みの `target_fps.as_usize` だけを `Window::set_target_fps` に渡す。`set_target_fps 60` のような hidden constant や raw config value の直渡しは行わない。CLI の `--fps` は window mode 用の frame pacing 設定であり、headless mode の raster output には影響しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -137,7 +143,7 @@ bounded runner は `step_native_window_host_loop` だけで turn を進める。
 
 - `WindowOptions.resize = true` により OS window manager の resize を許可する。
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
-- `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
+- `NativeWindowTargetFps` で検査した target FPS を `Window::set_target_fps` に渡し、event pump loop の busy spin を避ける。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。

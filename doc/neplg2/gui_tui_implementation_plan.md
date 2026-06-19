@@ -103,6 +103,14 @@ source policy は initializer、bounded runner、long loop runner、one-turn cor
 
 この phase は future native scheduler の cooperative timeslice boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
 
+## Phase F5gk: Native window frame pacing config boundary
+
+F5gk では、native smoke window loop の frame pacing を `NativeWindowTargetFps` と `NativeWindowRunLoopConfig.target_fps` に出す。target FPS は `NATIVE_WINDOW_RUN_LOOP_MIN_TARGET_FPS = 1`、`NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS = 240`、`NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS = 60` の typed config とし、`NativeWindowTargetFpsInvalidReason::Zero` / `TooHigh max` により invalid value を明示する。既存 `NativeWindowRunLoopConfig::new` は default 60 を使い、custom FPS は `new_with_target_fps` または raw value 用 helper の validation を通す。
+
+`run_minifb_window_loop` は validation 済みの `target_fps.as_usize` だけを `Window::set_target_fps` に渡す。`set_target_fps 60` の hidden constant、`config.target_fps` の raw 直渡し、invalid FPS clamp、fallback、silent no-op は禁止する。CLI に `--fps N` を追加するが、headless mode では frame pacing を使わないことを usage に明記する。
+
+この phase は frame pacing policy の明示化であり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

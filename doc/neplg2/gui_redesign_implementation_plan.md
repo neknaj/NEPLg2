@@ -1196,6 +1196,32 @@ Phase F5gj では、F5gi の `step_native_window_host_loop` を bounded に反�
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gk: Native window frame pacing config boundary
+
+Phase F5gk では、native smoke window loop の frame pacing を hidden constant から typed config へ移す。F5gj で bounded runner boundary は入ったが、`run_minifb_window_loop` に `set_target_fps 60` が直接置かれているため、frame pacing contract が static data として検査できない。F5gk はこの root boundary を直す。
+
+実装:
+
+- `NativeWindowTargetFps` newtype、`NativeWindowTargetFpsInvalidReason`、`NativeWindowTargetFpsError` を追加する。
+- `NATIVE_WINDOW_RUN_LOOP_MIN_TARGET_FPS = 1`、`NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS = 240`、`NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS = 60` を追加する。
+- `NativeWindowRunLoopConfig` に `target_fps NativeWindowTargetFps` を追加し、既存 `new` は default 60 を使う。
+- `new_with_target_fps` と raw value 用の fail-closed helper を追加し、invalid raw value は `NativeWindowRunLoopError::TargetFpsInvalid value reason` とする。
+- `run_minifb_window_loop` は validation 済み `target_fps.as_usize` だけを `window.set_target_fps` に渡す。`set_target_fps 60` や `set_target_fps config.target_fps` は禁止する。
+- CLI に `--fps N` を追加する。headless mode では frame pacing は使われないが、window mode 用 option として usage に明記する。
+- tests は default / custom / zero / too-high / run-loop error mapping を検査する。
+- source policy は typed FPS config、range constants、validated value pass、hard-coded FPS 禁止を固定する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、invalid FPS clamp、raw `usize` FPS の minifb 直渡しは作らない。
+
+subagent review:
+
+- Feynman the 2nd に F5gk 計画を渡し、typed newtype、upper bound、invalid reason/value、CLI boundary、source-policy の観点で確認させる。指摘があれば実装前に反映する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1158,10 +1158,76 @@ pub enum NativeWindowHostActionError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowTargetFps {
+    value: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowTargetFpsInvalidReason {
+    Zero,
+    TooHigh { max: u16 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowTargetFpsError {
+    pub value: usize,
+    pub reason: NativeWindowTargetFpsInvalidReason,
+}
+
+pub const NATIVE_WINDOW_RUN_LOOP_MIN_TARGET_FPS: u16 = 1;
+pub const NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS: u16 = 240;
+pub const NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS: u16 = 60;
+
+impl NativeWindowTargetFps {
+    pub fn new(value: usize) -> Result<Self, NativeWindowTargetFpsError> {
+        if value == 0 {
+            return Err(NativeWindowTargetFpsError {
+                value,
+                reason: NativeWindowTargetFpsInvalidReason::Zero,
+            });
+        }
+        let Ok(value) = u16::try_from(value) else {
+            return Err(NativeWindowTargetFpsError {
+                value,
+                reason: NativeWindowTargetFpsInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS,
+                },
+            });
+        };
+        if value > NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS {
+            return Err(NativeWindowTargetFpsError {
+                value: usize::from(value),
+                reason: NativeWindowTargetFpsInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS,
+                },
+            });
+        }
+        Ok(Self { value })
+    }
+
+    pub fn value(self) -> u16 {
+        self.value
+    }
+
+    pub fn as_usize(self) -> usize {
+        usize::from(self.value)
+    }
+}
+
+impl Default for NativeWindowTargetFps {
+    fn default() -> Self {
+        Self {
+            value: NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowRunLoopConfig {
     pub demo: GuiDemo,
     pub counter_value: i32,
     pub scale: usize,
+    pub target_fps: NativeWindowTargetFps,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1171,12 +1237,20 @@ pub struct NativeWindowRunLoopExit {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopError {
+    TargetFpsInvalid {
+        value: usize,
+        reason: NativeWindowTargetFpsInvalidReason,
+    },
     BackendLoopInitializationFailed(NativeWindowBackendLoopError),
-    WindowCreationFailed { message: String },
+    WindowCreationFailed {
+        message: String,
+    },
     EventPumpFailed(NativeWindowEventPumpError),
     HostActionFailed(NativeWindowHostActionError),
     PresenterFrameUnavailable(NativeWindowBackendLoopError),
-    WindowPresentFailed { message: String },
+    WindowPresentFailed {
+        message: String,
+    },
 }
 
 pub trait NativeWindowRunLoopHost {
@@ -2303,6 +2377,41 @@ impl NativeWindowRunLoopConfig {
             demo,
             counter_value,
             scale,
+            target_fps: NativeWindowTargetFps::default(),
+        }
+    }
+
+    pub fn new_with_target_fps(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+        target_fps: NativeWindowTargetFps,
+    ) -> Self {
+        Self {
+            demo,
+            counter_value,
+            scale,
+            target_fps,
+        }
+    }
+
+    pub fn try_new_with_raw_target_fps(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+        target_fps: usize,
+    ) -> Result<Self, NativeWindowRunLoopError> {
+        match NativeWindowTargetFps::new(target_fps) {
+            Ok(target_fps) => Ok(Self::new_with_target_fps(
+                demo,
+                counter_value,
+                scale,
+                target_fps,
+            )),
+            Err(error) => Err(NativeWindowRunLoopError::TargetFpsInvalid {
+                value: error.value,
+                reason: error.reason,
+            }),
         }
     }
 }
@@ -2479,6 +2588,7 @@ pub fn run_minifb_window_loop(
 ) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
     use minifb::{ScaleMode, Window, WindowOptions};
 
+    let target_fps = config.target_fps.as_usize();
     let mut backend_loop =
         NativeWindowBackendLoop::new_for_scale(config.demo, config.counter_value, config.scale)
             .map_err(NativeWindowRunLoopError::BackendLoopInitializationFailed)?;
@@ -2496,7 +2606,7 @@ pub fn run_minifb_window_loop(
     .map_err(|error| NativeWindowRunLoopError::WindowCreationFailed {
         message: error.to_string(),
     })?;
-    window.set_target_fps(60);
+    window.set_target_fps(target_fps);
     window.set_background_color(9, 13, 18);
 
     let mut host = MinifbNativeWindowRunLoopHost {
@@ -5107,6 +5217,37 @@ mod tests {
     }
 
     #[test]
+    fn native_window_target_fps_accepts_default_and_custom_values() {
+        assert_eq!(
+            NativeWindowTargetFps::default().value(),
+            NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS
+        );
+        assert_eq!(NativeWindowTargetFps::new(144).unwrap().value(), 144);
+        assert_eq!(NativeWindowTargetFps::new(144).unwrap().as_usize(), 144);
+    }
+
+    #[test]
+    fn native_window_target_fps_rejects_zero_and_too_high_values() {
+        assert_eq!(
+            NativeWindowTargetFps::new(0).unwrap_err(),
+            NativeWindowTargetFpsError {
+                value: 0,
+                reason: NativeWindowTargetFpsInvalidReason::Zero,
+            }
+        );
+        assert_eq!(
+            NativeWindowTargetFps::new(usize::from(NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS) + 1)
+                .unwrap_err(),
+            NativeWindowTargetFpsError {
+                value: usize::from(NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS) + 1,
+                reason: NativeWindowTargetFpsInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS
+                },
+            }
+        );
+    }
+
+    #[test]
     fn native_window_run_loop_config_preserves_demo_state() {
         assert_eq!(
             NativeWindowRunLoopConfig::new(GuiDemo::Counter, 7, 3),
@@ -5114,6 +5255,25 @@ mod tests {
                 demo: GuiDemo::Counter,
                 counter_value: 7,
                 scale: 3,
+                target_fps: NativeWindowTargetFps::default(),
+            }
+        );
+        let custom_fps = NativeWindowTargetFps::new(120).unwrap();
+        assert_eq!(
+            NativeWindowRunLoopConfig::new_with_target_fps(GuiDemo::Life, 11, 2, custom_fps),
+            NativeWindowRunLoopConfig {
+                demo: GuiDemo::Life,
+                counter_value: 11,
+                scale: 2,
+                target_fps: custom_fps,
+            }
+        );
+        assert_eq!(
+            NativeWindowRunLoopConfig::try_new_with_raw_target_fps(GuiDemo::Life, 11, 2, 0)
+                .unwrap_err(),
+            NativeWindowRunLoopError::TargetFpsInvalid {
+                value: 0,
+                reason: NativeWindowTargetFpsInvalidReason::Zero,
             }
         );
     }
