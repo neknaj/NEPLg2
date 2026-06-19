@@ -242,6 +242,19 @@ subagent review:
 - 修正版では `FrameIntervalTimerRegistered` outcome を追加し、timer registration evidence と pacing completion を型で分離する方針に変更した。再 review は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gy: Native window host-loop timer fire/wakeup backend boundary
+
+F5gy では、F5gx の `FrameIntervalTimerRegistered` outcome を受け取り、backend が返す fired timer id を検証して `FrameIntervalTimerFired` evidence へ進める。timer registration 成功と timer fire 成功を混ぜず、registration id と fired id の完全一致だけを待機完了 evidence として扱う。
+
+`NativeWindowHostLoopTimerFireWaiter` は `wait_for_timer_fire` で registered timer id を受け取り、backend が観測した fired raw id を返す。`execute_native_window_host_loop_timer_fire_wait_with_waiter` は `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を unsupported として waiter を呼ばずに拒否する。`FrameIntervalTimerRegistered` の場合だけ waiter を 1 回呼び、fired raw id `0` は `InvalidFiredTimerRegistrationId`、registered id と異なる raw id は `FiredTimerRegistrationMismatch` として fail closed にする。
+
+この phase は timer fire / wakeup backend boundary までであり、OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、thread sleep、busy loop、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、mismatched id の成功扱いは禁止する。
+
+subagent review:
+
+- Darwin the 2nd に F5gy 計画を渡し、registered timer id と fired timer id の照合境界にすること、already-paced outcome を timer fire input として成功扱いしないこと、source policy の観点で確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

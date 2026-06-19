@@ -71767,3 +71767,46 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では real timer fire / wakeup backend connection へ進む。F5gx は timer registration outcome boundary までであり、actual timer firing、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gy host-loop timer fire/wakeup backend boundary
+
+### scope
+
+- F5gy は F5gx の `FrameIntervalTimerRegistered` outcome を timer fire / wakeup evidence へ進める boundary である。
+- timer registration 成功と timer fire 成功を分け、registered id と fired id が完全一致した場合だけ `FrameIntervalTimerFired` を返す。
+- `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` は timer fire input ではないため unsupported として拒否し、waiter を呼ばない。
+- fired raw id `0` と registered id に一致しない fired raw id は fail closed にする。
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、thread sleep、busy loop、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- registered timer id と fired timer id の照合境界にすること、already-paced outcome を timer fire success として扱わないこと、source policy で registration backend と fire backend を分離することが確認された。
+
+### implementation
+
+- `NativeWindowHostLoopTimerFireError`、`NativeWindowHostLoopTimerFireOutcome`、`NativeWindowHostLoopTimerFireWaiter` を追加した。
+- `execute_native_window_host_loop_timer_fire_wait_with_waiter` を追加し、`FrameIntervalTimerRegistered` の場合だけ waiter を 1 回呼ぶようにした。
+- scripted waiter tests により、matching id success、host event outcome rejection、already-paced present outcome rejection、waiter error preservation、invalid fired id rejection、mismatched fired id rejection を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gy contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_fire_wait -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- registered timer id と fired timer id の照合、already-paced outcome の unsupported 扱い、invalid / mismatch id の fail closed、source policy の registration/fire backend 分離が Zenn / doc 方針に沿っていると確認された。
+
+### residual
+
+- 次 slice では timer fire 後の scheduler resume policy と real OS timer adapter へ進む。F5gy は timer fire / wakeup backend boundary までであり、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
