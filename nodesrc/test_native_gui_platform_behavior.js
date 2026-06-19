@@ -84,6 +84,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowTimerFireBackend = textSliceBetween(
         libSource,
         "pub enum NativeWindowHostLoopTimerFireError",
+        "pub enum NativeWindowHostLoopTimerWakeError",
+    );
+    const nativeWindowTimerWakeupBackend = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopTimerWakeError",
         "pub enum NativeWindowHostLoopEventQueueWaitError",
     );
     const nativeWindowEventQueueWaitBackend = textSliceBetween(
@@ -146,6 +151,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
+        .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -154,6 +160,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
+        .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -162,6 +169,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
+        .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -214,6 +222,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopTimerFireError<WaiterError>\s*\{[\s\S]*HostEventPumpOutcomeUnsupported\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*FramePresentOutcomeUnsupported\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*InvalidFiredTimerRegistrationId\s*\{[\s\S]*raw_id: u32,[\s\S]*FiredTimerRegistrationMismatch\s*\{[\s\S]*expected_raw_id: u32,[\s\S]*actual_raw_id: u32,[\s\S]*WaiterFailed\(WaiterError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTimerFireOutcome\s*\{[\s\S]*FrameIntervalTimerFired\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*wait_nanos: u32,[\s\S]*timer_registration_id: NativeWindowHostLoopTimerRegistrationId/);
     assert.match(libSource, /pub trait NativeWindowHostLoopTimerFireWaiter\s*\{[\s\S]*type Error;[\s\S]*wait_for_timer_fire\(\s*&mut self,[\s\S]*timer_registration_id: NativeWindowHostLoopTimerRegistrationId,[\s\S]*\) -> Result<u32, Self::Error>/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopTimerWakeError<RegistrarError,\s*FireWaiterError>\s*\{[\s\S]*RegistrationFailed\(NativeWindowHostLoopTimerRegistrationError<RegistrarError>\),[\s\S]*FireFailed\(NativeWindowHostLoopTimerFireError<FireWaiterError>\)/);
+    assert.match(libSource, /pub fn execute_native_window_host_loop_timer_wakeup_with_backend<Registrar,\s*Waiter>/);
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitError<WaiterError>\s*\{[\s\S]*FrameIntervalEventQueueWaitUnsupported\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*frame_interval: NativeWindowFrameIntervalRequest,[\s\S]*wait_nanos: u32,[\s\S]*WaiterFailed\(WaiterError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitOutcome\s*\{[\s\S]*HostEventReady\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool/);
     assert.match(libSource, /pub trait NativeWindowHostLoopEventQueueWaiter\s*\{[\s\S]*type Error;[\s\S]*wait_for_host_event\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<\(\), Self::Error>/);
@@ -282,6 +292,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowTimerFireBackend, /let expected_raw_id = timer_registration_id\.raw_id\(\)[\s\S]*if actual_raw_id != expected_raw_id[\s\S]*NativeWindowHostLoopTimerFireError::FiredTimerRegistrationMismatch/);
     assert.match(nativeWindowTimerFireBackend, /NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired/);
     assert.doesNotMatch(nativeWindowTimerFireBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|queue|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowTimerWakeupBackend, /RegistrationFailed\(NativeWindowHostLoopTimerRegistrationError<RegistrarError>\)/);
+    assert.match(nativeWindowTimerWakeupBackend, /FireFailed\(NativeWindowHostLoopTimerFireError<FireWaiterError>\)/);
+    assert.match(nativeWindowTimerWakeupBackend, /execute_native_window_host_loop_timer_registration_wait_with_registrar\(\s*instruction,\s*registrar,\s*\)[\s\S]*NativeWindowHostLoopTimerWakeError::RegistrationFailed/);
+    assert.match(nativeWindowTimerWakeupBackend, /execute_native_window_host_loop_timer_fire_wait_with_waiter\(registration_outcome,\s*waiter\)[\s\S]*NativeWindowHostLoopTimerWakeError::FireFailed/);
+    assert.doesNotMatch(nativeWindowTimerWakeupBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|queue|register_timer_nanos|wait_for_timer_fire|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForHostEvent\s*\{[\s\S]*waiter[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueWaitError::WaiterFailed/);
     assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
@@ -823,6 +838,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /Phase F5gy: Native window host-loop timer fire\/wakeup backend boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopTimerFireWaiter/);
     assert.match(implementationPlan, /FiredTimerRegistrationMismatch/);
+    assert.match(implementationPlan, /Phase F5gz: Native window host-loop timer wakeup executor boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopTimerWakeError/);
+    assert.match(implementationPlan, /RegistrationFailed/);
+    assert.match(implementationPlan, /FireFailed/);
     assert.match(implementationPlan, /PLAN_APPROVED/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
@@ -888,6 +907,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5gy Native window host-loop timer fire\/wakeup backend boundary/);
     assert.match(standardSpec, /NativeWindowHostLoopTimerFireWaiter/);
     assert.match(standardSpec, /FiredTimerRegistrationMismatch/);
+    assert.match(standardSpec, /F5gz Native window host-loop timer wakeup executor boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopTimerWakeError/);
+    assert.match(standardSpec, /RegistrationFailed/);
+    assert.match(standardSpec, /FireFailed/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -938,6 +961,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop thread wait backend sleeps only frame intervals and rejects host-event waits",
             "Native host-loop timer registration backend registers only frame intervals and validates raw timer ids",
             "Native host-loop timer fire backend validates fired timer ids before wakeup evidence",
+            "Native host-loop timer wakeup executor preserves registration and fire failure stages",
             "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",

@@ -273,6 +273,12 @@ F5gy では、F5gx の `FrameIntervalTimerRegistered` outcome を、backend が�
 
 F5gy は timer fire / wakeup backend boundary までであり、OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+F5gz では、timer registration wait と timer fire wait を 1 つの wakeup executor として合成する。`NativeWindowHostLoopTimerWakeError` は registration 段階の failure を `RegistrationFailed`、fire 段階の failure を `FireFailed` として保持する。
+
+`execute_native_window_host_loop_timer_wakeup_with_backend` は、先に `execute_native_window_host_loop_timer_registration_wait_with_registrar` を呼び、registration failure では waiter を呼ばない。registration が successful `FrameIntervalTimerRegistered` outcome を返した場合だけ `execute_native_window_host_loop_timer_fire_wait_with_waiter` を呼び、registered id と fired id の完全一致だけを `FrameIntervalTimerFired` として返す。
+
+F5gz は scheduler resume policy の入力になる typed wakeup boundary であり、OS 固有 timer API、selector ownership、minifb wait hook 接続、thread sleep、busy loop、message pump、event queue substitution は実装しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -292,6 +298,7 @@ F5gy は timer fire / wakeup backend boundary までであり、OS 固有 timer 
 - `NativeWindowHostLoopTimerRegistrar` と `execute_native_window_host_loop_timer_registration_with_registrar` により、formal native timer registration backend は frame interval instruction を raw timer id registration 境界へ渡せる。host event wait は queue 未実装として fail closed にする。
 - `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` と `execute_native_window_host_loop_timer_registration_wait_with_registrar` により、timer registration 成功を already-paced outcome ではなく timer registration evidence として host wait outcome へ渡せる。
 - `NativeWindowHostLoopTimerFireWaiter` と `execute_native_window_host_loop_timer_fire_wait_with_waiter` により、registered timer id と backend-observed fired timer id を照合し、完全一致だけを `FrameIntervalTimerFired` evidence へ進められる。
+- `NativeWindowHostLoopTimerWakeError` と `execute_native_window_host_loop_timer_wakeup_with_backend` により、timer registration と fire wait を順に実行し、どちらの段階で失敗したかを enum で保持できる。
 - `NativeWindowHostLoopEventQueueWaiter` と `execute_native_window_host_loop_event_queue_wait_with_waiter` により、formal native event queue wait backend は host event instruction を queue wait 境界へ渡せる。frame interval wait は timer / sleep backend の責務として fail closed にする。
 - `NativeWindowHostLoopEventQueueStatusAdapter` と `NativeWindowHostLoopEventQueueStatusWaiter` により、platform adapter が返す normalized raw status を検証して F5gu waiter 境界へ接続できる。
 - `NativeWindowHostLoopMessagePumpAdapter` と `NativeWindowHostLoopMessagePumpStatusAdapter` により、platform message pump の実行成功を F5gv の normalized ready status へ写せる。
