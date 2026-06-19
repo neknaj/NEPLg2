@@ -79,6 +79,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowTimerRegistrationBackend = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostLoopTimerRegistrationId",
+        "pub enum NativeWindowHostLoopEventQueueWaitError",
+    );
+    const nativeWindowEventQueueWaitBackend = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopEventQueueWaitError",
         "pub enum NativeWindowHostLoopTurn",
     );
     const nativeWindowHostLoopBoundedRunner = textSliceBetween(
@@ -119,10 +124,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeSpanOperationHelperWithoutEventPump = nativeSpanOperationHelper
         .replace(nativeWindowEventPumpHelper, "")
         .replace(nativeWindowThreadWaitBackend, "")
-        .replace(nativeWindowTimerRegistrationBackend, "");
+        .replace(nativeWindowTimerRegistrationBackend, "")
+        .replace(nativeWindowEventQueueWaitBackend, "");
     const nativeClockHelperWithoutWaitBackends = nativeClockHelper
         .replace(nativeWindowThreadWaitBackend, "")
-        .replace(nativeWindowTimerRegistrationBackend, "");
+        .replace(nativeWindowTimerRegistrationBackend, "")
+        .replace(nativeWindowEventQueueWaitBackend, "");
+    const nativeWindowEventPumpHelperWithoutWaitBackends = nativeWindowEventPumpHelper
+        .replace(nativeWindowThreadWaitBackend, "")
+        .replace(nativeWindowTimerRegistrationBackend, "")
+        .replace(nativeWindowEventQueueWaitBackend, "");
 
     assert.match(mainSource, /NativeWindowTargetFps::new\(target_fps\)/);
     assert.match(mainSource, /"--fps"/);
@@ -168,6 +179,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopTimerRegistrationError<RegistrarError>\s*\{[\s\S]*HostEventTimerRegistrationUnsupported\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*FrameIntervalWaitNanosMismatch\s*\{[\s\S]*wait_nanos: u32,[\s\S]*nanos_per_frame: u32,[\s\S]*InvalidTimerRegistrationId\s*\{[\s\S]*raw_id: u32,[\s\S]*RegistrarFailed\(RegistrarError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTimerRegistrationOutcome\s*\{[\s\S]*FrameIntervalTimerRegistered\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*wait_nanos: u32,[\s\S]*timer_registration_id: NativeWindowHostLoopTimerRegistrationId/);
     assert.match(libSource, /pub trait NativeWindowHostLoopTimerRegistrar\s*\{[\s\S]*type Error;[\s\S]*register_timer_nanos\(&mut self,\s*wait_nanos: u32\) -> Result<u32, Self::Error>/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitError<WaiterError>\s*\{[\s\S]*FrameIntervalEventQueueWaitUnsupported\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*frame_interval: NativeWindowFrameIntervalRequest,[\s\S]*wait_nanos: u32,[\s\S]*WaiterFailed\(WaiterError\)/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitOutcome\s*\{[\s\S]*HostEventReady\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool/);
+    assert.match(libSource, /pub trait NativeWindowHostLoopEventQueueWaiter\s*\{[\s\S]*type Error;[\s\S]*wait_for_host_event\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<\(\), Self::Error>/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTurn\s*\{[\s\S]*Continue\(NativeWindowHostLoopContinueEvidence\),[\s\S]*Exit\(NativeWindowRunLoopExit\)/);
     assert.match(libSource, /pub struct NativeWindowHostLoopRunnerState\s*\{[\s\S]*title_initialized: bool/);
     assert.match(libSource, /pub enum NativeWindowHostLoopInitialization\s*\{[\s\S]*Initialized,[\s\S]*AlreadyInitialized/);
@@ -215,6 +229,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowTimerRegistrationBackend, /if raw_id == 0[\s\S]*NativeWindowHostLoopTimerRegistrationError::InvalidTimerRegistrationId/);
     assert.match(nativeWindowTimerRegistrationBackend, /NativeWindowHostLoopTimerRegistrationOutcome::FrameIntervalTimerRegistered/);
     assert.doesNotMatch(nativeWindowTimerRegistrationBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|queue|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowEventQueueWaitBackend, /WaitForHostEvent\s*\{[\s\S]*waiter[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueWaitError::WaiterFailed/);
+    assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
+    assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
+    assert.doesNotMatch(nativeWindowEventQueueWaitBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowHostLoopBoundedRunner, /pub fn run_native_window_host_loop_bounded<Host>\([\s\S]*runner_state: &mut NativeWindowHostLoopRunnerState,[\s\S]*max_turn_count: usize/);
     assert.match(nativeWindowHostLoopBoundedRunner, /initialize_native_window_host_loop\(runner_state,\s*backend_loop,\s*host\)/);
     assert.match(nativeWindowHostLoopBoundedRunner, /while completed_turns < max_turn_count/);
@@ -519,7 +537,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpCloseState::OsCloseRequested/);
     assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpCloseState::ExitShortcutRequested/);
     assert.match(nativeWindowEventPumpHelper, /NativeWindowEventPumpError::InvalidPointerSample/);
-    assert.doesNotMatch(nativeWindowEventPumpHelper, /window\.update\(|update_with_buffer|queue|stdout_protocol|Canvas|DOM|video_memory|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowEventPumpHelperWithoutWaitBackends, /window\.update\(|update_with_buffer|queue|stdout_protocol|Canvas|DOM|video_memory|fallback|silent no-op/i);
     assert.match(libSource, /native_window_event_pump_tracks_positive_and_zero_resize/);
     assert.match(libSource, /native_window_event_pump_tracks_pointer_button_transitions/);
     assert.match(libSource, /native_window_event_pump_rejects_non_finite_pointer_sample/);
@@ -643,6 +661,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /Native window host-loop timer registration backend checkpoint/);
     assert.match(platformDoc, /NativeWindowHostLoopTimerRegistrar/);
     assert.match(platformDoc, /InvalidTimerRegistrationId/);
+    assert.match(platformDoc, /Native window host-loop event queue wait backend checkpoint/);
+    assert.match(platformDoc, /NativeWindowHostLoopEventQueueWaiter/);
+    assert.match(platformDoc, /FrameIntervalEventQueueWaitUnsupported/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -705,6 +726,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /Phase F5gt: Native window host-loop timer registration backend boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopTimerRegistrar/);
     assert.match(implementationPlan, /InvalidTimerRegistrationId/);
+    assert.match(implementationPlan, /Phase F5gu: Native window host-loop event queue wait backend boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopEventQueueWaiter/);
+    assert.match(implementationPlan, /FrameIntervalEventQueueWaitUnsupported/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -754,6 +778,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5gt Native window host-loop timer registration backend boundary/);
     assert.match(standardSpec, /NativeWindowHostLoopTimerRegistrar/);
     assert.match(standardSpec, /InvalidTimerRegistrationId/);
+    assert.match(standardSpec, /F5gu Native window host-loop event queue wait backend boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopEventQueueWaiter/);
+    assert.match(standardSpec, /FrameIntervalEventQueueWaitUnsupported/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

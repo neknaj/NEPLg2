@@ -71580,3 +71580,49 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では host event queue / real OS timer backend connection へ進む。F5gt は timer registration backend boundary までであり、host event queue、selector、message pump、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gu host-loop event queue wait backend boundary
+
+### scope
+
+- F5gu は F5gr の wait instruction のうち `WaitForHostEvent` を native event queue wait backend へ渡す execution boundary である。
+- F5gs の thread sleep backend、F5gt の timer registration backend とは別に、host event wait だけを扱う境界を追加する。
+- waiter は `NativeWindowSize` と `size_changed` evidence を受け取り、`Result<(), Error>` を返す injected backend interface とする。
+- frame interval wait は event queue wait backend の責務ではないため `FrameIntervalEventQueueWaitUnsupported` を返す。timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+- minifb smoke backend の wait hook、real OS event queue / selector / message pump adapter、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- `Result<(), Error>` waiter はこの boundary では妥当であり、later real OS queue adapter が raw status を返す場合はその adapter slice で検証する方針が承認された。
+- F5gu は pure rename layer ではなく、`WaitForHostEvent` を injected event-queue waiter 経由でだけ executable にし、frame interval wait を unsupported として分離するための typed split だと確認された。
+- scheduler / planner / timer registration / thread wait / minifb pacing の slice には queue terms を漏らさないことが条件として確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopEventQueueWaitError`、`NativeWindowHostLoopEventQueueWaitOutcome`、`NativeWindowHostLoopEventQueueWaiter` を追加した。
+- `execute_native_window_host_loop_event_queue_wait_with_waiter` を追加し、host event instruction だけ waiter を 1 回呼ぶようにした。
+- scripted waiter tests により、host event success、frame interval unsupported、waiter failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gu contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue_wait -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- typed `Result` boundary、explicit enum error、host event only waiter execution、`FrameIntervalEventQueueWaitUnsupported` による fail closed が Zenn / doc 方針に合っていると確認された。
+- source policy の event pump slice 修正は、new legitimate queue wait backend と event pump helper の検査範囲を分ける root-cause policy correction であり、coverage を弱めるものではないと確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_event_queue_wait -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では real OS event queue adapter / real OS timer backend connection へ進む。F5gu は event queue wait backend boundary までであり、selector / message pump adapter、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
