@@ -409,6 +409,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /adapter\.next_raw_id = next_raw_id[\s\S]*wait_until_deadline_or_host_event\(deadline_nanos,\s*window_size,\s*size_changed\)[\s\S]*FrameIntervalWaitFailed/);
     assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady[\s\S]*NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced/);
     assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached[\s\S]*NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<BackendError>[\s\S]*HostEventWaitFailed\(BackendError\)[\s\S]*FrameIntervalWaitNanosMismatch[\s\S]*TimerRegistrationIdOverflow[\s\S]*DeadlineNanosOverflow[\s\S]*ClockFailed\(BackendError\)[\s\S]*FrameIntervalWaitFailed\(BackendError\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /pub struct NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter<Backend>[\s\S]*next_raw_id: u32,[\s\S]*backend: Backend/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /Backend: NativeWindowHostLoopDeadlineTimerClock[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWaiter<[\s\S]*Error = <Backend as NativeWindowHostLoopDeadlineTimerClock>::Error/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter[\s\S]*WaitForHostEvent[\s\S]*adapter[\s\S]*\.backend[\s\S]*wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*HostEventWaitFailed[\s\S]*HostEventPumpAlreadyPaced/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitAdapter, /execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter[\s\S]*let raw_id = adapter\.next_raw_id[\s\S]*checked_add\(1\)[\s\S]*TimerRegistrationIdOverflow[\s\S]*adapter\.backend\.now_nanos\(\)[\s\S]*ClockFailed[\s\S]*adapter\.next_raw_id = next_raw_id[\s\S]*adapter[\s\S]*\.backend[\s\S]*wait_until_deadline_or_host_event/);
     assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitAdapter, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(libSource, /native_window_interruptible_deadline_wait_waits_for_host_event_only/);
     assert.match(libSource, /native_window_interruptible_deadline_wait_returns_timer_fired_on_deadline/);
@@ -419,6 +424,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_interruptible_deadline_wait_rejects_deadline_overflow/);
     assert.match(libSource, /native_window_interruptible_deadline_wait_rejects_timer_id_overflow/);
     assert.match(libSource, /native_window_interruptible_deadline_wait_preserves_frame_wait_error/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_waits_for_host_event_only/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_returns_timer_fired_on_deadline/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_returns_host_ready_without_timer_fire/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_rejects_invalid_wait_before_side_effects/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_rejects_timer_id_overflow_before_side_effects/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_preserves_frame_wait_error/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForHostEvent\s*\{[\s\S]*waiter[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueWaitError::WaiterFailed/);
     assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
@@ -459,6 +470,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /pump_events_only[\s\S]*self\.host\.pump_events_only\(\)/);
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /present_frame[\s\S]*self\.host\.present_frame\(frame\)/);
     assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_interruptible_deadline_wait_with_adapter\([\s\S]*instruction,[\s\S]*&mut self\.wait_adapter/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /pub struct NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost<Host,\s*Backend>\s*\{[\s\S]*host: Host,[\s\S]*wait_adapter: NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter<Backend>/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /impl<Host,\s*Backend> NativeWindowRunLoopHost[\s\S]*for NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost<Host,\s*Backend>/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /Backend: NativeWindowHostLoopDeadlineTimerClock[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWaiter<[\s\S]*Error = <Backend as NativeWindowHostLoopDeadlineTimerClock>::Error/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /type WaitError = NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<[\s\S]*<Backend as NativeWindowHostLoopDeadlineTimerClock>::Error/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_single_owner_interruptible_deadline_wait_with_adapter\([\s\S]*instruction,[\s\S]*&mut self\.wait_adapter/);
     assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /self\.host\.wait_after_budget_exhausted|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopWaitOwner|stringify|to_string|format!|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformKind\s*\{[\s\S]*Macos,[\s\S]*Windows,[\s\S]*Linux,[\s\S]*Unsupported/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendKind\s*\{[\s\S]*MacosRunLoopTimer,[\s\S]*WindowsWaitableTimerMessageWait,[\s\S]*LinuxSelectorTimerFd,[\s\S]*HeadlessScripted/);
@@ -512,6 +528,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_host_event_wait/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_frame_interval_wait/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_preserves_owner_wait_error/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_host_delegates_non_wait_operations/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_host_uses_adapter_for_host_event_wait/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_host_returns_timer_fired_on_deadline/);
+    assert.match(libSource, /native_window_single_owner_interruptible_deadline_wait_host_preserves_adapter_wait_error/);
     assert.match(nativeWindowEventQueueStatusAdapter, /wait_for_host_event_raw_status\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueStatusAdapterError::AdapterFailed/);
     assert.match(nativeWindowEventQueueStatusAdapter, /raw_status != NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY[\s\S]*NativeWindowHostLoopEventQueueStatusAdapterError::InvalidRawStatus/);
     assert.match(nativeWindowEventQueueStatusAdapter, /impl<Adapter> NativeWindowHostLoopEventQueueWaiter[\s\S]*NativeWindowHostLoopEventQueueStatusWaiter<Adapter>/);
@@ -1135,6 +1155,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopWindowsDeadlinePlan/);
     assert.match(implementationPlan, /message-only wait/);
     assert.match(implementationPlan, /generic `build_native_window_host_loop_platform_wait_backend_from_selection` は F5hm の fail-closed behavior を維持/);
+    assert.match(implementationPlan, /Phase F5ho: Native single-owner interruptible wait adapter boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter/);
+    assert.match(implementationPlan, /両 trait の `Error` type が同一/);
+    assert.match(implementationPlan, /deadline wait 直前に進めた timer id/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1230,6 +1254,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopWindowsWaitRawApi/);
     assert.match(standardSpec, /msg_wait_for_message_raw/);
     assert.match(standardSpec, /MsgWaitForMultipleObjects/);
+    assert.match(standardSpec, /F5ho Native single-owner interruptible wait adapter boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter/);
+    assert.match(standardSpec, /両者の `Error` type は同一/);
+    assert.match(standardSpec, /HostEventReady` から timer-fired evidence は生成しない/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -1287,6 +1315,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native platform wait backend construction gate keeps actual OS backend unavailable fail-closed",
             "Native Windows wait raw backend maps waitable timer and message statuses through typed errors",
+            "Native single-owner interruptible wait adapter keeps clock and waiter in one backend owner",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",

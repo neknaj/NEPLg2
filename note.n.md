@@ -1,3 +1,52 @@
+# 2026-06-20 Agent2 GUI native F5ho single-owner interruptible wait adapter boundary
+
+## scope
+
+- F5hn の Windows wait backend を run-loop wait hook へ接続する前段として、clock と waiter を同一 backend owner に保持する adapter を追加する。
+- 既存の separate `Clock, Waiter` adapter では Windows waitable timer handle owner が二重化しうるため、single-owner path を別に持つ。
+- generic platform wait builder、minifb runner、`Window::set_target_fps` にはまだ接続しない。macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は後続である。
+
+## plan_review
+
+- Darwin the 2nd に F5ho 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、Backend の clock/waiter 同一 error type を型で固定すること、`HostEventReady` から timer-fired evidence を作らないこと、invalid wait / id overflow を clock/read/wait より前に fail closed すること、deadline wait 直前だけ `next_raw_id` を進めて再利用しないこと、OS handle や raw internals を露出しないこと、minifb runner / generic platform builder / `set_target_fps` へ接続しないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter` を追加し、Backend 1 個を clock と waiter の両方として所有する形にした。
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError` を追加し、host event wait failure、invalid wait nanos、timer id overflow、clock failure、deadline overflow、frame wait failure を同一 Backend error type で保持する。
+- single-owner executor は host event wait で clock を読まず、frame interval wait では validation、clock read、deadline calculation、id advance、backend wait の順で進む。
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` を追加し、event / present 系 operation を inner host へ委譲し、wait hook だけを single-owner executor へ渡す。
+- source-policy、docs、`todo.md` を F5ho contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib native_window_single_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused single-owner wait adapter test は 12 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 244 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受けた。code-level blocker は無いが、`note.n.md` の verification_current と `todo.md` の古い F5hl 後続表記が未更新であることを指摘された。
+- 指摘対応として、verification_current を実行済み結果へ更新し、`todo.md` の後続境界を F5hm / F5hn / F5ho まで含む形へ更新した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。owner boundary、同一 error type、timer id lifecycle、typed error、synthetic timer evidence 禁止、raw handle 非露出、minifb / platform builder 未接続に code-level blocker は無いことが確認された。
+
+## residual
+
+- Windows wait backend は generic platform wait builder / native run-loop wait hook へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hn Windows waitable timer message wait raw backend boundary
 
 ## scope

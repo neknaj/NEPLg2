@@ -673,6 +673,20 @@ cfg-windows の `NativeWindowHostLoopWindowsWaitSysApi` は `CreateWaitableTimer
 
 F5hn は macOS run loop timer、Linux selector / timerfd、minifb wait hook 接続、formal FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization の実装ではない。sleep、busy loop、minifb pacing、scripted native substitute、synthetic timer fire、silent no-op による代替成功は禁止する。
 
+## F5ho Native single-owner interruptible wait adapter boundary
+
+2026-06-20 の F5ho では、clock と interruptible waiter を同一 backend owner に保持する adapter を追加する。これは F5hn の Windows backend を run-loop wait hook へ接続する前の ownership integration であり、waitable timer handle owner を二重化しないための境界である。
+
+`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter Backend` は `Backend` を 1 個だけ所有する。`Backend` は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を同時に実装し、両者の `Error` type は同一でなければならない。この制約により、clock と waiter を別 object として渡す汎用 adapter とは別に、single owner backend 用の path を持つ。
+
+single-owner executor は host event instruction では `wait_for_host_event` だけを呼ぶ。frame interval instruction では wait nanos validation、timer id overflow validation、clock read、deadline addition、timer id advance、backend wait の順で処理する。invalid wait nanos と timer id overflow は clock read / backend wait より前に fail closed する。
+
+backend wait の結果は `HostEventReady` を `HostEventPumpAlreadyPaced`、`DeadlineReached` を `FrameIntervalTimerFired` に写す。`HostEventReady` から timer-fired evidence は生成しない。deadline wait 直前に進んだ timer id は、host event wake や backend wait error の場合も再利用しない。
+
+`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` は inner host と single-owner adapter を所有する wrapper である。poll / title / pump / present は inner host へ委譲し、wait hook だけを single-owner executor に渡す。inner host の wait hook は呼ばない。
+
+F5ho は generic platform wait builder、minifb smoke runner、`Window::set_target_fps` replacement、macOS run loop timer、Linux selector / timerfd へ接続しない。sleep、busy loop、minifb pacing、scripted native substitute、synthetic timer fire、fallback、silent no-op は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

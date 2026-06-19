@@ -473,6 +473,24 @@ subagent review:
 
 - Darwin the 2nd に F5hn 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、cross-platform raw API boundary を `windows-sys` から独立させること、message-only wait を immediate ok / polling にしないこと、`AlreadyReached` は plan が deadline <= now を証明した時だけ返すこと、Windows sys shim を cfg に閉じ込めること、generic builder の unavailable behavior を維持すること、sleep / minifb / busy wait / scripted native substitute / synthetic timer fire を禁止することである。
 
+## Phase F5ho: Native single-owner interruptible wait adapter boundary
+
+F5ho では、F5hn の Windows wait backend を run-loop wait hook へ接続する前段として、clock と waiter を同一 owner に保持する interruptible wait adapter 境界を追加する。既存の `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter Clock Waiter` は clock と waiter を別 field として持つため、Windows の waitable timer handle owner にはそのまま使わない。
+
+`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter Backend` は `Backend` を 1 個だけ所有する。`Backend` は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` の両方を実装し、両 trait の `Error` type が同一であることを型で固定する。これにより、Windows backend の timer handle、clock origin、message wait state を二重化しない。
+
+single-owner executor は F5hj の semantic contract を維持する。host event instruction は backend の `wait_for_host_event` だけを呼び、clock read、timer id allocation、frame wait を行わない。frame interval instruction は invalid `wait_nanos` と timer id overflow を clock read より前に拒否し、clock read、deadline calculation、`next_raw_id` advance、backend wait の順で進む。
+
+`HostEventReady` wake は `HostEventPumpAlreadyPaced` に写し、timer-fired evidence を生成しない。`DeadlineReached` wake だけが `FrameIntervalTimerFired` を返す。deadline wait 直前に進めた timer id は、backend wait error や `HostEventReady` でも再利用しない。
+
+`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` は inner host と single-owner adapter を所有する。event polling、title update、pump-only、present は inner host へ委譲し、budget exhaustion 後の wait だけを single-owner executor へ渡す。inner host の wait hook は呼ばない。
+
+この phase では、F5hn Windows backend を generic platform wait builder、`run_minifb_window_loop`、`Window::set_target_fps` replacement へはまだ接続しない。macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続で扱う。sleep、busy loop、minifb、scripted native substitute、synthetic timer fire、fallback、silent no-op は禁止する。
+
+subagent review:
+
+- Darwin the 2nd に F5ho 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、Backend の clock/waiter 同一 error type を型で固定すること、`HostEventReady` から timer-fired evidence を作らないこと、invalid wait / id overflow を clock/read/wait より前に fail closed すること、deadline wait 直前だけ `next_raw_id` を進めて再利用しないこと、OS handle や raw internals を露出しないこと、minifb runner / generic platform builder / `set_target_fps` へ接続しないことである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
