@@ -789,6 +789,16 @@ Never raw API は `NativeWindowHostLoopNeverMacosRunLoopTimerRawApi` と `Native
 
 F5hx は platform wait owner の統合までを扱う。`#[cfg(target_os = "macos")]` actual sys shim、CoreFoundation / AppKit binding、`#[cfg(target_os = "linux")]` actual sys shim、libc / nix / epoll / poll / select / timerfd、native runner / CLI dispatch、minifb wait path、sleep、busy loop、fallback、silent no-op、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
 
+## F5hy Native Linux selector timerfd actual sys shim boundary
+
+2026-06-20 の F5hy では、F5hu/F5hv の Linux selector / timerfd raw API に対して、`#[cfg(target_os = "linux")]` の actual syscall shim を追加する。sys shim は `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` として `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` だけを実装し、standard API や cross-platform owner enum へ `libc` / `epoll` / `timerfd` symbol を漏らさない。
+
+selector は `epoll_create1 EPOLL_CLOEXEC`、timer は `timerfd_create CLOCK_MONOTONIC TFD_CLOEXEC|TFD_NONBLOCK` で作る。timer registration は `epoll_ctl EPOLL_CTL_ADD` で timer fd を `EPOLLIN` として登録する。relative deadline arm は checked conversion 済みの `NativeWindowHostLoopLinuxTimerFdTimespec` だけを `timerfd_settime` の `it_value` に入れ、`it_interval` は zero にする。clamp、saturating、implicit interval、sleep、busy loop は使わない。
+
+timer-or-event wait は `epoll_wait` が timer fd readiness を返し、さらに `read` で `u64` expiration count を exactly drain でき、count が 0 でない場合だけ `TimerFired` evidence に変換できる。unknown fd、unexpected event flags、timeout、`epoll_wait` failure、`read` failure、short read、zero expiration は `FAILED` status と `last_error_code` へ保存し、synthetic timer fired evidence を作らない。
+
+host-event-only wait は現 raw trait に host event fd registration boundary が無いため、`ENOTSUP` 相当の failure として fail closed にする。`HostEventReady` を返して host event wake を捏造しない。host event fd integration、generic platform wait helper、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

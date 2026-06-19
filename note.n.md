@@ -72916,3 +72916,51 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では timer fire 後の scheduler resume policy と real OS timer adapter へ進む。F5gy は timer fire / wakeup backend boundary までであり、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-20 GUI native F5hy Linux selector timerfd actual sys shim boundary
+
+### scope
+
+- F5hy は F5hu/F5hv の Linux selector / timerfd raw API に actual Linux syscall shim を追加する checkpoint である。
+- sys shim は `#[cfg(target_os = "linux")]` の `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` に閉じ、標準 API や非 Linux build に `libc` / `epoll` / `timerfd` を漏らさない。
+- timer fired evidence は `epoll_wait` による timer fd readiness と `read` による `u64` expiration drain が両方成立した場合だけ返す。
+- host-event-only wait は host event fd registration が未接続なので `ENOTSUP` 相当で fail closed にする。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘された必須条件は、Linux dependency を target-specific にすること、sys shim を raw API implementation だけに限定すること、host-event-only wait で `HostEventReady` を捏造しないこと、timerfd `read` を省略して timer fired evidence を作らないこと、`EINTR` を今回 retry loop で隠さないことだった。
+
+### implementation
+
+- `nepl-gui-native/Cargo.toml` に cfg Linux 専用の `libc` dependency を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を追加し、selector creation、timerfd creation、registration、relative arm、timer-or-event wait、close、last error code を Linux syscall shim として実装した。
+- construction failure cleanup の close 成功では直前の syscall failure code を消さないようにした。
+- raw fd helper は public にせず、test または Linux cfg の private helper としてだけ使う。
+- source policy は core/fake Linux backend slice と cfg Linux sys shim slice を分離し、syscall が許可される範囲を明示した。
+- GUI standard spec、implementation plan、native platform behavior note、`todo.md` を F5hy contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+- subagent pass: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- not run locally: Linux `--features window` target check。subagent 側では `x86_64-linux-gnu-gcc` 不在で minifb build が止まり、F5hy code blocker ではないと判定された。
+
+### implementation_review
+
+- Darwin the 2nd の implementation review は initial `CHANGES_REQUESTED`。
+- code 指摘ではなく note-only 指摘であり、error preservation 修正は正しいと確認された。
+- 指摘内容は、F5hy セクションに `verification_current` と `implementation_review` が無いことだった。
+- この項目で実行済み検証とレビュー結果を記録し、再レビューへ回す。
+- 再レビューは `APPROVED`。merge / commit 可と判定された。
+
+### residual
+
+- Linux host event fd integration、Linux generic platform helper connection、native runner / CLI dispatch はまだ未実装である。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。

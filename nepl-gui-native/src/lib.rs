@@ -3708,14 +3708,14 @@ pub struct NativeWindowHostLoopLinuxTimerFd {
     raw_fd: i32,
 }
 
-#[cfg(test)]
+#[cfg(any(test, target_os = "linux"))]
 fn native_window_host_loop_linux_selector_fd_raw(
     handle: &NativeWindowHostLoopLinuxSelectorFd,
 ) -> i32 {
     handle.raw_fd
 }
 
-#[cfg(test)]
+#[cfg(any(test, target_os = "linux"))]
 fn native_window_host_loop_linux_timer_fd_raw(handle: &NativeWindowHostLoopLinuxTimerFd) -> i32 {
     handle.raw_fd
 }
@@ -4182,6 +4182,242 @@ where
     }
     NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).map_err(
         NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed,
+    )
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug, Default)]
+pub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
+    last_error_code: u32,
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn clear_error(&mut self) {
+        self.last_error_code = 0;
+    }
+
+    fn set_error_code(&mut self, code: i32) {
+        self.last_error_code = u32::try_from(code).unwrap_or(u32::MAX);
+    }
+
+    fn set_last_os_error(&mut self) {
+        self.last_error_code = std::io::Error::last_os_error()
+            .raw_os_error()
+            .and_then(|code| u32::try_from(code).ok())
+            .unwrap_or(u32::MAX);
+    }
+
+    fn drain_timer_fd(&mut self, timer: &NativeWindowHostLoopLinuxTimerFd) -> bool {
+        let mut expirations = 0_u64;
+        let read_result = unsafe {
+            libc::read(
+                native_window_host_loop_linux_timer_fd_raw(timer),
+                (&mut expirations as *mut u64).cast::<libc::c_void>(),
+                std::mem::size_of::<u64>(),
+            )
+        };
+        if read_result < 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        if read_result != std::mem::size_of::<u64>() as libc::ssize_t {
+            self.set_error_code(libc::EIO);
+            return false;
+        }
+        if expirations == 0 {
+            self.set_error_code(libc::EIO);
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
+    for NativeWindowHostLoopLinuxSelectorTimerFdSysApi
+{
+    fn create_selector_raw(&mut self) -> i32 {
+        let raw_fd = unsafe { libc::epoll_create1(libc::EPOLL_CLOEXEC) };
+        if raw_fd < 0 {
+            self.set_last_os_error();
+        } else {
+            self.clear_error();
+        }
+        raw_fd
+    }
+
+    fn create_timer_fd_raw(&mut self) -> i32 {
+        let raw_fd = unsafe {
+            libc::timerfd_create(
+                libc::CLOCK_MONOTONIC,
+                libc::TFD_CLOEXEC | libc::TFD_NONBLOCK,
+            )
+        };
+        if raw_fd < 0 {
+            self.set_last_os_error();
+        } else {
+            self.clear_error();
+        }
+        raw_fd
+    }
+
+    fn register_timer_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> bool {
+        let mut event = libc::epoll_event {
+            events: libc::EPOLLIN as u32,
+            u64: native_window_host_loop_linux_timer_fd_raw(timer) as u64,
+        };
+        let result = unsafe {
+            libc::epoll_ctl(
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                libc::EPOLL_CTL_ADD,
+                native_window_host_loop_linux_timer_fd_raw(timer),
+                &mut event,
+            )
+        };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
+    fn arm_timer_fd_relative_timespec(
+        &mut self,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+        timespec: NativeWindowHostLoopLinuxTimerFdTimespec,
+    ) -> bool {
+        let seconds = match libc::time_t::try_from(timespec.seconds()) {
+            Ok(seconds) => seconds,
+            Err(_) => {
+                self.set_error_code(libc::EOVERFLOW);
+                return false;
+            }
+        };
+        let nanoseconds = match libc::c_long::try_from(timespec.nanoseconds()) {
+            Ok(nanoseconds) => nanoseconds,
+            Err(_) => {
+                self.set_error_code(libc::EOVERFLOW);
+                return false;
+            }
+        };
+        let interval = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        let value = libc::timespec {
+            tv_sec: seconds,
+            tv_nsec: nanoseconds,
+        };
+        let timer_spec = libc::itimerspec {
+            it_interval: interval,
+            it_value: value,
+        };
+        let result = unsafe {
+            libc::timerfd_settime(
+                native_window_host_loop_linux_timer_fd_raw(timer),
+                0,
+                &timer_spec,
+                std::ptr::null_mut(),
+            )
+        };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
+    fn selector_wait_for_timer_or_event_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> u32 {
+        let mut event = libc::epoll_event { events: 0, u64: 0 };
+        let wait_result = unsafe {
+            libc::epoll_wait(
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                &mut event,
+                1,
+                -1,
+            )
+        };
+        if wait_result < 0 {
+            self.set_last_os_error();
+            return NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED;
+        }
+        if wait_result == 0 {
+            self.set_error_code(libc::ETIMEDOUT);
+            return NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED;
+        }
+        if event.u64 != native_window_host_loop_linux_timer_fd_raw(timer) as u64 {
+            self.set_error_code(libc::EINVAL);
+            return NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED;
+        }
+        let terminal_events = (libc::EPOLLERR | libc::EPOLLHUP) as u32;
+        if event.events & terminal_events != 0 || event.events & libc::EPOLLIN as u32 == 0 {
+            self.set_error_code(libc::EIO);
+            return NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED;
+        }
+        if !self.drain_timer_fd(timer) {
+            return NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED;
+        }
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED
+    }
+
+    fn selector_wait_for_event_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+    ) -> u32 {
+        self.set_error_code(libc::ENOTSUP);
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED
+    }
+
+    fn close_selector_raw(&mut self, selector: &NativeWindowHostLoopLinuxSelectorFd) -> bool {
+        let result =
+            unsafe { libc::close(native_window_host_loop_linux_selector_fd_raw(selector)) };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        true
+    }
+
+    fn close_timer_fd_raw(&mut self, timer: &NativeWindowHostLoopLinuxTimerFd) -> bool {
+        let result = unsafe { libc::close(native_window_host_loop_linux_timer_fd_raw(timer)) };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        true
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        self.last_error_code
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+) -> Result<
+    NativeWindowHostLoopLinuxSelectorTimerFdBackend<NativeWindowHostLoopLinuxSelectorTimerFdSysApi>,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError,
+> {
+    build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+        selection,
+        NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new(),
     )
 }
 

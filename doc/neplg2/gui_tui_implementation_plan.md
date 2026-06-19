@@ -1045,6 +1045,33 @@ Web backend が入った後:
 node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/gui-playground.json
 ```
 
+## Native platform wait continuation phases
+
+### Phase F5hy: Native Linux selector timerfd actual sys shim boundary
+
+目的:
+
+- F5hu/F5hv の Linux selector / timerfd raw API を、Linux の actual `epoll` / `timerfd` syscall shim へ接続する。
+- sys shim は `#[cfg(target_os = "linux")]` に閉じ、非 Linux build や標準 API の public name に `libc`、`epoll`、`timerfd` を漏らさない。
+- timer fired evidence は timer fd readiness と `u64` expiration drain の両方を満たした場合だけ作る。
+
+実装:
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を追加し、`NativeWindowHostLoopLinuxSelectorTimerFdRawApi` だけを実装する。
+- selector creation、timerfd creation、timerfd registration、relative timer arm、timer-or-event wait、close、last error code を syscall shim 内へ分ける。
+- host-event-only wait は host event fd registration が未設計であるため `ENOTSUP` 相当の failure として fail closed にする。
+
+検証:
+
+- `nodesrc/test_native_gui_platform_behavior.js` で core/fake Linux backend slice と cfg Linux sys shim slice を分ける。
+- core/fake slice では `libc` / `epoll` / `timerfd` を禁止し、sys shim slice では `epoll_create1`、`timerfd_create`、`epoll_ctl`、`timerfd_settime`、`epoll_wait`、`read`、`close` の存在と failure normalization を検査する。
+- Windows host では Linux target が無い場合、source policy と通常 Rust tests を主検証にし、Linux target compile は CI / Linux 環境で確認する。
+
+非目標:
+
+- host event fd integration、generic platform wait helper の Linux sys constructor、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `EINTR` retry loop、thread sleep、busy loop、fallback、silent no-op、synthetic host event / timer fired evidence は導入しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
