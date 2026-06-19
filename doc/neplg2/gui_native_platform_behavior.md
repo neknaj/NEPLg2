@@ -313,6 +313,10 @@ F5hg では、F5hf の authority mode を `NativeWindowHostLoopWaitOwner` の fr
 
 frame interval branch は `combine_native_window_frame_interval_wait_authority_mode` と `validate_native_window_frame_interval_wait_authority_mode` を通ってから deadline timer wakeup helper へ進む。minifb authority が混入した場合は `FrameIntervalAuthorityFailed` として返し、timer registration、clock read、sleeper call、active timer mutation は起こさない。host event wait は authority を参照しない。F5hg は real selector / message-loop timer backend ではなく、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は後続で扱う。
 
+F5hh では、`NativeWindowRunLoopConfig` が `frame_interval_wait_backend` を持つ。default は `MinifbInternalTargetFps` である。`HostOwnedDeadlineTimer` は formal wait owner / future selector-message-loop backend 用の authority であり、現在の minifb smoke runner では support されない。
+
+`run_minifb_window_loop` は `validate_minifb_window_run_loop_frame_interval_wait_backend` を最初に呼び、`NativeWindowBackendLoop::new_for_scale`、minifb `Window::new`、`Window::set_target_fps` より前に backend selection を検査する。`HostOwnedDeadlineTimer` が指定された場合は `FrameIntervalWaitBackendUnsupported` を返し、minifb internal pacing へ fallback しない。error は runner、requested backend、authority conflict reason を保持する。F5hh でも real selector / message-loop timer backend はまだ実装しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。

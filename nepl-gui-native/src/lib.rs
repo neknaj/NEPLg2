@@ -1200,6 +1200,26 @@ pub struct NativeWindowHostLoopRunPolicy {
     pub turn_slice: NativeWindowHostLoopTurnSlice,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopFrameIntervalWaitBackend {
+    MinifbInternalTargetFps,
+    HostOwnedDeadlineTimer,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopFrameIntervalWaitBackendRunner {
+    Minifb,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopFrameIntervalWaitBackendError {
+    Unsupported {
+        runner: NativeWindowRunLoopFrameIntervalWaitBackendRunner,
+        requested: NativeWindowRunLoopFrameIntervalWaitBackend,
+        reason: NativeWindowFrameIntervalWaitAuthorityModeError,
+    },
+}
+
 pub const NATIVE_WINDOW_HOST_LOOP_MIN_TURN_SLICE: u16 = 1;
 pub const NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE: u16 = 4096;
 pub const NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE: u16 = 1;
@@ -1306,6 +1326,30 @@ impl Default for NativeWindowHostLoopRunPolicy {
     }
 }
 
+impl NativeWindowRunLoopFrameIntervalWaitBackend {
+    pub fn authority_mode(
+        self,
+        target_fps: NativeWindowTargetFps,
+    ) -> NativeWindowFrameIntervalWaitAuthorityMode {
+        match self {
+            NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps => {
+                native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+                    target_fps,
+                )
+            }
+            NativeWindowRunLoopFrameIntervalWaitBackend::HostOwnedDeadlineTimer => {
+                native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer()
+            }
+        }
+    }
+}
+
+impl Default for NativeWindowRunLoopFrameIntervalWaitBackend {
+    fn default() -> Self {
+        Self::MinifbInternalTargetFps
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowRunLoopConfig {
     pub demo: GuiDemo,
@@ -1313,6 +1357,7 @@ pub struct NativeWindowRunLoopConfig {
     pub scale: usize,
     pub target_fps: NativeWindowTargetFps,
     pub host_loop_policy: NativeWindowHostLoopRunPolicy,
+    pub frame_interval_wait_backend: NativeWindowRunLoopFrameIntervalWaitBackend,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1339,6 +1384,7 @@ pub enum NativeWindowRunLoopError {
     HostWaitFailed {
         message: String,
     },
+    FrameIntervalWaitBackendUnsupported(NativeWindowRunLoopFrameIntervalWaitBackendError),
     TimerFireResumeRequired {
         timer_registration_id: u32,
     },
@@ -3745,6 +3791,7 @@ impl NativeWindowRunLoopConfig {
             scale,
             target_fps: NativeWindowTargetFps::default(),
             host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+            frame_interval_wait_backend: NativeWindowRunLoopFrameIntervalWaitBackend::default(),
         }
     }
 
@@ -3760,6 +3807,7 @@ impl NativeWindowRunLoopConfig {
             scale,
             target_fps,
             host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+            frame_interval_wait_backend: NativeWindowRunLoopFrameIntervalWaitBackend::default(),
         }
     }
 
@@ -3776,6 +3824,25 @@ impl NativeWindowRunLoopConfig {
             scale,
             target_fps,
             host_loop_policy,
+            frame_interval_wait_backend: NativeWindowRunLoopFrameIntervalWaitBackend::default(),
+        }
+    }
+
+    pub fn new_with_frame_interval_wait_backend(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+        target_fps: NativeWindowTargetFps,
+        host_loop_policy: NativeWindowHostLoopRunPolicy,
+        frame_interval_wait_backend: NativeWindowRunLoopFrameIntervalWaitBackend,
+    ) -> Self {
+        Self {
+            demo,
+            counter_value,
+            scale,
+            target_fps,
+            host_loop_policy,
+            frame_interval_wait_backend,
         }
     }
 
@@ -3798,6 +3865,26 @@ impl NativeWindowRunLoopConfig {
             }),
         }
     }
+}
+
+pub fn validate_minifb_window_run_loop_frame_interval_wait_backend(
+    requested: NativeWindowRunLoopFrameIntervalWaitBackend,
+    target_fps: NativeWindowTargetFps,
+) -> Result<
+    NativeWindowFrameIntervalWaitAuthorityMode,
+    NativeWindowRunLoopFrameIntervalWaitBackendError,
+> {
+    let active_authority = NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps
+        .authority_mode(target_fps);
+    let requested_authority = requested.authority_mode(target_fps);
+    combine_native_window_frame_interval_wait_authority_mode(active_authority, requested_authority)
+        .map_err(
+            |reason| NativeWindowRunLoopFrameIntervalWaitBackendError::Unsupported {
+                runner: NativeWindowRunLoopFrameIntervalWaitBackendRunner::Minifb,
+                requested,
+                reason,
+            },
+        )
 }
 
 pub fn native_window_title(demo: GuiDemo, size: NativeWindowSize) -> String {
@@ -4604,6 +4691,11 @@ pub fn run_minifb_window_loop(
 ) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
     use minifb::{ScaleMode, Window, WindowOptions};
 
+    validate_minifb_window_run_loop_frame_interval_wait_backend(
+        config.frame_interval_wait_backend,
+        config.target_fps,
+    )
+    .map_err(NativeWindowRunLoopError::FrameIntervalWaitBackendUnsupported)?;
     let frame_pacing_authority = minifb_native_window_frame_pacing_authority(config.target_fps);
     let mut backend_loop =
         NativeWindowBackendLoop::new_for_scale(config.demo, config.counter_value, config.scale)
@@ -7557,6 +7649,8 @@ mod tests {
                 scale: 3,
                 target_fps: NativeWindowTargetFps::default(),
                 host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+                frame_interval_wait_backend:
+                    NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps,
             }
         );
         let custom_fps = NativeWindowTargetFps::new(120).unwrap();
@@ -7568,6 +7662,8 @@ mod tests {
                 scale: 2,
                 target_fps: custom_fps,
                 host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+                frame_interval_wait_backend:
+                    NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps,
             }
         );
         let custom_policy =
@@ -7586,6 +7682,27 @@ mod tests {
                 scale: 2,
                 target_fps: custom_fps,
                 host_loop_policy: custom_policy,
+                frame_interval_wait_backend:
+                    NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps,
+            }
+        );
+        assert_eq!(
+            NativeWindowRunLoopConfig::new_with_frame_interval_wait_backend(
+                GuiDemo::Mandelbrot,
+                0,
+                1,
+                custom_fps,
+                custom_policy,
+                NativeWindowRunLoopFrameIntervalWaitBackend::HostOwnedDeadlineTimer,
+            ),
+            NativeWindowRunLoopConfig {
+                demo: GuiDemo::Mandelbrot,
+                counter_value: 0,
+                scale: 1,
+                target_fps: custom_fps,
+                host_loop_policy: custom_policy,
+                frame_interval_wait_backend:
+                    NativeWindowRunLoopFrameIntervalWaitBackend::HostOwnedDeadlineTimer,
             }
         );
         assert_eq!(
@@ -7595,6 +7712,58 @@ mod tests {
                 value: 0,
                 reason: NativeWindowTargetFpsInvalidReason::Zero,
             }
+        );
+    }
+
+    #[test]
+    fn native_window_run_loop_frame_interval_backend_maps_to_authority_mode() {
+        let target_fps = NativeWindowTargetFps::new(120).unwrap();
+
+        assert_eq!(
+            NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps
+                .authority_mode(target_fps),
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps)
+        );
+        assert_eq!(
+            NativeWindowRunLoopFrameIntervalWaitBackend::HostOwnedDeadlineTimer
+                .authority_mode(target_fps),
+            native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer()
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_run_loop_backend_validation_rejects_host_owned_deadline_timer() {
+        let target_fps = NativeWindowTargetFps::default();
+        let requested = NativeWindowRunLoopFrameIntervalWaitBackend::HostOwnedDeadlineTimer;
+        let active_authority =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
+        let requested_authority =
+            native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer();
+
+        assert_eq!(
+            validate_minifb_window_run_loop_frame_interval_wait_backend(requested, target_fps)
+                .unwrap_err(),
+            NativeWindowRunLoopFrameIntervalWaitBackendError::Unsupported {
+                runner: NativeWindowRunLoopFrameIntervalWaitBackendRunner::Minifb,
+                requested,
+                reason:
+                    NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                        active: active_authority,
+                        requested: requested_authority,
+                    },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_run_loop_backend_validation_accepts_minifb_internal_pacing() {
+        let target_fps = NativeWindowTargetFps::default();
+        let requested = NativeWindowRunLoopFrameIntervalWaitBackend::MinifbInternalTargetFps;
+
+        assert_eq!(
+            validate_minifb_window_run_loop_frame_interval_wait_backend(requested, target_fps)
+                .unwrap(),
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps)
         );
     }
 

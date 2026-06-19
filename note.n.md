@@ -1,3 +1,47 @@
+# 2026-06-19 Agent2 GUI native F5hh run-loop frame interval wait backend selection boundary
+
+## scope
+
+- F5hg の後続として、native run-loop config が frame interval wait backend authority を明示的に持つ境界を追加する。
+- minifb smoke runner の default は `MinifbInternalTargetFps` とし、future selector / message-loop timer 用の `HostOwnedDeadlineTimer` は minifb runner では window 作成前に拒否する。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、config backend を bool / string にしないこと、F5hf authority type を再利用すること、default を minifb internal target-fps pacing にすること、minifb runner で `HostOwnedDeadlineTimer` を side effect 前に拒否すること、fallback しないこと、source policy で validation ordering と deadline timer 禁止を固定することである。
+
+## implementation_current
+
+- `NativeWindowRunLoopFrameIntervalWaitBackend`、runner enum、typed unsupported error を追加した。
+- `NativeWindowRunLoopConfig` に `frame_interval_wait_backend` を追加し、既存 constructor は default `MinifbInternalTargetFps` を設定する。
+- explicit backend selection constructor と backend-to-authority conversion を追加した。
+- `validate_minifb_window_run_loop_frame_interval_wait_backend` は F5hf の authority combine を使い、`HostOwnedDeadlineTimer` を `FrameIntervalWaitBackendUnsupported` として拒否する。
+- `run_minifb_window_loop` は backend loop initialization / minifb window creation / `set_target_fps` より前に validation を行う。
+- docs、source-policy、`todo.md` を F5hh contract に更新した。
+
+## residual
+
+- real selector / message-loop timer backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_run_loop -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_minifb_run_loop_backend_validation -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: focused run-loop tests は 2 件 pass した。
+- info: focused minifb backend validation tests は 2 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 188 件 pass した。
+- info: source policy regression は exit 0 で完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。backend selection は typed であり、default constructors は `MinifbInternalTargetFps` を維持し、minifb runner で explicit `HostOwnedDeadlineTimer` が side effect 前に typed error として拒否されること、minifb path が formal wait owner / deadline timer adapter / `set_target_fps 0` / fallback を使わないことが確認された。
+
 # 2026-06-19 Agent2 GUI native F5hg wait owner frame interval authority connection boundary
 
 ## scope
