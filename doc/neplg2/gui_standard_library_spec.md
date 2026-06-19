@@ -745,6 +745,18 @@ deadline conversion は monotonic origin からの elapsed nanoseconds を使い
 
 F5ht は raw API / fake raw API tests / source policy の boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` に `MacosRunLoopTimer(...)` owner variant を追加しない。`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` implementation、CLI dispatch、actual macOS sys shim、native runner connection、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
 
+## F5hu Native Linux selector timerfd raw backend boundary
+
+2026-06-20 の F5hu では、Linux selector / timerfd backend の raw boundary contract を追加する。標準 API は Linux file descriptor を public owner として公開しないため、`NativeWindowHostLoopLinuxSelectorFd` と `NativeWindowHostLoopLinuxTimerFd` は raw fd を private field として保持する。fd `0` は有効な descriptor として扱い、invalid fd は `raw_fd < 0` だけで拒否する。raw fd accessor や public owned-fd escape は作らない。
+
+raw API contract は、selector creation、timerfd creation、timerfd registration、relative timespec arm、timer-or-host-event wait、host-event-only wait、selector close、timerfd close、last error code を分ける。selector fd と timerfd は別 owner とし、construction failure では作成済み fd を逆順に close する。backend cleanup は timerfd と selector をそれぞれ高々 1 回だけ close する。
+
+deadline conversion は monotonic origin からの elapsed nanoseconds を使い、checked arithmetic だけで relative timespec を作る。deadline 到達済みは immediate `TimerFired` として返す。relative timespec は seconds と nanoseconds を `/ 1_000_000_000`、`% 1_000_000_000`、`i64::try_from` で作り、sleep、busy loop、saturating / clamp、silent no-op は使わない。
+
+timer-or-event wait は `TimerFired` と `HostEventReady` を別 enum に写す。host-event-only wait では timer-fired raw status を host event ready と偽装しない。失敗 status と未知 status は、それぞれ `SelectorWaitFailed` と `UnexpectedSelectorStatus` として返す。
+
+F5hu は raw API / fake raw API tests / source policy の boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` に `LinuxSelectorTimerFd(...)` owner variant を追加しない。`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` implementation、CLI dispatch、actual Linux sys shim、native runner connection、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

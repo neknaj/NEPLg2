@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5hu Linux selector timerfd raw backend boundary
+
+## scope
+
+- F5ht の後続として、Linux selector / timerfd backend の raw API / fd ownership / timespec conversion / status mapping 境界を追加する。
+- actual Linux sys shim、generic platform wait owner integration、CLI dispatch、native runner 接続は今回 scope 外にする。
+- fd `0` は有効な descriptor として扱い、invalid fd は `raw_fd < 0` だけに限定する。
+- host event wake と timer fired wake を別 enum evidence として保持し、host-event-only wait で timer fired raw status を host event ready と偽装しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraint として、fd `0` を拒否しないこと、selector fd と timerfd の ownership を混ぜず close-once にすること、timespec conversion を checked seconds / nanoseconds にすること、`TimerFired` と `HostEventReady` を分けること、actual Linux sys shim / generic owner variant / trait implementation / CLI / runner dispatch は scope 外にすることが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorFd`、`NativeWindowHostLoopLinuxTimerFd`、`NativeWindowHostLoopLinuxSelectorTimerFdRawApi`、`NativeWindowHostLoopLinuxSelectorTimerFdBackend` を追加した。
+- raw fd は private field に閉じ、fd `0` は有効、負 fd は typed error として扱う。
+- selector creation、timerfd creation、timerfd registration、timespec arm、timer-or-event wait、event-only wait、selector close、timerfd close、last error code を raw API で分けた。
+- construction failure は作成済み fd を逆順に close し、normal cleanup は selector と timerfd を高々 1 回だけ close する。
+- deadline conversion は elapsed nanos と checked timespec conversion に限定し、deadline 到達済みは immediate `TimerFired` として扱う。
+- timer-or-event wait は `TimerFired` と `HostEventReady` を分離し、host-event-only wait は timer fired status を unexpected status として拒否する。
+- generic `NativeWindowHostLoopPlatformWaitBackend` には Linux owner variant を追加せず、source policy で統合前の raw boundary として固定した。
+- GUI docs と `todo.md` を F5hu contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source-policy の content blocker は無いが、この `implementation_review` 欄が pending のままで commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、fd `0` 有効、selector fd / timerfd の分離、close-once、checked timespec、`TimerFired` / `HostEventReady` 分離、actual Linux shim / generic owner / trait implementation / CLI 接続なしの範囲が計画どおりであることが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- actual Linux sys shim、Linux platform wait owner integration、actual macOS sys shim、macOS platform wait owner integration、CLI / runner dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5ht macOS run loop timer raw backend boundary
 
 ## scope

@@ -373,6 +373,10 @@ F5ht では、macOS run loop timer backend の raw boundary を追加する。�
 
 macOS raw timer handle は private field に閉じ込め、raw handle accessor を public にしない。timer status は `TimerFired` と `HostEventReady` を分け、host-event-only wait で timer-fired raw status が返った場合は unexpected status として拒否する。deadline conversion は checked arithmetic だけを使い、sleep、busy loop、saturating / clamp、fallback、silent no-op へ落とさない。generic platform wait owner へはまだ `MacosRunLoopTimer` variant を追加せず、actual macOS sys shim、CLI selection、runner connection は後続で扱う。
 
+F5hu では、Linux selector timerfd raw backend checkpoint として、selector fd owner、timerfd owner、raw API、relative timespec conversion、status mapping、close-once cleanup を追加する。actual `epoll` / `poll` / `select` / `timerfd_*` sys shim や native runner dispatch ではなく、Linux backend が必要とする fd ownership と wake semantics を fake raw API で検査する。
+
+Linux fd `0` は有効な descriptor になり得るため、invalid fd は `raw_fd < 0` だけで拒否する。selector fd と timerfd は別 owner として private field に閉じ込め、raw fd accessor を public にしない。timer-or-event wait は `TimerFired` と `HostEventReady` を分け、host-event-only wait で timer-fired raw status が返った場合は unexpected status として拒否する。relative timespec conversion は checked arithmetic だけを使い、sleep、busy loop、saturating / clamp、fallback、silent no-op へ落とさない。generic platform wait owner へはまだ `LinuxSelectorTimerFd` variant を追加せず、actual Linux sys shim、CLI selection、runner connection は後続で扱う。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -412,6 +416,7 @@ macOS raw timer handle は private field に閉じ込め、raw handle accessor �
 - Windows platform wait runner は `Window::set_target_fps` や minifb frame pacing authority を使わず、platform wait backend error を `WindowsPlatformWaitHostLoopFailed` の typed host-loop error として保持する。
 - native CLI は `--wait-backend minifb|platform` で window runner を明示選択できる。未指定時は minifb runner、Windows で `platform` 指定時は `run_windows_platform_wait_window_loop` を使う。headless で明示指定された wait backend、重複指定、不明な値は error で拒否する。macOS / Linux actual backend、FHD 60fps measurement はまだ接続していない。
 - `NativeWindowHostLoopMacosRunLoopTimerRawApi` と `NativeWindowHostLoopMacosRunLoopTimerBackend` により、macOS run loop timer backend の raw handle validation、relative nanos scheduling、timer-or-event status mapping、host-event-only wait mapping、single invalidation を fake raw API で検査できる。generic platform wait owner、actual macOS sys shim、CLI selection、runner dispatch にはまだ接続していない。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` と `NativeWindowHostLoopLinuxSelectorTimerFdBackend` により、Linux selector / timerfd backend の fd validation、selector / timerfd ownership、relative timespec scheduling、timer-or-event status mapping、host-event-only wait mapping、close-once cleanup を fake raw API で検査できる。fd `0` は有効として扱い、generic platform wait owner、actual Linux sys shim、CLI selection、runner dispatch にはまだ接続していない。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。
 - `NativeWindowFrameIntervalWaitAuthorityMode` と `validate_native_window_frame_interval_wait_authority_mode` により、minifb internal target-fps pacing と future host-owned deadline timer authority を同時に frame interval authority として扱わない。host-owned mode validation は compatibility check だけで、wait evidence は生成しない。

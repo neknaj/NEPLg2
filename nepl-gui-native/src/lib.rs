@@ -3623,6 +3623,438 @@ where
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopLinuxSelectorFd {
+    raw_fd: i32,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopLinuxTimerFd {
+    raw_fd: i32,
+}
+
+#[cfg(test)]
+fn native_window_host_loop_linux_selector_fd_raw(
+    handle: &NativeWindowHostLoopLinuxSelectorFd,
+) -> i32 {
+    handle.raw_fd
+}
+
+#[cfg(test)]
+fn native_window_host_loop_linux_timer_fd_raw(handle: &NativeWindowHostLoopLinuxTimerFd) -> i32 {
+    handle.raw_fd
+}
+
+pub const NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED: u32 = 1;
+pub const NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY: u32 = 2;
+pub const NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED: u32 = 0xFFFF_FFFF;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopLinuxTimerFdTimespec {
+    seconds: i64,
+    nanoseconds: i64,
+}
+
+impl NativeWindowHostLoopLinuxTimerFdTimespec {
+    pub fn seconds(self) -> i64 {
+        self.seconds
+    }
+
+    pub fn nanoseconds(self) -> i64 {
+        self.nanoseconds
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan {
+    AlreadyReached,
+    RelativeTimespec(NativeWindowHostLoopLinuxTimerFdTimespec),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxSelectorTimerFdWake {
+    TimerFired,
+    HostEventReady,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxSelectorTimerFdBackendError {
+    InvalidSelectorRawFd { raw_fd: i32 },
+    InvalidTimerRawFd { raw_fd: i32 },
+    CreateSelectorFailed { code: u32 },
+    CreateTimerFdFailed { code: u32 },
+    RegisterTimerFdFailed { code: u32 },
+    ArmTimerFdFailed { code: u32 },
+    SelectorWaitFailed { code: u32 },
+    UnexpectedSelectorStatus { status: u32 },
+    ElapsedNanosOverflow,
+    DeadlineDeltaOverflow { now_nanos: u64, deadline_nanos: u64 },
+    TimespecSecondsOverflow { delta_nanos: u64 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError {
+    BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    SelectorTimerFdBackendFailed(NativeWindowHostLoopLinuxSelectorTimerFdBackendError),
+}
+
+pub trait NativeWindowHostLoopLinuxSelectorTimerFdRawApi {
+    fn create_selector_raw(&mut self) -> i32;
+
+    fn create_timer_fd_raw(&mut self) -> i32;
+
+    fn register_timer_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> bool;
+
+    fn arm_timer_fd_relative_timespec(
+        &mut self,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+        timespec: NativeWindowHostLoopLinuxTimerFdTimespec,
+    ) -> bool;
+
+    fn selector_wait_for_timer_or_event_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> u32;
+
+    fn selector_wait_for_event_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+    ) -> u32;
+
+    fn close_selector_raw(&mut self, selector: &NativeWindowHostLoopLinuxSelectorFd) -> bool;
+
+    fn close_timer_fd_raw(&mut self, timer: &NativeWindowHostLoopLinuxTimerFd) -> bool;
+
+    fn last_error_code(&mut self) -> u32;
+}
+
+pub fn native_window_host_loop_linux_selector_fd_from_raw(
+    raw_fd: i32,
+) -> Result<NativeWindowHostLoopLinuxSelectorFd, NativeWindowHostLoopLinuxSelectorTimerFdBackendError>
+{
+    if raw_fd < 0 {
+        return Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd { raw_fd },
+        );
+    }
+    Ok(NativeWindowHostLoopLinuxSelectorFd { raw_fd })
+}
+
+pub fn native_window_host_loop_linux_timer_fd_from_raw(
+    raw_fd: i32,
+) -> Result<NativeWindowHostLoopLinuxTimerFd, NativeWindowHostLoopLinuxSelectorTimerFdBackendError>
+{
+    if raw_fd < 0 {
+        return Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidTimerRawFd { raw_fd },
+        );
+    }
+    Ok(NativeWindowHostLoopLinuxTimerFd { raw_fd })
+}
+
+pub fn native_window_host_loop_linux_timer_fd_timespec_from_nanos(
+    delta_nanos: u64,
+) -> Result<
+    NativeWindowHostLoopLinuxTimerFdTimespec,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+> {
+    let seconds_u64 = delta_nanos / 1_000_000_000;
+    let nanoseconds_u64 = delta_nanos % 1_000_000_000;
+    let seconds = i64::try_from(seconds_u64).map_err(|_| {
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError::TimespecSecondsOverflow {
+            delta_nanos,
+        }
+    })?;
+    let nanoseconds = i64::try_from(nanoseconds_u64).map_err(|_| {
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError::TimespecSecondsOverflow {
+            delta_nanos,
+        }
+    })?;
+    Ok(NativeWindowHostLoopLinuxTimerFdTimespec {
+        seconds,
+        nanoseconds,
+    })
+}
+
+pub fn native_window_host_loop_linux_selector_timer_fd_deadline_plan(
+    now_nanos: u64,
+    deadline_nanos: u64,
+) -> Result<
+    NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+> {
+    if deadline_nanos <= now_nanos {
+        return Ok(NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan::AlreadyReached);
+    }
+    let delta_nanos = deadline_nanos.checked_sub(now_nanos).ok_or(
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError::DeadlineDeltaOverflow {
+            now_nanos,
+            deadline_nanos,
+        },
+    )?;
+    Ok(
+        NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan::RelativeTimespec(
+            native_window_host_loop_linux_timer_fd_timespec_from_nanos(delta_nanos)?,
+        ),
+    )
+}
+
+pub fn native_window_host_loop_linux_selector_timer_fd_wake_from_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<
+    NativeWindowHostLoopLinuxSelectorTimerFdWake,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+> {
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED => {
+            Ok(NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired)
+        }
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY => {
+            Ok(NativeWindowHostLoopLinuxSelectorTimerFdWake::HostEventReady)
+        }
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED => Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SelectorWaitFailed {
+                code: last_error_code,
+            },
+        ),
+        status => Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnexpectedSelectorStatus {
+                status,
+            },
+        ),
+    }
+}
+
+pub fn native_window_host_loop_linux_selector_timer_fd_host_event_from_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<(), NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY => Ok(()),
+        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED => Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SelectorWaitFailed {
+                code: last_error_code,
+            },
+        ),
+        status => Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnexpectedSelectorStatus {
+                status,
+            },
+        ),
+    }
+}
+
+#[derive(Debug)]
+pub struct NativeWindowHostLoopLinuxSelectorTimerFdBackend<
+    Api: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+> {
+    origin: std::time::Instant,
+    api: Api,
+    selector: Option<NativeWindowHostLoopLinuxSelectorFd>,
+    timer: Option<NativeWindowHostLoopLinuxTimerFd>,
+}
+
+impl<Api> NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>
+where
+    Api: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    pub fn new(mut api: Api) -> Result<Self, NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        let selector_raw_fd = api.create_selector_raw();
+        let selector = match native_window_host_loop_linux_selector_fd_from_raw(selector_raw_fd) {
+            Ok(selector) => selector,
+            Err(NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                ..
+            }) => {
+                return Err(
+                    NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateSelectorFailed {
+                        code: api.last_error_code(),
+                    },
+                );
+            }
+            Err(error) => return Err(error),
+        };
+        let timer_raw_fd = api.create_timer_fd_raw();
+        let timer = match native_window_host_loop_linux_timer_fd_from_raw(timer_raw_fd) {
+            Ok(timer) => timer,
+            Err(NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidTimerRawFd {
+                ..
+            }) => {
+                let _ = api.close_selector_raw(&selector);
+                return Err(
+                    NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateTimerFdFailed {
+                        code: api.last_error_code(),
+                    },
+                );
+            }
+            Err(error) => {
+                let _ = api.close_selector_raw(&selector);
+                return Err(error);
+            }
+        };
+        if !api.register_timer_fd_raw(&selector, &timer) {
+            let _ = api.close_timer_fd_raw(&timer);
+            let _ = api.close_selector_raw(&selector);
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::RegisterTimerFdFailed {
+                    code: api.last_error_code(),
+                },
+            );
+        }
+        Ok(Self {
+            origin: std::time::Instant::now(),
+            api,
+            selector: Some(selector),
+            timer: Some(timer),
+        })
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn are_handles_open(&self) -> bool {
+        self.selector.is_some() && self.timer.is_some()
+    }
+
+    pub fn close_handles_if_open(&mut self) -> bool {
+        let timer = self.timer.take();
+        let selector = self.selector.take();
+        let mut closed = false;
+        if let Some(timer) = timer {
+            let _ = self.api.close_timer_fd_raw(&timer);
+            closed = true;
+        }
+        if let Some(selector) = selector {
+            let _ = self.api.close_selector_raw(&selector);
+            closed = true;
+        }
+        closed
+    }
+
+    fn elapsed_nanos(&self) -> Result<u64, NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        u64::try_from(self.origin.elapsed().as_nanos())
+            .map_err(|_| NativeWindowHostLoopLinuxSelectorTimerFdBackendError::ElapsedNanosOverflow)
+    }
+
+    pub fn wait_for_host_event(
+        &mut self,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<(), NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        let selector = self.selector.as_ref().ok_or(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                raw_fd: -1,
+            },
+        )?;
+        let status = self.api.selector_wait_for_event_raw(selector);
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED {
+            self.api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_linux_selector_timer_fd_host_event_from_status(
+            status,
+            last_error_code,
+        )
+    }
+
+    pub fn wait_until_deadline_or_host_event(
+        &mut self,
+        deadline_nanos: u64,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<
+        NativeWindowHostLoopLinuxSelectorTimerFdWake,
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    > {
+        let now_nanos = self.elapsed_nanos()?;
+        let plan = native_window_host_loop_linux_selector_timer_fd_deadline_plan(
+            now_nanos,
+            deadline_nanos,
+        )?;
+        let NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan::RelativeTimespec(timespec) = plan
+        else {
+            return Ok(NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired);
+        };
+        let selector = self.selector.as_ref().ok_or(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                raw_fd: -1,
+            },
+        )?;
+        let timer = self.timer.as_ref().ok_or(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidTimerRawFd { raw_fd: -1 },
+        )?;
+        let api = &mut self.api;
+        if !api.arm_timer_fd_relative_timespec(timer, timespec) {
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::ArmTimerFdFailed {
+                    code: api.last_error_code(),
+                },
+            );
+        }
+        let status = api.selector_wait_for_timer_or_event_raw(selector, timer);
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED {
+            api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_linux_selector_timer_fd_wake_from_status(status, last_error_code)
+    }
+}
+
+impl<Api> Drop for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>
+where
+    Api: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    fn drop(&mut self) {
+        self.close_handles_if_open();
+    }
+}
+
+pub fn build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection<Api>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    api: Api,
+) -> Result<
+    NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError,
+>
+where
+    Api: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    let checked_selection =
+        validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+            selection.platform(),
+            selection.backend(),
+        )
+        .map_err(NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed)?;
+    if checked_selection.platform() != NativeWindowHostLoopPlatformKind::Linux
+        || checked_selection.backend()
+            != NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd
+    {
+        return Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: checked_selection.platform(),
+                    requested: checked_selection.backend(),
+                },
+            ),
+        );
+    }
+    NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).map_err(
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed,
+    )
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct NativeWindowHostLoopWindowsWaitHandle {
     raw_handle: isize,
 }
@@ -13398,6 +13830,316 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_selector_timer_fd_handles_accept_zero_and_reject_negative_raw_fds() {
+        assert_eq!(
+            native_window_host_loop_linux_selector_fd_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                raw_fd: -1,
+            }
+        );
+        assert_eq!(
+            native_window_host_loop_linux_timer_fd_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidTimerRawFd { raw_fd: -1 }
+        );
+
+        let selector = native_window_host_loop_linux_selector_fd_from_raw(0).unwrap();
+        let timer = native_window_host_loop_linux_timer_fd_from_raw(0).unwrap();
+        assert_eq!(native_window_host_loop_linux_selector_fd_raw(&selector), 0);
+        assert_eq!(native_window_host_loop_linux_timer_fd_raw(&timer), 0);
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_timespec_uses_checked_seconds_and_nanoseconds() {
+        assert_eq!(
+            native_window_host_loop_linux_timer_fd_timespec_from_nanos(0).unwrap(),
+            NativeWindowHostLoopLinuxTimerFdTimespec {
+                seconds: 0,
+                nanoseconds: 0,
+            }
+        );
+        assert_eq!(
+            native_window_host_loop_linux_timer_fd_timespec_from_nanos(1_000_000_001).unwrap(),
+            NativeWindowHostLoopLinuxTimerFdTimespec {
+                seconds: 1,
+                nanoseconds: 1,
+            }
+        );
+        assert_eq!(
+            native_window_host_loop_linux_timer_fd_timespec_from_nanos(u64::MAX).unwrap(),
+            NativeWindowHostLoopLinuxTimerFdTimespec {
+                seconds: 18_446_744_073,
+                nanoseconds: 709_551_615,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_deadline_plan_uses_already_reached_or_timespec() {
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_deadline_plan(1_000, 1_000).unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan::AlreadyReached
+        );
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_deadline_plan(1_000, 1_000_001_001)
+                .unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdDeadlinePlan::RelativeTimespec(
+                NativeWindowHostLoopLinuxTimerFdTimespec {
+                    seconds: 1,
+                    nanoseconds: 1,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_status_maps_timer_host_event_and_failures() {
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_wake_from_status(
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired
+        );
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_wake_from_status(
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdWake::HostEventReady
+        );
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_wake_from_status(
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED,
+                98,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SelectorWaitFailed { code: 98 }
+        );
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_wake_from_status(7, 0).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnexpectedSelectorStatus {
+                status: 7,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_host_event_status_rejects_timer_fired() {
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_host_event_from_status(
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+                0,
+            )
+            .unwrap(),
+            ()
+        );
+        assert_eq!(
+            native_window_host_loop_linux_selector_timer_fd_host_event_from_status(
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED,
+                0,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnexpectedSelectorStatus {
+                status: NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_rejects_selector_creation_failure() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, 5)
+            .with_last_error_code(11);
+
+        assert_eq!(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateSelectorFailed { code: 11 }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_rejects_timer_fd_creation_failure() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, -1)
+            .with_last_error_code(12);
+
+        let error = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap_err();
+        assert_eq!(
+            error,
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateTimerFdFailed { code: 12 }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_rejects_register_failure() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5)
+            .with_last_error_code(13)
+            .with_register_result(false);
+
+        assert_eq!(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::RegisterTimerFdFailed {
+                code: 13,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_wait_for_host_event_uses_event_only_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(6, 7)
+            .with_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+            ]);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(backend.wait_for_host_event(window_size, true).unwrap(), ());
+        assert_eq!(backend.api().selector_create_calls, 1);
+        assert_eq!(backend.api().timer_create_calls, 1);
+        assert_eq!(backend.api().register_calls, vec![(6, 7)]);
+        assert_eq!(backend.api().event_wait_calls, vec![6]);
+        assert!(backend.api().timer_wait_calls.is_empty());
+        assert!(backend.api().arm_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_wait_until_deadline_arms_timespec_and_maps_timer(
+    ) {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(8, 9)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED,
+            ]);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        let wake = backend
+            .wait_until_deadline_or_host_event(10_000_000_000, window_size, false)
+            .unwrap();
+
+        assert_eq!(
+            wake,
+            NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired
+        );
+        assert_eq!(backend.api().arm_calls.len(), 1);
+        assert_eq!(backend.api().arm_calls[0].0, 9);
+        assert!(backend.api().arm_calls[0].1.seconds() >= 0);
+        assert_eq!(backend.api().timer_wait_calls, vec![(8, 9)]);
+        assert!(backend.api().event_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_wait_until_deadline_maps_host_ready() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(10, 11)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+            ]);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(10_000_000_000, window_size, true)
+                .unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdWake::HostEventReady
+        );
+        assert_eq!(backend.api().timer_wait_calls, vec![(10, 11)]);
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_wait_until_deadline_rejects_arm_failure() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(12, 13)
+            .with_last_error_code(14)
+            .with_arm_result(false);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(10_000_000_000, window_size, false)
+                .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::ArmTimerFdFailed { code: 14 }
+        );
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_wait_until_deadline_already_reached_avoids_raw_wait(
+    ) {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(14, 15);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(0, window_size, false)
+                .unwrap(),
+            NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired
+        );
+        assert!(backend.api().arm_calls.is_empty());
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_closes_selector_and_timer_once() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(16, 17);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(backend.close_handles_if_open(), true);
+        assert_eq!(backend.close_handles_if_open(), false);
+        assert_eq!(backend.api().close_timer_calls, vec![17]);
+        assert_eq!(backend.api().close_selector_calls, vec![16]);
+        assert_eq!(backend.are_handles_open(), false);
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_builder_requires_validated_linux_selection() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(18, 19);
+
+        assert_eq!(
+            build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+                selection, api
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Macos,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_backend_builder_preserves_raw_api_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, 19)
+            .with_last_error_code(20);
+
+        assert_eq!(
+            build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+                selection, api
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateSelectorFailed {
+                    code: 20,
+                }
+            )
+        );
+    }
+
+    #[test]
     fn native_window_windows_wait_handle_rejects_null_and_invalid_raw_handles() {
         assert_eq!(
             native_window_host_loop_windows_wait_handle_from_raw(0).unwrap_err(),
@@ -15524,6 +16266,156 @@ mod tests {
                 .push(native_window_host_loop_macos_run_loop_timer_handle_raw(
                     handle,
                 ));
+            true
+        }
+
+        fn last_error_code(&mut self) -> u32 {
+            self.last_error_calls += 1;
+            self.last_error_code
+        }
+    }
+
+    #[derive(Debug)]
+    struct ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi {
+        selector_raw_fd: i32,
+        timer_raw_fd: i32,
+        register_result: bool,
+        arm_result: bool,
+        timer_or_event_statuses: Vec<u32>,
+        event_statuses: Vec<u32>,
+        last_error_code: u32,
+        selector_create_calls: usize,
+        timer_create_calls: usize,
+        register_calls: Vec<(i32, i32)>,
+        arm_calls: Vec<(i32, NativeWindowHostLoopLinuxTimerFdTimespec)>,
+        timer_wait_calls: Vec<(i32, i32)>,
+        event_wait_calls: Vec<i32>,
+        close_selector_calls: Vec<i32>,
+        close_timer_calls: Vec<i32>,
+        last_error_calls: usize,
+    }
+
+    impl ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi {
+        fn new(selector_raw_fd: i32, timer_raw_fd: i32) -> Self {
+            Self {
+                selector_raw_fd,
+                timer_raw_fd,
+                register_result: true,
+                arm_result: true,
+                timer_or_event_statuses: Vec::new(),
+                event_statuses: Vec::new(),
+                last_error_code: 0,
+                selector_create_calls: 0,
+                timer_create_calls: 0,
+                register_calls: Vec::new(),
+                arm_calls: Vec::new(),
+                timer_wait_calls: Vec::new(),
+                event_wait_calls: Vec::new(),
+                close_selector_calls: Vec::new(),
+                close_timer_calls: Vec::new(),
+                last_error_calls: 0,
+            }
+        }
+
+        fn with_last_error_code(mut self, code: u32) -> Self {
+            self.last_error_code = code;
+            self
+        }
+
+        fn with_register_result(mut self, result: bool) -> Self {
+            self.register_result = result;
+            self
+        }
+
+        fn with_arm_result(mut self, result: bool) -> Self {
+            self.arm_result = result;
+            self
+        }
+
+        fn with_timer_or_event_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.timer_or_event_statuses = statuses;
+            self
+        }
+
+        fn with_event_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.event_statuses = statuses;
+            self
+        }
+
+        fn next_status(statuses: &mut Vec<u32>) -> u32 {
+            if statuses.is_empty() {
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_FAILED
+            } else {
+                statuses.remove(0)
+            }
+        }
+    }
+
+    impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
+        for ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi
+    {
+        fn create_selector_raw(&mut self) -> i32 {
+            self.selector_create_calls += 1;
+            self.selector_raw_fd
+        }
+
+        fn create_timer_fd_raw(&mut self) -> i32 {
+            self.timer_create_calls += 1;
+            self.timer_raw_fd
+        }
+
+        fn register_timer_fd_raw(
+            &mut self,
+            selector: &NativeWindowHostLoopLinuxSelectorFd,
+            timer: &NativeWindowHostLoopLinuxTimerFd,
+        ) -> bool {
+            self.register_calls.push((
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                native_window_host_loop_linux_timer_fd_raw(timer),
+            ));
+            self.register_result
+        }
+
+        fn arm_timer_fd_relative_timespec(
+            &mut self,
+            timer: &NativeWindowHostLoopLinuxTimerFd,
+            timespec: NativeWindowHostLoopLinuxTimerFdTimespec,
+        ) -> bool {
+            self.arm_calls
+                .push((native_window_host_loop_linux_timer_fd_raw(timer), timespec));
+            self.arm_result
+        }
+
+        fn selector_wait_for_timer_or_event_raw(
+            &mut self,
+            selector: &NativeWindowHostLoopLinuxSelectorFd,
+            timer: &NativeWindowHostLoopLinuxTimerFd,
+        ) -> u32 {
+            self.timer_wait_calls.push((
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                native_window_host_loop_linux_timer_fd_raw(timer),
+            ));
+            Self::next_status(&mut self.timer_or_event_statuses)
+        }
+
+        fn selector_wait_for_event_raw(
+            &mut self,
+            selector: &NativeWindowHostLoopLinuxSelectorFd,
+        ) -> u32 {
+            self.event_wait_calls
+                .push(native_window_host_loop_linux_selector_fd_raw(selector));
+            Self::next_status(&mut self.event_statuses)
+        }
+
+        fn close_selector_raw(&mut self, selector: &NativeWindowHostLoopLinuxSelectorFd) -> bool {
+            self.close_selector_calls
+                .push(native_window_host_loop_linux_selector_fd_raw(selector));
+            true
+        }
+
+        fn close_timer_fd_raw(&mut self, timer: &NativeWindowHostLoopLinuxTimerFd) -> bool {
+            self.close_timer_calls
+                .push(native_window_host_loop_linux_timer_fd_raw(timer));
             true
         }
 

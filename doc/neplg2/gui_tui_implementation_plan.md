@@ -569,6 +569,22 @@ subagent review:
 - Darwin the 2nd の plan review は `PLAN_CHANGES`。macOS backend を generic platform owner へ統合するには actual macOS sys shim と run-loop ownership の検証が不足するため、F5ht は raw API / status / deadline / handle ownership 境界だけに絞るよう指摘された。
 - revised plan では、fake raw API tests と source policy で raw boundary を固定し、generic platform owner、CLI、runner dispatch への接続を後続へ残す方針にした。
 
+## Phase F5hu: Native Linux selector timerfd raw backend boundary
+
+F5hu では、Linux selector / timerfd backend の actual sys shim と platform wait owner integration へ進む前に、selector fd owner、timerfd owner、`NativeWindowHostLoopLinuxSelectorTimerFdRawApi` raw API 境界、relative timespec conversion、timer-or-event status mapping、close-once cleanup の contract を固定する。これは `epoll` / `poll` / `select` / `timerfd_*` を直接呼ぶ実装ではなく、fake raw API による library-level contract checkpoint である。
+
+selector fd と timerfd は別 owner として保持する。Linux では fd `0` が有効な descriptor になり得るため、invalid sentinel は `raw_fd < 0` だけにする。public API は raw fd accessor や owned raw fd escape を持たず、constructor failure と raw wait failure は typed error として返す。
+
+raw API contract は、selector creation、timerfd creation、timerfd registration、relative timespec arm、timer-or-host-event wait、host-event-only wait、selector close、timerfd close、last error code を分ける。construction failure では作成済み fd を逆順に close し、normal cleanup では timerfd と selector をそれぞれ高々 1 回だけ close する。
+
+deadline は monotonic origin からの nanoseconds で扱い、到達済み deadline は `TimerFired` として immediate wake にする。relative timespec は seconds と nanoseconds を `/ 1_000_000_000`、`% 1_000_000_000`、`i64::try_from` で checked conversion し、clamp、saturating arithmetic、sleep、busy loop、synthetic host event は使わない。timer-or-event wait は `TimerFired` と `HostEventReady` を別 enum に写し、host-event-only wait で timer fired raw status が返った場合は unexpected status として拒否する。
+
+この phase では、generic `NativeWindowHostLoopPlatformWaitBackend` へ `LinuxSelectorTimerFd(...)` owner variant を追加しない。`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` の実装、CLI selection、native platform runner dispatch、actual Linux sys shim、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は後続 slice に分ける。
+
+subagent review:
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。ただし、fd `0` を有効として扱い invalid は `raw_fd < 0` に限定すること、selector fd と timerfd の ownership を混ぜず close-once を保つこと、timespec conversion を checked にすること、`TimerFired` と `HostEventReady` を分けること、actual sys shim / generic owner / trait impl / CLI / runner dispatch は scope 外にすることが required constraint とされた。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
