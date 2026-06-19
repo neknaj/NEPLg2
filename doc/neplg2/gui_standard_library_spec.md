@@ -797,7 +797,17 @@ selector は `epoll_create1 EPOLL_CLOEXEC`、timer は `timerfd_create CLOCK_MON
 
 timer-or-event wait は `epoll_wait` が timer fd readiness を返し、さらに `read` で `u64` expiration count を exactly drain でき、count が 0 でない場合だけ `TimerFired` evidence に変換できる。unknown fd、unexpected event flags、timeout、`epoll_wait` failure、`read` failure、short read、zero expiration は `FAILED` status と `last_error_code` へ保存し、synthetic timer fired evidence を作らない。
 
-host-event-only wait は現 raw trait に host event fd registration boundary が無いため、`ENOTSUP` 相当の failure として fail closed にする。`HostEventReady` を返して host event wake を捏造しない。host event fd integration、generic platform wait helper、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+host-event-only wait は現 raw trait に host event fd registration boundary が無いため、`ENOTSUP` 相当の failure として fail closed にする。`HostEventReady` を返して host event wake を捏造しない。F5hy 単独では host event fd integration、generic platform wait helper、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
+## F5hz Native Linux host event fd integration boundary
+
+2026-06-20 の F5hz では、F5hy の Linux sys shim に host event fd owner を追加する。`NativeWindowHostLoopLinuxHostEventFd` は selector / timerfd と同じ private raw fd owner であり、fd `0` は有効、`raw_fd < 0` だけを invalid とする。public raw fd accessor は作らない。
+
+`NativeWindowHostLoopLinuxSelectorTimerFdRawApi` は `create_host_event_fd_raw`、`register_host_event_fd_raw`、`close_host_event_fd_raw` を持ち、timer-or-event wait と host-event-only wait は host event fd owner を明示的に受け取る。backend は selector、timerfd、host event fd の 3 owner を持つ。constructor は selector、timerfd、timer registration、host event fd、host event registration の順で作り、失敗時は作成済み owner を逆順で close する。close 成功で元の失敗 code を消さない。
+
+cfg Linux sys shim は host event fd として `eventfd 0 EFD_CLOEXEC | EFD_NONBLOCK` を使い、selector へ `EPOLLIN` で登録する。timer-or-event wait は ready fd が timerfd なら timerfd の `u64` expiration drain 後だけ `TimerFired`、host event fd なら eventfd の `u64` counter drain 後だけ `HostEventReady` を返す。host-event-only wait は host event fd readiness だけを成功にする。unknown fd、terminal flags、short read、zero count、syscall failure は typed wait failure として返す。
+
+F5hz は host event fd owner / registration / readiness mapping までであり、eventfd への write/signal producer、generic platform wait helper の Linux sys constructor、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic host event、timer fired evidence の偽装は禁止する。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

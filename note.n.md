@@ -72964,3 +72964,43 @@ MERGE_APPROVED
 
 - Linux host event fd integration、Linux generic platform helper connection、native runner / CLI dispatch はまだ未実装である。
 - macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 GUI native F5hz Native Linux host event fd integration boundary
+
+### scope
+
+- F5hz は F5hy の Linux selector / timerfd sys shim に host event fd owner を追加する checkpoint である。
+- host event fd は `NativeWindowHostLoopLinuxHostEventFd` として private raw fd owner にし、fd `0` は有効、負値だけ invalid とする。
+- Linux sys shim は `eventfd` を host event readiness source として selector へ登録する。
+- eventfd write / signal producer、generic platform wait helper、runner / CLI、minifb wait path への接続は後続に残す。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、`eventfd` を cfg Linux sys shim に閉じること、host event fd を private owner にすること、constructor cleanup と close-once cleanup を source policy / unit test で固定すること、host-event-only wait は host event fd readiness だけを成功にすること、timer fired evidence と host event evidence を混ぜないこと、eventfd producer や generic platform helper へ進まないことだった。
+
+### implementation
+
+- `NativeWindowHostLoopLinuxHostEventFd`、host event fd validator、private raw helper を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に host event fd create / register / close と、host event fd owner を受け取る wait method を追加した。
+- Linux backend は selector、timerfd、host event fd の 3 owner を保持し、constructor failure cleanup と normal close-once cleanup を host event fd 対応にした。
+- cfg Linux sys shim は `eventfd 0 EFD_CLOEXEC | EFD_NONBLOCK` を作り、`epoll_ctl` で selector へ登録する。timerfd readiness は timerfd drain 後だけ `TimerFired`、eventfd readiness は eventfd drain 後だけ `HostEventReady` にする。
+- scripted raw API、Never raw API、unit tests、source policy、GUI docs、`todo.md` を F5hz contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`。warning は `native_window_host_loop_windows_wait_handle_raw` の cfg Linux target 上の dead_code であり、F5hz の host event fd blocker ではない。
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 300s で完走しなかった。F5hz で更新した focused source policy は `node nodesrc/test_native_gui_platform_behavior.js` で通過済みである。
+
+### implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code/doc/source policy blocker ではなく、この F5hz セクションに `verification_current` と `implementation_review` が未記録であることだった。
+- 指摘時点で、fd `0` valid / negative invalid、selector / timer / host event owner 分離、逆順 cleanup、close success で failure code を消さない方針、event-only wait の timer-fired 拒否、TimerFired / HostEventReady evidence 分離、minifb / generic platform / runner 未接続は F5hz plan と Zenn / doc 方針に沿っていると確認された。

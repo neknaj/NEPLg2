@@ -1059,7 +1059,7 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を追加し、`NativeWindowHostLoopLinuxSelectorTimerFdRawApi` だけを実装する。
 - selector creation、timerfd creation、timerfd registration、relative timer arm、timer-or-event wait、close、last error code を syscall shim 内へ分ける。
-- host-event-only wait は host event fd registration が未設計であるため `ENOTSUP` 相当の failure として fail closed にする。
+- host-event-only wait は host event fd registration が未設計であるため `ENOTSUP` 相当の failure として fail closed にする。F5hy 単独では host event fd owner を作らない。
 
 検証:
 
@@ -1071,6 +1071,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - host event fd integration、generic platform wait helper の Linux sys constructor、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - `EINTR` retry loop、thread sleep、busy loop、fallback、silent no-op、synthetic host event / timer fired evidence は導入しない。
+
+### Phase F5hz: Native Linux host event fd integration boundary
+
+目的:
+
+- F5hy の Linux selector / timerfd sys shim に host event fd owner を追加し、host-event-only wait が synthetic readiness ではなく actual host event fd readiness だけで成功するようにする。
+- Linux-specific primitive は cfg Linux sys shim へ閉じ、core/fake raw backend slice には `libc`、`eventfd`、`epoll` を漏らさない。
+- event producer、generic platform helper、runner / CLI 接続へは進まず、host event fd owner / registration / readiness mapping だけを固定する。
+
+実装:
+
+- `NativeWindowHostLoopLinuxHostEventFd`、`native_window_host_loop_linux_host_event_fd_from_raw`、private raw helper を追加する。fd `0` は有効、負値だけ invalid とする。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に host event fd creation / registration / close と、host event fd を受け取る wait method を追加する。
+- backend は selector、timerfd、host event fd を所有し、constructor failure cleanup は逆順で行う。close-once cleanup は host event fd、timerfd、selector の順に行う。
+- cfg Linux sys shim は `eventfd 0 EFD_CLOEXEC | EFD_NONBLOCK` を作成し、selector へ `EPOLLIN` で登録する。
+- timer-or-event wait は timerfd readiness と timer drain だけを `TimerFired`、eventfd readiness と eventfd drain だけを `HostEventReady` とする。host-event-only wait は eventfd readiness だけを成功にする。
+
+検証:
+
+- Rust unit tests で fd `0` / negative validation、host event creation failure、host event registration failure、event-only wait の host event fd identity、timer-or-event wait の timer / host event fd identity、close-once cleanup を検査する。
+- source policy で raw API method、constructor order、cleanup order、cfg Linux `eventfd` usage、timer/event readiness mapping、fallback / silent no-op / synthetic evidence 禁止を固定する。
+- 可能な環境では `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu` を実行し、Linux cfg sys shim が型検査されることを確認する。
+
+非目標:
+
+- eventfd write / signal producer、generic platform wait helper の Linux sys constructor、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- thread sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
 
 ## Checkpoint Commit Rule
 
