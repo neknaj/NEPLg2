@@ -687,6 +687,20 @@ backend wait の結果は `HostEventReady` を `HostEventPumpAlreadyPaced`、`De
 
 F5ho は generic platform wait builder、minifb smoke runner、`Window::set_target_fps` replacement、macOS run loop timer、Linux selector / timerfd へ接続しない。sleep、busy loop、minifb pacing、scripted native substitute、synthetic timer fire、fallback、silent no-op は禁止する。
 
+## F5hp Native Windows platform wait support gate boundary
+
+2026-06-20 の F5hp では、Windows wait backend を platform wait backend owner として扱い、single-owner run-loop wait hook へ接続する二段階 support gate を追加する。
+
+`NativeWindowHostLoopPlatformWaitBackend Api` は、この checkpoint では `WindowsWaitableTimerMessageWait` variant だけを持つ。variant は `NativeWindowHostLoopWindowsWaitBackend Api` を所有し、`NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` は Windows backend へ委譲する。error は `NativeWindowHostLoopPlatformWaitBackendError` によって Windows backend error を保持する。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は `NativeWindowHostLoopPlatformWaitBackendSelection` を再検査し、Windows + WindowsWaitableTimerMessageWait の場合だけ supplied raw API で Windows backend を構築する。MacOS / Linux の validated selection は `BackendImplementationUnavailable` として返す。mismatch、unsupported platform、native `HeadlessScripted` selection は `BackendSupportFailed` として返す。Windows raw API construction failure は `WindowsWaitBackendFailed` として保持する。
+
+旧 F5hm の `build_native_window_host_loop_platform_wait_backend_from_selection` は API / handle owner を受け取らないため、引き続き no-owner fail-closed probe として `BackendImplementationUnavailable` を返す。暗黙の sys API 作成、dummy host、headless scripted fallback、minifb pacing、thread sleep、busy loop、synthetic timer fire は返さない。
+
+`native_window_host_loop_platform_wait_run_loop_host_from_backend` は backend construction 成功後の infallible helper である。host と platform backend を受け取り、`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter` と `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` を組み立てる。support failure や Windows backend construction failure では host owner を消費しない。
+
+cfg-windows の `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopWindowsWaitSysApi` を使う backend construction helper だけを提供する。host-consuming fallible helper は作らない。F5hp は minifb runner、`Window::set_target_fps`、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へ接続しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

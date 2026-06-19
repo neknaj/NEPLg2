@@ -1,3 +1,52 @@
+# 2026-06-20 Agent2 GUI native F5hp Windows platform wait support gate boundary
+
+## scope
+
+- F5hn Windows wait backend と F5ho single-owner run-loop wait hook を、platform wait backend owner として接続する support gate を追加する。
+- fallible backend construction と infallible host wrapping を二段階に分け、backend build failure で run-loop host owner を消費しない。
+- 旧 F5hm no-owner builder は fail-closed probe として残す。minifb runner、`Window::set_target_fps`、macOS run loop timer、Linux selector / timerfd にはまだ接続しない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。fallible helper が host を受け取ると support failure / Windows backend construction failure で host owner を失うため、backend construction と host wrapping を分離するよう指摘された。
+- revised plan では、fallible injected backend builder と infallible wrapper helper に分ける形にして `PLAN_APPROVED` を得た。
+- required constraints は、selection を raw API handle 作成前に再検査すること、support failure / backend unavailable / Windows raw API failure を分離すること、旧 no-owner builder を fail-closed probe として残すこと、dummy / headless / minifb / sleep variant を追加しないこと、minifb path が platform backend owner / wrapper に触れないこと、host-consuming fallible builder を作らないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackend` を追加し、現 checkpoint では Windows waitable timer / message wait backend だけを所有する形にした。
+- `NativeWindowHostLoopPlatformWaitBackendError` を追加し、platform backend の clock / interruptible waiter 実装は Windows backend error を保持して委譲する。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` を追加し、validated selection を再検査してから supplied raw API で Windows backend を構築する。MacOS / Linux は typed unavailable のまま返す。
+- `native_window_host_loop_platform_wait_run_loop_host_from_backend` を追加し、構築済み backend を F5ho single-owner adapter と run-loop host wrapper へ infallible に包む。
+- source-policy、docs、`todo.md` を F5hp contract へ更新中である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 17 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 250 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受けた。code-level blocker は無いが、`todo.md` の長い GUI/TUI residual が F5ho 後続表記のままであること、`note.n.md` の implementation review が pending のままであることを指摘された。
+- 指摘対応として、`todo.md` の長い residual を F5hp 後続へ更新し、この implementation review 欄を追加した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。fallible backend construction が host を消費しないこと、selection revalidation、typed error 分離、旧 no-owner builder の fail-closed 維持、minifb / headless / sleep fallback 非導入に blocker は無いことが確認された。
+
+## residual
+
+- Windows platform wait backend は native run-loop configuration / minifb runner へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5ho single-owner interruptible wait adapter boundary
 
 ## scope

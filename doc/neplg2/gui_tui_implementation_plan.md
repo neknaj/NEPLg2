@@ -491,6 +491,23 @@ subagent review:
 
 - Darwin the 2nd に F5ho 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、Backend の clock/waiter 同一 error type を型で固定すること、`HostEventReady` から timer-fired evidence を作らないこと、invalid wait / id overflow を clock/read/wait より前に fail closed すること、deadline wait 直前だけ `next_raw_id` を進めて再利用しないこと、OS handle や raw internals を露出しないこと、minifb runner / generic platform builder / `set_target_fps` へ接続しないことである。
 
+## Phase F5hp: Native Windows platform wait support gate boundary
+
+F5hp では、F5hn の Windows wait backend と F5ho の single-owner run-loop wait hook を接続する support gate を追加する。目的は、Windows backend を platform wait backend owner として扱えるようにしつつ、backend construction failure で run-loop host owner を失わない二段階 contract を固定することである。
+
+`NativeWindowHostLoopPlatformWaitBackend Api` は、この checkpoint では `WindowsWaitableTimerMessageWait NativeWindowHostLoopWindowsWaitBackend Api` だけを持つ。MacOS / Linux の backend はまだ実装されていないため、この enum に dummy variant、headless scripted variant、minifb variant、sleep variant、busy-loop variant は追加しない。`NativeWindowHostLoopPlatformWaitBackendError` は Windows backend error を保持し、string や generic backend failure に潰さない。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は validated selection を再検査し、Windows + WindowsWaitableTimerMessageWait の場合だけ supplied raw API から Windows backend を作る。MacOS / Linux の validated selection は `BackendImplementationUnavailable` として返し、mismatch / unsupported は `BackendSupportFailed` として返す。旧 F5hm の `build_native_window_host_loop_platform_wait_backend_from_selection` は API / handle owner を受け取らない no-owner fail-closed probe として残し、actual backend を暗黙に作らない。
+
+run-loop host への接続は fallible builder に含めない。backend construction 成功後にだけ、`native_window_host_loop_platform_wait_run_loop_host_from_backend` が host と platform backend を受け取り、`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter` と `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` を infallible に組み立てる。このため support failure、Windows raw API failure、MacOS / Linux unavailable で host owner を消費しない。
+
+cfg-windows helper は `NativeWindowHostLoopWindowsWaitSysApi` を使う backend construction helper だけを提供する。host-consuming fallible helper は作らない。minifb runner、`Window::set_target_fps` replacement、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は後続で扱う。sleep、busy loop、headless fallback、synthetic timer fire、fallback、silent no-op は禁止する。
+
+subagent review:
+
+- Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。fallible helper が host を受け取ると build failure で host owner を失うため、backend construction と host wrapping を二段階に分けるよう指摘された。
+- revised plan では、fallible backend builder と infallible wrapper helper に分離し、`PLAN_APPROVED` を得た。required constraints は、selection を raw API handle 作成前に再検査すること、support failure / backend unavailable / Windows raw API failure を分離すること、旧 no-owner builder を fail-closed probe として残すこと、dummy / headless / minifb / sleep variant を追加しないこと、minifb path が platform backend owner / wrapper に触れないこと、host-consuming fallible builder を作らないことである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
