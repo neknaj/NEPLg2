@@ -131,6 +131,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub fn run_native_window_host_loop<Host>",
         "pub fn step_native_window_host_loop",
     );
+    const nativeWindowFrameIntervalWaitAuthorityMode = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowFrameIntervalWaitAuthorityMode",
+        "pub struct NativeWindowMinifbFramePacingAuthority",
+    );
     const nativeWindowMinifbFramePacingAuthority = textSliceBetween(
         libSource,
         "pub struct NativeWindowMinifbFramePacingAuthority",
@@ -172,6 +177,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
         .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeClockHelperWithoutWaitBackends = nativeClockHelper
@@ -184,6 +190,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
         .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeWindowEventPumpHelperWithoutWaitBackends = nativeWindowEventPumpHelper
@@ -196,6 +203,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
         .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
 
@@ -270,8 +278,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerSliceResult\s*\{[\s\S]*Exited\s*\{[\s\S]*exit: NativeWindowRunLoopExit,[\s\S]*completed_turns: usize,[\s\S]*Waited\s*\{[\s\S]*completed_turns: usize,[\s\S]*decision: NativeWindowHostLoopWaitDecision,[\s\S]*request: NativeWindowHostLoopWaitRequest,[\s\S]*instruction: NativeWindowHostLoopWaitInstruction,[\s\S]*outcome: NativeWindowHostLoopWaitOutcome/);
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerResumeReady\s*\{[\s\S]*HostEventPumped[\s\S]*FramePresentPaced[\s\S]*FrameIntervalTimerFired/);
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerResumeState\s*\{[\s\S]*Ready\(NativeWindowHostLoopSchedulerResumeReady\),[\s\S]*WaitingForFrameIntervalTimer/);
+    assert.match(libSource, /pub enum NativeWindowFrameIntervalWaitAuthorityMode\s*\{[\s\S]*MinifbInternalTargetFps\s*\{\s*target_fps: NativeWindowTargetFps\s*\},[\s\S]*HostOwnedDeadlineTimer/);
+    assert.match(libSource, /pub enum NativeWindowFrameIntervalWaitAuthorityModeError\s*\{[\s\S]*ConflictingFrameIntervalAuthorities\s*\{[\s\S]*active: NativeWindowFrameIntervalWaitAuthorityMode,[\s\S]*requested: NativeWindowFrameIntervalWaitAuthorityMode,[\s\S]*TargetFpsMismatch\s*\{[\s\S]*authority_target_fps: NativeWindowTargetFps,[\s\S]*instruction_target_fps: NativeWindowTargetFps/);
     assert.match(libSource, /pub struct NativeWindowMinifbFramePacingAuthority\s*\{[\s\S]*target_fps: NativeWindowTargetFps/);
-    assert.match(libSource, /pub enum NativeWindowMinifbFramePacingAuthorityError\s*\{[\s\S]*FrameIntervalTargetFpsMismatch\s*\{[\s\S]*authority_target_fps: NativeWindowTargetFps,[\s\S]*instruction_target_fps: NativeWindowTargetFps,[\s\S]*FrameIntervalWaitNanosMismatch\s*\{[\s\S]*wait_nanos: u32,[\s\S]*nanos_per_frame: u32/);
+    assert.match(libSource, /pub enum NativeWindowMinifbFramePacingAuthorityError\s*\{[\s\S]*FrameIntervalAuthorityConflict\s*\{[\s\S]*active: NativeWindowFrameIntervalWaitAuthorityMode,[\s\S]*requested: NativeWindowFrameIntervalWaitAuthorityMode,[\s\S]*FrameIntervalTargetFpsMismatch\s*\{[\s\S]*authority_target_fps: NativeWindowTargetFps,[\s\S]*instruction_target_fps: NativeWindowTargetFps,[\s\S]*FrameIntervalWaitNanosMismatch\s*\{[\s\S]*wait_nanos: u32,[\s\S]*nanos_per_frame: u32/);
     assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
     assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
@@ -409,10 +419,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopSchedulerResumeState::WaitingForFrameIntervalTimer[\s\S]*NativeWindowHostLoopError::TimerFireResumeRequired/);
     assert.doesNotMatch(nativeWindowHostLoopRunner, /run_native_window_host_loop_bounded|wait_after_budget_exhausted|last_wait_decision|WaitDecisionMissing|HostWaitFailed/);
     assert.doesNotMatch(nativeWindowHostLoopRunner, /usize::MAX|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|window\.update\(|update_with_buffer|queue|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowFrameIntervalWaitAuthorityMode, /native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps[\s\S]*NativeWindowFrameIntervalWaitAuthorityMode::MinifbInternalTargetFps/);
+    assert.match(nativeWindowFrameIntervalWaitAuthorityMode, /native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer[\s\S]*NativeWindowFrameIntervalWaitAuthorityMode::HostOwnedDeadlineTimer/);
+    assert.match(nativeWindowFrameIntervalWaitAuthorityMode, /combine_native_window_frame_interval_wait_authority_mode[\s\S]*MinifbInternalTargetFps[\s\S]*active_target_fps == requested_target_fps[\s\S]*HostOwnedDeadlineTimer[\s\S]*HostOwnedDeadlineTimer[\s\S]*ConflictingFrameIntervalAuthorities/);
+    assert.match(nativeWindowFrameIntervalWaitAuthorityMode, /validate_native_window_frame_interval_wait_authority_mode[\s\S]*MinifbInternalTargetFps[\s\S]*instruction_target_fps != target_fps[\s\S]*TargetFpsMismatch[\s\S]*HostOwnedDeadlineTimer => Ok\(\(\)\)/);
+    assert.doesNotMatch(nativeWindowFrameIntervalWaitAuthorityMode, /FramePresentAlreadyPaced|FrameIntervalTimerRegistered|FrameIntervalTimerFired|set_target_fps|window\.update\(|update_with_buffer|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|fallback|silent no-op/i);
     assert.match(nativeWindowMinifbFramePacingAuthority, /impl NativeWindowMinifbFramePacingAuthority[\s\S]*pub fn new\(target_fps: NativeWindowTargetFps\)/);
     assert.match(nativeWindowMinifbFramePacingAuthority, /pub fn target_fps\(self\) -> NativeWindowTargetFps/);
     assert.match(nativeWindowMinifbFramePacingAuthority, /pub fn target_fps_usize\(self\) -> usize[\s\S]*self\.target_fps\.as_usize\(\)/);
-    assert.match(nativeWindowMinifbFramePacingAuthority, /let instruction_target_fps = frame_interval\.target_fps\(\)[\s\S]*instruction_target_fps != self\.target_fps[\s\S]*FrameIntervalTargetFpsMismatch/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /pub fn frame_interval_wait_authority_mode[\s\S]*native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps\(self\.target_fps\)/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /validate_native_window_frame_interval_wait_authority_mode\([\s\S]*self\.frame_interval_wait_authority_mode\(\),[\s\S]*frame_interval,[\s\S]*\)[\s\S]*TargetFpsMismatch[\s\S]*FrameIntervalTargetFpsMismatch/);
     assert.match(nativeWindowMinifbFramePacingAuthority, /let nanos_per_frame = frame_interval\.nanos_per_frame\(\)[\s\S]*wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame \+ 1[\s\S]*FrameIntervalWaitNanosMismatch/);
     assert.match(nativeWindowMinifbFramePacingAuthority, /NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced/);
     assert.doesNotMatch(nativeWindowMinifbFramePacingAuthority, /set_target_fps|window\.update\(|update_with_buffer|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|fallback|silent no-op/i);
@@ -468,6 +484,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
     assert.match(libSource, /native_window_target_fps_accepts_default_and_custom_values/);
     assert.match(libSource, /native_window_target_fps_rejects_zero_and_too_high_values/);
+    assert.match(libSource, /native_window_frame_interval_wait_authority_combines_same_minifb_target/);
+    assert.match(libSource, /native_window_frame_interval_wait_authority_rejects_minifb_and_deadline_conflict/);
+    assert.match(libSource, /native_window_frame_interval_wait_authority_rejects_minifb_target_mismatch/);
+    assert.match(libSource, /native_window_frame_interval_wait_authority_validates_minifb_instruction_target_fps/);
+    assert.match(libSource, /native_window_frame_interval_wait_authority_validates_host_owned_deadline_timer/);
     assert.match(libSource, /native_window_minifb_frame_pacing_authority_accepts_matching_frame_interval/);
     assert.match(libSource, /native_window_minifb_frame_pacing_authority_accepts_remainder_carry_wait_nanos/);
     assert.match(libSource, /native_window_minifb_frame_pacing_authority_rejects_target_fps_mismatch/);
@@ -855,6 +876,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowMinifbFramePacingAuthority/);
     assert.match(platformDoc, /set_target_fps 0/);
     assert.match(platformDoc, /tight loop/);
+    assert.match(platformDoc, /F5hf/);
+    assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
+    assert.match(platformDoc, /HostOwnedDeadlineTimer/);
+    assert.match(platformDoc, /ConflictingFrameIntervalAuthorities/);
+    assert.match(platformDoc, /wait evidence を作らない/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -945,6 +971,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /FramePresentAlreadyPaced/);
     assert.match(implementationPlan, /set_target_fps 0/);
     assert.match(implementationPlan, /deadline timer owner 未接続/);
+    assert.match(implementationPlan, /Phase F5hf: Native frame interval wait authority mode boundary/);
+    assert.match(implementationPlan, /NativeWindowFrameIntervalWaitAuthorityMode/);
+    assert.match(implementationPlan, /HostOwnedDeadlineTimer/);
+    assert.match(implementationPlan, /ConflictingFrameIntervalAuthorities/);
+    assert.match(implementationPlan, /selector \/ message-loop timer ownership の実装ではなく/);
+    assert.match(implementationPlan, /wait evidence を生成しない/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1020,6 +1052,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowMinifbFramePacingAuthority/);
     assert.match(standardSpec, /minifb internal `Window::set_target_fps` pacing が active authority/);
     assert.match(standardSpec, /set_target_fps 0/);
+    assert.match(standardSpec, /F5hf Native frame interval wait authority mode boundary/);
+    assert.match(standardSpec, /NativeWindowFrameIntervalWaitAuthorityMode/);
+    assert.match(standardSpec, /HostOwnedDeadlineTimer/);
+    assert.match(standardSpec, /ConflictingFrameIntervalAuthorities/);
+    assert.match(standardSpec, /FrameIntervalTimerRegistered/);
+    assert.match(standardSpec, /FrameIntervalTimerFired/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

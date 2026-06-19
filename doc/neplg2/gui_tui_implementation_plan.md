@@ -341,6 +341,20 @@ subagent review:
 - Darwin the 2nd の初回 plan review は、`set_target_fps 0` による即時置換を `CHANGES_REQUESTED` とした。現在の `WaitForHostEvent` は `window.update` を通るため、minifb internal pacing を無効化すると tight loop になるためである。
 - 改訂 plan では、F5he を minifb internal target-fps pacing authority boundary に絞り、typed `NativeWindowTargetFps` を保持する authority helper、`FramePresentAlreadyPaced` の authority 経由化、`set_target_fps 0` 禁止、deadline timer owner 未接続を条件として `PLAN_APPROVED` を得た。
 
+## Phase F5hf: Native frame interval wait authority mode boundary
+
+F5hf では、frame interval wait の authority が minifb internal target-fps pacing と host-owned deadline timer のどちらなのかを typed mode として表す。これは selector / message-loop timer ownership の実装ではなく、そこへ進む前に二重 authority を拒否する safety boundary である。
+
+`NativeWindowFrameIntervalWaitAuthorityMode` は `MinifbInternalTargetFps target_fps` と `HostOwnedDeadlineTimer` を持つ。`combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れ、minifb と host-owned の組み合わせ、または target fps が異なる minifb mode を `ConflictingFrameIntervalAuthorities` として拒否する。
+
+`validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction の `frame_interval.target_fps` と authority target を照合する。host-owned deadline timer mode は、すでに作られた wait instruction を timer owner が消費するための compatibility check であり、`FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered`、`FrameIntervalTimerFired` のどれも生成しない。
+
+`NativeWindowMinifbFramePacingAuthority` は自分の authority mode を返し、`FramePresentAlreadyPaced` を返す前にこの validation helper を通る。F5hf でも minifb wait hook は F5hd wait owner / std deadline timer adapter へ接続しない。`set_target_fps 0`、fallback、silent no-op、busy loop は禁止する。
+
+subagent review:
+
+- Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
