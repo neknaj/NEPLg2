@@ -1513,6 +1513,30 @@ subagent review:
 - Darwin the 2nd に F5gv 計画を渡し、raw status validation が pure rename ではないこと、ready status だけを accepted にすること、actual OS API 接続を later slice へ残すこと、source-policy の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gw: Native window host-loop message pump adapter boundary
+
+Phase F5gw では、F5gv の normalized status adapter へ actual message pump adapter を接続する。ここでいう actual は platform window backend が持つ message pump を実行するという意味であり、標準 API に OS handle、DOM、Canvas、minifb 型を出すという意味ではない。
+
+実装:
+
+- `NativeWindowHostLoopMessagePumpAdapter` trait を追加し、`pump_host_messages` は `NativeWindowSize` と `size_changed` evidence を受け取って `Result unit Error` を返す。
+- `NativeWindowHostLoopMessagePumpStatusAdapter` を追加し、pump 成功時だけ F5gv の `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` を返す。
+- pump failure は `NativeWindowHostLoopMessagePumpStatusAdapterError::PumpFailed` として保持する。
+- minifb smoke backend では `MinifbNativeWindowHostLoopMessagePumpAdapter` に `window.update` を閉じ込め、`wait_after_budget_exhausted` は direct update ではなく `wait_minifb_window_host_event_message_pump` 経由で F5gu / F5gv の event queue waiter 境界を通す。
+- source policy は message pump adapter slice だけに `window.update` を許可し、event pump helper、host-loop core、message pump status adapter には minifb / timer / sleep / DOM / Canvas / video memory / fallback / silent no-op が混入しないことを検査する。
+
+非目標:
+
+- real OS timer backend connection は含めない。
+- frame interval wait を message pump adapter で扱わない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、busy loop は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gw 計画を渡し、OS 固有結果を normalized status / typed error へ写す adapter boundary とすること、platform detail 分離、timer backend を別 slice に残すことを確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1336,6 +1336,9 @@ pub enum NativeWindowRunLoopError {
     WindowPresentFailed {
         message: String,
     },
+    HostWaitFailed {
+        message: String,
+    },
     WaitDecisionMissing,
 }
 
@@ -1816,6 +1819,63 @@ where
             window_size,
             size_changed,
         )
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopMessagePumpStatusAdapterError<PumpError> {
+    PumpFailed(PumpError),
+}
+
+pub trait NativeWindowHostLoopMessagePumpAdapter {
+    type Error;
+
+    fn pump_host_messages(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<(), Self::Error>;
+}
+
+#[derive(Clone, Debug)]
+pub struct NativeWindowHostLoopMessagePumpStatusAdapter<Adapter> {
+    adapter: Adapter,
+}
+
+impl<Adapter> NativeWindowHostLoopMessagePumpStatusAdapter<Adapter> {
+    pub fn new(adapter: Adapter) -> Self {
+        Self { adapter }
+    }
+
+    pub fn adapter(&self) -> &Adapter {
+        &self.adapter
+    }
+
+    pub fn adapter_mut(&mut self) -> &mut Adapter {
+        &mut self.adapter
+    }
+
+    pub fn into_inner(self) -> Adapter {
+        self.adapter
+    }
+}
+
+impl<Adapter> NativeWindowHostLoopEventQueueStatusAdapter
+    for NativeWindowHostLoopMessagePumpStatusAdapter<Adapter>
+where
+    Adapter: NativeWindowHostLoopMessagePumpAdapter,
+{
+    type Error = NativeWindowHostLoopMessagePumpStatusAdapterError<Adapter::Error>;
+
+    fn wait_for_host_event_raw_status(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<u32, Self::Error> {
+        self.adapter
+            .pump_host_messages(window_size, size_changed)
+            .map_err(NativeWindowHostLoopMessagePumpStatusAdapterError::PumpFailed)?;
+        Ok(NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY)
     }
 }
 
@@ -3443,6 +3503,61 @@ where
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+#[derive(Debug)]
+struct MinifbNativeWindowHostLoopMessagePumpAdapter<'window> {
+    window: &'window mut minifb::Window,
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+impl NativeWindowHostLoopMessagePumpAdapter for MinifbNativeWindowHostLoopMessagePumpAdapter<'_> {
+    type Error = std::convert::Infallible;
+
+    fn pump_host_messages(
+        &mut self,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<(), Self::Error> {
+        self.window.update();
+        Ok(())
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+type MinifbNativeWindowHostLoopMessagePumpWaitError = NativeWindowHostLoopEventQueueWaitError<
+    NativeWindowHostLoopEventQueueStatusAdapterError<
+        NativeWindowHostLoopMessagePumpStatusAdapterError<std::convert::Infallible>,
+    >,
+>;
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn wait_minifb_window_host_event_message_pump(
+    window: &mut minifb::Window,
+    window_size: NativeWindowSize,
+    size_changed: bool,
+) -> Result<NativeWindowHostLoopWaitOutcome, MinifbNativeWindowHostLoopMessagePumpWaitError> {
+    let adapter = NativeWindowHostLoopMessagePumpStatusAdapter::new(
+        MinifbNativeWindowHostLoopMessagePumpAdapter { window },
+    );
+    let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(adapter);
+    let event_queue_outcome = execute_native_window_host_loop_event_queue_wait_with_waiter(
+        NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed,
+        },
+        &mut waiter,
+    )?;
+    match event_queue_outcome {
+        NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady {
+            window_size,
+            size_changed,
+        } => Ok(NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+            window_size,
+            size_changed,
+        }),
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 struct MinifbNativeWindowRunLoopHost<'window> {
     window: &'window mut minifb::Window,
 }
@@ -3451,7 +3566,7 @@ struct MinifbNativeWindowRunLoopHost<'window> {
 impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
     type EventError = NativeWindowEventPumpError;
     type PresentError = String;
-    type WaitError = std::convert::Infallible;
+    type WaitError = MinifbNativeWindowHostLoopMessagePumpWaitError;
 
     fn poll_event_snapshot(
         &mut self,
@@ -3482,10 +3597,9 @@ impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
             NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size,
                 size_changed,
-            } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
-                window_size,
-                size_changed,
-            },
+            } => {
+                wait_minifb_window_host_event_message_pump(self.window, window_size, size_changed)?
+            }
             NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                 presentation,
                 window_size,
@@ -3542,7 +3656,11 @@ pub fn run_minifb_window_loop(
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn native_window_run_loop_error_from_host_loop(
-    error: NativeWindowHostLoopError<NativeWindowEventPumpError, String, std::convert::Infallible>,
+    error: NativeWindowHostLoopError<
+        NativeWindowEventPumpError,
+        String,
+        MinifbNativeWindowHostLoopMessagePumpWaitError,
+    >,
 ) -> NativeWindowRunLoopError {
     match error {
         NativeWindowHostLoopError::HostEventPumpFailed(error) => {
@@ -3557,7 +3675,11 @@ fn native_window_run_loop_error_from_host_loop(
         NativeWindowHostLoopError::HostPresentFailed(message) => {
             NativeWindowRunLoopError::WindowPresentFailed { message }
         }
-        NativeWindowHostLoopError::HostWaitFailed(error) => match error {},
+        NativeWindowHostLoopError::HostWaitFailed(error) => {
+            NativeWindowRunLoopError::HostWaitFailed {
+                message: format!("{error:?}"),
+            }
+        }
         NativeWindowHostLoopError::WaitDecisionMissing => {
             NativeWindowRunLoopError::WaitDecisionMissing
         }
@@ -6943,6 +7065,68 @@ mod tests {
     }
 
     #[test]
+    fn native_window_message_pump_status_adapter_maps_success_to_ready_status() {
+        let window_size = NativeWindowSize::new(1024, 768);
+        let pump_adapter = ScriptedNativeWindowHostLoopMessagePumpAdapter::new();
+        let mut status_adapter = NativeWindowHostLoopMessagePumpStatusAdapter::new(pump_adapter);
+
+        assert_eq!(
+            status_adapter
+                .wait_for_host_event_raw_status(window_size, true)
+                .unwrap(),
+            NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY
+        );
+        assert_eq!(
+            status_adapter.adapter().pump_calls,
+            vec![(window_size, true)]
+        );
+    }
+
+    #[test]
+    fn native_window_message_pump_status_adapter_preserves_pump_error() {
+        let window_size = NativeWindowSize::new(1024, 768);
+        let pump_adapter =
+            ScriptedNativeWindowHostLoopMessagePumpAdapter::new().with_error("pump failed");
+        let mut status_adapter = NativeWindowHostLoopMessagePumpStatusAdapter::new(pump_adapter);
+
+        assert_eq!(
+            status_adapter
+                .wait_for_host_event_raw_status(window_size, false)
+                .unwrap_err(),
+            NativeWindowHostLoopMessagePumpStatusAdapterError::PumpFailed("pump failed")
+        );
+        assert_eq!(
+            status_adapter.adapter().pump_calls,
+            vec![(window_size, false)]
+        );
+    }
+
+    #[test]
+    fn native_window_message_pump_waiter_reaches_event_queue_wait_boundary() {
+        let window_size = NativeWindowSize::new(1024, 768);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let pump_adapter = ScriptedNativeWindowHostLoopMessagePumpAdapter::new();
+        let status_adapter = NativeWindowHostLoopMessagePumpStatusAdapter::new(pump_adapter);
+        let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(status_adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_event_queue_wait_with_waiter(instruction, &mut waiter)
+                .unwrap(),
+            NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert_eq!(
+            waiter.adapter().adapter().pump_calls,
+            vec![(window_size, true)]
+        );
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -8190,6 +8374,42 @@ mod tests {
                 Err(error)
             } else {
                 Ok(self.raw_status)
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopMessagePumpAdapter {
+        pump_calls: Vec<(NativeWindowSize, bool)>,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopMessagePumpAdapter {
+        fn new() -> Self {
+            Self {
+                pump_calls: Vec::new(),
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopMessagePumpAdapter for ScriptedNativeWindowHostLoopMessagePumpAdapter {
+        type Error = &'static str;
+
+        fn pump_host_messages(
+            &mut self,
+            window_size: NativeWindowSize,
+            size_changed: bool,
+        ) -> Result<(), Self::Error> {
+            self.pump_calls.push((window_size, size_changed));
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(())
             }
         }
     }
