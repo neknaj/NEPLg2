@@ -451,6 +451,16 @@ F5gs は native thread sleep backend boundary までであり、host event queue
 
 F5gt は native timer registration backend boundary までであり、host event queue、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
+## F5gu Native window host-loop event queue wait backend boundary
+
+2026-06-19 の F5gu では、F5gr の `NativeWindowHostLoopWaitInstruction` のうち `WaitForHostEvent` を event queue wait backend へ渡す境界を追加する。これは F5gs の thread sleep backend、F5gt の timer registration backend と分離した host-event execution contract である。
+
+`NativeWindowHostLoopEventQueueWaiter` は `wait_for_host_event` だけを持つ injected backend interface である。`execute_native_window_host_loop_event_queue_wait_with_waiter` は `WaitForHostEvent` の場合だけ waiter を 1 回呼び、成功時に `HostEventReady` を返す。waiter failure は `WaiterFailed` として元の error value を保持する。
+
+`WaitForFrameInterval` は `FrameIntervalEventQueueWaitUnsupported` として fail closed にする。event queue wait backend は frame interval wait を timer registration、thread sleep、busy loop、silent no-op で代替しない。
+
+F5gu は event queue wait backend boundary までであり、real OS event queue / selector / message pump adapter、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

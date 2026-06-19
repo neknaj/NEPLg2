@@ -1459,6 +1459,33 @@ subagent review:
 - Darwin the 2nd に F5gt 計画を渡し、raw timer id validation、host event wait unsupported、timer registration と thread wait / minifb pacing の分離、source-policy の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gu: Native window host-loop event queue wait backend boundary
+
+Phase F5gu では、F5gr の `NativeWindowHostLoopWaitInstruction` を host event queue wait backend へ渡す execution boundary を追加する。F5gs は frame interval の thread sleep、F5gt は frame interval の timer registration を扱い、F5gu は host event wait だけを扱う。
+
+実装:
+
+- `NativeWindowHostLoopEventQueueWaiter` trait を追加し、`wait_for_host_event window_size size_changed` は host event wait boundary として `Result unit Error` を返す。
+- `NativeWindowHostLoopEventQueueWaitError` を追加し、`FrameIntervalEventQueueWaitUnsupported` と `WaiterFailed` を分ける。
+- `NativeWindowHostLoopEventQueueWaitOutcome` を追加し、host event wait success を `HostEventReady` として返す。
+- `execute_native_window_host_loop_event_queue_wait_with_waiter` を追加し、host event instruction の場合だけ waiter を 1 回呼ぶ。
+- frame interval instruction は `FrameIntervalEventQueueWaitUnsupported` として拒否し、timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+- source policy は event queue wait backend が minifb、window update、timer registration、thread sleep、`Duration`、DOM、Canvas、video memory、fallback、silent no-op を持たないことを検査する。
+
+非目標:
+
+- real OS event queue / selector / message pump adapter は含めない。
+- minifb wait hook へ event queue wait を接続しない。
+- real OS timer backend は含めない。
+- `std::thread::sleep` / `Duration` は使わない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、busy loop は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gu 計画を渡し、`Result unit Error` waiter がこの slice では十分であること、raw OS status validation は later adapter slice に残すこと、event queue wait と timer / thread wait / minifb pacing の分離、source-policy の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

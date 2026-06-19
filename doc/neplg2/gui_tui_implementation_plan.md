@@ -195,6 +195,16 @@ host event wait は `HostEventTimerRegistrationUnsupported` を返す。OS event
 
 この phase は native timer registration backend boundary までであり、host event queue、selector、message pump、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## Phase F5gu: Native window host-loop event queue wait backend boundary
+
+F5gu では、F5gr の wait instruction のうち `WaitForHostEvent` だけを event queue wait backend へ渡す実行境界を追加する。これは F5gs の thread sleep backend、F5gt の timer registration backend と対になる host-event wait contract であり、frame interval wait を扱わない。
+
+`NativeWindowHostLoopEventQueueWaiter` は injected backend interface であり、`wait_for_host_event` は `NativeWindowSize` と `size_changed` evidence を受け取る。`execute_native_window_host_loop_event_queue_wait_with_waiter` は host event instruction の場合だけ waiter を 1 回呼び、成功時に `HostEventReady` を返す。waiter failure は `WaiterFailed` として元の error value を保持する。
+
+frame interval wait は `FrameIntervalEventQueueWaitUnsupported` を返す。event queue wait backend は timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+
+この phase は event queue wait backend boundary までであり、real OS event queue / selector / message pump adapter、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
