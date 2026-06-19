@@ -1357,7 +1357,7 @@ pub trait NativeWindowRunLoopHost {
 
     fn wait_after_budget_exhausted(
         &mut self,
-        request: NativeWindowHostLoopWaitRequest,
+        instruction: NativeWindowHostLoopWaitInstruction,
     ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError>;
 }
 
@@ -1435,6 +1435,21 @@ pub enum NativeWindowHostLoopWaitRequest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWaitInstruction {
+    WaitForHostEvent {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    WaitForFrameInterval {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        frame_interval: NativeWindowFrameIntervalRequest,
+        wait_nanos: u32,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopWaitOutcome {
     HostEventPumpAlreadyPaced {
         window_size: NativeWindowSize,
@@ -1479,17 +1494,23 @@ impl Default for NativeWindowHostLoopRunnerState {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeWindowHostLoopSchedulerState {
     runner_state: NativeWindowHostLoopRunnerState,
+    wait_strategy_state: NativeWindowHostLoopWaitStrategyState,
 }
 
 impl NativeWindowHostLoopSchedulerState {
     pub fn new() -> Self {
         Self {
             runner_state: NativeWindowHostLoopRunnerState::new(),
+            wait_strategy_state: NativeWindowHostLoopWaitStrategyState::new(),
         }
     }
 
     pub fn title_initialized(&self) -> bool {
         self.runner_state.title_initialized()
+    }
+
+    pub fn wait_strategy_state(&self) -> NativeWindowHostLoopWaitStrategyState {
+        self.wait_strategy_state
     }
 }
 
@@ -1497,6 +1518,41 @@ impl Default for NativeWindowHostLoopSchedulerState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopWaitStrategyState {
+    frame_pacing_target_fps: Option<NativeWindowTargetFps>,
+    frame_pacing_remainder_nanos: u32,
+}
+
+impl NativeWindowHostLoopWaitStrategyState {
+    pub fn new() -> Self {
+        Self {
+            frame_pacing_target_fps: None,
+            frame_pacing_remainder_nanos: 0,
+        }
+    }
+
+    pub fn frame_pacing_target_fps(self) -> Option<NativeWindowTargetFps> {
+        self.frame_pacing_target_fps
+    }
+
+    pub fn frame_pacing_remainder_nanos(self) -> u32 {
+        self.frame_pacing_remainder_nanos
+    }
+}
+
+impl Default for NativeWindowHostLoopWaitStrategyState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopWaitInstructionPlan {
+    pub next_strategy_state: NativeWindowHostLoopWaitStrategyState,
+    pub instruction: NativeWindowHostLoopWaitInstruction,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1527,6 +1583,7 @@ pub enum NativeWindowHostLoopSchedulerSliceResult {
         completed_turns: usize,
         decision: NativeWindowHostLoopWaitDecision,
         request: NativeWindowHostLoopWaitRequest,
+        instruction: NativeWindowHostLoopWaitInstruction,
         outcome: NativeWindowHostLoopWaitOutcome,
     },
 }
@@ -2732,6 +2789,62 @@ pub fn native_window_host_loop_wait_request(
     }
 }
 
+pub fn native_window_host_loop_wait_instruction_plan(
+    strategy_state: NativeWindowHostLoopWaitStrategyState,
+    request: NativeWindowHostLoopWaitRequest,
+) -> NativeWindowHostLoopWaitInstructionPlan {
+    match request {
+        NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            window_size,
+            size_changed,
+        } => NativeWindowHostLoopWaitInstructionPlan {
+            next_strategy_state: strategy_state,
+            instruction: NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+                window_size,
+                size_changed,
+            },
+        },
+        NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+            frame_interval,
+        } => {
+            let target_fps = frame_interval.target_fps();
+            let target_fps_value = u32::from(target_fps.value());
+            let carried_remainder = if strategy_state.frame_pacing_target_fps() == Some(target_fps)
+            {
+                strategy_state.frame_pacing_remainder_nanos()
+            } else {
+                0
+            };
+            let combined_remainder =
+                carried_remainder + frame_interval.remainder_nanos_per_second();
+            let (wait_nanos, next_remainder) = if combined_remainder >= target_fps_value {
+                (
+                    frame_interval.nanos_per_frame() + 1,
+                    combined_remainder - target_fps_value,
+                )
+            } else {
+                (frame_interval.nanos_per_frame(), combined_remainder)
+            };
+            NativeWindowHostLoopWaitInstructionPlan {
+                next_strategy_state: NativeWindowHostLoopWaitStrategyState {
+                    frame_pacing_target_fps: Some(target_fps),
+                    frame_pacing_remainder_nanos: next_remainder,
+                },
+                instruction: NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                    presentation,
+                    window_size,
+                    size_changed,
+                    frame_interval,
+                    wait_nanos,
+                },
+            }
+        }
+    }
+}
+
 pub fn run_native_window_host_loop_bounded<Host>(
     runner_state: &mut NativeWindowHostLoopRunnerState,
     backend_loop: &mut NativeWindowBackendLoop,
@@ -2823,13 +2936,19 @@ where
             last_wait_decision: Some(decision),
         } => {
             let request = native_window_host_loop_wait_request(decision.clone(), target_fps);
+            let instruction_plan = native_window_host_loop_wait_instruction_plan(
+                scheduler_state.wait_strategy_state,
+                request.clone(),
+            );
             let outcome = host
-                .wait_after_budget_exhausted(request.clone())
+                .wait_after_budget_exhausted(instruction_plan.instruction.clone())
                 .map_err(NativeWindowHostLoopError::HostWaitFailed)?;
+            scheduler_state.wait_strategy_state = instruction_plan.next_strategy_state;
             Ok(NativeWindowHostLoopSchedulerSliceResult::Waited {
                 completed_turns,
                 decision,
                 request,
+                instruction: instruction_plan.instruction,
                 outcome,
             })
         }
@@ -3000,21 +3119,22 @@ impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
 
     fn wait_after_budget_exhausted(
         &mut self,
-        request: NativeWindowHostLoopWaitRequest,
+        instruction: NativeWindowHostLoopWaitInstruction,
     ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
-        Ok(match request {
-            NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+        Ok(match instruction {
+            NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size,
                 size_changed,
             } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
                 window_size,
                 size_changed,
             },
-            NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                 presentation,
                 window_size,
                 size_changed,
                 frame_interval: _,
+                wait_nanos: _,
             } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
                 presentation,
                 window_size,
@@ -5916,6 +6036,132 @@ mod tests {
     }
 
     #[test]
+    fn native_window_host_loop_wait_instruction_distributes_frame_remainder() {
+        let target_fps = NativeWindowTargetFps::default();
+        let window_size = NativeWindowSize::new(640, 480);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 3,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let request = NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(target_fps),
+        };
+
+        let plan1 = native_window_host_loop_wait_instruction_plan(
+            NativeWindowHostLoopWaitStrategyState::new(),
+            request.clone(),
+        );
+        assert_eq!(
+            plan1.next_strategy_state.frame_pacing_target_fps(),
+            Some(target_fps)
+        );
+        assert_eq!(plan1.next_strategy_state.frame_pacing_remainder_nanos(), 40);
+        assert_eq!(
+            plan1.instruction,
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                presentation,
+                window_size,
+                size_changed: false,
+                frame_interval: native_window_frame_interval_request(target_fps),
+                wait_nanos: 16_666_666,
+            }
+        );
+
+        let plan2 = native_window_host_loop_wait_instruction_plan(
+            plan1.next_strategy_state,
+            request.clone(),
+        );
+        assert_eq!(plan2.next_strategy_state.frame_pacing_remainder_nanos(), 20);
+        assert_eq!(
+            plan2.instruction,
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                presentation,
+                window_size,
+                size_changed: false,
+                frame_interval: native_window_frame_interval_request(target_fps),
+                wait_nanos: 16_666_667,
+            }
+        );
+
+        let plan3 =
+            native_window_host_loop_wait_instruction_plan(plan2.next_strategy_state, request);
+        assert_eq!(plan3.next_strategy_state.frame_pacing_remainder_nanos(), 0);
+        assert_eq!(
+            plan3.instruction,
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                presentation,
+                window_size,
+                size_changed: false,
+                frame_interval: native_window_frame_interval_request(target_fps),
+                wait_nanos: 16_666_667,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_wait_instruction_resets_remainder_on_target_fps_change() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 4,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let first_target = NativeWindowTargetFps::default();
+        let first_request = NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(first_target),
+        };
+        let first_plan = native_window_host_loop_wait_instruction_plan(
+            NativeWindowHostLoopWaitStrategyState::new(),
+            first_request,
+        );
+        assert_eq!(
+            first_plan
+                .next_strategy_state
+                .frame_pacing_remainder_nanos(),
+            40
+        );
+
+        let second_target = NativeWindowTargetFps::new(120).unwrap();
+        let second_request = NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(second_target),
+        };
+        let second_plan = native_window_host_loop_wait_instruction_plan(
+            first_plan.next_strategy_state,
+            second_request,
+        );
+        assert_eq!(
+            second_plan.next_strategy_state.frame_pacing_target_fps(),
+            Some(second_target)
+        );
+        assert_eq!(
+            second_plan
+                .next_strategy_state
+                .frame_pacing_remainder_nanos(),
+            40
+        );
+        assert_eq!(
+            second_plan.instruction,
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                presentation,
+                window_size,
+                size_changed: false,
+                frame_interval: native_window_frame_interval_request(second_target),
+                wait_nanos: 8_333_333,
+            }
+        );
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -6223,6 +6469,10 @@ mod tests {
                     window_size: unavailable_size,
                     size_changed: true,
                 },
+                instruction: NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+                    window_size: unavailable_size,
+                    size_changed: true,
+                },
                 outcome: NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
                     window_size: unavailable_size,
                     size_changed: true,
@@ -6233,12 +6483,81 @@ mod tests {
         assert_eq!(host.cursor, 1);
         assert_eq!(host.pump_count, 1);
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size: unavailable_size,
                 size_changed: true,
             }]
         );
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_accumulates_frame_interval_remainder() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let first_drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let second_drawable = first_drawable;
+        let mut host =
+            ScriptedNativeWindowRunLoopHost::new(vec![Ok(first_drawable), Ok(second_drawable)]);
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        assert!(matches!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap(),
+            NativeWindowHostLoopSchedulerSliceResult::Waited { .. }
+        ));
+        assert_eq!(
+            scheduler_state
+                .wait_strategy_state()
+                .frame_pacing_remainder_nanos(),
+            40
+        );
+
+        assert!(matches!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap(),
+            NativeWindowHostLoopSchedulerSliceResult::Waited { .. }
+        ));
+        assert_eq!(
+            scheduler_state
+                .wait_strategy_state()
+                .frame_pacing_remainder_nanos(),
+            20
+        );
+
+        assert_eq!(host.wait_instructions.len(), 2);
+        match &host.wait_instructions[0] {
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval { wait_nanos, .. } => {
+                assert_eq!(*wait_nanos, 16_666_666);
+            }
+            NativeWindowHostLoopWaitInstruction::WaitForHostEvent { .. } => {
+                panic!("frame interval instruction expected")
+            }
+        }
+        match &host.wait_instructions[1] {
+            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval { wait_nanos, .. } => {
+                assert_eq!(*wait_nanos, 16_666_667);
+            }
+            NativeWindowHostLoopWaitInstruction::WaitForHostEvent { .. } => {
+                panic!("frame interval instruction expected")
+            }
+        }
     }
 
     #[test]
@@ -6333,12 +6652,53 @@ mod tests {
         );
         assert_eq!(host.cursor, 1);
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size: unavailable_size,
                 size_changed: true,
             }]
         );
+        assert_eq!(
+            scheduler_state
+                .wait_strategy_state()
+                .frame_pacing_remainder_nanos(),
+            0
+        );
+        assert!(host.wait_outcomes.is_empty());
+    }
+
+    #[test]
+    fn native_window_host_loop_scheduler_slice_keeps_wait_strategy_state_on_wait_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host =
+            ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable)]).with_wait_error("wait failed");
+        let mut scheduler_state = NativeWindowHostLoopSchedulerState::new();
+
+        assert_eq!(
+            run_native_window_host_loop_scheduler_slice_with_policy(
+                &mut scheduler_state,
+                &mut loop_state,
+                &mut host,
+                NativeWindowHostLoopRunPolicy::default()
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopError::HostWaitFailed("wait failed")
+        );
+        assert_eq!(
+            scheduler_state
+                .wait_strategy_state()
+                .frame_pacing_remainder_nanos(),
+            0
+        );
+        assert_eq!(host.wait_instructions.len(), 1);
         assert!(host.wait_outcomes.is_empty());
     }
 
@@ -6371,7 +6731,7 @@ mod tests {
                 completed_turns: 1,
             }
         );
-        assert!(host.wait_requests.is_empty());
+        assert!(host.wait_instructions.is_empty());
         assert!(host.wait_outcomes.is_empty());
     }
 
@@ -6411,8 +6771,8 @@ mod tests {
         assert_eq!(host.pump_count, 1);
         assert!(host.present_frames.is_empty());
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size: unavailable_size,
                 size_changed: true,
             }]
@@ -6476,14 +6836,15 @@ mod tests {
             height: initial_size.height,
         };
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                 presentation,
                 window_size: initial_size,
                 size_changed: false,
                 frame_interval: native_window_frame_interval_request(
                     NativeWindowTargetFps::default()
                 ),
+                wait_nanos: 16_666_666,
             }]
         );
         assert_eq!(
@@ -6535,12 +6896,13 @@ mod tests {
             height: initial_size.height,
         };
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                 presentation,
                 window_size: initial_size,
                 size_changed: false,
                 frame_interval: native_window_frame_interval_request(target_fps),
+                wait_nanos: 8_333_333,
             }]
         );
     }
@@ -6593,8 +6955,8 @@ mod tests {
         assert_eq!(host.cursor, 1);
         assert_eq!(host.pump_count, 1);
         assert_eq!(
-            host.wait_requests,
-            vec![NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            host.wait_instructions,
+            vec![NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size: unavailable_size,
                 size_changed: true,
             }]
@@ -6809,7 +7171,7 @@ mod tests {
         titles: Vec<String>,
         pump_count: usize,
         present_frames: Vec<(usize, usize)>,
-        wait_requests: Vec<NativeWindowHostLoopWaitRequest>,
+        wait_instructions: Vec<NativeWindowHostLoopWaitInstruction>,
         wait_outcomes: Vec<NativeWindowHostLoopWaitOutcome>,
         present_error: Option<&'static str>,
         wait_error: Option<&'static str>,
@@ -6823,7 +7185,7 @@ mod tests {
                 titles: Vec::new(),
                 pump_count: 0,
                 present_frames: Vec::new(),
-                wait_requests: Vec::new(),
+                wait_instructions: Vec::new(),
                 wait_outcomes: Vec::new(),
                 present_error: None,
                 wait_error: None,
@@ -6878,25 +7240,26 @@ mod tests {
 
         fn wait_after_budget_exhausted(
             &mut self,
-            request: NativeWindowHostLoopWaitRequest,
+            instruction: NativeWindowHostLoopWaitInstruction,
         ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
-            self.wait_requests.push(request.clone());
+            self.wait_instructions.push(instruction.clone());
             if let Some(error) = self.wait_error {
                 return Err(error);
             }
-            let outcome = match request {
-                NativeWindowHostLoopWaitRequest::WaitForHostEvent {
+            let outcome = match instruction {
+                NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                     window_size,
                     size_changed,
                 } => NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
                     window_size,
                     size_changed,
                 },
-                NativeWindowHostLoopWaitRequest::WaitForFrameInterval {
+                NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                     presentation,
                     window_size,
                     size_changed,
                     frame_interval: _,
+                    wait_nanos: _,
                 } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
                     presentation,
                     window_size,

@@ -179,9 +179,21 @@ F5gq では、F5gp の scheduler slice が持つ wait decision を、native back
 
 `NativeWindowHostLoopWaitRequest` は host event wait と frame interval wait を分ける。host event wait は event payload や queue owner を持たない。frame interval wait は `NativeWindowFrameIntervalRequest` を持ち、validated `NativeWindowTargetFps`、`nanos_per_frame`、`remainder_nanos_per_second` を保持する。`60fps` なら `16_666_666ns` と remainder `40ns/second`、`120fps` なら `8_333_333ns` と remainder `40ns/second` として表し、暗黙の clamp、sentinel、zero-fill fallback は使わない。
 
-`NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。minifb backend では引き続き追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration` を呼ばない。minifb の frame pacing authority は `Window::set_target_fps` と update path に残し、F5gq はその前段の request plan boundary に留める。
+F5gq は decision から request plan を作る境界であり、F5gr 以降の `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request から生成される instruction を受け取る。minifb backend では引き続き追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration` を呼ばない。minifb の frame pacing authority は `Window::set_target_fps` と update path に残し、F5gq はその前段の request plan boundary に留める。
 
 F5gq は actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、DOM / Canvas / video memory transport も導入しない。
+
+## Native window host-loop wait strategy instruction checkpoint
+
+F5gr では、F5gq の wait request plan を host wait hook が消費する wait strategy instruction へ変換する。
+
+`NativeWindowHostLoopWaitStrategyState` は scheduler slice 間で frame pacing target FPS と remainder accumulator を保持する。target FPS が同じ場合だけ previous remainder を使い、target FPS が変わった場合は accumulator を `0` に戻す。accumulator は常に `0 <= remainder < fps` の範囲に保ち、saturating、clamp、sentinel、zero-fill fallback は使わない。
+
+`NativeWindowHostLoopWaitInstruction` は host event wait と frame interval wait を分ける。host event instruction は event payload、queue owner、poll result を持たない。frame interval instruction は `NativeWindowFrameIntervalRequest` と `wait_nanos` を持ち、`wait_nanos` は `nanos_per_frame` または `nanos_per_frame + 1` だけである。
+
+`NativeWindowRunLoopHost::wait_after_budget_exhausted` は request ではなく instruction を受け取る。scheduler slice は wait hook 成功後だけ `NativeWindowHostLoopSchedulerState` の strategy state を進め、failure path では remainder を消費しない。minifb backend は instruction を match して existing pacing outcome を返すだけで、追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration` 変換は行わない。
+
+F5gr は actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、DOM / Canvas / video memory transport も導入しない。
 
 ## Current implementation
 
@@ -196,7 +208,8 @@ F5gq は actual OS wait strategy、queue / timer wait backend、real timer regis
 - `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
 - `NativeWindowHostLoopWaitDecision` により、bounded runner の最後の continue turn を host-event wait class または frame-interval wait class として分類する。
 - `NativeWindowHostLoopWaitRequest` により、wait decision と target FPS から backend wait request plan を作る。
-- `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait request を host wait boundary へ渡す。
+- `NativeWindowHostLoopWaitInstruction` と `NativeWindowHostLoopWaitStrategyState` により、frame interval remainder を scheduler slice 間で配分し、host wait boundary へ渡す typed instruction を作る。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait instruction を host wait boundary へ渡す。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - minifb smoke backend の wait hook は additional `window.update` や sleep を行わず、`Window::set_target_fps` による既存 pacing を `NativeWindowHostLoopWaitOutcome` として記録する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。

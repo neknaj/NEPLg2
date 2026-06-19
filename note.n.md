@@ -71441,3 +71441,50 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gq は wait request plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
+
+## 2026-06-19 GUI native F5gr host-loop wait strategy instruction boundary
+
+### scope
+
+- F5gr は F5gq の wait request plan を、host wait hook が消費する typed wait instruction へ変換する boundary である。
+- `NativeWindowHostLoopWaitInstruction` は host event wait と frame interval wait を分ける。host event instruction は event payload、queue owner、poll result を持たない。
+- `NativeWindowHostLoopWaitStrategyState` は scheduler slice 間の frame pacing target FPS と remainder accumulator を保持する。
+- target FPS が変わった場合は accumulator を reset し、同じ target FPS の場合だけ previous remainder を使う。
+- accumulator invariant は `0 <= remainder < fps` であり、saturating、clamp、sentinel、zero-fill fallback は使わない。
+- frame interval instruction の `wait_nanos` は `nanos_per_frame` または `nanos_per_frame + 1` だけである。
+- actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、accumulator を target FPS に紐づけること、target FPS 変更時は reset または typed transition を明示すること、accumulator invariant を `0 <= accumulator < target_fps` に固定することだった。
+- さらに、`wait_nanos` は base または base + 1 だけにすること、host event instruction は queue owner / event payload / poll result を持たないこと、minifb wait hook は instruction を match して既存 outcome を返すだけにすることが確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopWaitInstruction`、`NativeWindowHostLoopWaitStrategyState`、`NativeWindowHostLoopWaitInstructionPlan` を追加した。
+- `native_window_host_loop_wait_instruction_plan` により、wait request と strategy state から next strategy state と host instruction を作る。
+- scheduler slice は wait hook 成功後だけ `wait_strategy_state` を次状態へ進め、wait failure では accumulator を消費しない。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request ではなく instruction を受け取る。
+- scheduler slice result は `decision`、`request`、`instruction`、`outcome` を保持し、分類、plan、host input、host result を分けて検査できるようにした。
+- minifb wait hook は instruction を match するが、追加の update / sleep / timer を実行しない。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gr contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はなく、typed instruction boundary、scheduler-owned wait strategy state、success-only remainder commit、target FPS 変更時 reset、`wait_nanos` の base / base + 1 限定、`Duration` / sleep / queue / timer / extra minifb update 禁止を満たすことが確認された。
+
+### residual
+
+- 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gr は instruction plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
