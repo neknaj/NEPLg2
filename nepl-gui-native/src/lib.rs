@@ -2911,6 +2911,94 @@ pub fn native_window_host_loop_default_platform_wait_backend_kind() -> Result<
     )
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopPlatformWaitBackendSelection {
+    platform: NativeWindowHostLoopPlatformKind,
+    backend: NativeWindowHostLoopPlatformWaitBackendKind,
+}
+
+impl NativeWindowHostLoopPlatformWaitBackendSelection {
+    pub fn platform(&self) -> NativeWindowHostLoopPlatformKind {
+        self.platform
+    }
+
+    pub fn backend(&self) -> NativeWindowHostLoopPlatformWaitBackendKind {
+        self.backend
+    }
+}
+
+pub fn validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+    platform: NativeWindowHostLoopPlatformKind,
+    requested: NativeWindowHostLoopPlatformWaitBackendKind,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    let backend = validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+        platform, requested,
+    )?;
+    Ok(NativeWindowHostLoopPlatformWaitBackendSelection { platform, backend })
+}
+
+pub fn native_window_host_loop_default_platform_wait_backend_selection_for_platform(
+    platform: NativeWindowHostLoopPlatformKind,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    let requested =
+        native_window_host_loop_default_platform_wait_backend_kind_for_platform(platform)?;
+    validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+        platform, requested,
+    )
+}
+
+pub fn native_window_host_loop_default_platform_wait_backend_selection() -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowHostLoopPlatformWaitBackendSupportError,
+> {
+    native_window_host_loop_default_platform_wait_backend_selection_for_platform(
+        native_window_host_loop_current_platform_kind(),
+    )
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopPlatformWaitHostBuildError {
+    BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    BackendImplementationUnavailable {
+        platform: NativeWindowHostLoopPlatformKind,
+        backend: NativeWindowHostLoopPlatformWaitBackendKind,
+    },
+}
+
+pub fn build_native_window_host_loop_platform_wait_backend_from_selection(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowHostLoopPlatformWaitHostBuildError,
+> {
+    Err(
+        NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
+            platform: selection.platform(),
+            backend: selection.backend(),
+        },
+    )
+}
+
+pub fn build_native_window_host_loop_platform_wait_backend_for_platform(
+    platform: NativeWindowHostLoopPlatformKind,
+    requested: NativeWindowHostLoopPlatformWaitBackendKind,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowHostLoopPlatformWaitHostBuildError,
+> {
+    let selection = validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+        platform, requested,
+    )
+    .map_err(NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed)?;
+    build_native_window_host_loop_platform_wait_backend_from_selection(selection)
+}
+
 pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10846,6 +10934,128 @@ mod tests {
                 }
             ),
         }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_selection_carries_validated_platform_and_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+
+        assert_eq!(
+            selection.platform(),
+            NativeWindowHostLoopPlatformKind::Linux
+        );
+        assert_eq!(
+            selection.backend(),
+            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_selection_rejects_headless_scripted_for_native() {
+        assert_eq!(
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                current: NativeWindowHostLoopPlatformKind::Linux,
+                requested: NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_selection_rejects_unsupported_platform() {
+        assert_eq!(
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Unsupported,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitBackendSupportError::RequestedBackendUnsupportedPlatform {
+                current: NativeWindowHostLoopPlatformKind::Unsupported,
+                requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_default_selection_matches_supported_platforms() {
+        let cases = [
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            ),
+        ];
+
+        for (platform, backend) in cases {
+            let selection =
+                native_window_host_loop_default_platform_wait_backend_selection_for_platform(
+                    platform,
+                )
+                .unwrap();
+            assert_eq!(selection.platform(), platform);
+            assert_eq!(selection.backend(), backend);
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_builder_preserves_selection_as_unavailable() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection(selection)
+                .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
+                platform: NativeWindowHostLoopPlatformKind::Windows,
+                backend:
+                    NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            }
+        );
+        assert_eq!(
+            selection.platform(),
+            NativeWindowHostLoopPlatformKind::Windows
+        );
+        assert_eq!(
+            selection.backend(),
+            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_builder_returns_support_failure_before_unavailable() {
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Macos,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                }
+            )
+        );
     }
 
     #[test]

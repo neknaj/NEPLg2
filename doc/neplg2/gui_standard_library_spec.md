@@ -647,6 +647,16 @@ F5hk は future native OS backend / deterministic test backend が interruptible
 
 F5hl は selector / message-loop timer backend の selection contract であり、macOS AppKit / CoreFoundation run loop timer、Win32 waitable timer / message wait、Linux selector / timerfd の actual implementation ではない。minifb runner、`Window::set_target_fps` authority、thread sleep、busy loop、synthetic timer-fired evidence、DOM / Canvas / video memory transport へは接続しない。
 
+## F5hm Native platform wait backend construction gate boundary
+
+2026-06-20 の F5hm では、F5hl の platform/backend selection を actual backend construction の入口にするため、検証済み token と construction gate を追加する。
+
+`NativeWindowHostLoopPlatformWaitBackendSelection` は current platform と backend kind を保持する検証済み token である。field は private であり、public constructor は置かない。caller は `validate_native_window_host_loop_platform_wait_backend_selection_for_platform` または `native_window_host_loop_default_platform_wait_backend_selection_for_platform` を通して token を得る。
+
+`NativeWindowHostLoopPlatformWaitHostBuildError` は `BackendSupportFailed` と `BackendImplementationUnavailable` を分ける。`BackendSupportFailed` は mismatch、unsupported platform、native selection としての `HeadlessScripted` など F5hl validation failure を保持する。`BackendImplementationUnavailable` は validated selection 後に actual backend がまだ実装されていないことを platform/backend pair として保持する。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection` は actual backend を作ったことにしない。現 checkpoint では dummy host、headless scripted backend、minifb pacing、thread sleep、busy loop、synthetic timer fire を返さず、validated selection の platform/backend を保持した `BackendImplementationUnavailable` を返す。owner を受け取る builder はまだ追加しないため、construction failure で owner を失う経路も作らない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

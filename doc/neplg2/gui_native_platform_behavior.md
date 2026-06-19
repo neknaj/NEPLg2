@@ -337,6 +337,10 @@ F5hl では、actual OS wait backend の前段として、current platform と p
 
 F5hl は backend selection contract であり、macOS AppKit / CoreFoundation、Win32、Wayland/X11 selector、timerfd の actual implementation ではない。minifb smoke runner、`Window::set_target_fps` authority、thread sleep、busy loop、synthetic timer fire、fallback、silent no-op へ接続しない。
 
+F5hm では、F5hl の validation を通った platform/backend pair を `NativeWindowHostLoopPlatformWaitBackendSelection` として保持する。selection token の field は private で、raw enum pair から actual wait host を直接作る経路は置かない。
+
+construction gate は support failure と actual backend unavailable を分ける。mismatch、unsupported platform、headless scripted native selection は `BackendSupportFailed` として validation error を保持し、validated real backend は actual OS backend 未実装を `BackendImplementationUnavailable` として返す。現 checkpoint では dummy host、headless scripted backend、minifb pacing、thread sleep、busy loop、synthetic timer fire を返さず、actual backend を作ったことにしない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -367,6 +371,7 @@ F5hl は backend selection contract であり、macOS AppKit / CoreFoundation、
 - `NativeWindowHostOwnedDeadlineWaitRunLoopHost` により、formal wait owner を `NativeWindowRunLoopHost` の wait hook として使える。event / present 系 operation は inner host に委譲し、wait だけを owner に渡す。これは future native OS backend / deterministic test backend 用の境界であり、minifb runner には接続していない。
 - `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` により、frame interval wait は deadline 到達または host event readiness のどちらでも wake できる。host event wake は `HostEventPumpAlreadyPaced` へ写し、timer fired evidence は生成しない。これは future selector / message-loop timer backend の semantic boundary であり、minifb runner には接続していない。
 - `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` により、interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える。event / present 系 operation は inner host に委譲し、wait だけを interruptible adapter に渡す。これは future native OS backend / deterministic test backend 用の境界であり、minifb runner には接続していない。
+- `NativeWindowHostLoopPlatformWaitBackendSelection` と `NativeWindowHostLoopPlatformWaitHostBuildError` により、platform wait backend construction は validated selection token を入口にし、actual OS backend 未実装を `BackendImplementationUnavailable` として fail closed に返す。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。
 - `NativeWindowFrameIntervalWaitAuthorityMode` と `validate_native_window_frame_interval_wait_authority_mode` により、minifb internal target-fps pacing と future host-owned deadline timer authority を同時に frame interval authority として扱わない。host-owned mode validation は compatibility check だけで、wait evidence は生成しない。

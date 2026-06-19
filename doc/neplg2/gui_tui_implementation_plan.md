@@ -437,6 +437,22 @@ subagent review:
 
 - Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、`HeadlessScripted` を default / native fallback にしないこと、standard spec も同期すること、typed enum と `cfg` selection を source policy で固定すること、runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
 
+## Phase F5hm: Native platform wait backend construction gate boundary
+
+F5hm では、F5hl の platform/backend selection を actual native wait host construction の入口へ接続する。ただし、この phase では macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual implementation はまだ作らない。目的は、未検証の raw backend kind や unsupported backend から platform wait host を作る経路を閉じ、実装未接続の状態を typed error として外へ返すことである。
+
+`NativeWindowHostLoopPlatformWaitBackendSelection` は current platform と backend kind の検証済み pair を保持する。selection token の field は private とし、public constructor は置かない。token は `validate_native_window_host_loop_platform_wait_backend_selection_for_platform` または `native_window_host_loop_default_platform_wait_backend_selection_for_platform` からだけ得る。これにより、future builder は raw enum pair ではなく検証済み token を受け取る。
+
+`NativeWindowHostLoopPlatformWaitHostBuildError` は `BackendSupportFailed NativeWindowHostLoopPlatformWaitBackendSupportError` と `BackendImplementationUnavailable { platform, backend }` を分ける。mismatch、unsupported platform、`HeadlessScripted` の native selection は support failure として validation 段階で止める。validated selection まで進んだ real backend についてだけ、actual implementation が未接続であることを `BackendImplementationUnavailable` で返す。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection` は selection を消費して dummy host、scripted host、sleep adapter、minifb pacing adapter を返さない。現 checkpoint では actual backend を作ったことにせず、selection の platform/backend を保持した unavailable error を返す。owner を受け取る builder はまだ追加しないため、construction failure で host owner を失う経路も作らない。
+
+この phase は construction gate までであり、実 OS backend の代替として headless scripted、minifb、thread sleep、busy loop、synthetic timer fire を返さない。`NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` の dummy adapter 接続、minifb smoke runner 接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hm 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、selection token の field を private にすること、unsupported construction で owner を消費しないこと、validated selection 後だけ `BackendImplementationUnavailable` を返すこと、`HeadlessScripted` / minifb / sleep / busy loop / synthetic timer fire の backend を作らないこと、source policy と test で fixed contract にすることである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

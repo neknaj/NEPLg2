@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5hm platform wait backend construction gate boundary
+
+## scope
+
+- F5hl の後続として、validated platform/backend selection token と fail-closed construction gate を追加する。
+- actual macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd はまだ実装せず、未実装を typed `BackendImplementationUnavailable` として返す。
+- `HeadlessScripted`、minifb pacing、thread sleep、busy loop、synthetic timer fire を actual backend の代替として返さない。
+
+## plan_review
+
+- Darwin the 2nd に F5hm 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、selection token field を private にすること、owner を消費する builder を追加しないこと、validated selection 後だけ `BackendImplementationUnavailable` を返すこと、dummy/scripted/sleep/minifb backend を作らないこと、source policy と test で固定することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackendSelection` を追加し、platform/backend field を private にした。
+- default selection / requested selection helper は F5hl validation helper を通り、raw enum pair から construction gate へ直接入れない。
+- `NativeWindowHostLoopPlatformWaitHostBuildError` を追加し、support failure と implementation unavailable を分けた。
+- construction gate は validated selection を受け取って `BackendImplementationUnavailable { platform, backend }` を返す。actual backend を作ったことにはしない。
+- source-policy、docs、`todo.md` を F5hm contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 11 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 218 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、selection token の field が private であること、F5hl validation / default helper を通ること、`HeadlessScripted` が native selection で拒否され続けること、construction gate が `BackendSupportFailed` と `BackendImplementationUnavailable` を分けること、dummy/scripted/minifb/sleep/busy-loop adapter や F5hk / wait-owner helper に接続していないこと、owner を failure で消費しないこと、docs/todo/source-policy が scope と一致していることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual backend は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI native F5hl platform wait backend selection boundary
 
 ## scope

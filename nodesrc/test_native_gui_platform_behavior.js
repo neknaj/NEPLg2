@@ -467,6 +467,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowPlatformWaitBackendKind, /validate_native_window_host_loop_platform_wait_backend_kind_for_platform[\s\S]*NativeWindowHostLoopPlatformKind::Unsupported[\s\S]*RequestedBackendUnsupportedPlatform[\s\S]*Macos[\s\S]*MacosRunLoopTimer[\s\S]*Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*Linux[\s\S]*LinuxSelectorTimerFd[\s\S]*BackendPlatformMismatch/);
     assert.match(nativeWindowPlatformWaitBackendKind, /native_window_host_loop_default_platform_wait_backend_kind_for_platform[\s\S]*Macos[\s\S]*MacosRunLoopTimer[\s\S]*Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*Linux[\s\S]*LinuxSelectorTimerFd[\s\S]*Unsupported[\s\S]*DefaultBackendUnsupportedPlatform/);
     assert.match(nativeWindowPlatformWaitBackendKind, /native_window_host_loop_default_platform_wait_backend_kind\(\)[\s\S]*native_window_host_loop_current_platform_kind\(\)/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub struct NativeWindowHostLoopPlatformWaitBackendSelection\s*\{[\s\S]*platform: NativeWindowHostLoopPlatformKind,[\s\S]*backend: NativeWindowHostLoopPlatformWaitBackendKind/);
+    assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /pub platform:|pub backend:/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /validate_native_window_host_loop_platform_wait_backend_selection_for_platform[\s\S]*validate_native_window_host_loop_platform_wait_backend_kind_for_platform\([\s\S]*platform,\s*requested,[\s\S]*\)\?[\s\S]*NativeWindowHostLoopPlatformWaitBackendSelection\s*\{\s*platform,\s*backend\s*\}/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /native_window_host_loop_default_platform_wait_backend_selection_for_platform[\s\S]*native_window_host_loop_default_platform_wait_backend_kind_for_platform\(platform\)\?[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*platform,\s*requested,[\s\S]*\)/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitHostBuildError\s*\{[\s\S]*BackendSupportFailed\(NativeWindowHostLoopPlatformWaitBackendSupportError\),[\s\S]*BackendImplementationUnavailable\s*\{[\s\S]*platform: NativeWindowHostLoopPlatformKind,[\s\S]*backend: NativeWindowHostLoopPlatformWaitBackendKind/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_from_selection[\s\S]*BackendImplementationUnavailable\s*\{[\s\S]*platform: selection\.platform\(\),[\s\S]*backend: selection\.backend\(\)/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_for_platform[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*platform,\s*requested,[\s\S]*BackendSupportFailed[\s\S]*build_native_window_host_loop_platform_wait_backend_from_selection\(selection\)/);
     assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /std::env|env::var|env::consts|from_str|parse::<|stringify|to_string|format!|HeadlessScripted\s*\)|=>\s*Ok\(\s*NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted|Minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|execute_native_window_host_loop_wait_with_owner|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(libSource, /native_window_platform_wait_backend_validation_accepts_matching_backend/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_all_real_platform_mismatches/);
@@ -474,6 +481,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_platform_wait_backend_default_maps_real_platforms_without_headless_fallback/);
     assert.match(libSource, /native_window_platform_wait_backend_default_rejects_unsupported_platform/);
     assert.match(libSource, /native_window_current_platform_wait_backend_default_matches_cfg_platform/);
+    assert.match(libSource, /native_window_platform_wait_backend_selection_carries_validated_platform_and_backend/);
+    assert.match(libSource, /native_window_platform_wait_backend_selection_rejects_headless_scripted_for_native/);
+    assert.match(libSource, /native_window_platform_wait_backend_selection_rejects_unsupported_platform/);
+    assert.match(libSource, /native_window_platform_wait_backend_default_selection_matches_supported_platforms/);
+    assert.match(libSource, /native_window_platform_wait_backend_builder_preserves_selection_as_unavailable/);
+    assert.match(libSource, /native_window_platform_wait_backend_builder_returns_support_failure_before_unavailable/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_delegates_non_wait_operations/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_host_event_wait/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_frame_interval_wait/);
@@ -1091,6 +1104,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /FrameIntervalAuthorityFailed/);
     assert.match(implementationPlan, /deadline timer registration \/ clock read \/ sleeper call \/ active timer mutation より前に authority を検査/);
     assert.match(implementationPlan, /macOS run loop timer、Windows waitable timer \/ message wait、Linux selector \/ timerfd の実装ではない/);
+    assert.match(implementationPlan, /Phase F5hm: Native platform wait backend construction gate boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopPlatformWaitBackendSelection/);
+    assert.match(implementationPlan, /BackendImplementationUnavailable/);
+    assert.match(implementationPlan, /selection token の field は private/);
+    assert.match(implementationPlan, /実 OS backend の代替として headless scripted、minifb、thread sleep、busy loop、synthetic timer fire を返さない/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1176,6 +1194,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode/);
     assert.match(standardSpec, /FrameIntervalAuthorityFailed/);
     assert.match(standardSpec, /deadline timer registration、clock read、sleeper call、active timer mutation は起こさない/);
+    assert.match(standardSpec, /F5hm Native platform wait backend construction gate boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopPlatformWaitBackendSelection/);
+    assert.match(standardSpec, /BackendSupportFailed/);
+    assert.match(standardSpec, /BackendImplementationUnavailable/);
+    assert.match(standardSpec, /actual backend を作ったことにしない/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -1231,6 +1254,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop wait owner dispatches event queue and frame timer paths without minifb pacing changes",
             "Native host-loop scheduler resume gate requires timer fire before resuming registered timers",
             "Native host-loop message pump adapter maps pump success through normalized event status",
+            "Native platform wait backend construction gate keeps actual OS backend unavailable fail-closed",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",
