@@ -1,3 +1,52 @@
+# 2026-06-20 Agent2 GUI native F5ik platform wait runner missing-integration reason boundary
+
+## scope
+
+- platform wait support gate で、selection / capability validation は通るが actual runner readiness に必要な実体が未接続のケースを typed missing integration reason として表す。
+- Linux の validated `ExternallyWakeableEventSource` を runner-ready にせず、external event source owner / selector registration missing として返す。
+- macOS は raw / trait boundary まで存在するが actual sys shim / run-loop ownership が未接続であるため、unsupported platform とは別の missing integration として返す。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Windows + `WindowsWaitableTimerMessageWait` は唯一の accepted support-gate path として維持することが条件として確認された。
+- Linux missing capability は `Config MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` のまま維持し、validated `ExternallyWakeableEventSource` だけを integration-missing に写すことが条件として確認された。
+- new integration-missing error は platform/backend selection validation 成功後だけに使い、`selection` と reason-specific data を保持することが条件として確認された。
+- unsupported / impossible runner は `PlatformRunnerUnavailable` のまま残すことが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、`LinuxExternallyWakeableEventSourceOwnerMissing` と `MacosActualSysShimMissing` を分けた。
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing` を追加し、validated selection と missing reason を保持するようにした。
+- Linux externally-wakeable と macOS の support-gate failure を `PlatformRunnerIntegrationMissing` へ移し、Windows accepted path、Linux missing capability、Linux observed-input-only、unsupported platform は従来の stage を維持した。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ik contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ik section の `implementation_review` が pending のままだったことだった。
+- code / source policy / docs は、typed missing-integration enum、old Linux-specific error rejection、Windows-only accepted support-gate path、Linux / macOS missing integration explicit error、fallback / silent no-op 非導入を満たしていると確認された。
+- 指摘対応として、この欄を review result で更新した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ij platform wait CLI support gate boundary
 
 ## scope

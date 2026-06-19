@@ -1303,8 +1303,8 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を分ける。
 - `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を追加する。`NativeWindowRunLoopConfig` から platform wait config を抽出し、selection と current platform を検査する。
 - Windows + `WindowsWaitableTimerMessageWait` は selection を返す。
-- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed`、`ExternallyWakeableEventSource` は `LinuxExternallyWakeableEventSourceIntegrationMissing` を返す。
-- macOS / unsupported platform は `PlatformRunnerUnavailable` を返す。
+- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` を返す。F5ik 以降の current contract では、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として返す。
+- macOS は F5ik 以降 `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` を返す。
 
 検証:
 
@@ -1368,6 +1368,31 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - CLI で `ExternallyWakeableEventSource` や `ObservedInputOnly` を注入しない。Linux runner readiness を CLI 側で偽装しない。
 - support validation を CLI だけへ移さない。library runner entry の validation は残す。
+
+### Phase F5ik: Native platform wait runner missing-integration reason boundary
+
+目的:
+
+- platform wait selection と capability validation は通るが actual runner readiness に必要な実体が未接続である場合を、generic unavailable ではなく typed missing integration reason として返す。
+- Linux の `ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source owner が無い限り runner-ready ではないことを enum で固定する。
+- macOS は raw / trait boundary まで存在するが actual sys shim / run-loop ownership が無いため、unsupported platform とは別の missing integration として表す。
+
+実装:
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、`LinuxExternallyWakeableEventSourceOwnerMissing` と `MacosActualSysShimMissing` を分ける。
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing` を追加し、validated selection と missing reason を保持する。
+- Linux + missing capability は `Config MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` のまま維持する。validated `ExternallyWakeableEventSource` だけを integration-missing に写す。
+- Windows + `WindowsWaitableTimerMessageWait` はこれまで通り accepted selection を返す。unsupported platform は `PlatformRunnerUnavailable` のままにする。
+
+検証:
+
+- Rust unit tests で Linux externally-wakeable と macOS が `PlatformRunnerIntegrationMissing` を返すことを検査する。
+- source policy で new enum / variant、旧 Linux 専用 integration-missing variant の削除、support gate が backend / sys / window / minifb / fallback を呼ばないことを固定する。
+
+非目標:
+
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `ExternallyWakeableEventSource` を runner readiness、scheduler resume evidence、timer fired evidence として扱わない。
 
 ## Checkpoint Commit Rule
 

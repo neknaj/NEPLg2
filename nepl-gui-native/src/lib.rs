@@ -1250,13 +1250,21 @@ pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopPlatformWaitRunnerMissingIntegration {
+    LinuxExternallyWakeableEventSourceOwnerMissing {
+        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    },
+    MacosActualSysShimMissing,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopPlatformWaitRunnerSupportError {
     Config(NativeWindowRunLoopPlatformWaitBackendConfigError),
     BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
     LinuxEventSourceSupportFailed(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError),
-    LinuxExternallyWakeableEventSourceIntegrationMissing {
+    PlatformRunnerIntegrationMissing {
         selection: NativeWindowHostLoopPlatformWaitBackendSelection,
-        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+        missing: NativeWindowRunLoopPlatformWaitRunnerMissingIntegration,
     },
     PlatformRunnerUnavailable {
         platform: NativeWindowHostLoopPlatformKind,
@@ -3531,13 +3539,25 @@ pub fn validate_native_window_run_loop_platform_wait_runner_support_for_platform
                     NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxEventSourceSupportFailed,
                 )?;
             Err(
-                NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxExternallyWakeableEventSourceIntegrationMissing {
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                     selection,
-                    capability,
+                    missing:
+                        NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                            capability,
+                        },
                 },
             )
         }
-        NativeWindowHostLoopPlatformKind::Macos | NativeWindowHostLoopPlatformKind::Unsupported => {
+        NativeWindowHostLoopPlatformKind::Macos => {
+            Err(
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
+                    selection,
+                    missing:
+                        NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::MacosActualSysShimMissing,
+                },
+            )
+        }
+        NativeWindowHostLoopPlatformKind::Unsupported => {
             Err(
                 NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
                     platform: current,
@@ -11837,9 +11857,10 @@ mod tests {
                 config,
             )
             .unwrap_err(),
-            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
-                platform: NativeWindowHostLoopPlatformKind::Macos,
-                backend: NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
+                selection,
+                missing:
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::MacosActualSysShimMissing,
             }
         );
     }
@@ -11972,9 +11993,12 @@ mod tests {
                 config,
             )
             .unwrap_err(),
-            NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxExternallyWakeableEventSourceIntegrationMissing {
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                 selection,
-                capability,
+                missing:
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                        capability,
+                    },
             }
         );
     }

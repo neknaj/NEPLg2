@@ -883,9 +883,9 @@ F5ih では、`NativeWindowRunLoopConfig` の platform wait config を actual wi
 
 `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は config を読み、non-platform config を `Config NotPlatformWaitBackend`、current platform と selection の不一致を `BackendSupportFailed` として返す。Windows + `WindowsWaitableTimerMessageWait` は既存 Windows runner path として accepted selection を返す。
 
-Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed`、`ExternallyWakeableEventSource` は `LinuxExternallyWakeableEventSourceIntegrationMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source integration が無い限り runner-ready ではない。
+Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` として返す。F5ik 以降、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source integration が無い限り runner-ready ではない。
 
-macOS / unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
+F5ik 以降、macOS は `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
 
 ## F5ii Native platform wait runner support gate integration
 
@@ -902,6 +902,14 @@ F5ij では、native CLI の `--wait-backend platform` を library の typed run
 Windows では、この validation 成功後に `run_windows_platform_wait_window_loop` を呼ぶ。runner entry 側の F5ii validation は残し、CLI validation は user-facing rejection を早めるための boundary とする。non-Windows では同じ validation を通し、default selection failure または support failure を CLI error として返す。support validation が将来成功した target で runner dispatch がまだ無い場合は、minifb fallback ではなく explicit dispatch-unavailable error を返す。
 
 F5ij は CLI support-gate integration だけであり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。CLI は `ExternallyWakeableEventSource` や `ObservedInputOnly` を注入せず、Linux runner readiness を偽装しない。
+
+## F5ik Native platform wait runner missing-integration reason boundary
+
+F5ik では、platform wait runner support gate の failure shape を精密化する。selection と capability validation は通るが actual runner readiness に必要な実体が未接続である場合、`PlatformRunnerUnavailable` ではなく `PlatformRunnerIntegrationMissing` を返す。
+
+`NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` は、Linux の `LinuxExternallyWakeableEventSourceOwnerMissing` と macOS の `MacosActualSysShimMissing` を分ける。Linux missing capability と observed-input-only は従来通り config / event-source support error として返す。validated `ExternallyWakeableEventSource` だけが external event source owner / selector registration missing として integration-missing になる。
+
+F5ik は error modeling checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
