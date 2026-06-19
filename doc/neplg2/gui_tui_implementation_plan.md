@@ -554,6 +554,21 @@ CLI option は window mode 専用である。`--wait-backend` が headless mode 
 
 この phase は CLI selection boundary だけであり、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は後続 slice に分ける。
 
+## Phase F5ht: Native macOS run loop timer raw backend boundary
+
+F5ht では、macOS run loop timer backend の actual owner integration へ進む前に、raw API 境界、typed handle、deadline conversion、status mapping、handle invalidation の contract を固定する。これは AppKit / CoreFoundation の system shim を直接呼ぶ実装ではなく、fake raw API による library-level contract checkpoint である。
+
+`NativeWindowHostLoopMacosRunLoopTimerHandle` は raw handle を private field として保持し、null / invalid sentinel は `InvalidRawHandle` または timer creation failure として `Result` で返す。公開 API は raw handle accessor や owned raw handle escape を持たない。backend は `Drop` と explicit invalidation の両方で close / invalidate を高々 1 回に制限し、drop cleanup failure は recovery せず cleanup best-effort として扱う。
+
+deadline は monotonic origin からの nanoseconds で扱い、`checked_sub` と `u64::try_from` だけで relative timer delay を作る。deadline 到達済みは `TimerFired` として immediate wake にし、clamp、saturating arithmetic、sleep、busy loop、synthetic host event は使わない。timer-or-event wait の raw status は `TimerFired` と `HostEventReady` を別 enum に写し、host event only wait で timer fired raw status が返った場合は `UnexpectedRunLoopStatus` にする。
+
+この phase では、generic `NativeWindowHostLoopPlatformWaitBackend` へ `MacosRunLoopTimer(...)` owner variant を追加しない。`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` の実装、CLI selection、native platform runner dispatch、actual macOS sys shim、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は後続 slice に分ける。
+
+subagent review:
+
+- Darwin the 2nd の plan review は `PLAN_CHANGES`。macOS backend を generic platform owner へ統合するには actual macOS sys shim と run-loop ownership の検証が不足するため、F5ht は raw API / status / deadline / handle ownership 境界だけに絞るよう指摘された。
+- revised plan では、fake raw API tests と source policy で raw boundary を固定し、generic platform owner、CLI、runner dispatch への接続を後続へ残す方針にした。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

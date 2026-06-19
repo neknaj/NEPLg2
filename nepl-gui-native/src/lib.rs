@@ -3325,6 +3325,304 @@ pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopMacosRunLoopTimerHandle {
+    raw_handle: isize,
+}
+
+#[cfg(test)]
+fn native_window_host_loop_macos_run_loop_timer_handle_raw(
+    handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+) -> isize {
+    handle.raw_handle
+}
+
+pub const NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED: u32 = 1;
+pub const NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY: u32 = 2;
+pub const NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED: u32 = 0xFFFF_FFFF;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopMacosRunLoopDeadlinePlan {
+    AlreadyReached,
+    RelativeNanos(u64),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopMacosRunLoopWake {
+    TimerFired,
+    HostEventReady,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopMacosRunLoopTimerBackendError {
+    InvalidRawHandle { raw_handle: isize },
+    CreateRunLoopTimerFailed { code: u32 },
+    ScheduleRunLoopTimerFailed { code: u32 },
+    RunLoopWaitFailed { code: u32 },
+    UnexpectedRunLoopStatus { status: u32 },
+    ElapsedNanosOverflow,
+    DeadlineDeltaOverflow { now_nanos: u64, deadline_nanos: u64 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopMacosRunLoopTimerBackendBuildError {
+    BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    RunLoopTimerBackendFailed(NativeWindowHostLoopMacosRunLoopTimerBackendError),
+}
+
+pub trait NativeWindowHostLoopMacosRunLoopTimerRawApi {
+    fn create_run_loop_timer_raw(&mut self) -> isize;
+
+    fn schedule_run_loop_timer_relative_nanos(
+        &mut self,
+        handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+        relative_nanos: u64,
+    ) -> bool;
+
+    fn run_loop_wait_for_timer_or_event_raw(
+        &mut self,
+        handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+    ) -> u32;
+
+    fn run_loop_wait_for_event_raw(&mut self) -> u32;
+
+    fn invalidate_run_loop_timer_raw(
+        &mut self,
+        handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+    ) -> bool;
+
+    fn last_error_code(&mut self) -> u32;
+}
+
+pub fn native_window_host_loop_macos_run_loop_timer_handle_from_raw(
+    raw_handle: isize,
+) -> Result<
+    NativeWindowHostLoopMacosRunLoopTimerHandle,
+    NativeWindowHostLoopMacosRunLoopTimerBackendError,
+> {
+    if raw_handle == 0 || raw_handle == -1 {
+        return Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::InvalidRawHandle { raw_handle },
+        );
+    }
+    Ok(NativeWindowHostLoopMacosRunLoopTimerHandle { raw_handle })
+}
+
+pub fn native_window_host_loop_macos_run_loop_deadline_plan(
+    now_nanos: u64,
+    deadline_nanos: u64,
+) -> Result<
+    NativeWindowHostLoopMacosRunLoopDeadlinePlan,
+    NativeWindowHostLoopMacosRunLoopTimerBackendError,
+> {
+    if deadline_nanos <= now_nanos {
+        return Ok(NativeWindowHostLoopMacosRunLoopDeadlinePlan::AlreadyReached);
+    }
+    let relative_nanos = deadline_nanos.checked_sub(now_nanos).ok_or(
+        NativeWindowHostLoopMacosRunLoopTimerBackendError::DeadlineDeltaOverflow {
+            now_nanos,
+            deadline_nanos,
+        },
+    )?;
+    Ok(NativeWindowHostLoopMacosRunLoopDeadlinePlan::RelativeNanos(
+        relative_nanos,
+    ))
+}
+
+pub fn native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<NativeWindowHostLoopMacosRunLoopWake, NativeWindowHostLoopMacosRunLoopTimerBackendError>
+{
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED => {
+            Ok(NativeWindowHostLoopMacosRunLoopWake::TimerFired)
+        }
+        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY => {
+            Ok(NativeWindowHostLoopMacosRunLoopWake::HostEventReady)
+        }
+        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED => Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::RunLoopWaitFailed {
+                code: last_error_code,
+            },
+        ),
+        status => Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::UnexpectedRunLoopStatus { status },
+        ),
+    }
+}
+
+pub fn native_window_host_loop_macos_run_loop_host_event_from_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<(), NativeWindowHostLoopMacosRunLoopTimerBackendError> {
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY => Ok(()),
+        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED => Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::RunLoopWaitFailed {
+                code: last_error_code,
+            },
+        ),
+        status => Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::UnexpectedRunLoopStatus { status },
+        ),
+    }
+}
+
+#[derive(Debug)]
+pub struct NativeWindowHostLoopMacosRunLoopTimerBackend<
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+> {
+    origin: std::time::Instant,
+    api: Api,
+    handle: Option<NativeWindowHostLoopMacosRunLoopTimerHandle>,
+}
+
+impl<Api> NativeWindowHostLoopMacosRunLoopTimerBackend<Api>
+where
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+{
+    pub fn new(mut api: Api) -> Result<Self, NativeWindowHostLoopMacosRunLoopTimerBackendError> {
+        let raw_handle = api.create_run_loop_timer_raw();
+        let handle = match native_window_host_loop_macos_run_loop_timer_handle_from_raw(raw_handle)
+        {
+            Ok(handle) => handle,
+            Err(NativeWindowHostLoopMacosRunLoopTimerBackendError::InvalidRawHandle { .. }) => {
+                return Err(
+                    NativeWindowHostLoopMacosRunLoopTimerBackendError::CreateRunLoopTimerFailed {
+                        code: api.last_error_code(),
+                    },
+                );
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(Self {
+            origin: std::time::Instant::now(),
+            api,
+            handle: Some(handle),
+        })
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn is_handle_open(&self) -> bool {
+        self.handle.is_some()
+    }
+
+    pub fn invalidate_handle_if_open(&mut self) -> bool {
+        let Some(handle) = self.handle.take() else {
+            return false;
+        };
+        let _ = self.api.invalidate_run_loop_timer_raw(&handle);
+        true
+    }
+
+    fn elapsed_nanos(&self) -> Result<u64, NativeWindowHostLoopMacosRunLoopTimerBackendError> {
+        u64::try_from(self.origin.elapsed().as_nanos())
+            .map_err(|_| NativeWindowHostLoopMacosRunLoopTimerBackendError::ElapsedNanosOverflow)
+    }
+
+    pub fn wait_for_host_event(
+        &mut self,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<(), NativeWindowHostLoopMacosRunLoopTimerBackendError> {
+        let status = self.api.run_loop_wait_for_event_raw();
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED {
+            self.api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_macos_run_loop_host_event_from_status(status, last_error_code)
+    }
+
+    pub fn wait_until_deadline_or_host_event(
+        &mut self,
+        deadline_nanos: u64,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<
+        NativeWindowHostLoopMacosRunLoopWake,
+        NativeWindowHostLoopMacosRunLoopTimerBackendError,
+    > {
+        let now_nanos = self.elapsed_nanos()?;
+        let plan = native_window_host_loop_macos_run_loop_deadline_plan(now_nanos, deadline_nanos)?;
+        let NativeWindowHostLoopMacosRunLoopDeadlinePlan::RelativeNanos(relative_nanos) = plan
+        else {
+            return Ok(NativeWindowHostLoopMacosRunLoopWake::TimerFired);
+        };
+        let handle = self.handle.as_ref().ok_or(
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::InvalidRawHandle { raw_handle: 0 },
+        )?;
+        let api = &mut self.api;
+        if !api.schedule_run_loop_timer_relative_nanos(handle, relative_nanos) {
+            return Err(
+                NativeWindowHostLoopMacosRunLoopTimerBackendError::ScheduleRunLoopTimerFailed {
+                    code: api.last_error_code(),
+                },
+            );
+        }
+        let status = api.run_loop_wait_for_timer_or_event_raw(handle);
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED {
+            api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(
+            status,
+            last_error_code,
+        )
+    }
+}
+
+impl<Api> Drop for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>
+where
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+{
+    fn drop(&mut self) {
+        self.invalidate_handle_if_open();
+    }
+}
+
+pub fn build_native_window_host_loop_macos_run_loop_timer_backend_from_selection<Api>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    api: Api,
+) -> Result<
+    NativeWindowHostLoopMacosRunLoopTimerBackend<Api>,
+    NativeWindowHostLoopMacosRunLoopTimerBackendBuildError,
+>
+where
+    Api: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+{
+    let checked_selection =
+        validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+            selection.platform(),
+            selection.backend(),
+        )
+        .map_err(NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::BackendSupportFailed)?;
+    if checked_selection.platform() != NativeWindowHostLoopPlatformKind::Macos
+        || checked_selection.backend()
+            != NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer
+    {
+        return Err(
+            NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: checked_selection.platform(),
+                    requested: checked_selection.backend(),
+                },
+            ),
+        );
+    }
+    NativeWindowHostLoopMacosRunLoopTimerBackend::new(api)
+        .map_err(NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::RunLoopTimerBackendFailed)
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct NativeWindowHostLoopWindowsWaitHandle {
     raw_handle: isize,
 }
@@ -12857,6 +13155,249 @@ mod tests {
     }
 
     #[test]
+    fn native_window_macos_run_loop_timer_handle_rejects_null_and_invalid_raw_handles() {
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_timer_handle_from_raw(0).unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::InvalidRawHandle { raw_handle: 0 }
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_timer_handle_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::InvalidRawHandle { raw_handle: -1 }
+        );
+        let handle = native_window_host_loop_macos_run_loop_timer_handle_from_raw(41).unwrap();
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_timer_handle_raw(&handle),
+            41
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_deadline_plan_uses_checked_relative_nanos() {
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_deadline_plan(10, 10).unwrap(),
+            NativeWindowHostLoopMacosRunLoopDeadlinePlan::AlreadyReached
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_deadline_plan(11, 10).unwrap(),
+            NativeWindowHostLoopMacosRunLoopDeadlinePlan::AlreadyReached
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_deadline_plan(10, 11).unwrap(),
+            NativeWindowHostLoopMacosRunLoopDeadlinePlan::RelativeNanos(1)
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_deadline_plan(10, 25).unwrap(),
+            NativeWindowHostLoopMacosRunLoopDeadlinePlan::RelativeNanos(15)
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_status_maps_timer_event_and_failures() {
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopMacosRunLoopWake::TimerFired
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopMacosRunLoopWake::HostEventReady
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED,
+                77,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::RunLoopWaitFailed { code: 77 }
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status(99, 0)
+                .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::UnexpectedRunLoopStatus {
+                status: 99,
+            }
+        );
+        assert_eq!(
+            native_window_host_loop_macos_run_loop_host_event_from_status(
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+                0,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::UnexpectedRunLoopStatus {
+                status: NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_rejects_timer_creation_failure() {
+        let api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0).with_last_error_code(5);
+
+        assert_eq!(
+            NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::CreateRunLoopTimerFailed { code: 5 }
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_wait_for_host_event_uses_event_only_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(81).with_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY,
+            ]);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        assert_eq!(backend.wait_for_host_event(window_size, true).unwrap(), ());
+        assert_eq!(backend.api().create_calls, 1);
+        assert_eq!(backend.api().event_wait_calls, 1);
+        assert!(backend.api().timer_wait_calls.is_empty());
+        assert!(backend.api().schedule_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_wait_until_deadline_schedules_relative_timer() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(82)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+            ]);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        let wake = backend
+            .wait_until_deadline_or_host_event(10_000_000_000, window_size, false)
+            .unwrap();
+
+        assert_eq!(wake, NativeWindowHostLoopMacosRunLoopWake::TimerFired);
+        assert_eq!(backend.api().schedule_calls.len(), 1);
+        assert_eq!(backend.api().schedule_calls[0].0, 82);
+        assert!(backend.api().schedule_calls[0].1 > 0);
+        assert_eq!(backend.api().timer_wait_calls, vec![82]);
+        assert_eq!(backend.api().event_wait_calls, 0);
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_wait_until_deadline_maps_host_ready() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(83)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY,
+            ]);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(10_000_000_000, window_size, true)
+                .unwrap(),
+            NativeWindowHostLoopMacosRunLoopWake::HostEventReady
+        );
+        assert_eq!(backend.api().timer_wait_calls, vec![83]);
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_wait_until_deadline_rejects_schedule_failure() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(84)
+            .with_last_error_code(1001)
+            .with_schedule_result(false);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(10_000_000_000, window_size, false)
+                .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendError::ScheduleRunLoopTimerFailed {
+                code: 1001,
+            }
+        );
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_wait_until_deadline_already_reached_avoids_raw_wait() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(85);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(0, window_size, false)
+                .unwrap(),
+            NativeWindowHostLoopMacosRunLoopWake::TimerFired
+        );
+        assert!(backend.api().schedule_calls.is_empty());
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_invalidates_handle_once() {
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(86);
+        let mut backend = NativeWindowHostLoopMacosRunLoopTimerBackend::new(api).unwrap();
+
+        assert_eq!(backend.invalidate_handle_if_open(), true);
+        assert_eq!(backend.invalidate_handle_if_open(), false);
+        assert_eq!(backend.api().invalidate_calls, vec![86]);
+        assert_eq!(backend.is_handle_open(), false);
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_builder_requires_validated_macos_selection() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(87);
+
+        assert_eq!(
+            build_native_window_host_loop_macos_run_loop_timer_backend_from_selection(
+                selection, api
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Windows,
+                    requested:
+                        NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_macos_run_loop_backend_builder_preserves_raw_api_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0).with_last_error_code(8);
+
+        assert_eq!(
+            build_native_window_host_loop_macos_run_loop_timer_backend_from_selection(
+                selection, api
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::RunLoopTimerBackendFailed(
+                NativeWindowHostLoopMacosRunLoopTimerBackendError::CreateRunLoopTimerFailed {
+                    code: 8,
+                }
+            )
+        );
+    }
+
+    #[test]
     fn native_window_windows_wait_handle_rejects_null_and_invalid_raw_handles() {
         assert_eq!(
             native_window_host_loop_windows_wait_handle_from_raw(0).unwrap_err(),
@@ -14875,6 +15416,120 @@ mod tests {
             } else {
                 Ok(self.wake)
             }
+        }
+    }
+
+    #[derive(Debug)]
+    struct ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi {
+        create_raw_handle: isize,
+        schedule_result: bool,
+        timer_or_event_statuses: Vec<u32>,
+        event_statuses: Vec<u32>,
+        last_error_code: u32,
+        create_calls: usize,
+        schedule_calls: Vec<(isize, u64)>,
+        timer_wait_calls: Vec<isize>,
+        event_wait_calls: usize,
+        invalidate_calls: Vec<isize>,
+        last_error_calls: usize,
+    }
+
+    impl ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi {
+        fn new(create_raw_handle: isize) -> Self {
+            Self {
+                create_raw_handle,
+                schedule_result: true,
+                timer_or_event_statuses: Vec::new(),
+                event_statuses: Vec::new(),
+                last_error_code: 0,
+                create_calls: 0,
+                schedule_calls: Vec::new(),
+                timer_wait_calls: Vec::new(),
+                event_wait_calls: 0,
+                invalidate_calls: Vec::new(),
+                last_error_calls: 0,
+            }
+        }
+
+        fn with_last_error_code(mut self, code: u32) -> Self {
+            self.last_error_code = code;
+            self
+        }
+
+        fn with_schedule_result(mut self, result: bool) -> Self {
+            self.schedule_result = result;
+            self
+        }
+
+        fn with_timer_or_event_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.timer_or_event_statuses = statuses;
+            self
+        }
+
+        fn with_event_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.event_statuses = statuses;
+            self
+        }
+
+        fn next_status(statuses: &mut Vec<u32>) -> u32 {
+            if statuses.is_empty() {
+                NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_FAILED
+            } else {
+                statuses.remove(0)
+            }
+        }
+    }
+
+    impl NativeWindowHostLoopMacosRunLoopTimerRawApi
+        for ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi
+    {
+        fn create_run_loop_timer_raw(&mut self) -> isize {
+            self.create_calls += 1;
+            self.create_raw_handle
+        }
+
+        fn schedule_run_loop_timer_relative_nanos(
+            &mut self,
+            handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+            relative_nanos: u64,
+        ) -> bool {
+            self.schedule_calls.push((
+                native_window_host_loop_macos_run_loop_timer_handle_raw(handle),
+                relative_nanos,
+            ));
+            self.schedule_result
+        }
+
+        fn run_loop_wait_for_timer_or_event_raw(
+            &mut self,
+            handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+        ) -> u32 {
+            self.timer_wait_calls
+                .push(native_window_host_loop_macos_run_loop_timer_handle_raw(
+                    handle,
+                ));
+            Self::next_status(&mut self.timer_or_event_statuses)
+        }
+
+        fn run_loop_wait_for_event_raw(&mut self) -> u32 {
+            self.event_wait_calls += 1;
+            Self::next_status(&mut self.event_statuses)
+        }
+
+        fn invalidate_run_loop_timer_raw(
+            &mut self,
+            handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+        ) -> bool {
+            self.invalidate_calls
+                .push(native_window_host_loop_macos_run_loop_timer_handle_raw(
+                    handle,
+                ));
+            true
+        }
+
+        fn last_error_code(&mut self) -> u32 {
+            self.last_error_calls += 1;
+            self.last_error_code
         }
     }
 

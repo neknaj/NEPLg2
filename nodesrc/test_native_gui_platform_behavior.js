@@ -141,6 +141,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub enum NativeWindowHostLoopPlatformKind",
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
     );
+    const nativeWindowMacosRunLoopTimerBackend = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowHostLoopMacosRunLoopTimerHandle",
+        "pub struct NativeWindowHostLoopWindowsWaitHandle",
+    );
     const nativeWindowEventQueueStatusAdapter = textSliceBetween(
         libSource,
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
@@ -552,6 +557,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_for_platform[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*platform,\s*requested,[\s\S]*BackendSupportFailed[\s\S]*build_native_window_host_loop_platform_wait_backend_from_selection\(selection\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackend<Api: NativeWindowHostLoopWindowsWaitRawApi>\s*\{[\s\S]*WindowsWaitableTimerMessageWait\(NativeWindowHostLoopWindowsWaitBackend<Api>\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError>\s*\{[\s\S]*WindowsWaitableTimerMessageWait\(WindowsError\)/);
+    assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /MacosRunLoopTimer\(/);
     assert.match(nativeWindowPlatformWaitBackendKind, /impl<Api> NativeWindowHostLoopDeadlineTimerClock for NativeWindowHostLoopPlatformWaitBackend<Api>[\s\S]*type Error =[\s\S]*NativeWindowHostLoopPlatformWaitBackendError<NativeWindowHostLoopWindowsWaitBackendError>[\s\S]*backend\.now_nanos\(\)[\s\S]*WindowsWaitableTimerMessageWait/);
     assert.match(nativeWindowPlatformWaitBackendKind, /impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter[\s\S]*for NativeWindowHostLoopPlatformWaitBackend<Api>[\s\S]*wait_for_host_event[\s\S]*backend[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*wait_until_deadline_or_host_event[\s\S]*backend[\s\S]*\.wait_until_deadline_or_host_event\(deadline_nanos,\s*window_size,\s*size_changed\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*selection\.platform\(\),[\s\S]*selection\.backend\(\)[\s\S]*BackendSupportFailed[\s\S]*NativeWindowHostLoopPlatformKind::Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*build_native_window_host_loop_windows_wait_backend_from_selection\([\s\S]*checked_selection,[\s\S]*api/);
@@ -577,6 +583,22 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowPlatformWaitBackendKind, /#\[cfg\(target_os = "windows"\)\][\s\S]*pub fn native_window_run_loop_platform_wait_backend_from_config\([\s\S]*config: NativeWindowRunLoopConfig[\s\S]*native_window_run_loop_platform_wait_backend_selection\(config\)[\s\S]*native_window_host_loop_platform_wait_backend_from_selection\(selection\)/);
     assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /pub fn native_window_run_loop_platform_wait_backend_from_config<Host[\s\S]*host: Host/);
     assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /std::env|env::var|env::consts|from_str|parse::<|stringify|to_string|format!|HeadlessScripted\s*\)|=>\s*Ok\(\s*NativeWindowHostLoopPlatformWaitBackendKind::HeadlessScripted|Minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|execute_native_window_host_loop_interruptible_deadline_wait_with_adapter|execute_native_window_host_loop_wait_with_owner|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub struct NativeWindowHostLoopMacosRunLoopTimerHandle\s*\{[\s\S]*raw_handle: isize/);
+    assert.doesNotMatch(nativeWindowMacosRunLoopTimerBackend, /pub raw_handle:|pub fn raw_handle|pub fn handle\(/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub const NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED: u32 = 1/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub const NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_HOST_EVENT_READY: u32 = 2/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub enum NativeWindowHostLoopMacosRunLoopWake\s*\{[\s\S]*TimerFired,[\s\S]*HostEventReady/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub trait NativeWindowHostLoopMacosRunLoopTimerRawApi\s*\{[\s\S]*create_run_loop_timer_raw[\s\S]*schedule_run_loop_timer_relative_nanos[\s\S]*run_loop_wait_for_timer_or_event_raw[\s\S]*run_loop_wait_for_event_raw[\s\S]*invalidate_run_loop_timer_raw[\s\S]*last_error_code/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /native_window_host_loop_macos_run_loop_deadline_plan[\s\S]*deadline_nanos <= now_nanos[\s\S]*AlreadyReached[\s\S]*checked_sub\(now_nanos\)[\s\S]*RelativeNanos/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status[\s\S]*STATUS_TIMER_FIRED[\s\S]*TimerFired[\s\S]*STATUS_HOST_EVENT_READY[\s\S]*HostEventReady[\s\S]*STATUS_FAILED[\s\S]*RunLoopWaitFailed[\s\S]*UnexpectedRunLoopStatus/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /native_window_host_loop_macos_run_loop_host_event_from_status[\s\S]*STATUS_HOST_EVENT_READY[\s\S]*Ok\(\(\)\)[\s\S]*STATUS_FAILED[\s\S]*RunLoopWaitFailed[\s\S]*UnexpectedRunLoopStatus/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub struct NativeWindowHostLoopMacosRunLoopTimerBackend<[\s\S]*origin: std::time::Instant,[\s\S]*api: Api,[\s\S]*handle: Option<NativeWindowHostLoopMacosRunLoopTimerHandle>/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub fn invalidate_handle_if_open\(&mut self\) -> bool[\s\S]*self\.handle\.take\(\)[\s\S]*invalidate_run_loop_timer_raw/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub fn wait_for_host_event[\s\S]*run_loop_wait_for_event_raw\(\)[\s\S]*native_window_host_loop_macos_run_loop_host_event_from_status/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /pub fn wait_until_deadline_or_host_event[\s\S]*native_window_host_loop_macos_run_loop_deadline_plan[\s\S]*schedule_run_loop_timer_relative_nanos[\s\S]*run_loop_wait_for_timer_or_event_raw[\s\S]*native_window_host_loop_macos_run_loop_wake_from_timer_or_event_status/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /impl<Api> Drop for NativeWindowHostLoopMacosRunLoopTimerBackend<Api>[\s\S]*self\.invalidate_handle_if_open\(\)/);
+    assert.match(nativeWindowMacosRunLoopTimerBackend, /build_native_window_host_loop_macos_run_loop_timer_backend_from_selection[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform[\s\S]*NativeWindowHostLoopPlatformKind::Macos[\s\S]*NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer[\s\S]*RunLoopTimerBackendFailed/);
+    assert.doesNotMatch(nativeWindowMacosRunLoopTimerBackend, /impl<Api> NativeWindowHostLoopDeadlineTimerClock|impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter|NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer|build_native_window_host_loop_platform_wait_backend_from_selection_with_macos_api|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|saturating|clamp/i);
     assert.match(libSource, /native_window_platform_wait_backend_validation_accepts_matching_backend/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_all_real_platform_mismatches/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_unsupported_platform/);
@@ -597,6 +619,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_platform_wait_run_loop_host_keeps_host_ready_outcome_non_timer/);
     assert.match(libSource, /native_window_run_loop_platform_wait_config_extracts_only_platform_selection/);
     assert.match(libSource, /native_window_minifb_run_loop_backend_validation_rejects_platform_wait_backend/);
+    assert.match(libSource, /native_window_macos_run_loop_timer_handle_rejects_null_and_invalid_raw_handles/);
+    assert.match(libSource, /native_window_macos_run_loop_deadline_plan_uses_checked_relative_nanos/);
+    assert.match(libSource, /native_window_macos_run_loop_status_maps_timer_event_and_failures/);
+    assert.match(libSource, /native_window_macos_run_loop_backend_wait_for_host_event_uses_event_only_wait/);
+    assert.match(libSource, /native_window_macos_run_loop_backend_wait_until_deadline_schedules_relative_timer/);
+    assert.match(libSource, /native_window_macos_run_loop_backend_invalidates_handle_once/);
+    assert.match(libSource, /native_window_macos_run_loop_backend_builder_requires_validated_macos_selection/);
+    assert.match(libSource, /native_window_macos_run_loop_backend_builder_preserves_raw_api_failure/);
     assert.match(libSource, /native_window_windows_wait_handle_rejects_null_and_invalid_raw_handles/);
     assert.match(libSource, /native_window_windows_deadline_plan_uses_already_reached_or_rounded_relative_100ns/);
     assert.match(libSource, /native_window_windows_wait_status_maps_timer_message_and_failures/);
@@ -1433,6 +1463,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native platform wait backend construction gate keeps actual OS backend unavailable fail-closed",
             "Native Windows wait raw backend maps waitable timer and message statuses through typed errors",
+            "Native macOS run loop timer raw backend keeps handle and wake semantics typed before integration",
             "Native single-owner interruptible wait adapter keeps clock and waiter in one backend owner",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",

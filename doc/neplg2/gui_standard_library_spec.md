@@ -735,6 +735,16 @@ CLI layer は config と runner selection だけを担当し、minifb lifecycle�
 
 この checkpoint は CLI selection boundary であり、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
 
+## F5ht Native macOS run loop timer raw backend boundary
+
+2026-06-20 の F5ht では、macOS run loop timer backend の raw boundary contract を追加する。標準 API は AppKit / CoreFoundation handle を public type として公開しないため、`NativeWindowHostLoopMacosRunLoopTimerHandle` は raw handle を private field として保持する。null / invalid sentinel は typed error にし、raw handle accessor や public owned-handle escape は作らない。
+
+raw API contract は、timer creation、relative nanos scheduling、timer-or-host-event wait、host-event-only wait、timer invalidation、last error code を分ける。timer-or-event wait は `TimerFired` と `HostEventReady` を別 enum に写し、host-event-only wait では timer-fired raw status を host event ready と偽装しない。失敗 status と未知 status は、それぞれ `RunLoopWaitFailed` と `UnexpectedRunLoopStatus` として返す。
+
+deadline conversion は monotonic origin からの elapsed nanoseconds を使い、checked arithmetic だけで relative delay を作る。deadline 到達済みは immediate `TimerFired` として返すが、sleep、busy loop、saturating / clamp、silent no-op、fallback は使わない。backend は explicit invalidation と drop cleanup の両方で handle invalidation を高々 1 回に制限する。
+
+F5ht は raw API / fake raw API tests / source policy の boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` に `MacosRunLoopTimer(...)` owner variant を追加しない。`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` implementation、CLI dispatch、actual macOS sys shim、native runner connection、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

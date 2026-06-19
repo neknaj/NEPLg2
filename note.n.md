@@ -1,3 +1,47 @@
+# 2026-06-20 Agent2 GUI native F5ht macOS run loop timer raw backend boundary
+
+## scope
+
+- F5hs の後続として、macOS run loop timer backend の raw API / handle ownership / deadline conversion / status mapping 境界を追加する。
+- actual AppKit / CoreFoundation sys shim、generic platform wait owner integration、CLI dispatch、native runner 接続は今回 scope 外にする。
+- host event wake と timer fired wake を別 enum evidence として保持し、host-event-only wait で timer fired raw status を host event ready と偽装しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_CHANGES`。macOS backend を generic `NativeWindowHostLoopPlatformWaitBackend` へ統合するには actual sys shim と platform run-loop ownership の検証が不足しているため、F5ht は raw API / status / deadline / handle ownership boundary に限定するよう指摘された。
+- 指摘に従い、fake raw API tests と source policy で raw boundary を固定し、`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` implementation、generic owner variant、CLI selection、runner dispatch は後続に残す。
+
+## implementation_current
+
+- `NativeWindowHostLoopMacosRunLoopTimerHandle`、`NativeWindowHostLoopMacosRunLoopTimerRawApi`、`NativeWindowHostLoopMacosRunLoopTimerBackend` を追加した。
+- raw handle は private field に閉じ、null / invalid sentinel と timer creation failure を typed error として扱う。
+- deadline conversion は elapsed nanos と `checked_sub` に限定し、deadline 到達済みは immediate `TimerFired` として扱う。
+- timer-or-event wait は `TimerFired` と `HostEventReady` を分離し、host-event-only wait は timer fired status を unexpected status として拒否する。
+- explicit invalidation と drop cleanup は handle を高々 1 回だけ invalidate する。
+- generic `NativeWindowHostLoopPlatformWaitBackend` には macOS owner variant を追加せず、source policy で統合前の raw boundary として固定した。
+- GUI docs と `todo.md` を F5ht contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_macos_run_loop -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source-policy の content blocker は無いが、この `implementation_review` 欄が依頼中のままで commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、差分が F5ht の raw API / status / deadline / handle ownership boundary に留まり、generic platform owner enum、CLI dispatch、actual macOS sys shim、runner integration へ進んでいないこと、HostEventReady と TimerFired の evidence 分離、typed error、checked deadline handling、handle close-once policy、source policy の固定が方針に沿うことが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- actual macOS sys shim、macOS platform wait owner integration、CLI / runner dispatch、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hs Windows platform wait CLI selection boundary
 
 ## scope
