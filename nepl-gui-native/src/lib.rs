@@ -1855,6 +1855,239 @@ where
         .map_err(NativeWindowHostLoopTimerWakeError::FireFailed)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopDeadlineTimerRecord {
+    pub timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
+    pub deadline_nanos: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopDeadlineTimerAdapterError<ClockError, SleeperError> {
+    ActiveTimerAlreadyRegistered {
+        active_raw_id: u32,
+    },
+    NoActiveTimer {
+        requested_raw_id: u32,
+    },
+    TimerRegistrationIdOverflow {
+        last_raw_id: u32,
+    },
+    DeadlineNanosOverflow {
+        now_nanos: u64,
+        wait_nanos: u32,
+    },
+    ClockFailed(ClockError),
+    SleeperFailed(SleeperError),
+    FiredTimerRegistrationMismatch {
+        expected_raw_id: u32,
+        actual_raw_id: u32,
+    },
+}
+
+pub trait NativeWindowHostLoopDeadlineTimerClock {
+    type Error;
+
+    fn now_nanos(&mut self) -> Result<u64, Self::Error>;
+}
+
+pub trait NativeWindowHostLoopDeadlineTimerSleeper {
+    type Error;
+
+    fn sleep_until_nanos(&mut self, deadline_nanos: u64) -> Result<(), Self::Error>;
+}
+
+pub struct NativeWindowHostLoopDeadlineTimerAdapter<Clock, Sleeper> {
+    next_raw_id: u32,
+    active_timer: Option<NativeWindowHostLoopDeadlineTimerRecord>,
+    clock: Clock,
+    sleeper: Sleeper,
+}
+
+impl<Clock, Sleeper> NativeWindowHostLoopDeadlineTimerAdapter<Clock, Sleeper> {
+    pub fn new(clock: Clock, sleeper: Sleeper) -> Self {
+        Self {
+            next_raw_id: 1,
+            active_timer: None,
+            clock,
+            sleeper,
+        }
+    }
+
+    pub fn active_timer(&self) -> Option<NativeWindowHostLoopDeadlineTimerRecord> {
+        self.active_timer
+    }
+
+    pub fn next_raw_id(&self) -> u32 {
+        self.next_raw_id
+    }
+}
+
+impl<Clock, Sleeper> NativeWindowHostLoopTimerRegistrar
+    for NativeWindowHostLoopDeadlineTimerAdapter<Clock, Sleeper>
+where
+    Clock: NativeWindowHostLoopDeadlineTimerClock,
+    Sleeper: NativeWindowHostLoopDeadlineTimerSleeper,
+{
+    type Error = NativeWindowHostLoopDeadlineTimerAdapterError<Clock::Error, Sleeper::Error>;
+
+    fn register_timer_nanos(&mut self, wait_nanos: u32) -> Result<u32, Self::Error> {
+        if let Some(active_timer) = self.active_timer {
+            return Err(
+                NativeWindowHostLoopDeadlineTimerAdapterError::ActiveTimerAlreadyRegistered {
+                    active_raw_id: active_timer.timer_registration_id.raw_id(),
+                },
+            );
+        }
+        let raw_id = self.next_raw_id;
+        let next_raw_id = raw_id.checked_add(1).ok_or(
+            NativeWindowHostLoopDeadlineTimerAdapterError::TimerRegistrationIdOverflow {
+                last_raw_id: raw_id,
+            },
+        )?;
+        let now_nanos = self
+            .clock
+            .now_nanos()
+            .map_err(NativeWindowHostLoopDeadlineTimerAdapterError::ClockFailed)?;
+        let deadline_nanos = now_nanos.checked_add(u64::from(wait_nanos)).ok_or(
+            NativeWindowHostLoopDeadlineTimerAdapterError::DeadlineNanosOverflow {
+                now_nanos,
+                wait_nanos,
+            },
+        )?;
+        self.next_raw_id = next_raw_id;
+        self.active_timer = Some(NativeWindowHostLoopDeadlineTimerRecord {
+            timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id },
+            deadline_nanos,
+        });
+        Ok(raw_id)
+    }
+}
+
+impl<Clock, Sleeper> NativeWindowHostLoopTimerFireWaiter
+    for NativeWindowHostLoopDeadlineTimerAdapter<Clock, Sleeper>
+where
+    Clock: NativeWindowHostLoopDeadlineTimerClock,
+    Sleeper: NativeWindowHostLoopDeadlineTimerSleeper,
+{
+    type Error = NativeWindowHostLoopDeadlineTimerAdapterError<Clock::Error, Sleeper::Error>;
+
+    fn wait_for_timer_fire(
+        &mut self,
+        timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
+    ) -> Result<u32, Self::Error> {
+        let Some(active_timer) = self.active_timer else {
+            return Err(
+                NativeWindowHostLoopDeadlineTimerAdapterError::NoActiveTimer {
+                    requested_raw_id: timer_registration_id.raw_id(),
+                },
+            );
+        };
+        let expected_raw_id = active_timer.timer_registration_id.raw_id();
+        let actual_raw_id = timer_registration_id.raw_id();
+        if expected_raw_id != actual_raw_id {
+            return Err(
+                NativeWindowHostLoopDeadlineTimerAdapterError::FiredTimerRegistrationMismatch {
+                    expected_raw_id,
+                    actual_raw_id,
+                },
+            );
+        }
+        self.sleeper
+            .sleep_until_nanos(active_timer.deadline_nanos)
+            .map_err(NativeWindowHostLoopDeadlineTimerAdapterError::SleeperFailed)?;
+        self.active_timer = None;
+        Ok(actual_raw_id)
+    }
+}
+
+pub type NativeWindowHostLoopDeadlineTimerWakeError<ClockError, SleeperError> =
+    NativeWindowHostLoopTimerWakeError<
+        NativeWindowHostLoopDeadlineTimerAdapterError<ClockError, SleeperError>,
+        NativeWindowHostLoopDeadlineTimerAdapterError<ClockError, SleeperError>,
+    >;
+
+pub fn execute_native_window_host_loop_deadline_timer_wakeup_with_adapter<Clock, Sleeper>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    adapter: &mut NativeWindowHostLoopDeadlineTimerAdapter<Clock, Sleeper>,
+) -> Result<
+    NativeWindowHostLoopTimerFireOutcome,
+    NativeWindowHostLoopDeadlineTimerWakeError<Clock::Error, Sleeper::Error>,
+>
+where
+    Clock: NativeWindowHostLoopDeadlineTimerClock,
+    Sleeper: NativeWindowHostLoopDeadlineTimerSleeper,
+{
+    let registration_outcome =
+        execute_native_window_host_loop_timer_registration_wait_with_registrar(
+            instruction,
+            adapter,
+        )
+        .map_err(NativeWindowHostLoopTimerWakeError::RegistrationFailed)?;
+    execute_native_window_host_loop_timer_fire_wait_with_waiter(registration_outcome, adapter)
+        .map_err(NativeWindowHostLoopTimerWakeError::FireFailed)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StdNativeWindowHostLoopDeadlineTimerError {
+    ElapsedNanosOverflow,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StdNativeWindowHostLoopDeadlineTimerClock {
+    origin: std::time::Instant,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StdNativeWindowHostLoopDeadlineTimerSleeper {
+    origin: std::time::Instant,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn std_native_window_host_loop_elapsed_nanos(
+    origin: std::time::Instant,
+) -> Result<u64, StdNativeWindowHostLoopDeadlineTimerError> {
+    u64::try_from(origin.elapsed().as_nanos())
+        .map_err(|_| StdNativeWindowHostLoopDeadlineTimerError::ElapsedNanosOverflow)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl NativeWindowHostLoopDeadlineTimerClock for StdNativeWindowHostLoopDeadlineTimerClock {
+    type Error = StdNativeWindowHostLoopDeadlineTimerError;
+
+    fn now_nanos(&mut self) -> Result<u64, Self::Error> {
+        std_native_window_host_loop_elapsed_nanos(self.origin)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl NativeWindowHostLoopDeadlineTimerSleeper for StdNativeWindowHostLoopDeadlineTimerSleeper {
+    type Error = StdNativeWindowHostLoopDeadlineTimerError;
+
+    fn sleep_until_nanos(&mut self, deadline_nanos: u64) -> Result<(), Self::Error> {
+        let now_nanos = std_native_window_host_loop_elapsed_nanos(self.origin)?;
+        if deadline_nanos > now_nanos {
+            std::thread::sleep(std::time::Duration::from_nanos(deadline_nanos - now_nanos));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn native_window_host_loop_std_deadline_timer_adapter(
+) -> NativeWindowHostLoopDeadlineTimerAdapter<
+    StdNativeWindowHostLoopDeadlineTimerClock,
+    StdNativeWindowHostLoopDeadlineTimerSleeper,
+> {
+    let origin = std::time::Instant::now();
+    NativeWindowHostLoopDeadlineTimerAdapter::new(
+        StdNativeWindowHostLoopDeadlineTimerClock { origin },
+        StdNativeWindowHostLoopDeadlineTimerSleeper { origin },
+    )
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopEventQueueWaitError<WaiterError> {
     FrameIntervalEventQueueWaitUnsupported {
@@ -7746,6 +7979,191 @@ mod tests {
     }
 
     #[test]
+    fn native_window_deadline_timer_adapter_registers_and_fires_frame_interval() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 27,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let timer_registration_id = NativeWindowHostLoopTimerRegistrationId { raw_id: 1 };
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_deadline_timer_wakeup_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap(),
+            NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: true,
+                wait_nanos: 16_666_666,
+                timer_registration_id,
+            }
+        );
+        assert_eq!(adapter.active_timer(), None);
+        assert_eq!(adapter.next_raw_id(), 2);
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.sleeper.sleep_until_calls, vec![16_667_666]);
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_rejects_active_overlap() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(adapter.register_timer_nanos(10).unwrap(), 1);
+        assert_eq!(
+            adapter.register_timer_nanos(20).unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::ActiveTimerAlreadyRegistered {
+                active_raw_id: 1,
+            }
+        );
+        assert_eq!(
+            adapter.active_timer(),
+            Some(NativeWindowHostLoopDeadlineTimerRecord {
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+                deadline_nanos: 1_010,
+            })
+        );
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_rejects_missing_active_timer() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(
+            adapter
+                .wait_for_timer_fire(NativeWindowHostLoopTimerRegistrationId { raw_id: 1 })
+                .unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::NoActiveTimer {
+                requested_raw_id: 1,
+            }
+        );
+        assert!(adapter.sleeper.sleep_until_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_rejects_mismatched_fire_id() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(adapter.register_timer_nanos(10).unwrap(), 1);
+        assert_eq!(
+            adapter
+                .wait_for_timer_fire(NativeWindowHostLoopTimerRegistrationId { raw_id: 2 })
+                .unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::FiredTimerRegistrationMismatch {
+                expected_raw_id: 1,
+                actual_raw_id: 2,
+            }
+        );
+        assert_eq!(
+            adapter.active_timer(),
+            Some(NativeWindowHostLoopDeadlineTimerRecord {
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+                deadline_nanos: 1_010,
+            })
+        );
+        assert!(adapter.sleeper.sleep_until_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_rejects_registration_id_overflow() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+        adapter.next_raw_id = u32::MAX;
+
+        assert_eq!(
+            adapter.register_timer_nanos(10).unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::TimerRegistrationIdOverflow {
+                last_raw_id: u32::MAX,
+            }
+        );
+        assert_eq!(adapter.active_timer(), None);
+        assert_eq!(adapter.clock.now_calls, 0);
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_rejects_deadline_overflow() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(u64::MAX),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(
+            adapter.register_timer_nanos(1).unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::DeadlineNanosOverflow {
+                now_nanos: u64::MAX,
+                wait_nanos: 1,
+            }
+        );
+        assert_eq!(adapter.active_timer(), None);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_preserves_clock_error() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000).with_error("clock failed"),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+
+        assert_eq!(
+            adapter.register_timer_nanos(10).unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::ClockFailed("clock failed")
+        );
+        assert_eq!(adapter.active_timer(), None);
+        assert_eq!(adapter.next_raw_id(), 1);
+        assert_eq!(adapter.clock.now_calls, 1);
+    }
+
+    #[test]
+    fn native_window_deadline_timer_adapter_preserves_active_timer_on_sleep_error() {
+        let mut adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new().with_error("sleep failed"),
+        );
+
+        assert_eq!(adapter.register_timer_nanos(10).unwrap(), 1);
+        assert_eq!(
+            adapter
+                .wait_for_timer_fire(NativeWindowHostLoopTimerRegistrationId { raw_id: 1 })
+                .unwrap_err(),
+            NativeWindowHostLoopDeadlineTimerAdapterError::SleeperFailed("sleep failed")
+        );
+        assert_eq!(
+            adapter.active_timer(),
+            Some(NativeWindowHostLoopDeadlineTimerRecord {
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+                deadline_nanos: 1_010,
+            })
+        );
+        assert_eq!(adapter.sleeper.sleep_until_calls, vec![1_010]);
+    }
+
+    #[test]
     fn native_window_event_queue_wait_waits_for_host_event_instruction() {
         let window_size = NativeWindowSize::new(800, 600);
         let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
@@ -9279,6 +9697,72 @@ mod tests {
                 Err(error)
             } else {
                 Ok(self.raw_id)
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopDeadlineTimerClock {
+        now_nanos: u64,
+        now_calls: usize,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopDeadlineTimerClock {
+        fn new(now_nanos: u64) -> Self {
+            Self {
+                now_nanos,
+                now_calls: 0,
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopDeadlineTimerClock for ScriptedNativeWindowHostLoopDeadlineTimerClock {
+        type Error = &'static str;
+
+        fn now_nanos(&mut self) -> Result<u64, Self::Error> {
+            self.now_calls += 1;
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(self.now_nanos)
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopDeadlineTimerSleeper {
+        sleep_until_calls: Vec<u64>,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopDeadlineTimerSleeper {
+        fn new() -> Self {
+            Self {
+                sleep_until_calls: Vec::new(),
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopDeadlineTimerSleeper for ScriptedNativeWindowHostLoopDeadlineTimerSleeper {
+        type Error = &'static str;
+
+        fn sleep_until_nanos(&mut self, deadline_nanos: u64) -> Result<(), Self::Error> {
+            self.sleep_until_calls.push(deadline_nanos);
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(())
             }
         }
     }

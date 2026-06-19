@@ -89,6 +89,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowTimerWakeupBackend = textSliceBetween(
         libSource,
         "pub enum NativeWindowHostLoopTimerWakeError",
+        "pub struct NativeWindowHostLoopDeadlineTimerRecord",
+    );
+    const nativeWindowDeadlineTimerAdapter = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowHostLoopDeadlineTimerRecord",
         "pub enum NativeWindowHostLoopEventQueueWaitError",
     );
     const nativeWindowEventQueueWaitBackend = textSliceBetween(
@@ -152,6 +157,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
+        .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -161,6 +167,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
+        .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -170,6 +177,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowTimerFireBackend, "")
         .replace(nativeWindowTimerWakeupBackend, "")
+        .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
@@ -301,6 +309,25 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowTimerWakeupBackend, /execute_native_window_host_loop_timer_registration_wait_with_registrar\(\s*instruction,\s*registrar,\s*\)[\s\S]*NativeWindowHostLoopTimerWakeError::RegistrationFailed/);
     assert.match(nativeWindowTimerWakeupBackend, /execute_native_window_host_loop_timer_fire_wait_with_waiter\(registration_outcome,\s*waiter\)[\s\S]*NativeWindowHostLoopTimerWakeError::FireFailed/);
     assert.doesNotMatch(nativeWindowTimerWakeupBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|queue|register_timer_nanos|wait_for_timer_fire|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowDeadlineTimerAdapter, /pub struct NativeWindowHostLoopDeadlineTimerRecord\s*\{[\s\S]*timer_registration_id: NativeWindowHostLoopTimerRegistrationId,[\s\S]*deadline_nanos: u64/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /pub enum NativeWindowHostLoopDeadlineTimerAdapterError<ClockError,\s*SleeperError>\s*\{[\s\S]*ActiveTimerAlreadyRegistered[\s\S]*NoActiveTimer[\s\S]*TimerRegistrationIdOverflow[\s\S]*DeadlineNanosOverflow[\s\S]*ClockFailed\(ClockError\)[\s\S]*SleeperFailed\(SleeperError\)[\s\S]*FiredTimerRegistrationMismatch/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /pub trait NativeWindowHostLoopDeadlineTimerClock\s*\{[\s\S]*now_nanos\(&mut self\) -> Result<u64,\s*Self::Error>/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /pub trait NativeWindowHostLoopDeadlineTimerSleeper\s*\{[\s\S]*sleep_until_nanos\(&mut self,\s*deadline_nanos: u64\) -> Result<\(\),\s*Self::Error>/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /impl<Clock,\s*Sleeper> NativeWindowHostLoopTimerRegistrar[\s\S]*for NativeWindowHostLoopDeadlineTimerAdapter<Clock,\s*Sleeper>/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /active_timer[\s\S]*ActiveTimerAlreadyRegistered[\s\S]*checked_add\(1\)[\s\S]*TimerRegistrationIdOverflow[\s\S]*clock[\s\S]*\.now_nanos\(\)[\s\S]*ClockFailed[\s\S]*checked_add\(u64::from\(wait_nanos\)\)[\s\S]*DeadlineNanosOverflow/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /impl<Clock,\s*Sleeper> NativeWindowHostLoopTimerFireWaiter[\s\S]*for NativeWindowHostLoopDeadlineTimerAdapter<Clock,\s*Sleeper>/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /NoActiveTimer[\s\S]*FiredTimerRegistrationMismatch[\s\S]*sleeper[\s\S]*\.sleep_until_nanos\(active_timer\.deadline_nanos\)[\s\S]*SleeperFailed[\s\S]*self\.active_timer = None/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /execute_native_window_host_loop_deadline_timer_wakeup_with_adapter[\s\S]*execute_native_window_host_loop_timer_registration_wait_with_registrar[\s\S]*execute_native_window_host_loop_timer_fire_wait_with_waiter/);
+    assert.match(nativeWindowDeadlineTimerAdapter, /StdNativeWindowHostLoopDeadlineTimerClock[\s\S]*StdNativeWindowHostLoopDeadlineTimerSleeper[\s\S]*std::time::Instant[\s\S]*std::thread::sleep\(std::time::Duration::from_nanos/);
+    assert.doesNotMatch(nativeWindowDeadlineTimerAdapter, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|queue|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(libSource, /native_window_deadline_timer_adapter_registers_and_fires_frame_interval/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_rejects_active_overlap/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_rejects_missing_active_timer/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_rejects_mismatched_fire_id/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_rejects_registration_id_overflow/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_rejects_deadline_overflow/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_preserves_clock_error/);
+    assert.match(libSource, /native_window_deadline_timer_adapter_preserves_active_timer_on_sleep_error/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForHostEvent\s*\{[\s\S]*waiter[\s\S]*\.wait_for_host_event\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueWaitError::WaiterFailed/);
     assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
@@ -979,6 +1006,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop timer registration backend registers only frame intervals and validates raw timer ids",
             "Native host-loop timer fire backend validates fired timer ids before wakeup evidence",
             "Native host-loop timer wakeup executor preserves registration and fire failure stages",
+            "Native host-loop std deadline timer adapter owns timer state without minifb pacing changes",
             "Native host-loop scheduler resume gate requires timer fire before resuming registered timers",
             "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native presenter input preserves typed operation identity before scheduler ready payload",

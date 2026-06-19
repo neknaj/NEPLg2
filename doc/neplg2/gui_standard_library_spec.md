@@ -521,6 +521,18 @@ F5gz は scheduler resume policy が後続で消費できる typed wakeup bounda
 
 F5ha は resume gate までであり、real OS timer adapter、selector ownership、minifb timer path、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、sleep / busy-loop による timer fire 代替は禁止する。
 
+## F5hb Native window host-loop std deadline timer adapter boundary
+
+2026-06-19 の F5hb では、native host-loop 用の std deadline timer adapter を追加する。adapter は `NativeWindowHostLoopTimerRegistrar` と `NativeWindowHostLoopTimerFireWaiter` の contract を同じ host-owned timer state で実装する。
+
+`NativeWindowHostLoopDeadlineTimerAdapter` は injected clock と injected sleeper を持つ。registration では active timer が無いこと、timer id が overflow しないこと、`now_nanos + wait_nanos` が overflow しないことを検査してから active timer を作る。fire wait では active timer が存在し、requested id と active id が一致する場合だけ sleeper を呼び、sleep 成功後に active timer を消費する。
+
+error は `NativeWindowHostLoopDeadlineTimerAdapterError` に分離する。active timer overlap、missing active timer、timer id overflow、deadline overflow、clock failure、sleeper failure、mismatched fired id を generic backend failure に潰してはいけない。sleeper failure では active timer を保持する。
+
+std 実装は `StdNativeWindowHostLoopDeadlineTimerClock` と `StdNativeWindowHostLoopDeadlineTimerSleeper` に閉じ込める。unit test は scripted clock / sleeper を使い、実時間 sleep には依存しない。
+
+F5hb は std deadline timer adapter boundary までであり、selector ownership、OS message loop timer、queue integration、minifb wait hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。minifb smoke backend が `FramePresentAlreadyPaced` を返す contract は維持する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

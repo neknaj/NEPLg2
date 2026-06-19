@@ -1,3 +1,50 @@
+# 2026-06-19 Agent2 GUI native F5hb std deadline timer adapter boundary
+
+## scope
+
+- F5ha の後続として、native host-loop 用の std deadline timer adapter boundary を追加する。
+- F5gt の timer registration trait と F5gy の timer fire waiter trait を同じ host-owned adapter state で実装し、active timer、positive id、deadline nanos を明示的に管理する。
+- minifb wait hook 接続、`Window::set_target_fps` 置換、selector wakeup ownership、OS message loop timer、queue integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- minifb は `Window::set_target_fps` が pacing authority であり、この slice で timer / sleep を minifb wait hook へ接続すると double pacing になると指摘された。
+- slice 名と実装範囲を real OS selector ownership ではなく std deadline timer adapter に狭め、overlap / missing / mismatch / id overflow / deadline overflow / clock failure / sleeper failure を enum error にすること、unit test は injected clock / sleeper で deterministic に行うことが要求された。
+- 実装はこの指摘に合わせ、minifb 接続と selector ownership を後続 residual に残す。
+
+## implementation_current
+
+- `NativeWindowHostLoopDeadlineTimerRecord` と `NativeWindowHostLoopDeadlineTimerAdapterError` を追加した。
+- `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopDeadlineTimerSleeper` を追加し、clock / sleeper を adapter へ注入できるようにした。
+- `NativeWindowHostLoopDeadlineTimerAdapter` を追加し、registration 成功時だけ active timer を作り、fire wait 成功時だけ active timer を消費するようにした。
+- `execute_native_window_host_loop_deadline_timer_wakeup_with_adapter` を追加し、F5gt / F5gy helper を同じ adapter state で順に呼べるようにした。
+- cfg-gated std implementation として `StdNativeWindowHostLoopDeadlineTimerClock`、`StdNativeWindowHostLoopDeadlineTimerSleeper`、`native_window_host_loop_std_deadline_timer_adapter` を追加した。
+- focused tests、`nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5hb contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_deadline_timer_adapter -- --nocapture` は 8 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 164 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5hb native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `IMPLEMENTATION_APPROVED`。
+- 初回 plan review の blocking comments は解消済みであり、F5hb は std deadline timer adapter boundary に正しく狭められていると確認された。
+- minifb は `FramePresentAlreadyPaced` と `Window::set_target_fps` pacing authority を維持し、`std::thread::sleep` / `Duration` は cfg-gated deadline adapter slice 内だけに隔離されていることが確認された。
+- overlap、missing active timer、id overflow、deadline overflow、clock failure、sleeper failure、id mismatch の typed failure と、registration / fire の state staging も妥当と確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_deadline_timer_adapter -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が pass した。`git diff --check` の LF/CRLF warning は working-copy 変換 warning である。
+
+## residual
+
+- 次 slice では selector / message-loop timer ownership と minifb pacing authority の扱いを設計する。
+- F5hb は std deadline timer adapter boundary までであり、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI native F5ha scheduler timer resume gate boundary
 
 ## scope

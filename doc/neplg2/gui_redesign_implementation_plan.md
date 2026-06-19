@@ -1637,6 +1637,31 @@ subagent review:
 - Darwin the 2nd に F5ha 計画を渡し、`Waited` 無条件継続を止めること、timer fire wait 実装へ踏み込まないこと、source policy の観点を確認させた。結果は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5hb: Native window host-loop std deadline timer adapter boundary
+
+Phase F5hb では、native host-loop 用の host-owned deadline timer adapter を追加する。これは selector / message loop timer integration ではなく、F5gt の registration trait と F5gy の fire waiter trait を同じ adapter state で実装できることを固定する checkpoint である。
+
+実装:
+
+- `NativeWindowHostLoopDeadlineTimerRecord` を追加し、timer registration id と deadline nanos を保持する。
+- `NativeWindowHostLoopDeadlineTimerAdapterError` を追加し、active timer overlap、missing active timer、timer id overflow、deadline overflow、clock failure、sleeper failure、mismatched fired id を enum で分ける。
+- `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopDeadlineTimerSleeper` を追加し、unit test は scripted clock / sleeper で deterministic に動かす。
+- `NativeWindowHostLoopDeadlineTimerAdapter` を追加し、registration 成功時だけ active timer を作り、fire wait 成功時だけ active timer を消費する。
+- `execute_native_window_host_loop_deadline_timer_wakeup_with_adapter` を追加し、F5gt/F5gy helper を同じ adapter state で順に呼ぶ。
+- cfg-gated std implementation として `StdNativeWindowHostLoopDeadlineTimerClock` / `StdNativeWindowHostLoopDeadlineTimerSleeper` / `native_window_host_loop_std_deadline_timer_adapter` を追加する。
+- source policy は std sleep / Duration を deadline timer adapter slice 内だけ許可し、minifb / presenter / scheduler / event pump への混入を禁止する。
+
+非目標:
+
+- minifb wait hook へ接続しない。`Window::set_target_fps` が smoke backend の pacing authority である間、frame interval wait は `FramePresentAlreadyPaced` のまま扱う。
+- selector wakeup ownership、OS message loop timer、queue integration は含めない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- 初回 plan review は `CHANGES_REQUESTED`。minifb の double pacing を避けること、slice 名を std deadline timer adapter に絞ること、overlap / missing / mismatch / id overflow / deadline overflow を typed error にすること、unit test を実 sleep に依存させないことが要求された。
+- 実装はこの指摘に合わせ、minifb connection と selector ownership を後続 residual に残す。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
