@@ -1733,6 +1733,32 @@ subagent review:
 - 初回 plan review は `CHANGES_REQUESTED`。minifb internal wait を無効化する前に host-event blocking / selector boundary が必要であり、`set_target_fps 0` はこの slice では不適切と指摘された。
 - 改訂 plan は `PLAN_APPROVED`。required constraints は、authority が raw fps ではなく `NativeWindowTargetFps` を保持すること、`FramePresentAlreadyPaced` は authority helper だけから返すこと、docs/source policy が already-paced の意味を minifb internal pacing evidence として明記すること、deadline timer owner を minifb path へ接続しないことである。
 
+## Phase F5hf: Native frame interval wait authority mode boundary
+
+Phase F5hf では、frame interval wait の authority を `NativeWindowFrameIntervalWaitAuthorityMode` として typed data にする。これは selector / message-loop timer ownership の実装ではなく、minifb internal target-fps pacing と host-owned deadline timer の二重 authority を先に拒否する safety boundary である。
+
+実装:
+
+- `NativeWindowFrameIntervalWaitAuthorityMode` を追加し、`MinifbInternalTargetFps target_fps` と `HostOwnedDeadlineTimer` を分ける。
+- `NativeWindowFrameIntervalWaitAuthorityModeError` を追加し、authority conflict と target FPS mismatch を enum で分ける。
+- `combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れる。
+- minifb mode と host-owned mode の組み合わせは順序に関係なく `ConflictingFrameIntervalAuthorities` として拒否する。target fps が異なる minifb mode 同士も同じ conflict として扱う。
+- `validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction の `NativeWindowFrameIntervalRequest.target_fps` と authority target を照合する。
+- host-owned deadline timer mode の validation は、すでに計画された frame interval instruction と authority mode が矛盾しないことだけを表し、`FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered`、`FrameIntervalTimerFired` を生成しない。
+- `NativeWindowMinifbFramePacingAuthority` は自分の authority mode を返し、`FramePresentAlreadyPaced` を返す前に新しい validation helper を通る。
+- unit test は same minifb target の合成、minifb と host-owned の双方向 conflict、minifb target mismatch、minifb validation mismatch、host-owned validation no-evidence を検査する。
+- source policy は mode helper が wait outcome / timer evidence / `set_target_fps` / deadline timer adapter / OS wait を持たないことと、minifb authority path が helper を実際に使うことを固定する。
+
+非目標:
+
+- selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換は含めない。
+- host-owned deadline timer mode は compatibility marker であり、この phase では timer owner の実行 path ではない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

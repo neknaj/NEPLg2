@@ -1,3 +1,40 @@
+# 2026-06-19 Agent2 GUI native F5hf frame interval wait authority mode boundary
+
+## scope
+
+- F5he の後続として、frame interval wait authority を `NativeWindowFrameIntervalWaitAuthorityMode` に分ける。
+- minifb internal target-fps pacing と future host-owned deadline timer を同時 authority として扱わないための safety boundary であり、selector / message-loop timer ownership の実装ではない。
+- `FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered`、`FrameIntervalTimerFired` の evidence 生成 authority を混ぜず、fallback、silent no-op、busy loop、`set_target_fps 0` は導入しない。
+
+## plan_review
+
+- Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
+
+## implementation
+
+- `NativeWindowFrameIntervalWaitAuthorityMode` と `NativeWindowFrameIntervalWaitAuthorityModeError` を追加した。
+- `combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れ、混在や minifb target mismatch を `ConflictingFrameIntervalAuthorities` として拒否する。
+- `validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction target fps を照合し、host-owned deadline timer mode では compatibility check だけを行う。
+- `NativeWindowMinifbFramePacingAuthority` は `frame_interval_wait_authority_mode` を公開し、`FramePresentAlreadyPaced` を返す前に mode validation helper を通る。
+- GUI docs、source-policy、`todo.md` を F5hf contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_frame_interval_wait_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: targeted F5hf test は 5 件 pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 183 件 pass した。
+- info: native platform source-policy は pass し、F5hf docs/source contract を検査対象に加えた。
+- info: source policy regression は 254 秒で exit 0 完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。F5hf は pure typed mode による実 boundary であり、host-owned deadline mode が wait evidence を生成しないこと、minifb authority が validation helper を通ってから `FramePresentAlreadyPaced` を返すこと、`set_target_fps 0` / wait owner 接続 / fallback / silent no-op が入っていないことが確認された。
+
 # 2026-06-19 Agent2 GUI native F5he minifb frame pacing authority boundary
 
 ## scope

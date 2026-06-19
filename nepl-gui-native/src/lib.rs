@@ -4171,12 +4171,95 @@ where
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowFrameIntervalWaitAuthorityMode {
+    MinifbInternalTargetFps { target_fps: NativeWindowTargetFps },
+    HostOwnedDeadlineTimer,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowFrameIntervalWaitAuthorityModeError {
+    ConflictingFrameIntervalAuthorities {
+        active: NativeWindowFrameIntervalWaitAuthorityMode,
+        requested: NativeWindowFrameIntervalWaitAuthorityMode,
+    },
+    TargetFpsMismatch {
+        authority_target_fps: NativeWindowTargetFps,
+        instruction_target_fps: NativeWindowTargetFps,
+    },
+}
+
+pub fn native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+    target_fps: NativeWindowTargetFps,
+) -> NativeWindowFrameIntervalWaitAuthorityMode {
+    NativeWindowFrameIntervalWaitAuthorityMode::MinifbInternalTargetFps { target_fps }
+}
+
+pub fn native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer(
+) -> NativeWindowFrameIntervalWaitAuthorityMode {
+    NativeWindowFrameIntervalWaitAuthorityMode::HostOwnedDeadlineTimer
+}
+
+pub fn combine_native_window_frame_interval_wait_authority_mode(
+    active: NativeWindowFrameIntervalWaitAuthorityMode,
+    requested: NativeWindowFrameIntervalWaitAuthorityMode,
+) -> Result<
+    NativeWindowFrameIntervalWaitAuthorityMode,
+    NativeWindowFrameIntervalWaitAuthorityModeError,
+> {
+    match (active, requested) {
+        (
+            NativeWindowFrameIntervalWaitAuthorityMode::MinifbInternalTargetFps {
+                target_fps: active_target_fps,
+            },
+            NativeWindowFrameIntervalWaitAuthorityMode::MinifbInternalTargetFps {
+                target_fps: requested_target_fps,
+            },
+        ) if active_target_fps == requested_target_fps => Ok(active),
+        (
+            NativeWindowFrameIntervalWaitAuthorityMode::HostOwnedDeadlineTimer,
+            NativeWindowFrameIntervalWaitAuthorityMode::HostOwnedDeadlineTimer,
+        ) => Ok(active),
+        _ => Err(
+            NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                active,
+                requested,
+            },
+        ),
+    }
+}
+
+pub fn validate_native_window_frame_interval_wait_authority_mode(
+    authority_mode: NativeWindowFrameIntervalWaitAuthorityMode,
+    frame_interval: NativeWindowFrameIntervalRequest,
+) -> Result<(), NativeWindowFrameIntervalWaitAuthorityModeError> {
+    match authority_mode {
+        NativeWindowFrameIntervalWaitAuthorityMode::MinifbInternalTargetFps { target_fps } => {
+            let instruction_target_fps = frame_interval.target_fps();
+            if instruction_target_fps != target_fps {
+                return Err(
+                    NativeWindowFrameIntervalWaitAuthorityModeError::TargetFpsMismatch {
+                        authority_target_fps: target_fps,
+                        instruction_target_fps,
+                    },
+                );
+            }
+            Ok(())
+        }
+        NativeWindowFrameIntervalWaitAuthorityMode::HostOwnedDeadlineTimer => Ok(()),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowMinifbFramePacingAuthority {
     target_fps: NativeWindowTargetFps,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowMinifbFramePacingAuthorityError {
+    FrameIntervalAuthorityConflict {
+        active: NativeWindowFrameIntervalWaitAuthorityMode,
+        requested: NativeWindowFrameIntervalWaitAuthorityMode,
+    },
     FrameIntervalTargetFpsMismatch {
         authority_target_fps: NativeWindowTargetFps,
         instruction_target_fps: NativeWindowTargetFps,
@@ -4200,6 +4283,10 @@ impl NativeWindowMinifbFramePacingAuthority {
         self.target_fps.as_usize()
     }
 
+    pub fn frame_interval_wait_authority_mode(self) -> NativeWindowFrameIntervalWaitAuthorityMode {
+        native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(self.target_fps)
+    }
+
     pub fn frame_interval_wait_outcome(
         self,
         presentation: NativeWindowBackendLoopPresentation,
@@ -4208,14 +4295,26 @@ impl NativeWindowMinifbFramePacingAuthority {
         frame_interval: NativeWindowFrameIntervalRequest,
         wait_nanos: u32,
     ) -> Result<NativeWindowHostLoopWaitOutcome, NativeWindowMinifbFramePacingAuthorityError> {
-        let instruction_target_fps = frame_interval.target_fps();
-        if instruction_target_fps != self.target_fps {
-            return Err(
-                NativeWindowMinifbFramePacingAuthorityError::FrameIntervalTargetFpsMismatch {
-                    authority_target_fps: self.target_fps,
+        if let Err(error) = validate_native_window_frame_interval_wait_authority_mode(
+            self.frame_interval_wait_authority_mode(),
+            frame_interval,
+        ) {
+            return Err(match error {
+                NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                    active,
+                    requested,
+                } => NativeWindowMinifbFramePacingAuthorityError::FrameIntervalAuthorityConflict {
+                    active,
+                    requested,
+                },
+                NativeWindowFrameIntervalWaitAuthorityModeError::TargetFpsMismatch {
+                    authority_target_fps,
+                    instruction_target_fps,
+                } => NativeWindowMinifbFramePacingAuthorityError::FrameIntervalTargetFpsMismatch {
+                    authority_target_fps,
                     instruction_target_fps,
                 },
-            );
+            });
         }
         let nanos_per_frame = frame_interval.nanos_per_frame();
         if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
@@ -7142,6 +7241,104 @@ mod tests {
     }
 
     #[test]
+    fn native_window_frame_interval_wait_authority_combines_same_minifb_target() {
+        let target_fps = NativeWindowTargetFps::default();
+        let active =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
+        let requested =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
+
+        assert_eq!(
+            combine_native_window_frame_interval_wait_authority_mode(active, requested).unwrap(),
+            active
+        );
+    }
+
+    #[test]
+    fn native_window_frame_interval_wait_authority_rejects_minifb_and_deadline_conflict() {
+        let target_fps = NativeWindowTargetFps::default();
+        let minifb =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
+        let deadline = native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer();
+
+        assert_eq!(
+            combine_native_window_frame_interval_wait_authority_mode(minifb, deadline).unwrap_err(),
+            NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                active: minifb,
+                requested: deadline,
+            }
+        );
+        assert_eq!(
+            combine_native_window_frame_interval_wait_authority_mode(deadline, minifb).unwrap_err(),
+            NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                active: deadline,
+                requested: minifb,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_frame_interval_wait_authority_rejects_minifb_target_mismatch() {
+        let active_target_fps = NativeWindowTargetFps::default();
+        let requested_target_fps = NativeWindowTargetFps::new(120).unwrap();
+        let active = native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+            active_target_fps,
+        );
+        let requested = native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+            requested_target_fps,
+        );
+
+        assert_eq!(
+            combine_native_window_frame_interval_wait_authority_mode(active, requested)
+                .unwrap_err(),
+            NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                active,
+                requested,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_frame_interval_wait_authority_validates_minifb_instruction_target_fps() {
+        let authority_target_fps = NativeWindowTargetFps::default();
+        let instruction_target_fps = NativeWindowTargetFps::new(120).unwrap();
+        let authority_mode =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+                authority_target_fps,
+            );
+        let frame_interval = native_window_frame_interval_request(instruction_target_fps);
+
+        assert_eq!(
+            validate_native_window_frame_interval_wait_authority_mode(
+                authority_mode,
+                frame_interval
+            )
+            .unwrap_err(),
+            NativeWindowFrameIntervalWaitAuthorityModeError::TargetFpsMismatch {
+                authority_target_fps,
+                instruction_target_fps,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_frame_interval_wait_authority_validates_host_owned_deadline_timer() {
+        let authority_mode =
+            native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer();
+        let frame_interval =
+            native_window_frame_interval_request(NativeWindowTargetFps::new(120).unwrap());
+
+        assert_eq!(
+            validate_native_window_frame_interval_wait_authority_mode(
+                authority_mode,
+                frame_interval
+            )
+            .unwrap(),
+            ()
+        );
+    }
+
+    #[test]
     fn native_window_minifb_frame_pacing_authority_accepts_matching_frame_interval() {
         let target_fps = NativeWindowTargetFps::default();
         let authority = NativeWindowMinifbFramePacingAuthority::new(target_fps);
@@ -7155,6 +7352,10 @@ mod tests {
 
         assert_eq!(authority.target_fps(), target_fps);
         assert_eq!(authority.target_fps_usize(), target_fps.as_usize());
+        assert_eq!(
+            authority.frame_interval_wait_authority_mode(),
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps)
+        );
         assert_eq!(
             authority
                 .frame_interval_wait_outcome(

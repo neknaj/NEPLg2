@@ -567,6 +567,18 @@ authority は `NativeWindowTargetFps` を保持する。`WaitForFrameInterval` i
 
 F5he は minifb internal target-fps pacing authority boundary までであり、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、selector ownership、OS message-loop timer、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
+## F5hf Native frame interval wait authority mode boundary
+
+2026-06-19 の F5hf では、frame interval wait の authority を `NativeWindowFrameIntervalWaitAuthorityMode` として表す。
+
+`NativeWindowFrameIntervalWaitAuthorityMode` は `MinifbInternalTargetFps target_fps` と `HostOwnedDeadlineTimer` を持つ。前者は minifb internal `Window::set_target_fps` pacing が wait authority であることを表し、後者は future selector / message-loop timer path が deadline timer owner を authority として使う場合の compatibility marker である。
+
+`combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れる。minifb internal pacing と host-owned deadline timer を同時 authority にすること、または target fps が異なる minifb authority を同時に使うことは `ConflictingFrameIntervalAuthorities` として拒否する。
+
+`validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction の `NativeWindowFrameIntervalRequest.target_fps` と authority target を照合する。不一致は `TargetFpsMismatch` として返す。host-owned deadline timer mode は wait instruction との compatibility check だけであり、`FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered`、`FrameIntervalTimerFired` の evidence を生成しない。
+
+`NativeWindowMinifbFramePacingAuthority` は `FramePresentAlreadyPaced` を返す前に、自分の `MinifbInternalTargetFps` mode をこの validation helper に通す。F5hf は二重 authority を拒否する safety boundary であり、selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、busy loop による代替は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
