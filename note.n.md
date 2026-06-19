@@ -1,3 +1,38 @@
+# 2026-06-19 Agent2 GUI native F5he minifb frame pacing authority boundary
+
+## scope
+
+- F5hd の後続として、minifb smoke backend の `Window::set_target_fps` based pacing を typed authority として明示する。
+- `NativeWindowMinifbFramePacingAuthority` は validated `NativeWindowTargetFps` を保持し、frame interval instruction の target fps と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。
+- selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- `set_target_fps 0` で minifb internal wait を無効化すると、現在の `WaitForHostEvent` path が `window.update` を通るため tight loop になると指摘された。
+- 改訂 plan では、F5he を minifb internal target-fps pacing authority boundary に絞り、typed `NativeWindowTargetFps` を保持する authority、`FramePresentAlreadyPaced` の authority helper 経由化、`set_target_fps 0` 禁止、deadline timer owner 未接続を条件として `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowMinifbFramePacingAuthority` と `NativeWindowMinifbFramePacingAuthorityError` を追加した。
+- authority helper は instruction target fps mismatch と wait nanos mismatch を enum error として返し、matching frame interval だけを `FramePresentAlreadyPaced` に写す。
+- `MinifbNativeWindowRunLoopHost` は frame pacing authority を保持し、frame interval wait を authority helper へ委譲する。
+- `run_minifb_window_loop` は `config.target_fps` から authority を作り、`configure_minifb_window_frame_pacing` 経由で `window.set_target_fps authority.target_fps_usize` を設定する。`set_target_fps 0` は導入していない。
+- GUI docs、source-policy、`todo.md` を F5he contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_minifb_frame_pacing_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: `cargo check -p nepl-gui-native --features window` の private wrapper payload warning は、error message 変換で lower error を明示的に読む形に修正して解消した。
+- info: source policy regression は 263.9 秒で exit 0 完走した。今回の native policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- subagent implementation review は `APPROVED_TO_COMMIT`。minifb pacing は `Window::set_target_fps target_fps` に残り、`FramePresentAlreadyPaced` は typed authority 経由でのみ生成され、F5hd wait owner / std deadline timer adapter が minifb path へ接続されていないことが確認された。
+
 # 2026-06-19 Agent2 GUI native F5hd wait owner boundary
 
 ## scope
