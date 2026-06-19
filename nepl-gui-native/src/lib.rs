@@ -1565,6 +1565,109 @@ pub fn execute_native_window_host_loop_thread_wait(
     execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopTimerRegistrationId {
+    raw_id: u32,
+}
+
+impl NativeWindowHostLoopTimerRegistrationId {
+    pub fn raw_id(self) -> u32 {
+        self.raw_id
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopTimerRegistrationError<RegistrarError> {
+    HostEventTimerRegistrationUnsupported {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    FrameIntervalWaitNanosMismatch {
+        wait_nanos: u32,
+        nanos_per_frame: u32,
+    },
+    InvalidTimerRegistrationId {
+        raw_id: u32,
+    },
+    RegistrarFailed(RegistrarError),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopTimerRegistrationOutcome {
+    FrameIntervalTimerRegistered {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        wait_nanos: u32,
+        timer_registration_id: NativeWindowHostLoopTimerRegistrationId,
+    },
+}
+
+pub trait NativeWindowHostLoopTimerRegistrar {
+    type Error;
+
+    fn register_timer_nanos(&mut self, wait_nanos: u32) -> Result<u32, Self::Error>;
+}
+
+pub fn execute_native_window_host_loop_timer_registration_with_registrar<Registrar>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    registrar: &mut Registrar,
+) -> Result<
+    NativeWindowHostLoopTimerRegistrationOutcome,
+    NativeWindowHostLoopTimerRegistrationError<Registrar::Error>,
+>
+where
+    Registrar: NativeWindowHostLoopTimerRegistrar,
+{
+    match instruction {
+        NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed,
+        } => Err(
+            NativeWindowHostLoopTimerRegistrationError::HostEventTimerRegistrationUnsupported {
+                window_size,
+                size_changed,
+            },
+        ),
+        NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+            frame_interval,
+            wait_nanos,
+        } => {
+            let nanos_per_frame = frame_interval.nanos_per_frame();
+            if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
+                return Err(
+                    NativeWindowHostLoopTimerRegistrationError::FrameIntervalWaitNanosMismatch {
+                        wait_nanos,
+                        nanos_per_frame,
+                    },
+                );
+            }
+            let raw_id = registrar
+                .register_timer_nanos(wait_nanos)
+                .map_err(NativeWindowHostLoopTimerRegistrationError::RegistrarFailed)?;
+            if raw_id == 0 {
+                return Err(
+                    NativeWindowHostLoopTimerRegistrationError::InvalidTimerRegistrationId {
+                        raw_id,
+                    },
+                );
+            }
+            Ok(
+                NativeWindowHostLoopTimerRegistrationOutcome::FrameIntervalTimerRegistered {
+                    presentation,
+                    window_size,
+                    size_changed,
+                    wait_nanos,
+                    timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id },
+                },
+            )
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopTurn {
     Continue(NativeWindowHostLoopContinueEvidence),
@@ -6369,6 +6472,151 @@ mod tests {
     }
 
     #[test]
+    fn native_window_timer_registration_registers_frame_interval_instruction() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 11,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_667,
+        };
+        let mut registrar = ScriptedNativeWindowHostLoopTimerRegistrar::new(42);
+
+        assert_eq!(
+            execute_native_window_host_loop_timer_registration_with_registrar(
+                instruction,
+                &mut registrar
+            )
+            .unwrap(),
+            NativeWindowHostLoopTimerRegistrationOutcome::FrameIntervalTimerRegistered {
+                presentation,
+                window_size,
+                size_changed: true,
+                wait_nanos: 16_666_667,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 42 },
+            }
+        );
+        assert_eq!(registrar.registration_calls, vec![16_666_667]);
+    }
+
+    #[test]
+    fn native_window_timer_registration_rejects_host_event_without_queue_backend() {
+        let window_size = NativeWindowSize::new(640, 0);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let mut registrar = ScriptedNativeWindowHostLoopTimerRegistrar::new(9);
+
+        assert_eq!(
+            execute_native_window_host_loop_timer_registration_with_registrar(
+                instruction,
+                &mut registrar
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopTimerRegistrationError::HostEventTimerRegistrationUnsupported {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(registrar.registration_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_timer_registration_rejects_invalid_wait_nanos_without_registration() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 12,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 2,
+        };
+        let mut registrar = ScriptedNativeWindowHostLoopTimerRegistrar::new(9);
+
+        assert_eq!(
+            execute_native_window_host_loop_timer_registration_with_registrar(
+                instruction,
+                &mut registrar
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopTimerRegistrationError::FrameIntervalWaitNanosMismatch {
+                wait_nanos: 2,
+                nanos_per_frame: 16_666_666,
+            }
+        );
+        assert!(registrar.registration_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_timer_registration_rejects_invalid_raw_timer_id() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 13,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut registrar = ScriptedNativeWindowHostLoopTimerRegistrar::new(0);
+
+        assert_eq!(
+            execute_native_window_host_loop_timer_registration_with_registrar(
+                instruction,
+                &mut registrar
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopTimerRegistrationError::InvalidTimerRegistrationId { raw_id: 0 }
+        );
+        assert_eq!(registrar.registration_calls, vec![16_666_666]);
+    }
+
+    #[test]
+    fn native_window_timer_registration_preserves_registrar_error() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 14,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut registrar =
+            ScriptedNativeWindowHostLoopTimerRegistrar::new(7).with_error("timer failed");
+
+        assert_eq!(
+            execute_native_window_host_loop_timer_registration_with_registrar(
+                instruction,
+                &mut registrar
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopTimerRegistrationError::RegistrarFailed("timer failed")
+        );
+        assert_eq!(registrar.registration_calls, vec![16_666_666]);
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -7506,6 +7754,40 @@ mod tests {
                 Err(error)
             } else {
                 Ok(())
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopTimerRegistrar {
+        raw_id: u32,
+        registration_calls: Vec<u32>,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopTimerRegistrar {
+        fn new(raw_id: u32) -> Self {
+            Self {
+                raw_id,
+                registration_calls: Vec::new(),
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopTimerRegistrar for ScriptedNativeWindowHostLoopTimerRegistrar {
+        type Error = &'static str;
+
+        fn register_timer_nanos(&mut self, wait_nanos: u32) -> Result<u32, Self::Error> {
+            self.registration_calls.push(wait_nanos);
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(self.raw_id)
             }
         }
     }
