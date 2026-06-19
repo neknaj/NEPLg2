@@ -508,6 +508,23 @@ subagent review:
 - Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。fallible helper が host を受け取ると build failure で host owner を失うため、backend construction と host wrapping を二段階に分けるよう指摘された。
 - revised plan では、fallible backend builder と infallible wrapper helper に分離し、`PLAN_APPROVED` を得た。required constraints は、selection を raw API handle 作成前に再検査すること、support failure / backend unavailable / Windows raw API failure を分離すること、旧 no-owner builder を fail-closed probe として残すこと、dummy / headless / minifb / sleep variant を追加しないこと、minifb path が platform backend owner / wrapper に触れないこと、host-consuming fallible builder を作らないことである。
 
+## Phase F5hq: Native Windows platform wait run-loop config gate boundary
+
+F5hq では、F5hp の Windows platform wait backend support gate を native run-loop configuration の wait backend selection へ接続する。ただし、この checkpoint では minifb runner を platform wait runner へ置き換えない。目的は、run-loop config が minifb internal pacing と platform wait backend を同じ field で排他的に表し、二重 authority を作らないことである。
+
+`NativeWindowRunLoopConfig` の wait backend authority は `NativeWindowRunLoopWaitBackend` を単一 source of truth とする。default は `MinifbInternalTargetFps` のままであり、既存 smoke runner の behavior は変えない。旧 `NativeWindowRunLoopFrameIntervalWaitBackend` は compatibility input として残し、constructor で `NativeWindowRunLoopWaitBackend` へ変換するだけにする。config field として `frame_interval_wait_backend` を再導入してはいけない。
+
+`NativeWindowRunLoopWaitBackend::PlatformWait selection` は、validated `NativeWindowHostLoopPlatformWaitBackendSelection` を保持し、frame interval authority としては host-owned deadline timer と同じ扱いになる。minifb runner は `config.wait_backend` を window / backend creation / `Window::set_target_fps` より前に検査し、`PlatformWait` と `HostOwnedDeadlineTimer` を typed conflict として拒否する。`PlatformWait` が指定されても minifb pacing へ fallback しない。
+
+platform wait backend construction は host owner を受け取らない。`native_window_run_loop_platform_wait_backend_selection` は config から selection を取り出し、non-platform config なら typed `NotPlatformWaitBackend` を返す。cfg-windows の `native_window_run_loop_platform_wait_backend_from_config` は config / selection から backend を作るだけで、host wrapping は F5hp の infallible wrapper に委ねる。
+
+この phase では、macOS run loop timer、Linux selector / timerfd、minifb runner の platform wait replacement、`Window::set_target_fps 0`、sleep / busy loop / headless fallback、synthetic timer fire は追加しない。
+
+subagent review:
+
+- Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。`NativeWindowRunLoopConfig` に新旧二つの wait authority field を置くと、minifb validation が片方だけを見る退行を作れるため、new enum を config の単一 source of truth にするよう指摘された。
+- revised plan では、`wait_backend` を唯一の config field とし、旧 frame interval enum を compatibility input に限定する方針で `PLAN_APPROVED` を得た。required constraints は、minifb runner が `config.wait_backend` を side effect より前に検査すること、`PlatformWait` が minifb へ fallback しないこと、config-to-platform backend construction が host を消費しないこと、source policy で旧 config field 再導入と validation order を固定することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

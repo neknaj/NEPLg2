@@ -701,6 +701,18 @@ F5ho は generic platform wait builder、minifb smoke runner、`Window::set_targ
 
 cfg-windows の `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopWindowsWaitSysApi` を使う backend construction helper だけを提供する。host-consuming fallible helper は作らない。F5hp は minifb runner、`Window::set_target_fps`、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へ接続しない。
 
+## F5hq Native Windows platform wait run-loop config gate boundary
+
+2026-06-20 の F5hq では、native run-loop configuration が wait backend selection を単一 field で保持する contract を追加する。`NativeWindowRunLoopConfig` は `wait_backend: NativeWindowRunLoopWaitBackend` を唯一の wait backend authority とし、旧 `frame_interval_wait_backend` field は持たない。旧 `NativeWindowRunLoopFrameIntervalWaitBackend` は compatibility constructor input としてだけ使い、config 内の authority にはしない。
+
+`NativeWindowRunLoopWaitBackend` は `MinifbInternalTargetFps`、`HostOwnedDeadlineTimer`、`PlatformWait NativeWindowHostLoopPlatformWaitBackendSelection` を持つ。default は `MinifbInternalTargetFps` であり、既存 minifb smoke runner はこの default を使い続ける。`PlatformWait` は validated platform wait selection token を保持し、frame interval authority としては host-owned deadline timer として扱う。
+
+`run_minifb_window_loop` は `config.wait_backend` を `NativeWindowBackendLoop::new_for_scale`、`Window::new`、`Window::set_target_fps` より前に検査する。`HostOwnedDeadlineTimer` と `PlatformWait` は minifb internal pacing と conflict するため、typed `FrameIntervalWaitBackendUnsupported` として拒否する。`PlatformWait` を minifb internal pacing、sleep、busy loop、headless scripted、synthetic timer fire へ fallback してはいけない。
+
+`native_window_run_loop_platform_wait_backend_selection` は config から platform wait selection を取り出す。non-platform config では typed `NotPlatformWaitBackend` を返す。cfg-windows の `native_window_run_loop_platform_wait_backend_from_config` は config / selection から backend を構築するだけであり、host owner を受け取らない。host wrapping は、backend construction 成功後に F5hp の infallible wrapper へ渡す。
+
+MacOS / Linux の actual backend はまだ未実装であり、typed unavailable / support failure として扱う。F5hq は minifb runner replacement、`Window::set_target_fps 0`、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization を追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
