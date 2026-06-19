@@ -1128,6 +1128,36 @@ pub enum NativeWindowBackendLoopStepOutcome {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostTerminalReason {
+    OsCloseRequested,
+    ExitShortcutRequested,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostAction {
+    Terminate {
+        reason: NativeWindowHostTerminalReason,
+    },
+    PumpEventsOnly {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    PresentFrame {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostActionError {
+    UnsupportedCloseState {
+        close_state: NativeWindowEventPumpCloseState,
+    },
+    StepFailed(NativeWindowBackendLoopError),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowBackendLoopError {
     InitialScaleInvalid,
     InitialSizeOverflow,
@@ -1775,6 +1805,16 @@ impl NativeWindowBackendLoop {
         ))
     }
 
+    pub fn step_host_action(
+        &mut self,
+        snapshot: NativeWindowEventPumpSnapshot,
+    ) -> Result<NativeWindowHostAction, NativeWindowHostActionError> {
+        let outcome = self
+            .step(snapshot)
+            .map_err(NativeWindowHostActionError::StepFailed)?;
+        native_window_host_action_from_backend_loop_outcome(outcome)
+    }
+
     fn counter_intent(
         &self,
         surface_width: usize,
@@ -1859,6 +1899,41 @@ impl NativeWindowBackendLoop {
             width: frame.width(),
             height: frame.height(),
         })
+    }
+}
+
+fn native_window_host_action_from_backend_loop_outcome(
+    outcome: NativeWindowBackendLoopStepOutcome,
+) -> Result<NativeWindowHostAction, NativeWindowHostActionError> {
+    match outcome {
+        NativeWindowBackendLoopStepOutcome::CloseRequested { close_state } => {
+            let reason = match close_state {
+                NativeWindowEventPumpCloseState::OsCloseRequested => {
+                    NativeWindowHostTerminalReason::OsCloseRequested
+                }
+                NativeWindowEventPumpCloseState::ExitShortcutRequested => {
+                    NativeWindowHostTerminalReason::ExitShortcutRequested
+                }
+                NativeWindowEventPumpCloseState::Open => {
+                    return Err(NativeWindowHostActionError::UnsupportedCloseState { close_state });
+                }
+            };
+            Ok(NativeWindowHostAction::Terminate { reason })
+        }
+        NativeWindowBackendLoopStepOutcome::Unavailable {
+            window_size,
+            size_changed,
+        } => Ok(NativeWindowHostAction::PumpEventsOnly {
+            window_size,
+            size_changed,
+        }),
+        NativeWindowBackendLoopStepOutcome::Drawable(drawable) => {
+            Ok(NativeWindowHostAction::PresentFrame {
+                presentation: drawable.final_frame,
+                window_size: drawable.window_size,
+                size_changed: drawable.size_changed,
+            })
+        }
     }
 }
 
@@ -4788,6 +4863,106 @@ mod tests {
                 .pixels(),
             pixels_before.as_slice()
         );
+    }
+
+    #[test]
+    fn native_window_backend_loop_host_action_preserves_terminal_reason() {
+        let mut os_close_loop = native_window_backend_loop_counter();
+        let os_close = native_window_backend_loop_snapshot(
+            &os_close_loop,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        assert_eq!(
+            os_close_loop.step_host_action(os_close).unwrap(),
+            NativeWindowHostAction::Terminate {
+                reason: NativeWindowHostTerminalReason::OsCloseRequested,
+            }
+        );
+
+        let mut shortcut_loop = native_window_backend_loop_counter();
+        let shortcut = native_window_backend_loop_snapshot(
+            &shortcut_loop,
+            NativeWindowEventPumpCloseState::ExitShortcutRequested,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        assert_eq!(
+            shortcut_loop.step_host_action(shortcut).unwrap(),
+            NativeWindowHostAction::Terminate {
+                reason: NativeWindowHostTerminalReason::ExitShortcutRequested,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_host_action_rejects_impossible_open_close() {
+        assert_eq!(
+            native_window_host_action_from_backend_loop_outcome(
+                NativeWindowBackendLoopStepOutcome::CloseRequested {
+                    close_state: NativeWindowEventPumpCloseState::Open,
+                }
+            )
+            .unwrap_err(),
+            NativeWindowHostActionError::UnsupportedCloseState {
+                close_state: NativeWindowEventPumpCloseState::Open,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_host_action_unavailable_pumps_events_only() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(0, 284),
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+
+        assert_eq!(
+            loop_state.step_host_action(snapshot).unwrap(),
+            NativeWindowHostAction::PumpEventsOnly {
+                window_size: NativeWindowSize::new(0, 284),
+                size_changed: true,
+            }
+        );
+        assert_eq!(
+            loop_state.current_present_frame_for_window().unwrap_err(),
+            NativeWindowBackendLoopError::SurfaceUnavailable
+        );
+    }
+
+    #[test]
+    fn native_window_backend_loop_host_action_drawable_presents_final_frame_evidence() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(660, 426),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+
+        assert_eq!(
+            loop_state.step_host_action(snapshot).unwrap(),
+            NativeWindowHostAction::PresentFrame {
+                presentation: NativeWindowBackendLoopPresentation {
+                    frame_id: 2,
+                    width: 660,
+                    height: 426,
+                },
+                window_size: NativeWindowSize::new(660, 426),
+                size_changed: true,
+            }
+        );
+        let present_frame = loop_state.current_present_frame_for_window().unwrap();
+        assert_eq!(present_frame.width(), 660);
+        assert_eq!(present_frame.height(), 426);
     }
 
     #[test]

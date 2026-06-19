@@ -81,6 +81,18 @@ positive resize は resize 先の RGB0 buffer を作り、present が成功し�
 
 outcome は pixel borrow を持たない。minifb `update_with_buffer` に渡す final committed frame は `current_present_frame_for_window` からだけ借用する。この helper は current presenter surface と last frame size の一致を検査し、不一致は `FrameWindowMismatch` として返す。
 
+## Native host action boundary checkpoint
+
+F5gf では、F5ge の backend step outcome を native host execution action へ写す `NativeWindowHostAction` を追加する。`NativeWindowBackendLoop::step` は詳細な state transition evidence として残し、`step_host_action` が `CloseRequested`、`Unavailable`、`Drawable` をそれぞれ `Terminate`、`PumpEventsOnly`、`PresentFrame` へ変換する。
+
+`Terminate` は `NativeWindowHostTerminalReason` を持ち、`OsCloseRequested` と `ExitShortcutRequested` を分ける。現 smoke runner ではどちらも process の正常終了になるが、future lifecycle / close request / shortcut policy では別の入力源として扱うため host action 境界で潰さない。
+
+`PumpEventsOnly` は `NativeWindowSize` と `size_changed` を保持し、surface unavailable 中に `window.update` だけを実行するための action である。blank frame、zero fill frame、fallback frame は作らない。
+
+`PresentFrame` は `NativeWindowBackendLoopPresentation`、`NativeWindowSize`、`size_changed` を保持するが、pixel borrow は持たない。minifb `update_with_buffer` 直前の frame borrow は `current_present_frame_for_window` に限定する。`main.rs` は `NativeWindowBackendLoopStepOutcome` を直接 match せず、`NativeWindowHostAction` を match して title update、`window.update`、`update_with_buffer`、loop termination だけを実行する。
+
+`NativeWindowHostActionError` は contradictory close state を `UnsupportedCloseState` として扱い、backend step の overflow / rasterize / presenter failure は `StepFailed NativeWindowBackendLoopError` として original typed error を保持する。この checkpoint は host action selection boundary であり、formal scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -92,6 +104,7 @@ outcome は pixel borrow を持たない。minifb `update_with_buffer` に渡す
 - `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化し、window title に current surface size を反映する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有し、main.rs は minifb boundary に薄く留まる。
+- `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、main.rs は `Terminate`、`PumpEventsOnly`、`PresentFrame` だけを実行する。
 - counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
 - zero size または invalid size は `NativeSurfaceState::Unavailable` として扱い、hit test を行わない。
 - close button または Escape により loop を抜け、terminal side の process が正常終了する。

@@ -53,6 +53,16 @@ commit rule は F5ge の中心契約である。close は no-progress、unavaila
 
 この phase は native smoke backend の loop-step boundary であり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。loop helper は minifb / DOM / Canvas / video memory / stdout protocol を知らず、fallback や silent no-op を作らない。
 
+## Phase F5gf: Native host action boundary
+
+F5gf では、F5ge の backend state transition outcome を native host execution action へ写す `NativeWindowHostAction` を追加する。`step` は pure backend transition evidence として残し、`step_host_action` が `CloseRequested` / `Unavailable` / `Drawable` を `Terminate` / `PumpEventsOnly` / `PresentFrame` へ変換する。
+
+`Terminate` は `NativeWindowHostTerminalReason` により OS close と Escape shortcut を分ける。`PumpEventsOnly` は zero-size / unavailable surface 中に `window.update` だけを実行する action であり、blank frame や fallback frame を作らない。`PresentFrame` は `NativeWindowBackendLoopPresentation` と observed `NativeWindowSize` を持つが pixel borrow は持たず、actual pixel borrow は `current_present_frame_for_window` からだけ取得する。
+
+`main.rs` は `NativeWindowBackendLoopStepOutcome` を直接 match せず、`NativeWindowHostAction` だけを match する。これにより future formal native OS scheduler / window backend loop は backend state transition と host-side execution decision を分けて扱える。
+
+この phase は host action boundary だけであり、formal scheduler loop、queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

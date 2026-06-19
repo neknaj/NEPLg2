@@ -1069,6 +1069,32 @@ Phase F5ge では、F5gd の event pump snapshot を受けた後の native smoke
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gf: Native host action boundary
+
+Phase F5gf では、F5ge の `NativeWindowBackendLoopStepOutcome` を `main.rs` が直接解釈しないようにし、native host がこの iteration で実行する操作を `NativeWindowHostAction` として受け取る境界を追加する。これは単なる rename ではなく、backend state transition evidence と host execution instruction を分け、future formal native OS scheduler / window backend loop が同じ action contract を消費できるようにする作業である。
+
+実装:
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostTerminalReason`、`NativeWindowHostAction`、`NativeWindowHostActionError` を追加する。
+- `NativeWindowHostAction` は `Terminate`、`PumpEventsOnly`、`PresentFrame` を持つ。`PumpEventsOnly` は `NativeWindowSize` と `size_changed` を保持し、`PresentFrame` は `NativeWindowBackendLoopPresentation`、`NativeWindowSize`、`size_changed` を保持する。pixel borrow は持たない。
+- `NativeWindowBackendLoop::step_host_action` は `step` を呼び、`CloseRequested` を `Terminate`、`Unavailable` を `PumpEventsOnly`、`Drawable` を `PresentFrame` へ写す。
+- `CloseRequested Open` のような contradictory outcome は `UnsupportedCloseState` として typed error にする。backend step の失敗は `StepFailed NativeWindowBackendLoopError` として original error を保持する。
+- `main.rs` は `NativeWindowHostAction` を match し、`NativeWindowBackendLoopStepOutcome` を import / match しない。`PresentFrame` の actual pixel borrow は `current_present_frame_for_window` からだけ取得する。
+- `nodesrc/test_native_gui_platform_behavior.js` は `step_host_action`、`NativeWindowHostAction`、`NativeWindowHostTerminalReason`、`NativeWindowHostActionError`、main.rs の outcome 直接 match 禁止を検査する。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_tui_implementation_plan.md`、note、todo を同じ slice で更新する。
+
+非目標:
+
+- formal scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- minifb / DOM / Canvas / video memory transport を lib helper に入れない。
+- blank frame、fallback frame、silent no-op は作らない。
+
+完了条件:
+
+- tests が terminal reason preservation、unavailable pump-only action、drawable present action、impossible open close error を検査する。
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

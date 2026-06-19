@@ -303,6 +303,16 @@ commit rule は次である。close は最優先で no-progress とし、previou
 
 F5ge は native smoke backend の loop-step state boundary であり、formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。loop helper は minifb / OS handle / DOM / Canvas / video memory / stdout protocol を知らず、fallback や silent no-op を作らない。
 
+## F5gf Native host action boundary
+
+2026-06-19 の F5gf では、F5ge の `NativeWindowBackendLoopStepOutcome` を native host が実行する `NativeWindowHostAction` へ写す境界を追加する。`step` は引き続き pure backend state transition evidence として公開し、`step_host_action` が `CloseRequested` / `Unavailable` / `Drawable` を `Terminate` / `PumpEventsOnly` / `PresentFrame` へ変換する。
+
+`NativeWindowHostAction` は pixel borrow を持たない。`PresentFrame` は `NativeWindowBackendLoopPresentation`、observed `NativeWindowSize`、`size_changed` を保持し、minifb へ渡す actual frame borrow は `current_present_frame_for_window` からだけ取得する。`PumpEventsOnly` は `NativeWindowSize` と `size_changed` を保持し、zero-size / unavailable surface で blank frame や fallback frame を合成しない。`Terminate` は `NativeWindowHostTerminalReason` として `OsCloseRequested` と `ExitShortcutRequested` を分ける。
+
+`NativeWindowHostActionError` は contradictory close state を `UnsupportedCloseState` とし、F5ge の overflow、rasterize、presenter failure などは `StepFailed NativeWindowBackendLoopError` として original typed error を保持する。`main.rs` は `NativeWindowBackendLoopStepOutcome` を直接 match せず、`NativeWindowHostAction` だけを実行する。これにより formal native OS scheduler / window backend loop へ進む前に、backend state transition と host execution action の責務を分離する。
+
+F5gf は host action selection boundary であり、formal scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。DOM / Canvas / video memory transport、fallback、silent no-op も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

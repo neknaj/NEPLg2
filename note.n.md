@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI platform F5gf Native host action boundary
+
+## scope
+
+- F5ge Native backend loop step boundary の後続として、backend loop outcome を native host execution action へ写す境界を追加する。
+- F5gf は `NativeWindowHostAction`、`NativeWindowHostTerminalReason`、`NativeWindowHostActionError` を追加し、`step_host_action` から `Terminate` / `PumpEventsOnly` / `PresentFrame` を返す。
+- `main.rs` は `NativeWindowBackendLoopStepOutcome` を直接 match せず、host action を match して title update、`window.update`、`update_with_buffer`、loop termination だけを行う。
+- formal scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`PumpEventsOnly` は `u32` ではなく既存の `NativeWindowSize` を使うこと、`PresentFrame` は `NativeWindowBackendLoopPresentation` と window observation を保持すること、backend step failure を `FrameUnavailable` のように狭く名付けないこと、`CloseRequested Open` を error として unit test で固定することが指摘された。
+- 指摘に従い、host action は `NativeWindowSize` と F5ge の presentation evidence を再利用し、error は `StepFailed NativeWindowBackendLoopError` と `UnsupportedCloseState` にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostTerminalReason`、`NativeWindowHostAction`、`NativeWindowHostActionError` と `NativeWindowBackendLoop::step_host_action` を追加した。
+- `NativeWindowHostAction` は pixel borrow を持たず、`PresentFrame` の actual frame borrow は引き続き `current_present_frame_for_window` に限定した。
+- `nepl-gui-native/src/main.rs` は `NativeWindowHostAction` を match し、`NativeWindowBackendLoopStepOutcome` を import / match しない形に変更した。
+- source-policy と GUI 関連 doc を F5gf に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gf native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。F5gf は F5ge の detailed `StepOutcome` を host execution action へ落とす意味のある境界であり、単なる rename layer ではないと確認された。
+- `NativeWindowHostAction` が `Terminate` / `PumpEventsOnly` / `PresentFrame` を typed enum で分けること、`NativeWindowHostTerminalReason` が OS close と Escape を保持すること、`StepFailed NativeWindowBackendLoopError` が original backend error を潰さないこと、`main.rs` が `NativeWindowBackendLoopStepOutcome` を import / match しないこと、pixel borrow が `current_present_frame_for_window` に限定されること、docs/source-policy/note/todo が scope と非目標に整合することが確認された。
+
+## residual
+
+- F5gf は native host action boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5ge Native backend loop step boundary
 
 ## scope

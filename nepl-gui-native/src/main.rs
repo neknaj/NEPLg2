@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 use nepl_gui_native::{
-    poll_minifb_window_event_pump, NativeWindowBackendLoop, NativeWindowBackendLoopStepOutcome,
+    poll_minifb_window_event_pump, NativeWindowBackendLoop, NativeWindowHostAction,
     NativeWindowSize,
 };
 
@@ -150,12 +150,12 @@ fn run_window(options: NativeGuiOptions) -> Result<(), String> {
         let event_snapshot =
             poll_minifb_window_event_pump(&window, backend_loop.event_pump_input())
                 .map_err(|error| format!("native window event pump rejected input: {error:?}"))?;
-        let outcome = backend_loop
-            .step(event_snapshot)
-            .map_err(|error| format!("native window backend loop step failed: {error:?}"))?;
-        match outcome {
-            NativeWindowBackendLoopStepOutcome::CloseRequested { .. } => break,
-            NativeWindowBackendLoopStepOutcome::Unavailable {
+        let action = backend_loop
+            .step_host_action(event_snapshot)
+            .map_err(|error| format!("native window host action step failed: {error:?}"))?;
+        match action {
+            NativeWindowHostAction::Terminate { .. } => break,
+            NativeWindowHostAction::PumpEventsOnly {
                 window_size,
                 size_changed,
             } => {
@@ -165,9 +165,13 @@ fn run_window(options: NativeGuiOptions) -> Result<(), String> {
                 window.update();
                 continue;
             }
-            NativeWindowBackendLoopStepOutcome::Drawable(drawable) => {
-                if drawable.size_changed {
-                    update_window_title(&mut window, backend_loop.demo(), drawable.window_size);
+            NativeWindowHostAction::PresentFrame {
+                window_size,
+                size_changed,
+                ..
+            } => {
+                if size_changed {
+                    update_window_title(&mut window, backend_loop.demo(), window_size);
                 }
             }
         }
