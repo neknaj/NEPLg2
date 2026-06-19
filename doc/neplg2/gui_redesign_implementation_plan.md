@@ -1486,6 +1486,33 @@ subagent review:
 - Darwin the 2nd に F5gu 計画を渡し、`Result unit Error` waiter がこの slice では十分であること、raw OS status validation は later adapter slice に残すこと、event queue wait と timer / thread wait / minifb pacing の分離、source-policy の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gv: Native window host-loop event queue normalized status adapter boundary
+
+Phase F5gv では、F5gu で残した raw event queue status validation を adapter boundary として追加する。actual OS event queue / selector / message pump へはまだ接続せず、platform adapter が内部正規化して返す raw status だけを検証する。
+
+実装:
+
+- `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` を追加し、これは OS API 固有の値ではなく `nepl-gui-native` adapter boundary の internal normalized status であると document する。
+- `NativeWindowHostLoopEventQueueStatusAdapter` trait を追加し、`wait_for_host_event_raw_status` は `NativeWindowSize` と `size_changed` evidence を受け取って `Result u32 Error` を返す。
+- `NativeWindowHostLoopEventQueueStatusAdapterError` を追加し、unknown / zero status は `InvalidRawStatus`、adapter failure は `AdapterFailed` として分離する。
+- `wait_native_window_host_loop_event_queue_raw_status_with_adapter` は adapter を 1 回だけ呼び、ready status 以外を fail closed にする。
+- `NativeWindowHostLoopEventQueueStatusWaiter` を追加し、F5gu の `NativeWindowHostLoopEventQueueWaiter` へ status adapter を接続する。
+- F5gu executor 経由で frame interval instruction が渡された場合、F5gu 側の `FrameIntervalEventQueueWaitUnsupported` で停止し、status adapter を呼ばないことを test する。
+- source policy は status adapter slice が minifb、window update、timer registration、thread sleep、`Duration`、DOM、Canvas、video memory、fallback、silent no-op を持たないことを検査する。
+
+非目標:
+
+- real OS event queue / selector / message pump adapter は含めない。
+- minifb wait hook へ接続しない。
+- real OS timer backend は含めない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、busy loop は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gv 計画を渡し、raw status validation が pure rename ではないこと、ready status だけを accepted にすること、actual OS API 接続を later slice へ残すこと、source-policy の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -461,6 +461,18 @@ F5gt は native timer registration backend boundary までであり、host event
 
 F5gu は event queue wait backend boundary までであり、real OS event queue / selector / message pump adapter、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
+## F5gv Native window host-loop event queue normalized status adapter boundary
+
+2026-06-19 の F5gv では、F5gu の `NativeWindowHostLoopEventQueueWaiter` に接続できる normalized status adapter boundary を追加する。これは actual OS event queue / selector / message pump ではなく、platform adapter が `nepl-gui-native` の境界用に正規化した raw status を検証する contract である。
+
+`NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` は host event が ready になったことだけを表す internal normalized status であり、macOS / Windows / Linux の OS API raw value そのものではない。platform-specific adapter は OS 固有の結果をこの normalized status へ変換してから返す必要がある。
+
+`NativeWindowHostLoopEventQueueStatusAdapter` は `wait_for_host_event_raw_status` で normalized raw status を返す。`wait_native_window_host_loop_event_queue_raw_status_with_adapter` は adapter を 1 回呼び、ready status 以外を `InvalidRawStatus` として fail closed にする。adapter failure は `AdapterFailed` として元の error value を保持し、invalid status と混ぜない。
+
+`NativeWindowHostLoopEventQueueStatusWaiter` は status adapter を F5gu の `NativeWindowHostLoopEventQueueWaiter` へ接続する wrapper である。F5gu executor が frame interval instruction を受け取った場合は `FrameIntervalEventQueueWaitUnsupported` で停止するため、status adapter は呼ばれない。
+
+F5gv は normalized status adapter boundary までであり、real OS event queue / selector / message pump adapter、minifb wait hook、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
