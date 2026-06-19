@@ -453,6 +453,26 @@ subagent review:
 
 - Darwin the 2nd に F5hm 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、selection token の field を private にすること、unsupported construction で owner を消費しないこと、validated selection 後だけ `BackendImplementationUnavailable` を返すこと、`HeadlessScripted` / minifb / sleep / busy loop / synthetic timer fire の backend を作らないこと、source policy と test で fixed contract にすることである。
 
+## Phase F5hn: Native Windows waitable timer message wait raw backend boundary
+
+F5hn では、F5hm の construction gate の後続として、Windows の waitable timer / message wait backend を actual OS 呼び出しから切り離した raw API 境界として実装する。目的は、Windows の handle validation、deadline-to-relative-time conversion、wait status mapping、message-only wait、timer-or-message wait を Linux CI でも deterministic に検査できる contract にすることである。
+
+`NativeWindowHostLoopWindowsWaitHandle` は raw handle を private field として保持し、`0` と `-1` を invalid handle として拒否する。public code は raw `isize` や owned handle を backend 外へ取り出さない。raw handle の読み取りは backend module 内部に閉じ、public API には handle open state の query だけを置く。
+
+`NativeWindowHostLoopWindowsDeadlinePlan` は `AlreadyReached` と `Relative100ns i64` を分ける。deadline が `now` 以下なら raw API call を行わず deadline reached とする。future deadline は nanosecond delta を 100ns 単位へ切り上げ、Windows relative due time として負の `i64` に変換する。overflow は saturating / clamp せず typed error として返す。
+
+`NativeWindowHostLoopWindowsWaitRawApi` は `create_waitable_timer_raw`、`set_waitable_timer_relative_100ns`、`msg_wait_for_timer_or_message_raw`、`msg_wait_for_message_raw`、`close_handle_raw`、`last_error_code` を持つ。backend はこの trait だけに依存し、cfg-windows の sys shim と scripted test API を同じ contract で扱う。
+
+`NativeWindowHostLoopWindowsWaitBackend` は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装する。host event wait は message-only wait を呼び、timer wait や synthetic readiness を使わない。frame interval wait は waitable timer を relative 100ns deadline で arm してから timer-or-message wait を行い、timer signaled を `DeadlineReached`、message ready を `HostEventReady` へ写す。`WAIT_FAILED` は `last_error_code` を保持した typed error にし、timeout や未知 status は unexpected status として返す。
+
+cfg-windows の `NativeWindowHostLoopWindowsWaitSysApi` は `windows-sys` の `CreateWaitableTimerW`、`SetWaitableTimer`、`MsgWaitForMultipleObjects`、`CloseHandle`、`GetLastError` だけをこの境界に閉じ込める。target-specific dependency は Windows target だけに置き、non-Windows の build / test は scripted raw API で同じ contract を検査する。
+
+この phase では、generic `build_native_window_host_loop_platform_wait_backend_from_selection` は F5hm の fail-closed behavior を維持する。Windows-specific builder は validated Windows selection と raw API を受けた場合だけ backend を作り、selection support failure と raw API construction failure を別 error として返す。minifb runner、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は後続で扱う。
+
+subagent review:
+
+- Darwin the 2nd に F5hn 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、cross-platform raw API boundary を `windows-sys` から独立させること、message-only wait を immediate ok / polling にしないこと、`AlreadyReached` は plan が deadline <= now を証明した時だけ返すこと、Windows sys shim を cfg に閉じ込めること、generic builder の unavailable behavior を維持すること、sleep / minifb / busy wait / scripted native substitute / synthetic timer fire を禁止することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

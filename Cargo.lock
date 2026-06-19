@@ -521,6 +521,7 @@ name = "nepl-gui-native"
 version = "0.1.0"
 dependencies = [
  "minifb",
+ "windows-sys",
 ]
 
 [[package]]

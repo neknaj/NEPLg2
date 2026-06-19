@@ -341,6 +341,12 @@ F5hm では、F5hl の validation を通った platform/backend pair を `Native
 
 construction gate は support failure と actual backend unavailable を分ける。mismatch、unsupported platform、headless scripted native selection は `BackendSupportFailed` として validation error を保持し、validated real backend は actual OS backend 未実装を `BackendImplementationUnavailable` として返す。現 checkpoint では dummy host、headless scripted backend、minifb pacing、thread sleep、busy loop、synthetic timer fire を返さず、actual backend を作ったことにしない。
 
+F5hn では、Windows waitable timer / message wait backend を raw API boundary として切り出す。`NativeWindowHostLoopWindowsWaitRawApi` は timer creation、relative 100ns timer arm、timer-or-message wait、message-only wait、handle close、last error retrieval を分ける。typed handle は `0` と `-1` を拒否し、raw handle と owned handle は public API へ露出しない。deadline plan は already-reached と negative relative 100ns due time を分ける。
+
+Windows backend の host event wait は message-only wait を使う。frame interval wait は waitable timer を arm してから timer-or-message wait を行い、timer signaled を deadline reached、message ready を host event ready へ写す。timeout、failed status、unknown status は typed error として保持する。cfg-windows の sys shim は `CreateWaitableTimerW`、`SetWaitableTimer`、`MsgWaitForMultipleObjects`、`CloseHandle`、`GetLastError` に閉じ、non-Windows test は scripted raw API で同じ contract を検査する。
+
+F5hn でも generic platform wait builder は F5hm の fail-closed behavior を維持する。Windows-specific builder は validated Windows selection と raw API を受ける明示的入口であり、minifb smoke runner、macOS run loop timer、Linux selector / timerfd には接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -372,6 +378,7 @@ construction gate は support failure と actual backend unavailable を分け�
 - `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` により、frame interval wait は deadline 到達または host event readiness のどちらでも wake できる。host event wake は `HostEventPumpAlreadyPaced` へ写し、timer fired evidence は生成しない。これは future selector / message-loop timer backend の semantic boundary であり、minifb runner には接続していない。
 - `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` により、interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える。event / present 系 operation は inner host に委譲し、wait だけを interruptible adapter に渡す。これは future native OS backend / deterministic test backend 用の境界であり、minifb runner には接続していない。
 - `NativeWindowHostLoopPlatformWaitBackendSelection` と `NativeWindowHostLoopPlatformWaitHostBuildError` により、platform wait backend construction は validated selection token を入口にし、actual OS backend 未実装を `BackendImplementationUnavailable` として fail closed に返す。
+- `NativeWindowHostLoopWindowsWaitRawApi` と `NativeWindowHostLoopWindowsWaitBackend` により、Windows waitable timer / message wait backend の handle validation、deadline conversion、message-only wait、timer-or-message wait、status mapping を raw API contract として検査できる。cfg-windows sys shim は `windows-sys` に閉じ、generic platform wait builder と minifb runner にはまだ接続していない。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。
 - `NativeWindowFrameIntervalWaitAuthorityMode` と `validate_native_window_frame_interval_wait_authority_mode` により、minifb internal target-fps pacing と future host-owned deadline timer authority を同時に frame interval authority として扱わない。host-owned mode validation は compatibility check だけで、wait evidence は生成しない。

@@ -657,6 +657,22 @@ F5hl は selector / message-loop timer backend の selection contract であり�
 
 `build_native_window_host_loop_platform_wait_backend_from_selection` は actual backend を作ったことにしない。現 checkpoint では dummy host、headless scripted backend、minifb pacing、thread sleep、busy loop、synthetic timer fire を返さず、validated selection の platform/backend を保持した `BackendImplementationUnavailable` を返す。owner を受け取る builder はまだ追加しないため、construction failure で owner を失う経路も作らない。
 
+## F5hn Native Windows waitable timer message wait raw backend boundary
+
+2026-06-20 の F5hn では、Windows waitable timer / message wait backend の raw API boundary を追加する。これは Windows OS API を cross-platform testable contract の後ろへ閉じ込める phase であり、generic platform wait builder の behavior は F5hm の fail-closed contract を維持する。
+
+`NativeWindowHostLoopWindowsWaitHandle` は raw handle を private field として保持する。`native_window_host_loop_windows_wait_handle_from_raw` は `0` と `-1` を `InvalidRawHandle` として拒否し、backend は validation 済み handle だけを受け取る。raw handle extraction と owned handle exposure は public API に置かず、backend は close ownership を自分の `Drop` と explicit close path だけで管理する。
+
+`NativeWindowHostLoopWindowsDeadlinePlan` は `AlreadyReached` と `Relative100ns` を分ける。deadline が current elapsed time 以下の場合、waitable timer を arm せず `DeadlineReached` を返す。future deadline は nanosecond delta を 100ns 単位へ切り上げ、Windows relative due time の負値へ変換する。overflow は `DeadlineDelta100nsOverflow` として返し、saturating / clamp はしない。
+
+`NativeWindowHostLoopWindowsWaitRawApi` は waitable timer 作成、relative 100ns timer arm、timer-or-message wait、message-only wait、handle close、last error retrieval を分離する。`NativeWindowHostLoopWindowsWaitBackend` はこの raw API trait と `Instant` だけを持ち、`NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装する。
+
+host event wait は `msg_wait_for_message_raw` だけを呼ぶ。frame interval wait は `set_waitable_timer_relative_100ns` の成功後に `msg_wait_for_timer_or_message_raw` を呼ぶ。timer status は `DeadlineReached`、message status は `HostEventReady`、failed status は `WaitFailed { code }`、timeout / unknown status は `UnexpectedWaitStatus` に写す。message-only wait では zero-handle message-ready status だけを success とする。
+
+cfg-windows の `NativeWindowHostLoopWindowsWaitSysApi` は `CreateWaitableTimerW`、`SetWaitableTimer`、`MsgWaitForMultipleObjects`、`CloseHandle`、`GetLastError` を実装詳細として持つ。Windows-specific builder は validated Windows selection と raw API を受けた場合だけ backend を返し、selection support failure と raw API failure を別 error として返す。
+
+F5hn は macOS run loop timer、Linux selector / timerfd、minifb wait hook 接続、formal FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization の実装ではない。sleep、busy loop、minifb pacing、scripted native substitute、synthetic timer fire、silent no-op による代替成功は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

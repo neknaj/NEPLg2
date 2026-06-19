@@ -1,3 +1,52 @@
+# 2026-06-20 Agent2 GUI native F5hn Windows waitable timer message wait raw backend boundary
+
+## scope
+
+- F5hm の後続として、Windows waitable timer / message wait backend を raw API trait と cfg-windows sys shim に分離する。
+- cross-platform test では scripted raw API を使い、handle validation、deadline conversion、status mapping、message-only wait、timer-or-message wait を検査する。
+- generic platform wait builder と minifb smoke runner にはまだ接続しない。macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は後続である。
+
+## plan_review
+
+- Darwin the 2nd に F5hn 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、cross-platform raw API boundary を `windows-sys` から独立させること、message-only wait を immediate ok / polling / synthetic event にしないこと、`AlreadyReached` は deadline <= now の plan でだけ返すこと、cfg-windows sys shim を隔離すること、generic builder の fail-closed behavior を維持することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopWindowsWaitHandle`、`NativeWindowHostLoopWindowsDeadlinePlan`、`NativeWindowHostLoopWindowsWaitRawApi`、`NativeWindowHostLoopWindowsWaitBackend` を追加した。
+- subagent review の指摘により、Windows handle は non-Copy にし、public raw handle accessor と public owned handle accessor を削除した。public API には `is_handle_open` だけを残し、raw extraction は module 内部に閉じた。
+- Windows backend は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装し、message-only wait と waitable timer / message wait の status を typed outcome / typed error へ写す。
+- cfg-windows `NativeWindowHostLoopWindowsWaitSysApi` は `windows-sys` の waitable timer / message wait API だけを実装詳細として持つ。
+- Windows-specific builder は validated Windows selection と raw API から backend を作る。generic platform builder は F5hm の unavailable gate を維持する。
+- source-policy、docs、`todo.md` を F5hn contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_windows -- --nocapture`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `git diff --check`
+- info: focused Windows wait raw backend test は 14 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 232 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受け、public raw handle accessor と public owned handle accessor による double close 経路を指摘された。
+- 指摘対応として、handle を non-Copy にし、raw extraction を private helper に閉じ、raw API trait を borrowed handle に変更し、source-policy で public accessor を禁止した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。review では、handle ownership、cross-platform raw API test、cfg-windows sys shim isolation、typed status / deadline errors、minifb / sleep / busy-loop / synthetic timer fire の未導入が確認された。
+
+## residual
+
+- Windows wait backend は generic platform wait builder / native run-loop wait hook へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hm platform wait backend construction gate boundary
 
 ## scope

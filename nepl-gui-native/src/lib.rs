@@ -2999,6 +2999,396 @@ pub fn build_native_window_host_loop_platform_wait_backend_for_platform(
     build_native_window_host_loop_platform_wait_backend_from_selection(selection)
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopWindowsWaitHandle {
+    raw_handle: isize,
+}
+
+fn native_window_host_loop_windows_wait_handle_raw(
+    handle: &NativeWindowHostLoopWindowsWaitHandle,
+) -> isize {
+    handle.raw_handle
+}
+
+pub const NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMER_SIGNALED: u32 = 0;
+pub const NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ONE_HANDLE: u32 = 1;
+pub const NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ZERO_HANDLES: u32 = 0;
+pub const NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT: u32 = 258;
+pub const NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED: u32 = 0xFFFF_FFFF;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWindowsDeadlinePlan {
+    AlreadyReached,
+    Relative100ns(i64),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWindowsWaitBackendError {
+    InvalidRawHandle { raw_handle: isize },
+    CreateWaitableTimerFailed { code: u32 },
+    SetWaitableTimerFailed { code: u32 },
+    WaitFailed { code: u32 },
+    UnexpectedWaitStatus { status: u32 },
+    ElapsedNanosOverflow,
+    DeadlineDeltaOverflow { now_nanos: u64, deadline_nanos: u64 },
+    DeadlineDelta100nsOverflow { delta_nanos: u64 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWindowsWaitBackendBuildError {
+    BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    WaitBackendFailed(NativeWindowHostLoopWindowsWaitBackendError),
+}
+
+pub trait NativeWindowHostLoopWindowsWaitRawApi {
+    fn create_waitable_timer_raw(&mut self) -> isize;
+
+    fn set_waitable_timer_relative_100ns(
+        &mut self,
+        handle: &NativeWindowHostLoopWindowsWaitHandle,
+        relative_due_time_100ns: i64,
+    ) -> bool;
+
+    fn msg_wait_for_timer_or_message_raw(
+        &mut self,
+        handle: &NativeWindowHostLoopWindowsWaitHandle,
+    ) -> u32;
+
+    fn msg_wait_for_message_raw(&mut self) -> u32;
+
+    fn close_handle_raw(&mut self, handle: &NativeWindowHostLoopWindowsWaitHandle) -> bool;
+
+    fn last_error_code(&mut self) -> u32;
+}
+
+pub fn native_window_host_loop_windows_wait_handle_from_raw(
+    raw_handle: isize,
+) -> Result<NativeWindowHostLoopWindowsWaitHandle, NativeWindowHostLoopWindowsWaitBackendError> {
+    if raw_handle == 0 || raw_handle == -1 {
+        return Err(NativeWindowHostLoopWindowsWaitBackendError::InvalidRawHandle { raw_handle });
+    }
+    Ok(NativeWindowHostLoopWindowsWaitHandle { raw_handle })
+}
+
+pub fn native_window_host_loop_windows_deadline_plan(
+    now_nanos: u64,
+    deadline_nanos: u64,
+) -> Result<NativeWindowHostLoopWindowsDeadlinePlan, NativeWindowHostLoopWindowsWaitBackendError> {
+    if deadline_nanos <= now_nanos {
+        return Ok(NativeWindowHostLoopWindowsDeadlinePlan::AlreadyReached);
+    }
+    let delta_nanos = deadline_nanos.checked_sub(now_nanos).ok_or(
+        NativeWindowHostLoopWindowsWaitBackendError::DeadlineDeltaOverflow {
+            now_nanos,
+            deadline_nanos,
+        },
+    )?;
+    let rounded_delta = delta_nanos.checked_add(99).ok_or(
+        NativeWindowHostLoopWindowsWaitBackendError::DeadlineDelta100nsOverflow { delta_nanos },
+    )?;
+    let relative_100ns_u64 = rounded_delta / 100;
+    let relative_100ns_i64 = i64::try_from(relative_100ns_u64).map_err(|_| {
+        NativeWindowHostLoopWindowsWaitBackendError::DeadlineDelta100nsOverflow { delta_nanos }
+    })?;
+    Ok(NativeWindowHostLoopWindowsDeadlinePlan::Relative100ns(
+        -relative_100ns_i64,
+    ))
+}
+
+pub fn native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<
+    NativeWindowHostLoopInterruptibleDeadlineWake,
+    NativeWindowHostLoopWindowsWaitBackendError,
+> {
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMER_SIGNALED => {
+            Ok(NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached)
+        }
+        NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ONE_HANDLE => {
+            Ok(NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady)
+        }
+        NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED => {
+            Err(NativeWindowHostLoopWindowsWaitBackendError::WaitFailed {
+                code: last_error_code,
+            })
+        }
+        status => Err(NativeWindowHostLoopWindowsWaitBackendError::UnexpectedWaitStatus { status }),
+    }
+}
+
+pub fn native_window_host_loop_windows_host_event_from_message_status(
+    status: u32,
+    last_error_code: u32,
+) -> Result<(), NativeWindowHostLoopWindowsWaitBackendError> {
+    match status {
+        NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ZERO_HANDLES => Ok(()),
+        NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED => {
+            Err(NativeWindowHostLoopWindowsWaitBackendError::WaitFailed {
+                code: last_error_code,
+            })
+        }
+        status => Err(NativeWindowHostLoopWindowsWaitBackendError::UnexpectedWaitStatus { status }),
+    }
+}
+
+#[derive(Debug)]
+pub struct NativeWindowHostLoopWindowsWaitBackend<Api: NativeWindowHostLoopWindowsWaitRawApi> {
+    origin: std::time::Instant,
+    api: Api,
+    handle: Option<NativeWindowHostLoopWindowsWaitHandle>,
+}
+
+impl<Api> NativeWindowHostLoopWindowsWaitBackend<Api>
+where
+    Api: NativeWindowHostLoopWindowsWaitRawApi,
+{
+    pub fn new(mut api: Api) -> Result<Self, NativeWindowHostLoopWindowsWaitBackendError> {
+        let raw_handle = api.create_waitable_timer_raw();
+        let handle = match native_window_host_loop_windows_wait_handle_from_raw(raw_handle) {
+            Ok(handle) => handle,
+            Err(NativeWindowHostLoopWindowsWaitBackendError::InvalidRawHandle { .. }) => {
+                return Err(
+                    NativeWindowHostLoopWindowsWaitBackendError::CreateWaitableTimerFailed {
+                        code: api.last_error_code(),
+                    },
+                );
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(Self {
+            origin: std::time::Instant::now(),
+            api,
+            handle: Some(handle),
+        })
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn is_handle_open(&self) -> bool {
+        self.handle.is_some()
+    }
+
+    pub fn close_handle_if_open(&mut self) -> bool {
+        let Some(handle) = self.handle.take() else {
+            return false;
+        };
+        let _ = self.api.close_handle_raw(&handle);
+        true
+    }
+
+    fn elapsed_nanos(&self) -> Result<u64, NativeWindowHostLoopWindowsWaitBackendError> {
+        u64::try_from(self.origin.elapsed().as_nanos())
+            .map_err(|_| NativeWindowHostLoopWindowsWaitBackendError::ElapsedNanosOverflow)
+    }
+}
+
+impl<Api> Drop for NativeWindowHostLoopWindowsWaitBackend<Api>
+where
+    Api: NativeWindowHostLoopWindowsWaitRawApi,
+{
+    fn drop(&mut self) {
+        self.close_handle_if_open();
+    }
+}
+
+impl<Api> NativeWindowHostLoopDeadlineTimerClock for NativeWindowHostLoopWindowsWaitBackend<Api>
+where
+    Api: NativeWindowHostLoopWindowsWaitRawApi,
+{
+    type Error = NativeWindowHostLoopWindowsWaitBackendError;
+
+    fn now_nanos(&mut self) -> Result<u64, Self::Error> {
+        self.elapsed_nanos()
+    }
+}
+
+impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter
+    for NativeWindowHostLoopWindowsWaitBackend<Api>
+where
+    Api: NativeWindowHostLoopWindowsWaitRawApi,
+{
+    type Error = NativeWindowHostLoopWindowsWaitBackendError;
+
+    fn wait_for_host_event(
+        &mut self,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<(), Self::Error> {
+        let status = self.api.msg_wait_for_message_raw();
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED {
+            self.api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_windows_host_event_from_message_status(status, last_error_code)
+    }
+
+    fn wait_until_deadline_or_host_event(
+        &mut self,
+        deadline_nanos: u64,
+        _window_size: NativeWindowSize,
+        _size_changed: bool,
+    ) -> Result<NativeWindowHostLoopInterruptibleDeadlineWake, Self::Error> {
+        let now_nanos = self.elapsed_nanos()?;
+        let plan = native_window_host_loop_windows_deadline_plan(now_nanos, deadline_nanos)?;
+        let NativeWindowHostLoopWindowsDeadlinePlan::Relative100ns(relative_due_time_100ns) = plan
+        else {
+            return Ok(NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached);
+        };
+        let handle = self.handle.as_ref().ok_or(
+            NativeWindowHostLoopWindowsWaitBackendError::InvalidRawHandle { raw_handle: 0 },
+        )?;
+        let api = &mut self.api;
+        if !api.set_waitable_timer_relative_100ns(handle, relative_due_time_100ns) {
+            return Err(
+                NativeWindowHostLoopWindowsWaitBackendError::SetWaitableTimerFailed {
+                    code: api.last_error_code(),
+                },
+            );
+        }
+        let status = api.msg_wait_for_timer_or_message_raw(handle);
+        let last_error_code = if status == NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED {
+            api.last_error_code()
+        } else {
+            0
+        };
+        native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+            status,
+            last_error_code,
+        )
+    }
+}
+
+pub fn build_native_window_host_loop_windows_wait_backend_from_selection<Api>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    api: Api,
+) -> Result<
+    NativeWindowHostLoopWindowsWaitBackend<Api>,
+    NativeWindowHostLoopWindowsWaitBackendBuildError,
+>
+where
+    Api: NativeWindowHostLoopWindowsWaitRawApi,
+{
+    let checked_selection =
+        validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+            selection.platform(),
+            selection.backend(),
+        )
+        .map_err(NativeWindowHostLoopWindowsWaitBackendBuildError::BackendSupportFailed)?;
+    if checked_selection.platform() != NativeWindowHostLoopPlatformKind::Windows
+        || checked_selection.backend()
+            != NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait
+    {
+        return Err(
+            NativeWindowHostLoopWindowsWaitBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: checked_selection.platform(),
+                    requested: checked_selection.backend(),
+                },
+            ),
+        );
+    }
+    NativeWindowHostLoopWindowsWaitBackend::new(api)
+        .map_err(NativeWindowHostLoopWindowsWaitBackendBuildError::WaitBackendFailed)
+}
+
+#[cfg(target_os = "windows")]
+pub struct NativeWindowHostLoopWindowsWaitSysApi;
+
+#[cfg(target_os = "windows")]
+impl NativeWindowHostLoopWindowsWaitRawApi for NativeWindowHostLoopWindowsWaitSysApi {
+    fn create_waitable_timer_raw(&mut self) -> isize {
+        unsafe {
+            windows_sys::Win32::System::Threading::CreateWaitableTimerW(
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+            ) as isize
+        }
+    }
+
+    fn set_waitable_timer_relative_100ns(
+        &mut self,
+        handle: &NativeWindowHostLoopWindowsWaitHandle,
+        relative_due_time_100ns: i64,
+    ) -> bool {
+        unsafe {
+            windows_sys::Win32::System::Threading::SetWaitableTimer(
+                native_window_host_loop_windows_wait_handle_raw(handle)
+                    as windows_sys::Win32::Foundation::HANDLE,
+                &relative_due_time_100ns,
+                0,
+                None,
+                std::ptr::null(),
+                0,
+            ) != 0
+        }
+    }
+
+    fn msg_wait_for_timer_or_message_raw(
+        &mut self,
+        handle: &NativeWindowHostLoopWindowsWaitHandle,
+    ) -> u32 {
+        let handles = [native_window_host_loop_windows_wait_handle_raw(handle)
+            as windows_sys::Win32::Foundation::HANDLE];
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::MsgWaitForMultipleObjects(
+                1,
+                handles.as_ptr(),
+                0,
+                windows_sys::Win32::System::Threading::INFINITE,
+                windows_sys::Win32::UI::WindowsAndMessaging::QS_ALLINPUT,
+            )
+        }
+    }
+
+    fn msg_wait_for_message_raw(&mut self) -> u32 {
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::MsgWaitForMultipleObjects(
+                0,
+                std::ptr::null(),
+                0,
+                windows_sys::Win32::System::Threading::INFINITE,
+                windows_sys::Win32::UI::WindowsAndMessaging::QS_ALLINPUT,
+            )
+        }
+    }
+
+    fn close_handle_raw(&mut self, handle: &NativeWindowHostLoopWindowsWaitHandle) -> bool {
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(
+                native_window_host_loop_windows_wait_handle_raw(handle)
+                    as windows_sys::Win32::Foundation::HANDLE,
+            ) != 0
+        }
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        unsafe { windows_sys::Win32::Foundation::GetLastError() }
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn native_window_host_loop_windows_wait_backend_from_selection(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+) -> Result<
+    NativeWindowHostLoopWindowsWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
+    NativeWindowHostLoopWindowsWaitBackendBuildError,
+> {
+    build_native_window_host_loop_windows_wait_backend_from_selection(
+        selection,
+        NativeWindowHostLoopWindowsWaitSysApi,
+    )
+}
+
 pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -11059,6 +11449,271 @@ mod tests {
     }
 
     #[test]
+    fn native_window_windows_wait_handle_rejects_null_and_invalid_raw_handles() {
+        assert_eq!(
+            native_window_host_loop_windows_wait_handle_from_raw(0).unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::InvalidRawHandle { raw_handle: 0 }
+        );
+        assert_eq!(
+            native_window_host_loop_windows_wait_handle_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::InvalidRawHandle { raw_handle: -1 }
+        );
+
+        assert!(native_window_host_loop_windows_wait_handle_from_raw(41).is_ok());
+    }
+
+    #[test]
+    fn native_window_windows_deadline_plan_uses_already_reached_or_rounded_relative_100ns() {
+        assert_eq!(
+            native_window_host_loop_windows_deadline_plan(1_000, 1_000).unwrap(),
+            NativeWindowHostLoopWindowsDeadlinePlan::AlreadyReached
+        );
+        assert_eq!(
+            native_window_host_loop_windows_deadline_plan(1_000, 1_001).unwrap(),
+            NativeWindowHostLoopWindowsDeadlinePlan::Relative100ns(-1)
+        );
+        assert_eq!(
+            native_window_host_loop_windows_deadline_plan(1_000, 1_100).unwrap(),
+            NativeWindowHostLoopWindowsDeadlinePlan::Relative100ns(-1)
+        );
+        assert_eq!(
+            native_window_host_loop_windows_deadline_plan(1_000, 1_101).unwrap(),
+            NativeWindowHostLoopWindowsDeadlinePlan::Relative100ns(-2)
+        );
+    }
+
+    #[test]
+    fn native_window_windows_deadline_plan_rejects_100ns_overflow() {
+        assert_eq!(
+            native_window_host_loop_windows_deadline_plan(0, u64::MAX).unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::DeadlineDelta100nsOverflow {
+                delta_nanos: u64::MAX,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_windows_wait_status_maps_timer_message_and_failures() {
+        assert_eq!(
+            native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMER_SIGNALED,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached
+        );
+        assert_eq!(
+            native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ONE_HANDLE,
+                0,
+            )
+            .unwrap(),
+            NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady
+        );
+        assert_eq!(
+            native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED,
+                87,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::WaitFailed { code: 87 }
+        );
+        assert_eq!(
+            native_window_host_loop_windows_wait_wake_from_timer_or_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT,
+                0,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::UnexpectedWaitStatus {
+                status: NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_windows_message_status_maps_zero_handle_message_ready() {
+        assert_eq!(
+            native_window_host_loop_windows_host_event_from_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ZERO_HANDLES,
+                0,
+            )
+            .unwrap(),
+            ()
+        );
+        assert_eq!(
+            native_window_host_loop_windows_host_event_from_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_FAILED,
+                1234,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::WaitFailed { code: 1234 }
+        );
+        assert_eq!(
+            native_window_host_loop_windows_host_event_from_message_status(
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT,
+                0,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::UnexpectedWaitStatus {
+                status: NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_windows_backend_rejects_timer_creation_failure() {
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0).with_last_error_code(5);
+
+        assert_eq!(
+            NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::CreateWaitableTimerFailed { code: 5 }
+        );
+    }
+
+    #[test]
+    fn native_window_windows_backend_wait_for_host_event_uses_message_only_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let api =
+            ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(55).with_message_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ZERO_HANDLES,
+            ]);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        assert_eq!(backend.wait_for_host_event(window_size, true).unwrap(), ());
+        assert_eq!(backend.api().create_calls, 1);
+        assert_eq!(backend.api().message_wait_calls, 1);
+        assert!(backend.api().timer_wait_calls.is_empty());
+        assert!(backend.api().set_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_windows_backend_wait_until_deadline_sets_timer_and_maps_deadline() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(61)
+            .with_timer_or_message_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMER_SIGNALED,
+            ]);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        let wake = backend
+            .wait_until_deadline_or_host_event(100_000_000, window_size, false)
+            .unwrap();
+
+        assert_eq!(
+            wake,
+            NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached
+        );
+        assert_eq!(backend.api().set_calls.len(), 1);
+        assert_eq!(backend.api().set_calls[0].0, 61);
+        assert!(backend.api().set_calls[0].1 < 0);
+        assert_eq!(backend.api().timer_wait_calls, vec![61]);
+        assert_eq!(backend.api().message_wait_calls, 0);
+    }
+
+    #[test]
+    fn native_window_windows_backend_wait_until_deadline_maps_host_ready() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(62)
+            .with_timer_or_message_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_MESSAGE_READY_ONE_HANDLE,
+            ]);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(100_000_000, window_size, true)
+                .unwrap(),
+            NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady
+        );
+        assert_eq!(backend.api().timer_wait_calls, vec![62]);
+    }
+
+    #[test]
+    fn native_window_windows_backend_wait_until_deadline_rejects_set_timer_failure() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(63)
+            .with_last_error_code(1460)
+            .with_set_result(false);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(100_000_000, window_size, false)
+                .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendError::SetWaitableTimerFailed { code: 1460 }
+        );
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_windows_backend_wait_until_deadline_already_reached_avoids_raw_wait() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(64);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .wait_until_deadline_or_host_event(0, window_size, false)
+                .unwrap(),
+            NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached
+        );
+        assert!(backend.api().set_calls.is_empty());
+        assert!(backend.api().timer_wait_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_windows_backend_close_handle_once() {
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(71);
+        let mut backend = NativeWindowHostLoopWindowsWaitBackend::new(api).unwrap();
+
+        assert_eq!(backend.close_handle_if_open(), true);
+        assert_eq!(backend.close_handle_if_open(), false);
+        assert_eq!(backend.api().close_calls, vec![71]);
+        assert_eq!(backend.is_handle_open(), false);
+    }
+
+    #[test]
+    fn native_window_windows_backend_builder_requires_validated_windows_selection() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(72);
+
+        assert_eq!(
+            build_native_window_host_loop_windows_wait_backend_from_selection(selection, api)
+                .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Linux,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_windows_backend_builder_preserves_raw_api_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0).with_last_error_code(8);
+
+        assert_eq!(
+            build_native_window_host_loop_windows_wait_backend_from_selection(selection, api)
+                .unwrap_err(),
+            NativeWindowHostLoopWindowsWaitBackendBuildError::WaitBackendFailed(
+                NativeWindowHostLoopWindowsWaitBackendError::CreateWaitableTimerFailed { code: 8 }
+            )
+        );
+    }
+
+    #[test]
     fn native_window_event_queue_status_waiter_accepts_ready_status_through_wait_boundary() {
         let window_size = NativeWindowSize::new(900, 700);
         let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
@@ -12722,6 +13377,111 @@ mod tests {
             } else {
                 Ok(self.wake)
             }
+        }
+    }
+
+    #[derive(Debug)]
+    struct ScriptedNativeWindowHostLoopWindowsWaitRawApi {
+        create_raw_handle: isize,
+        set_result: bool,
+        timer_or_message_statuses: Vec<u32>,
+        message_statuses: Vec<u32>,
+        last_error_code: u32,
+        create_calls: usize,
+        set_calls: Vec<(isize, i64)>,
+        timer_wait_calls: Vec<isize>,
+        message_wait_calls: usize,
+        close_calls: Vec<isize>,
+        last_error_calls: usize,
+    }
+
+    impl ScriptedNativeWindowHostLoopWindowsWaitRawApi {
+        fn new(create_raw_handle: isize) -> Self {
+            Self {
+                create_raw_handle,
+                set_result: true,
+                timer_or_message_statuses: Vec::new(),
+                message_statuses: Vec::new(),
+                last_error_code: 0,
+                create_calls: 0,
+                set_calls: Vec::new(),
+                timer_wait_calls: Vec::new(),
+                message_wait_calls: 0,
+                close_calls: Vec::new(),
+                last_error_calls: 0,
+            }
+        }
+
+        fn with_last_error_code(mut self, code: u32) -> Self {
+            self.last_error_code = code;
+            self
+        }
+
+        fn with_set_result(mut self, result: bool) -> Self {
+            self.set_result = result;
+            self
+        }
+
+        fn with_timer_or_message_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.timer_or_message_statuses = statuses;
+            self
+        }
+
+        fn with_message_statuses(mut self, statuses: Vec<u32>) -> Self {
+            self.message_statuses = statuses;
+            self
+        }
+
+        fn next_status(statuses: &mut Vec<u32>) -> u32 {
+            if statuses.is_empty() {
+                NATIVE_WINDOW_HOST_LOOP_WINDOWS_WAIT_STATUS_TIMEOUT
+            } else {
+                statuses.remove(0)
+            }
+        }
+    }
+
+    impl NativeWindowHostLoopWindowsWaitRawApi for ScriptedNativeWindowHostLoopWindowsWaitRawApi {
+        fn create_waitable_timer_raw(&mut self) -> isize {
+            self.create_calls += 1;
+            self.create_raw_handle
+        }
+
+        fn set_waitable_timer_relative_100ns(
+            &mut self,
+            handle: &NativeWindowHostLoopWindowsWaitHandle,
+            relative_due_time_100ns: i64,
+        ) -> bool {
+            self.set_calls.push((
+                native_window_host_loop_windows_wait_handle_raw(handle),
+                relative_due_time_100ns,
+            ));
+            self.set_result
+        }
+
+        fn msg_wait_for_timer_or_message_raw(
+            &mut self,
+            handle: &NativeWindowHostLoopWindowsWaitHandle,
+        ) -> u32 {
+            self.timer_wait_calls
+                .push(native_window_host_loop_windows_wait_handle_raw(handle));
+            Self::next_status(&mut self.timer_or_message_statuses)
+        }
+
+        fn msg_wait_for_message_raw(&mut self) -> u32 {
+            self.message_wait_calls += 1;
+            Self::next_status(&mut self.message_statuses)
+        }
+
+        fn close_handle_raw(&mut self, handle: &NativeWindowHostLoopWindowsWaitHandle) -> bool {
+            self.close_calls
+                .push(native_window_host_loop_windows_wait_handle_raw(handle));
+            true
+        }
+
+        fn last_error_code(&mut self) -> u32 {
+            self.last_error_calls += 1;
+            self.last_error_code
         }
     }
 
