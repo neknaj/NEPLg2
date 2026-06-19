@@ -298,6 +298,20 @@ subagent review:
 - 初回 plan review では Darwin the 2nd から `CHANGES_REQUESTED` が出た。minifb は `Window::set_target_fps` が pacing authority であるため、この slice で minifb wait hook へ timer / sleep を接続しないこと、selector ownership と std deadline wait adapter を分けること、overlap / missing / mismatch / id overflow / deadline overflow を enum error にすること、test は injected clock / sleeper で行うことが指摘された。
 - 実装はこの指摘に合わせ、F5hb を std deadline timer adapter boundary に絞る。
 
+## Phase F5hc: Native window host-loop timer fired wait outcome boundary
+
+F5hc では、`NativeWindowHostLoopTimerFireOutcome::FrameIntervalTimerFired` を `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired` として host-loop scheduler に返せるようにする。これにより、selector / message loop timer backend が後続で実装された時に、registration-only state と fire-completed state を同じ wait outcome contract で区別できる。
+
+`FrameIntervalTimerRegistered` は `WaitingForFrameIntervalTimer` のまま維持する。`FrameIntervalTimerFired` は `NativeWindowHostLoopSchedulerResumeReady::FrameIntervalTimerFired` に写し、long runner が次の event poll へ進める ready evidence として扱う。
+
+generic helper と deadline timer adapter helper は、registration failure と fire wait failure を `NativeWindowHostLoopTimerWakeError` の別 variant として保持する。成功時だけ timer fired evidence を wait outcome へ写す。fallback、silent no-op、busy loop、thread sleep、message pump、event queue substitution は使わない。
+
+この phase は timer fired wait outcome boundary までであり、selector wakeup ownership、OS message loop timer、minifb wait hook への接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hc 計画を渡し、F5hb 後の root-cause slice として `APPROVED` を得た。required constraints は、registered は waiting のままにすること、fired だけが resume すること、error separation を維持すること、minifb を触らないこと、source policy で registered / fired の両 path を検査することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
