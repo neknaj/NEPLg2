@@ -1095,6 +1095,31 @@ Phase F5gf では、F5ge の `NativeWindowBackendLoopStepOutcome` を `main.rs` 
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gg: Native minifb window run-loop adapter boundary
+
+Phase F5gg では、F5gf の `NativeWindowHostAction` を実際の minifb smoke window に適用する cfg-gated run-loop adapter として `run_minifb_window_loop` を追加する。F5ge / F5gf で `main.rs` が minifb window lifecycle と host action execution を持つと説明していた部分はこの phase で supersede し、future formal native OS scheduler / window backend loop が同じ runner-facing action contract を消費できる形へ近づける。
+
+実装:
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowRunLoopConfig`、`NativeWindowRunLoopExit`、`NativeWindowRunLoopError`、`native_window_title`、cfg-gated `run_minifb_window_loop` を追加する。
+- `run_minifb_window_loop` は `WindowOptions`、`ScaleMode::UpperLeft`、window title update、`window.update`、`update_with_buffer` を所有する。
+- `main.rs` は CLI option を `NativeWindowRunLoopConfig` へ変換し、`run_minifb_window_loop` を呼ぶだけにする。`main.rs` では minifb、`WindowOptions`、`ScaleMode`、`window.update`、`update_with_buffer` を使わない。
+- run-loop adapter は `poll_minifb_window_event_pump` と `step_host_action` を呼ぶだけで、`Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` を直接読まない。
+- `NativeWindowRunLoopError` は backend initialization、window creation、event pump、host action selection、presenter frame availability、window present failure を enum で分ける。`window.update` は error を返さないため、present failure variant は `WindowPresentFailed` として `update_with_buffer` failure だけを表す。
+- source policy は `run_minifb_window_loop` slice にだけ minifb window lifecycle API を許可し、その slice でも queue、timer、`std::thread::sleep`、`Duration`、`setTimeout`、`setInterval` を禁止する。`set_target_fps(60)` は smoke runner の busy spin 抑制としてだけ許可する。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_tui_implementation_plan.md`、note、todo を同じ slice で更新する。
+
+非目標:
+
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- DOM / Canvas / video memory transport、fallback、silent no-op は作らない。
+
+完了条件:
+
+- tests が run-loop config preservation、title helper、main.rs の minifb ownership 排除、run-loop slice の direct input API 禁止、queue / timer 禁止を検査する。
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

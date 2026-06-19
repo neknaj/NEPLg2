@@ -93,6 +93,16 @@ F5gf では、F5ge の backend step outcome を native host execution action へ
 
 `NativeWindowHostActionError` は contradictory close state を `UnsupportedCloseState` として扱い、backend step の overflow / rasterize / presenter failure は `StepFailed NativeWindowBackendLoopError` として original typed error を保持する。この checkpoint は host action selection boundary であり、formal scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
 
+## Native minifb window run-loop adapter checkpoint
+
+F5gg では、F5gf の host action を実行する cfg-gated minifb window run-loop adapter として `run_minifb_window_loop` を追加する。F5ge / F5gf の説明で `main.rs` が minifb window creation、title update、`window.update`、`update_with_buffer` を持つと述べていた部分は、この checkpoint で supersede される。F5gg 以降、`main.rs` は CLI option を `NativeWindowRunLoopConfig` へ変換して runner を呼ぶだけで、minifb window lifecycle と host action execution は `run_minifb_window_loop` に閉じる。
+
+`NativeWindowRunLoopConfig` は demo、counter value、scale を保持する。`NativeWindowRunLoopExit` は `NativeWindowHostTerminalReason` を保持し、OS close と Escape shortcut を正常終了の中でも区別する。`NativeWindowRunLoopError` は backend loop initialization、window creation、event pump、host action、presenter frame availability、`WindowPresentFailed` を enum で分ける。`WindowPresentFailed` は `update_with_buffer` failure だけを表し、error を返さない `window.update` の failure を捏造しない。minifb error text は platform detail として message に保持し、backend / event pump / host action の typed error は original error を保持する。
+
+run-loop adapter は direct minifb input API を読まない。`Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` は引き続き `poll_minifb_window_event_pump` の内部に隔離される。run-loop adapter は `poll_minifb_window_event_pump` と `step_host_action` を呼び、`PumpEventsOnly` では `window.update` だけを行い、`PresentFrame` では `current_present_frame_for_window` から借用した exact-size RGB0 frame を `update_with_buffer` へ渡す。
+
+`native_window_title` は title text construction を lib 側の deterministic helper とし、surface unavailable と drawable size を同じ規則で表す。`set_target_fps(60)` は smoke runner の busy spin 抑制であり、formal timer queue、OS wait strategy、scheduler policy ではない。この checkpoint は minifb adapter boundary であり、formal `std/gui` host import execution、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、DOM / Canvas / video memory transport、fallback、silent no-op へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -102,9 +112,11 @@ F5gf では、F5ge の backend step outcome を native host execution action へ
 - `WindowOptions.resize = true` により OS window manager の resize を許可する。
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `Window::set_target_fps 60` により event pump loop の busy spin を避ける。
-- `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化し、window title に current surface size を反映する。
-- `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有し、main.rs は minifb boundary に薄く留まる。
-- `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、main.rs は `Terminate`、`PumpEventsOnly`、`PresentFrame` だけを実行する。
+- `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
+- `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
+- `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
+- `run_minifb_window_loop` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
+- `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。
 - counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。
 - zero size または invalid size は `NativeSurfaceState::Unavailable` として扱い、hit test を行わない。
 - close button または Escape により loop を抜け、terminal side の process が正常終了する。

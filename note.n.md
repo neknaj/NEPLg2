@@ -1,3 +1,44 @@
+# 2026-06-19 Agent2 GUI platform F5gg Native minifb window run-loop adapter boundary
+
+## scope
+
+- F5gf Native host action boundary の後続として、`NativeWindowHostAction` を実際の minifb smoke window に適用する cfg-gated run-loop adapter を追加する。
+- F5gg は `NativeWindowRunLoopConfig`、`NativeWindowRunLoopExit`、`NativeWindowRunLoopError`、`run_minifb_window_loop`、`native_window_title` を追加する。
+- `main.rs` は CLI option を config に変換して runner を呼ぶだけにし、minifb window lifecycle、title update、`window.update`、`update_with_buffer` を `run_minifb_window_loop` に閉じる。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。F5ge / F5gf の `main.rs` ownership 記述を F5gg で supersede すること、source policy に dedicated run-loop slice を置くこと、direct minifb input API を run-loop から禁止すること、queue / timer / sleep / `Duration` / JS timer を禁止すること、存在しない `window.update` error ではなく `update_with_buffer` failure を表す error 名にすることが指摘された。
+- 指摘に従い、run-loop adapter は direct input API を `poll_minifb_window_event_pump` に隔離したまま `step_host_action` だけを消費し、present failure は `WindowPresentFailed` とした。docs と source policy は F5gg ownership boundary を明示する形へ更新中である。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に native run-loop config / exit / error と `run_minifb_window_loop` を追加した。
+- `run_minifb_window_loop` は `WindowOptions.resize = true`、`ScaleMode::UpperLeft`、`set_target_fps(60)`、dark background、title update、event pump、host action execution、presenter frame borrow、`update_with_buffer` を所有する。
+- `nepl-gui-native/src/main.rs` は direct minifb import、backend loop import、host action match、title helper を持たず、runner 呼び出しだけを行う。
+- source-policy と GUI 関連 doc を F5gg に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gg native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review の初回結果は `REQUIRED_CHANGES`。実装自体は main.rs の config + runner call 化、minifb lifecycle の `run_minifb_window_loop` 移動、direct input API の event pump 隔離、source-policy の F5gg boundary 固定が確認されたが、note の検証欄が pending のままだった。
+- 指摘に従い、verification_current を実行済みの pass / info へ更新した。
+- Feynman the 2nd の再レビューは `APPROVED_TO_COMMIT`。note の検証欄修正後、F5gg は commit 可能と確認された。
+
+## residual
+
+- F5gg は native minifb smoke adapter boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gf Native host action boundary
 
 ## scope

@@ -313,6 +313,16 @@ F5ge は native smoke backend の loop-step state boundary であり、formal `s
 
 F5gf は host action selection boundary であり、formal scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。DOM / Canvas / video memory transport、fallback、silent no-op も導入しない。
 
+## F5gg Native minifb window run-loop adapter boundary
+
+2026-06-19 の F5gg では、F5gf の `NativeWindowHostAction` を消費する cfg-gated minifb window run-loop adapter を `nepl-gui-native` に追加する。F5ge / F5gf では `main.rs` が minifb window lifecycle と host action execution を持っていたが、F5gg 以降は `run_minifb_window_loop` だけが `WindowOptions`、`ScaleMode::UpperLeft`、`window.update`、`update_with_buffer` を扱う。`main.rs` は CLI option を `NativeWindowRunLoopConfig` へ変換して runner を呼ぶだけにする。
+
+`NativeWindowRunLoopConfig` は demo、counter value、scale を保持する。`NativeWindowRunLoopExit` は terminal reason を `NativeWindowHostTerminalReason` として保持し、OS close と Escape shortcut を CLI success の中で潰さない。`NativeWindowRunLoopError` は backend initialization、window creation、event pump、host action selection、presenter frame availability、`WindowPresentFailed` を enum variant で分ける。`WindowPresentFailed` は `update_with_buffer` failure だけを表し、error を返さない `window.update` の failure を捏造しない。minifb の具体 error text は platform detail として message に閉じ込め、backend loop / event pump / host action の typed error は original error を保持する。
+
+run-loop adapter は毎 iteration で `poll_minifb_window_event_pump` と `step_host_action` だけを呼ぶ。direct minifb input API は引き続き event pump helper に隔離し、run-loop adapter は `Key`、`MouseButton`、`MouseMode`、`is_open`、`is_key_down`、`get_mouse_down`、`get_unscaled_mouse_pos` を直接扱わない。`PumpEventsOnly` では title update と `window.update` だけを行い、frame を要求しない。`PresentFrame` では title update 後、`current_present_frame_for_window` から借用した exact-size RGB0 frame だけを `update_with_buffer` へ渡す。
+
+F5gg は native smoke backend の minifb adapter boundary であり、formal `std/gui` host import execution、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。`set_target_fps(60)` は minifb smoke runner の busy spin 抑制だけであり、formal timer / scheduler policy ではない。fallback、silent no-op、blank frame、DOM / Canvas / video memory transport は導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

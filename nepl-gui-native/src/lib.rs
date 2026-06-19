@@ -1158,6 +1158,28 @@ pub enum NativeWindowHostActionError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowRunLoopConfig {
+    pub demo: GuiDemo,
+    pub counter_value: i32,
+    pub scale: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowRunLoopExit {
+    pub reason: NativeWindowHostTerminalReason,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopError {
+    BackendLoopInitializationFailed(NativeWindowBackendLoopError),
+    WindowCreationFailed { message: String },
+    EventPumpFailed(NativeWindowEventPumpError),
+    HostActionFailed(NativeWindowHostActionError),
+    PresenterFrameUnavailable(NativeWindowBackendLoopError),
+    WindowPresentFailed { message: String },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowBackendLoopError {
     InitialScaleInvalid,
     InitialSizeOverflow,
@@ -2203,6 +2225,108 @@ impl FromStr for GuiDemo {
             other => Err(format!("unknown GUI demo: {other}")),
         }
     }
+}
+
+impl NativeWindowRunLoopConfig {
+    pub fn new(demo: GuiDemo, counter_value: i32, scale: usize) -> Self {
+        Self {
+            demo,
+            counter_value,
+            scale,
+        }
+    }
+}
+
+pub fn native_window_title(demo: GuiDemo, size: NativeWindowSize) -> String {
+    if size.width == 0 || size.height == 0 {
+        format!(
+            "NEPLg2 GUI native preview - {:?} - surface unavailable",
+            demo
+        )
+    } else {
+        format!(
+            "NEPLg2 GUI native preview - {:?} - {}x{}",
+            demo, size.width, size.height
+        )
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+pub fn run_minifb_window_loop(
+    config: NativeWindowRunLoopConfig,
+) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
+    use minifb::{ScaleMode, Window, WindowOptions};
+
+    let mut backend_loop =
+        NativeWindowBackendLoop::new_for_scale(config.demo, config.counter_value, config.scale)
+            .map_err(NativeWindowRunLoopError::BackendLoopInitializationFailed)?;
+    let initial_size = backend_loop.initial_size();
+    let mut window = Window::new(
+        "NEPLg2 GUI native preview",
+        initial_size.width,
+        initial_size.height,
+        WindowOptions {
+            resize: true,
+            scale_mode: ScaleMode::UpperLeft,
+            ..WindowOptions::default()
+        },
+    )
+    .map_err(|error| NativeWindowRunLoopError::WindowCreationFailed {
+        message: error.to_string(),
+    })?;
+    window.set_target_fps(60);
+    window.set_background_color(9, 13, 18);
+    update_minifb_window_title(&mut window, backend_loop.demo(), initial_size);
+
+    loop {
+        let event_snapshot =
+            poll_minifb_window_event_pump(&window, backend_loop.event_pump_input())
+                .map_err(NativeWindowRunLoopError::EventPumpFailed)?;
+        let action = backend_loop
+            .step_host_action(event_snapshot)
+            .map_err(NativeWindowRunLoopError::HostActionFailed)?;
+        match action {
+            NativeWindowHostAction::Terminate { reason } => {
+                return Ok(NativeWindowRunLoopExit { reason });
+            }
+            NativeWindowHostAction::PumpEventsOnly {
+                window_size,
+                size_changed,
+            } => {
+                if size_changed {
+                    update_minifb_window_title(&mut window, backend_loop.demo(), window_size);
+                }
+                window.update();
+            }
+            NativeWindowHostAction::PresentFrame {
+                window_size,
+                size_changed,
+                ..
+            } => {
+                if size_changed {
+                    update_minifb_window_title(&mut window, backend_loop.demo(), window_size);
+                }
+                let present_frame = backend_loop
+                    .current_present_frame_for_window()
+                    .map_err(NativeWindowRunLoopError::PresenterFrameUnavailable)?;
+                window
+                    .update_with_buffer(
+                        present_frame.pixels(),
+                        present_frame.width(),
+                        present_frame.height(),
+                    )
+                    .map_err(|error| NativeWindowRunLoopError::WindowPresentFailed {
+                        message: error.to_string(),
+                    })?;
+            }
+        }
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn update_minifb_window_title(window: &mut minifb::Window, demo: GuiDemo, size: NativeWindowSize) {
+    let title = native_window_title(demo, size);
+    window.set_title(&title);
 }
 
 pub fn render_demo_frame(demo: GuiDemo, counter_value: i32) -> GuiFrame {
@@ -4783,6 +4907,30 @@ mod tests {
 
     fn native_window_backend_loop_counter() -> NativeWindowBackendLoop {
         NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, 0, 2).unwrap()
+    }
+
+    #[test]
+    fn native_window_run_loop_config_preserves_demo_state() {
+        assert_eq!(
+            NativeWindowRunLoopConfig::new(GuiDemo::Counter, 7, 3),
+            NativeWindowRunLoopConfig {
+                demo: GuiDemo::Counter,
+                counter_value: 7,
+                scale: 3,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_title_reports_drawable_and_unavailable_surface() {
+        assert_eq!(
+            native_window_title(GuiDemo::Mandelbrot, NativeWindowSize::new(1280, 720)),
+            "NEPLg2 GUI native preview - Mandelbrot - 1280x720"
+        );
+        assert_eq!(
+            native_window_title(GuiDemo::Life, NativeWindowSize::new(0, 720)),
+            "NEPLg2 GUI native preview - Life - surface unavailable"
+        );
     }
 
     fn native_window_backend_loop_snapshot(
