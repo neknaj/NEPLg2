@@ -13195,16 +13195,24 @@ for (const fragment of [
     assert(pathCommandStreamValidate.includes(fragment), `alloc/gui/font/sfnt/glyf F5aw cursor validate must include ${fragment}`);
 }
 const pathCommandStreamStepType = allocFontSfntGlyfImpl.slice(
-    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted:"),
     allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepErrorKind:"),
 );
 for (const fragment of [
-    "Emitted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted:",
+    "value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue",
+    "next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "Emitted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted",
     "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
 ]) {
     assert(pathCommandStreamStepType.includes(fragment), `alloc/gui/font/sfnt/glyf F5aw PathCommandStreamStep must include ${fragment}`);
 }
-assertNoMatch(pathCommandStreamStepType, /terminal_kind|kind %|value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue[\s\S]*Completed/, "alloc/gui/font/sfnt/glyf F5aw completed step must not require a dummy PathCommandValue");
+assertNoMatch(pathCommandStreamStepType, /terminal_kind|kind %|Completed[^\n]*PathCommandValue/, "alloc/gui/font/sfnt/glyf F5aw completed step must not require a dummy PathCommandValue");
+assertNoMatch(
+    pathCommandStreamStepType,
+    /^\s*Emitted\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor\b/m,
+    "alloc/gui/font/sfnt/glyf F5aw emitted step must use a payload struct instead of a multi-payload enum variant",
+);
 assertMatch(
     pathCommandStreamStepType,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep:/,
@@ -13235,7 +13243,8 @@ assertOrderedFragments(
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed cursor",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value collection owner next_index",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_advance &cursor",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted value next_cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted",
     ],
     "alloc/gui/font/sfnt/glyf F5aw step must validate cursor, complete before lookup, call F5av once, and advance cursor in order",
 );
@@ -13249,15 +13258,23 @@ assertNoMatch(
     "alloc/gui/font/sfnt/glyf F5aw step completed branch must not call F5av lookup",
 );
 const pathCommandStreamDrainType = allocFontSfntGlyfImpl.slice(
-    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload:"),
     allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_budget"),
 );
 for (const fragment of [
-    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
-    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload:",
+    "cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "emitted_count %i32",
+    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload",
 ]) {
     assert(pathCommandStreamDrainType.includes(fragment), `alloc/gui/font/sfnt/glyf F5aw drain terminal must include ${fragment}`);
 }
+assertNoMatch(
+    pathCommandStreamDrainType,
+    /^\s*(?:Completed|StepBudgetExhausted)\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor\s+%i32\b/m,
+    "alloc/gui/font/sfnt/glyf F5aw drain terminal must use a payload struct instead of multi-payload enum variants",
+);
 assertMatch(
     pathCommandStreamDrainType,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal:/,
@@ -13268,7 +13285,8 @@ assertOrderedFragments(
     pathCommandStreamDrain,
     [
         "if le remaining_steps 0:",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted cursor 0",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload cursor 0",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted payload",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection owner cursor",
     ],
     "alloc/gui/font/sfnt/glyf F5aw drain must stop on budget before calling step",
@@ -13411,16 +13429,27 @@ assert(
     "alloc/gui/font/sfnt/glyf F5ax increment_from_value must read path command index exactly once",
 );
 const pathCommandStreamPrepareStepType = allocFontSfntGlyfImpl.slice(
-    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared:"),
     allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepErrorKind:"),
 );
 for (const fragment of [
-    "Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
-    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared:",
+    "action %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary",
+    "next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted:",
+    "cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared",
+    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted",
 ]) {
     assert(pathCommandStreamPrepareStepType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareStep must include ${fragment}`);
 }
 assertNoMatch(pathCommandStreamPrepareStepType, /Completed[^\n]*PathCommandValue|Completed[^\n]*PrepareAction/, "alloc/gui/font/sfnt/glyf F5ax completed prepare step must not carry dummy value or dummy action");
+assertNoMatch(
+    pathCommandStreamPrepareStepType,
+    /^\s*(?:Prepared|Completed)\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor\b/m,
+    "alloc/gui/font/sfnt/glyf F5ax prepare step must use payload structs instead of multi-payload enum variants",
+);
 assertMatch(
     pathCommandStreamPrepareStepType,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:/,
@@ -13448,10 +13477,14 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection owner cursor",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed complete_cursor",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed summary complete_cursor",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed summary complete_cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed completed",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_value &emitted",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor &emitted",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_from_value &summary &value",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared action next_summary next_cursor",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared action next_summary next_cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared prepared",
     ],
     "alloc/gui/font/sfnt/glyf F5ax prepare_step must call F5aw step once, preserve completed summary, and increment only emitted values",
 );
@@ -13465,15 +13498,24 @@ assertNoMatch(
     "alloc/gui/font/sfnt/glyf F5ax prepare_step must not call F5av lookup directly",
 );
 const pathCommandStreamPrepareDrainType = allocFontSfntGlyfImpl.slice(
-    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload:"),
     allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget"),
 );
 for (const fragment of [
-    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
-    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload:",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary",
+    "cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "emitted_count %i32",
+    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload",
 ]) {
     assert(pathCommandStreamPrepareDrainType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax prepare drain terminal must include ${fragment}`);
 }
+assertNoMatch(
+    pathCommandStreamPrepareDrainType,
+    /^\s*(?:Completed|StepBudgetExhausted)\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor\s+%i32\b/m,
+    "alloc/gui/font/sfnt/glyf F5ax prepare drain terminal must use a payload struct instead of multi-payload enum variants",
+);
 assertMatch(
     pathCommandStreamPrepareDrainType,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:/,
@@ -13484,7 +13526,8 @@ assertOrderedFragments(
     pathCommandStreamPrepareDrain,
     [
         "if le remaining_steps 0:",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary cursor 0",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload summary cursor 0",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted payload",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step collection owner summary cursor",
     ],
     "alloc/gui/font/sfnt/glyf F5ax prepare drain must stop on budget before calling prepare step",
@@ -13599,14 +13642,16 @@ const pathCommandStreamSinkPlanErrorFromTerminal = functionSlice(allocFontSfntGl
 assertOrderedFragments(
     pathCommandStreamSinkPlanErrorFromTerminal,
     [
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &payload",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &payload",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary _cursor emitted_count",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted payload",
     ],
     "alloc/gui/font/sfnt/glyf F5ay error-from-terminal must preserve terminal authority and extracted count context",
 );
@@ -13651,9 +13696,11 @@ assertOrderedFragments(
     pathCommandStreamSinkPlanFromTerminal,
     [
         "match terminal:",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted _summary _cursor _emitted_count:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted _payload:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::PrepareNotCompleted",
-        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &payload",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &payload",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_guard terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add move_to_count line_to_count terminal",
@@ -13852,7 +13899,7 @@ assertOrderedFragments(
     pathCommandStreamSinkOwnerCheckedMul,
     [
         "let max_i32 %i32 2147483647",
-        "let max_factor_count %i32 div max_i32 factor",
+        "let max_factor_count %i32 div_s max_i32 factor",
         "if gt count max_factor_count:",
         "CountOverflow",
         "Result::Ok mul count factor",
@@ -15058,7 +15105,8 @@ assertOrderedFragments(
     [
         "gt y0 sample_y",
         "gt y1 sample_y",
-        "eq y0_above y1_above",
+        "let same_side %bool if y0_above:",
+        "if same_side:",
         "let dy %i64 sub y1 y0",
         "let left %i64 mul sub sample_x x0 dy",
         "let right %i64 mul sub x1 x0 sub sample_y y0",
@@ -15746,11 +15794,16 @@ for (const fragment of [
     assert(renderFillAlphaMaskSampleCursorStepErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bi step error must include ${fragment}`);
 }
 for (const fragment of [
-    "Sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSample %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor",
+    "Sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled",
     "Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
 ]) {
     assert(renderFillAlphaMaskSampleCursorTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bi terminal must include ${fragment}`);
 }
+assertNoMatch(
+    renderFillAlphaMaskSampleCursorTerminalType,
+    /^\s*Sampled\s+%GuiSfntSimpleGlyphRenderFillAlphaMaskSample\s+%GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor\b/m,
+    "alloc/gui/font/sfnt/glyf F5bi sampled terminal must use an owner-bearing payload struct instead of a multi-payload enum variant",
+);
 for (const typeName of [
     "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor",
     "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError",
@@ -15889,7 +15942,8 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_read &cursor",
         "expected_next_cell_index",
         "ProgressInvariantInvalid",
-        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sample next_cursor",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled sample next_cursor",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sampled",
     ],
     "alloc/gui/font/sfnt/glyf F5bi step must preserve cursor on errors, reject out-of-range before completion, and return sampled/completed terminals",
 );
@@ -15907,7 +15961,8 @@ assert(renderFillAlphaMaskSampleCursorErrorFree.includes("gui_sfnt_simple_glyph_
 assertOrderedFragments(
     renderFillAlphaMaskSampleCursorTerminalFree,
     [
-        "Sampled _sample cursor",
+        "Sampled sampled",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled_cursor sampled",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor",
         "Completed owner",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner",
@@ -16107,11 +16162,16 @@ for (const fragment of [
     assert(renderFillAlphaMaskSampleCommandCursorErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj cursor command error must include ${fragment}`);
 }
 for (const fragment of [
-    "Command %RenderCommand %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor",
+    "Command %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand",
     "Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
 ]) {
     assert(renderFillAlphaMaskSampleCommandCursorTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj cursor command terminal must include ${fragment}`);
 }
+assertNoMatch(
+    renderFillAlphaMaskSampleCommandCursorTerminalType,
+    /^\s*Command\s+%RenderCommand\s+%GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursor\b/m,
+    "alloc/gui/font/sfnt/glyf F5bj command terminal must use an owner-bearing payload struct instead of a multi-payload enum variant",
+);
 assertMatch(
     allocFontSfntGlyfImpl,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError\b/,
@@ -16208,7 +16268,8 @@ assertOrderedFragments(
         "cursor",
         "rejected_sample",
         "let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor \"owner\"",
-        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command next_cursor",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command command next_cursor",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command_payload",
     ],
     "alloc/gui/font/sfnt/glyf F5bj cursor command step must complete before read, convert before advancing, and keep recovery payloads",
 );
@@ -16223,7 +16284,8 @@ assert(renderFillAlphaMaskSampleCommandCursorErrorFree.includes("gui_sfnt_simple
 assertOrderedFragments(
     renderFillAlphaMaskSampleCommandCursorTerminalFree,
     [
-        "Command _command cursor",
+        "Command command_payload",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command_cursor command_payload",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor",
         "Completed owner",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner",
@@ -16851,7 +16913,7 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id &record",
         "alpha_mask_id_raw &mask_id",
         "le raw 0",
-        "field::get_ref resource \"reservation\"",
+        "field::get_ref &resource \"reservation\"",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation reservation",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_kind_from_table_register lower_kind",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_record_equal &record &expected_record",
@@ -17279,11 +17341,12 @@ assertOrderedFragments(
     renderFillAlphaMaskSoftwareDrainStartErrorFree,
     [
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected error",
-        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with rejected",
+        "field::get rejected \"prepared\"",
+        "field::get rejected \"surface\"",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0",
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner",
     ],
-    "alloc/gui/font/sfnt/glyf F5bp start error free must reuse paired rejected recovery",
+    "alloc/gui/font/sfnt/glyf F5bp start error free must recover paired rejected owners before freeing",
 );
 for (const [slice, name] of [
     [renderFillAlphaMaskSoftwareDrainErrorRejected, "start error rejected"],

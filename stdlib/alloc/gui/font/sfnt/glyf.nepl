@@ -26,6 +26,7 @@
 #import "alloc/collections/vec" as vec
 #import "core/cast" as *
 #import "core/field" as field
+#import "core/gui/color" as *
 #import "core/gui/font" as *
 #import "core/gui/geometry" as *
 #import "core/gui/dirty_region" as *
@@ -12797,8 +12798,38 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
 //: - `Completed` は dummy value を[作/つく]らず、完了 cursor だけを[返/かえ]します。
 //:
 //: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted:
+    value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue
+    next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted \emitted:
+        *emitted
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted \emitted:
+        emitted
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted: emitted step payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted \value\next_cursor:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted value next_cursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_value: emitted value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_value %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue \emitted:
+    *field::get_ref emitted "value"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor: emitted next cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \emitted:
+    *field::get_ref emitted "next_cursor"
+
 pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep:
-    Emitted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    Emitted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted
     Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
 
 impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep:
@@ -12887,7 +12918,8 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
                                     Result::Err error
                                 Result::Ok value:
                                     let next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_advance &cursor
-                                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor
+                                    let emitted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamEmitted gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted value next_cursor
+                                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted
 
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal: bounded drain terminal
 //:
@@ -12896,9 +12928,39 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
 //: - drain は emitted count と next cursor だけを[返/かえ]し、`Vec` へ command を[溜/た]めません。
 //:
 //: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload:
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    emitted_count %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload \payload:
+        *payload
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload \payload:
+        payload
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload: drain terminal payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload \cursor\emitted_count:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload cursor emitted_count
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_cursor: drain terminal cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \payload:
+    *field::get_ref payload "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_emitted_count: drain terminal emitted count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_emitted_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload i32 \payload:
+    *field::get_ref payload "emitted_count"
+
 pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal:
-    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32
-    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32
+    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload
 
 impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal:
     fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal \terminal:
@@ -12919,7 +12981,8 @@ impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPa
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError \collection\owner\cursor\remaining_steps:
     if le remaining_steps 0:
         then:
-            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted cursor 0
+            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload cursor 0
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted payload
         else:
             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection owner cursor:
                 Result::Err step_error:
@@ -12927,17 +12990,25 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
                 Result::Ok step:
                     match step:
                         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed complete_cursor:
-                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed complete_cursor 0
-                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor:
+                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload complete_cursor 0
+                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed payload
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted:
+                            let next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor &emitted
                             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_budget collection owner next_cursor sub remaining_steps 1:
                                 Result::Err step_error:
                                     Result::Err step_error
                                 Result::Ok terminal:
                                     match terminal:
-                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed final_cursor emitted_count:
-                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed final_cursor add emitted_count 1
-                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted final_cursor emitted_count:
-                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted final_cursor add emitted_count 1
+                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed completed_payload:
+                                            let final_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_cursor &completed_payload
+                                            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_emitted_count &completed_payload
+                                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload final_cursor add emitted_count 1
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::Completed payload
+                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted exhausted_payload:
+                                            let final_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_cursor &exhausted_payload
+                                            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload_emitted_count &exhausted_payload
+                                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_terminal_payload final_cursor add emitted_count 1
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal::StepBudgetExhausted payload
 
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary: path command stream の[準備/じゅんび] summary
 //:
@@ -13092,9 +13163,76 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_strea
 //: - `Completed` は dummy action や dummy command を[持/も]たず、summary と cursor だけを[返/かえ]します。
 //:
 //: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared:
+    action %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary
+    next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared \prepared:
+        *prepared
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared \prepared:
+        prepared
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared: prepared step payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared \action\summary\next_cursor:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared action summary next_cursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_action: prepared action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_action %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction \prepared:
+    *field::get_ref prepared "action"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_summary: prepared summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \prepared:
+    *field::get_ref prepared "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_next_cursor: prepared next cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_next_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \prepared:
+    *field::get_ref prepared "next_cursor"
+
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted:
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted \completed:
+        *completed
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted \completed:
+        completed
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed: completed prepare step payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted \summary\cursor:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted summary cursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_summary: completed prepare summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \completed:
+    *field::get_ref completed "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_cursor: completed prepare cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \completed:
+    *field::get_ref completed "cursor"
+
 pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:
-    Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
-    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared
+    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted
 
 impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:
     fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep \step:
@@ -13160,19 +13298,60 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
         Result::Ok step:
             match step:
                 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed complete_cursor:
-                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed summary complete_cursor
-                GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor:
+                    let completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepCompleted gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed summary complete_cursor
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed completed
+                GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted:
+                    let value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_value &emitted
+                    let next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor &emitted
                     let update %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareUpdate gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_from_value &summary &value
                     let action %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_update_action &update
                     let next_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_update_summary &update
-                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared action next_summary next_cursor
+                    let prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepPrepared gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared action next_summary next_cursor
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared prepared
 
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal: bounded prepare drain terminal
 //:
 //: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload:
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    emitted_count %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload \payload:
+        *payload
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload \payload:
+        payload
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload: prepare drain terminal payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload \summary\cursor\emitted_count:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload summary cursor emitted_count
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary: prepare drain summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \payload:
+    *field::get_ref payload "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_cursor: prepare drain cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \payload:
+    *field::get_ref payload "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count: prepare drain emitted count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload i32 \payload:
+    *field::get_ref payload "emitted_count"
+
 pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:
-    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32
-    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32
+    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload
 
 impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:
     fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal \terminal:
@@ -13192,25 +13371,39 @@ impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStrea
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepError \collection\owner\summary\cursor\remaining_steps:
     if le remaining_steps 0:
         then:
-            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary cursor 0
+            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload summary cursor 0
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted payload
         else:
             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step collection owner summary cursor:
                 Result::Err prepare_error:
                     Result::Err prepare_error
                 Result::Ok step:
                     match step:
-                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed complete_summary complete_cursor:
-                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed complete_summary complete_cursor 0
-                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared action next_summary next_cursor:
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed completed:
+                            let complete_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_summary &completed
+                            let complete_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_completed_cursor &completed
+                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload complete_summary complete_cursor 0
+                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared prepared:
+                            let next_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_summary &prepared
+                            let next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_prepared_next_cursor &prepared
                             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget collection owner next_summary next_cursor sub remaining_steps 1:
                                 Result::Err prepare_error:
                                     Result::Err prepare_error
                                 Result::Ok terminal:
                                     match terminal:
-                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed final_summary final_cursor emitted_count:
-                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed final_summary final_cursor add emitted_count 1
-                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted final_summary final_cursor emitted_count:
-                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted final_summary final_cursor add emitted_count 1
+                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed completed_payload:
+                                            let final_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &completed_payload
+                                            let final_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_cursor &completed_payload
+                                            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &completed_payload
+                                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload final_summary final_cursor add emitted_count 1
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload
+                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted exhausted_payload:
+                                            let final_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &exhausted_payload
+                                            let final_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_cursor &exhausted_payload
+                                            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &exhausted_payload
+                                            let payload %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminalPayload gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload final_summary final_cursor add emitted_count 1
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted payload
 
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan: completed path command stream から[導/みちび]く sink / raster [容量/ようりょう] plan
 //:
@@ -13370,7 +13563,9 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
 
 fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \kind\terminal:
     match terminal:
-        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &payload
+            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &payload
             let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
             let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
             let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
@@ -13378,7 +13573,9 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_strea
             let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
             let last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
             gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error kind terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
-        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary _cursor emitted_count:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted payload:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &payload
+            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &payload
             let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
             let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
             let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
@@ -13430,9 +13627,11 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_strea
 //: neplg2:test[skip]
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_from_prepare_drain_terminal %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \terminal:
     match terminal:
-        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted _summary _cursor _emitted_count:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted _payload:
             Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::PrepareNotCompleted terminal
-        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed payload:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_summary &payload
+            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_terminal_payload_emitted_count &payload
             let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
             let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
             let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
@@ -13669,7 +13868,7 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_strea
 
 fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul %fn i32 fn i32 fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \count\factor\plan:
     let max_i32 %i32 2147483647
-    let max_factor_count %i32 div max_i32 factor
+    let max_factor_count %i32 div_s max_i32 factor
     if gt count max_factor_count:
         then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::CountOverflow plan
         else Result::Ok mul count factor
@@ -14305,26 +14504,26 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_strea
             let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
             let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "move_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::LineToCountExceeded:
             let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
             let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "line_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::QuadraticToCountExceeded:
             let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
             let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "quadratic_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::SkipNoSegmentCountExceeded:
             let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
             let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "skip_no_segment_count"
+            ge used_count limit
         _:
             false
 
@@ -14888,20 +15087,20 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer
     match kind:
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushErrorKind::MoveToCountExceeded:
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_move_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "move_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushErrorKind::LineToCountExceeded:
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_line_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "line_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushErrorKind::QuadraticToCountExceeded:
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_quadratic_to_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "quadratic_to_count"
+            ge used_count limit
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushErrorKind::SkipNoSegmentCountExceeded:
             let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
-            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_skip_no_segment_count writer
-            ge count limit
+            let used_count %i32 *field::get_ref writer "skip_no_segment_count"
+            ge used_count limit
         _:
             false
 
@@ -15311,7 +15510,8 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_
                                                                                                                                                                     if or or lt plan_line_to_count 0 lt plan_quadratic_to_count 0 or gt plan_quadratic_to_count remaining_edge_room ne expected_edge_count raster_edge_capacity:
                                                                                                                                                                         then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::ExpectedEdgeCapacityMismatch writer derived_capacity
                                                                                                                                                                         else:
-                                                                                                                                                                            match vec::with_capacity raster_edge_capacity:
+                                                                                                                                                                            let edges_result %Result Vec GuiSfntSimpleGlyphRasterEdge StdErrorKind vec::with_capacity raster_edge_capacity
+                                                                                                                                                                            match edges_result:
                                                                                                                                                                                 Result::Err storage_error:
                                                                                                                                                                                     Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_storage_failed writer derived_capacity storage_error
                                                                                                                                                                                 Result::Ok edges:
@@ -15762,7 +15962,7 @@ impl Copy for GuiSfntSimpleGlyphRasterCoverageStartErrorKind:
 
 fn gui_sfnt_simple_glyph_raster_coverage_shape_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRasterCoverageStartErrorKind Result i32 GuiSfntSimpleGlyphRasterCoverageStartErrorKind \left\right\overflow_kind:
     let max_i32 %i32 2147483647
-    let max_left %i32 div max_i32 right
+    let max_left %i32 div_s max_i32 right
     if gt left max_left:
         then Result::Err overflow_kind
         else Result::Ok mul left right
@@ -15907,7 +16107,8 @@ fn gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_start %impure fn GuiS
                                                         then Result::Err gui_sfnt_simple_glyph_raster_coverage_start_error_with_shape GuiSfntSimpleGlyphRasterCoverageStartErrorKind::EdgeStorageCapacityMismatch edge_owner config shape
                                                         else:
                                                             let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
-                                                            match vec::with_capacity cell_count:
+                                                            let cells_result %Result Vec i32 StdErrorKind vec::with_capacity cell_count
+                                                            match cells_result:
                                                                 Result::Err storage_error:
                                                                     Result::Err gui_sfnt_simple_glyph_raster_coverage_start_error_storage_failed edge_owner config shape storage_error
                                                                 Result::Ok cells:
@@ -16351,7 +16552,10 @@ fn gui_sfnt_simple_glyph_raster_coverage_scan_scaled_edge_coordinate %fn i32 fn 
 fn gui_sfnt_simple_glyph_raster_coverage_scan_line_crosses_scaled %fn i64 fn i64 fn i64 fn i64 fn i64 fn i64 bool \sample_x\sample_y\x0\y0\x1\y1:
     let y0_above %bool gt y0 sample_y
     let y1_above %bool gt y1 sample_y
-    if eq y0_above y1_above:
+    let same_side %bool if y0_above:
+        then y1_above
+        else not y1_above
+    if same_side:
         then false
         else:
             let dy %i64 sub y1 y0
@@ -16788,7 +16992,8 @@ fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_start %impure fn GuiSfntS
                                             if ne raw_cells_cap shape_cell_count:
                                                 then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::RawCellStorageCapacityMismatch coverage_owner config
                                                 else:
-                                                    match vec::with_capacity shape_cell_count:
+                                                    let alpha_cells_result %Result Vec i32 StdErrorKind vec::with_capacity shape_cell_count
+                                                    match alpha_cells_result:
                                                         Result::Err storage_error:
                                                             Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_storage_failed coverage_owner config storage_error
                                                         Result::Ok alpha_cells:
@@ -17521,8 +17726,21 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error_cursor %fn G
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal: sample cursor step の結果
 //:
 //: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled:
+    sample %GuiSfntSimpleGlyphRenderFillAlphaMaskSample
+    cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSample fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled \sample\cursor:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled sample cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled_sample %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled GuiSfntSimpleGlyphRenderFillAlphaMaskSample \sampled:
+    *field::get_ref sampled "sample"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled_cursor %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor \sampled:
+    field::get sampled "cursor"
+
 enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal:
-    Sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSample %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+    Sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled
     Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \left\right\overflow_kind:
@@ -17696,7 +17914,9 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_step %impure fn Gu
                                     let next_cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index &next_cursor
                                     if ne next_cell_index expected_next_cell_index:
                                         then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ProgressInvariantInvalid next_cursor
-                                        else Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sample next_cursor
+                                        else:
+                                            let sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorSampled gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled sample next_cursor
+                                            Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sampled
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor unit \cursor:
     let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor "owner"
@@ -17712,7 +17932,8 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error_free %impure
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal unit \terminal:
     match terminal:
-        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled _sample cursor:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sampled:
+            let cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_sampled_cursor sampled
             gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor
         GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
@@ -17868,8 +18089,21 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_error_reje
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal: command cursor step の結果
 //:
 //: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand:
+    command %RenderCommand
+    cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command %fn RenderCommand fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand \command\cursor:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand command cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command_command %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand RenderCommand \command_payload:
+    *field::get_ref command_payload "command"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command_cursor %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor \command_payload:
+    field::get command_payload "cursor"
+
 enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal:
-    Command %RenderCommand %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+    Command %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand
     Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_step %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor Result GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorError \cursor:
@@ -17930,7 +18164,9 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_step %impu
                                                         next_cursor
                                                         rejected_sample
                                                     Result::Err command_error
-                                                else Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command next_cursor
+                                                else:
+                                                    let command_payload %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorCommand gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command command next_cursor
+                                                    Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command_payload
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor unit \cursor:
     gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor
@@ -17941,7 +18177,8 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_error_free
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal unit \terminal:
     match terminal:
-        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command _command cursor:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command_payload:
+            let cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_command_cursor command_payload
             gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor
         GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
@@ -18217,7 +18454,8 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_owner %fn Vec Gui
     GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner records
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_new %fn i32 Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner StdErrorKind \capacity:
-    match vec::with_capacity capacity:
+    let records_result %Result Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord StdErrorKind vec::with_capacity capacity
+    match records_result:
         Result::Err storage_error:
             Result::Err storage_error
         Result::Ok records:
@@ -18647,7 +18885,7 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_prepare_comm
     if le raw 0:
         then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind::InvalidMaskId resource
         else:
-            let reservation %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get_ref resource "reservation"
+            let reservation %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get_ref &resource "reservation"
             match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation reservation:
                 Result::Err lower_kind:
                     let error_kind %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_kind_from_table_register lower_kind
@@ -19124,9 +19362,10 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free %impur
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
     let rejected %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected error
-    gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with rejected \prepared\surface:
-        let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
-        gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
+    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get rejected "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
     let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_owner error

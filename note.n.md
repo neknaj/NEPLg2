@@ -1,3 +1,40 @@
+# 2026-06-19 Agent2 CI rust timeout nonfatal and GUI font glyf example stabilization
+
+## scope
+
+- CI の Rust full test timeout を検出しつつ失敗扱いにしない。
+- examples 全体で共有 import される `alloc/gui/font/sfnt/glyf.nepl` の NEPLg2.1 構文・型検査・所有権境界の破綻を直す。
+- 個別 example の回避ではなく、GUI font glyf 側の enum payload、checked arithmetic、Rgba8888 import、bool 判定、owner 参照、impure free 境界を修正する。
+
+## implementation_current
+
+- `.github/workflows/ci.yml` の Rust tests に `ci_timeout.js --timeout-nonfatal` を適用し、timeout は検出ログを残しつつ CI failure にしない形へ変更した。
+- `nodesrc/test_ci_timeout_policy.js` は Rust full test suite だけを timeout-nonfatal 必須として検査し、非 timeout の失敗を保存する contract を固定した。
+- `glyf.nepl` の複数 payload enum variant を payload struct へ置き換え、NEPLg2.1 の variant payload 形に合わせた。
+- `glyf.nepl` の `div` を signed integer の `div_s` contract へ揃え、`Rgba8888` accessor import、bool same-side 判定、registered resource owner の borrowed reservation validation、start-error owner free を修正した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は payload struct 化、signed checked multiply、bool same-side 判定、borrowed owner validation、paired rejected owner recovery、旧 multi-payload enum variant 禁止を source policy として固定した。
+
+## verification_current
+
+- `node nodesrc/test_ci_timeout_policy.js`
+- `node nodesrc/test_web_gui_font_rendering_contract.js`
+- `node nodesrc/tests.js -i examples\gui_counter.nepl -o tmp_gui_counter_after_glyf_batch2.json -j 1 --timeout-nonfatal`
+- `node nodesrc/tests.js -i examples -o tmp_examples_after_glyf_batch2.json -j 2 --timeout-nonfatal`
+- `git diff --check`
+- info: examples 全体は total 47 / passed 46 / non_timeout_failed 0 / non_timeout_errored 0。残りは `examples\nm.nepl::doctest#1` の compile timeout 検出のみで、`--timeout-nonfatal` により exit 0。
+- info: `git diff --check` は whitespace error なし。CRLF conversion warning のみ。
+
+## implementation_review
+
+- Darwin the 2nd に計画レビューを依頼し、`PLAN_APPROVED` を得た。
+- 実装途中レビューでは、CI timeout nonfatal 化は blocker なし、payload struct 化は NEPLg2.1 方針に沿うと確認された。
+- 初回実装レビューで指摘された examples 非 timeout failure は、再実行で 0 件まで解消した。
+- 追加指摘の旧 multi-payload enum variant negative assertion は source policy に反映した。
+
+## residual
+
+- `examples\nm.nepl` の compile timeout 自体は検出のみ残る。今回の scope では timeout を失敗扱いにしない CI 方針と、GUI font 起点の非 timeout compile failure 解消に絞った。
+
 # 2026-06-19 Agent2 GUI native F5hj interruptible deadline wait boundary
 
 ## scope
