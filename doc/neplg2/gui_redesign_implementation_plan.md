@@ -1784,6 +1784,31 @@ subagent review:
 
 - Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、authority validation が deadline timer registration / clock read / sleeper call / active timer mutation より前であること、minifb authority rejection の no-mutation test、host event wait の authority 非依存、既存 owner helper の wrapper 化、minifb path 非変更である。
 
+## Phase F5hh: Native run-loop frame interval wait backend selection boundary
+
+Phase F5hh では、native run-loop config に frame interval wait backend selection を追加する。これは実 OS selector / message-loop timer backend ではなく、future backend selection が minifb smoke backend へ暗黙 fallback しないための fail-closed boundary である。
+
+実装:
+
+- `NativeWindowRunLoopFrameIntervalWaitBackend` を追加し、`MinifbInternalTargetFps` と `HostOwnedDeadlineTimer` を持たせる。
+- `NativeWindowRunLoopConfig` に `frame_interval_wait_backend` を追加し、existing constructors は default `MinifbInternalTargetFps` を設定する。
+- explicit constructor は target fps、host-loop policy、frame interval backend をまとめて指定できる。
+- backend は `NativeWindowFrameIntervalWaitAuthorityMode` へ変換できる。validation は F5hf の `combine_native_window_frame_interval_wait_authority_mode` を使い、authority conflict を typed reason として保持する。
+- `run_minifb_window_loop` は `validate_minifb_window_run_loop_frame_interval_wait_backend` を window 作成前に呼ぶ。`HostOwnedDeadlineTimer` が指定された場合は `NativeWindowRunLoopError::FrameIntervalWaitBackendUnsupported` として返す。
+- unit test は default config、explicit backend selection、backend-to-authority mapping、minifb acceptance、minifb rejection を検査する。
+- source policy は validation が backend-loop initialization / minifb window creation / `set_target_fps` より前にあること、minifb path が wait owner / deadline timer adapter / std deadline timer helper を呼ばないことを固定する。
+
+非目標:
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。
+- minifb wait hook を F5hd wait owner / std deadline timer adapter へ接続しない。
+- `Window::set_target_fps` の置換、`set_target_fps 0`、fallback、silent no-op、busy loop は導入しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、config backend を typed enum にすること、validation が F5hf authority type を再利用すること、default が minifb internal pacing であること、minifb runner は `HostOwnedDeadlineTimer` を side effect 前に拒否すること、fallback を禁止すること、source policy で ordering と deadline-timer 禁止を固定することである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

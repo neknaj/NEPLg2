@@ -369,6 +369,20 @@ subagent review:
 
 - Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、deadline timer registration / clock read / sleeper call / active timer mutation より前に authority を検査すること、minifb authority rejection で timer state が無変更であることを test すること、host event wait が authority を参照しないこと、既存 helper を explicit-authority helper の wrapper にすること、minifb path を変更しないことである。
 
+## Phase F5hh: Native run-loop frame interval wait backend selection boundary
+
+F5hh では、native run-loop config が frame interval wait backend authority を明示的に持つ。`NativeWindowRunLoopFrameIntervalWaitBackend` は `MinifbInternalTargetFps` と `HostOwnedDeadlineTimer` を持ち、default は minifb smoke backend の現在の authority である `MinifbInternalTargetFps` とする。
+
+`NativeWindowRunLoopFrameIntervalWaitBackend::authority_mode` は F5hf の `NativeWindowFrameIntervalWaitAuthorityMode` へ変換する。minifb runner は `validate_minifb_window_run_loop_frame_interval_wait_backend` により、active authority を minifb internal target-fps pacing として扱い、requested backend authority と `combine_native_window_frame_interval_wait_authority_mode` で照合する。`HostOwnedDeadlineTimer` が minifb runner に指定された場合は `NativeWindowRunLoopError::FrameIntervalWaitBackendUnsupported` として fail closed にする。
+
+この validation は `NativeWindowBackendLoop::new_for_scale`、`Window::new`、`Window::set_target_fps`、host construction、loop execution より前に行う。unsupported backend を minifb internal pacing へ fallback しない。これにより future selector / message-loop deadline timer backend を config に追加しても、minifb smoke path と二重 authority にならない。
+
+F5hh は backend selection boundary までであり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。minifb wait hook を F5hd wait owner / std deadline timer adapter へ接続しない。`set_target_fps 0`、fallback、silent no-op、busy loop は禁止する。
+
+subagent review:
+
+- Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、config backend を bool / string にしないこと、default を minifb internal target-fps pacing にすること、minifb runner で `HostOwnedDeadlineTimer` を window 作成前に拒否すること、unsupported backend を fallback しないこと、typed runner / requested backend / authority reason を error に保持すること、source policy で validation ordering と minifb path の deadline timer 禁止を固定することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
