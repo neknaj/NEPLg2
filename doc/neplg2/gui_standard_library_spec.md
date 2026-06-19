@@ -611,6 +611,16 @@ F5hh は backend selection boundary であり、macOS run loop timer、Windows w
 
 F5hi は future native OS backend / deterministic test backend 用の connection boundary であり、現在の minifb smoke runner には接続しない。minifb path は `Window::set_target_fps` authority を維持し、host-owned deadline timer へ fallback しない。real selector / message-loop timer backend、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は後続である。
 
+## F5hj Native interruptible deadline wait boundary
+
+2026-06-19 の F5hj では、frame interval wait が deadline 到達または host event readiness のどちらでも wake できる boundary を追加する。
+
+`NativeWindowHostLoopInterruptibleDeadlineWaiter` は host event wait と deadline-or-host-event wait を分ける。`NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` は clock、waiter、positive timer id cursor を所有し、`execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` が `NativeWindowHostLoopWaitOutcome` を返す。
+
+`WaitForFrameInterval` は wait nanos を frame interval request と照合してから、timer id advance、clock read、deadline arithmetic、waiter call へ進む。deadline に到達した場合だけ `FrameIntervalTimerFired` を返す。host event readiness で wake した場合は `HostEventPumpAlreadyPaced` を返す。これは loop を次の polling へ戻せるという readiness evidence であり、frame deadline fired evidence ではない。candidate timer id は wait 開始前に advance するため、host event wake や frame wait failure の後も id reuse はしない。
+
+error は host-event wait failure、frame wait nanos mismatch、timer id overflow、clock failure、deadline overflow、interruptible frame wait failure を区別する。fallback、timer-only wait への代替、thread sleep、busy loop、minifb internal pacing、synthetic fired evidenceは禁止する。F5hj は semantic interruptible wake boundary であり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual implementation ではない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

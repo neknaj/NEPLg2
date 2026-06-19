@@ -1,3 +1,43 @@
+# 2026-06-19 Agent2 GUI native F5hj interruptible deadline wait boundary
+
+## scope
+
+- F5hi の後続として、real selector / message-loop timer backend の前段になる interruptible deadline wait 境界を追加する。
+- frame interval wait は deadline 到達だけでなく host event readiness でも wake できる。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、frame wait の wait-nanos validation が clock/id/waiter side effect より前であること、host event wake を timer fired と偽装しないこと、distinct error stages を保つこと、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、source policy で new boundary と minifb path の分離を固定することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopInterruptibleDeadlineWake`、`NativeWindowHostLoopInterruptibleDeadlineWaiter`、`NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を追加した。
+- `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` は host-event wait と frame-interval interruptible wait を `NativeWindowHostLoopWaitOutcome` へ写す。
+- deadline 到達時だけ `FrameIntervalTimerFired` を返し、host event readiness で wake した場合は `HostEventPumpAlreadyPaced` を返す。
+- candidate timer id は wait 開始前に advance し、host event wake や frame wait failure 後も raw id を再利用しない。
+- docs、source-policy、`todo.md` を F5hj contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_interruptible_deadline_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。native F5hj policy は通過し、Web GUI harness / doctest metadata 系の warn-only regression が 9 件残っている。
+
+## implementation_review
+
+- Darwin the 2nd に実装レビューを渡し、`APPROVED_TO_COMMIT` を得た。
+- review では、`HostEventReady` が timer-fired evidence を生成しないこと、frame wait validation が id / clock / waiter side effect より前であること、error stage が typed に保たれていること、new boundary が minifb / platform drawing path から分離されていることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI native F5hi host-owned deadline wait run-loop host wrapper boundary
 
 ## scope

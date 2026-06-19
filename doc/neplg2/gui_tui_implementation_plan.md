@@ -395,6 +395,22 @@ subagent review:
 
 - Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、wrapper wait が inner host の wait hook を呼ばず `execute_native_window_host_loop_wait_with_owner` だけを使うこと、non-wait operation が inner host error 型を保持して委譲されること、wait error を typed owner error として保持すること、host-event wait と frame-interval wait の owner dispatch を test すること、minifb path に wrapper / wait owner / deadline timer adapter を混入させないことである。
 
+## Phase F5hj: Native interruptible deadline wait boundary
+
+F5hj では、real selector / message-loop timer backend へ進む前に、frame interval wait が deadline だけでなく host event readiness でも wake できる semantic boundary を追加する。既存の deadline timer adapter は timer-only であり、そのまま OS backend へ接続すると入力 event が frame deadline まで遅延しうるため、host event と deadline のどちらで起きたかを enum で保持する。
+
+`NativeWindowHostLoopInterruptibleDeadlineWaiter` は host event だけを待つ `wait_for_host_event` と、deadline または host event readiness を待つ `wait_until_deadline_or_host_event` を持つ。`NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` は clock、waiter、positive timer id cursor を所有し、`execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` が `NativeWindowHostLoopWaitOutcome` へ写す。
+
+`WaitForFrameInterval` は `wait_nanos == nanos_per_frame || nanos_per_frame + 1` を clock read / id advance / waiter call より前に検査する。deadline に到達した場合だけ `FrameIntervalTimerFired` を返す。host event readiness で wake した場合は `HostEventPumpAlreadyPaced` を返し、これは「host event readiness により loop が polling へ戻れる」ことを表す。timer fired evidence ではない。candidate timer id は wait 開始前に advance されるため、host event で中断された場合も raw id は再利用しない。
+
+error は host-event wait failure、frame wait nanos mismatch、timer id overflow、clock failure、deadline overflow、interruptible frame wait failure を enum variant として分ける。fallback、timer-only wait への代替、thread sleep、busy loop、minifb internal pacing、synthetic fired evidence は禁止する。
+
+F5hj でも minifb runner はこの adapter を使わない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の platform-specific 実装は後続で扱う。
+
+subagent review:
+
+- Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、frame wait の wait-nanos validation が clock/id/waiter side effect より前であること、host event wake を timer fired と偽装しないこと、distinct error stages を保つこと、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、source policy で new boundary と minifb path の分離を固定することである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

@@ -2207,6 +2207,174 @@ pub fn native_window_host_loop_std_deadline_timer_adapter(
     )
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopInterruptibleDeadlineWake {
+    HostEventReady,
+    DeadlineReached,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<ClockError, WaiterError> {
+    HostEventWaitFailed(WaiterError),
+    FrameIntervalWaitNanosMismatch {
+        wait_nanos: u32,
+        nanos_per_frame: u32,
+    },
+    TimerRegistrationIdOverflow {
+        last_raw_id: u32,
+    },
+    DeadlineNanosOverflow {
+        now_nanos: u64,
+        wait_nanos: u32,
+    },
+    ClockFailed(ClockError),
+    FrameIntervalWaitFailed(WaiterError),
+}
+
+pub trait NativeWindowHostLoopInterruptibleDeadlineWaiter {
+    type Error;
+
+    fn wait_for_host_event(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<(), Self::Error>;
+
+    fn wait_until_deadline_or_host_event(
+        &mut self,
+        deadline_nanos: u64,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<NativeWindowHostLoopInterruptibleDeadlineWake, Self::Error>;
+}
+
+pub struct NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter> {
+    next_raw_id: u32,
+    clock: Clock,
+    waiter: Waiter,
+}
+
+impl<Clock, Waiter> NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter> {
+    pub fn new(clock: Clock, waiter: Waiter) -> Self {
+        Self {
+            next_raw_id: 1,
+            clock,
+            waiter,
+        }
+    }
+
+    pub fn next_raw_id(&self) -> u32 {
+        self.next_raw_id
+    }
+
+    pub fn clock(&self) -> &Clock {
+        &self.clock
+    }
+
+    pub fn clock_mut(&mut self) -> &mut Clock {
+        &mut self.clock
+    }
+
+    pub fn waiter(&self) -> &Waiter {
+        &self.waiter
+    }
+
+    pub fn waiter_mut(&mut self) -> &mut Waiter {
+        &mut self.waiter
+    }
+
+    pub fn into_parts(self) -> (Clock, Waiter) {
+        (self.clock, self.waiter)
+    }
+}
+
+pub fn execute_native_window_host_loop_interruptible_deadline_wait_with_adapter<Clock, Waiter>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    adapter: &mut NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter>,
+) -> Result<
+    NativeWindowHostLoopWaitOutcome,
+    NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<Clock::Error, Waiter::Error>,
+>
+where
+    Clock: NativeWindowHostLoopDeadlineTimerClock,
+    Waiter: NativeWindowHostLoopInterruptibleDeadlineWaiter,
+{
+    match instruction {
+        NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed,
+        } => {
+            adapter
+                .waiter
+                .wait_for_host_event(window_size, size_changed)
+                .map_err(
+                    NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::HostEventWaitFailed,
+                )?;
+            Ok(NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed,
+            })
+        }
+        NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+            frame_interval,
+            wait_nanos,
+        } => {
+            let nanos_per_frame = frame_interval.nanos_per_frame();
+            if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
+                return Err(
+                    NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitNanosMismatch {
+                        wait_nanos,
+                        nanos_per_frame,
+                    },
+                );
+            }
+            let raw_id = adapter.next_raw_id;
+            let next_raw_id = raw_id.checked_add(1).ok_or(
+                NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::TimerRegistrationIdOverflow {
+                    last_raw_id: raw_id,
+                },
+            )?;
+            let now_nanos = adapter
+                .clock
+                .now_nanos()
+                .map_err(NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::ClockFailed)?;
+            let deadline_nanos = now_nanos.checked_add(u64::from(wait_nanos)).ok_or(
+                NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::DeadlineNanosOverflow {
+                    now_nanos,
+                    wait_nanos,
+                },
+            )?;
+            adapter.next_raw_id = next_raw_id;
+            match adapter
+                .waiter
+                .wait_until_deadline_or_host_event(deadline_nanos, window_size, size_changed)
+                .map_err(
+                    NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitFailed,
+                )?
+            {
+                NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady => {
+                    Ok(NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                        window_size,
+                        size_changed,
+                    })
+                }
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached => {
+                    Ok(NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                        presentation,
+                        window_size,
+                        size_changed,
+                        wait_nanos,
+                        timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id },
+                    })
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopEventQueueWaitError<WaiterError> {
     FrameIntervalEventQueueWaitUnsupported {
@@ -9284,6 +9452,346 @@ mod tests {
     }
 
     #[test]
+    fn native_window_interruptible_deadline_wait_waits_for_host_event_only() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert_eq!(adapter.waiter.host_event_calls, vec![(window_size, true)]);
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 0);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_returns_timer_fired_on_deadline() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 31,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(2_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+            }
+        );
+        assert!(adapter.waiter.host_event_calls.is_empty());
+        assert_eq!(
+            adapter.waiter.frame_interval_calls,
+            vec![(16_668_666, window_size, false)]
+        );
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.next_raw_id(), 2);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_returns_host_ready_without_timer_fire() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 32,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_667,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(3_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(adapter.waiter.host_event_calls.is_empty());
+        assert_eq!(
+            adapter.waiter.frame_interval_calls,
+            vec![(16_669_667, window_size, true)]
+        );
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.next_raw_id(), 2);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_rejects_invalid_wait_before_side_effects() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 33,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 1,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(4_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitNanosMismatch {
+                wait_nanos: 1,
+                nanos_per_frame: 16_666_666,
+            }
+        );
+        assert!(adapter.waiter.host_event_calls.is_empty());
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 0);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_preserves_host_event_wait_error() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            )
+            .with_host_event_error("host event wait failed"),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::HostEventWaitFailed(
+                "host event wait failed"
+            )
+        );
+        assert_eq!(adapter.waiter.host_event_calls, vec![(window_size, false)]);
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 0);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_preserves_clock_error() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 34,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(5_000).with_error("clock failed"),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::ClockFailed("clock failed")
+        );
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_rejects_deadline_overflow() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 35,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(u64::MAX),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::DeadlineNanosOverflow {
+                now_nanos: u64::MAX,
+                wait_nanos: 16_666_666,
+            }
+        );
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_rejects_timer_id_overflow() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 36,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter {
+            next_raw_id: u32::MAX,
+            clock: ScriptedNativeWindowHostLoopDeadlineTimerClock::new(6_000),
+            waiter: ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        };
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::TimerRegistrationIdOverflow {
+                last_raw_id: u32::MAX,
+            }
+        );
+        assert!(adapter.waiter.frame_interval_calls.is_empty());
+        assert_eq!(adapter.clock.now_calls, 0);
+        assert_eq!(adapter.next_raw_id(), u32::MAX);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_preserves_frame_wait_error() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 37,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_667,
+        };
+        let mut adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(7_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            )
+            .with_frame_interval_error("frame wait failed"),
+        );
+
+        assert_eq!(
+            execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+                instruction,
+                &mut adapter
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitFailed(
+                "frame wait failed"
+            )
+        );
+        assert_eq!(
+            adapter.waiter.frame_interval_calls,
+            vec![(16_673_667, window_size, true)]
+        );
+        assert_eq!(adapter.clock.now_calls, 1);
+        assert_eq!(adapter.next_raw_id(), 2);
+    }
+
+    #[test]
     fn native_window_event_queue_wait_waits_for_host_event_instruction() {
         let window_size = NativeWindowSize::new(800, 600);
         let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
@@ -11361,6 +11869,70 @@ mod tests {
                 Err(error)
             } else {
                 Ok(())
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter {
+        wake: NativeWindowHostLoopInterruptibleDeadlineWake,
+        host_event_calls: Vec<(NativeWindowSize, bool)>,
+        frame_interval_calls: Vec<(u64, NativeWindowSize, bool)>,
+        host_event_error: Option<&'static str>,
+        frame_interval_error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter {
+        fn new(wake: NativeWindowHostLoopInterruptibleDeadlineWake) -> Self {
+            Self {
+                wake,
+                host_event_calls: Vec::new(),
+                frame_interval_calls: Vec::new(),
+                host_event_error: None,
+                frame_interval_error: None,
+            }
+        }
+
+        fn with_host_event_error(mut self, error: &'static str) -> Self {
+            self.host_event_error = Some(error);
+            self
+        }
+
+        fn with_frame_interval_error(mut self, error: &'static str) -> Self {
+            self.frame_interval_error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopInterruptibleDeadlineWaiter
+        for ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter
+    {
+        type Error = &'static str;
+
+        fn wait_for_host_event(
+            &mut self,
+            window_size: NativeWindowSize,
+            size_changed: bool,
+        ) -> Result<(), Self::Error> {
+            self.host_event_calls.push((window_size, size_changed));
+            if let Some(error) = self.host_event_error {
+                Err(error)
+            } else {
+                Ok(())
+            }
+        }
+
+        fn wait_until_deadline_or_host_event(
+            &mut self,
+            deadline_nanos: u64,
+            window_size: NativeWindowSize,
+            size_changed: bool,
+        ) -> Result<NativeWindowHostLoopInterruptibleDeadlineWake, Self::Error> {
+            self.frame_interval_calls
+                .push((deadline_nanos, window_size, size_changed));
+            if let Some(error) = self.frame_interval_error {
+                Err(error)
+            } else {
+                Ok(self.wake)
             }
         }
     }
