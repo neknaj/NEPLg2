@@ -409,11 +409,23 @@ F5gp は scheduler slice boundary までであり、actual OS wait strategy、qu
 
 `NativeWindowFrameIntervalRequest` は validated `NativeWindowTargetFps`、`nanos_per_frame`、`remainder_nanos_per_second` を持つ。`nanos_per_frame` は `1_000_000_000 / fps`、`remainder_nanos_per_second` は `1_000_000_000 % fps` であり、暗黙 clamp や sentinel rounding を行わない。`NativeWindowTargetFps` が `1..=240` を保証するため、zero fps と overflow はこの境界の入力型で除外される。
 
-`NativeWindowHostLoopWaitRequest` は `WaitForHostEvent` と `WaitForFrameInterval` を持つ。host event request は event payload や queue owner を持たず、frame interval request だけが `NativeWindowFrameIntervalRequest` を持つ。`NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+`NativeWindowHostLoopWaitRequest` は `WaitForHostEvent` と `WaitForFrameInterval` を持つ。host event request は event payload や queue owner を持たず、frame interval request だけが `NativeWindowFrameIntervalRequest` を持つ。F5gq は decision から backend-facing request plan を作る境界であり、F5gr 以降の `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request から生成される instruction を受け取る。
 
-`NativeWindowHostLoopSchedulerSliceResult::Waited` は `decision`、`request`、`outcome` を保持する。test と future scheduler は、分類元 decision、backend request plan、host outcome を別々に検査できる。
+`NativeWindowHostLoopSchedulerSliceResult::Waited` は `decision`、`request`、`instruction`、`outcome` を保持する。test と future scheduler は、分類元 decision、backend request plan、host instruction、host outcome を別々に検査できる。
 
 F5gq は wait request plan boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`std::time::Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
+## F5gr Native window host-loop wait strategy instruction boundary
+
+2026-06-19 の F5gr では、F5gq の `NativeWindowHostLoopWaitRequest` を、host wait hook が消費する `NativeWindowHostLoopWaitInstruction` へ変換する契約を追加する。request は backend-facing plan であり、instruction は scheduler state を反映した actual wait backend input である。
+
+`NativeWindowHostLoopWaitStrategyState` は frame pacing 用に直前の `NativeWindowTargetFps` と remainder accumulator を保持する。target FPS が変わった場合は accumulator を再利用せず、`0` から開始する。target FPS が同じ場合だけ `NativeWindowFrameIntervalRequest.remainder_nanos_per_second` を accumulator に足し、`0 <= accumulator < fps` を保つ。補正用の saturating、clamp、sentinel は使わない。
+
+`NativeWindowHostLoopWaitInstruction::WaitForFrameInterval` は `wait_nanos` を持つ。`wait_nanos` は `nanos_per_frame`、または remainder 配分時の `nanos_per_frame + 1` のどちらかだけである。この値は `Duration` 変換や sleep 実行ではなく、後続の OS wait backend が消費する typed value として扱う。
+
+`run_native_window_host_loop_scheduler_slice_with_policy_and_target_fps` は bounded run の後に request と instruction plan を作り、`NativeWindowRunLoopHost::wait_after_budget_exhausted` へ instruction を渡す。wait hook が成功した場合だけ `NativeWindowHostLoopSchedulerState.wait_strategy_state` を次状態へ進める。wait hook 失敗時は accumulator を進めず、次 slice で同じ scheduling state からやり直せる。
+
+F5gr は wait strategy instruction boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`std::time::Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

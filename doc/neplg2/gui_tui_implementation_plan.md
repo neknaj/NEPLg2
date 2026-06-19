@@ -161,9 +161,19 @@ F5gp では、F5go の long runner 内部にあった bounded slice execution �
 
 F5gq では、F5gp の wait decision を backend-facing wait request plan へ変換する。`NativeWindowHostLoopWaitRequest` は host event wait と frame interval wait を区別し、frame interval wait は validated `NativeWindowTargetFps` から計算した `NativeWindowFrameIntervalRequest` を持つ。
 
-`NativeWindowFrameIntervalRequest` は `nanos_per_frame` と `remainder_nanos_per_second` を保持し、暗黙 rounding、clamp、sentinel を使わない。`NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+`NativeWindowFrameIntervalRequest` は `nanos_per_frame` と `remainder_nanos_per_second` を保持し、暗黙 rounding、clamp、sentinel を使わない。F5gq は decision から request plan を作る境界であり、F5gr 以降の `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request から生成される instruction を受け取る。
 
 この phase は wait request plan boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
+## Phase F5gr: Native window host-loop wait strategy instruction boundary
+
+F5gr では、F5gq の wait request plan を `NativeWindowHostLoopWaitInstruction` へ変換する。`NativeWindowHostLoopWaitStrategyState` は scheduler slice 間で frame pacing target FPS と remainder accumulator を持つ。target FPS が変わった場合は accumulator を reset し、同じ target FPS の場合だけ remainder を継続する。
+
+frame interval instruction の `wait_nanos` は `nanos_per_frame` または `nanos_per_frame + 1` に限定する。accumulator invariant は `0 <= remainder < fps` とし、saturating、clamp、sentinel、zero-fill fallback は使わない。host event instruction は event payload、queue owner、poll result を持たず、window size と `size_changed` evidence だけを持つ。
+
+`NativeWindowRunLoopHost::wait_after_budget_exhausted` は request ではなく instruction を受け取る。scheduler slice は wait hook が成功した後だけ `NativeWindowHostLoopSchedulerState` の wait strategy state を次状態へ進める。wait hook 失敗時に accumulator を進めないことで、error path が frame pacing state を silent に消費しない。
+
+この phase は wait strategy instruction boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。

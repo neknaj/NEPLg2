@@ -1356,8 +1356,8 @@ Phase F5gq では、F5gp の scheduler slice が保持している `NativeWindow
 - `NativeWindowFrameIntervalRequest` を追加し、validated `NativeWindowTargetFps` から `nanos_per_frame` と `remainder_nanos_per_second` を計算する。
 - `NativeWindowHostLoopWaitRequest` を追加し、host event wait と frame interval wait を区別する。
 - `native_window_host_loop_wait_request` を追加し、`NativeWindowHostLoopWaitDecision` と validated target fps から backend wait request plan を作る。
-- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
-- scheduler slice は wait hook へ渡した request を `NativeWindowHostLoopSchedulerSliceResult::Waited` に保持する。
+- F5gq は decision から request plan を作る。F5gr 以降の `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request から生成される instruction を受け取る。
+- scheduler slice は request と、F5gr 以降で wait hook へ渡した instruction を `NativeWindowHostLoopSchedulerSliceResult::Waited` に保持する。
 - `run_native_window_host_loop_with_policy_and_target_fps` と scheduler slice の explicit target fps 版を追加し、native minifb runner は `config.target_fps` を request plan へ渡す。
 - tests は default fps と explicit fps の frame interval request、host event request、wait failure が次 poll を消費しないことを検査する。
 - source policy は request plan が `Duration`、`std::thread::sleep`、queue、timer registration、minifb update、fallback、silent no-op を持たないことを固定する。
@@ -1372,6 +1372,35 @@ Phase F5gq では、F5gp の scheduler slice が保持している `NativeWindow
 subagent review:
 
 - Darwin the 2nd に F5gq 計画を渡し、typed backend wait request plan が pure rename ではないこと、target fps 由来の checked interval request、no fallback / no sleep / no queue の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+## Phase F5gr: Native window host-loop wait strategy instruction boundary
+
+Phase F5gr では、F5gq の `NativeWindowHostLoopWaitRequest` を、host wait backend が消費できる `NativeWindowHostLoopWaitInstruction` へ変換する。これは actual OS wait strategy や sleep 実装ではなく、scheduler slice 間で持つ frame pacing remainder を typed instruction に反映する境界である。
+
+実装:
+
+- `NativeWindowHostLoopWaitInstruction` を追加し、host event wait と frame interval wait を区別する。
+- frame interval instruction は `NativeWindowFrameIntervalRequest` と `wait_nanos` を持つ。
+- `NativeWindowHostLoopWaitStrategyState` を追加し、scheduler state の中で frame pacing target FPS と remainder accumulator を保持する。
+- target FPS が変わった場合は accumulator を reset し、同じ target FPS の場合だけ previous remainder を使う。
+- accumulator invariant は `0 <= remainder < fps` とし、saturating、clamp、sentinel、zero-fill fallback は使わない。
+- `native_window_host_loop_wait_instruction_plan` を追加し、strategy state と wait request から next strategy state と instruction を作る。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request ではなく instruction を受け取る。
+- scheduler slice は wait hook 成功後だけ `NativeWindowHostLoopSchedulerState.wait_strategy_state` を次状態へ進める。
+- tests は remainder distribution、target FPS 変更時の reset、scheduler slice 間の accumulator 継続、wait failure 時に state を消費しないことを検査する。
+- source policy は instruction plan が `Duration`、`std::thread::sleep`、queue、timer registration、minifb update、fallback、silent no-op を持たないことを固定する。
+
+非目標:
+
+- actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness は含めない。
+- `std::time::Duration` や `std::thread::sleep` には接続しない。
+- host event instruction は event payload、queue owner、poll result を持たない。
+- 2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gr 計画を渡し、scheduler remainder accumulator が pure rename ではないこと、target FPS 変更時の reset、no fallback / no sleep / no queue の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
