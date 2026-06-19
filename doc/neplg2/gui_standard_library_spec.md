@@ -579,6 +579,16 @@ F5he は minifb internal target-fps pacing authority boundary までであり、
 
 `NativeWindowMinifbFramePacingAuthority` は `FramePresentAlreadyPaced` を返す前に、自分の `MinifbInternalTargetFps` mode をこの validation helper に通す。F5hf は二重 authority を拒否する safety boundary であり、selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、busy loop による代替は禁止する。
 
+## F5hg Native wait owner frame interval authority connection boundary
+
+2026-06-19 の F5hg では、F5hf の authority mode を F5hd の formal wait owner へ接続する。
+
+`NativeWindowHostLoopWaitOwner::frame_interval_wait_authority_mode` は `HostOwnedDeadlineTimer` を返す。これは formal owner path では frame interval wait の authority が deadline timer owner にあることを表す。`execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` は explicit requested authority mode を受け取り、frame interval branch で owner authority と requested authority を `combine_native_window_frame_interval_wait_authority_mode` に通してから `validate_native_window_frame_interval_wait_authority_mode` を行う。
+
+authority validation が成功した場合だけ `execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter` へ進む。authority mismatch は `FrameIntervalAuthorityFailed` として返し、deadline timer registration、clock read、sleeper call、active timer mutation は起こさない。host event wait は frame interval authority を参照せず、event queue waiter だけへ渡す。
+
+既存の `execute_native_window_host_loop_wait_with_owner` は owner 自身の `HostOwnedDeadlineTimer` authority を渡す wrapper である。F5hg は selector / message-loop timer ownership へ進む前の ownership safety connection であり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、minifb wait hook の wait owner 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

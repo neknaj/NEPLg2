@@ -1759,6 +1759,31 @@ subagent review:
 
 - Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
 
+## Phase F5hg: Native wait owner frame interval authority connection boundary
+
+Phase F5hg では、F5hf の `NativeWindowFrameIntervalWaitAuthorityMode` を F5hd の `NativeWindowHostLoopWaitOwner` に接続する。これは実 OS selector / message-loop timer backend ではなく、formal owner path が frame interval wait を `HostOwnedDeadlineTimer` authority として扱うことを明示する ownership safety slice である。
+
+実装:
+
+- `NativeWindowHostLoopWaitOwner::frame_interval_wait_authority_mode` を追加し、`HostOwnedDeadlineTimer` を返す。
+- `NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed` を追加し、F5hf の authority conflict / validation failure を lower error と分けて保持する。
+- `execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` を追加し、明示的な requested authority mode を受け取れるようにする。
+- frame interval branch は `combine_native_window_frame_interval_wait_authority_mode` と `validate_native_window_frame_interval_wait_authority_mode` を通ってから、deadline timer wakeup helper を呼ぶ。
+- existing `execute_native_window_host_loop_wait_with_owner` は owner の `HostOwnedDeadlineTimer` authority を渡す wrapper とする。
+- unit test は owner の authority mode、host event wait が frame authority を参照しないこと、host-owned frame interval path が deadline timer へ進むこと、minifb authority が渡された frame interval path は timer registration / clock read / sleeper call / active timer mutation 前に失敗することを検査する。
+- source policy は owner helper が F5hf helper を timer wakeup より前に呼ぶこと、minifb path は wait owner / deadline timer adapter を呼ばないことを固定する。
+
+非目標:
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。
+- minifb wait hook を F5hd wait owner や std deadline timer adapter へ接続しない。
+- `Window::set_target_fps` の置換、`set_target_fps 0`、fallback、silent no-op、busy loop は導入しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、authority validation が deadline timer registration / clock read / sleeper call / active timer mutation より前であること、minifb authority rejection の no-mutation test、host event wait の authority 非依存、既存 owner helper の wrapper 化、minifb path 非変更である。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

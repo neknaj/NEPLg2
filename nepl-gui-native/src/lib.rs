@@ -2235,6 +2235,7 @@ where
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopWaitOwnerError<EventQueueError, TimerClockError, TimerSleeperError> {
     EventQueueWaitFailed(NativeWindowHostLoopEventQueueWaitError<EventQueueError>),
+    FrameIntervalAuthorityFailed(NativeWindowFrameIntervalWaitAuthorityModeError),
     FrameIntervalTimerWakeFailed(
         NativeWindowHostLoopDeadlineTimerWakeError<TimerClockError, TimerSleeperError>,
     ),
@@ -2272,6 +2273,10 @@ impl<EventQueueWaiter, TimerClock, TimerSleeper>
         &self.frame_interval_timer
     }
 
+    pub fn frame_interval_wait_authority_mode(&self) -> NativeWindowFrameIntervalWaitAuthorityMode {
+        native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer()
+    }
+
     pub fn frame_interval_timer_mut(
         &mut self,
     ) -> &mut NativeWindowHostLoopDeadlineTimerAdapter<TimerClock, TimerSleeper> {
@@ -2288,9 +2293,14 @@ impl<EventQueueWaiter, TimerClock, TimerSleeper>
     }
 }
 
-pub fn execute_native_window_host_loop_wait_with_owner<EventQueueWaiter, TimerClock, TimerSleeper>(
+pub fn execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode<
+    EventQueueWaiter,
+    TimerClock,
+    TimerSleeper,
+>(
     instruction: NativeWindowHostLoopWaitInstruction,
     owner: &mut NativeWindowHostLoopWaitOwner<EventQueueWaiter, TimerClock, TimerSleeper>,
+    requested_authority_mode: NativeWindowFrameIntervalWaitAuthorityMode,
 ) -> Result<
     NativeWindowHostLoopWaitOutcome,
     NativeWindowHostLoopWaitOwnerError<
@@ -2333,18 +2343,55 @@ where
             size_changed,
             frame_interval,
             wait_nanos,
-        } => execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter(
-            NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
-                presentation,
-                window_size,
-                size_changed,
+        } => {
+            let active_authority_mode = owner.frame_interval_wait_authority_mode();
+            let authority_mode = combine_native_window_frame_interval_wait_authority_mode(
+                active_authority_mode,
+                requested_authority_mode,
+            )
+            .map_err(NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed)?;
+            validate_native_window_frame_interval_wait_authority_mode(
+                authority_mode,
                 frame_interval,
-                wait_nanos,
-            },
-            owner.frame_interval_timer_mut(),
-        )
-        .map_err(NativeWindowHostLoopWaitOwnerError::FrameIntervalTimerWakeFailed),
+            )
+            .map_err(NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed)?;
+            execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter(
+                NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                    presentation,
+                    window_size,
+                    size_changed,
+                    frame_interval,
+                    wait_nanos,
+                },
+                owner.frame_interval_timer_mut(),
+            )
+            .map_err(NativeWindowHostLoopWaitOwnerError::FrameIntervalTimerWakeFailed)
+        }
     }
+}
+
+pub fn execute_native_window_host_loop_wait_with_owner<EventQueueWaiter, TimerClock, TimerSleeper>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    owner: &mut NativeWindowHostLoopWaitOwner<EventQueueWaiter, TimerClock, TimerSleeper>,
+) -> Result<
+    NativeWindowHostLoopWaitOutcome,
+    NativeWindowHostLoopWaitOwnerError<
+        EventQueueWaiter::Error,
+        TimerClock::Error,
+        TimerSleeper::Error,
+    >,
+>
+where
+    EventQueueWaiter: NativeWindowHostLoopEventQueueWaiter,
+    TimerClock: NativeWindowHostLoopDeadlineTimerClock,
+    TimerSleeper: NativeWindowHostLoopDeadlineTimerSleeper,
+{
+    let authority_mode = owner.frame_interval_wait_authority_mode();
+    execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode(
+        instruction,
+        owner,
+        authority_mode,
+    )
 }
 
 pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
@@ -9096,6 +9143,10 @@ mod tests {
         let mut owner = NativeWindowHostLoopWaitOwner::new(event_waiter, timer_adapter);
 
         assert_eq!(
+            owner.frame_interval_wait_authority_mode(),
+            native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer()
+        );
+        assert_eq!(
             execute_native_window_host_loop_wait_with_owner(instruction, &mut owner).unwrap(),
             NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
                 presentation,
@@ -9113,6 +9164,103 @@ mod tests {
             owner.frame_interval_timer().sleeper.sleep_until_calls,
             vec![16_668_666]
         );
+    }
+
+    #[test]
+    fn native_window_wait_owner_ignores_frame_authority_for_host_event_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let event_waiter = ScriptedNativeWindowHostLoopEventQueueWaiter::new();
+        let timer_adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+        let requested_authority_mode =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(
+                NativeWindowTargetFps::default(),
+            );
+        let mut owner = NativeWindowHostLoopWaitOwner::new(event_waiter, timer_adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode(
+                instruction,
+                &mut owner,
+                requested_authority_mode,
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert_eq!(
+            owner.event_queue_waiter().wait_calls,
+            vec![(window_size, true)]
+        );
+        assert_eq!(owner.frame_interval_timer().clock.now_calls, 0);
+        assert_eq!(owner.frame_interval_timer().next_raw_id(), 1);
+        assert_eq!(owner.frame_interval_timer().active_timer(), None);
+        assert!(owner
+            .frame_interval_timer()
+            .sleeper
+            .sleep_until_calls
+            .is_empty());
+    }
+
+    #[test]
+    fn native_window_wait_owner_rejects_minifb_frame_authority_before_timer_mutation() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 31,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let target_fps = NativeWindowTargetFps::default();
+        let frame_interval = native_window_frame_interval_request(target_fps);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval,
+            wait_nanos: frame_interval.nanos_per_frame(),
+        };
+        let event_waiter = ScriptedNativeWindowHostLoopEventQueueWaiter::new();
+        let timer_adapter = NativeWindowHostLoopDeadlineTimerAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(2_000),
+            ScriptedNativeWindowHostLoopDeadlineTimerSleeper::new(),
+        );
+        let requested_authority_mode =
+            native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps(target_fps);
+        let active_authority_mode =
+            native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer();
+        let mut owner = NativeWindowHostLoopWaitOwner::new(event_waiter, timer_adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode(
+                instruction,
+                &mut owner,
+                requested_authority_mode,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed(
+                NativeWindowFrameIntervalWaitAuthorityModeError::ConflictingFrameIntervalAuthorities {
+                    active: active_authority_mode,
+                    requested: requested_authority_mode,
+                }
+            )
+        );
+        assert!(owner.event_queue_waiter().wait_calls.is_empty());
+        assert_eq!(owner.frame_interval_timer().clock.now_calls, 0);
+        assert_eq!(owner.frame_interval_timer().next_raw_id(), 1);
+        assert_eq!(owner.frame_interval_timer().active_timer(), None);
+        assert!(owner
+            .frame_interval_timer()
+            .sleeper
+            .sleep_until_calls
+            .is_empty());
     }
 
     #[test]
