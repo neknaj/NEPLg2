@@ -725,6 +725,16 @@ backend construction 成功後、runner は minifb `Window` を visual / event /
 
 CLI flag での選択、macOS / Linux actual backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
 
+## F5hs Native Windows platform wait CLI selection boundary
+
+2026-06-20 の F5hs では、native CLI の window runner selection を `--wait-backend minifb|platform` として明示する。指定が無い場合は existing minifb smoke runner を使い、`Window::set_target_fps` による minifb internal pacing を保持する。`platform` が指定された場合だけ、validated default platform wait backend selection を `NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection` に入れ、cfg-windows の `run_windows_platform_wait_window_loop` を呼ぶ。
+
+`--wait-backend` は window mode の option であり、headless mode では明示指定を error とする。重複指定や未知の値も error とし、最後の値で上書きしない。headless mode で指定が無い場合は従来通り deterministic frame output を返す。
+
+CLI layer は config と runner selection だけを担当し、minifb lifecycle、event pump、presenter state、OS wait API、sleep、busy loop を持たない。non-Windows platform selection は unsupported error を返し、minifb runner に自動的に切り替えない。
+
+この checkpoint は CLI selection boundary であり、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

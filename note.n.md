@@ -1,3 +1,47 @@
+# 2026-06-20 Agent2 GUI native F5hs Windows platform wait CLI selection boundary
+
+## scope
+
+- F5hr の後続として、native CLI から Windows platform wait runner を明示選択できる境界を追加する。
+- 既定は existing minifb runner のまま維持し、`--wait-backend platform` 指定時だけ platform wait runner へ進む。
+- headless mode での wait backend 明示指定、重複指定、不明な値を error として拒否する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- ただし、`--wait-backend` の指定有無を `Option` または別 flag で保持し、`--headless --wait-backend minifb` を拒否すること、重複指定と未知の値を明示 error にすること、cfg-windows 以外では platform selection を unsupported error にして minifb に切り替えないことが required constraint とされた。
+
+## implementation_current
+
+- `nepl-gui-native` CLI に `--wait-backend minifb|platform` を追加した。
+- `NativeGuiWindowWaitBackend` と `Option<NativeGuiWindowWaitBackend>` により、window mode の default minifb と explicit user selection を分離した。
+- headless mode では explicit wait backend を拒否し、指定が無い headless frame output は従来通り維持した。
+- window mode では minifb selection が `run_minifb_window_loop` を使い、Windows platform selection が validated default platform wait backend selection と `run_windows_platform_wait_window_loop` を使う。
+- non-Windows platform selection は unsupported error を返す。CLI layer は config construction と runner dispatch だけを扱い、minifb lifecycle、event pump、presenter state、OS wait API、sleep、busy loop を持たない。
+- source policy と GUI docs を F5hs contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --bin nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs content の blocker は無いが、`verification_current` と `implementation_review` 欄が pending のままであることを commit readiness blocker として指摘された。
+- 指摘対応として、この欄と verification 欄に実行済み検証と review result を記録した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hr Windows platform wait window runner support gate
 
 ## scope

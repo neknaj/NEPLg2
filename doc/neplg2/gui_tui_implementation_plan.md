@@ -544,6 +544,16 @@ subagent review:
 - Darwin the 2nd の plan review は初回 `REQUIRED_CHANGES`。既存 `MinifbNativeWindowRunLoopHost` を platform wait runner に再利用すると、値の中に minifb pacing authority と `FramePresentAlreadyPaced` を返せる wait hook が残り、wait/pacing owner が曖昧になると指摘された。
 - revised plan では、minifb visual / event / present 専用 host を分け、visual host の wait hook を typed unsupported にする方針で実装開始可となった。CLI 接続は scope 外でよく、library runner、source policy、unit test までを F5hr の範囲にする。
 
+## Phase F5hs: Native Windows platform wait CLI selection boundary
+
+F5hs では、F5hr の Windows platform wait runner を CLI から明示的に選べるようにする。`nepl-gui-native` は `--wait-backend minifb|platform` を受け取り、未指定時は従来通り `run_minifb_window_loop` と minifb internal `Window::set_target_fps` pacing を使う。`platform` 指定時だけ、validated default platform wait backend selection を `NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection` に入れ、cfg-windows の `run_windows_platform_wait_window_loop` へ渡す。
+
+CLI option は window mode 専用である。`--wait-backend` が headless mode で明示指定された場合、重複して指定された場合、または `minifb` / `platform` 以外の値が与えられた場合は error として拒否する。指定が無い headless mode は従来通り headless frame output を返す。
+
+`main.rs` は runner selection と config construction だけを担当する。minifb lifecycle、event pump、presenter state、OS wait API、sleep、busy loop、message pump、timer registration は lib 側 runner / host の責務であり、CLI 側には置かない。non-Windows platform selection は unsupported error を返し、minifb runner へ切り替えない。
+
+この phase は CLI selection boundary だけであり、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は後続 slice に分ける。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

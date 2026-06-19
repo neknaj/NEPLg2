@@ -269,8 +269,18 @@ function runNativeGuiPlatformBehaviorRegression() {
 
     assert.match(mainSource, /NativeWindowTargetFps::new\(target_fps\)/);
     assert.match(mainSource, /"--fps"/);
+    assert.match(mainSource, /enum NativeGuiWindowWaitBackend\s*\{[\s\S]*Minifb,[\s\S]*Platform/);
+    assert.match(mainSource, /"--wait-backend"[\s\S]*options\.wait_backend\.is_some\(\)[\s\S]*"--wait-backend can be provided only once"[\s\S]*"--wait-backend requires a value"[\s\S]*NativeGuiWindowWaitBackend::parse\(&raw\)/);
+    assert.match(mainSource, /fn validate_headless_options[\s\S]*options\.wait_backend\.is_some\(\)[\s\S]*"--wait-backend requires window mode"/);
+    assert.match(mainSource, /fn window_wait_backend\(&self\) -> NativeGuiWindowWaitBackend[\s\S]*unwrap_or\(NativeGuiWindowWaitBackend::Minifb\)/);
     assert.match(mainSource, /NativeWindowRunLoopConfig::new_with_target_fps\([\s\S]*options\.demo,[\s\S]*options\.counter_value,[\s\S]*options\.scale,[\s\S]*options\.target_fps/);
     assert.match(mainSource, /run_minifb_window_loop\(config\)/);
+    assert.match(mainSource, /match options\.window_wait_backend\(\)[\s\S]*NativeGuiWindowWaitBackend::Minifb => run_minifb_wait_window\(options\),[\s\S]*NativeGuiWindowWaitBackend::Platform => run_platform_wait_window\(options\)/);
+    assert.match(mainSource, /#\[cfg\(all\(feature = "window", target_os = "windows", not\(target_arch = "wasm32"\)\)\)\][\s\S]*run_windows_platform_wait_window_loop/);
+    assert.match(mainSource, /native_window_host_loop_default_platform_wait_backend_selection\(\)[\s\S]*NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection\([\s\S]*NativeWindowHostLoopRunPolicy::default\(\)[\s\S]*run_windows_platform_wait_window_loop\(config\)/);
+    assert.match(mainSource, /#\[cfg\(all\([\s\S]*feature = "window"[\s\S]*not\(target_os = "windows"\)[\s\S]*not\(target_arch = "wasm32"\)[\s\S]*"--wait-backend platform currently requires Windows native window support"/);
+    assert.match(mainSource, /parse_rejects_duplicate_wait_backend/);
+    assert.match(mainSource, /headless_rejects_explicit_wait_backend/);
     assert.doesNotMatch(mainSource, /WindowOptions|ScaleMode|NativeWindowBackendLoop|NativeWindowHostAction|NativeWindowBackendLoopStepOutcome|poll_minifb_window_event_pump|current_present_frame_for_window|update_with_buffer|window\.update\(|window\.set_target_fps|window\.set_background_color|use\s+minifb|minifb::|let mut previous_size|previous_mouse_down|NativeWindowEventPumpInput\s*\{|NativeWindowPresenterState|counter_hit\(|map_native_window_point_to_image\(|checked_add\(|rasterize_frame_to_surface\(|present_buffer\(|resize_surface\(|let mut present_buffer|NativePresenterFrame::from_rgb0_present_buffer\(&present_buffer\)|wrapping_|saturating_|clamp|fallback|silent no-op/);
     assert.doesNotMatch(mainSource, /get_mouse_pos\(MouseMode::Clamp\)/);
     assert.doesNotMatch(mainSource, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(/);
@@ -1123,6 +1133,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowMinifbFramePacingAuthority/);
     assert.match(platformDoc, /set_target_fps 0/);
     assert.match(platformDoc, /tight loop/);
+    assert.match(platformDoc, /F5hs/);
+    assert.match(platformDoc, /--wait-backend minifb\|platform/);
+    assert.match(platformDoc, /headless で明示指定された wait backend、重複指定、不明な値は error/);
+    assert.match(platformDoc, /non-Windows platform selection は typed unsupported error/);
     assert.match(platformDoc, /F5hf/);
     assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
     assert.match(platformDoc, /HostOwnedDeadlineTimer/);
@@ -1251,6 +1265,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api/);
     assert.match(implementationPlan, /host owner を消費しない/);
     assert.match(implementationPlan, /no-owner fail-closed probe/);
+    assert.match(implementationPlan, /Phase F5hs: Native Windows platform wait CLI selection boundary/);
+    assert.match(implementationPlan, /--wait-backend minifb\|platform/);
+    assert.match(implementationPlan, /未指定時は従来通り `run_minifb_window_loop`/);
+    assert.match(implementationPlan, /non-Windows platform selection は unsupported error/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1354,6 +1372,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopPlatformWaitBackend Api/);
     assert.match(standardSpec, /WindowsWaitBackendFailed/);
     assert.match(standardSpec, /support failure や Windows backend construction failure では host owner を消費しない/);
+    assert.match(standardSpec, /F5hs Native Windows platform wait CLI selection boundary/);
+    assert.match(standardSpec, /--wait-backend minifb\|platform/);
+    assert.match(standardSpec, /headless mode では明示指定を error/);
+    assert.match(standardSpec, /non-Windows platform selection は unsupported error/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
