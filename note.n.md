@@ -1,3 +1,43 @@
+# 2026-06-20 Agent2 GUI native F5hv Linux selector timerfd single-owner wait trait boundary
+
+## scope
+
+- F5hu の後続として、Linux selector / timerfd raw backend を `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` へ接続する。
+- F5ho の single-owner interruptible deadline wait adapter から Linux backend を扱えるようにし、timer fired と host event ready を enum 境界で分ける。
+- actual Linux sys shim、generic platform wait enum への Linux owner variant、CLI dispatch、native runner 接続は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。
+- required constraint として、generic platform owner 統合へ直接進まず F5ho single-owner adapter との semantic 接続を固定すること、`NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(...)`、actual `#[cfg(target_os = "linux")]` sys shim、libc / nix / epoll / poll / select / timerfd、CLI / runner / minifb / sleep / busy loop / fallback / silent no-op を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend` に `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装した。
+- Linux raw wake の `TimerFired` は `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached` へ、`HostEventReady` は `HostEventReady` へ写す。
+- host-event-only wait では timer fired raw status を event として受け入れず、typed `UnexpectedSelectorStatus` のまま残す。
+- single-owner wait adapter / run-loop host 経由の tests を追加し、timer fired が frame interval timer fired outcome へ進むこと、host ready が non-timer outcome に留まること、event-only wait の timer status と arm failure が typed error として残ることを固定した。
+- source policy と GUI docs を F5hv contract へ更新した。
+
+## verification_current
+
+- `cargo fmt --check`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo check -p nepl-gui-native --features window`
+- `cargo test -p nepl-gui-native native_window_linux_selector_timer_fd_wait_trait --lib`
+- `cargo test -p nepl-gui-native --lib`
+- `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `REQUIRED_CHANGES`。code / source-policy の blocker は無く、Linux trait impl が F5hu backend に限定され、typed Linux error を保持し、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像、event-only wait の `UnexpectedSelectorStatus`、Linux platform owner integration / sys shim / CLI / minifb / sleep / busy loop / fallback / synthetic evidence の不追加を確認した。
+- 指摘は `note.n.md` に `verification_current` と `implementation_review` が無いことだけだったため、この欄を追加して対応した。
+
+## remaining
+
+- Linux actual sys shim、generic `NativeWindowHostLoopPlatformWaitBackend` Linux owner integration、native runner / CLI dispatch、macOS trait / owner integration、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hu Linux selector timerfd raw backend boundary
 
 ## scope

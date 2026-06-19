@@ -629,7 +629,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn wait_until_deadline_or_host_event[\s\S]*native_window_host_loop_linux_selector_timer_fd_deadline_plan[\s\S]*arm_timer_fd_relative_timespec\(timer,\s*timespec\)[\s\S]*selector_wait_for_timer_or_event_raw\(selector,\s*timer\)[\s\S]*native_window_host_loop_linux_selector_timer_fd_wake_from_status/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> Drop for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>[\s\S]*self\.close_handles_if_open\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform[\s\S]*NativeWindowHostLoopPlatformKind::Linux[\s\S]*NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd[\s\S]*SelectorTimerFdBackendFailed/);
-    assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> NativeWindowHostLoopDeadlineTimerClock|impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter|NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd|build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api|#\[cfg\(target_os = "linux"\)\]|libc|nix::|epoll|poll\(|select\(|timerfd_|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|saturating|clamp/i);
+    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> NativeWindowHostLoopDeadlineTimerClock[\s\S]*for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>[\s\S]*type Error = NativeWindowHostLoopLinuxSelectorTimerFdBackendError[\s\S]*self\.elapsed_nanos\(\)/);
+    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter[\s\S]*for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>[\s\S]*wait_for_host_event[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdBackend::wait_for_host_event[\s\S]*wait_until_deadline_or_host_event[\s\S]*TimerFired[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached[\s\S]*HostEventReady[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady/);
+    assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdBackend, /NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd|build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api|#\[cfg\(target_os = "linux"\)\]|libc|nix::|epoll|poll\(|select\(|timerfd_|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|saturating|clamp/i);
     assert.match(libSource, /native_window_linux_selector_timer_fd_handles_accept_zero_and_reject_negative_raw_fds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_timespec_uses_checked_seconds_and_nanoseconds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_deadline_plan_uses_already_reached_or_timespec/);
@@ -646,6 +648,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_closes_selector_and_timer_once/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_requires_validated_linux_selection/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_preserves_raw_api_failure/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_wait_trait_maps_timer_to_deadline_reached/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_wait_trait_keeps_host_ready_non_timer/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_wait_trait_rejects_timer_status_for_event_wait/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_wait_trait_preserves_arm_error/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_accepts_matching_backend/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_all_real_platform_mismatches/);
     assert.match(libSource, /native_window_platform_wait_backend_validation_rejects_unsupported_platform/);
@@ -1354,6 +1360,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopLinuxSelectorTimerFdRawApi/);
     assert.match(implementationPlan, /fd `0` が有効/);
     assert.match(implementationPlan, /generic `NativeWindowHostLoopPlatformWaitBackend` へ `LinuxSelectorTimerFd\(\.\.\.\)` owner variant を追加しない/);
+    assert.match(implementationPlan, /Phase F5hv: Native Linux selector timerfd single-owner wait trait boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopInterruptibleDeadlineWaiter/);
+    assert.match(implementationPlan, /TimerFired` を `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached/);
+    assert.match(implementationPlan, /actual Linux syscall shim や generic platform wait enum 統合へは進まない/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -1465,6 +1475,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopLinuxSelectorFd/);
     assert.match(standardSpec, /fd `0` は有効/);
     assert.match(standardSpec, /SelectorWaitFailed/);
+    assert.match(standardSpec, /F5hv Native Linux selector timerfd single-owner wait trait boundary/);
+    assert.match(standardSpec, /single-owner interruptible deadline wait contract/);
+    assert.match(standardSpec, /`TimerFired` を `DeadlineReached`/);
+    assert.match(standardSpec, /generic `NativeWindowHostLoopPlatformWaitBackend` の Linux owner variant/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
