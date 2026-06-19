@@ -1249,6 +1249,21 @@ pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
     Build(NativeWindowHostLoopPlatformWaitHostBuildError),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowRunLoopPlatformWaitRunnerSupportError {
+    Config(NativeWindowRunLoopPlatformWaitBackendConfigError),
+    BackendSupportFailed(NativeWindowHostLoopPlatformWaitBackendSupportError),
+    LinuxEventSourceSupportFailed(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError),
+    LinuxExternallyWakeableEventSourceIntegrationMissing {
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    },
+    PlatformRunnerUnavailable {
+        platform: NativeWindowHostLoopPlatformKind,
+        backend: NativeWindowHostLoopPlatformWaitBackendKind,
+    },
+}
+
 #[cfg(target_os = "windows")]
 pub type NativeWindowWindowsPlatformWaitHostLoopError = NativeWindowHostLoopError<
     NativeWindowEventPumpError,
@@ -3462,6 +3477,85 @@ pub fn native_window_run_loop_linux_event_source_capability_from_platform_wait_c
         NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability {
             selection,
         },
+    )
+}
+
+pub fn validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+    current: NativeWindowHostLoopPlatformKind,
+    config: NativeWindowRunLoopConfig,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowRunLoopPlatformWaitRunnerSupportError,
+> {
+    let platform_wait_config = native_window_run_loop_platform_wait_backend_config(config)
+        .map_err(NativeWindowRunLoopPlatformWaitRunnerSupportError::Config)?;
+    let selection = platform_wait_config.selection();
+    if current == NativeWindowHostLoopPlatformKind::Unsupported {
+        return Err(
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
+                platform: current,
+                backend: selection.backend(),
+            },
+        );
+    }
+    let backend = validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+        current,
+        selection.backend(),
+    )
+    .map_err(NativeWindowRunLoopPlatformWaitRunnerSupportError::BackendSupportFailed)?;
+    if selection.platform() != current {
+        return Err(
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current,
+                    requested: selection.backend(),
+                },
+            ),
+        );
+    }
+
+    match current {
+        NativeWindowHostLoopPlatformKind::Windows => Ok(selection),
+        NativeWindowHostLoopPlatformKind::Linux => {
+            let capability =
+                native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+                    platform_wait_config,
+                )
+                .map_err(NativeWindowRunLoopPlatformWaitRunnerSupportError::Config)?;
+            let capability =
+                validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+                    capability,
+                )
+                .map_err(
+                    NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxEventSourceSupportFailed,
+                )?;
+            Err(
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxExternallyWakeableEventSourceIntegrationMissing {
+                    selection,
+                    capability,
+                },
+            )
+        }
+        NativeWindowHostLoopPlatformKind::Macos | NativeWindowHostLoopPlatformKind::Unsupported => {
+            Err(
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
+                    platform: current,
+                    backend,
+                },
+            )
+        }
+    }
+}
+
+pub fn validate_native_window_run_loop_platform_wait_runner_support(
+    config: NativeWindowRunLoopConfig,
+) -> Result<
+    NativeWindowHostLoopPlatformWaitBackendSelection,
+    NativeWindowRunLoopPlatformWaitRunnerSupportError,
+> {
+    validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+        native_window_host_loop_current_platform_kind(),
+        config,
     )
 }
 
@@ -11666,6 +11760,253 @@ mod tests {
         assert_eq!(
             externally_wakeable_config.linux_event_source_capability(),
             Some(NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource)
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_accepts_windows_only() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            GuiDemo::Counter,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                config,
+            )
+            .unwrap(),
+            selection
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_non_platform_config() {
+        let config = NativeWindowRunLoopConfig::new(GuiDemo::Counter, 0, 1);
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::Config(
+                NativeWindowRunLoopPlatformWaitBackendConfigError::NotPlatformWaitBackend {
+                    requested: NativeWindowRunLoopWaitBackend::MinifbInternalTargetFps,
+                },
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_macos_until_runner_exists() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
+                platform: NativeWindowHostLoopPlatformKind::Macos,
+                backend: NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_unsupported_as_unavailable() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            GuiDemo::Counter,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Unsupported,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerUnavailable {
+                platform: NativeWindowHostLoopPlatformKind::Unsupported,
+                backend:
+                    NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_linux_missing_event_source() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::Config(
+                NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability {
+                    selection,
+                },
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_linux_observed_input_only() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection,
+                NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+            );
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            platform_wait_config,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxEventSourceSupportFailed(
+                NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                    requested: NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+                },
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_linux_externally_wakeable_until_integrated(
+    ) {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let capability =
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource;
+        let platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection, capability,
+            );
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            platform_wait_config,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::LinuxExternallyWakeableEventSourceIntegrationMissing {
+                selection,
+                capability,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_runner_support_rejects_cross_platform_selection() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+            );
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            platform_wait_config,
+        );
+
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Windows,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                },
+            )
         );
     }
 

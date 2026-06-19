@@ -877,6 +877,16 @@ cfg Linux `native_window_run_loop_platform_wait_backend_from_config` は platfor
 
 cfg Windows from-config は config から selection を読むだけで、Linux event source capability を readiness evidence として使わない。F5ig は config gate であり、Linux platform wait runner、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` synthesis、timer fired evidence、scheduler resume evidence、fallback、silent no-op、sleep、busy loop は追加しない。
 
+## F5ih Native platform wait runner support gate
+
+F5ih では、`NativeWindowRunLoopConfig` の platform wait config を actual window runner dispatch の前に検査する support gate を追加する。これは runner support 判定の境界であり、Linux / macOS runner を実行可能にする phase ではない。
+
+`validate_native_window_run_loop_platform_wait_runner_support_for_platform` は config を読み、non-platform config を `Config NotPlatformWaitBackend`、current platform と selection の不一致を `BackendSupportFailed` として返す。Windows + `WindowsWaitableTimerMessageWait` は既存 Windows runner path として accepted selection を返す。
+
+Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed`、`ExternallyWakeableEventSource` は `LinuxExternallyWakeableEventSourceIntegrationMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source integration が無い限り runner-ready ではない。
+
+macOS / unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

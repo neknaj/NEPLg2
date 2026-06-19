@@ -1289,6 +1289,34 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `new_with_platform_wait_backend_selection` を rename / remove しない。
 - `ExternallyWakeableEventSource` を config に入れただけで readiness evidence、scheduler resume evidence、timer fired evidence を作らない。
 
+### Phase F5ih: Native platform wait runner support gate
+
+目的:
+
+- F5ig の typed platform wait config を actual runner dispatch の前段で検査し、現在実行可能な platform wait runner と未接続 platform を型で分ける。
+- Windows platform wait runner は既存の actual runner path として受理する。
+- Linux は F5ie / F5if / F5ig の event source capability gate を通しても、actual X11 / Wayland fd integration または同等の externally-wakeable source owner / selector registration が未接続であるため、runner-ready とは扱わない。
+- macOS は raw boundary / trait boundary までで actual sys shim / runner が未接続であるため typed unavailable にする。
+
+実装:
+
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を分ける。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を追加する。`NativeWindowRunLoopConfig` から platform wait config を抽出し、selection と current platform を検査する。
+- Windows + `WindowsWaitableTimerMessageWait` は selection を返す。
+- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed`、`ExternallyWakeableEventSource` は `LinuxExternallyWakeableEventSourceIntegrationMissing` を返す。
+- macOS / unsupported platform は `PlatformRunnerUnavailable` を返す。
+
+検証:
+
+- Rust unit tests で Windows accepted、non-platform config rejection、macOS unavailable、Linux missing capability、Linux observed-input-only、Linux externally-wakeable integration missing、cross-platform selection rejection を検査する。
+- source policy で F5ih gate が Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback / silent no-op に進まないことを固定する。
+
+非目標:
+
+- Linux platform wait runner、CLI dispatch、actual X11 / Wayland fd selector integration、minifb wait replacement、macOS actual sys shim、`set_target_fps 0`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- `ExternallyWakeableEventSource` を runner readiness、scheduler resume evidence、timer fired evidence として扱わない。
+- backend construction helper や raw/sys API を support gate から呼ばない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

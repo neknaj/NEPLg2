@@ -1,3 +1,51 @@
+# 2026-06-20 Agent2 GUI native F5ih platform wait runner support gate
+
+## scope
+
+- F5ig の typed platform wait config を actual runner dispatch の前段で検査する support gate を追加する。
+- Windows platform wait runner は既存 runner path として accepted selection を返す。
+- Linux は missing capability、observed-input-only、externally-wakeable-but-not-integrated を別 error として fail closed にする。
+- macOS / unsupported platform は typed runner unavailable とする。
+- Linux runner / CLI dispatch、raw/sys backend construction、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- support gate は pure readiness gate とし、typed helper を window / backend / raw side effect より前に置く方針が承認された。
+- Linux は capability 未指定、`ObservedInputOnly`、`ExternallyWakeableEventSource` の三段階を fail closed にし、`ExternallyWakeableEventSource` を actual X11 / Wayland fd owner / selector registration 無しで runner-ready にしないことが条件として確認された。
+- source policy では Linux runner symbol、Linux `target_os` dispatch in `main.rs`、support gate 内 raw/sys call、externally-wakeable classification の readiness 化を禁止することが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を型で分けた。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` と current-platform wrapper を追加した。
+- Windows + `WindowsWaitableTimerMessageWait` は accepted selection を返し、Linux / macOS / unsupported platform は runner 接続前の typed error を返すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ih contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は `Unsupported` platform が backend kind validation で先に `BackendSupportFailed RequestedBackendUnsupportedPlatform` へ落ち、F5ih contract の `PlatformRunnerUnavailable` とずれることだった。
+- `Unsupported` は config extraction 後、backend kind validation より前に `PlatformRunnerUnavailable` として返すように修正した。
+- unsupported platform の focused Rust test と source policy pin を追加した。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。前回 blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ig run-loop platform wait config event source gate
 
 ## scope
