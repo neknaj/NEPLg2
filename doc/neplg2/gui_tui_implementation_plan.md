@@ -383,6 +383,18 @@ subagent review:
 
 - Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、config backend を bool / string にしないこと、default を minifb internal target-fps pacing にすること、minifb runner で `HostOwnedDeadlineTimer` を window 作成前に拒否すること、unsupported backend を fallback しないこと、typed runner / requested backend / authority reason を error に保持すること、source policy で validation ordering と minifb path の deadline timer 禁止を固定することである。
 
+## Phase F5hi: Native host-owned deadline wait run-loop host wrapper boundary
+
+F5hi では、F5hg の `NativeWindowHostLoopWaitOwner` を `NativeWindowRunLoopHost` contract の wait hook として使う wrapper を追加する。これは future native OS backend や deterministic test backend が、host event wait と frame interval timer wait を formal owner に委譲するための境界である。
+
+`NativeWindowHostOwnedDeadlineWaitRunLoopHost` は inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopWaitOwner` を所有する。`poll_event_snapshot`、`set_window_title`、`pump_events_only`、`present_frame` は inner host へ委譲し、`wait_after_budget_exhausted` だけを `execute_native_window_host_loop_wait_with_owner` へ渡す。`EventError` と `PresentError` は inner host の型を保持し、`WaitError` は `NativeWindowHostLoopWaitOwnerError` のまま返す。文字列化、fallback、silent no-op は行わない。
+
+F5hi でも minifb runner はこの wrapper を使わない。minifb smoke backend は F5hh の通り `Window::set_target_fps` を pacing authority とし、host-owned deadline timer backend へ暗黙接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は後続で扱う。
+
+subagent review:
+
+- Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、wrapper wait が inner host の wait hook を呼ばず `execute_native_window_host_loop_wait_with_owner` だけを使うこと、non-wait operation が inner host error 型を保持して委譲されること、wait error を typed owner error として保持すること、host-event wait と frame-interval wait の owner dispatch を test すること、minifb path に wrapper / wait owner / deadline timer adapter を混入させないことである。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
