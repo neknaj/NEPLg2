@@ -1,3 +1,35 @@
+# 2026-06-19 Agent2 GUI native F5hc timer fired wait outcome boundary
+
+## scope
+
+- F5hb の後続として、timer fire completion を `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired` として scheduler に返せる boundary を追加する。
+- `FrameIntervalTimerRegistered` は pending registration evidence のまま維持し、`FrameIntervalTimerFired` だけを scheduler ready evidence にする。
+- minifb wait hook、`Window::set_target_fps`、selector wakeup ownership、OS message loop timer、queue integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd に実装前 plan review を依頼し、`APPROVED` を得た。
+- required constraints は、registered は waiting のままにすること、fired だけが resume すること、F5gz/F5hb の error separation を潰さないこと、minifb を変更しないこと、source policy で registered / fired の両 path を検査することである。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired` を追加した。
+- `native_window_host_loop_wait_outcome_from_timer_fire`、`execute_native_window_host_loop_timer_wakeup_wait_with_backend`、`execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter` を追加した。
+- `native_window_host_loop_scheduler_resume_state_from_wait_outcome` は registered を waiting、fired を ready へ分岐する。
+- `execute_native_window_host_loop_timer_fire_wait_with_waiter` は already-fired wait outcome を二重待機せず、typed fire evidence として保持する。
+- GUI docs と source-policy を F5hc contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+
+## residual
+
+- selector / message-loop timer ownership、minifb `Window::set_target_fps` との pacing authority 分離、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+
 # 2026-06-19 Agent2 GUI native F5hb std deadline timer adapter boundary
 
 ## scope
