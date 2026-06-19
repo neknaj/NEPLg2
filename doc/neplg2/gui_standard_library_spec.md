@@ -817,6 +817,16 @@ F5hz は host event fd owner / registration / readiness mapping までであり�
 
 cfg Linux の `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入して Linux-only helper を呼ぶだけである。eventfd write / signal producer、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic readiness、host-consuming fallible builderは禁止する。
 
+## F5ib Native Linux host event fd producer boundary
+
+2026-06-20 の F5ib では、F5hz で所有・登録・drain できるようになった Linux host event fd に対して、producer 側の明示的な signal 境界を追加する。これは `NativeWindowHostLoopLinuxSelectorTimerFdBackend` が所有する private `NativeWindowHostLoopLinuxHostEventFd` へ wake request を書き込む境界であり、scheduler resume evidence や `HostEventReady` outcome を直接作る境界ではない。
+
+`NativeWindowHostLoopLinuxSelectorTimerFdRawApi` は `signal_host_event_fd_raw` を持つ。backend は `signal_host_event` を通じてこの raw method を呼び、host event fd owner が閉じている場合は `InvalidHostEventRawFd { raw_fd: -1 }`、raw method が失敗した場合は `SignalHostEventFdFailed { code }` を返す。失敗を no-op success に変換してはいけない。
+
+cfg Linux sys shim は `eventfd` に `u64` 値 `1` を `libc::write` で exactly `size_of::<u64>` bytes 書けた場合だけ成功にする。`EAGAIN`、short write、syscall failure は typed failure とし、event queue full や host wake request を捨てて成功扱いにしない。Never raw API は引き続き empty enum と `match *self {}` のみで全 method を実装する。
+
+F5ib は eventfd producer boundary までであり、native runner / CLI / minifb wait path からこの producer を呼ぶ接続、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。fallback、silent no-op、synthetic readiness、timer fired evidence の偽装は禁止する。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

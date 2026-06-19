@@ -1125,6 +1125,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - eventfd write / signal producer、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - thread sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装、host-consuming fallible builder は導入しない。
 
+### Phase F5ib: Native Linux host event fd producer boundary
+
+目的:
+
+- F5hz の host event fd owner / readiness mapping に対して、producer 側の explicit signal 境界を追加する。
+- eventfd write は cfg Linux sys shim の raw API 実装へ閉じ、backend は private owner と typed error だけを見る。
+- producer success を `HostEventReady` outcome や scheduler resume evidence に直結せず、runner / CLI / minifb 接続前の contract として固定する。
+
+実装:
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `signal_host_event_fd_raw` を追加する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SignalHostEventFdFailed` を追加する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend::signal_host_event` は、closed host event fd を `InvalidHostEventRawFd { raw_fd: -1 }` で拒否し、raw failure を `SignalHostEventFdFailed { code: last_error_code }` として返す。
+- cfg Linux `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` は `u64` 値 `1` を `libc::write` で exactly 8 bytes 書いた場合だけ成功にする。short write、`EAGAIN`、syscall failure は success にしない。
+- never raw API と scripted raw API を同じ method set に更新する。
+
+検証:
+
+- Rust unit tests で signal success の host event fd identity、raw failure の error code preservation、closed backend rejection、scripted raw API の signal call record を検査する。
+- source policy で raw API method、typed error、cfg Linux `libc::write` 使用、exact `u64` write、unit test 名、runner / CLI / minifb 未接続、fallback / silent no-op / synthetic readiness 禁止を固定する。
+- `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu` で cfg Linux sys shim が型検査されることを確認する。
+
+非目標:
+
+- native runner / CLI connection、minifb wait path、generic dispatch からの producer 呼び出し、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- eventfd full / `EAGAIN` を成功扱いする fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

@@ -1,3 +1,44 @@
+# 2026-06-20 Agent2 GUI native F5ib Linux host event fd producer boundary
+
+## scope
+
+- F5hz/F5ia の Linux selector / timerfd / eventfd backend に、host event fd への producer 境界を追加する。
+- producer は owned host event fd への explicit wake request であり、`HostEventReady` outcome や scheduler resume evidence を直接作らない。
+- native runner / CLI / minifb wait path への接続、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+- fallback、silent no-op、synthetic readiness、eventfd full の success 扱いは禁止する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- 必須制約として、`signal_host_event_fd_raw` を raw API trait に追加すること、Never API は `match *self {}` のみで更新すること、backend は closed host event fd を `InvalidHostEventRawFd { raw_fd: -1 }`、raw failure を `SignalHostEventFdFailed { code }` にすることが確認された。
+- cfg Linux sys shim は `u64 1` を exact 8 bytes `libc::write` できた場合だけ success とし、`EAGAIN`、short write、syscall failure を success にしないこと、runner / CLI / minifb へ接続しないことも確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `signal_host_event_fd_raw` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SignalHostEventFdFailed` と `NativeWindowHostLoopLinuxSelectorTimerFdBackend::signal_host_event` を追加した。
+- cfg Linux `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` に eventfd への exact `u64 1` write を追加した。
+- Never raw API、scripted raw API、Rust unit tests、source policy、GUI docs、`todo.md` を F5ib contract に更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_backend_signal_host_event -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source policy の content blocker は無く、`signal_host_event` が `HostEventReady` や scheduler evidence を直接作らないこと、closed owner / raw failure を typed error で fail closed にすること、cfg Linux sys shim が `u64 1` の exact `libc::write` だけを success にすること、runner / CLI / minifb 接続や fallback / synthetic readiness が入っていないことを確認した。
+- 指摘はこの note の `implementation_review` が依頼中のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED_TO_COMMIT`。note-only blocker が解消され、commit / merge / push へ進めてよいことを確認した。
+
 # 2026-06-20 Agent2 GUI native F5ia Linux platform wait support helper boundary
 
 ## scope

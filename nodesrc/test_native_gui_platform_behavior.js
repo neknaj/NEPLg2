@@ -160,11 +160,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxSelectorTimerFdBackend = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostLoopLinuxSelectorFd",
-        "#[cfg(target_os = \"linux\")]\n#[derive(Debug, Default)]\npub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
+        "#[cfg(target_os = \"linux\")]",
     );
     const nativeWindowLinuxSelectorTimerFdSysApi = textSliceBetween(
         libSource,
-        "#[cfg(target_os = \"linux\")]\n#[derive(Debug, Default)]\npub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
+        "pub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
         "pub enum NativeWindowHostLoopNeverWindowsWaitRawApi",
     );
     const nativeWindowNeverWindowsWaitRawApi = textSliceBetween(
@@ -611,7 +611,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi\s*\{\s*\}[\s\S]*impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowNeverWindowsWaitRawApi, /create_waitable_timer_raw[\s\S]*match \*self \{\}[\s\S]*set_waitable_timer_relative_100ns[\s\S]*match \*self \{\}[\s\S]*msg_wait_for_timer_or_message_raw[\s\S]*match \*self \{\}[\s\S]*msg_wait_for_message_raw[\s\S]*match \*self \{\}[\s\S]*close_handle_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowNeverMacosRunLoopTimerRawApi, /create_run_loop_timer_raw[\s\S]*match \*self \{\}[\s\S]*schedule_run_loop_timer_relative_nanos[\s\S]*match \*self \{\}[\s\S]*run_loop_wait_for_timer_or_event_raw[\s\S]*match \*self \{\}[\s\S]*run_loop_wait_for_event_raw[\s\S]*match \*self \{\}[\s\S]*invalidate_run_loop_timer_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
-    assert.match(nativeWindowNeverLinuxSelectorTimerFdRawApi, /create_selector_raw[\s\S]*match \*self \{\}[\s\S]*create_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*create_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*arm_timer_fd_relative_timespec[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_timer_or_event_raw[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_event_raw[\s\S]*match \*self \{\}[\s\S]*close_selector_raw[\s\S]*match \*self \{\}[\s\S]*close_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*close_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
+    assert.match(nativeWindowNeverLinuxSelectorTimerFdRawApi, /create_selector_raw[\s\S]*match \*self \{\}[\s\S]*create_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*create_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*signal_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*arm_timer_fd_relative_timespec[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_timer_or_event_raw[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_event_raw[\s\S]*match \*self \{\}[\s\S]*close_selector_raw[\s\S]*match \*self \{\}[\s\S]*close_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*close_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
     assert.doesNotMatch(nativeWindowNeverWindowsWaitRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
     assert.doesNotMatch(nativeWindowNeverMacosRunLoopTimerRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
     assert.doesNotMatch(nativeWindowNeverLinuxSelectorTimerFdRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
@@ -667,7 +667,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub const NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY: u32 = 2/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub struct NativeWindowHostLoopLinuxTimerFdTimespec\s*\{[\s\S]*seconds: i64,[\s\S]*nanoseconds: i64/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub enum NativeWindowHostLoopLinuxSelectorTimerFdWake\s*\{[\s\S]*TimerFired,[\s\S]*HostEventReady/);
-    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub trait NativeWindowHostLoopLinuxSelectorTimerFdRawApi\s*\{[\s\S]*create_selector_raw[\s\S]*create_timer_fd_raw[\s\S]*create_host_event_fd_raw[\s\S]*register_timer_fd_raw[\s\S]*register_host_event_fd_raw[\s\S]*arm_timer_fd_relative_timespec[\s\S]*selector_wait_for_timer_or_event_raw[\s\S]*host_event: &NativeWindowHostLoopLinuxHostEventFd[\s\S]*selector_wait_for_event_raw[\s\S]*host_event: &NativeWindowHostLoopLinuxHostEventFd[\s\S]*close_selector_raw[\s\S]*close_timer_fd_raw[\s\S]*close_host_event_fd_raw[\s\S]*last_error_code/);
+    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub trait NativeWindowHostLoopLinuxSelectorTimerFdRawApi\s*\{[\s\S]*create_selector_raw[\s\S]*create_timer_fd_raw[\s\S]*create_host_event_fd_raw[\s\S]*register_timer_fd_raw[\s\S]*register_host_event_fd_raw[\s\S]*signal_host_event_fd_raw[\s\S]*host_event: &NativeWindowHostLoopLinuxHostEventFd[\s\S]*arm_timer_fd_relative_timespec[\s\S]*selector_wait_for_timer_or_event_raw[\s\S]*host_event: &NativeWindowHostLoopLinuxHostEventFd[\s\S]*selector_wait_for_event_raw[\s\S]*host_event: &NativeWindowHostLoopLinuxHostEventFd[\s\S]*close_selector_raw[\s\S]*close_timer_fd_raw[\s\S]*close_host_event_fd_raw[\s\S]*last_error_code/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /native_window_host_loop_linux_selector_fd_from_raw[\s\S]*raw_fd < 0[\s\S]*InvalidSelectorRawFd/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /native_window_host_loop_linux_timer_fd_from_raw[\s\S]*raw_fd < 0[\s\S]*InvalidTimerRawFd/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /native_window_host_loop_linux_host_event_fd_from_raw[\s\S]*raw_fd < 0[\s\S]*InvalidHostEventRawFd/);
@@ -683,6 +683,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /CreateHostEventFdFailed[\s\S]*close_timer_fd_raw\(&timer\)[\s\S]*close_selector_raw\(&selector\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /RegisterHostEventFdFailed[\s\S]*close_host_event_fd_raw\(&host_event\)[\s\S]*close_timer_fd_raw\(&timer\)[\s\S]*close_selector_raw\(&selector\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn close_handles_if_open\(&mut self\) -> bool[\s\S]*self\.host_event\.take\(\)[\s\S]*self\.timer\.take\(\)[\s\S]*self\.selector\.take\(\)[\s\S]*close_host_event_fd_raw[\s\S]*close_timer_fd_raw[\s\S]*close_selector_raw/);
+    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /SignalHostEventFdFailed\s*\{\s*code: u32\s*\}/);
+    assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn signal_host_event[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*InvalidHostEventRawFd\s*\{\s*raw_fd: -1,?\s*\}[\s\S]*signal_host_event_fd_raw\(host_event\)[\s\S]*SignalHostEventFdFailed\s*\{[\s\S]*code: self\.api\.last_error_code\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn wait_for_host_event[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*selector_wait_for_event_raw\(selector,\s*host_event\)[\s\S]*native_window_host_loop_linux_selector_timer_fd_host_event_from_status/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /pub fn wait_until_deadline_or_host_event[\s\S]*native_window_host_loop_linux_selector_timer_fd_deadline_plan[\s\S]*host_event = self\.host_event\.as_ref\(\)[\s\S]*arm_timer_fd_relative_timespec\(timer,\s*timespec\)[\s\S]*selector_wait_for_timer_or_event_raw\(selector,\s*timer,\s*host_event\)[\s\S]*native_window_host_loop_linux_selector_timer_fd_wake_from_status/);
     assert.match(nativeWindowLinuxSelectorTimerFdBackend, /impl<Api> Drop for NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>[\s\S]*self\.close_handles_if_open\(\)/);
@@ -699,6 +701,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /eventfd\(0,\s*libc::EFD_CLOEXEC \| libc::EFD_NONBLOCK\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /epoll_ctl\([\s\S]*libc::EPOLL_CTL_ADD,[\s\S]*native_window_host_loop_linux_timer_fd_raw\(timer\),[\s\S]*&mut event/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /register_host_event_fd_raw[\s\S]*epoll_ctl\([\s\S]*libc::EPOLL_CTL_ADD,[\s\S]*native_window_host_loop_linux_host_event_fd_raw\(host_event\),[\s\S]*&mut event/);
+    assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /signal_host_event_fd_raw[\s\S]*let counter = 1_u64[\s\S]*libc::write\([\s\S]*native_window_host_loop_linux_host_event_fd_raw\(host_event\),[\s\S]*std::mem::size_of::<u64>\(\)[\s\S]*write_result != std::mem::size_of::<u64>\(\) as libc::ssize_t[\s\S]*libc::EIO/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /timerfd_settime\([\s\S]*native_window_host_loop_linux_timer_fd_raw\(timer\),[\s\S]*0,[\s\S]*&timer_spec,[\s\S]*std::ptr::null_mut\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /epoll_wait\([\s\S]*native_window_host_loop_linux_selector_fd_raw\(selector\),[\s\S]*&mut event,[\s\S]*1,[\s\S]*-1/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /drain_timer_fd[\s\S]*native_window_host_loop_linux_timer_fd_raw\(timer\)/);
@@ -731,6 +734,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_wait_until_deadline_already_reached_avoids_raw_wait/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_rejects_host_event_creation_failure/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_rejects_host_event_register_failure/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_backend_signal_host_event_writes_event_fd/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_backend_signal_host_event_preserves_raw_failure/);
+    assert.match(libSource, /native_window_linux_selector_timer_fd_backend_signal_host_event_rejects_closed_backend/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_closes_selector_timer_and_host_event_once/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_requires_validated_linux_selection/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_backend_builder_preserves_raw_api_failure/);
@@ -1344,6 +1350,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
     assert.match(platformDoc, /raw API method 呼び出し前に `BackendSupportFailed`/);
     assert.match(platformDoc, /eventfd producer、runner \/ CLI、minifb wait path へはまだ接続しない/);
+    assert.match(platformDoc, /F5ib/);
+    assert.match(platformDoc, /NativeWindowHostLoopLinuxSelectorTimerFdBackend::signal_host_event/);
+    assert.match(platformDoc, /SignalHostEventFdFailed/);
+    assert.match(platformDoc, /`u64` 値 `1` を exactly 8 bytes/);
+    assert.match(platformDoc, /runner \/ CLI \/ minifb wait path への接続はまだ行わない/);
     assert.match(platformDoc, /F5hf/);
     assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
     assert.match(platformDoc, /HostOwnedDeadlineTimer/);
@@ -1503,6 +1514,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi/);
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
     assert.match(implementationPlan, /support failure before raw method calls/);
+    assert.match(implementationPlan, /Phase F5ib: Native Linux host event fd producer boundary/);
+    assert.match(implementationPlan, /signal_host_event_fd_raw/);
+    assert.match(implementationPlan, /SignalHostEventFdFailed/);
+    assert.match(implementationPlan, /exactly 8 bytes/);
+    assert.match(implementationPlan, /eventfd full \/ `EAGAIN` を成功扱いする fallback/);
     assert.match(implementationPlan, /Phase F5hx: Native platform wait multi-backend owner boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi/);
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis/);
@@ -1655,6 +1671,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi/);
     assert.match(standardSpec, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
     assert.match(standardSpec, /raw API method を呼ぶ前に `BackendSupportFailed`/);
+    assert.match(standardSpec, /F5ib Native Linux host event fd producer boundary/);
+    assert.match(standardSpec, /signal_host_event_fd_raw/);
+    assert.match(standardSpec, /SignalHostEventFdFailed/);
+    assert.match(standardSpec, /`u64` 値 `1` を `libc::write` で exactly/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -1716,6 +1736,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native macOS run loop timer raw backend keeps handle and wake semantics typed before integration",
             "Native Linux selector timerfd raw backend keeps fd ownership and wake semantics typed before integration",
             "Native Linux platform wait helper builds the cfg Linux sys backend without runner fallback",
+            "Native Linux host event fd producer writes explicit eventfd signals without runner fallback",
             "Native single-owner interruptible wait adapter keeps clock and waiter in one backend owner",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
