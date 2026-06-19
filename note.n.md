@@ -1,3 +1,48 @@
+# 2026-06-19 Agent2 GUI native F5hk interruptible deadline wait run-loop host wrapper boundary
+
+## scope
+
+- F5hj の後続として、interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える wrapper 境界を追加する。
+- non-wait operation は inner host に委譲し、wait は `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` だけに渡す。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hk 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、F5hi を変更せず別 wrapper として追加すること、wait hook が interruptible helper だけを呼ぶこと、inner wait hook を呼ばないことを test すること、deadline reached / host event ready の evidence を区別すること、typed wait error を保持すること、minifb path に新 wrapper を混ぜないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を所有するようにした。
+- event polling、title update、pump-only、present は inner host へ委譲し、wait は interruptible wait adapter に委譲する。
+- `EventError` / `PresentError` は inner host の型を保持し、`WaitError` は `NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError` のまま返す。
+- source-policy、docs、`todo.md` を F5hk contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_interruptible_deadline_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused interruptible deadline wait test は 14 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 206 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、non-wait operation が inner host に委譲されること、wait が interruptible adapter だけを使うこと、typed wait error が保持されること、`HostEventReady` が timer-fired evidence にならないこと、source-policy / docs が minifb と real OS selector/timer work を scope 外に保っていることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 CI rust timeout nonfatal and GUI font glyf example stabilization
 
 ## scope

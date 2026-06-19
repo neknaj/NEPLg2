@@ -114,6 +114,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowHostOwnedDeadlineWaitRunLoopHost = textSliceBetween(
         libSource,
         "pub struct NativeWindowHostOwnedDeadlineWaitRunLoopHost",
+        "pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost",
+    );
+    const nativeWindowInterruptibleDeadlineWaitRunLoopHost = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost",
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
     );
     const nativeWindowEventQueueStatusAdapter = textSliceBetween(
@@ -187,6 +192,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -202,6 +208,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -217,6 +224,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowEventQueueWaitBackend, "")
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowHostOwnedDeadlineWaitRunLoopHost, "")
+        .replace(nativeWindowInterruptibleDeadlineWaitRunLoopHost, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowFrameIntervalWaitAuthorityMode, "")
@@ -435,6 +443,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowHostOwnedDeadlineWaitRunLoopHost, /present_frame[\s\S]*self\.host\.present_frame\(frame\)/);
     assert.match(nativeWindowHostOwnedDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_wait_with_owner\(instruction,\s*&mut self\.wait_owner\)/);
     assert.doesNotMatch(nativeWindowHostOwnedDeadlineWaitRunLoopHost, /self\.host\.wait_after_budget_exhausted|stringify|to_string|format!|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost<Host,\s*Clock,\s*Waiter>\s*\{[\s\S]*host: Host,[\s\S]*wait_adapter: NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock,\s*Waiter>/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /impl<Host,\s*Clock,\s*Waiter> NativeWindowRunLoopHost[\s\S]*for NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost<Host,\s*Clock,\s*Waiter>/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /type EventError = Host::EventError;[\s\S]*type PresentError = Host::PresentError;[\s\S]*type WaitError =[\s\S]*NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<Clock::Error,\s*Waiter::Error>/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /poll_event_snapshot[\s\S]*self\.host\.poll_event_snapshot\(input\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /set_window_title[\s\S]*self\.host\.set_window_title\(title\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /pump_events_only[\s\S]*self\.host\.pump_events_only\(\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /present_frame[\s\S]*self\.host\.present_frame\(frame\)/);
+    assert.match(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /wait_after_budget_exhausted[\s\S]*execute_native_window_host_loop_interruptible_deadline_wait_with_adapter\([\s\S]*instruction,[\s\S]*&mut self\.wait_adapter/);
+    assert.doesNotMatch(nativeWindowInterruptibleDeadlineWaitRunLoopHost, /self\.host\.wait_after_budget_exhausted|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopWaitOwner|stringify|to_string|format!|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_delegates_non_wait_operations/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_host_event_wait/);
     assert.match(libSource, /native_window_host_owned_deadline_wait_host_uses_owner_for_frame_interval_wait/);

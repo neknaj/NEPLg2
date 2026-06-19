@@ -327,6 +327,10 @@ F5hj では、host event readiness と frame deadline のどちらでも wake �
 
 F5hj でも minifb smoke backend はこの adapter を使わない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual implementation はまだ実装しない。
 
+F5hk では、`NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` が inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を所有する。event polling、title update、pump-only、present は inner host へ委譲し、budget exhaustion 後の wait だけを `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` へ渡す。
+
+この wrapper は future native OS backend / deterministic test backend が interruptible wait semantics を `NativeWindowRunLoopHost` interface から使うための境界である。inner host の wait hook は呼ばない。minifb smoke backend はこの wrapper を使わず、F5hh の minifb internal target-fps pacing authority を維持する。F5hk でも macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual implementation はまだ実装しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -356,6 +360,7 @@ F5hj でも minifb smoke backend はこの adapter を使わない。macOS run l
 - `NativeWindowHostLoopWaitOwner` と `execute_native_window_host_loop_wait_with_owner` により、host event wait と frame interval timer wait を同じ owner で分岐できる。ただし minifb wait hook へはまだ接続していない。
 - `NativeWindowHostOwnedDeadlineWaitRunLoopHost` により、formal wait owner を `NativeWindowRunLoopHost` の wait hook として使える。event / present 系 operation は inner host に委譲し、wait だけを owner に渡す。これは future native OS backend / deterministic test backend 用の境界であり、minifb runner には接続していない。
 - `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` により、frame interval wait は deadline 到達または host event readiness のどちらでも wake できる。host event wake は `HostEventPumpAlreadyPaced` へ写し、timer fired evidence は生成しない。これは future selector / message-loop timer backend の semantic boundary であり、minifb runner には接続していない。
+- `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` により、interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える。event / present 系 operation は inner host に委譲し、wait だけを interruptible adapter に渡す。これは future native OS backend / deterministic test backend 用の境界であり、minifb runner には接続していない。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - `NativeWindowMinifbFramePacingAuthority` により、minifb smoke backend の frame interval wait は validated target FPS と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。これは minifb internal `Window::set_target_fps` pacing が有効であることの evidence であり、wait hook が sleep や deadline timer wait を実行したという意味ではない。
 - `NativeWindowFrameIntervalWaitAuthorityMode` と `validate_native_window_frame_interval_wait_authority_mode` により、minifb internal target-fps pacing と future host-owned deadline timer authority を同時に frame interval authority として扱わない。host-owned mode validation は compatibility check だけで、wait evidence は生成しない。

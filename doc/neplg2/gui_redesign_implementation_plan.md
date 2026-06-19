@@ -1860,6 +1860,30 @@ subagent review:
 
 - Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、wait-nanos validation を side effect より前に行うこと、host event wake を timer fired と偽装しないこと、distinct error stages を保持すること、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、docs が OS-specific implementation ではなく semantic interruptible wake boundary だと明記することである。
 
+## Phase F5hk: Native interruptible deadline wait run-loop host wrapper boundary
+
+Phase F5hk では、F5hj の interruptible deadline wait adapter を native run-loop host contract に接続できる wrapper を追加する。F5hj では semantic wait adapter だけを固定したが、future native OS backend / deterministic test backend が `NativeWindowRunLoopHost` interface から同じ wait semantics を使う接続点はまだ無い。F5hk はこの root boundary を直す。
+
+実装:
+
+- `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を所有する。
+- `poll_event_snapshot`、`set_window_title`、`pump_events_only`、`present_frame` は inner host へ委譲する。
+- `wait_after_budget_exhausted` は inner host の wait hook を呼ばず、`execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` だけを呼ぶ。
+- associated type は `EventError = Host::EventError`、`PresentError = Host::PresentError`、`WaitError = NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<...>` とし、error を文字列化しない。
+- unit test は non-wait operation の委譲、inner wait hook が呼ばれないこと、deadline reached が timer fired evidence になること、host event ready が timer fired evidence にならないこと、adapter wait error が typed enum のまま返ることを検査する。
+- source policy は wrapper と minifb smoke path を分け、minifb runner / host adapter / wait method が wrapper、interruptible adapter、owner wait、deadline timer adapter、std deadline helper を参照しないことを固定する。
+
+非目標:
+
+- minifb runner を interruptible deadline wait wrapper へ接続しない。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd は実装しない。
+- thread sleep、busy loop、minifb internal pacing、timer-only wait、synthetic fired evidence への fallback は導入しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hk 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、F5hi を変更せず別 wrapper として追加すること、wait hook が interruptible helper だけを呼ぶこと、inner wait hook を呼ばないことを test すること、deadline reached / host event ready の evidence を区別すること、typed wait error を保持すること、minifb path に新 wrapper を混ぜないことである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

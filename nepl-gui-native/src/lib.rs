@@ -2706,6 +2706,93 @@ where
     }
 }
 
+pub struct NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost<Host, Clock, Waiter> {
+    host: Host,
+    wait_adapter: NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter>,
+}
+
+impl<Host, Clock, Waiter>
+    NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost<Host, Clock, Waiter>
+{
+    pub fn new(
+        host: Host,
+        wait_adapter: NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter>,
+    ) -> Self {
+        Self { host, wait_adapter }
+    }
+
+    pub fn host(&self) -> &Host {
+        &self.host
+    }
+
+    pub fn host_mut(&mut self) -> &mut Host {
+        &mut self.host
+    }
+
+    pub fn wait_adapter(
+        &self,
+    ) -> &NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter> {
+        &self.wait_adapter
+    }
+
+    pub fn wait_adapter_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter> {
+        &mut self.wait_adapter
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        Host,
+        NativeWindowHostLoopInterruptibleDeadlineWaitAdapter<Clock, Waiter>,
+    ) {
+        (self.host, self.wait_adapter)
+    }
+}
+
+impl<Host, Clock, Waiter> NativeWindowRunLoopHost
+    for NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost<Host, Clock, Waiter>
+where
+    Host: NativeWindowRunLoopHost,
+    Clock: NativeWindowHostLoopDeadlineTimerClock,
+    Waiter: NativeWindowHostLoopInterruptibleDeadlineWaiter,
+{
+    type EventError = Host::EventError;
+    type PresentError = Host::PresentError;
+    type WaitError =
+        NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError<Clock::Error, Waiter::Error>;
+
+    fn poll_event_snapshot(
+        &mut self,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::EventError> {
+        self.host.poll_event_snapshot(input)
+    }
+
+    fn set_window_title(&mut self, title: &str) {
+        self.host.set_window_title(title);
+    }
+
+    fn pump_events_only(&mut self) {
+        self.host.pump_events_only();
+    }
+
+    fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError> {
+        self.host.present_frame(frame)
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        instruction: NativeWindowHostLoopWaitInstruction,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        execute_native_window_host_loop_interruptible_deadline_wait_with_adapter(
+            instruction,
+            &mut self.wait_adapter,
+        )
+    }
+}
+
 pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10268,6 +10355,209 @@ mod tests {
             vec![(window_size, false)]
         );
         assert_eq!(host.wait_owner().frame_interval_timer().clock.now_calls, 0);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_host_delegates_non_wait_operations() {
+        let loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let inner_host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+        let wait_adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+        let mut host =
+            NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost::new(inner_host, wait_adapter);
+        let present_buffer =
+            NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo(1, 1, vec![0x00112233])
+                .unwrap();
+        let present_frame =
+            NativePresenterFrame::from_rgb0_present_buffer(&present_buffer).unwrap();
+
+        assert_eq!(
+            host.poll_event_snapshot(loop_state.event_pump_input())
+                .unwrap(),
+            snapshot
+        );
+        host.set_window_title("delegated title");
+        host.pump_events_only();
+        host.present_frame(present_frame).unwrap();
+
+        assert_eq!(host.host().cursor, 1);
+        assert_eq!(host.host().titles, vec!["delegated title".to_string()]);
+        assert_eq!(host.host().pump_count, 1);
+        assert_eq!(host.host().present_frames, vec![(1, 1)]);
+        assert!(host.host().wait_instructions.is_empty());
+        assert!(host.wait_adapter().waiter().host_event_calls.is_empty());
+        assert!(host.wait_adapter().waiter().frame_interval_calls.is_empty());
+        assert_eq!(host.wait_adapter().clock().now_calls, 0);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_host_uses_adapter_for_host_event_wait() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let inner_host =
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("inner wait used");
+        let wait_adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+        let mut host =
+            NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost::new(inner_host, wait_adapter);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(
+            host.wait_adapter().waiter().host_event_calls,
+            vec![(window_size, true)]
+        );
+        assert!(host.wait_adapter().waiter().frame_interval_calls.is_empty());
+        assert_eq!(host.wait_adapter().clock().now_calls, 0);
+        assert_eq!(host.wait_adapter().next_raw_id(), 1);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_host_returns_timer_fired_on_deadline() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 42,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let inner_host =
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("inner wait used");
+        let wait_adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(2_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            ),
+        );
+        let mut host =
+            NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost::new(inner_host, wait_adapter);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert!(host.wait_adapter().waiter().host_event_calls.is_empty());
+        assert_eq!(
+            host.wait_adapter().waiter().frame_interval_calls,
+            vec![(16_668_666, window_size, false)]
+        );
+        assert_eq!(host.wait_adapter().clock().now_calls, 1);
+        assert_eq!(host.wait_adapter().next_raw_id(), 2);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_host_returns_host_ready_without_timer_fire() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 43,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_667,
+        };
+        let inner_host =
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("inner wait used");
+        let wait_adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(3_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::HostEventReady,
+            ),
+        );
+        let mut host =
+            NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost::new(inner_host, wait_adapter);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert!(host.wait_adapter().waiter().host_event_calls.is_empty());
+        assert_eq!(
+            host.wait_adapter().waiter().frame_interval_calls,
+            vec![(16_669_667, window_size, true)]
+        );
+        assert_eq!(host.wait_adapter().clock().now_calls, 1);
+        assert_eq!(host.wait_adapter().next_raw_id(), 2);
+    }
+
+    #[test]
+    fn native_window_interruptible_deadline_wait_host_preserves_adapter_wait_error() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let inner_host =
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()).with_wait_error("inner wait used");
+        let wait_adapter = NativeWindowHostLoopInterruptibleDeadlineWaitAdapter::new(
+            ScriptedNativeWindowHostLoopDeadlineTimerClock::new(1_000),
+            ScriptedNativeWindowHostLoopInterruptibleDeadlineWaiter::new(
+                NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached,
+            )
+            .with_host_event_error("host event wait failed"),
+        );
+        let mut host =
+            NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost::new(inner_host, wait_adapter);
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap_err(),
+            NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError::HostEventWaitFailed(
+                "host event wait failed"
+            )
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(
+            host.wait_adapter().waiter().host_event_calls,
+            vec![(window_size, false)]
+        );
+        assert!(host.wait_adapter().waiter().frame_interval_calls.is_empty());
+        assert_eq!(host.wait_adapter().clock().now_calls, 0);
     }
 
     #[test]
