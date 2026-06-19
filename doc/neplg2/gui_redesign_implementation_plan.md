@@ -1304,7 +1304,7 @@ Phase F5go では、F5gn の wait decision classification を `NativeWindowRunLo
 実装:
 
 - `NativeWindowRunLoopHost` に `type WaitError` と `wait_after_budget_exhausted decision` を追加する。
-- `NativeWindowHostLoopWaitOutcome` enum を追加し、`HostEventPumpAlreadyPaced window_size size_changed` と `FramePresentAlreadyPaced presentation window_size size_changed` を持たせる。
+- `NativeWindowHostLoopWaitOutcome` enum を追加し、`HostEventPumpAlreadyPaced window_size size_changed`、`FramePresentAlreadyPaced presentation window_size size_changed`、後続 F5gx の `FrameIntervalTimerRegistered presentation window_size size_changed wait_nanos timer_registration_id` を区別できる outcome evidence とする。
 - `NativeWindowHostLoopError` を `EventError`、`PresentError`、`WaitError` の 3 generic にし、`HostWaitFailed WaitError` と `WaitDecisionMissing` を追加する。
 - `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` で host wait hook を呼び、`None` は `WaitDecisionMissing` として返す。
 - minifb adapter の `WaitError` は `std::convert::Infallible` とし、wait hook は `Window::set_target_fps` によって `window.update` / `update_with_buffer` 内部ですでに pace されたことを outcome に写すだけにする。
@@ -1535,6 +1535,31 @@ Phase F5gw では、F5gv の normalized status adapter へ actual message pump a
 subagent review:
 
 - Darwin the 2nd に F5gw 計画を渡し、OS 固有結果を normalized status / typed error へ写す adapter boundary とすること、platform detail 分離、timer backend を別 slice に残すことを確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+## Phase F5gx: Native window host-loop frame interval timer registration outcome boundary
+
+Phase F5gx では、F5gt の timer registration backend を wait outcome evidence へ接続する。ただし timer registration は future fire / wakeup を予約するだけであり、frame wait の完了ではない。そのため `FramePresentAlreadyPaced` へ写すことは禁止し、専用の `FrameIntervalTimerRegistered` outcome を使う。
+
+実装:
+
+- `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` を追加し、`presentation`、`window_size`、`size_changed`、`wait_nanos`、`timer_registration_id` を保持する。
+- `execute_native_window_host_loop_timer_registration_wait_with_registrar` を追加し、F5gt executor の成功 outcome だけを `FrameIntervalTimerRegistered` へ写す。
+- `WaitForHostEvent` は F5gt executor の `HostEventTimerRegistrationUnsupported` のまま返し、message pump / event queue path へ残す。
+- minifb smoke backend の wait hook はこの helper に接続しない。minifb は引き続き `set_target_fps` と `update_with_buffer` の pacing authority を使う。
+- source policy は timer registration backend が `FramePresentAlreadyPaced`、minifb、queue、sleep、DOM、Canvas、video memory、fallback、silent no-op を含まないことを固定する。
+
+非目標:
+
+- actual timer fire / wakeup、real OS timer backend connection は含めない。
+- thread sleep、busy loop、message pump、event queue wait を timer registration backend で代替しない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、wait completion の偽装は含めない。
+
+subagent review:
+
+- Darwin the 2nd の初回 plan review は、timer registration 成功を `FramePresentAlreadyPaced` へ写す計画を `PLAN_BLOCKED` とした。
+- 修正版では `FrameIntervalTimerRegistered` outcome で timer registration evidence と pacing completion を型で分離する方針へ変更し、再 review は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
