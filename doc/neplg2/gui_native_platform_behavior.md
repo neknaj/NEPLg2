@@ -173,6 +173,16 @@ F5gp の目的は hidden long loop authority を外へ出し、formal native OS 
 
 F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## Native window host-loop wait request plan checkpoint
+
+F5gq では、F5gp の scheduler slice が持つ wait decision を、native backend が消費できる wait request plan へ変換する。
+
+`NativeWindowHostLoopWaitRequest` は host event wait と frame interval wait を分ける。host event wait は event payload や queue owner を持たない。frame interval wait は `NativeWindowFrameIntervalRequest` を持ち、validated `NativeWindowTargetFps`、`nanos_per_frame`、`remainder_nanos_per_second` を保持する。`60fps` なら `16_666_666ns` と remainder `40ns/second`、`120fps` なら `8_333_333ns` と remainder `40ns/second` として表し、暗黙の clamp、sentinel、zero-fill fallback は使わない。
+
+`NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。minifb backend では引き続き追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration` を呼ばない。minifb の frame pacing authority は `Window::set_target_fps` と update path に残し、F5gq はその前段の request plan boundary に留める。
+
+F5gq は actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、DOM / Canvas / video memory transport も導入しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -185,7 +195,8 @@ F5gp は scheduler slice boundary までであり、actual OS wait strategy、qu
 - `NativeWindowHostLoopRunPolicy` で検査した turn slice により、minifb host loop は bounded runner を明示的に反復する。
 - `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
 - `NativeWindowHostLoopWaitDecision` により、bounded runner の最後の continue turn を host-event wait class または frame-interval wait class として分類する。
-- `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait decision を host wait boundary へ渡す。
+- `NativeWindowHostLoopWaitRequest` により、wait decision と target FPS から backend wait request plan を作る。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` により、policy runner が wait request を host wait boundary へ渡す。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - minifb smoke backend の wait hook は additional `window.update` や sleep を行わず、`Window::set_target_fps` による既存 pacing を `NativeWindowHostLoopWaitOutcome` として記録する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。

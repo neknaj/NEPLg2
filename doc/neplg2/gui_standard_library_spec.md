@@ -403,6 +403,18 @@ F5go は wait dispatch boundary までであり、formal OS wait strategy、queu
 
 F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## F5gq Native window host-loop wait request plan boundary
+
+2026-06-19 の F5gq では、`NativeWindowHostLoopWaitDecision` を actual backend が消費できる `NativeWindowHostLoopWaitRequest` へ変換する契約を追加する。decision は turn evidence 由来の分類であり、request は backend wait authority へ渡す計画である。
+
+`NativeWindowFrameIntervalRequest` は validated `NativeWindowTargetFps`、`nanos_per_frame`、`remainder_nanos_per_second` を持つ。`nanos_per_frame` は `1_000_000_000 / fps`、`remainder_nanos_per_second` は `1_000_000_000 % fps` であり、暗黙 clamp や sentinel rounding を行わない。`NativeWindowTargetFps` が `1..=240` を保証するため、zero fps と overflow はこの境界の入力型で除外される。
+
+`NativeWindowHostLoopWaitRequest` は `WaitForHostEvent` と `WaitForFrameInterval` を持つ。host event request は event payload や queue owner を持たず、frame interval request だけが `NativeWindowFrameIntervalRequest` を持つ。`NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+
+`NativeWindowHostLoopSchedulerSliceResult::Waited` は `decision`、`request`、`outcome` を保持する。test と future scheduler は、分類元 decision、backend request plan、host outcome を別々に検査できる。
+
+F5gq は wait request plan boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`std::time::Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

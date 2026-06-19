@@ -1347,6 +1347,33 @@ subagent review:
 - Ptolemy the 2nd に F5gp 計画を渡し、hidden long loop authority を typed slice に切る妥当性、pure rename でないこと、wait outcome preservation、source-policy の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gq: Native window host-loop wait request plan boundary
+
+Phase F5gq では、F5gp の scheduler slice が保持している `NativeWindowHostLoopWaitDecision` を、actual backend が消費できる `NativeWindowHostLoopWaitRequest` へ変換する。これは actual OS wait strategy そのものではなく、host event wait と frame interval wait を typed request plan として固定する境界である。
+
+実装:
+
+- `NativeWindowFrameIntervalRequest` を追加し、validated `NativeWindowTargetFps` から `nanos_per_frame` と `remainder_nanos_per_second` を計算する。
+- `NativeWindowHostLoopWaitRequest` を追加し、host event wait と frame interval wait を区別する。
+- `native_window_host_loop_wait_request` を追加し、`NativeWindowHostLoopWaitDecision` と validated target fps から backend wait request plan を作る。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+- scheduler slice は wait hook へ渡した request を `NativeWindowHostLoopSchedulerSliceResult::Waited` に保持する。
+- `run_native_window_host_loop_with_policy_and_target_fps` と scheduler slice の explicit target fps 版を追加し、native minifb runner は `config.target_fps` を request plan へ渡す。
+- tests は default fps と explicit fps の frame interval request、host event request、wait failure が次 poll を消費しないことを検査する。
+- source policy は request plan が `Duration`、`std::thread::sleep`、queue、timer registration、minifb update、fallback、silent no-op を持たないことを固定する。
+
+非目標:
+
+- actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness は含めない。
+- `std::time::Duration` や `std::thread::sleep` にはまだ接続しない。
+- host event request は event payload や queue owner を持たない。
+- 2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gq 計画を渡し、typed backend wait request plan が pure rename ではないこと、target fps 由来の checked interval request、no fallback / no sleep / no queue の観点で確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
