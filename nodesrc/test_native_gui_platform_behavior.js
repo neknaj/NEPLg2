@@ -165,6 +165,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxSelectorTimerFdSysApi = textSliceBetween(
         libSource,
         "#[cfg(target_os = \"linux\")]\n#[derive(Debug, Default)]\npub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
+        "pub enum NativeWindowHostLoopNeverWindowsWaitRawApi",
+    );
+    const nativeWindowNeverWindowsWaitRawApi = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopNeverWindowsWaitRawApi",
         "pub enum NativeWindowHostLoopNeverMacosRunLoopTimerRawApi",
     );
     const nativeWindowNeverMacosRunLoopTimerRawApi = textSliceBetween(
@@ -597,18 +602,24 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_for_platform[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*platform,\s*requested,[\s\S]*BackendSupportFailed[\s\S]*build_native_window_host_loop_platform_wait_backend_from_selection\(selection\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackend<WindowsApi,\s*MacosApi,\s*LinuxApi>[\s\S]*WindowsWaitableTimerMessageWait\(NativeWindowHostLoopWindowsWaitBackend<WindowsApi>\)[\s\S]*MacosRunLoopTimer\(NativeWindowHostLoopMacosRunLoopTimerBackend<MacosApi>\)[\s\S]*LinuxSelectorTimerFd\(NativeWindowHostLoopLinuxSelectorTimerFdBackend<LinuxApi>\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub type NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<WindowsApi>[\s\S]*NativeWindowHostLoopNeverMacosRunLoopTimerRawApi[\s\S]*NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub type NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<LinuxApi>[\s\S]*NativeWindowHostLoopNeverWindowsWaitRawApi[\s\S]*NativeWindowHostLoopNeverMacosRunLoopTimerRawApi[\s\S]*LinuxApi/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError,\s*MacosError,\s*LinuxError>\s*\{[\s\S]*WindowsWaitableTimerMessageWait\(WindowsError\)[\s\S]*MacosRunLoopTimer\(MacosError\)[\s\S]*LinuxSelectorTimerFd\(LinuxError\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /impl<WindowsApi,\s*MacosApi,\s*LinuxApi> NativeWindowHostLoopDeadlineTimerClock[\s\S]*for NativeWindowHostLoopPlatformWaitBackend<WindowsApi,\s*MacosApi,\s*LinuxApi>[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*MacosRunLoopTimer[\s\S]*LinuxSelectorTimerFd/);
     assert.match(nativeWindowPlatformWaitBackendKind, /impl<WindowsApi,\s*MacosApi,\s*LinuxApi> NativeWindowHostLoopInterruptibleDeadlineWaiter[\s\S]*for NativeWindowHostLoopPlatformWaitBackend<WindowsApi,\s*MacosApi,\s*LinuxApi>[\s\S]*wait_for_host_event[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*MacosRunLoopTimer[\s\S]*LinuxSelectorTimerFd[\s\S]*wait_until_deadline_or_host_event[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*MacosRunLoopTimer[\s\S]*LinuxSelectorTimerFd/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopNeverWindowsWaitRawApi\s*\{\s*\}[\s\S]*impl NativeWindowHostLoopWindowsWaitRawApi[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopNeverMacosRunLoopTimerRawApi\s*\{\s*\}[\s\S]*impl NativeWindowHostLoopMacosRunLoopTimerRawApi[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub enum NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi\s*\{\s*\}[\s\S]*impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi[\s\S]*match \*self \{\}/);
+    assert.match(nativeWindowNeverWindowsWaitRawApi, /create_waitable_timer_raw[\s\S]*match \*self \{\}[\s\S]*set_waitable_timer_relative_100ns[\s\S]*match \*self \{\}[\s\S]*msg_wait_for_timer_or_message_raw[\s\S]*match \*self \{\}[\s\S]*msg_wait_for_message_raw[\s\S]*match \*self \{\}[\s\S]*close_handle_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowNeverMacosRunLoopTimerRawApi, /create_run_loop_timer_raw[\s\S]*match \*self \{\}[\s\S]*schedule_run_loop_timer_relative_nanos[\s\S]*match \*self \{\}[\s\S]*run_loop_wait_for_timer_or_event_raw[\s\S]*match \*self \{\}[\s\S]*run_loop_wait_for_event_raw[\s\S]*match \*self \{\}[\s\S]*invalidate_run_loop_timer_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
     assert.match(nativeWindowNeverLinuxSelectorTimerFdRawApi, /create_selector_raw[\s\S]*match \*self \{\}[\s\S]*create_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*create_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*register_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*arm_timer_fd_relative_timespec[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_timer_or_event_raw[\s\S]*match \*self \{\}[\s\S]*selector_wait_for_event_raw[\s\S]*match \*self \{\}[\s\S]*close_selector_raw[\s\S]*match \*self \{\}[\s\S]*close_timer_fd_raw[\s\S]*match \*self \{\}[\s\S]*close_host_event_fd_raw[\s\S]*match \*self \{\}[\s\S]*last_error_code[\s\S]*match \*self \{\}/);
+    assert.doesNotMatch(nativeWindowNeverWindowsWaitRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
     assert.doesNotMatch(nativeWindowNeverMacosRunLoopTimerRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
     assert.doesNotMatch(nativeWindowNeverLinuxSelectorTimerFdRawApi, /panic!|unreachable!|todo!|Ok\(|return true|return false|STATUS_|fallback|silent no-op/i);
     assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*selection\.platform\(\),[\s\S]*selection\.backend\(\)[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*windows_api[\s\S]*MacosRunLoopTimer[\s\S]*macos_api[\s\S]*LinuxSelectorTimerFd[\s\S]*linux_api/);
     assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*selection\.platform\(\),[\s\S]*selection\.backend\(\)[\s\S]*BackendSupportFailed[\s\S]*NativeWindowHostLoopPlatformKind::Windows[\s\S]*WindowsWaitableTimerMessageWait[\s\S]*build_native_window_host_loop_windows_wait_backend_from_selection\([\s\S]*checked_selection,[\s\S]*api/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api[\s\S]*validate_native_window_host_loop_platform_wait_backend_selection_for_platform\([\s\S]*selection\.platform\(\),[\s\S]*selection\.backend\(\)[\s\S]*BackendSupportFailed[\s\S]*NativeWindowHostLoopPlatformKind::Linux[\s\S]*LinuxSelectorTimerFd[\s\S]*build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection\([\s\S]*checked_selection,[\s\S]*api/);
     assert.match(nativeWindowPlatformWaitBackendKind, /WindowsWaitBackendFailed\(NativeWindowHostLoopWindowsWaitBackendError\)/);
+    assert.match(nativeWindowPlatformWaitBackendKind, /LinuxSelectorTimerFdBackendFailed\(NativeWindowHostLoopLinuxSelectorTimerFdBackendError\)/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub type NativeWindowHostLoopPlatformWaitRunLoopHost<Host,\s*WindowsApi,\s*MacosApi,\s*LinuxApi>\s*=[\s\S]*NativeWindowHostLoopPlatformWaitBackend<WindowsApi,\s*MacosApi,\s*LinuxApi>/);
     assert.match(nativeWindowPlatformWaitBackendKind, /pub fn native_window_host_loop_platform_wait_run_loop_host_from_backend<[\s\S]*host: Host,[\s\S]*backend: NativeWindowHostLoopPlatformWaitBackend<WindowsApi,\s*MacosApi,\s*LinuxApi>[\s\S]*NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new\(backend\)[\s\S]*NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost::new\(host,\s*wait_adapter\)/);
     assert.doesNotMatch(nativeWindowPlatformWaitBackendKind, /build_native_window_host_loop_platform_wait_run_loop_host_from_selection/);
@@ -703,7 +714,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdSysApi, /fn close_timer_fd_raw[\s\S]*self\.clear_error\(\)/);
     assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdSysApi, /fn close_host_event_fd_raw[\s\S]*self\.clear_error\(\)/);
     assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /native_window_host_loop_linux_selector_timer_fd_backend_from_selection[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new\(\)/);
-    assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdSysApi, /NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd|build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|saturating|clamp/i);
+    assert.match(nativeWindowLinuxSelectorTimerFdSysApi, /#\[cfg\(target_os = "linux"\)\][\s\S]*pub fn native_window_host_loop_platform_wait_backend_from_selection\([\s\S]*NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi[\s\S]*>[\s\S]*build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api\([\s\S]*selection,[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new\(\)/);
+    assert.doesNotMatch(nativeWindowLinuxSelectorTimerFdSysApi, /native_window_run_loop_platform_wait_backend_from_config|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|saturating|clamp/i);
     assert.match(libSource, /native_window_linux_selector_timer_fd_handles_accept_zero_and_reject_negative_raw_fds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_timespec_uses_checked_seconds_and_nanoseconds/);
     assert.match(libSource, /native_window_linux_selector_timer_fd_deadline_plan_uses_already_reached_or_timespec/);
@@ -742,6 +754,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_platform_wait_backend_with_windows_api_preserves_unavailable_real_backends/);
     assert.match(libSource, /native_window_platform_wait_backend_with_windows_api_preserves_support_failure/);
     assert.match(libSource, /native_window_platform_wait_backend_with_windows_api_preserves_windows_failure/);
+    assert.match(libSource, /native_window_platform_wait_backend_with_linux_api_builds_linux_backend/);
+    assert.match(libSource, /native_window_platform_wait_backend_with_linux_api_preserves_unavailable_real_backends/);
+    assert.match(libSource, /native_window_platform_wait_backend_with_linux_api_preserves_support_failure_before_raw_calls/);
+    assert.match(libSource, /native_window_platform_wait_backend_with_linux_api_preserves_linux_failure/);
     assert.match(libSource, /native_window_platform_wait_backend_with_raw_apis_builds_selected_macos_backend/);
     assert.match(libSource, /native_window_platform_wait_backend_with_raw_apis_builds_selected_linux_backend/);
     assert.match(libSource, /native_window_platform_wait_backend_with_raw_apis_preserves_macos_failure/);
@@ -1323,7 +1339,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /selected されていない raw API は呼ばず/);
     assert.match(platformDoc, /NativeWindowHostLoopWindowsOnlyPlatformWaitBackend WindowsApi/);
     assert.match(platformDoc, /method body は `match \*self \{\}` のみ/);
-    assert.match(platformDoc, /actual macOS sys shim、Linux sys shim の generic platform helper 接続、native runner \/ CLI dispatch はまだ未接続/);
+    assert.match(platformDoc, /F5ia/);
+    assert.match(platformDoc, /NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi/);
+    assert.match(platformDoc, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
+    assert.match(platformDoc, /raw API method 呼び出し前に `BackendSupportFailed`/);
+    assert.match(platformDoc, /eventfd producer、runner \/ CLI、minifb wait path へはまだ接続しない/);
     assert.match(platformDoc, /F5hf/);
     assert.match(platformDoc, /NativeWindowFrameIntervalWaitAuthorityMode/);
     assert.match(platformDoc, /HostOwnedDeadlineTimer/);
@@ -1479,6 +1499,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /eventfd 0 EFD_CLOEXEC \| EFD_NONBLOCK/);
     assert.match(implementationPlan, /host-event-only wait は eventfd readiness だけを成功/);
     assert.match(implementationPlan, /eventfd write \/ signal producer/);
+    assert.match(implementationPlan, /Phase F5ia: Native Linux platform wait support helper boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi/);
+    assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
+    assert.match(implementationPlan, /support failure before raw method calls/);
     assert.match(implementationPlan, /Phase F5hx: Native platform wait multi-backend owner boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi/);
     assert.match(implementationPlan, /build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis/);
@@ -1627,6 +1651,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowHostLoopLinuxHostEventFd/);
     assert.match(standardSpec, /eventfd 0 EFD_CLOEXEC \| EFD_NONBLOCK/);
     assert.match(standardSpec, /host-event-only wait は host event fd readiness だけを成功/);
+    assert.match(standardSpec, /F5ia Native Linux platform wait support helper boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi/);
+    assert.match(standardSpec, /build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api/);
+    assert.match(standardSpec, /raw API method を呼ぶ前に `BackendSupportFailed`/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -1687,6 +1715,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native Windows wait raw backend maps waitable timer and message statuses through typed errors",
             "Native macOS run loop timer raw backend keeps handle and wake semantics typed before integration",
             "Native Linux selector timerfd raw backend keeps fd ownership and wake semantics typed before integration",
+            "Native Linux platform wait helper builds the cfg Linux sys backend without runner fallback",
             "Native single-owner interruptible wait adapter keeps clock and waiter in one backend owner",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",

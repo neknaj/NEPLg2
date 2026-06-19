@@ -3339,6 +3339,13 @@ pub type NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<WindowsApi> =
         NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi,
     >;
 
+pub type NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<LinuxApi> =
+    NativeWindowHostLoopPlatformWaitBackend<
+        NativeWindowHostLoopNeverWindowsWaitRawApi,
+        NativeWindowHostLoopNeverMacosRunLoopTimerRawApi,
+        LinuxApi,
+    >;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError, MacosError, LinuxError> {
     WindowsWaitableTimerMessageWait(WindowsError),
@@ -4599,6 +4606,57 @@ pub fn native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
     )
 }
 
+#[cfg(target_os = "linux")]
+pub fn native_window_host_loop_platform_wait_backend_from_selection(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+) -> Result<
+    NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<
+        NativeWindowHostLoopLinuxSelectorTimerFdSysApi,
+    >,
+    NativeWindowHostLoopPlatformWaitHostBuildError,
+> {
+    build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+        selection,
+        NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new(),
+    )
+}
+
+#[derive(Debug)]
+pub enum NativeWindowHostLoopNeverWindowsWaitRawApi {}
+
+impl NativeWindowHostLoopWindowsWaitRawApi for NativeWindowHostLoopNeverWindowsWaitRawApi {
+    fn create_waitable_timer_raw(&mut self) -> isize {
+        match *self {}
+    }
+
+    fn set_waitable_timer_relative_100ns(
+        &mut self,
+        _handle: &NativeWindowHostLoopWindowsWaitHandle,
+        _relative_due_time_100ns: i64,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn msg_wait_for_timer_or_message_raw(
+        &mut self,
+        _handle: &NativeWindowHostLoopWindowsWaitHandle,
+    ) -> u32 {
+        match *self {}
+    }
+
+    fn msg_wait_for_message_raw(&mut self) -> u32 {
+        match *self {}
+    }
+
+    fn close_handle_raw(&mut self, _handle: &NativeWindowHostLoopWindowsWaitHandle) -> bool {
+        match *self {}
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        match *self {}
+    }
+}
+
 #[derive(Debug)]
 pub enum NativeWindowHostLoopNeverMacosRunLoopTimerRawApi {}
 
@@ -5247,6 +5305,54 @@ where
             NativeWindowHostLoopWindowsWaitBackendBuildError::WaitBackendFailed(error) => {
                 NativeWindowHostLoopPlatformWaitHostBuildError::WindowsWaitBackendFailed(error)
             }
+        }),
+        (platform, backend) => Err(
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
+                platform,
+                backend,
+            },
+        ),
+    }
+}
+
+pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api<LinuxApi>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    api: LinuxApi,
+) -> Result<
+    NativeWindowHostLoopLinuxOnlyPlatformWaitBackend<LinuxApi>,
+    NativeWindowHostLoopPlatformWaitHostBuildError,
+>
+where
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    let checked_selection =
+        validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+            selection.platform(),
+            selection.backend(),
+        )
+        .map_err(NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed)?;
+    match (checked_selection.platform(), checked_selection.backend()) {
+        (
+            NativeWindowHostLoopPlatformKind::Linux,
+            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        ) => build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+            checked_selection,
+            api,
+        )
+        .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
+        .map_err(|error| {
+            match error {
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
+                error,
+            ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
+                error,
+            ) => {
+                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                    error,
+                )
+            }
+        }
         }),
         (platform, backend) => Err(
             NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
@@ -14301,6 +14407,121 @@ mod tests {
     }
 
     #[test]
+    fn native_window_platform_wait_backend_with_linux_api_builds_linux_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(101, 102);
+
+        let backend =
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+                selection, api,
+            )
+            .unwrap();
+
+        match backend {
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                assert!(backend.are_handles_open());
+                assert_eq!(backend.api().selector_create_calls, 1);
+                assert_eq!(backend.api().timer_create_calls, 1);
+                assert_eq!(backend.api().host_event_create_calls, 1);
+                assert_eq!(backend.api().register_calls, vec![(101, 102)]);
+                assert_eq!(backend.api().register_host_event_calls, vec![(101, 103)]);
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_linux_api_preserves_unavailable_real_backends() {
+        let cases = [
+            (
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            ),
+            (
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            ),
+        ];
+
+        for (platform, backend) in cases {
+            let selection =
+                validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                    platform, backend,
+                )
+                .unwrap();
+            let raw_method_calls = std::rc::Rc::new(std::cell::Cell::new(0));
+            let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(104, 105)
+                .with_raw_method_call_counter(std::rc::Rc::clone(&raw_method_calls));
+
+            assert_eq!(
+                build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+                    selection, api,
+                )
+                .unwrap_err(),
+                NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
+                    platform,
+                    backend,
+                }
+            );
+            assert_eq!(raw_method_calls.get(), 0);
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_linux_api_preserves_support_failure_before_raw_calls(
+    ) {
+        let selection = NativeWindowHostLoopPlatformWaitBackendSelection {
+            platform: NativeWindowHostLoopPlatformKind::Windows,
+            backend: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        };
+        let raw_method_calls = std::rc::Rc::new(std::cell::Cell::new(0));
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(106, 107)
+            .with_raw_method_call_counter(std::rc::Rc::clone(&raw_method_calls));
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+                selection, api,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Windows,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                }
+            )
+        );
+        assert_eq!(raw_method_calls.get(), 0);
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_linux_api_preserves_linux_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, 109)
+            .with_last_error_code(110);
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api(
+                selection, api,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateSelectorFailed {
+                    code: 110,
+                }
+            )
+        );
+    }
+
+    #[test]
     fn native_window_platform_wait_backend_with_raw_apis_builds_selected_macos_backend() {
         let selection =
             validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
@@ -17726,6 +17947,7 @@ mod tests {
         close_timer_calls: Vec<i32>,
         close_host_event_calls: Vec<i32>,
         last_error_calls: usize,
+        raw_method_call_counter: Option<std::rc::Rc<std::cell::Cell<usize>>>,
     }
 
     impl ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi {
@@ -17753,7 +17975,22 @@ mod tests {
                 close_timer_calls: Vec::new(),
                 close_host_event_calls: Vec::new(),
                 last_error_calls: 0,
+                raw_method_call_counter: None,
             }
+        }
+
+        fn count_raw_method_call(&self) {
+            if let Some(counter) = &self.raw_method_call_counter {
+                counter.set(counter.get() + 1);
+            }
+        }
+
+        fn with_raw_method_call_counter(
+            mut self,
+            counter: std::rc::Rc<std::cell::Cell<usize>>,
+        ) -> Self {
+            self.raw_method_call_counter = Some(counter);
+            self
         }
 
         fn with_host_event_raw_fd(mut self, raw_fd: i32) -> Self {
@@ -17804,16 +18041,19 @@ mod tests {
         for ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi
     {
         fn create_selector_raw(&mut self) -> i32 {
+            self.count_raw_method_call();
             self.selector_create_calls += 1;
             self.selector_raw_fd
         }
 
         fn create_timer_fd_raw(&mut self) -> i32 {
+            self.count_raw_method_call();
             self.timer_create_calls += 1;
             self.timer_raw_fd
         }
 
         fn create_host_event_fd_raw(&mut self) -> i32 {
+            self.count_raw_method_call();
             self.host_event_create_calls += 1;
             self.host_event_raw_fd
         }
@@ -17823,6 +18063,7 @@ mod tests {
             selector: &NativeWindowHostLoopLinuxSelectorFd,
             timer: &NativeWindowHostLoopLinuxTimerFd,
         ) -> bool {
+            self.count_raw_method_call();
             self.register_calls.push((
                 native_window_host_loop_linux_selector_fd_raw(selector),
                 native_window_host_loop_linux_timer_fd_raw(timer),
@@ -17835,6 +18076,7 @@ mod tests {
             selector: &NativeWindowHostLoopLinuxSelectorFd,
             host_event: &NativeWindowHostLoopLinuxHostEventFd,
         ) -> bool {
+            self.count_raw_method_call();
             self.register_host_event_calls.push((
                 native_window_host_loop_linux_selector_fd_raw(selector),
                 native_window_host_loop_linux_host_event_fd_raw(host_event),
@@ -17847,6 +18089,7 @@ mod tests {
             timer: &NativeWindowHostLoopLinuxTimerFd,
             timespec: NativeWindowHostLoopLinuxTimerFdTimespec,
         ) -> bool {
+            self.count_raw_method_call();
             self.arm_calls
                 .push((native_window_host_loop_linux_timer_fd_raw(timer), timespec));
             self.arm_result
@@ -17858,6 +18101,7 @@ mod tests {
             timer: &NativeWindowHostLoopLinuxTimerFd,
             host_event: &NativeWindowHostLoopLinuxHostEventFd,
         ) -> u32 {
+            self.count_raw_method_call();
             self.timer_wait_calls.push((
                 native_window_host_loop_linux_selector_fd_raw(selector),
                 native_window_host_loop_linux_timer_fd_raw(timer),
@@ -17871,6 +18115,7 @@ mod tests {
             selector: &NativeWindowHostLoopLinuxSelectorFd,
             host_event: &NativeWindowHostLoopLinuxHostEventFd,
         ) -> u32 {
+            self.count_raw_method_call();
             self.event_wait_calls.push((
                 native_window_host_loop_linux_selector_fd_raw(selector),
                 native_window_host_loop_linux_host_event_fd_raw(host_event),
@@ -17879,12 +18124,14 @@ mod tests {
         }
 
         fn close_selector_raw(&mut self, selector: &NativeWindowHostLoopLinuxSelectorFd) -> bool {
+            self.count_raw_method_call();
             self.close_selector_calls
                 .push(native_window_host_loop_linux_selector_fd_raw(selector));
             true
         }
 
         fn close_timer_fd_raw(&mut self, timer: &NativeWindowHostLoopLinuxTimerFd) -> bool {
+            self.count_raw_method_call();
             self.close_timer_calls
                 .push(native_window_host_loop_linux_timer_fd_raw(timer));
             true
@@ -17894,12 +18141,14 @@ mod tests {
             &mut self,
             host_event: &NativeWindowHostLoopLinuxHostEventFd,
         ) -> bool {
+            self.count_raw_method_call();
             self.close_host_event_calls
                 .push(native_window_host_loop_linux_host_event_fd_raw(host_event));
             true
         }
 
         fn last_error_code(&mut self) -> u32 {
+            self.count_raw_method_call();
             self.last_error_calls += 1;
             self.last_error_code
         }

@@ -1,3 +1,41 @@
+# 2026-06-20 Agent2 GUI native F5ia Linux platform wait support helper boundary
+
+## scope
+
+- F5hz の Linux selector / timerfd / eventfd sys shim を、F5hx の generic platform wait owner へ Linux-only helper として接続する。
+- no-owner generic builder は fail-closed probe として残し、runner / CLI / minifb wait path へは進まない。
+- fallback、silent no-op、synthetic readiness、host-consuming fallible builder は導入しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- 必須制約として、Linux-only helper に限定すること、`NativeWindowHostLoopLinuxOnlyPlatformWaitBackend` alias で Windows / macOS 側を never raw API にすること、selection validation を raw API method より前に行うこと、cfg Linux helper は backend construction だけに留めること、runner / CLI / minifb / eventfd producer へ進まないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopNeverWindowsWaitRawApi` と `NativeWindowHostLoopLinuxOnlyPlatformWaitBackend` を追加した。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` を追加し、Linux selection だけ existing Linux backend builder へ渡すようにした。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` を追加し、`NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入するようにした。
+- Rust unit tests、source policy、GUI docs、`todo.md` を F5ia contract に更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source policy の content blocker は無く、Linux-only alias、selection validation before raw calls、non-Linux validated selection の unavailable、support failure の raw-call なし、Linux raw failure preservation、cfg Linux helper の backend construction 限定が Zenn/doc 方針に沿うことを確認した。
+- 指摘はこの note の `implementation_current` が「更新中」のまま、`implementation_review` が pending のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED_TO_COMMIT`。note-only blockers が解消され、commit / merge / push へ進めてよいことを確認した。
+
 # 2026-06-20 Agent2 GUI native F5hx platform wait multi-backend owner boundary
 
 ## scope

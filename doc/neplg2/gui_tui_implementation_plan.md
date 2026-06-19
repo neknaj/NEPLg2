@@ -1099,6 +1099,32 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - eventfd write / signal producer、generic platform wait helper の Linux sys constructor、native runner / CLI connection、macOS actual sys shim、minifb wait path、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - thread sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装は導入しない。
 
+### Phase F5ia: Native Linux platform wait support helper boundary
+
+目的:
+
+- F5hz の cfg Linux sys shim を、F5hx の generic platform wait owner に Linux-only support helper として接続する。
+- Windows helper と対称に、Linux selection だけが actual Linux sys API から backend を構築できる入口を作る。
+- no-owner generic builder は fail-closed probe として残し、runner / CLI / minifb wait path へはまだ接続しない。
+
+実装:
+
+- `NativeWindowHostLoopLinuxOnlyPlatformWaitBackend LinuxApi` を追加し、Windows / macOS type parameter には never raw API を使う。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` を追加する。selection validation を raw API method より前に行い、Linux + `LinuxSelectorTimerFd` の場合だけ existing Linux backend builder を呼ぶ。
+- Windows / macOS の validated selection は `BackendImplementationUnavailable`、mismatch / unsupported / HeadlessScripted は `BackendSupportFailed`、Linux raw construction failure は `LinuxSelectorTimerFdBackendFailed` として返す。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` は `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入して Linux-only helper を呼ぶ。
+
+検証:
+
+- Rust unit tests で Linux helper の success、Windows / macOS selection の unavailable、support failure before raw method calls、Linux raw construction failure を検査する。
+- source policy で Linux-only alias、never Windows raw API、cfg Linux helper、runner / CLI / minifb 未接続、fallback / silent no-op / synthetic evidence 禁止を固定する。
+- `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu` により cfg Linux helper が型検査されることを確認する。
+
+非目標:
+
+- eventfd write / signal producer、native runner / CLI connection、minifb wait path、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- thread sleep、busy loop、fallback、silent no-op、synthetic host event、timer fired evidence の偽装、host-consuming fallible builder は導入しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
