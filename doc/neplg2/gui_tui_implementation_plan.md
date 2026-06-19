@@ -205,6 +205,16 @@ frame interval wait は `FrameIntervalEventQueueWaitUnsupported` を返す。eve
 
 この phase は event queue wait backend boundary までであり、real OS event queue / selector / message pump adapter、real OS timer backend、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## Phase F5gv: Native window host-loop event queue normalized status adapter boundary
+
+F5gv では、F5gu の `NativeWindowHostLoopEventQueueWaiter` に接続できる raw status adapter 境界を追加する。ここで扱う raw status は OS API の値そのものではなく、platform adapter が `nepl-gui-native` の境界用に正規化して返す internal normalized status である。
+
+`NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` は host event が ready になったことだけを表す。`NativeWindowHostLoopEventQueueStatusAdapter` は `wait_for_host_event_raw_status` で normalized raw status を返す。`wait_native_window_host_loop_event_queue_raw_status_with_adapter` は adapter を 1 回呼び、ready status 以外を `InvalidRawStatus` として fail closed にする。adapter 自身の失敗は `AdapterFailed` として元の error value を保持する。
+
+`NativeWindowHostLoopEventQueueStatusWaiter` は status adapter を F5gu の `NativeWindowHostLoopEventQueueWaiter` へ接続する wrapper である。これにより F5gu executor 経由で host event wait を実行できるが、frame interval instruction は F5gu executor が先に reject するため status adapter を呼ばない。
+
+この phase は normalized status adapter boundary までであり、real OS event queue / selector / message pump adapter、minifb wait hook、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

@@ -1739,6 +1739,86 @@ where
     }
 }
 
+pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopEventQueueStatusAdapterError<AdapterError> {
+    InvalidRawStatus { raw_status: u32 },
+    AdapterFailed(AdapterError),
+}
+
+pub trait NativeWindowHostLoopEventQueueStatusAdapter {
+    type Error;
+
+    fn wait_for_host_event_raw_status(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<u32, Self::Error>;
+}
+
+pub fn wait_native_window_host_loop_event_queue_raw_status_with_adapter<Adapter>(
+    adapter: &mut Adapter,
+    window_size: NativeWindowSize,
+    size_changed: bool,
+) -> Result<(), NativeWindowHostLoopEventQueueStatusAdapterError<Adapter::Error>>
+where
+    Adapter: NativeWindowHostLoopEventQueueStatusAdapter,
+{
+    let raw_status = adapter
+        .wait_for_host_event_raw_status(window_size, size_changed)
+        .map_err(NativeWindowHostLoopEventQueueStatusAdapterError::AdapterFailed)?;
+    if raw_status != NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY {
+        return Err(
+            NativeWindowHostLoopEventQueueStatusAdapterError::InvalidRawStatus { raw_status },
+        );
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+pub struct NativeWindowHostLoopEventQueueStatusWaiter<Adapter> {
+    adapter: Adapter,
+}
+
+impl<Adapter> NativeWindowHostLoopEventQueueStatusWaiter<Adapter> {
+    pub fn new(adapter: Adapter) -> Self {
+        Self { adapter }
+    }
+
+    pub fn adapter(&self) -> &Adapter {
+        &self.adapter
+    }
+
+    pub fn adapter_mut(&mut self) -> &mut Adapter {
+        &mut self.adapter
+    }
+
+    pub fn into_inner(self) -> Adapter {
+        self.adapter
+    }
+}
+
+impl<Adapter> NativeWindowHostLoopEventQueueWaiter
+    for NativeWindowHostLoopEventQueueStatusWaiter<Adapter>
+where
+    Adapter: NativeWindowHostLoopEventQueueStatusAdapter,
+{
+    type Error = NativeWindowHostLoopEventQueueStatusAdapterError<Adapter::Error>;
+
+    fn wait_for_host_event(
+        &mut self,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    ) -> Result<(), Self::Error> {
+        wait_native_window_host_loop_event_queue_raw_status_with_adapter(
+            &mut self.adapter,
+            window_size,
+            size_changed,
+        )
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopTurn {
     Continue(NativeWindowHostLoopContinueEvidence),
@@ -6758,6 +6838,111 @@ mod tests {
     }
 
     #[test]
+    fn native_window_event_queue_status_waiter_accepts_ready_status_through_wait_boundary() {
+        let window_size = NativeWindowSize::new(900, 700);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let adapter = ScriptedNativeWindowHostLoopEventQueueStatusAdapter::new(
+            NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY,
+        );
+        let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_event_queue_wait_with_waiter(instruction, &mut waiter)
+                .unwrap(),
+            NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert_eq!(waiter.adapter().status_calls, vec![(window_size, true)]);
+    }
+
+    #[test]
+    fn native_window_event_queue_status_waiter_rejects_invalid_raw_status() {
+        let window_size = NativeWindowSize::new(900, 700);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let adapter = ScriptedNativeWindowHostLoopEventQueueStatusAdapter::new(0);
+        let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_event_queue_wait_with_waiter(instruction, &mut waiter)
+                .unwrap_err(),
+            NativeWindowHostLoopEventQueueWaitError::WaiterFailed(
+                NativeWindowHostLoopEventQueueStatusAdapterError::InvalidRawStatus {
+                    raw_status: 0,
+                }
+            )
+        );
+        assert_eq!(waiter.adapter().status_calls, vec![(window_size, false)]);
+    }
+
+    #[test]
+    fn native_window_event_queue_status_waiter_preserves_adapter_error() {
+        let window_size = NativeWindowSize::new(900, 700);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: false,
+        };
+        let adapter = ScriptedNativeWindowHostLoopEventQueueStatusAdapter::new(
+            NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY,
+        )
+        .with_error("queue adapter failed");
+        let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_event_queue_wait_with_waiter(instruction, &mut waiter)
+                .unwrap_err(),
+            NativeWindowHostLoopEventQueueWaitError::WaiterFailed(
+                NativeWindowHostLoopEventQueueStatusAdapterError::AdapterFailed(
+                    "queue adapter failed"
+                )
+            )
+        );
+        assert_eq!(waiter.adapter().status_calls, vec![(window_size, false)]);
+    }
+
+    #[test]
+    fn native_window_event_queue_status_waiter_is_not_called_for_frame_interval_instruction() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 16,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval,
+            wait_nanos: 16_666_666,
+        };
+        let adapter = ScriptedNativeWindowHostLoopEventQueueStatusAdapter::new(
+            NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY,
+        );
+        let mut waiter = NativeWindowHostLoopEventQueueStatusWaiter::new(adapter);
+
+        assert_eq!(
+            execute_native_window_host_loop_event_queue_wait_with_waiter(instruction, &mut waiter)
+                .unwrap_err(),
+            NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported {
+                presentation,
+                window_size,
+                size_changed: false,
+                frame_interval,
+                wait_nanos: 16_666_666,
+            }
+        );
+        assert!(waiter.adapter().status_calls.is_empty());
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -7965,6 +8150,46 @@ mod tests {
                 Err(error)
             } else {
                 Ok(())
+            }
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopEventQueueStatusAdapter {
+        raw_status: u32,
+        status_calls: Vec<(NativeWindowSize, bool)>,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopEventQueueStatusAdapter {
+        fn new(raw_status: u32) -> Self {
+            Self {
+                raw_status,
+                status_calls: Vec::new(),
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopEventQueueStatusAdapter
+        for ScriptedNativeWindowHostLoopEventQueueStatusAdapter
+    {
+        type Error = &'static str;
+
+        fn wait_for_host_event_raw_status(
+            &mut self,
+            window_size: NativeWindowSize,
+            size_changed: bool,
+        ) -> Result<u32, Self::Error> {
+            self.status_calls.push((window_size, size_changed));
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(self.raw_status)
             }
         }
     }

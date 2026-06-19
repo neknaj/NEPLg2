@@ -71626,3 +71626,50 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では real OS event queue adapter / real OS timer backend connection へ進む。F5gu は event queue wait backend boundary までであり、selector / message pump adapter、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gv host-loop event queue normalized status adapter boundary
+
+### scope
+
+- F5gv は F5gu の `NativeWindowHostLoopEventQueueWaiter` に接続できる normalized status adapter boundary である。
+- raw status は OS API の値そのものではなく、platform adapter が `nepl-gui-native` の境界用に正規化して返す internal normalized status とする。
+- `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` だけを accepted ready status とし、`0` や未知 status は `InvalidRawStatus` として fail closed にする。
+- adapter failure は `AdapterFailed` として元の error value を保持し、invalid raw status と混ぜない。
+- actual OS selector / message pump adapter、minifb wait hook、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5gv は F5gu で残した raw adapter status validation を切り出す実質的な検証境界であり、pure rename ではないと確認された。
+- actual OS API 接続は queue ownership、selector、wakeup、platform error mapping が混ざるため later slice に残す方針が承認された。
+- raw status constant は OS API の値ではなく internal normalized status として document すること、`AdapterFailed` と `InvalidRawStatus` を混ぜないこと、frame interval instruction で adapter を呼ばない test を維持することが条件として確認された。
+
+### implementation
+
+- `NativeWindowHostLoopEventQueueStatusAdapterError`、`NativeWindowHostLoopEventQueueStatusAdapter`、`NativeWindowHostLoopEventQueueStatusWaiter` を追加した。
+- `wait_native_window_host_loop_event_queue_raw_status_with_adapter` を追加し、adapter を 1 回呼んで normalized ready status だけを受け付けるようにした。
+- F5gu executor 経由で status waiter を使う tests により、ready success、invalid raw status、adapter failure、frame interval no-call を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gv contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue_status -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- `Result` と enum error による明示的境界、`InvalidRawStatus` と `AdapterFailed` の分離、non-ready status の fail closed、fallback / silent no-op 不在が Zenn / doc 方針に合っていると確認された。
+- `NativeWindowHostLoopEventQueueStatusWaiter` は F5gu の `NativeWindowHostLoopEventQueueWaiter` 境界へ normalized-status adapter を接続しており、minifb や actual OS API へ広げていないと確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_event_queue_status -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では actual OS selector / message pump adapter / real OS timer backend connection へ進む。F5gv は normalized status adapter boundary までであり、platform-specific queue ownership、selector wakeup、OS error mapping、actual timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
