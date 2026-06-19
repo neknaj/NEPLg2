@@ -99,6 +99,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowEventQueueWaitBackend = textSliceBetween(
         libSource,
         "pub enum NativeWindowHostLoopEventQueueWaitError",
+        "pub enum NativeWindowHostLoopWaitOwnerError",
+    );
+    const nativeWindowHostLoopWaitOwner = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopWaitOwnerError",
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
     );
     const nativeWindowEventQueueStatusAdapter = textSliceBetween(
@@ -159,6 +164,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
+        .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
@@ -169,6 +175,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
+        .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
@@ -179,6 +186,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowTimerWakeupBackend, "")
         .replace(nativeWindowDeadlineTimerAdapter, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
+        .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
@@ -235,6 +243,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitError<WaiterError>\s*\{[\s\S]*FrameIntervalEventQueueWaitUnsupported\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*frame_interval: NativeWindowFrameIntervalRequest,[\s\S]*wait_nanos: u32,[\s\S]*WaiterFailed\(WaiterError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueWaitOutcome\s*\{[\s\S]*HostEventReady\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool/);
     assert.match(libSource, /pub trait NativeWindowHostLoopEventQueueWaiter\s*\{[\s\S]*type Error;[\s\S]*wait_for_host_event\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<\(\), Self::Error>/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopWaitOwnerError<EventQueueError,\s*TimerClockError,\s*TimerSleeperError>\s*\{[\s\S]*EventQueueWaitFailed\(NativeWindowHostLoopEventQueueWaitError<EventQueueError>\),[\s\S]*FrameIntervalTimerWakeFailed\([\s\S]*NativeWindowHostLoopDeadlineTimerWakeError<TimerClockError,\s*TimerSleeperError>/);
+    assert.match(libSource, /pub struct NativeWindowHostLoopWaitOwner<EventQueueWaiter,\s*TimerClock,\s*TimerSleeper>\s*\{[\s\S]*event_queue_waiter: EventQueueWaiter,[\s\S]*frame_interval_timer: NativeWindowHostLoopDeadlineTimerAdapter<TimerClock,\s*TimerSleeper>/);
     assert.match(libSource, /pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY: u32 = 1/);
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueStatusAdapterError<AdapterError>\s*\{[\s\S]*InvalidRawStatus\s*\{\s*raw_status: u32\s*\},[\s\S]*AdapterFailed\(AdapterError\)/);
     assert.match(libSource, /pub trait NativeWindowHostLoopEventQueueStatusAdapter\s*\{[\s\S]*type Error;[\s\S]*wait_for_host_event_raw_status\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<u32, Self::Error>/);
@@ -336,6 +346,18 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowEventQueueWaitBackend, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady/);
     assert.match(nativeWindowEventQueueWaitBackend, /WaitForFrameInterval\s*\{[\s\S]*NativeWindowHostLoopEventQueueWaitError::FrameIntervalEventQueueWaitUnsupported/);
     assert.doesNotMatch(nativeWindowEventQueueWaitBackend, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowHostLoopWaitOwner, /EventQueueWaitFailed\(NativeWindowHostLoopEventQueueWaitError<EventQueueError>\)/);
+    assert.match(nativeWindowHostLoopWaitOwner, /FrameIntervalTimerWakeFailed\([\s\S]*NativeWindowHostLoopDeadlineTimerWakeError<TimerClockError,\s*TimerSleeperError>/);
+    assert.match(nativeWindowHostLoopWaitOwner, /event_queue_waiter: EventQueueWaiter/);
+    assert.match(nativeWindowHostLoopWaitOwner, /frame_interval_timer: NativeWindowHostLoopDeadlineTimerAdapter<TimerClock,\s*TimerSleeper>/);
+    assert.match(nativeWindowHostLoopWaitOwner, /WaitForHostEvent\s*\{[\s\S]*execute_native_window_host_loop_event_queue_wait_with_waiter\([\s\S]*owner\.event_queue_waiter_mut\(\)[\s\S]*NativeWindowHostLoopWaitOwnerError::EventQueueWaitFailed/);
+    assert.match(nativeWindowHostLoopWaitOwner, /NativeWindowHostLoopEventQueueWaitOutcome::HostEventReady[\s\S]*NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced/);
+    assert.match(nativeWindowHostLoopWaitOwner, /WaitForFrameInterval\s*\{[\s\S]*execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter\([\s\S]*owner\.frame_interval_timer_mut\(\)[\s\S]*NativeWindowHostLoopWaitOwnerError::FrameIntervalTimerWakeFailed/);
+    assert.doesNotMatch(nativeWindowHostLoopWaitOwner, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(libSource, /native_window_wait_owner_dispatches_host_event_to_event_queue_only/);
+    assert.match(libSource, /native_window_wait_owner_dispatches_frame_interval_to_timer_only/);
+    assert.match(libSource, /native_window_wait_owner_preserves_event_queue_error_stage/);
+    assert.match(libSource, /native_window_wait_owner_preserves_frame_interval_timer_error_stage/);
     assert.match(nativeWindowEventQueueStatusAdapter, /wait_for_host_event_raw_status\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopEventQueueStatusAdapterError::AdapterFailed/);
     assert.match(nativeWindowEventQueueStatusAdapter, /raw_status != NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY[\s\S]*NativeWindowHostLoopEventQueueStatusAdapterError::InvalidRawStatus/);
     assert.match(nativeWindowEventQueueStatusAdapter, /impl<Adapter> NativeWindowHostLoopEventQueueWaiter[\s\S]*NativeWindowHostLoopEventQueueStatusWaiter<Adapter>/);
@@ -1011,6 +1033,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop timer fire backend validates fired timer ids before wakeup evidence",
             "Native host-loop timer wakeup executor preserves registration and fire failure stages",
             "Native host-loop std deadline timer adapter owns timer state without minifb pacing changes",
+            "Native host-loop wait owner dispatches event queue and frame timer paths without minifb pacing changes",
             "Native host-loop scheduler resume gate requires timer fire before resuming registered timers",
             "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native presenter input preserves typed operation identity before scheduler ready payload",

@@ -295,6 +295,12 @@ F5hc では、F5gz/F5hb で得た `FrameIntervalTimerFired` evidence を `Native
 
 `execute_native_window_host_loop_timer_wakeup_wait_with_backend` と `execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter` は、registration error と fire error の段階を保ったまま、成功時だけ fired timer evidence を wait outcome へ写す。これは selector / message loop timer ownership を実装する前の typed boundary であり、minifb wait hook、`Window::set_target_fps`、OS 固有 timer API へは接続しない。
 
+F5hd では、host-loop wait instruction を host event queue wait backend と frame interval deadline timer backend のどちらへ渡すかを所有する `NativeWindowHostLoopWaitOwner` を追加する。owner は event queue waiter と deadline timer adapter を保持するが、backend 同士を直接依存させない。
+
+`execute_native_window_host_loop_wait_with_owner` は `WaitForHostEvent` を event queue waiter だけへ渡し、成功を `HostEventPumpAlreadyPaced` として返す。`WaitForFrameInterval` は deadline timer wakeup wait helper だけへ渡し、成功を `FrameIntervalTimerFired` として返す。error は `EventQueueWaitFailed` と `FrameIntervalTimerWakeFailed` に分け、lower error 全体を保持する。
+
+F5hd は wait owner composition boundary までであり、selector ownership、OS message loop timer、minifb wait hook の pacing 置換、`Window::set_target_fps` 置換は扱わない。host event path が timer clock / sleeper を呼ぶこと、frame interval path が event queue waiter を呼ぶこと、fallback / silent no-op / busy loop は禁止する。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -321,6 +327,7 @@ F5hc では、F5gz/F5hb で得た `FrameIntervalTimerFired` evidence を `Native
 - `NativeWindowHostLoopEventQueueWaiter` と `execute_native_window_host_loop_event_queue_wait_with_waiter` により、formal native event queue wait backend は host event instruction を queue wait 境界へ渡せる。frame interval wait は timer / sleep backend の責務として fail closed にする。
 - `NativeWindowHostLoopEventQueueStatusAdapter` と `NativeWindowHostLoopEventQueueStatusWaiter` により、platform adapter が返す normalized raw status を検証して F5gu waiter 境界へ接続できる。
 - `NativeWindowHostLoopMessagePumpAdapter` と `NativeWindowHostLoopMessagePumpStatusAdapter` により、platform message pump の実行成功を F5gv の normalized ready status へ写せる。
+- `NativeWindowHostLoopWaitOwner` と `execute_native_window_host_loop_wait_with_owner` により、host event wait と frame interval timer wait を同じ owner で分岐できる。ただし minifb wait hook へはまだ接続していない。
 - `NativeWindowHostLoopSchedulerState` と `run_native_window_host_loop_scheduler_slice_with_policy` により、bounded run と wait dispatch の 1 cycle を external scheduler が呼べる typed slice として公開する。
 - minifb smoke backend の host event wait hook は `MinifbNativeWindowHostLoopMessagePumpAdapter` の `window.update` だけを message pump adapter として呼び、frame interval wait は additional sleep や timer registration を行わず `Window::set_target_fps` による既存 pacing を `FramePresentAlreadyPaced` として記録する。F5gx helper は minifb wait hook へ接続していない。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
