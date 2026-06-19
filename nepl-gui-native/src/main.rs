@@ -1,15 +1,14 @@
 use std::env;
 use std::process::ExitCode;
 
-use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
-use nepl_gui_native::{
-    native_window_host_loop_default_platform_wait_backend_selection,
-    run_windows_platform_wait_window_loop,
-};
+use nepl_gui_native::run_windows_platform_wait_window_loop;
+use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 use nepl_gui_native::{
-    run_minifb_window_loop, NativeWindowHostLoopRunPolicy, NativeWindowRunLoopConfig,
+    native_window_host_loop_default_platform_wait_backend_selection, run_minifb_window_loop,
+    validate_native_window_run_loop_platform_wait_runner_support, NativeWindowHostLoopRunPolicy,
+    NativeWindowRunLoopConfig,
 };
 use nepl_gui_native::{
     NativeWindowTargetFps, NativeWindowTargetFpsError, NativeWindowTargetFpsInvalidReason,
@@ -220,16 +219,8 @@ fn run_minifb_wait_window(options: NativeGuiOptions) -> Result<(), String> {
 
 #[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
 fn run_platform_wait_window(options: NativeGuiOptions) -> Result<(), String> {
-    let selection = native_window_host_loop_default_platform_wait_backend_selection()
-        .map_err(|error| format!("native platform wait backend selection failed: {error:?}"))?;
-    let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
-        options.demo,
-        options.counter_value,
-        options.scale,
-        options.target_fps,
-        NativeWindowHostLoopRunPolicy::default(),
-        selection,
-    );
+    let config = platform_wait_window_run_loop_config(options)?;
+    let config = validate_platform_wait_window_runner_support(config)?;
     run_windows_platform_wait_window_loop(config)
         .map(|_| ())
         .map_err(|error| format!("native platform wait window run loop failed: {error:?}"))
@@ -240,8 +231,37 @@ fn run_platform_wait_window(options: NativeGuiOptions) -> Result<(), String> {
     not(target_os = "windows"),
     not(target_arch = "wasm32")
 ))]
-fn run_platform_wait_window(_options: NativeGuiOptions) -> Result<(), String> {
-    Err("--wait-backend platform currently requires Windows native window support".to_string())
+fn run_platform_wait_window(options: NativeGuiOptions) -> Result<(), String> {
+    let config = platform_wait_window_run_loop_config(options)?;
+    let _config = validate_platform_wait_window_runner_support(config)?;
+    Err("native platform wait runner dispatch is unavailable for this target after support validation".to_string())
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn platform_wait_window_run_loop_config(
+    options: NativeGuiOptions,
+) -> Result<NativeWindowRunLoopConfig, String> {
+    let selection = native_window_host_loop_default_platform_wait_backend_selection()
+        .map_err(|error| format!("native platform wait backend selection failed: {error:?}"))?;
+    Ok(
+        NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            options.demo,
+            options.counter_value,
+            options.scale,
+            options.target_fps,
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        ),
+    )
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn validate_platform_wait_window_runner_support(
+    config: NativeWindowRunLoopConfig,
+) -> Result<NativeWindowRunLoopConfig, String> {
+    validate_native_window_run_loop_platform_wait_runner_support(config)
+        .map(|_| config)
+        .map_err(|error| format!("native platform wait runner unsupported: {error:?}"))
 }
 
 #[cfg(any(not(feature = "window"), target_arch = "wasm32"))]
@@ -304,5 +324,20 @@ mod tests {
     fn headless_allows_unspecified_wait_backend() {
         let options = parse_options(&["--headless"]).unwrap();
         validate_headless_options(&options).unwrap();
+    }
+
+    #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+    #[test]
+    fn platform_wait_config_builder_uses_platform_wait_backend() {
+        let options = parse_options(&["counter", "--wait-backend", "platform"]).unwrap();
+        let config = platform_wait_window_run_loop_config(options).unwrap();
+
+        assert_eq!(config.demo, GuiDemo::Counter);
+        assert_eq!(config.counter_value, 0);
+        assert_eq!(config.scale, 4);
+        assert!(matches!(
+            config.wait_backend,
+            nepl_gui_native::NativeWindowRunLoopWaitBackend::PlatformWait(_)
+        ));
     }
 }

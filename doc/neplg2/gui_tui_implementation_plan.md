@@ -1342,6 +1342,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner の置換、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - support validation を CLI 側へ移さない。CLI は selection / config construction だけを担当する。
 
+### Phase F5ij: Native platform wait CLI support gate boundary
+
+目的:
+
+- `nepl-gui-native --wait-backend platform` の CLI selection を、Windows 専用の固定文字列 rejection ではなく、library の typed runner support gate へ通す。
+- CLI は platform wait config construction と runner selection だけを担当し、actual runner readiness は `validate_native_window_run_loop_platform_wait_runner_support` に委譲する。
+- non-Windows target でも minifb へ fallback せず、default selection failure または runner support failure を CLI error として返す。
+
+実装:
+
+- window / non-wasm 共通の `platform_wait_window_run_loop_config` を追加し、`native_window_host_loop_default_platform_wait_backend_selection` と `NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection` だけで config を作る。
+- window / non-wasm 共通の `validate_platform_wait_window_runner_support` を追加し、runner dispatch より前に `validate_native_window_run_loop_platform_wait_runner_support config` を呼ぶ。
+- Windows branch は support gate helper 成功後に `run_windows_platform_wait_window_loop` を呼ぶ。library runner 側の support gate は authoritative boundary として残す。
+- non-Windows branch は同じ helper を通し、support validation が現在の未接続 platform で失敗すれば typed reason を CLI error にする。将来 support validation が成功したのに runner dispatch が未実装なら explicit dispatch-unavailable error を返す。
+
+検証:
+
+- source policy で shared config builder、support-gate helper、Windows runner call before-dispatch validation、non-Windows branch の shared validation、Linux capability injection 禁止を固定する。
+- Rust bin tests で platform wait config builder が `PlatformWait` backend を作ることを検査する。
+- `cargo test -p nepl-gui-native --features window --bin nepl-gui-native`、native library tests、source policy、Linux target check で regression を検査する。
+
+非目標:
+
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- CLI で `ExternallyWakeableEventSource` や `ObservedInputOnly` を注入しない。Linux runner readiness を CLI 側で偽装しない。
+- support validation を CLI だけへ移さない。library runner entry の validation は残す。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

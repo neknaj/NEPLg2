@@ -895,6 +895,14 @@ runner support failure は `NativeWindowRunLoopError::PlatformWaitRunnerUnsuppor
 
 F5ii は Windows runner の validation order を固定する checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
 
+## F5ij Native platform wait CLI support gate boundary
+
+F5ij では、native CLI の `--wait-backend platform` を library の typed runner support gate へ接続する。CLI は default platform wait selection と `NativeWindowRunLoopConfig` construction だけを行い、runner dispatch の前に `validate_native_window_run_loop_platform_wait_runner_support config` を呼ぶ。
+
+Windows では、この validation 成功後に `run_windows_platform_wait_window_loop` を呼ぶ。runner entry 側の F5ii validation は残し、CLI validation は user-facing rejection を早めるための boundary とする。non-Windows では同じ validation を通し、default selection failure または support failure を CLI error として返す。support validation が将来成功した target で runner dispatch がまだ無い場合は、minifb fallback ではなく explicit dispatch-unavailable error を返す。
+
+F5ij は CLI support-gate integration だけであり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。CLI は `ExternallyWakeableEventSource` や `ObservedInputOnly` を注入せず、Linux runner readiness を偽装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
