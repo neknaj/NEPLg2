@@ -427,6 +427,18 @@ F5gq は wait request plan boundary までであり、actual OS wait strategy、
 
 F5gr は wait strategy instruction boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、`std::time::Duration`、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、extra minifb update、DOM / Canvas / video memory transport も導入しない。
 
+## F5gs Native window host-loop thread wait backend boundary
+
+2026-06-19 の F5gs では、F5gr の `NativeWindowHostLoopWaitInstruction` を native thread sleep backend へ渡す境界を追加する。これは minifb smoke backend の wait hook ではなく、formal native wait backend の最初の実行境界である。
+
+`NativeWindowHostLoopThreadSleeper` は `sleep_for_nanos` だけを持つ injected sleeper interface である。test は scripted sleeper を使い、actual std backend は `StdNativeWindowHostLoopThreadSleeper` として `std::thread::sleep(std::time::Duration::from_nanos(u64::from(wait_nanos)))` を実行する。`Duration` と sleep はこの backend helper にだけ閉じ込め、scheduler slice、instruction planner、minifb wait hook へ漏らさない。
+
+`execute_native_window_host_loop_thread_wait_with_sleeper` は `WaitForFrameInterval` の場合だけ sleeper を 1 回呼ぶ。実行前に `wait_nanos == nanos_per_frame` または `wait_nanos == nanos_per_frame + 1` を再検査し、不一致なら `FrameIntervalWaitNanosMismatch` を返して sleeper を呼ばない。これは public instruction が手書きで作られても F5gr の invariant を backend boundary で再確認するためである。
+
+`WaitForHostEvent` は `HostEventWaitUnsupported` として fail closed にする。host event blocking は OS event queue / selector / message pump backend が必要であり、thread sleep、busy loop、silent no-op で代替しない。
+
+F5gs は native thread sleep backend boundary までであり、host event queue、timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。minifb smoke backend は引き続き `Window::set_target_fps` による already-paced outcome を返し、F5gs の thread sleep backend を呼ばない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

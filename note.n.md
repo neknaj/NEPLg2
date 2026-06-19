@@ -71488,3 +71488,49 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gr は instruction plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
+
+## 2026-06-19 GUI native F5gs host-loop thread wait backend boundary
+
+### scope
+
+- F5gs は F5gr の wait instruction を native thread sleep backend へ渡す execution boundary である。
+- minifb smoke backend は `Window::set_target_fps` によって `update` / `update_with_buffer` 内部で pace されるため、F5gs thread wait backend を minifb wait hook へ接続しない。
+- `NativeWindowHostLoopThreadSleeper` は injected sleeper interface であり、test は scripted sleeper、actual std helper は `StdNativeWindowHostLoopThreadSleeper` を使う。
+- `Duration` と `std::thread::sleep` は F5gs backend helper にだけ閉じ、scheduler slice、instruction planner、minifb wait hook へ漏らさない。
+- frame interval instruction は `wait_nanos == nanos_per_frame` または `wait_nanos == nanos_per_frame + 1` を再検査し、不一致なら sleeper を呼ばず fail closed にする。
+- host event wait は OS event queue backend が未実装のため `HostEventWaitUnsupported` を返す。busy loop、thread sleep、silent no-op へ変換しない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `IMPLEMENTATION_APPROVED`。
+- 指摘は、`std::thread::sleep` / `Duration` を新しい native thread wait backend helper に閉じ込め、scheduler、instruction planner、minifb wait hook では引き続き禁止することだった。
+- `HostEventWaitUnsupported` による fail-closed と、minifb の already-paced outcome を維持して double pacing を避ける方針が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopThreadWaitError`、`NativeWindowHostLoopThreadWaitOutcome`、`NativeWindowHostLoopThreadSleeper` を追加した。
+- `execute_native_window_host_loop_thread_wait_with_sleeper` を追加し、frame interval instruction だけ sleeper を 1 回呼ぶようにした。
+- `StdNativeWindowHostLoopThreadSleeper` と `execute_native_window_host_loop_thread_wait` を `cfg(not(target_arch = "wasm32"))` で追加した。
+- scripted sleeper tests により、frame interval success、host event unsupported、invalid wait nanos、sleeper failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gs contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass_with_existing_warnings: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gs の native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はない。
+- thread sleep は `cfg(not(target_arch = "wasm32"))` の std sleeper helper に隔離され、host event wait は sleeper を呼ばず fail closed、invalid `wait_nanos` は sleep 前に拒否、sleeper error は保持、minifb は already-paced wait hook のままで double pacing を避けていると確認された。
+
+### residual
+
+- 次 slice では host event queue / timer registration backend へ進む。F5gs は frame interval thread sleep backend までであり、host event queue、timer registration、FHD 60fps measurement harness は未実装である。
