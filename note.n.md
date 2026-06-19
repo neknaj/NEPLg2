@@ -1,3 +1,47 @@
+# 2026-06-20 Agent2 GUI native F5hr Windows platform wait window runner support gate
+
+## scope
+
+- F5hq の後続として、cfg-windows の `PlatformWait` config を actual native window run-loop runner の wait hook へ接続する。
+- 既存 `run_minifb_window_loop` は置き換えず、Windows platform wait 専用の別入口を追加する。
+- minifb `Window` は visual / event / present host としてだけ使い、wait/pacing owner は platform wait backend に限定する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は初回 `REQUIRED_CHANGES`。既存 `MinifbNativeWindowRunLoopHost` をそのまま使うと minifb pacing authority と `FramePresentAlreadyPaced` を返せる wait hook が残り、F5hr の wait/pacing owner contract が曖昧になると指摘された。
+- 指摘に従い、minifb visual / event / present 専用 host を分け、visual host の wait hook を typed unsupported にする計画へ修正した。CLI flag 接続は今回 scope 外とする。
+
+## implementation_current
+
+- `MinifbNativeWindowVisualRunLoopHost` を追加し、`poll_event_snapshot`、title update、pump、present だけを担う visual host として分離した。
+- visual host の `wait_after_budget_exhausted` は `VisualHostWaitUnsupported` を返す fail-closed hook にした。
+- `run_windows_platform_wait_window_loop` を追加し、最初に `native_window_run_loop_platform_wait_backend_from_config` で backend を構築するようにした。
+- backend construction 成功後だけ minifb `Window` と visual host を作り、`native_window_host_loop_platform_wait_run_loop_host_from_backend` で single-owner wait hook へ包む。
+- `NativeWindowRunLoopError` に platform wait backend construction failure と Windows platform wait host-loop failure の typed variant を追加した。
+- source policy は Windows runner が `Window::set_target_fps`、`configure_minifb_window_frame_pacing`、sleep、headless fallback、synthetic timer fire を使わないこと、visual host が minifb pacing authority を持たないことを検査する。
+- source policy の巨大 regex は enum slice 単位へ分解し、CI timeout を避ける形へ直した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_run_loop_host -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューは初回 `CHANGES_REQUESTED`。code / docs / source policy に content blocker は無いが、この `implementation_review` 欄が pending のままだったため commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、前回 blocker の `MinifbNativeWindowRunLoopHost` reuse が `MinifbNativeWindowVisualRunLoopHost` 分離で解消されていること、Windows runner が backend construction を window / host construction より前に行うこと、`set_target_fps` / `configure_minifb_window_frame_pacing` / sleep / headless fallback / synthetic timer path を使わないこと、platform wait failure が typed error variant として保持されていることが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- CLI flag による Windows platform wait runner selection は未実装である。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hq Windows platform wait run-loop config gate boundary
 
 ## scope

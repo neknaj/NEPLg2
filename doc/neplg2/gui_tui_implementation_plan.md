@@ -525,6 +525,25 @@ subagent review:
 - Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。`NativeWindowRunLoopConfig` に新旧二つの wait authority field を置くと、minifb validation が片方だけを見る退行を作れるため、new enum を config の単一 source of truth にするよう指摘された。
 - revised plan では、`wait_backend` を唯一の config field とし、旧 frame interval enum を compatibility input に限定する方針で `PLAN_APPROVED` を得た。required constraints は、minifb runner が `config.wait_backend` を side effect より前に検査すること、`PlatformWait` が minifb へ fallback しないこと、config-to-platform backend construction が host を消費しないこと、source policy で旧 config field 再導入と validation order を固定することである。
 
+## Phase F5hr: Native Windows platform wait window runner support gate
+
+F5hr では、F5hq で config に入った Windows platform wait backend を、actual native window run-loop runner の wait hook へ接続する。ただし、既存 `run_minifb_window_loop` を platform wait runner に置き換えず、Windows 専用の別入口 `run_windows_platform_wait_window_loop` として追加する。default smoke runner は引き続き minifb internal `Window::set_target_fps` pacing を使い、`PlatformWait` を受け取った場合は typed conflict として拒否する。
+
+`run_windows_platform_wait_window_loop` は最初に `native_window_run_loop_platform_wait_backend_from_config config` を呼ぶ。non-platform config、selection mismatch、Windows waitable timer construction failure は typed `PlatformWaitBackendFromConfigFailed` として返し、この時点では `NativeWindowBackendLoop::new_for_scale`、minifb `Window::new`、visual host construction を行わない。これにより fallible backend construction が host owner を消費しない。
+
+Windows runner は backend construction 成功後にだけ `NativeWindowBackendLoop` と minifb `Window` を作る。minifb `Window` は visual / event / present host としてだけ使い、`Window::set_target_fps`、`set_target_fps 0`、`configure_minifb_window_frame_pacing` は呼ばない。wait/pacing owner は `NativeWindowHostLoopPlatformWaitBackend` を包んだ single-owner interruptible deadline wait hook だけである。
+
+F5hr では `MinifbNativeWindowVisualRunLoopHost` を追加し、既存 `MinifbNativeWindowRunLoopHost` から分離する。visual host は `poll_event_snapshot`、title update、pump、present だけを担当し、`wait_after_budget_exhausted` は `VisualHostWaitUnsupported` を返す fail-closed hook にする。platform wait wrapper は inner visual host の wait hook を呼ばず、`NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter` へ wait を渡す。
+
+`NativeWindowRunLoopError` は platform backend construction failure と Windows platform wait host-loop failure を typed variant として保持し、platform wait backend error を string 化しない。minifb `update_with_buffer` error は既存の present error boundary として `String` のままだが、Windows wait backend の OS status、deadline conversion、clock / waiter failure は enum evidence のまま保持する。
+
+この phase では CLI flag 接続、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization、headless scripted fallback は追加しない。
+
+subagent review:
+
+- Darwin the 2nd の plan review は初回 `REQUIRED_CHANGES`。既存 `MinifbNativeWindowRunLoopHost` を platform wait runner に再利用すると、値の中に minifb pacing authority と `FramePresentAlreadyPaced` を返せる wait hook が残り、wait/pacing owner が曖昧になると指摘された。
+- revised plan では、minifb visual / event / present 専用 host を分け、visual host の wait hook を typed unsupported にする方針で実装開始可となった。CLI 接続は scope 外でよく、library runner、source policy、unit test までを F5hr の範囲にする。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

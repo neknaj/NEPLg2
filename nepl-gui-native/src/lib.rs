@@ -1240,6 +1240,15 @@ pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
     Build(NativeWindowHostLoopPlatformWaitHostBuildError),
 }
 
+#[cfg(target_os = "windows")]
+pub type NativeWindowWindowsPlatformWaitHostLoopError = NativeWindowHostLoopError<
+    NativeWindowEventPumpError,
+    String,
+    NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<
+        NativeWindowHostLoopPlatformWaitBackendError<NativeWindowHostLoopWindowsWaitBackendError>,
+    >,
+>;
+
 pub const NATIVE_WINDOW_HOST_LOOP_MIN_TURN_SLICE: u16 = 1;
 pub const NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE: u16 = 4096;
 pub const NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE: u16 = 1;
@@ -1442,6 +1451,9 @@ pub enum NativeWindowRunLoopError {
     HostWaitFailed {
         message: String,
     },
+    PlatformWaitBackendFromConfigFailed(NativeWindowRunLoopPlatformWaitBackendFromConfigError),
+    #[cfg(target_os = "windows")]
+    WindowsPlatformWaitHostLoopFailed(NativeWindowWindowsPlatformWaitHostLoopError),
     FrameIntervalWaitBackendUnsupported(NativeWindowRunLoopFrameIntervalWaitBackendError),
     TimerFireResumeRequired {
         timer_registration_id: u32,
@@ -6022,6 +6034,14 @@ enum MinifbNativeWindowHostLoopWaitError {
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum MinifbNativeWindowVisualHostWaitError {
+    VisualHostWaitUnsupported {
+        instruction: NativeWindowHostLoopWaitInstruction,
+    },
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn wait_minifb_window_host_event_message_pump(
     window: &mut minifb::Window,
     window_size: NativeWindowSize,
@@ -6046,6 +6066,46 @@ fn wait_minifb_window_host_event_message_pump(
             window_size,
             size_changed,
         }),
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+struct MinifbNativeWindowVisualRunLoopHost<'window> {
+    window: &'window mut minifb::Window,
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+impl NativeWindowRunLoopHost for MinifbNativeWindowVisualRunLoopHost<'_> {
+    type EventError = NativeWindowEventPumpError;
+    type PresentError = String;
+    type WaitError = MinifbNativeWindowVisualHostWaitError;
+
+    fn poll_event_snapshot(
+        &mut self,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::EventError> {
+        poll_minifb_window_event_pump(self.window, input)
+    }
+
+    fn set_window_title(&mut self, title: &str) {
+        self.window.set_title(title);
+    }
+
+    fn pump_events_only(&mut self) {
+        self.window.update();
+    }
+
+    fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError> {
+        self.window
+            .update_with_buffer(frame.pixels(), frame.width(), frame.height())
+            .map_err(|error| error.to_string())
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        instruction: NativeWindowHostLoopWaitInstruction,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        Err(MinifbNativeWindowVisualHostWaitError::VisualHostWaitUnsupported { instruction })
     }
 }
 
@@ -6182,6 +6242,49 @@ pub fn run_minifb_window_loop(
         config.target_fps,
     )
     .map_err(native_window_run_loop_error_from_host_loop)
+}
+
+#[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
+pub fn run_windows_platform_wait_window_loop(
+    config: NativeWindowRunLoopConfig,
+) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
+    use minifb::{ScaleMode, Window, WindowOptions};
+
+    let platform_wait_backend = native_window_run_loop_platform_wait_backend_from_config(config)
+        .map_err(NativeWindowRunLoopError::PlatformWaitBackendFromConfigFailed)?;
+    let mut backend_loop =
+        NativeWindowBackendLoop::new_for_scale(config.demo, config.counter_value, config.scale)
+            .map_err(NativeWindowRunLoopError::BackendLoopInitializationFailed)?;
+    let initial_size = backend_loop.initial_size();
+    let mut window = Window::new(
+        "NEPLg2 GUI native preview",
+        initial_size.width,
+        initial_size.height,
+        WindowOptions {
+            resize: true,
+            scale_mode: ScaleMode::UpperLeft,
+            ..WindowOptions::default()
+        },
+    )
+    .map_err(|error| NativeWindowRunLoopError::WindowCreationFailed {
+        message: error.to_string(),
+    })?;
+    window.set_background_color(9, 13, 18);
+
+    let visual_host = MinifbNativeWindowVisualRunLoopHost {
+        window: &mut window,
+    };
+    let mut host = native_window_host_loop_platform_wait_run_loop_host_from_backend(
+        visual_host,
+        platform_wait_backend,
+    );
+    run_native_window_host_loop_with_policy_and_target_fps(
+        &mut backend_loop,
+        &mut host,
+        config.host_loop_policy,
+        config.target_fps,
+    )
+    .map_err(NativeWindowRunLoopError::WindowsPlatformWaitHostLoopFailed)
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
@@ -12745,6 +12848,7 @@ mod tests {
                 size_changed: false,
             }
         );
+        assert!(host.host().wait_instructions.is_empty());
         match host.wait_adapter().backend() {
             NativeWindowHostLoopPlatformWaitBackend::WindowsWaitableTimerMessageWait(backend) => {
                 assert_eq!(backend.api().timer_wait_calls, vec![86]);

@@ -713,6 +713,18 @@ cfg-windows の `native_window_host_loop_platform_wait_backend_from_selection` �
 
 MacOS / Linux の actual backend はまだ未実装であり、typed unavailable / support failure として扱う。F5hq は minifb runner replacement、`Window::set_target_fps 0`、macOS run loop timer、Linux selector / timerfd、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization を追加しない。
 
+## F5hr Native Windows platform wait window runner support gate
+
+2026-06-20 の F5hr では、cfg-windows の `PlatformWait` config を actual native window run-loop runner の wait hook へ接続する。入口は `run_windows_platform_wait_window_loop` であり、既存 `run_minifb_window_loop` は置き換えない。minifb smoke runner は引き続き minifb internal target-fps pacing を所有し、`PlatformWait` config は side effect 前に拒否する。
+
+Windows platform wait runner は、最初に `native_window_run_loop_platform_wait_backend_from_config` を実行する。non-platform config や backend construction failure は `NativeWindowRunLoopError::PlatformWaitBackendFromConfigFailed` として返し、backend construction が成功するまで `NativeWindowBackendLoop`、minifb `Window`、host adapter を作らない。
+
+backend construction 成功後、runner は minifb `Window` を visual / event / present host としてだけ使う。`MinifbNativeWindowVisualRunLoopHost` は `poll_event_snapshot`、title update、pump、present を実装し、wait hook は `VisualHostWaitUnsupported` として fail closed にする。actual wait は `native_window_host_loop_platform_wait_run_loop_host_from_backend` が作る single-owner interruptible deadline wait hook にだけ委譲される。
+
+この runner は `Window::set_target_fps`、`configure_minifb_window_frame_pacing`、`set_target_fps 0`、thread sleep、busy loop、headless scripted fallback、synthetic timer fire を使わない。Windows wait backend の clock / waiter failure は `NativeWindowRunLoopError::WindowsPlatformWaitHostLoopFailed` の中に typed host-loop error として保持し、string に潰さない。
+
+CLI flag での選択、macOS / Linux actual backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
