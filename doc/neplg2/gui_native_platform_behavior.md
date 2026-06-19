@@ -285,6 +285,12 @@ F5ha では、scheduler long runner が `NativeWindowHostLoopSchedulerSliceResul
 
 F5ha は resume gate までであり、real OS timer adapter、selector ownership、minifb timer path、thread sleep、busy loop、message pump、event queue substitution は実装しない。
 
+F5hb では、native host-loop 用の std deadline timer adapter を追加する。`NativeWindowHostLoopDeadlineTimerAdapter` は injected clock / sleeper と active timer state を所有し、F5gt の timer registration と F5gy の timer fire wait を同じ adapter state で実行できる。
+
+adapter は active timer overlap、missing active timer、timer id overflow、deadline overflow、clock failure、sleeper failure、mismatched fire id を enum error として保持する。registration 成功時だけ active timer を作り、fire wait 成功時だけ active timer を消費する。sleeper failure では active timer を消費しない。
+
+F5hb は std deadline timer adapter boundary までであり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、minifb wait hook 接続、`Window::set_target_fps` 置換は扱わない。minifb smoke backend は既存 pacing authority を維持し、frame interval wait では引き続き `FramePresentAlreadyPaced` を返す。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -306,6 +312,7 @@ F5ha は resume gate までであり、real OS timer adapter、selector ownershi
 - `NativeWindowHostLoopTimerFireWaiter` と `execute_native_window_host_loop_timer_fire_wait_with_waiter` により、registered timer id と backend-observed fired timer id を照合し、完全一致だけを `FrameIntervalTimerFired` evidence へ進められる。
 - `NativeWindowHostLoopTimerWakeError` と `execute_native_window_host_loop_timer_wakeup_with_backend` により、timer registration と fire wait を順に実行し、どちらの段階で失敗したかを enum で保持できる。
 - `NativeWindowHostLoopSchedulerResumeState` と `NativeWindowHostLoopError::TimerFireResumeRequired` により、timer registration outcome を scheduler resume completion として扱わない。
+- `NativeWindowHostLoopDeadlineTimerAdapter` により、std deadline timer の active state、id allocation、deadline arithmetic、clock / sleeper failure を typed error として扱える。ただし minifb wait hook へは接続していない。
 - `NativeWindowHostLoopEventQueueWaiter` と `execute_native_window_host_loop_event_queue_wait_with_waiter` により、formal native event queue wait backend は host event instruction を queue wait 境界へ渡せる。frame interval wait は timer / sleep backend の責務として fail closed にする。
 - `NativeWindowHostLoopEventQueueStatusAdapter` と `NativeWindowHostLoopEventQueueStatusWaiter` により、platform adapter が返す normalized raw status を検証して F5gu waiter 境界へ接続できる。
 - `NativeWindowHostLoopMessagePumpAdapter` と `NativeWindowHostLoopMessagePumpStatusAdapter` により、platform message pump の実行成功を F5gv の normalized ready status へ写せる。
