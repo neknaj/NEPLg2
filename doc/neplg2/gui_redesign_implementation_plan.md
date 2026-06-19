@@ -1685,6 +1685,29 @@ subagent review:
 
 - Darwin the 2nd に F5hc 計画を渡し、F5hb 後の root-cause slice として承認された。実装条件は、registered は waiting のままにすること、fired だけを ready にすること、F5gz/F5hb の error separation を潰さないこと、minifb を変更しないこと、source policy で両 path を検査することである。
 
+## Phase F5hd: Native window host-loop wait owner boundary
+
+Phase F5hd では、host-loop wait instruction を host event queue wait backend と frame interval deadline timer backend へ分配する owner boundary を追加する。これは OS selector / message-loop timer 実装ではなく、F5gu/F5gv/F5gw の host event path と F5hb/F5hc の timer path を 1 つの composition point で選ぶための root-cause slice である。
+
+実装:
+
+- `NativeWindowHostLoopWaitOwner` を追加し、event queue waiter と `NativeWindowHostLoopDeadlineTimerAdapter` を所有させる。
+- `NativeWindowHostLoopWaitOwnerError` を追加し、`EventQueueWaitFailed NativeWindowHostLoopEventQueueWaitError` と `FrameIntervalTimerWakeFailed NativeWindowHostLoopDeadlineTimerWakeError` を分ける。
+- `execute_native_window_host_loop_wait_with_owner` を追加し、`WaitForHostEvent` は event queue wait helper だけへ、`WaitForFrameInterval` は deadline timer wakeup wait helper だけへ渡す。
+- event queue success は `HostEventPumpAlreadyPaced` に正規化し、timer success は `FrameIntervalTimerFired` として返す。
+- unit test は host event path が timer clock / sleeper を呼ばないこと、frame interval path が event queue waiter を呼ばないこと、event queue error と timer wake error が別 variant で保持されることを検査する。
+- source policy は wait owner slice に minifb、window update、presenter、scheduler action、DOM / Canvas / video memory、fallback、silent no-op が混入しないことを固定する。
+
+非目標:
+
+- selector ownership、OS message loop timer、minifb wait hook の pacing 置換、`Window::set_target_fps` の置換は含めない。
+- event queue backend が timer を代替すること、timer backend が queue wait を代替すること、thread sleep / busy loop / fallback / silent no-op は禁止する。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5hd 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、lower error 全体を wrapper に保持すること、host event と frame interval の branch exclusivity を test すること、minifb を変更しないことである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1,3 +1,34 @@
+# 2026-06-19 Agent2 GUI native F5hd wait owner boundary
+
+## scope
+
+- F5hc の後続として、host event queue wait path と frame interval deadline timer path を同じ owner で分岐する `NativeWindowHostLoopWaitOwner` boundary を追加する。
+- `NativeWindowHostLoopWaitOwnerError` は `EventQueueWaitFailed` と `FrameIntervalTimerWakeFailed` を分け、lower error 全体を保持する。
+- minifb wait hook、`Window::set_target_fps`、selector wakeup ownership、OS message loop timer、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOwner` と `execute_native_window_host_loop_wait_with_owner` を追加した。
+- `WaitForHostEvent` は event queue waiter だけへ渡し、成功を `HostEventPumpAlreadyPaced` に写す。
+- `WaitForFrameInterval` は deadline timer wakeup wait helper だけへ渡し、成功を `FrameIntervalTimerFired` として返す。
+- focused test で、host event path が timer clock / sleeper を呼ばないこと、frame interval path が event queue waiter を呼ばないこと、event queue error と timer wake error が別 stage として保持されることを検査した。
+- `nodesrc/test_native_gui_platform_behavior.js` の source policy を更新し、event queue wait slice と wait owner slice を分離した。
+- GUI docs と `todo.md` を F5hd contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: source policy regression は exit 0 で完走した。今回の F5hd native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- subagent implementation review は `IMPLEMENTATION_APPROVED`。F5hd は pure rename ではなく wait backend owner boundary であり、branch exclusivity、error separation、minifb 不変更、source policy guard が確認された。
+
 # 2026-06-19 Agent2 GUI native F5hc timer fired wait outcome boundary
 
 ## scope
