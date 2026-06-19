@@ -1169,6 +1169,33 @@ Phase F5gi では、F5gh の `run_native_window_host_loop` に残る long loop b
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gj: Native window host-loop bounded runner boundary
+
+Phase F5gj では、F5gi の `step_native_window_host_loop` を bounded に反復する Rust smoke/native layer の runner を追加する。これは infinite loop に入らず `Exited` と `BudgetExhausted` を区別する cooperative turn boundary であり、formal OS wait strategy、queue、timer wait は実装しない。
+
+実装:
+
+- `NativeWindowHostLoopRunnerState` を追加し、initial title 設定済みかどうかだけを保持する。
+- `NativeWindowHostLoopInitialization` を追加し、`initialize_native_window_host_loop` が `Initialized` / `AlreadyInitialized` を返す。idempotent path は silent no-op にしない。
+- `NativeWindowHostLoopBoundedRunResult` を追加し、`Exited exit completed_turns` と `BudgetExhausted completed_turns` を分ける。
+- `run_native_window_host_loop_bounded` を追加し、初期化を確認した後、`max_turn_count` の範囲で `step_native_window_host_loop` だけを呼ぶ。
+- `max_turn_count == 0` は event poll を行わず `BudgetExhausted completed_turns 0` を返すが、initial title の初期化確認は行う。
+- `Continue` は completed turn count を増やし、`Exit` は exit turn を含めた count で `Exited` を返す。
+- `run_native_window_host_loop` は `usize::MAX` を使って bounded runner を呼ばず、infinite loop の意味を明示したまま initializer と one-turn function だけを共有する。
+- tests は initializer first / already initialized、zero budget no poll、exit turn count、continue budget exhaustion、複数 bounded call での initial title 重複なし、event / host action / presenter frame / present error preservation を検査する。
+- source policy は initializer、bounded runner、long loop runner、one-turn core の slice を分け、bounded runner が direct action body を持たず、queue、timer、sleep、DOM / Canvas / video memory、fallback、silent no-op を含まないことを検査する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- DOM / Canvas / video memory transport、fallback、silent no-op は作らない。
+
+完了条件:
+
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -121,6 +121,14 @@ F5gi では、F5gh の long loop body を `step_native_window_host_loop` へ分�
 
 この checkpoint は future formal native OS scheduler / window backend loop が再利用する turn boundary であり、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、fallback、silent no-op へは進まない。
 
+## Native window host-loop bounded runner checkpoint
+
+F5gj では、F5gi の one-turn function を bounded に反復する `run_native_window_host_loop_bounded` を追加する。`NativeWindowHostLoopRunnerState` は initial title 設定済みかどうかを保持し、複数 slice に分けて bounded run を呼んでも initial title を重複設定しない。
+
+`initialize_native_window_host_loop` は `Initialized` と `AlreadyInitialized` を返す。二度目以降の初期化は unit を返す silent no-op ではなく、すでに初期化済みであることを typed evidence として返す。`run_native_window_host_loop_bounded` は `max_turn_count == 0` でも初期化だけは確認し、event poll を行わず `BudgetExhausted` を返す。
+
+bounded runner は `step_native_window_host_loop` だけで turn を進める。`Continue` は completed turn count を増やし、`Exit` は exit turn を含めた count で `Exited` を返す。F5gj は future native scheduler の cooperative timeslice boundary であり、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、fallback、silent no-op へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -134,6 +142,7 @@ F5gi では、F5gh の long loop body を `step_native_window_host_loop` へ分�
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
 - `step_native_window_host_loop` が host event snapshot 1 件、host action 1 件、pump / present / exit の 1 turn だけを実行する。
+- `run_native_window_host_loop_bounded` が bounded turn count で `Exited` と `BudgetExhausted` を分ける。
 - `run_native_window_host_loop` が initial title を設定し、`step_native_window_host_loop` の `Continue` / `Exit` を long loop として反復する。
 - `MinifbNativeWindowRunLoopHost` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
 - `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。

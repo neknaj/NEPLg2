@@ -93,6 +93,16 @@ source policy は long loop runner slice と one-turn core slice を分ける。
 
 この phase は future formal native OS scheduler / window backend loop の typed turn boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
 
+## Phase F5gj: Native window host-loop bounded runner boundary
+
+F5gj では、F5gi の one-turn function を bounded に反復する Rust smoke/native layer の runner を追加する。`NativeWindowHostLoopRunnerState` は initial title 済みかどうかだけを保持し、`initialize_native_window_host_loop` は `NativeWindowHostLoopInitialization::Initialized` / `NativeWindowHostLoopInitialization::AlreadyInitialized` を返す。二度目以降の初期化は unit の silent no-op にしない。
+
+`run_native_window_host_loop_bounded` は `max_turn_count` の範囲で `step_native_window_host_loop` だけを呼ぶ。`max_turn_count == 0` では initial title を確認したうえで event poll を行わず、`BudgetExhausted completed_turns 0` を返す。`Continue` は completed turn count を増やし、`Exit` は exit turn を含む count で `Exited` を返す。
+
+source policy は initializer、bounded runner、long loop runner、one-turn core の slice を分ける。bounded runner は `poll_event_snapshot`、`step_host_action`、`NativeWindowHostAction::`、present frame borrow、host pump / present を直接持たず、`step_native_window_host_loop` だけを turn progress authority にする。queue、timer、sleep、DOM / Canvas / video memory、fallback、silent no-op も禁止する。
+
+この phase は future native scheduler の cooperative timeslice boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

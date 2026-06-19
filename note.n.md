@@ -1,3 +1,42 @@
+# 2026-06-19 Agent2 GUI platform F5gj Native window host-loop bounded runner boundary
+
+## scope
+
+- F5gi Native window host-loop turn boundary の後続として、one-turn function を bounded に反復する Rust smoke/native layer runner を追加する。
+- `NativeWindowHostLoopRunnerState`、`NativeWindowHostLoopInitialization`、`NativeWindowHostLoopBoundedRunResult`、`run_native_window_host_loop_bounded` を追加し、finite turn count で `Exited` と `BudgetExhausted` を区別する。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。initializer の idempotent path を unit の silent no-op にせず `Initialized` / `AlreadyInitialized` の typed evidence にすること、initializer 自体の tests を追加すること、zero budget / exit turn count / source-policy の方針を維持することが指摘された。
+- 指摘に従い、`initialize_native_window_host_loop` は `NativeWindowHostLoopInitialization` を返し、bounded runner は `max_turn_count == 0` でも initial title の初期化確認だけを行って event poll をしない。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopRunnerState`、`NativeWindowHostLoopInitialization`、`NativeWindowHostLoopBoundedRunResult` を追加した。
+- `initialize_native_window_host_loop` は initial title の初回設定と `AlreadyInitialized` evidence を返す。
+- `run_native_window_host_loop_bounded` は `step_native_window_host_loop` だけで turn を進め、`Exited` と `BudgetExhausted` を分ける。
+- `run_native_window_host_loop` は `usize::MAX` を使わず、infinite loop の意味を保ったまま initializer と one-turn function を共有する。
+- bounded runner tests、source-policy、GUI 関連 doc、todo を F5gj に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gj native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopInitialization` により idempotent path が typed evidence になっていること、bounded runner が initializer と `step_native_window_host_loop` だけで進み queue / timer / sleep / OS wait / fallback を隠していないこと、`run_native_window_host_loop` が `usize::MAX` 委譲ではなく infinite loop の意味を保っていることが確認された。
+
+## residual
+
+- F5gj は native host-loop bounded runner boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gi Native window host-loop turn boundary
 
 ## scope

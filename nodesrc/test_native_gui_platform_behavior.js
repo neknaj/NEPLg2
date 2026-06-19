@@ -61,9 +61,19 @@ function runNativeGuiPlatformBehaviorRegression() {
         "impl NativeWindowRunLoopConfig",
         "pub fn render_demo_frame",
     );
+    const nativeWindowHostLoopInitializer = textSliceBetween(
+        libSource,
+        "pub fn initialize_native_window_host_loop",
+        "pub fn run_native_window_host_loop_bounded",
+    );
+    const nativeWindowHostLoopBoundedRunner = textSliceBetween(
+        libSource,
+        "pub fn run_native_window_host_loop_bounded<Host>",
+        "pub fn run_native_window_host_loop<Host>",
+    );
     const nativeWindowHostLoopRunner = textSliceBetween(
         libSource,
-        "pub fn run_native_window_host_loop",
+        "pub fn run_native_window_host_loop<Host>",
         "pub fn step_native_window_host_loop",
     );
     const nativeWindowHostLoopTurnCore = textSliceBetween(
@@ -104,6 +114,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub trait NativeWindowRunLoopHost\s*\{[\s\S]*type EventError;[\s\S]*type PresentError;[\s\S]*poll_event_snapshot[\s\S]*set_window_title[\s\S]*pump_events_only[\s\S]*present_frame/);
     assert.match(libSource, /pub enum NativeWindowHostLoopError<EventError, PresentError>\s*\{[\s\S]*HostEventPumpFailed\(EventError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*HostPresentFailed\(PresentError\)/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTurn\s*\{[\s\S]*Continue,[\s\S]*Exit\(NativeWindowRunLoopExit\)/);
+    assert.match(libSource, /pub struct NativeWindowHostLoopRunnerState\s*\{[\s\S]*title_initialized: bool/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopInitialization\s*\{[\s\S]*Initialized,[\s\S]*AlreadyInitialized/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopBoundedRunResult\s*\{[\s\S]*Exited\s*\{[\s\S]*exit: NativeWindowRunLoopExit,[\s\S]*completed_turns: usize,[\s\S]*BudgetExhausted\s*\{[\s\S]*completed_turns: usize/);
     assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
     assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
@@ -119,13 +132,26 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /NativeWindowHostActionError::UnsupportedCloseState/);
     assert.match(libSource, /NativeWindowHostActionError::StepFailed/);
     assert.match(nativeWindowRunLoopHelper, /pub fn native_window_title\(demo: GuiDemo, size: NativeWindowSize\) -> String/);
+    assert.match(nativeWindowHostLoopInitializer, /pub fn initialize_native_window_host_loop<Host>\([\s\S]*runner_state: &mut NativeWindowHostLoopRunnerState,[\s\S]*backend_loop: &NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
+    assert.match(nativeWindowHostLoopInitializer, /NativeWindowHostLoopInitialization/);
+    assert.match(nativeWindowHostLoopInitializer, /AlreadyInitialized/);
+    assert.match(nativeWindowHostLoopInitializer, /host\.set_window_title\(&initial_title\)/);
+    assert.doesNotMatch(nativeWindowHostLoopInitializer, /poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowHostLoopBoundedRunner, /pub fn run_native_window_host_loop_bounded<Host>\([\s\S]*runner_state: &mut NativeWindowHostLoopRunnerState,[\s\S]*max_turn_count: usize/);
+    assert.match(nativeWindowHostLoopBoundedRunner, /initialize_native_window_host_loop\(runner_state,\s*backend_loop,\s*host\)/);
+    assert.match(nativeWindowHostLoopBoundedRunner, /while completed_turns < max_turn_count/);
+    assert.match(nativeWindowHostLoopBoundedRunner, /step_native_window_host_loop\(backend_loop,\s*host\)\?/);
+    assert.match(nativeWindowHostLoopBoundedRunner, /NativeWindowHostLoopBoundedRunResult::Exited/);
+    assert.match(nativeWindowHostLoopBoundedRunner, /NativeWindowHostLoopBoundedRunResult::BudgetExhausted/);
+    assert.doesNotMatch(nativeWindowHostLoopBoundedRunner, /usize::MAX|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowHostLoopRunner, /pub fn run_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
     assert.match(nativeWindowHostLoopRunner, /Host: NativeWindowRunLoopHost/);
-    assert.match(nativeWindowHostLoopRunner, /host\.set_window_title\(&initial_title\)/);
+    assert.match(nativeWindowHostLoopRunner, /let mut runner_state = NativeWindowHostLoopRunnerState::new\(\)/);
+    assert.match(nativeWindowHostLoopRunner, /initialize_native_window_host_loop\(&mut runner_state,\s*backend_loop,\s*host\)/);
     assert.match(nativeWindowHostLoopRunner, /loop\s*\{[\s\S]*step_native_window_host_loop\(backend_loop,\s*host\)\?/);
     assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopTurn::Continue/);
     assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopTurn::Exit\(exit\)/);
-    assert.doesNotMatch(nativeWindowHostLoopRunner, /poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|window\.update\(|update_with_buffer|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowHostLoopRunner, /run_native_window_host_loop_bounded|usize::MAX|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|window\.update\(|update_with_buffer|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowHostLoopTurnCore, /pub fn step_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
     assert.match(nativeWindowHostLoopTurnCore, /Host: NativeWindowRunLoopHost/);
     assert.doesNotMatch(nativeWindowHostLoopTurnCore, /host\.set_window_title\(&initial_title\)/);
@@ -160,6 +186,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
     assert.match(libSource, /native_window_run_loop_config_preserves_demo_state/);
     assert.match(libSource, /native_window_title_reports_drawable_and_unavailable_surface/);
+    assert.match(libSource, /initialize_native_window_host_loop_reports_idempotent_title_state/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_zero_budget_initializes_without_polling/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_counts_exit_turn/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_yields_after_continue_budget/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_keeps_initial_title_across_slices/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_preserves_event_pump_error/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_preserves_present_error/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_preserves_host_action_error/);
+    assert.match(libSource, /run_native_window_host_loop_bounded_preserves_presenter_frame_error/);
     assert.match(libSource, /step_native_window_host_loop_close_turn_has_no_initial_title_or_present/);
     assert.match(libSource, /step_native_window_host_loop_pump_only_resize_updates_title/);
     assert.match(libSource, /step_native_window_host_loop_drawable_resize_presents_exact_frame/);
@@ -467,6 +502,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NativeWindowHostLoopTurn/);
     assert.match(platformDoc, /step_native_window_host_loop/);
     assert.match(platformDoc, /initial title を設定しない/);
+    assert.match(platformDoc, /Native window host-loop bounded runner checkpoint/);
+    assert.match(platformDoc, /NativeWindowHostLoopRunnerState/);
+    assert.match(platformDoc, /initialize_native_window_host_loop/);
+    assert.match(platformDoc, /run_native_window_host_loop_bounded/);
+    assert.match(platformDoc, /BudgetExhausted/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -499,6 +539,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopTurn/);
     assert.match(implementationPlan, /step_native_window_host_loop/);
     assert.match(implementationPlan, /long loop runner slice/);
+    assert.match(implementationPlan, /Phase F5gj: Native window host-loop bounded runner boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopRunnerState/);
+    assert.match(implementationPlan, /NativeWindowHostLoopInitialization/);
+    assert.match(implementationPlan, /run_native_window_host_loop_bounded/);
+    assert.match(implementationPlan, /BudgetExhausted/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -521,6 +566,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5gi Native window host-loop turn boundary/);
     assert.match(standardSpec, /NativeWindowHostLoopTurn/);
     assert.match(standardSpec, /step_native_window_host_loop/);
+    assert.match(standardSpec, /F5gj Native window host-loop bounded runner boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopRunnerState/);
+    assert.match(standardSpec, /initialize_native_window_host_loop/);
+    assert.match(standardSpec, /run_native_window_host_loop_bounded/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

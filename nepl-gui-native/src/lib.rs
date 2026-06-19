@@ -1209,6 +1209,46 @@ pub enum NativeWindowHostLoopTurn {
     Exit(NativeWindowRunLoopExit),
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopRunnerState {
+    title_initialized: bool,
+}
+
+impl NativeWindowHostLoopRunnerState {
+    pub fn new() -> Self {
+        Self {
+            title_initialized: false,
+        }
+    }
+
+    pub fn title_initialized(&self) -> bool {
+        self.title_initialized
+    }
+}
+
+impl Default for NativeWindowHostLoopRunnerState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopInitialization {
+    Initialized,
+    AlreadyInitialized,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopBoundedRunResult {
+    Exited {
+        exit: NativeWindowRunLoopExit,
+        completed_turns: usize,
+    },
+    BudgetExhausted {
+        completed_turns: usize,
+    },
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowBackendLoopError {
     InitialScaleInvalid,
@@ -2281,6 +2321,56 @@ pub fn native_window_title(demo: GuiDemo, size: NativeWindowSize) -> String {
     }
 }
 
+pub fn initialize_native_window_host_loop<Host>(
+    runner_state: &mut NativeWindowHostLoopRunnerState,
+    backend_loop: &NativeWindowBackendLoop,
+    host: &mut Host,
+) -> NativeWindowHostLoopInitialization
+where
+    Host: NativeWindowRunLoopHost,
+{
+    if runner_state.title_initialized {
+        return NativeWindowHostLoopInitialization::AlreadyInitialized;
+    }
+    let initial_title = native_window_title(backend_loop.demo(), backend_loop.initial_size());
+    host.set_window_title(&initial_title);
+    runner_state.title_initialized = true;
+    NativeWindowHostLoopInitialization::Initialized
+}
+
+pub fn run_native_window_host_loop_bounded<Host>(
+    runner_state: &mut NativeWindowHostLoopRunnerState,
+    backend_loop: &mut NativeWindowBackendLoop,
+    host: &mut Host,
+    max_turn_count: usize,
+) -> Result<
+    NativeWindowHostLoopBoundedRunResult,
+    NativeWindowHostLoopError<Host::EventError, Host::PresentError>,
+>
+where
+    Host: NativeWindowRunLoopHost,
+{
+    match initialize_native_window_host_loop(runner_state, backend_loop, host) {
+        NativeWindowHostLoopInitialization::Initialized
+        | NativeWindowHostLoopInitialization::AlreadyInitialized => {}
+    }
+    let mut completed_turns = 0usize;
+    while completed_turns < max_turn_count {
+        match step_native_window_host_loop(backend_loop, host)? {
+            NativeWindowHostLoopTurn::Continue => {
+                completed_turns += 1;
+            }
+            NativeWindowHostLoopTurn::Exit(exit) => {
+                return Ok(NativeWindowHostLoopBoundedRunResult::Exited {
+                    exit,
+                    completed_turns: completed_turns + 1,
+                });
+            }
+        }
+    }
+    Ok(NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns })
+}
+
 pub fn run_native_window_host_loop<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
@@ -2288,8 +2378,11 @@ pub fn run_native_window_host_loop<Host>(
 where
     Host: NativeWindowRunLoopHost,
 {
-    let initial_title = native_window_title(backend_loop.demo(), backend_loop.initial_size());
-    host.set_window_title(&initial_title);
+    let mut runner_state = NativeWindowHostLoopRunnerState::new();
+    match initialize_native_window_host_loop(&mut runner_state, backend_loop, host) {
+        NativeWindowHostLoopInitialization::Initialized
+        | NativeWindowHostLoopInitialization::AlreadyInitialized => {}
+    }
 
     loop {
         match step_native_window_host_loop(backend_loop, host)? {
@@ -5034,6 +5127,237 @@ mod tests {
         assert_eq!(
             native_window_title(GuiDemo::Life, NativeWindowSize::new(0, 720)),
             "NEPLg2 GUI native preview - Life - surface unavailable"
+        );
+    }
+
+    #[test]
+    fn initialize_native_window_host_loop_reports_idempotent_title_state() {
+        let loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(Vec::new());
+
+        assert!(!runner_state.title_initialized());
+        assert_eq!(
+            initialize_native_window_host_loop(&mut runner_state, &loop_state, &mut host),
+            NativeWindowHostLoopInitialization::Initialized
+        );
+        assert!(runner_state.title_initialized());
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, initial_size)]
+        );
+        assert_eq!(
+            initialize_native_window_host_loop(&mut runner_state, &loop_state, &mut host),
+            NativeWindowHostLoopInitialization::AlreadyInitialized
+        );
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, initial_size)]
+        );
+        assert_eq!(host.cursor, 0);
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(Vec::new());
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 0)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 0 }
+        );
+        assert!(runner_state.title_initialized());
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, initial_size)]
+        );
+        assert_eq!(host.cursor, 0);
+        assert_eq!(host.pump_count, 0);
+        assert!(host.present_frames.is_empty());
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_counts_exit_turn() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::ExitShortcutRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(close)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 3)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::Exited {
+                exit: NativeWindowRunLoopExit {
+                    reason: NativeWindowHostTerminalReason::ExitShortcutRequested
+                },
+                completed_turns: 1,
+            }
+        );
+        assert_eq!(host.cursor, 1);
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, initial_size)]
+        );
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_yields_after_continue_budget() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 1 }
+        );
+        assert_eq!(host.cursor, 1);
+        assert_eq!(host.pump_count, 1);
+        assert_eq!(
+            host.titles,
+            vec![
+                native_window_title(GuiDemo::Counter, initial_size),
+                native_window_title(GuiDemo::Counter, unavailable_size),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_keeps_initial_title_across_slices() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(close)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 0)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 0 }
+        );
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::Exited {
+                exit: NativeWindowRunLoopExit {
+                    reason: NativeWindowHostTerminalReason::OsCloseRequested
+                },
+                completed_turns: 1,
+            }
+        );
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, initial_size)]
+        );
+        assert_eq!(host.cursor, 1);
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_preserves_event_pump_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Err("event failed")]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap_err(),
+            NativeWindowHostLoopError::HostEventPumpFailed("event failed")
+        );
+        assert!(runner_state.title_initialized());
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_preserves_present_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable)])
+            .with_present_error("present failed");
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap_err(),
+            NativeWindowHostLoopError::HostPresentFailed("present failed")
+        );
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_preserves_host_action_error() {
+        let mut loop_state =
+            NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, i32::MAX, 2).unwrap();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(440, 284),
+            true,
+            NativeWindowPointerSample::Available { x: 40.0, y: 180.0 },
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap_err(),
+            NativeWindowHostLoopError::HostActionFailed(NativeWindowHostActionError::StepFailed(
+                NativeWindowBackendLoopError::CounterValueOverflow { previous: i32::MAX }
+            ))
+        );
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_preserves_presenter_frame_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        loop_state.presenter_state.resize_surface(0, 0).unwrap();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
+                .unwrap_err(),
+            NativeWindowHostLoopError::PresenterFrameUnavailable(
+                NativeWindowBackendLoopError::SurfaceUnavailable
+            )
         );
     }
 
