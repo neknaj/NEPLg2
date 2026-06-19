@@ -609,6 +609,26 @@ subagent review:
 
 - Darwin the 2nd の plan review は `APPROVED`。F5hv と対称の trait-connection slice として妥当であり、typed boundary、no fallback、platform separation を維持するよう確認された。required constraint として、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像、event-only wait で timer-fired status を `UnexpectedRunLoopStatus` として保持すること、generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback を scope 外に残すことが確認された。
 
+## Phase F5hx: Native platform wait multi-backend owner boundary
+
+F5hx では、F5hp の Windows-only platform wait owner と、F5hv / F5hw の Linux / macOS single-owner wait trait 実装を、1 つの typed platform wait owner enum に統合する。これは raw API を受け取った場合にだけ selected backend を構築する ownership boundary であり、actual Linux syscall shim、actual macOS sys shim、native runner / CLI dispatch の追加ではない。
+
+`NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi` は `WindowsWaitableTimerMessageWait`、`MacosRunLoopTimer`、`LinuxSelectorTimerFd` の 3 variant を持つ。各 variant は対応する raw backend owner を 1 個だけ所有し、`NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` は selected backend へ委譲する。error は `NativeWindowHostLoopPlatformWaitBackendError WindowsError MacosError LinuxError` の variant として保持し、platform error を string や generic failure に潰さない。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` は validated selection を再検査し、Windows selection なら Windows raw API だけ、macOS selection なら macOS raw API だけ、Linux selection なら Linux raw API だけを使って backend を構築する。selection mismatch、unsupported platform、headless scripted は raw API construction より前に `BackendSupportFailed` として拒否する。selected されていない raw API は fallback / dummy / no-op として呼ばない。
+
+Windows-only compatibility helper `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は残す。この helper は return type を `NativeWindowHostLoopWindowsOnlyPlatformWaitBackend WindowsApi` に限定し、macOS / Linux selection は `BackendImplementationUnavailable` のまま返す。これは Windows cfg runner 用の互換入口であり、macOS / Linux raw API を暗黙に作ったことにしない。
+
+旧 F5hm の `build_native_window_host_loop_platform_wait_backend_from_selection` は no-owner fail-closed probe として残す。API / handle owner を受け取らないため、validated real backend でも `BackendImplementationUnavailable` を返し、headless scripted、minifb pacing、thread sleep、busy loop、synthetic timer fire へ fallback しない。
+
+Windows-only helper の type parameter には uninhabited raw API `NativeWindowHostLoopNeverMacosRunLoopTimerRawApi` と `NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi` を使う。これらは empty enum であり、trait method body は `match *self {}` だけにする。panic、dummy handle、dummy status、silent no-op、fallback status を返さない。
+
+この phase では、`#[cfg(target_os = "linux")]` actual Linux sys shim、`#[cfg(target_os = "macos")]` actual macOS sys shim、CoreFoundation / AppKit binding、libc / nix / epoll / poll / select / timerfd、native runner / CLI dispatch、minifb wait path、sleep、busy loop、fallback、silent no-op、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は追加しない。
+
+subagent review:
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。required constraint として、multi-backend owner enum は selected backend だけを構築すること、Windows-only compatibility wrapper と no-owner fail-closed probe を残すこと、Never raw API は empty enum + `match *self {}` に限定すること、actual macOS / Linux sys shim と runner dispatch へは進まないことが確認された。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

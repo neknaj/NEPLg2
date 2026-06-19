@@ -1,3 +1,46 @@
+# 2026-06-20 Agent2 GUI native F5hx platform wait multi-backend owner boundary
+
+## scope
+
+- F5hp の Windows-only platform wait owner と、F5hv / F5hw の Linux / macOS single-owner wait trait backend を、typed multi-backend owner enum へ統合する。
+- `with_raw_apis` builder は selection を再検査し、selected backend の raw API だけを使う。
+- Windows-only compatibility wrapper と no-owner fail-closed probe は残し、actual macOS / Linux sys shim、native runner / CLI dispatch、minifb wait path へは進まない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraint として、selected backend だけを構築すること、mismatch / unsupported は raw API construction より前に拒否すること、Never raw API は empty enum + `match *self {}` のみとすること、fallback / dummy / no-op / sleep / busy loop / actual sys shim / runner dispatch を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi` に Windows / macOS / Linux の owner variant を持たせた。
+- `NativeWindowHostLoopPlatformWaitBackendError WindowsError MacosError LinuxError` で platform backend error を typed variant として保持するようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` で selected backend だけを構築し、selected されていない raw API は呼ばない。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は Windows-only compatibility wrapper として残し、macOS / Linux selection は unavailable のままにした。
+- Never raw API を empty enum として追加し、method body は `match *self {}` のみにした。
+- source policy と GUI docs を F5hx contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native native_window_platform_wait_backend_with_raw_apis --lib`
+- pass: `cargo test -p nepl-gui-native native_window_platform_wait_run_loop_host_wraps --lib`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、multi-backend owner variants、typed platform errors、raw-apis builder の validate-before-construction、Windows-only wrapper の macOS / Linux unavailable、no-owner fail-closed probe、Never raw API の empty enum + `match *self {}`、minifb / sys shim / CLI / sleep / fallback 未追加が確認された。
+- 指摘は `note.n.md` の status が「更新中」と pending review のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED`。追加修正は不要と確認された。
+
+## remaining
+
+- actual Linux sys shim、actual macOS sys shim、native runner / CLI dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5hw macOS run loop timer single-owner wait trait boundary
 
 ## scope

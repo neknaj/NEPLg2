@@ -1245,7 +1245,11 @@ pub type NativeWindowWindowsPlatformWaitHostLoopError = NativeWindowHostLoopErro
     NativeWindowEventPumpError,
     String,
     NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<
-        NativeWindowHostLoopPlatformWaitBackendError<NativeWindowHostLoopWindowsWaitBackendError>,
+        NativeWindowHostLoopPlatformWaitBackendError<
+            NativeWindowHostLoopWindowsWaitBackendError,
+            NativeWindowHostLoopMacosRunLoopTimerBackendError,
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+        >,
     >,
 >;
 
@@ -3284,6 +3288,8 @@ pub enum NativeWindowHostLoopPlatformWaitHostBuildError {
         backend: NativeWindowHostLoopPlatformWaitBackendKind,
     },
     WindowsWaitBackendFailed(NativeWindowHostLoopWindowsWaitBackendError),
+    MacosRunLoopTimerBackendFailed(NativeWindowHostLoopMacosRunLoopTimerBackendError),
+    LinuxSelectorTimerFdBackendFailed(NativeWindowHostLoopLinuxSelectorTimerFdBackendError),
 }
 
 pub fn build_native_window_host_loop_platform_wait_backend_from_selection(
@@ -3315,13 +3321,29 @@ pub fn build_native_window_host_loop_platform_wait_backend_for_platform(
 }
 
 #[derive(Debug)]
-pub enum NativeWindowHostLoopPlatformWaitBackend<Api: NativeWindowHostLoopWindowsWaitRawApi> {
-    WindowsWaitableTimerMessageWait(NativeWindowHostLoopWindowsWaitBackend<Api>),
+pub enum NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>
+where
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
+    MacosApi: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    WindowsWaitableTimerMessageWait(NativeWindowHostLoopWindowsWaitBackend<WindowsApi>),
+    MacosRunLoopTimer(NativeWindowHostLoopMacosRunLoopTimerBackend<MacosApi>),
+    LinuxSelectorTimerFd(NativeWindowHostLoopLinuxSelectorTimerFdBackend<LinuxApi>),
 }
 
+pub type NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<WindowsApi> =
+    NativeWindowHostLoopPlatformWaitBackend<
+        WindowsApi,
+        NativeWindowHostLoopNeverMacosRunLoopTimerRawApi,
+        NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi,
+    >;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError> {
+pub enum NativeWindowHostLoopPlatformWaitBackendError<WindowsError, MacosError, LinuxError> {
     WindowsWaitableTimerMessageWait(WindowsError),
+    MacosRunLoopTimer(MacosError),
+    LinuxSelectorTimerFd(LinuxError),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -4163,6 +4185,105 @@ where
     )
 }
 
+#[derive(Debug)]
+pub enum NativeWindowHostLoopNeverMacosRunLoopTimerRawApi {}
+
+impl NativeWindowHostLoopMacosRunLoopTimerRawApi
+    for NativeWindowHostLoopNeverMacosRunLoopTimerRawApi
+{
+    fn create_run_loop_timer_raw(&mut self) -> isize {
+        match *self {}
+    }
+
+    fn schedule_run_loop_timer_relative_nanos(
+        &mut self,
+        _handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+        _relative_nanos: u64,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn run_loop_wait_for_timer_or_event_raw(
+        &mut self,
+        _handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+    ) -> u32 {
+        match *self {}
+    }
+
+    fn run_loop_wait_for_event_raw(&mut self) -> u32 {
+        match *self {}
+    }
+
+    fn invalidate_run_loop_timer_raw(
+        &mut self,
+        _handle: &NativeWindowHostLoopMacosRunLoopTimerHandle,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        match *self {}
+    }
+}
+
+#[derive(Debug)]
+pub enum NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi {}
+
+impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
+    for NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi
+{
+    fn create_selector_raw(&mut self) -> i32 {
+        match *self {}
+    }
+
+    fn create_timer_fd_raw(&mut self) -> i32 {
+        match *self {}
+    }
+
+    fn register_timer_fd_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+        _timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn arm_timer_fd_relative_timespec(
+        &mut self,
+        _timer: &NativeWindowHostLoopLinuxTimerFd,
+        _relative_timespec: NativeWindowHostLoopLinuxTimerFdTimespec,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn selector_wait_for_timer_or_event_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+        _timer: &NativeWindowHostLoopLinuxTimerFd,
+    ) -> u32 {
+        match *self {}
+    }
+
+    fn selector_wait_for_event_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+    ) -> u32 {
+        match *self {}
+    }
+
+    fn close_selector_raw(&mut self, _selector: &NativeWindowHostLoopLinuxSelectorFd) -> bool {
+        match *self {}
+    }
+
+    fn close_timer_fd_raw(&mut self, _timer: &NativeWindowHostLoopLinuxTimerFd) -> bool {
+        match *self {}
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        match *self {}
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct NativeWindowHostLoopWindowsWaitHandle {
     raw_handle: isize,
@@ -4464,12 +4585,18 @@ where
         .map_err(NativeWindowHostLoopWindowsWaitBackendBuildError::WaitBackendFailed)
 }
 
-impl<Api> NativeWindowHostLoopDeadlineTimerClock for NativeWindowHostLoopPlatformWaitBackend<Api>
+impl<WindowsApi, MacosApi, LinuxApi> NativeWindowHostLoopDeadlineTimerClock
+    for NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>
 where
-    Api: NativeWindowHostLoopWindowsWaitRawApi,
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
+    MacosApi: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
 {
-    type Error =
-        NativeWindowHostLoopPlatformWaitBackendError<NativeWindowHostLoopWindowsWaitBackendError>;
+    type Error = NativeWindowHostLoopPlatformWaitBackendError<
+        NativeWindowHostLoopWindowsWaitBackendError,
+        NativeWindowHostLoopMacosRunLoopTimerBackendError,
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    >;
 
     fn now_nanos(&mut self) -> Result<u64, Self::Error> {
         match self {
@@ -4478,17 +4605,30 @@ where
                     NativeWindowHostLoopPlatformWaitBackendError::WindowsWaitableTimerMessageWait,
                 )
             }
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                NativeWindowHostLoopDeadlineTimerClock::now_nanos(backend)
+                    .map_err(NativeWindowHostLoopPlatformWaitBackendError::MacosRunLoopTimer)
+            }
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                NativeWindowHostLoopDeadlineTimerClock::now_nanos(backend)
+                    .map_err(NativeWindowHostLoopPlatformWaitBackendError::LinuxSelectorTimerFd)
+            }
         }
     }
 }
 
-impl<Api> NativeWindowHostLoopInterruptibleDeadlineWaiter
-    for NativeWindowHostLoopPlatformWaitBackend<Api>
+impl<WindowsApi, MacosApi, LinuxApi> NativeWindowHostLoopInterruptibleDeadlineWaiter
+    for NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>
 where
-    Api: NativeWindowHostLoopWindowsWaitRawApi,
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
+    MacosApi: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
 {
-    type Error =
-        NativeWindowHostLoopPlatformWaitBackendError<NativeWindowHostLoopWindowsWaitBackendError>;
+    type Error = NativeWindowHostLoopPlatformWaitBackendError<
+        NativeWindowHostLoopWindowsWaitBackendError,
+        NativeWindowHostLoopMacosRunLoopTimerBackendError,
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    >;
 
     fn wait_for_host_event(
         &mut self,
@@ -4503,6 +4643,12 @@ where
                     NativeWindowHostLoopPlatformWaitBackendError::WindowsWaitableTimerMessageWait,
                 )
             }
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => backend
+                .wait_for_host_event(window_size, size_changed)
+                .map_err(NativeWindowHostLoopPlatformWaitBackendError::MacosRunLoopTimer),
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => backend
+                .wait_for_host_event(window_size, size_changed)
+                .map_err(NativeWindowHostLoopPlatformWaitBackendError::LinuxSelectorTimerFd),
         }
     }
 
@@ -4520,19 +4666,129 @@ where
                         NativeWindowHostLoopPlatformWaitBackendError::WindowsWaitableTimerMessageWait,
                     )
             }
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                NativeWindowHostLoopInterruptibleDeadlineWaiter::wait_until_deadline_or_host_event(
+                    backend,
+                    deadline_nanos,
+                    window_size,
+                    size_changed,
+                )
+                .map_err(NativeWindowHostLoopPlatformWaitBackendError::MacosRunLoopTimer)
+            }
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                NativeWindowHostLoopInterruptibleDeadlineWaiter::wait_until_deadline_or_host_event(
+                    backend,
+                    deadline_nanos,
+                    window_size,
+                    size_changed,
+                )
+                .map_err(NativeWindowHostLoopPlatformWaitBackendError::LinuxSelectorTimerFd)
+            }
         }
     }
 }
 
-pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api<Api>(
+pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis<
+    WindowsApi,
+    MacosApi,
+    LinuxApi,
+>(
     selection: NativeWindowHostLoopPlatformWaitBackendSelection,
-    api: Api,
+    windows_api: WindowsApi,
+    macos_api: MacosApi,
+    linux_api: LinuxApi,
 ) -> Result<
-    NativeWindowHostLoopPlatformWaitBackend<Api>,
+    NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>,
     NativeWindowHostLoopPlatformWaitHostBuildError,
 >
 where
-    Api: NativeWindowHostLoopWindowsWaitRawApi,
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
+    MacosApi: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+{
+    let checked_selection =
+        validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+            selection.platform(),
+            selection.backend(),
+        )
+        .map_err(NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed)?;
+    match (checked_selection.platform(), checked_selection.backend()) {
+        (
+            NativeWindowHostLoopPlatformKind::Windows,
+            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+        ) => build_native_window_host_loop_windows_wait_backend_from_selection(
+            checked_selection,
+            windows_api,
+        )
+        .map(NativeWindowHostLoopPlatformWaitBackend::WindowsWaitableTimerMessageWait)
+        .map_err(|error| match error {
+            NativeWindowHostLoopWindowsWaitBackendBuildError::BackendSupportFailed(error) => {
+                NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error)
+            }
+            NativeWindowHostLoopWindowsWaitBackendBuildError::WaitBackendFailed(error) => {
+                NativeWindowHostLoopPlatformWaitHostBuildError::WindowsWaitBackendFailed(error)
+            }
+        }),
+        (
+            NativeWindowHostLoopPlatformKind::Macos,
+            NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+        ) => build_native_window_host_loop_macos_run_loop_timer_backend_from_selection(
+            checked_selection,
+            macos_api,
+        )
+        .map(NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer)
+        .map_err(|error| match error {
+            NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::BackendSupportFailed(error) => {
+                NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error)
+            }
+            NativeWindowHostLoopMacosRunLoopTimerBackendBuildError::RunLoopTimerBackendFailed(
+                error,
+            ) => NativeWindowHostLoopPlatformWaitHostBuildError::MacosRunLoopTimerBackendFailed(
+                error,
+            ),
+        }),
+        (
+            NativeWindowHostLoopPlatformKind::Linux,
+            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        ) => build_native_window_host_loop_linux_selector_timer_fd_backend_from_selection(
+            checked_selection,
+            linux_api,
+        )
+        .map(NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd)
+        .map_err(|error| {
+            match error {
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::BackendSupportFailed(
+                error,
+            ) => NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(error),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendBuildError::SelectorTimerFdBackendFailed(
+                error,
+            ) => {
+                NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                    error,
+                )
+            }
+        }
+        }),
+        (platform, backend) => Err(
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendImplementationUnavailable {
+                platform,
+                backend,
+            },
+        ),
+    }
+}
+
+pub fn build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api<
+    WindowsApi,
+>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    api: WindowsApi,
+) -> Result<
+    NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<WindowsApi>,
+    NativeWindowHostLoopPlatformWaitHostBuildError,
+>
+where
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
 {
     let checked_selection =
         validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
@@ -4566,18 +4822,25 @@ where
     }
 }
 
-pub type NativeWindowHostLoopPlatformWaitRunLoopHost<Host, Api> =
+pub type NativeWindowHostLoopPlatformWaitRunLoopHost<Host, WindowsApi, MacosApi, LinuxApi> =
     NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost<
         Host,
-        NativeWindowHostLoopPlatformWaitBackend<Api>,
+        NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>,
     >;
 
-pub fn native_window_host_loop_platform_wait_run_loop_host_from_backend<Host, Api>(
+pub fn native_window_host_loop_platform_wait_run_loop_host_from_backend<
+    Host,
+    WindowsApi,
+    MacosApi,
+    LinuxApi,
+>(
     host: Host,
-    backend: NativeWindowHostLoopPlatformWaitBackend<Api>,
-) -> NativeWindowHostLoopPlatformWaitRunLoopHost<Host, Api>
+    backend: NativeWindowHostLoopPlatformWaitBackend<WindowsApi, MacosApi, LinuxApi>,
+) -> NativeWindowHostLoopPlatformWaitRunLoopHost<Host, WindowsApi, MacosApi, LinuxApi>
 where
-    Api: NativeWindowHostLoopWindowsWaitRawApi,
+    WindowsApi: NativeWindowHostLoopWindowsWaitRawApi,
+    MacosApi: NativeWindowHostLoopMacosRunLoopTimerRawApi,
+    LinuxApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
 {
     let wait_adapter =
         NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter::new(backend);
@@ -4677,7 +4940,7 @@ pub fn native_window_host_loop_windows_wait_backend_from_selection(
 pub fn native_window_host_loop_platform_wait_backend_from_selection(
     selection: NativeWindowHostLoopPlatformWaitBackendSelection,
 ) -> Result<
-    NativeWindowHostLoopPlatformWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
+    NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
     NativeWindowHostLoopPlatformWaitHostBuildError,
 > {
     build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api(
@@ -4690,7 +4953,7 @@ pub fn native_window_host_loop_platform_wait_backend_from_selection(
 pub fn native_window_run_loop_platform_wait_backend_from_config(
     config: NativeWindowRunLoopConfig,
 ) -> Result<
-    NativeWindowHostLoopPlatformWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
+    NativeWindowHostLoopWindowsOnlyPlatformWaitBackend<NativeWindowHostLoopWindowsWaitSysApi>,
     NativeWindowRunLoopPlatformWaitBackendFromConfigError,
 > {
     let selection = native_window_run_loop_platform_wait_backend_selection(config)
@@ -13603,6 +13866,154 @@ mod tests {
     }
 
     #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_builds_selected_macos_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0);
+        let macos_api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(87);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, -1);
+
+        let backend =
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+            )
+            .unwrap();
+
+        match backend {
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                assert!(backend.is_handle_open());
+                assert_eq!(backend.api().create_calls, 1);
+            }
+            _ => panic!("unexpected platform backend"),
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_builds_selected_linux_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0);
+        let macos_api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(88, 89);
+
+        let backend =
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+            )
+            .unwrap();
+
+        match backend {
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                assert!(backend.are_handles_open());
+                assert_eq!(backend.api().selector_create_calls, 1);
+                assert_eq!(backend.api().timer_create_calls, 1);
+            }
+            _ => panic!("unexpected platform backend"),
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_preserves_macos_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(90);
+        let macos_api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0).with_last_error_code(91);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(92, 93);
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::MacosRunLoopTimerBackendFailed(
+                NativeWindowHostLoopMacosRunLoopTimerBackendError::CreateRunLoopTimerFailed {
+                    code: 91,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_preserves_linux_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(94);
+        let macos_api = ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(95);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, 96)
+            .with_last_error_code(97);
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::LinuxSelectorTimerFdBackendFailed(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::CreateSelectorFailed {
+                    code: 97,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_platform_wait_backend_with_raw_apis_support_failure_precedes_raw_create() {
+        let selection = NativeWindowHostLoopPlatformWaitBackendSelection {
+            platform: NativeWindowHostLoopPlatformKind::Macos,
+            backend: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+        };
+        let windows_api = ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0);
+        let macos_api =
+            ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0).with_last_error_code(98);
+        let linux_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, -1)
+            .with_last_error_code(99);
+
+        assert_eq!(
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                windows_api,
+                macos_api,
+                linux_api,
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopPlatformWaitHostBuildError::BackendSupportFailed(
+                NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                    current: NativeWindowHostLoopPlatformKind::Macos,
+                    requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                }
+            )
+        );
+    }
+
+    #[test]
     fn native_window_platform_wait_run_loop_host_wraps_existing_backend_infallibly() {
         let selection =
             validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
@@ -13641,6 +14052,12 @@ mod tests {
             NativeWindowHostLoopPlatformWaitBackend::WindowsWaitableTimerMessageWait(backend) => {
                 assert_eq!(backend.api().message_wait_calls, 1);
                 assert!(backend.api().timer_wait_calls.is_empty());
+            }
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                match *backend.api() {}
+            }
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                match *backend.api() {}
             }
         }
     }
@@ -13692,6 +14109,121 @@ mod tests {
             NativeWindowHostLoopPlatformWaitBackend::WindowsWaitableTimerMessageWait(backend) => {
                 assert_eq!(backend.api().timer_wait_calls, vec![86]);
             }
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                match *backend.api() {}
+            }
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                match *backend.api() {}
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_run_loop_host_wraps_macos_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Macos,
+                NativeWindowHostLoopPlatformWaitBackendKind::MacosRunLoopTimer,
+            )
+            .unwrap();
+        let backend =
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0),
+                ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(98)
+                    .with_timer_or_event_statuses(vec![
+                        NATIVE_WINDOW_HOST_LOOP_MACOS_RUN_LOOP_STATUS_TIMER_FIRED,
+                    ]),
+                ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(-1, -1),
+            )
+            .unwrap();
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 98,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut host = native_window_host_loop_platform_wait_run_loop_host_from_backend(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            backend,
+        );
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        match host.wait_adapter().backend() {
+            NativeWindowHostLoopPlatformWaitBackend::MacosRunLoopTimer(backend) => {
+                assert_eq!(backend.api().timer_wait_calls, vec![98]);
+            }
+            _ => panic!("unexpected platform backend"),
+        }
+    }
+
+    #[test]
+    fn native_window_platform_wait_run_loop_host_wraps_linux_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let backend =
+            build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis(
+                selection,
+                ScriptedNativeWindowHostLoopWindowsWaitRawApi::new(0),
+                ScriptedNativeWindowHostLoopMacosRunLoopTimerRawApi::new(0),
+                ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(99, 100)
+                    .with_timer_or_event_statuses(vec![
+                        NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+                    ]),
+            )
+            .unwrap();
+        let window_size = NativeWindowSize::new(640, 480);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 99,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut host = native_window_host_loop_platform_wait_run_loop_host_from_backend(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            backend,
+        );
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(instruction).unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        match host.wait_adapter().backend() {
+            NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(backend) => {
+                assert_eq!(backend.api().timer_wait_calls, vec![(99, 100)]);
+            }
+            _ => panic!("unexpected platform backend"),
         }
     }
 

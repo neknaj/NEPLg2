@@ -773,6 +773,22 @@ F5hv は trait adapter boundary であり、generic `NativeWindowHostLoopPlatfor
 
 F5hw は trait adapter boundary であり、generic `NativeWindowHostLoopPlatformWaitBackend` の macOS owner variant、macOS actual sys shim、CoreFoundation / AppKit binding、CLI dispatch、native runner connection、minifb wait path、sleep / busy loop / fallback / silent no-op は追加しない。
 
+## F5hx Native platform wait multi-backend owner boundary
+
+2026-06-20 の F5hx では、Windows / macOS / Linux の raw backend owner を 1 つの typed platform wait owner enum に統合する。これは F5hl の platform selection、F5hn の Windows raw backend、F5hv の Linux wait trait 実装、F5hw の macOS wait trait 実装を接続する ownership boundary であり、actual macOS / Linux sys shim や native runner dispatch ではない。
+
+`NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi` は `WindowsWaitableTimerMessageWait`、`MacosRunLoopTimer`、`LinuxSelectorTimerFd` を持つ。各 variant は対応 backend owner を保持し、clock と interruptible deadline waiter の実装は selected backend へ委譲する。error は `NativeWindowHostLoopPlatformWaitBackendError WindowsError MacosError LinuxError` の variant として保持し、どの platform backend で失敗したかを typed data として残す。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` は selection を再検査してから、selected platform の raw API だけを使う。mismatch、unsupported platform、headless scripted は raw API construction の前に `BackendSupportFailed` として返す。selected されていない raw API を触って fallback backend、dummy backend、best-effort success を作ってはいけない。
+
+`build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は Windows cfg runner 用 compatibility wrapper として残す。return type は `NativeWindowHostLoopWindowsOnlyPlatformWaitBackend WindowsApi` であり、macOS / Linux raw API の type parameter には empty enum の never raw API を使う。macOS / Linux selection はこの wrapper では `BackendImplementationUnavailable` として返す。
+
+旧 no-owner builder `build_native_window_host_loop_platform_wait_backend_from_selection` は引き続き fail-closed probe である。API / handle owner を受け取らないため、validated real backend でも `BackendImplementationUnavailable` を返す。implicit sys API creation、headless scripted fallback、minifb pacing、thread sleep、busy loop、synthetic timer fire は禁止する。
+
+Never raw API は `NativeWindowHostLoopNeverMacosRunLoopTimerRawApi` と `NativeWindowHostLoopNeverLinuxSelectorTimerFdRawApi` として表す。どちらも empty enum であり、trait method body は `match *self {}` のみである。panic、unreachable、dummy raw handle、dummy status、no-op success を返さない。
+
+F5hx は platform wait owner の統合までを扱う。`#[cfg(target_os = "macos")]` actual sys shim、CoreFoundation / AppKit binding、`#[cfg(target_os = "linux")]` actual sys shim、libc / nix / epoll / poll / select / timerfd、native runner / CLI dispatch、minifb wait path、sleep、busy loop、fallback、silent no-op、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は後続 phase とする。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
