@@ -1222,6 +1222,32 @@ subagent review:
 - Feynman the 2nd に F5gk 計画を渡し、typed newtype、upper bound、invalid reason/value、CLI boundary、source-policy の観点で確認させる。指摘があれば実装前に反映する。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gl: Native window host-loop run policy boundary
+
+Phase F5gl では、F5gj の bounded runner を native smoke window の long loop path に接続し、実行予算を `NativeWindowHostLoopRunPolicy` として明示する。F5gj では finite turn count の runner が入ったが、F5gk 後の `run_minifb_window_loop` はまだ direct long runner を呼んでいる。F5gl はこの root boundary を直し、future formal native OS scheduler / window backend loop が同じ bounded runner contract を使えるようにする。
+
+実装:
+
+- `NativeWindowHostLoopTurnSlice` newtype、`NativeWindowHostLoopTurnSliceInvalidReason`、`NativeWindowHostLoopTurnSliceError` を追加する。
+- `NATIVE_WINDOW_HOST_LOOP_MIN_TURN_SLICE = 1`、`NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE = 4096`、`NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE = 1` を追加する。`4096` は OS wait / timer / performance guarantee ではなく bounded turn budget の上限である。
+- `NativeWindowHostLoopRunPolicy` を追加し、`NativeWindowRunLoopConfig.host_loop_policy` に保持する。既存 constructor は default policy を使う。
+- `run_native_window_host_loop_with_policy` を追加し、`run_native_window_host_loop_bounded` だけを反復する。`Exited` は return、`BudgetExhausted` は同じ runner state で次 slice に進める。
+- `run_native_window_host_loop` は default policy runner に委譲し、`run_minifb_window_loop` は `config.host_loop_policy` を渡して policy runner を呼ぶ。
+- tests は default / custom / zero / too-high / config preservation / single-turn slices across exit / error preservation を検査する。
+- source policy は policy type、range constants、default policy delegation、minifb policy path、policy runner -> bounded runner、`usize::MAX` 禁止を固定する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- CLI option は追加しない。これは user-facing tuning ではなく native host-loop policy boundary である。
+- sleep、queue、timer、DOM / Canvas / video memory transport、fallback、silent no-op、`usize::MAX` による unbounded slice は作らない。
+
+subagent review:
+
+- Feynman the 2nd に F5gl 計画を渡し、default turn slice、upper bound、CLI 非公開、policy runner delegation、source-policy の観点で確認させる。指摘があれば実装前に反映する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1,3 +1,41 @@
+# 2026-06-19 Agent2 GUI platform F5gl Native window host-loop run policy boundary
+
+## scope
+
+- F5gj bounded runner と F5gk frame pacing config の後続として、native smoke window の long-running host loop を `NativeWindowHostLoopRunPolicy` へ接続する。
+- `NativeWindowHostLoopTurnSlice`、`NativeWindowHostLoopRunPolicy`、`NativeWindowRunLoopConfig.host_loop_policy`、`run_native_window_host_loop_with_policy` を追加する。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`DEFAULT=1` は現状の one-turn-per-host-update semantics を保つため正しいこと、`MAX=4096` は bounded turn budget の上限として docs / source-policy / tests に明記すること、CLI option は user-facing tuning ではないため今回は不要であること、`run_native_window_host_loop` は default policy runner に委譲してよいことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopTurnSlice` は `1..=4096` を validation し、`Zero` / `TooHigh max` を typed error として返す。
+- `NativeWindowHostLoopRunPolicy` は validation 済み `turn_slice` を保持し、`NativeWindowRunLoopConfig.host_loop_policy` に default policy として入る。
+- `run_native_window_host_loop_with_policy` は `run_native_window_host_loop_bounded` だけを反復し、`BudgetExhausted` では同じ runner state で次 slice へ進み、`Exited` では terminal reason を返す。
+- `run_native_window_host_loop` は default policy wrapper になり、`run_minifb_window_loop` は `config.host_loop_policy` を渡す。
+- tests、source-policy、GUI 関連 doc、todo を F5gl に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 103 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gl native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopTurnSlice` / `NativeWindowHostLoopRunPolicy` が typed validated boundary になっていること、`run_native_window_host_loop_with_policy` が同じ runner state を維持して bounded runner だけを反復すること、`run_minifb_window_loop` が `config.host_loop_policy` 経由であること、fallback / silent no-op / queue / timer / sleep / direct minifb input API が混入していないことが確認された。
+
+## residual
+
+- F5gl は native host-loop run policy boundary までであり、formal native OS scheduler loop、OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gk Native window frame pacing config boundary
 
 ## scope

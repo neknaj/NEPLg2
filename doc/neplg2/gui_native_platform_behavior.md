@@ -135,6 +135,12 @@ F5gk では、native smoke window loop の frame pacing を固定値ではなく
 
 minifb adapter は validation 済みの `target_fps.as_usize` だけを `Window::set_target_fps` に渡す。`set_target_fps 60` のような hidden constant や raw config value の直渡しは行わない。CLI の `--fps` は window mode 用の frame pacing 設定であり、headless mode の raster output には影響しない。
 
+## Native window host-loop run policy checkpoint
+
+F5gl では、native smoke window loop の long-running path を `NativeWindowHostLoopRunPolicy` へ接続する。`NativeWindowHostLoopTurnSlice` は `1..=4096` の bounded turn budget であり、default は `1` である。この値は OS wait / timer wait / FHD 60fps の保証ではなく、`run_native_window_host_loop_bounded` を何 turn ずつ反復するかを表す sanity bound である。
+
+`run_native_window_host_loop_with_policy` は `NativeWindowHostLoopRunnerState` を保持したまま bounded runner を繰り返す。`BudgetExhausted` は同じ initialized state で次 slice へ進み、`Exited` は terminal reason を返す。`run_native_window_host_loop` は default policy を使う wrapper であり、minifb adapter は `NativeWindowRunLoopConfig.host_loop_policy` を渡す。`usize::MAX`、sleep、queue、timer、fallback、silent no-op は導入しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -144,6 +150,7 @@ minifb adapter は validation 済みの `target_fps.as_usize` だけを `Window:
 - `WindowOptions.resize = true` により OS window manager の resize を許可する。
 - `ScaleMode::UpperLeft` と dark background を使い、resize 後は current drawable surface と同じ size の RGB0 buffer を presenter state へ再 present する。
 - `NativeWindowTargetFps` で検査した target FPS を `Window::set_target_fps` に渡し、event pump loop の busy spin を避ける。
+- `NativeWindowHostLoopRunPolicy` で検査した turn slice により、minifb host loop は bounded runner を明示的に反復する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。

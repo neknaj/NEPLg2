@@ -1178,6 +1178,32 @@ pub const NATIVE_WINDOW_RUN_LOOP_MIN_TARGET_FPS: u16 = 1;
 pub const NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS: u16 = 240;
 pub const NATIVE_WINDOW_RUN_LOOP_DEFAULT_TARGET_FPS: u16 = 60;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopTurnSlice {
+    value: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopTurnSliceInvalidReason {
+    Zero,
+    TooHigh { max: u16 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopTurnSliceError {
+    pub value: usize,
+    pub reason: NativeWindowHostLoopTurnSliceInvalidReason,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopRunPolicy {
+    pub turn_slice: NativeWindowHostLoopTurnSlice,
+}
+
+pub const NATIVE_WINDOW_HOST_LOOP_MIN_TURN_SLICE: u16 = 1;
+pub const NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE: u16 = 4096;
+pub const NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE: u16 = 1;
+
 impl NativeWindowTargetFps {
     pub fn new(value: usize) -> Result<Self, NativeWindowTargetFpsError> {
         if value == 0 {
@@ -1222,12 +1248,71 @@ impl Default for NativeWindowTargetFps {
     }
 }
 
+impl NativeWindowHostLoopTurnSlice {
+    pub fn new(value: usize) -> Result<Self, NativeWindowHostLoopTurnSliceError> {
+        if value == 0 {
+            return Err(NativeWindowHostLoopTurnSliceError {
+                value,
+                reason: NativeWindowHostLoopTurnSliceInvalidReason::Zero,
+            });
+        }
+        let Ok(value) = u16::try_from(value) else {
+            return Err(NativeWindowHostLoopTurnSliceError {
+                value,
+                reason: NativeWindowHostLoopTurnSliceInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE,
+                },
+            });
+        };
+        if value > NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE {
+            return Err(NativeWindowHostLoopTurnSliceError {
+                value: usize::from(value),
+                reason: NativeWindowHostLoopTurnSliceInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE,
+                },
+            });
+        }
+        Ok(Self { value })
+    }
+
+    pub fn value(self) -> u16 {
+        self.value
+    }
+
+    pub fn as_usize(self) -> usize {
+        usize::from(self.value)
+    }
+}
+
+impl Default for NativeWindowHostLoopTurnSlice {
+    fn default() -> Self {
+        Self {
+            value: NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE,
+        }
+    }
+}
+
+impl NativeWindowHostLoopRunPolicy {
+    pub fn new(turn_slice: NativeWindowHostLoopTurnSlice) -> Self {
+        Self { turn_slice }
+    }
+}
+
+impl Default for NativeWindowHostLoopRunPolicy {
+    fn default() -> Self {
+        Self {
+            turn_slice: NativeWindowHostLoopTurnSlice::default(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowRunLoopConfig {
     pub demo: GuiDemo,
     pub counter_value: i32,
     pub scale: usize,
     pub target_fps: NativeWindowTargetFps,
+    pub host_loop_policy: NativeWindowHostLoopRunPolicy,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2378,6 +2463,7 @@ impl NativeWindowRunLoopConfig {
             counter_value,
             scale,
             target_fps: NativeWindowTargetFps::default(),
+            host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
         }
     }
 
@@ -2392,6 +2478,23 @@ impl NativeWindowRunLoopConfig {
             counter_value,
             scale,
             target_fps,
+            host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+        }
+    }
+
+    pub fn new_with_target_fps_and_host_loop_policy(
+        demo: GuiDemo,
+        counter_value: i32,
+        scale: usize,
+        target_fps: NativeWindowTargetFps,
+        host_loop_policy: NativeWindowHostLoopRunPolicy,
+    ) -> Self {
+        Self {
+            demo,
+            counter_value,
+            scale,
+            target_fps,
+            host_loop_policy,
         }
     }
 
@@ -2487,16 +2590,32 @@ pub fn run_native_window_host_loop<Host>(
 where
     Host: NativeWindowRunLoopHost,
 {
-    let mut runner_state = NativeWindowHostLoopRunnerState::new();
-    match initialize_native_window_host_loop(&mut runner_state, backend_loop, host) {
-        NativeWindowHostLoopInitialization::Initialized
-        | NativeWindowHostLoopInitialization::AlreadyInitialized => {}
-    }
+    run_native_window_host_loop_with_policy(
+        backend_loop,
+        host,
+        NativeWindowHostLoopRunPolicy::default(),
+    )
+}
 
+pub fn run_native_window_host_loop_with_policy<Host>(
+    backend_loop: &mut NativeWindowBackendLoop,
+    host: &mut Host,
+    policy: NativeWindowHostLoopRunPolicy,
+) -> Result<NativeWindowRunLoopExit, NativeWindowHostLoopError<Host::EventError, Host::PresentError>>
+where
+    Host: NativeWindowRunLoopHost,
+{
+    let mut runner_state = NativeWindowHostLoopRunnerState::new();
+    let max_turn_count = policy.turn_slice.as_usize();
     loop {
-        match step_native_window_host_loop(backend_loop, host)? {
-            NativeWindowHostLoopTurn::Continue => {}
-            NativeWindowHostLoopTurn::Exit(exit) => return Ok(exit),
+        match run_native_window_host_loop_bounded(
+            &mut runner_state,
+            backend_loop,
+            host,
+            max_turn_count,
+        )? {
+            NativeWindowHostLoopBoundedRunResult::Exited { exit, .. } => return Ok(exit),
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { .. } => {}
         }
     }
 }
@@ -2612,7 +2731,7 @@ pub fn run_minifb_window_loop(
     let mut host = MinifbNativeWindowRunLoopHost {
         window: &mut window,
     };
-    run_native_window_host_loop(&mut backend_loop, &mut host)
+    run_native_window_host_loop_with_policy(&mut backend_loop, &mut host, config.host_loop_policy)
         .map_err(native_window_run_loop_error_from_host_loop)
 }
 
@@ -5248,6 +5367,42 @@ mod tests {
     }
 
     #[test]
+    fn native_window_host_loop_turn_slice_accepts_default_and_custom_values() {
+        assert_eq!(
+            NativeWindowHostLoopTurnSlice::default().value(),
+            NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE
+        );
+        assert_eq!(NativeWindowHostLoopTurnSlice::new(16).unwrap().value(), 16);
+        assert_eq!(
+            NativeWindowHostLoopTurnSlice::new(16).unwrap().as_usize(),
+            16
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_turn_slice_rejects_zero_and_too_high_values() {
+        assert_eq!(
+            NativeWindowHostLoopTurnSlice::new(0).unwrap_err(),
+            NativeWindowHostLoopTurnSliceError {
+                value: 0,
+                reason: NativeWindowHostLoopTurnSliceInvalidReason::Zero,
+            }
+        );
+        assert_eq!(
+            NativeWindowHostLoopTurnSlice::new(
+                usize::from(NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE) + 1
+            )
+            .unwrap_err(),
+            NativeWindowHostLoopTurnSliceError {
+                value: usize::from(NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE) + 1,
+                reason: NativeWindowHostLoopTurnSliceInvalidReason::TooHigh {
+                    max: NATIVE_WINDOW_HOST_LOOP_MAX_TURN_SLICE
+                },
+            }
+        );
+    }
+
+    #[test]
     fn native_window_run_loop_config_preserves_demo_state() {
         assert_eq!(
             NativeWindowRunLoopConfig::new(GuiDemo::Counter, 7, 3),
@@ -5256,6 +5411,7 @@ mod tests {
                 counter_value: 7,
                 scale: 3,
                 target_fps: NativeWindowTargetFps::default(),
+                host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
             }
         );
         let custom_fps = NativeWindowTargetFps::new(120).unwrap();
@@ -5266,6 +5422,25 @@ mod tests {
                 counter_value: 11,
                 scale: 2,
                 target_fps: custom_fps,
+                host_loop_policy: NativeWindowHostLoopRunPolicy::default(),
+            }
+        );
+        let custom_policy =
+            NativeWindowHostLoopRunPolicy::new(NativeWindowHostLoopTurnSlice::new(8).unwrap());
+        assert_eq!(
+            NativeWindowRunLoopConfig::new_with_target_fps_and_host_loop_policy(
+                GuiDemo::Life,
+                11,
+                2,
+                custom_fps,
+                custom_policy
+            ),
+            NativeWindowRunLoopConfig {
+                demo: GuiDemo::Life,
+                counter_value: 11,
+                scale: 2,
+                target_fps: custom_fps,
+                host_loop_policy: custom_policy,
             }
         );
         assert_eq!(
@@ -5518,6 +5693,64 @@ mod tests {
             NativeWindowHostLoopError::PresenterFrameUnavailable(
                 NativeWindowBackendLoopError::SurfaceUnavailable
             )
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_with_policy_exits_across_single_turn_slices() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let close = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            unavailable_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable), Ok(close)]);
+
+        let exit = run_native_window_host_loop_with_policy(
+            &mut loop_state,
+            &mut host,
+            NativeWindowHostLoopRunPolicy::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            exit.reason,
+            NativeWindowHostTerminalReason::OsCloseRequested
+        );
+        assert_eq!(host.cursor, 2);
+        assert_eq!(host.pump_count, 1);
+        assert!(host.present_frames.is_empty());
+        assert_eq!(
+            host.titles,
+            vec![
+                native_window_title(GuiDemo::Counter, initial_size),
+                native_window_title(GuiDemo::Counter, unavailable_size),
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_host_loop_with_policy_preserves_event_pump_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let policy =
+            NativeWindowHostLoopRunPolicy::new(NativeWindowHostLoopTurnSlice::new(2).unwrap());
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Err("event failed")]);
+
+        assert_eq!(
+            run_native_window_host_loop_with_policy(&mut loop_state, &mut host, policy)
+                .unwrap_err(),
+            NativeWindowHostLoopError::HostEventPumpFailed("event failed")
         );
     }
 
