@@ -89,6 +89,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowEventQueueStatusAdapter = textSliceBetween(
         libSource,
         "pub const NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY",
+        "pub enum NativeWindowHostLoopMessagePumpStatusAdapterError",
+    );
+    const nativeWindowMessagePumpStatusAdapter = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowHostLoopMessagePumpStatusAdapterError",
         "pub enum NativeWindowHostLoopTurn",
     );
     const nativeWindowHostLoopBoundedRunner = textSliceBetween(
@@ -109,6 +114,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowHostLoopTurnCore = textSliceBetween(
         libSource,
         "pub fn step_native_window_host_loop",
+        "struct MinifbNativeWindowHostLoopMessagePumpAdapter",
+    );
+    const nativeWindowMinifbMessagePumpAdapter = textSliceBetween(
+        libSource,
+        "struct MinifbNativeWindowHostLoopMessagePumpAdapter",
         "struct MinifbNativeWindowRunLoopHost",
     );
     const nativeWindowMinifbHostAdapter = textSliceBetween(
@@ -131,17 +141,23 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
-        .replace(nativeWindowEventQueueStatusAdapter, "");
+        .replace(nativeWindowEventQueueStatusAdapter, "")
+        .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeClockHelperWithoutWaitBackends = nativeClockHelper
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
-        .replace(nativeWindowEventQueueStatusAdapter, "");
+        .replace(nativeWindowEventQueueStatusAdapter, "")
+        .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeWindowEventPumpHelperWithoutWaitBackends = nativeWindowEventPumpHelper
         .replace(nativeWindowThreadWaitBackend, "")
         .replace(nativeWindowTimerRegistrationBackend, "")
         .replace(nativeWindowEventQueueWaitBackend, "")
-        .replace(nativeWindowEventQueueStatusAdapter, "");
+        .replace(nativeWindowEventQueueStatusAdapter, "")
+        .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbMessagePumpAdapter, "");
 
     assert.match(mainSource, /NativeWindowTargetFps::new\(target_fps\)/);
     assert.match(mainSource, /"--fps"/);
@@ -170,7 +186,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub const NATIVE_WINDOW_HOST_LOOP_DEFAULT_TURN_SLICE: u16 = 1/);
     assert.match(libSource, /pub struct NativeWindowRunLoopConfig\s*\{[\s\S]*pub demo: GuiDemo,[\s\S]*pub counter_value: i32,[\s\S]*pub scale: usize,[\s\S]*pub target_fps: NativeWindowTargetFps,[\s\S]*pub host_loop_policy: NativeWindowHostLoopRunPolicy/);
     assert.match(libSource, /pub struct NativeWindowRunLoopExit\s*\{[\s\S]*pub reason: NativeWindowHostTerminalReason/);
-    assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*TargetFpsInvalid\s*\{[\s\S]*value: usize,[\s\S]*reason: NativeWindowTargetFpsInvalidReason,[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed/);
+    assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*TargetFpsInvalid\s*\{[\s\S]*value: usize,[\s\S]*reason: NativeWindowTargetFpsInvalidReason,[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed[\s\S]*HostWaitFailed/);
     assert.match(libSource, /pub trait NativeWindowRunLoopHost\s*\{[\s\S]*type EventError;[\s\S]*type PresentError;[\s\S]*type WaitError;[\s\S]*poll_event_snapshot[\s\S]*set_window_title[\s\S]*pump_events_only[\s\S]*present_frame[\s\S]*wait_after_budget_exhausted/);
     assert.match(libSource, /pub enum NativeWindowHostLoopError<EventError, PresentError, WaitError>\s*\{[\s\S]*HostEventPumpFailed\(EventError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*HostPresentFailed\(PresentError\)[\s\S]*HostWaitFailed\(WaitError\)[\s\S]*WaitDecisionMissing/);
     assert.match(libSource, /pub enum NativeWindowHostLoopContinueEvidence\s*\{[\s\S]*PumpedEventsOnly\s*\{[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*PresentedFrame\s*\{[\s\S]*presentation: NativeWindowBackendLoopPresentation,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool/);
@@ -194,6 +210,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopEventQueueStatusAdapterError<AdapterError>\s*\{[\s\S]*InvalidRawStatus\s*\{\s*raw_status: u32\s*\},[\s\S]*AdapterFailed\(AdapterError\)/);
     assert.match(libSource, /pub trait NativeWindowHostLoopEventQueueStatusAdapter\s*\{[\s\S]*type Error;[\s\S]*wait_for_host_event_raw_status\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<u32, Self::Error>/);
     assert.match(libSource, /pub struct NativeWindowHostLoopEventQueueStatusWaiter<Adapter>\s*\{[\s\S]*adapter: Adapter/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopMessagePumpStatusAdapterError<PumpError>\s*\{[\s\S]*PumpFailed\(PumpError\)/);
+    assert.match(libSource, /pub trait NativeWindowHostLoopMessagePumpAdapter\s*\{[\s\S]*type Error;[\s\S]*pump_host_messages\(\s*&mut self,[\s\S]*window_size: NativeWindowSize,[\s\S]*size_changed: bool,[\s\S]*\) -> Result<\(\), Self::Error>/);
+    assert.match(libSource, /pub struct NativeWindowHostLoopMessagePumpStatusAdapter<Adapter>\s*\{[\s\S]*adapter: Adapter/);
     assert.match(libSource, /pub enum NativeWindowHostLoopTurn\s*\{[\s\S]*Continue\(NativeWindowHostLoopContinueEvidence\),[\s\S]*Exit\(NativeWindowRunLoopExit\)/);
     assert.match(libSource, /pub struct NativeWindowHostLoopRunnerState\s*\{[\s\S]*title_initialized: bool/);
     assert.match(libSource, /pub enum NativeWindowHostLoopInitialization\s*\{[\s\S]*Initialized,[\s\S]*AlreadyInitialized/);
@@ -250,6 +269,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowEventQueueStatusAdapter, /impl<Adapter> NativeWindowHostLoopEventQueueWaiter[\s\S]*NativeWindowHostLoopEventQueueStatusWaiter<Adapter>/);
     assert.match(nativeWindowEventQueueStatusAdapter, /wait_native_window_host_loop_event_queue_raw_status_with_adapter\([\s\S]*&mut self\.adapter,[\s\S]*window_size,[\s\S]*size_changed/);
     assert.doesNotMatch(nativeWindowEventQueueStatusAdapter, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowMessagePumpStatusAdapter, /impl<Adapter> NativeWindowHostLoopEventQueueStatusAdapter[\s\S]*NativeWindowHostLoopMessagePumpStatusAdapter<Adapter>/);
+    assert.match(nativeWindowMessagePumpStatusAdapter, /pump_host_messages\(window_size,\s*size_changed\)[\s\S]*NativeWindowHostLoopMessagePumpStatusAdapterError::PumpFailed/);
+    assert.match(nativeWindowMessagePumpStatusAdapter, /Ok\(NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY\)/);
+    assert.doesNotMatch(nativeWindowMessagePumpStatusAdapter, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowHostLoopBoundedRunner, /pub fn run_native_window_host_loop_bounded<Host>\([\s\S]*runner_state: &mut NativeWindowHostLoopRunnerState,[\s\S]*max_turn_count: usize/);
     assert.match(nativeWindowHostLoopBoundedRunner, /initialize_native_window_host_loop\(runner_state,\s*backend_loop,\s*host\)/);
     assert.match(nativeWindowHostLoopBoundedRunner, /while completed_turns < max_turn_count/);
@@ -288,13 +311,19 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowHostLoopTurnCore, /NativeWindowHostAction::PumpEventsOnly[\s\S]*host\.pump_events_only\(\)[\s\S]*NativeWindowHostLoopContinueEvidence::PumpedEventsOnly/);
     assert.match(nativeWindowHostLoopTurnCore, /NativeWindowHostAction::PresentFrame[\s\S]*current_present_frame_for_window\(\)[\s\S]*host\.present_frame\(present_frame\)[\s\S]*NativeWindowHostLoopContinueEvidence::PresentedFrame/);
     assert.doesNotMatch(nativeWindowHostLoopTurnCore, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|set_background_color|\bKey\b|\bMouseButton\b|\bMouseMode\b|is_open\(|is_key_down\(|get_mouse_down\(|get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|pixels\(\)|frame\.pixels|&\s*\[[^\]]*\]/i);
+    assert.match(nativeWindowMinifbMessagePumpAdapter, /impl NativeWindowHostLoopMessagePumpAdapter for MinifbNativeWindowHostLoopMessagePumpAdapter/);
+    assert.match(nativeWindowMinifbMessagePumpAdapter, /self\.window\.update\(\)/);
+    assert.match(nativeWindowMinifbMessagePumpAdapter, /NativeWindowHostLoopMessagePumpStatusAdapter::new/);
+    assert.match(nativeWindowMinifbMessagePumpAdapter, /NativeWindowHostLoopEventQueueStatusWaiter::new/);
+    assert.match(nativeWindowMinifbMessagePumpAdapter, /execute_native_window_host_loop_event_queue_wait_with_waiter/);
+    assert.doesNotMatch(nativeWindowMinifbMessagePumpAdapter, /update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowMinifbHostAdapter, /impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost/);
-    assert.match(nativeWindowMinifbHostAdapter, /type WaitError = std::convert::Infallible/);
+    assert.match(nativeWindowMinifbHostAdapter, /type WaitError = MinifbNativeWindowHostLoopMessagePumpWaitError/);
     assert.match(nativeWindowMinifbHostAdapter, /poll_minifb_window_event_pump\(self\.window,\s*input\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window\.set_title\(title\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window\.update\(\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window[\s\S]*\.update_with_buffer\(frame\.pixels\(\),\s*frame\.width\(\),\s*frame\.height\(\)\)/);
-    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForHostEvent[\s\S]*NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced/);
+    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForHostEvent[\s\S]*wait_minifb_window_host_event_message_pump\(self\.window,\s*window_size,\s*size_changed\)\?/);
     assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForFrameInterval[\s\S]*wait_nanos: _[\s\S]*NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced/);
     assert.doesNotMatch(nativeWindowMinifbWaitMethod, /window\.update\(|update_with_buffer|limit_update_rate|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|fallback|silent no-op/i);
     assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
@@ -685,6 +714,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY/);
     assert.match(platformDoc, /NativeWindowHostLoopEventQueueStatusAdapter/);
     assert.match(platformDoc, /InvalidRawStatus/);
+    assert.match(platformDoc, /Native window host-loop message pump adapter checkpoint/);
+    assert.match(platformDoc, /NativeWindowHostLoopMessagePumpAdapter/);
+    assert.match(platformDoc, /MinifbNativeWindowHostLoopMessagePumpAdapter/);
+    assert.match(platformDoc, /wait_minifb_window_host_event_message_pump/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -753,6 +786,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /Phase F5gv: Native window host-loop event queue normalized status adapter boundary/);
     assert.match(implementationPlan, /NativeWindowHostLoopEventQueueStatusAdapter/);
     assert.match(implementationPlan, /InvalidRawStatus/);
+    assert.match(implementationPlan, /Phase F5gw: Native window host-loop message pump adapter boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopMessagePumpAdapter/);
+    assert.match(implementationPlan, /wait_minifb_window_host_event_message_pump/);
+    assert.match(implementationPlan, /PLAN_APPROVED/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -808,6 +845,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5gv Native window host-loop event queue normalized status adapter boundary/);
     assert.match(standardSpec, /NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY/);
     assert.match(standardSpec, /NativeWindowHostLoopEventQueueStatusWaiter/);
+    assert.match(standardSpec, /F5gw Native window host-loop message pump adapter boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopMessagePumpStatusAdapter/);
+    assert.match(standardSpec, /wait_minifb_window_host_event_message_pump/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);
@@ -857,6 +897,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native host-loop wait strategy instructions distribute frame interval remainder without sleep or queues",
             "Native host-loop thread wait backend sleeps only frame intervals and rejects host-event waits",
             "Native host-loop timer registration backend registers only frame intervals and validates raw timer ids",
+            "Native host-loop message pump adapter maps pump success through normalized event status",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",

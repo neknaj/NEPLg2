@@ -71673,3 +71673,51 @@ MERGE_APPROVED
 ### residual
 
 - 次 slice では actual OS selector / message pump adapter / real OS timer backend connection へ進む。F5gv は normalized status adapter boundary までであり、platform-specific queue ownership、selector wakeup、OS error mapping、actual timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gw host-loop message pump adapter boundary
+
+### scope
+
+- F5gw は F5gv の normalized status adapter に接続する message pump adapter boundary である。
+- platform window backend が持つ message pump を `NativeWindowHostLoopMessagePumpAdapter` として実行し、成功時だけ `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` へ写す。
+- pump failure は `PumpFailed` として元の error value を保持し、normalized status validation と混ぜない。
+- minifb smoke backend では `window.update` を `MinifbNativeWindowHostLoopMessagePumpAdapter` に閉じ、host wait は F5gu / F5gv の event queue waiter 経由で `HostEventPumpAlreadyPaced` へ戻す。
+- real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5gw を actual OS selector / message pump adapter boundary とする計画は、`todo.md` と GUI docs の F5gv 後続に合っていると確認された。
+- OS 固有 status / failure を `Result` + enum error に分離すること、platform detail を adapter 内に閉じること、real OS timer backend を別 slice に残すことが条件として確認された。
+
+### implementation
+
+- `NativeWindowHostLoopMessagePumpStatusAdapterError`、`NativeWindowHostLoopMessagePumpAdapter`、`NativeWindowHostLoopMessagePumpStatusAdapter` を追加した。
+- `NativeWindowHostLoopMessagePumpStatusAdapter` は pump 成功時だけ F5gv の ready status を返す。
+- `MinifbNativeWindowHostLoopMessagePumpAdapter` と `wait_minifb_window_host_event_message_pump` を追加し、minifb host event wait を event queue waiter 経由へ接続した。
+- `NativeWindowRunLoopError::HostWaitFailed` を追加し、host wait failure を run loop error として明示的に返せるようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gw contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_message_pump -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- `NativeWindowHostLoopMessagePumpAdapter` が `Result<(), Error>` で pump failure を `PumpFailed` として保持し、F5gv normalized status 境界へ明示的に接続していると確認された。
+- minifb の `window.update` は `MinifbNativeWindowHostLoopMessagePumpAdapter` slice に隔離され、frame interval wait / timer registration / thread sleep / `Duration` へ広がっていないと確認された。
+- source policy は message pump status adapter と minifb message pump adapter を分け、timer / sleep / DOM / Canvas / video memory / fallback / silent no-op の混入を検査できていると確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_message_pump -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では real OS timer backend connection へ進む。F5gw は message pump adapter boundary までであり、actual timer integration、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
