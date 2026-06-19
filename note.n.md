@@ -1,3 +1,41 @@
+# 2026-06-19 Agent2 GUI platform F5gi Native window host-loop turn boundary
+
+## scope
+
+- F5gh Native window host-loop core boundary の後続として、long loop body を typed one-turn boundary へ切り出す。
+- `NativeWindowHostLoopTurn` と `step_native_window_host_loop` を追加し、future formal native OS scheduler / window backend loop が再利用できる turn contract を作る。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`NativeWindowHostLoopTurn` は generic を持たない plain enum にすること、initial title は `run_native_window_host_loop` 側だけに残すこと、source-policy で long loop runner に low-level turn body が戻らないことを検査すること、one-turn tests に title 境界を追加すること、docs/note/todo に scheduler / wait / queue / timer ではなく typed turn boundary であることを明記することが指摘された。
+- 指摘に従い、F5gi は `Continue` / `Exit NativeWindowRunLoopExit` だけを持つ turn result とし、one-turn function は initial title を設定しない。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopTurn` と `step_native_window_host_loop` を追加した。
+- `step_native_window_host_loop` は host event snapshot、`step_host_action`、size changed title update、pump-only、present、exit の 1 turn だけを扱う。
+- `run_native_window_host_loop` は initial title を設定した後、`step_native_window_host_loop` の `Continue` / `Exit` だけを match する形へ変更した。
+- one-turn tests と source-policy、GUI 関連 doc、todo を F5gi に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gi native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`run_native_window_host_loop` は initial title 設定後に `step_native_window_host_loop` の `Continue` / `Exit` だけを扱い、poll / action / present 本体が戻っていないこと、`step_native_window_host_loop` が minifb、direct input API、queue / timer / wait を持たず typed error を保持していることが確認された。
+
+## residual
+
+- F5gi は native host-loop turn boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gh Native window host-loop core boundary
 
 ## scope

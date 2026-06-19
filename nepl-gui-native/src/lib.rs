@@ -1203,6 +1203,12 @@ pub enum NativeWindowHostLoopError<EventError, PresentError> {
     HostPresentFailed(PresentError),
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopTurn {
+    Continue,
+    Exit(NativeWindowRunLoopExit),
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowBackendLoopError {
     InitialScaleInvalid,
@@ -2286,41 +2292,58 @@ where
     host.set_window_title(&initial_title);
 
     loop {
-        let event_snapshot = host
-            .poll_event_snapshot(backend_loop.event_pump_input())
-            .map_err(NativeWindowHostLoopError::HostEventPumpFailed)?;
-        let action = backend_loop
-            .step_host_action(event_snapshot)
-            .map_err(NativeWindowHostLoopError::HostActionFailed)?;
-        match action {
-            NativeWindowHostAction::Terminate { reason } => {
-                return Ok(NativeWindowRunLoopExit { reason });
+        match step_native_window_host_loop(backend_loop, host)? {
+            NativeWindowHostLoopTurn::Continue => {}
+            NativeWindowHostLoopTurn::Exit(exit) => return Ok(exit),
+        }
+    }
+}
+
+pub fn step_native_window_host_loop<Host>(
+    backend_loop: &mut NativeWindowBackendLoop,
+    host: &mut Host,
+) -> Result<NativeWindowHostLoopTurn, NativeWindowHostLoopError<Host::EventError, Host::PresentError>>
+where
+    Host: NativeWindowRunLoopHost,
+{
+    let event_snapshot = host
+        .poll_event_snapshot(backend_loop.event_pump_input())
+        .map_err(NativeWindowHostLoopError::HostEventPumpFailed)?;
+    let action = backend_loop
+        .step_host_action(event_snapshot)
+        .map_err(NativeWindowHostLoopError::HostActionFailed)?;
+    match action {
+        NativeWindowHostAction::Terminate { reason } => {
+            Ok(NativeWindowHostLoopTurn::Exit(NativeWindowRunLoopExit {
+                reason,
+            }))
+        }
+        NativeWindowHostAction::PumpEventsOnly {
+            window_size,
+            size_changed,
+        } => {
+            if size_changed {
+                let title = native_window_title(backend_loop.demo(), window_size);
+                host.set_window_title(&title);
             }
-            NativeWindowHostAction::PumpEventsOnly {
-                window_size,
-                size_changed,
-            } => {
-                if size_changed {
-                    let title = native_window_title(backend_loop.demo(), window_size);
-                    host.set_window_title(&title);
-                }
-                host.pump_events_only();
+            host.pump_events_only();
+            Ok(NativeWindowHostLoopTurn::Continue)
+        }
+        NativeWindowHostAction::PresentFrame {
+            window_size,
+            size_changed,
+            ..
+        } => {
+            if size_changed {
+                let title = native_window_title(backend_loop.demo(), window_size);
+                host.set_window_title(&title);
             }
-            NativeWindowHostAction::PresentFrame {
-                window_size,
-                size_changed,
-                ..
-            } => {
-                if size_changed {
-                    let title = native_window_title(backend_loop.demo(), window_size);
-                    host.set_window_title(&title);
-                }
-                let present_frame = backend_loop
-                    .current_present_frame_for_window()
-                    .map_err(NativeWindowHostLoopError::PresenterFrameUnavailable)?;
-                host.present_frame(present_frame)
-                    .map_err(NativeWindowHostLoopError::HostPresentFailed)?;
-            }
+            let present_frame = backend_loop
+                .current_present_frame_for_window()
+                .map_err(NativeWindowHostLoopError::PresenterFrameUnavailable)?;
+            host.present_frame(present_frame)
+                .map_err(NativeWindowHostLoopError::HostPresentFailed)?;
+            Ok(NativeWindowHostLoopTurn::Continue)
         }
     }
 }
@@ -5011,6 +5034,156 @@ mod tests {
         assert_eq!(
             native_window_title(GuiDemo::Life, NativeWindowSize::new(0, 720)),
             "NEPLg2 GUI native preview - Life - surface unavailable"
+        );
+    }
+
+    #[test]
+    fn step_native_window_host_loop_close_turn_has_no_initial_title_or_present() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap(),
+            NativeWindowHostLoopTurn::Exit(NativeWindowRunLoopExit {
+                reason: NativeWindowHostTerminalReason::OsCloseRequested
+            })
+        );
+        assert!(host.titles.is_empty());
+        assert_eq!(host.pump_count, 0);
+        assert!(host.present_frames.is_empty());
+    }
+
+    #[test]
+    fn step_native_window_host_loop_pump_only_resize_updates_title() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap(),
+            NativeWindowHostLoopTurn::Continue
+        );
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, unavailable_size)]
+        );
+        assert_eq!(host.pump_count, 1);
+        assert!(host.present_frames.is_empty());
+    }
+
+    #[test]
+    fn step_native_window_host_loop_drawable_resize_presents_exact_frame() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let resized = NativeWindowSize::new(initial_size.width + 16, initial_size.height + 8);
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            resized,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap(),
+            NativeWindowHostLoopTurn::Continue
+        );
+        assert_eq!(
+            host.titles,
+            vec![native_window_title(GuiDemo::Counter, resized)]
+        );
+        assert_eq!(host.pump_count, 0);
+        assert_eq!(host.present_frames, vec![(resized.width, resized.height)]);
+    }
+
+    #[test]
+    fn step_native_window_host_loop_preserves_event_pump_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Err("event failed")]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap_err(),
+            NativeWindowHostLoopError::HostEventPumpFailed("event failed")
+        );
+    }
+
+    #[test]
+    fn step_native_window_host_loop_preserves_present_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable)])
+            .with_present_error("present failed");
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap_err(),
+            NativeWindowHostLoopError::HostPresentFailed("present failed")
+        );
+    }
+
+    #[test]
+    fn step_native_window_host_loop_preserves_host_action_error() {
+        let mut loop_state =
+            NativeWindowBackendLoop::new_for_scale(GuiDemo::Counter, i32::MAX, 2).unwrap();
+        let snapshot = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(440, 284),
+            true,
+            NativeWindowPointerSample::Available { x: 40.0, y: 180.0 },
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(snapshot)]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap_err(),
+            NativeWindowHostLoopError::HostActionFailed(NativeWindowHostActionError::StepFailed(
+                NativeWindowBackendLoopError::CounterValueOverflow { previous: i32::MAX }
+            ))
+        );
+    }
+
+    #[test]
+    fn step_native_window_host_loop_preserves_presenter_frame_error() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        loop_state.presenter_state.resize_surface(0, 0).unwrap();
+        let drawable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            initial_size,
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(drawable)]);
+
+        assert_eq!(
+            step_native_window_host_loop(&mut loop_state, &mut host).unwrap_err(),
+            NativeWindowHostLoopError::PresenterFrameUnavailable(
+                NativeWindowBackendLoopError::SurfaceUnavailable
+            )
         );
     }
 

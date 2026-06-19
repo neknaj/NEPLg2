@@ -61,9 +61,14 @@ function runNativeGuiPlatformBehaviorRegression() {
         "impl NativeWindowRunLoopConfig",
         "pub fn render_demo_frame",
     );
-    const nativeWindowHostLoopCore = textSliceBetween(
+    const nativeWindowHostLoopRunner = textSliceBetween(
         libSource,
         "pub fn run_native_window_host_loop",
+        "pub fn step_native_window_host_loop",
+    );
+    const nativeWindowHostLoopTurnCore = textSliceBetween(
+        libSource,
+        "pub fn step_native_window_host_loop",
         "struct MinifbNativeWindowRunLoopHost",
     );
     const nativeWindowMinifbHostAdapter = textSliceBetween(
@@ -98,6 +103,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowRunLoopError\s*\{[\s\S]*BackendLoopInitializationFailed\(NativeWindowBackendLoopError\)[\s\S]*WindowCreationFailed[\s\S]*EventPumpFailed\(NativeWindowEventPumpError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*WindowPresentFailed/);
     assert.match(libSource, /pub trait NativeWindowRunLoopHost\s*\{[\s\S]*type EventError;[\s\S]*type PresentError;[\s\S]*poll_event_snapshot[\s\S]*set_window_title[\s\S]*pump_events_only[\s\S]*present_frame/);
     assert.match(libSource, /pub enum NativeWindowHostLoopError<EventError, PresentError>\s*\{[\s\S]*HostEventPumpFailed\(EventError\)[\s\S]*HostActionFailed\(NativeWindowHostActionError\)[\s\S]*PresenterFrameUnavailable\(NativeWindowBackendLoopError\)[\s\S]*HostPresentFailed\(PresentError\)/);
+    assert.match(libSource, /pub enum NativeWindowHostLoopTurn\s*\{[\s\S]*Continue,[\s\S]*Exit\(NativeWindowRunLoopExit\)/);
     assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
     assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
@@ -113,15 +119,22 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /NativeWindowHostActionError::UnsupportedCloseState/);
     assert.match(libSource, /NativeWindowHostActionError::StepFailed/);
     assert.match(nativeWindowRunLoopHelper, /pub fn native_window_title\(demo: GuiDemo, size: NativeWindowSize\) -> String/);
-    assert.match(nativeWindowHostLoopCore, /pub fn run_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
-    assert.match(nativeWindowHostLoopCore, /Host: NativeWindowRunLoopHost/);
-    assert.match(nativeWindowHostLoopCore, /host\.set_window_title\(&initial_title\)/);
-    assert.match(nativeWindowHostLoopCore, /host[\s\S]*\.poll_event_snapshot\(backend_loop\.event_pump_input\(\)\)/);
-    assert.match(nativeWindowHostLoopCore, /backend_loop[\s\S]*\.step_host_action\(event_snapshot\)/);
-    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::Terminate/);
-    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::PumpEventsOnly[\s\S]*host\.pump_events_only\(\)/);
-    assert.match(nativeWindowHostLoopCore, /NativeWindowHostAction::PresentFrame[\s\S]*current_present_frame_for_window\(\)[\s\S]*host\.present_frame\(present_frame\)/);
-    assert.doesNotMatch(nativeWindowHostLoopCore, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|set_background_color|\bKey\b|\bMouseButton\b|\bMouseMode\b|is_open\(|is_key_down\(|get_mouse_down\(|get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowHostLoopRunner, /pub fn run_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
+    assert.match(nativeWindowHostLoopRunner, /Host: NativeWindowRunLoopHost/);
+    assert.match(nativeWindowHostLoopRunner, /host\.set_window_title\(&initial_title\)/);
+    assert.match(nativeWindowHostLoopRunner, /loop\s*\{[\s\S]*step_native_window_host_loop\(backend_loop,\s*host\)\?/);
+    assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopTurn::Continue/);
+    assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopTurn::Exit\(exit\)/);
+    assert.doesNotMatch(nativeWindowHostLoopRunner, /poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|window\.update\(|update_with_buffer|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowHostLoopTurnCore, /pub fn step_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
+    assert.match(nativeWindowHostLoopTurnCore, /Host: NativeWindowRunLoopHost/);
+    assert.doesNotMatch(nativeWindowHostLoopTurnCore, /host\.set_window_title\(&initial_title\)/);
+    assert.match(nativeWindowHostLoopTurnCore, /host[\s\S]*\.poll_event_snapshot\(backend_loop\.event_pump_input\(\)\)/);
+    assert.match(nativeWindowHostLoopTurnCore, /backend_loop[\s\S]*\.step_host_action\(event_snapshot\)/);
+    assert.match(nativeWindowHostLoopTurnCore, /NativeWindowHostAction::Terminate[\s\S]*NativeWindowHostLoopTurn::Exit/);
+    assert.match(nativeWindowHostLoopTurnCore, /NativeWindowHostAction::PumpEventsOnly[\s\S]*host\.pump_events_only\(\)[\s\S]*NativeWindowHostLoopTurn::Continue/);
+    assert.match(nativeWindowHostLoopTurnCore, /NativeWindowHostAction::PresentFrame[\s\S]*current_present_frame_for_window\(\)[\s\S]*host\.present_frame\(present_frame\)[\s\S]*NativeWindowHostLoopTurn::Continue/);
+    assert.doesNotMatch(nativeWindowHostLoopTurnCore, /minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|set_background_color|\bKey\b|\bMouseButton\b|\bMouseMode\b|is_open\(|is_key_down\(|get_mouse_down\(|get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowMinifbHostAdapter, /impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost/);
     assert.match(nativeWindowMinifbHostAdapter, /poll_minifb_window_event_pump\(self\.window,\s*input\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window\.set_title\(title\)/);
@@ -147,6 +160,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
     assert.match(libSource, /native_window_run_loop_config_preserves_demo_state/);
     assert.match(libSource, /native_window_title_reports_drawable_and_unavailable_surface/);
+    assert.match(libSource, /step_native_window_host_loop_close_turn_has_no_initial_title_or_present/);
+    assert.match(libSource, /step_native_window_host_loop_pump_only_resize_updates_title/);
+    assert.match(libSource, /step_native_window_host_loop_drawable_resize_presents_exact_frame/);
+    assert.match(libSource, /step_native_window_host_loop_preserves_event_pump_error/);
+    assert.match(libSource, /step_native_window_host_loop_preserves_present_error/);
+    assert.match(libSource, /step_native_window_host_loop_preserves_host_action_error/);
+    assert.match(libSource, /step_native_window_host_loop_preserves_presenter_frame_error/);
     assert.match(libSource, /native_window_host_loop_preserves_terminal_reason/);
     assert.match(libSource, /native_window_host_loop_pumps_unavailable_surface_without_presenting/);
     assert.match(libSource, /native_window_host_loop_presents_exact_current_frame/);
@@ -443,6 +463,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /run_native_window_host_loop/);
     assert.match(platformDoc, /NativeWindowHostLoopError/);
     assert.match(platformDoc, /backend state を失わない/);
+    assert.match(platformDoc, /Native window host-loop turn checkpoint/);
+    assert.match(platformDoc, /NativeWindowHostLoopTurn/);
+    assert.match(platformDoc, /step_native_window_host_loop/);
+    assert.match(platformDoc, /initial title を設定しない/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -471,6 +495,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /run_native_window_host_loop/);
     assert.match(implementationPlan, /&mut NativeWindowBackendLoop/);
     assert.match(implementationPlan, /core loop slice と minifb host adapter slice/);
+    assert.match(implementationPlan, /Phase F5gi: Native window host-loop turn boundary/);
+    assert.match(implementationPlan, /NativeWindowHostLoopTurn/);
+    assert.match(implementationPlan, /step_native_window_host_loop/);
+    assert.match(implementationPlan, /long loop runner slice/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -490,6 +518,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowRunLoopHost/);
     assert.match(standardSpec, /run_native_window_host_loop/);
     assert.match(standardSpec, /NativeWindowHostLoopError/);
+    assert.match(standardSpec, /F5gi Native window host-loop turn boundary/);
+    assert.match(standardSpec, /NativeWindowHostLoopTurn/);
+    assert.match(standardSpec, /step_native_window_host_loop/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

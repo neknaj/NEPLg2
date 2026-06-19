@@ -333,6 +333,14 @@ F5gg は native smoke backend の minifb adapter boundary であり、formal `st
 
 F5gh は native host-loop core boundary であり、formal `std/gui` host import execution、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、blank frame、DOM / Canvas / video memory transport も導入しない。
 
+## F5gi Native window host-loop turn boundary
+
+2026-06-19 の F5gi では、F5gh の long-running `run_native_window_host_loop` の body を `step_native_window_host_loop` という typed one-turn boundary に分ける。`NativeWindowHostLoopTurn` は `Continue` と `Exit NativeWindowRunLoopExit` だけを持ち、queue や timer state を隠した generic payload は持たない。
+
+`step_native_window_host_loop` は initial title を設定しない。1 turn の責務は、host event snapshot の取得、`NativeWindowBackendLoop::step_host_action`、size change 時の title update、pump-only update、present frame borrow と host present、または typed exit の返却だけである。`run_native_window_host_loop` は initial title を 1 回だけ設定し、その後は `step_native_window_host_loop` を loop で呼び、`Continue` / `Exit` を match する。
+
+この境界により、後続の formal native OS scheduler / window backend loop は long loop の内部処理を再実装せず、同じ typed turn を呼べる。ただし F5gi 自体は scheduler queue、OS wait strategy、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へ進まない。fallback、silent no-op、blank frame、DOM / Canvas / video memory transport も導入しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

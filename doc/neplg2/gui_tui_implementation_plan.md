@@ -83,6 +83,16 @@ source policy は core loop slice と minifb host adapter slice を分ける。c
 
 この phase は host-loop core boundary であり、formal native OS scheduler loop、queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
 
+## Phase F5gi: Native window host-loop turn boundary
+
+F5gi では、F5gh の long loop body を `step_native_window_host_loop` に分ける。`NativeWindowHostLoopTurn` は `Continue` と `Exit NativeWindowRunLoopExit` だけを持ち、scheduler queue や timer wait を隠す payload は持たない。
+
+`step_native_window_host_loop` は initial title を設定せず、host event snapshot 1 件、`step_host_action` 1 件、`Terminate` / `PumpEventsOnly` / `PresentFrame` の実行 1 件だけを扱う。`run_native_window_host_loop` は initial title を 1 回だけ設定し、その後は `step_native_window_host_loop` の `Continue` / `Exit` だけを match する。
+
+source policy は long loop runner slice と one-turn core slice を分ける。long loop runner に `poll_event_snapshot`、`step_host_action`、`NativeWindowHostAction::`、`current_present_frame_for_window`、host pump / present が戻らないことを検査し、one-turn core では minifb、direct input API、queue、timer、sleep、DOM / Canvas / video memory、fallback、silent no-op を禁止する。
+
+この phase は future formal native OS scheduler / window backend loop の typed turn boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback や silent no-op も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

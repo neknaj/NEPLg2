@@ -113,6 +113,14 @@ core loop は initial title を設定し、各 iteration で `poll_event_snapsho
 
 この checkpoint は host-loop core boundary であり、formal scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、DOM / Canvas / video memory transport、fallback、silent no-op へは進まない。
 
+## Native window host-loop turn checkpoint
+
+F5gi では、F5gh の long loop body を `step_native_window_host_loop` へ分ける。`NativeWindowHostLoopTurn` は `Continue` と `Exit NativeWindowRunLoopExit` だけを返す typed turn result であり、queue、timer、wait state、present fallback を隠さない。
+
+`step_native_window_host_loop` は initial title を設定しない。host event snapshot を 1 件読み、`NativeWindowBackendLoop::step_host_action` を 1 回だけ進め、`Terminate` は `Exit`、`PumpEventsOnly` は optional title update と host pump 後に `Continue`、`PresentFrame` は optional title update と exact-size frame present 後に `Continue` を返す。`run_native_window_host_loop` は initial title を 1 回だけ設定し、その後は one-turn function だけを loop で呼ぶ。
+
+この checkpoint は future formal native OS scheduler / window backend loop が再利用する turn boundary であり、scheduler queue、timer wait、OS wait strategy、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization、fallback、silent no-op へは進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -125,7 +133,8 @@ core loop は initial title を設定し、各 iteration で `poll_event_snapsho
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
-- `run_native_window_host_loop` が minifb 非依存の host-loop core として、event snapshot、host action、title update、pump-only、present を trait 境界へ流す。
+- `step_native_window_host_loop` が host event snapshot 1 件、host action 1 件、pump / present / exit の 1 turn だけを実行する。
+- `run_native_window_host_loop` が initial title を設定し、`step_native_window_host_loop` の `Continue` / `Exit` を long loop として反復する。
 - `MinifbNativeWindowRunLoopHost` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
 - `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。
 - counter hit test は backend loop 内で current window size、framebuffer size、letterbox offset を使って scene coordinate へ変換する。

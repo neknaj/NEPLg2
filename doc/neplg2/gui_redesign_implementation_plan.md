@@ -1145,6 +1145,30 @@ Phase F5gh では、F5gg の `run_minifb_window_loop` から minifb 非依存の
 - `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gi: Native window host-loop turn boundary
+
+Phase F5gi では、F5gh の `run_native_window_host_loop` に残る long loop body を typed one-turn boundary へ分ける。これは formal native OS scheduler / window backend loop の準備であり、scheduler queue や timer wait そのものは実装しない。
+
+実装:
+
+- `NativeWindowHostLoopTurn` enum を追加し、`Continue` と `Exit NativeWindowRunLoopExit` だけを持たせる。
+- `step_native_window_host_loop` を追加し、host event snapshot、`step_host_action`、`Terminate` / `PumpEventsOnly` / `PresentFrame` の 1 turn だけを実行する。
+- `step_native_window_host_loop` は initial title を設定しない。initial title は `run_native_window_host_loop` 側にだけ残す。
+- `run_native_window_host_loop` は initial title を設定した後、`step_native_window_host_loop` の `Continue` / `Exit` だけを match する。`poll_event_snapshot`、`step_host_action`、`NativeWindowHostAction` の直接 match、present frame borrow、host pump / present は run loop body に戻さない。
+- tests は close turn が title / pump / present を増やさないこと、pump-only resize が title update と `Continue` を返すこと、drawable resize が exact frame present と `Continue` を返すこと、event / host action / presenter frame / present error が typed variant のまま返ることを検査する。
+- source policy は one-turn core slice と long loop runner slice を分ける。long loop runner は `step_native_window_host_loop` だけを呼び、one-turn core は minifb、direct input API、queue、timer、sleep、DOM / Canvas / video memory、fallback、silent no-op を禁止する。
+- note、todo、GUI spec、native behavior doc、GUI/TUI implementation plan を同じ slice で更新する。
+
+非目標:
+
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- DOM / Canvas / video memory transport、fallback、silent no-op は作らない。
+
+完了条件:
+
+- `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js` を通す。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
