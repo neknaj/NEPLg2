@@ -129,6 +129,16 @@ F5gm では、`NativeWindowHostLoopTurn::Continue` を単なる継続 signal か
 
 bounded runner と policy runner はこの evidence をまだ消費せず、`Continue _` として turn count だけを進める。これは future wait decision 用の evidence 境界であり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、sleep、queue、timer、DOM / Canvas / video memory transport も導入しない。
 
+## Phase F5gn: Native window host-loop wait decision boundary
+
+F5gn では、F5gm の `NativeWindowHostLoopContinueEvidence` を future scheduler の入力分類として `NativeWindowHostLoopWaitDecision` に写像する。これは OS wait strategy の実装ではなく、bounded runner が最後の継続 turn を「host event を待つべき class」または「frame interval を待つべき class」として保持できるようにする境界である。
+
+`NativeWindowHostLoopWaitDecision` は `WaitForHostEvent window_size size_changed` と `WaitForFrameInterval presentation window_size size_changed` を持つ。どちらも value-only evidence であり、pixel borrow、host handle、scheduler state は持たない。`native_window_host_loop_wait_decision` は `PumpedEventsOnly` を `WaitForHostEvent`、`PresentedFrame` を `WaitForFrameInterval` へ全域的に写す pure helper であり、`Result`、fallback、silent no-op を使わない。
+
+`run_native_window_host_loop_bounded` は `BudgetExhausted completed_turns last_wait_decision` を返す。zero budget では `None`、`Continue evidence` を処理した turn では最後の evidence から得た wait decision を `Some` にする。policy runner は現 checkpoint では `last_wait_decision` を明示的に捨て、実 wait には接続しない。
+
+この phase は wait decision classification までであり、formal OS wait strategy、queue / timer wait backend、`Duration` 計算、`std::thread::sleep`、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、minifb / DOM / Canvas / video memory transport も導入しない。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。

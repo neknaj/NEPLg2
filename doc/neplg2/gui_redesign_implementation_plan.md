@@ -1273,6 +1273,30 @@ subagent review:
 - Feynman the 2nd に F5gm 計画を渡し、F5gi の plain turn 方針との整合、evidence name、present 成功後だけ evidence を返すこと、source-policy の観点で確認させる。指摘があれば実装前に反映する。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gn: Native window host-loop wait decision boundary
+
+Phase F5gn では、F5gm の turn evidence を future native OS scheduler が消費できる wait class へ分類する。`Continue` evidence のまま bounded runner の外へ出すだけでは、後続の wait strategy が pump-only と presented-frame の意味を毎回再解釈することになるため、分類結果を `NativeWindowHostLoopWaitDecision` として固定する。
+
+実装:
+
+- `NativeWindowHostLoopWaitDecision` enum を追加し、`WaitForHostEvent window_size size_changed` と `WaitForFrameInterval presentation window_size size_changed` を持たせる。
+- `native_window_host_loop_wait_decision` は `NativeWindowHostLoopContinueEvidence` を受け、`PumpedEventsOnly` を `WaitForHostEvent`、`PresentedFrame` を `WaitForFrameInterval` へ写す pure helper とする。
+- `NativeWindowHostLoopBoundedRunResult::BudgetExhausted` は `completed_turns` と `last_wait_decision Option NativeWindowHostLoopWaitDecision` を持つ。
+- `run_native_window_host_loop_bounded` は zero budget では `None`、各 `Continue evidence` で `last_wait_decision` を更新し、最後の decision だけを返す。
+- policy runner は `BudgetExhausted last_wait_decision _` を明示的に捨てる。実 wait への接続は後続 phase とする。
+- tests は helper の全域写像、zero budget の `None`、pump-only budget exhaustion の `WaitForHostEvent`、pump-only 後 present の `WaitForFrameInterval` 上書きを検査する。
+- source policy は helper / bounded runner に pixel borrow、host handle、scheduler state、queue / timer、sleep / Duration、minifb / DOM / Canvas / video memory / stdout、fallback、silent no-op が混入しないことを固定する。
+
+非目標:
+
+- formal OS wait strategy、queue / timer wait backend、実時間 sleep、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- `WaitForFrameInterval` は frame-paced wait class evidence であり、実際の FPS 保証や timer registration ではない。
+
+subagent review:
+
+- Feynman the 2nd に F5gn 計画を渡し、`last_continue_evidence` で止めず wait decision に写像する妥当性、pure helper、`BudgetExhausted` の `last_wait_decision`、source-policy の観点で確認させる。指摘があれば実装前に反映する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

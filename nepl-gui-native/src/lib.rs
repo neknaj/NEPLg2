@@ -1376,6 +1376,19 @@ pub enum NativeWindowHostLoopContinueEvidence {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopWaitDecision {
+    WaitForHostEvent {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    WaitForFrameInterval {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopTurn {
     Continue(NativeWindowHostLoopContinueEvidence),
     Exit(NativeWindowRunLoopExit),
@@ -1418,6 +1431,7 @@ pub enum NativeWindowHostLoopBoundedRunResult {
     },
     BudgetExhausted {
         completed_turns: usize,
+        last_wait_decision: Option<NativeWindowHostLoopWaitDecision>,
     },
 }
 
@@ -2563,6 +2577,29 @@ where
     NativeWindowHostLoopInitialization::Initialized
 }
 
+pub fn native_window_host_loop_wait_decision(
+    evidence: NativeWindowHostLoopContinueEvidence,
+) -> NativeWindowHostLoopWaitDecision {
+    match evidence {
+        NativeWindowHostLoopContinueEvidence::PumpedEventsOnly {
+            window_size,
+            size_changed,
+        } => NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+            window_size,
+            size_changed,
+        },
+        NativeWindowHostLoopContinueEvidence::PresentedFrame {
+            presentation,
+            window_size,
+            size_changed,
+        } => NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+        },
+    }
+}
+
 pub fn run_native_window_host_loop_bounded<Host>(
     runner_state: &mut NativeWindowHostLoopRunnerState,
     backend_loop: &mut NativeWindowBackendLoop,
@@ -2580,9 +2617,11 @@ where
         | NativeWindowHostLoopInitialization::AlreadyInitialized => {}
     }
     let mut completed_turns = 0usize;
+    let mut last_wait_decision = None;
     while completed_turns < max_turn_count {
         match step_native_window_host_loop(backend_loop, host)? {
-            NativeWindowHostLoopTurn::Continue(_) => {
+            NativeWindowHostLoopTurn::Continue(evidence) => {
+                last_wait_decision = Some(native_window_host_loop_wait_decision(evidence));
                 completed_turns += 1;
             }
             NativeWindowHostLoopTurn::Exit(exit) => {
@@ -2593,7 +2632,10 @@ where
             }
         }
     }
-    Ok(NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns })
+    Ok(NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+        completed_turns,
+        last_wait_decision,
+    })
 }
 
 pub fn run_native_window_host_loop<Host>(
@@ -2628,7 +2670,10 @@ where
             max_turn_count,
         )? {
             NativeWindowHostLoopBoundedRunResult::Exited { exit, .. } => return Ok(exit),
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { .. } => {}
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                last_wait_decision: _,
+                ..
+            } => {}
         }
     }
 }
@@ -5518,6 +5563,44 @@ mod tests {
     }
 
     #[test]
+    fn native_window_host_loop_wait_decision_maps_continue_evidence() {
+        let window_size = NativeWindowSize::new(0, 480);
+        assert_eq!(
+            native_window_host_loop_wait_decision(
+                NativeWindowHostLoopContinueEvidence::PumpedEventsOnly {
+                    window_size,
+                    size_changed: true,
+                }
+            ),
+            NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                window_size,
+                size_changed: true,
+            }
+        );
+
+        let drawable_size = NativeWindowSize::new(640, 480);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 7,
+            width: drawable_size.width,
+            height: drawable_size.height,
+        };
+        assert_eq!(
+            native_window_host_loop_wait_decision(
+                NativeWindowHostLoopContinueEvidence::PresentedFrame {
+                    presentation,
+                    window_size: drawable_size,
+                    size_changed: false,
+                }
+            ),
+            NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+                presentation,
+                window_size: drawable_size,
+                size_changed: false,
+            }
+        );
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -5527,7 +5610,10 @@ mod tests {
         assert_eq!(
             run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 0)
                 .unwrap(),
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 0 }
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                completed_turns: 0,
+                last_wait_decision: None,
+            }
         );
         assert!(runner_state.title_initialized());
         assert_eq!(
@@ -5588,7 +5674,13 @@ mod tests {
         assert_eq!(
             run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)
                 .unwrap(),
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 1 }
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                completed_turns: 1,
+                last_wait_decision: Some(NativeWindowHostLoopWaitDecision::WaitForHostEvent {
+                    window_size: unavailable_size,
+                    size_changed: true,
+                }),
+            }
         );
         assert_eq!(host.cursor, 1);
         assert_eq!(host.pump_count, 1);
@@ -5597,6 +5689,64 @@ mod tests {
             vec![
                 native_window_title(GuiDemo::Counter, initial_size),
                 native_window_title(GuiDemo::Counter, unavailable_size),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_native_window_host_loop_bounded_reports_last_wait_decision() {
+        let mut loop_state = native_window_backend_loop_counter();
+        let initial_size = loop_state.initial_size();
+        let unavailable_size = NativeWindowSize::new(0, initial_size.height);
+        let unavailable = native_window_backend_loop_snapshot(
+            &loop_state,
+            NativeWindowEventPumpCloseState::Open,
+            unavailable_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let restored = build_native_window_event_pump_snapshot(
+            NativeWindowEventPumpInput {
+                previous_size: unavailable_size,
+                previous_mouse_down: true,
+            },
+            false,
+            false,
+            initial_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let mut runner_state = NativeWindowHostLoopRunnerState::new();
+        let mut host = ScriptedNativeWindowRunLoopHost::new(vec![Ok(unavailable), Ok(restored)]);
+
+        assert_eq!(
+            run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 2)
+                .unwrap(),
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                completed_turns: 2,
+                last_wait_decision: Some(NativeWindowHostLoopWaitDecision::WaitForFrameInterval {
+                    presentation: NativeWindowBackendLoopPresentation {
+                        frame_id: 2,
+                        width: initial_size.width,
+                        height: initial_size.height,
+                    },
+                    window_size: initial_size,
+                    size_changed: true,
+                }),
+            }
+        );
+        assert_eq!(host.cursor, 2);
+        assert_eq!(host.pump_count, 1);
+        assert_eq!(
+            host.present_frames,
+            vec![(initial_size.width, initial_size.height)]
+        );
+        assert_eq!(
+            host.titles,
+            vec![
+                native_window_title(GuiDemo::Counter, initial_size),
+                native_window_title(GuiDemo::Counter, unavailable_size),
+                native_window_title(GuiDemo::Counter, initial_size),
             ]
         );
     }
@@ -5618,7 +5768,10 @@ mod tests {
         assert_eq!(
             run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 0)
                 .unwrap(),
-            NativeWindowHostLoopBoundedRunResult::BudgetExhausted { completed_turns: 0 }
+            NativeWindowHostLoopBoundedRunResult::BudgetExhausted {
+                completed_turns: 0,
+                last_wait_decision: None,
+            }
         );
         assert_eq!(
             run_native_window_host_loop_bounded(&mut runner_state, &mut loop_state, &mut host, 1)

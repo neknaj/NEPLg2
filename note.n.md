@@ -1,3 +1,42 @@
+# 2026-06-19 Agent2 GUI platform F5gn Native window host-loop wait decision boundary
+
+## scope
+
+- F5gm Native window host-loop turn evidence boundary の後続として、`NativeWindowHostLoopContinueEvidence` を future scheduler 向けの `NativeWindowHostLoopWaitDecision` へ分類する。
+- `run_native_window_host_loop_bounded` の `BudgetExhausted` に最後の wait decision を持たせ、zero budget では `None` とする。
+- formal OS wait strategy、queue / timer wait backend、`Duration` 計算、sleep、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`last_continue_evidence` で止めるより `NativeWindowHostLoopWaitDecision` に分類して `BudgetExhausted` に載せる方が後続 OS wait strategy 入力境界として意味があること、ただし value-only に限定し sleep / timer / queue へ進まないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopWaitDecision::WaitForHostEvent` は pump-only continue turn の後続 wait class を表す。
+- `NativeWindowHostLoopWaitDecision::WaitForFrameInterval` は successful present turn の後続 wait class を表す。これは frame-paced wait class evidence であり、実時間待ちや FPS 保証ではない。
+- `native_window_host_loop_wait_decision` は `PumpedEventsOnly` / `PresentedFrame` を全域的に分類する pure helper である。
+- `run_native_window_host_loop_bounded` は `Continue evidence` ごとに `last_wait_decision` を更新し、budget exhaustion 時に最後の decision を返す。
+- policy runner は現 checkpoint では `last_wait_decision` を明示的に捨て、実 wait へは接続しない。
+- tests、source-policy、GUI 関連 doc、todo を F5gn に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 106 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gn native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopWaitDecision` が `NativeWindowHostLoopContinueEvidence` からの pure mapping であり、pixel borrow / host handle / scheduler state を持たないこと、`BudgetExhausted last_wait_decision` が後続 OS wait strategy の authority boundary として妥当であること、policy runner が `last_wait_decision _` を明示的に捨て sleep / timer / queue へ進んでいないことが確認された。
+
+## residual
+
+- F5gn は native host-loop wait decision classification までであり、formal native OS scheduler loop、actual OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
 # 2026-06-19 Agent2 GUI platform F5gm Native window host-loop turn evidence boundary
 
 ## scope

@@ -147,6 +147,14 @@ F5gm では、`NativeWindowHostLoopTurn::Continue` が `NativeWindowHostLoopCont
 
 `PresentedFrame` evidence は pixel borrow を持たない。host present が失敗した場合は evidence を返さず、`NativeWindowHostLoopError::HostPresentFailed` を返す。bounded runner と policy runner はまだ evidence を消費せず、turn count だけを進める。これは future wait decision 用の evidence boundary であり、OS wait strategy、queue / timer wait、sleep、fallback、silent no-op は実装しない。
 
+## Native window host-loop wait decision checkpoint
+
+F5gn では、`NativeWindowHostLoopContinueEvidence` を `NativeWindowHostLoopWaitDecision` へ分類する。`PumpedEventsOnly` は `WaitForHostEvent`、`PresentedFrame` は `WaitForFrameInterval` になる。これは future OS wait strategy の入力 class であり、実際の wait 実装ではない。
+
+`run_native_window_host_loop_bounded` の `BudgetExhausted` は `completed_turns` と `last_wait_decision` を返す。turn budget が 0 の場合は `None`、継続 turn を処理した場合は最後の `Continue` evidence から得た decision を返す。policy runner は現 checkpoint では `last_wait_decision` を明示的に捨てる。`WaitForFrameInterval` は frame-paced wait class evidence であり、timer registration、sleep、FHD 60fps guarantee ではない。
+
+wait decision は pixel borrow、host handle、scheduler state を持たない。queue / timer wait、`Duration`、`std::thread::sleep`、fallback、silent no-op、DOM / Canvas / video memory transport はこの checkpoint の責務ではない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -158,11 +166,12 @@ F5gm では、`NativeWindowHostLoopTurn::Continue` が `NativeWindowHostLoopCont
 - `NativeWindowTargetFps` で検査した target FPS を `Window::set_target_fps` に渡し、event pump loop の busy spin を避ける。
 - `NativeWindowHostLoopRunPolicy` で検査した turn slice により、minifb host loop は bounded runner を明示的に反復する。
 - `NativeWindowHostLoopContinueEvidence` により、pump-only turn と present-frame turn を区別する。
+- `NativeWindowHostLoopWaitDecision` により、bounded runner の最後の continue turn を host-event wait class または frame-interval wait class として分類する。
 - `poll_minifb_window_event_pump` が `Window::get_size`、close state、left button transition、pointer sample を snapshot に正規化する。
 - `NativeWindowBackendLoop` が snapshot 後の state transition、resize redraw、counter hit test、frame id update、presenter surface commit を所有する。
 - `step_host_action` が backend loop outcome を `NativeWindowHostAction` へ写し、host-side execution decision を typed enum にする。
 - `step_native_window_host_loop` が host event snapshot 1 件、host action 1 件、pump / present / exit の 1 turn だけを実行する。
-- `run_native_window_host_loop_bounded` が bounded turn count で `Exited` と `BudgetExhausted` を分ける。
+- `run_native_window_host_loop_bounded` が bounded turn count で `Exited` と `BudgetExhausted` を分け、budget exhaustion 時は最後の wait decision を保持する。
 - `run_native_window_host_loop` が initial title を設定し、`step_native_window_host_loop` の `Continue` / `Exit` を long loop として反復する。
 - `MinifbNativeWindowRunLoopHost` が minifb window lifecycle、window title update、`window.update`、`update_with_buffer` を所有し、main.rs は runner 呼び出しだけを行う。
 - `native_window_title` が drawable size と unavailable surface の title text を deterministic に構築する。
