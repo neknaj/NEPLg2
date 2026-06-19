@@ -415,6 +415,8 @@ F5ih では、actual runner dispatch の前に `NativeWindowRunLoopConfig` を�
 
 この support gate は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence を作らない。`ExternallyWakeableEventSource` は分類値のままであり、actual X11 / Wayland fd owner / selector registration または同等の externally-wakeable source が後続で接続されるまで runner-ready にはならない。
 
+F5ii では、F5ih の support gate を Windows platform wait window runner の entry に接続する。`run_windows_platform_wait_window_loop` は `NativeWindowBackendLoop::new_for_scale`、minifb `Window::new`、visual host construction より前に support gate を通し、失敗を `PlatformWaitRunnerUnsupported` として返す。その後でだけ backend-from-config construction へ進むため、runner support failure と backend construction failure は別 stage の error として残る。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
@@ -451,7 +453,7 @@ F5ih では、actual runner dispatch の前に `NativeWindowRunLoopConfig` を�
 - `NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi` と `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` により、Windows / macOS / Linux の selected raw backend を platform wait backend owner として構築できる。selection mismatch / unsupported / headless scripted は raw API construction より前に `BackendSupportFailed` として拒否し、non-selected raw API は呼ばない。
 - `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は Windows cfg runner 用 compatibility wrapper として残し、macOS / Linux selection は `BackendImplementationUnavailable` のまま返す。`native_window_host_loop_platform_wait_run_loop_host_from_backend` は構築済み backend だけを infallible に single-owner run-loop wait hook へ包む。旧 no-owner builder は fail-closed probe として残り、minifb runner には接続していない。
 - `NativeWindowRunLoopConfig` の wait backend は `NativeWindowRunLoopWaitBackend` に単一化した。default は minifb internal pacing で、`PlatformWait` は validated selection token を保持する。minifb runner は `config.wait_backend` を side effect より前に検査し、platform wait は typed conflict として拒否する。
-- `run_windows_platform_wait_window_loop` により、Windows platform wait backend を separate native window runner の wait hook へ接続できる。backend construction は window / host construction より前に行い、`MinifbNativeWindowVisualRunLoopHost` は visual / event / present だけを担う。
+- `run_windows_platform_wait_window_loop` により、Windows platform wait backend を separate native window runner の wait hook へ接続できる。F5ii 以降は runner support gate を window / host construction より前に通し、その後に backend construction を行う。`MinifbNativeWindowVisualRunLoopHost` は visual / event / present だけを担う。
 - Windows platform wait runner は `Window::set_target_fps` や minifb frame pacing authority を使わず、platform wait backend error を `WindowsPlatformWaitHostLoopFailed` の typed host-loop error として保持する。
 - native CLI は `--wait-backend minifb|platform` で window runner を明示選択できる。未指定時は minifb runner、Windows で `platform` 指定時は `run_windows_platform_wait_window_loop` を使う。headless で明示指定された wait backend、重複指定、不明な値は error で拒否する。macOS / Linux actual backend、FHD 60fps measurement はまだ接続していない。
 - `NativeWindowHostLoopMacosRunLoopTimerRawApi` と `NativeWindowHostLoopMacosRunLoopTimerBackend` により、macOS run loop timer backend の raw handle validation、relative nanos scheduling、timer-or-event status mapping、host-event-only wait mapping、single invalidation を fake raw API で検査できる。multi-backend platform wait owner から扱えるが、actual macOS sys shim、CLI selection、runner dispatch にはまだ接続していない。

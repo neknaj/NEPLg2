@@ -1508,6 +1508,7 @@ pub enum NativeWindowRunLoopError {
     HostWaitFailed {
         message: String,
     },
+    PlatformWaitRunnerUnsupported(NativeWindowRunLoopPlatformWaitRunnerSupportError),
     PlatformWaitBackendFromConfigFailed(NativeWindowRunLoopPlatformWaitBackendFromConfigError),
     #[cfg(target_os = "windows")]
     WindowsPlatformWaitHostLoopFailed(NativeWindowWindowsPlatformWaitHostLoopError),
@@ -8596,6 +8597,11 @@ pub fn run_windows_platform_wait_window_loop(
 ) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
     use minifb::{ScaleMode, Window, WindowOptions};
 
+    validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+        NativeWindowHostLoopPlatformKind::Windows,
+        config,
+    )
+    .map_err(NativeWindowRunLoopError::PlatformWaitRunnerUnsupported)?;
     let platform_wait_backend = native_window_run_loop_platform_wait_backend_from_config(config)
         .map_err(NativeWindowRunLoopError::PlatformWaitBackendFromConfigFailed)?;
     let mut backend_loop =
@@ -12006,6 +12012,60 @@ mod tests {
                     current: NativeWindowHostLoopPlatformKind::Windows,
                     requested: NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
                 },
+            )
+        );
+    }
+
+    #[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
+    #[test]
+    fn native_window_windows_platform_wait_runner_rejects_non_platform_config_before_backend() {
+        let config = NativeWindowRunLoopConfig::new(GuiDemo::Counter, 0, 1);
+
+        assert_eq!(
+            run_windows_platform_wait_window_loop(config).unwrap_err(),
+            NativeWindowRunLoopError::PlatformWaitRunnerUnsupported(
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::Config(
+                    NativeWindowRunLoopPlatformWaitBackendConfigError::NotPlatformWaitBackend {
+                        requested: NativeWindowRunLoopWaitBackend::MinifbInternalTargetFps,
+                    },
+                ),
+            )
+        );
+    }
+
+    #[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
+    #[test]
+    fn native_window_windows_platform_wait_runner_rejects_cross_platform_config_before_backend() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection,
+                NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+            );
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            platform_wait_config,
+        );
+
+        assert_eq!(
+            run_windows_platform_wait_window_loop(config).unwrap_err(),
+            NativeWindowRunLoopError::PlatformWaitRunnerUnsupported(
+                NativeWindowRunLoopPlatformWaitRunnerSupportError::BackendSupportFailed(
+                    NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                        current: NativeWindowHostLoopPlatformKind::Windows,
+                        requested:
+                            NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+                    },
+                ),
             )
         );
     }

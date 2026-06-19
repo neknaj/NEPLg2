@@ -1317,6 +1317,31 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `ExternallyWakeableEventSource` を runner readiness、scheduler resume evidence、timer fired evidence として扱わない。
 - backend construction helper や raw/sys API を support gate から呼ばない。
 
+### Phase F5ii: Native platform wait runner support gate integration
+
+目的:
+
+- F5ih の support gate を、現在実行可能な Windows platform wait window runner の入口へ接続する。
+- runner が window、backend loop、visual host、minifb side effect を作る前に、`NativeWindowRunLoopConfig` がその runner で実行可能かを typed error として検査する。
+- support validation と actual backend construction を別 stage に保ち、runner support failure を backend construction failure や string error に潰さない。
+
+実装:
+
+- `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` を追加し、`NativeWindowRunLoopPlatformWaitRunnerSupportError` をそのまま保持する。
+- `run_windows_platform_wait_window_loop` は function entry 直後に `validate_native_window_run_loop_platform_wait_runner_support_for_platform Windows config` を呼ぶ。
+- support gate 成功後にだけ `native_window_run_loop_platform_wait_backend_from_config` を呼び、さらにその後にだけ `NativeWindowBackendLoop::new_for_scale`、minifb `Window::new`、visual host construction へ進む。
+
+検証:
+
+- Rust unit tests で non-platform config と cross-platform config が `PlatformWaitRunnerUnsupported` として返り、backend construction stage へ defer されないことを検査する。
+- source policy で Windows platform runner の順序を support gate、backend-from-config、backend loop/window creation の順に固定する。
+- source policy で minifb frame pacing、`set_target_fps`、sleep、busy loop、Linux runner / raw sys construction、fallback、silent no-op、synthetic evidence を Windows platform runner に追加しないことを固定する。
+
+非目標:
+
+- Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner の置換、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- support validation を CLI 側へ移さない。CLI は selection / config construction だけを担当する。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

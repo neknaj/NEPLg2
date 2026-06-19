@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5ii platform wait runner support gate integration
+
+## scope
+
+- F5ih の support gate を Windows platform wait window runner の実 entry に接続する。
+- `run_windows_platform_wait_window_loop` が backend construction、backend loop construction、window creation、visual host construction、minifb side effect より前に runner support を検査するようにする。
+- support validation failure と backend construction failure を別 stage の typed error として保持する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` を追加し、F5ih gate failure を backend construction error や string error に潰さないことが条件として確認された。
+- `run_windows_platform_wait_window_loop` では support gate を function entry 直後に置き、`native_window_run_loop_platform_wait_backend_from_config`、`NativeWindowBackendLoop::new_for_scale`、`Window::new`、visual host construction より前に実行することが条件として確認された。
+- source policy では ordering と、Linux runner / raw integration / fallback / synthetic evidence を追加しないことを固定する方針が確認された。
+
+## implementation
+
+- `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` を追加し、`NativeWindowRunLoopPlatformWaitRunnerSupportError` をそのまま保持するようにした。
+- `run_windows_platform_wait_window_loop` は Windows support gate を先に通し、成功後だけ platform wait backend construction へ進むようにした。
+- Windows cfg + window feature の focused tests で non-platform config と cross-platform config が backend construction ではなく runner support error として返ることを固定した。
+- source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ii contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --features window --lib native_window_windows_platform_wait_runner -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ii section の `implementation_review` が pending のままだったことだった。
+- `run_windows_platform_wait_window_loop` が backend construction / window side effect より前に F5ih support gate を通すこと、failure が `PlatformWaitRunnerUnsupported` の typed stage として保持されること、fallback / synthetic readiness / Linux runner / CLI dispatch を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ih platform wait runner support gate
 
 ## scope

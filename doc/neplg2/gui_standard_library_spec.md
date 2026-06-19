@@ -887,6 +887,14 @@ Linux では F5ig の explicit event source capability を要求する。missing
 
 macOS / unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
 
+## F5ii Native platform wait runner support gate integration
+
+F5ii では、F5ih の support gate を Windows platform wait window runner の実 entry へ接続する。`run_windows_platform_wait_window_loop` は、backend construction、backend loop construction、window creation、visual host construction、minifb side effect より前に `validate_native_window_run_loop_platform_wait_runner_support_for_platform Windows config` を実行する。
+
+runner support failure は `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` として返す。これは backend construction failure とは別の error stage であり、`NativeWindowRunLoopPlatformWaitRunnerSupportError` を string 化せずに保持する。support gate が成功した後だけ、`native_window_run_loop_platform_wait_backend_from_config` による actual backend construction へ進む。
+
+F5ii は Windows runner の validation order を固定する checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
