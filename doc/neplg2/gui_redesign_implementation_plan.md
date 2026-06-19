@@ -1708,6 +1708,31 @@ subagent review:
 
 - Darwin the 2nd に F5hd 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、lower error 全体を wrapper に保持すること、host event と frame interval の branch exclusivity を test すること、minifb を変更しないことである。
 
+## Phase F5he: Native minifb frame pacing authority boundary
+
+Phase F5he では、minifb smoke backend の existing `Window::set_target_fps` pacing を typed authority として切り出す。F5hd wait owner と std deadline timer adapter は formal native wait backend であり、この phase では minifb wait hook へ接続しない。
+
+実装:
+
+- `NativeWindowMinifbFramePacingAuthority` を追加し、validated `NativeWindowTargetFps` を保持する。
+- `NativeWindowMinifbFramePacingAuthorityError` を追加し、target fps mismatch と wait nanos mismatch を enum で分ける。
+- authority helper は `WaitForFrameInterval` instruction の `frame_interval.target_fps` と `wait_nanos` を検査し、一致する場合だけ `FramePresentAlreadyPaced` を返す。
+- `MinifbNativeWindowRunLoopHost` は authority を保持し、frame interval wait を authority helper へ委譲する。
+- `run_minifb_window_loop` は authority から得た `target_fps_usize` だけを `window.set_target_fps` へ渡す。
+- unit test は matching frame interval、remainder carry wait nanos、target fps mismatch、wait nanos mismatch を検査する。
+- source policy は `FramePresentAlreadyPaced` が minifb wait method の inline return ではなく authority helper 経由であること、minifb path が F5hd wait owner / std deadline timer adapter をまだ使わないこと、`set_target_fps 0` を使わないことを固定する。
+
+非目標:
+
+- `Window::set_target_fps` を置換しない。`set_target_fps 0` は host event wait path を tight loop にするため禁止する。
+- selector ownership、OS message-loop timer、formal deadline timer owner の minifb hook 接続は含めない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+subagent review:
+
+- 初回 plan review は `CHANGES_REQUESTED`。minifb internal wait を無効化する前に host-event blocking / selector boundary が必要であり、`set_target_fps 0` はこの slice では不適切と指摘された。
+- 改訂 plan は `PLAN_APPROVED`。required constraints は、authority が raw fps ではなく `NativeWindowTargetFps` を保持すること、`FramePresentAlreadyPaced` は authority helper だけから返すこと、docs/source policy が already-paced の意味を minifb internal pacing evidence として明記すること、deadline timer owner を minifb path へ接続しないことである。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

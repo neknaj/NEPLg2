@@ -4170,6 +4170,70 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowMinifbFramePacingAuthority {
+    target_fps: NativeWindowTargetFps,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowMinifbFramePacingAuthorityError {
+    FrameIntervalTargetFpsMismatch {
+        authority_target_fps: NativeWindowTargetFps,
+        instruction_target_fps: NativeWindowTargetFps,
+    },
+    FrameIntervalWaitNanosMismatch {
+        wait_nanos: u32,
+        nanos_per_frame: u32,
+    },
+}
+
+impl NativeWindowMinifbFramePacingAuthority {
+    pub fn new(target_fps: NativeWindowTargetFps) -> Self {
+        Self { target_fps }
+    }
+
+    pub fn target_fps(self) -> NativeWindowTargetFps {
+        self.target_fps
+    }
+
+    pub fn target_fps_usize(self) -> usize {
+        self.target_fps.as_usize()
+    }
+
+    pub fn frame_interval_wait_outcome(
+        self,
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        frame_interval: NativeWindowFrameIntervalRequest,
+        wait_nanos: u32,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, NativeWindowMinifbFramePacingAuthorityError> {
+        let instruction_target_fps = frame_interval.target_fps();
+        if instruction_target_fps != self.target_fps {
+            return Err(
+                NativeWindowMinifbFramePacingAuthorityError::FrameIntervalTargetFpsMismatch {
+                    authority_target_fps: self.target_fps,
+                    instruction_target_fps,
+                },
+            );
+        }
+        let nanos_per_frame = frame_interval.nanos_per_frame();
+        if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
+            return Err(
+                NativeWindowMinifbFramePacingAuthorityError::FrameIntervalWaitNanosMismatch {
+                    wait_nanos,
+                    nanos_per_frame,
+                },
+            );
+        }
+        Ok(NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+            presentation,
+            window_size,
+            size_changed,
+        })
+    }
+}
+
 pub fn step_native_window_host_loop<Host>(
     backend_loop: &mut NativeWindowBackendLoop,
     host: &mut Host,
@@ -4261,6 +4325,13 @@ type MinifbNativeWindowHostLoopMessagePumpWaitError = NativeWindowHostLoopEventQ
 >;
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+#[derive(Debug)]
+enum MinifbNativeWindowHostLoopWaitError {
+    EventQueueWaitFailed(MinifbNativeWindowHostLoopMessagePumpWaitError),
+    FramePacingAuthorityFailed(NativeWindowMinifbFramePacingAuthorityError),
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn wait_minifb_window_host_event_message_pump(
     window: &mut minifb::Window,
     window_size: NativeWindowSize,
@@ -4291,13 +4362,14 @@ fn wait_minifb_window_host_event_message_pump(
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 struct MinifbNativeWindowRunLoopHost<'window> {
     window: &'window mut minifb::Window,
+    frame_pacing_authority: NativeWindowMinifbFramePacingAuthority,
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
     type EventError = NativeWindowEventPumpError;
     type PresentError = String;
-    type WaitError = MinifbNativeWindowHostLoopMessagePumpWaitError;
+    type WaitError = MinifbNativeWindowHostLoopWaitError;
 
     fn poll_event_snapshot(
         &mut self,
@@ -4328,21 +4400,55 @@ impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost<'_> {
             NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
                 window_size,
                 size_changed,
-            } => {
-                wait_minifb_window_host_event_message_pump(self.window, window_size, size_changed)?
-            }
+            } => wait_minifb_window_host_event_message_pump(self.window, window_size, size_changed)
+                .map_err(MinifbNativeWindowHostLoopWaitError::EventQueueWaitFailed)?,
             NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
                 presentation,
                 window_size,
                 size_changed,
-                frame_interval: _,
-                wait_nanos: _,
-            } => NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
-                presentation,
-                window_size,
-                size_changed,
-            },
+                frame_interval,
+                wait_nanos,
+            } => self
+                .frame_pacing_authority
+                .frame_interval_wait_outcome(
+                    presentation,
+                    window_size,
+                    size_changed,
+                    frame_interval,
+                    wait_nanos,
+                )
+                .map_err(MinifbNativeWindowHostLoopWaitError::FramePacingAuthorityFailed)?,
         })
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn configure_minifb_window_frame_pacing(
+    window: &mut minifb::Window,
+    authority: NativeWindowMinifbFramePacingAuthority,
+) {
+    let target_fps = authority.target_fps_usize();
+    window.set_target_fps(target_fps);
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn minifb_native_window_frame_pacing_authority(
+    target_fps: NativeWindowTargetFps,
+) -> NativeWindowMinifbFramePacingAuthority {
+    NativeWindowMinifbFramePacingAuthority::new(target_fps)
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn minifb_native_window_host_loop_wait_error_message(
+    error: MinifbNativeWindowHostLoopWaitError,
+) -> String {
+    match error {
+        MinifbNativeWindowHostLoopWaitError::EventQueueWaitFailed(error) => {
+            format!("EventQueueWaitFailed({error:?})")
+        }
+        MinifbNativeWindowHostLoopWaitError::FramePacingAuthorityFailed(error) => {
+            format!("FramePacingAuthorityFailed({error:?})")
+        }
     }
 }
 
@@ -4352,7 +4458,7 @@ pub fn run_minifb_window_loop(
 ) -> Result<NativeWindowRunLoopExit, NativeWindowRunLoopError> {
     use minifb::{ScaleMode, Window, WindowOptions};
 
-    let target_fps = config.target_fps.as_usize();
+    let frame_pacing_authority = minifb_native_window_frame_pacing_authority(config.target_fps);
     let mut backend_loop =
         NativeWindowBackendLoop::new_for_scale(config.demo, config.counter_value, config.scale)
             .map_err(NativeWindowRunLoopError::BackendLoopInitializationFailed)?;
@@ -4370,11 +4476,12 @@ pub fn run_minifb_window_loop(
     .map_err(|error| NativeWindowRunLoopError::WindowCreationFailed {
         message: error.to_string(),
     })?;
-    window.set_target_fps(target_fps);
+    configure_minifb_window_frame_pacing(&mut window, frame_pacing_authority);
     window.set_background_color(9, 13, 18);
 
     let mut host = MinifbNativeWindowRunLoopHost {
         window: &mut window,
+        frame_pacing_authority,
     };
     run_native_window_host_loop_with_policy_and_target_fps(
         &mut backend_loop,
@@ -4390,7 +4497,7 @@ fn native_window_run_loop_error_from_host_loop(
     error: NativeWindowHostLoopError<
         NativeWindowEventPumpError,
         String,
-        MinifbNativeWindowHostLoopMessagePumpWaitError,
+        MinifbNativeWindowHostLoopWaitError,
     >,
 ) -> NativeWindowRunLoopError {
     match error {
@@ -4408,7 +4515,7 @@ fn native_window_run_loop_error_from_host_loop(
         }
         NativeWindowHostLoopError::HostWaitFailed(error) => {
             NativeWindowRunLoopError::HostWaitFailed {
-                message: format!("{error:?}"),
+                message: minifb_native_window_host_loop_wait_error_message(error),
             }
         }
         NativeWindowHostLoopError::TimerFireResumeRequired {
@@ -7030,6 +7137,128 @@ mod tests {
                 reason: NativeWindowTargetFpsInvalidReason::TooHigh {
                     max: NATIVE_WINDOW_RUN_LOOP_MAX_TARGET_FPS
                 },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_frame_pacing_authority_accepts_matching_frame_interval() {
+        let target_fps = NativeWindowTargetFps::default();
+        let authority = NativeWindowMinifbFramePacingAuthority::new(target_fps);
+        let frame_interval = native_window_frame_interval_request(target_fps);
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 4,
+            width: window_size.width,
+            height: window_size.height,
+        };
+
+        assert_eq!(authority.target_fps(), target_fps);
+        assert_eq!(authority.target_fps_usize(), target_fps.as_usize());
+        assert_eq!(
+            authority
+                .frame_interval_wait_outcome(
+                    presentation,
+                    window_size,
+                    true,
+                    frame_interval,
+                    frame_interval.nanos_per_frame(),
+                )
+                .unwrap(),
+            NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                presentation,
+                window_size,
+                size_changed: true,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_frame_pacing_authority_accepts_remainder_carry_wait_nanos() {
+        let target_fps = NativeWindowTargetFps::default();
+        let authority = NativeWindowMinifbFramePacingAuthority::new(target_fps);
+        let frame_interval = native_window_frame_interval_request(target_fps);
+        let window_size = NativeWindowSize::new(640, 480);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 5,
+            width: window_size.width,
+            height: window_size.height,
+        };
+
+        assert_eq!(
+            authority
+                .frame_interval_wait_outcome(
+                    presentation,
+                    window_size,
+                    false,
+                    frame_interval,
+                    frame_interval.nanos_per_frame() + 1,
+                )
+                .unwrap(),
+            NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced {
+                presentation,
+                window_size,
+                size_changed: false,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_frame_pacing_authority_rejects_target_fps_mismatch() {
+        let authority_target_fps = NativeWindowTargetFps::default();
+        let instruction_target_fps = NativeWindowTargetFps::new(120).unwrap();
+        let authority = NativeWindowMinifbFramePacingAuthority::new(authority_target_fps);
+        let frame_interval = native_window_frame_interval_request(instruction_target_fps);
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 6,
+            width: window_size.width,
+            height: window_size.height,
+        };
+
+        assert_eq!(
+            authority
+                .frame_interval_wait_outcome(
+                    presentation,
+                    window_size,
+                    false,
+                    frame_interval,
+                    frame_interval.nanos_per_frame(),
+                )
+                .unwrap_err(),
+            NativeWindowMinifbFramePacingAuthorityError::FrameIntervalTargetFpsMismatch {
+                authority_target_fps,
+                instruction_target_fps,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_minifb_frame_pacing_authority_rejects_invalid_wait_nanos() {
+        let target_fps = NativeWindowTargetFps::default();
+        let authority = NativeWindowMinifbFramePacingAuthority::new(target_fps);
+        let frame_interval = native_window_frame_interval_request(target_fps);
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 7,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let wait_nanos = frame_interval.nanos_per_frame() + 2;
+
+        assert_eq!(
+            authority
+                .frame_interval_wait_outcome(
+                    presentation,
+                    window_size,
+                    false,
+                    frame_interval,
+                    wait_nanos,
+                )
+                .unwrap_err(),
+            NativeWindowMinifbFramePacingAuthorityError::FrameIntervalWaitNanosMismatch {
+                wait_nanos,
+                nanos_per_frame: frame_interval.nanos_per_frame(),
             }
         );
     }

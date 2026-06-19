@@ -131,6 +131,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub fn run_native_window_host_loop<Host>",
         "pub fn step_native_window_host_loop",
     );
+    const nativeWindowMinifbFramePacingAuthority = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowMinifbFramePacingAuthority",
+        "pub fn step_native_window_host_loop",
+    );
     const nativeWindowHostLoopTurnCore = textSliceBetween(
         libSource,
         "pub fn step_native_window_host_loop",
@@ -167,6 +172,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeClockHelperWithoutWaitBackends = nativeClockHelper
         .replace(nativeWindowThreadWaitBackend, "")
@@ -178,6 +184,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
     const nativeWindowEventPumpHelperWithoutWaitBackends = nativeWindowEventPumpHelper
         .replace(nativeWindowThreadWaitBackend, "")
@@ -189,6 +196,7 @@ function runNativeGuiPlatformBehaviorRegression() {
         .replace(nativeWindowHostLoopWaitOwner, "")
         .replace(nativeWindowEventQueueStatusAdapter, "")
         .replace(nativeWindowMessagePumpStatusAdapter, "")
+        .replace(nativeWindowMinifbFramePacingAuthority, "")
         .replace(nativeWindowMinifbMessagePumpAdapter, "");
 
     assert.match(mainSource, /NativeWindowTargetFps::new\(target_fps\)/);
@@ -262,6 +270,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerSliceResult\s*\{[\s\S]*Exited\s*\{[\s\S]*exit: NativeWindowRunLoopExit,[\s\S]*completed_turns: usize,[\s\S]*Waited\s*\{[\s\S]*completed_turns: usize,[\s\S]*decision: NativeWindowHostLoopWaitDecision,[\s\S]*request: NativeWindowHostLoopWaitRequest,[\s\S]*instruction: NativeWindowHostLoopWaitInstruction,[\s\S]*outcome: NativeWindowHostLoopWaitOutcome/);
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerResumeReady\s*\{[\s\S]*HostEventPumped[\s\S]*FramePresentPaced[\s\S]*FrameIntervalTimerFired/);
     assert.match(libSource, /pub enum NativeWindowHostLoopSchedulerResumeState\s*\{[\s\S]*Ready\(NativeWindowHostLoopSchedulerResumeReady\),[\s\S]*WaitingForFrameIntervalTimer/);
+    assert.match(libSource, /pub struct NativeWindowMinifbFramePacingAuthority\s*\{[\s\S]*target_fps: NativeWindowTargetFps/);
+    assert.match(libSource, /pub enum NativeWindowMinifbFramePacingAuthorityError\s*\{[\s\S]*FrameIntervalTargetFpsMismatch\s*\{[\s\S]*authority_target_fps: NativeWindowTargetFps,[\s\S]*instruction_target_fps: NativeWindowTargetFps,[\s\S]*FrameIntervalWaitNanosMismatch\s*\{[\s\S]*wait_nanos: u32,[\s\S]*nanos_per_frame: u32/);
     assert.match(libSource, /pub enum NativeWindowBackendLoopError\s*\{[\s\S]*FrameIdOverflow[\s\S]*CounterValueOverflow[\s\S]*RasterizeFailed[\s\S]*FrameWindowMismatch/);
     assert.match(libSource, /pub struct NativeWindowBackendLoop\s*\{[\s\S]*state: NativeWindowBackendLoopState,[\s\S]*presenter_state: NativeWindowPresenterState/);
     assert.match(libSource, /resize_redraw: Option<NativeWindowBackendLoopPresentation>/);
@@ -399,6 +409,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowHostLoopRunner, /NativeWindowHostLoopSchedulerResumeState::WaitingForFrameIntervalTimer[\s\S]*NativeWindowHostLoopError::TimerFireResumeRequired/);
     assert.doesNotMatch(nativeWindowHostLoopRunner, /run_native_window_host_loop_bounded|wait_after_budget_exhausted|last_wait_decision|WaitDecisionMissing|HostWaitFailed/);
     assert.doesNotMatch(nativeWindowHostLoopRunner, /usize::MAX|poll_event_snapshot|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|host\.present_frame|host\.pump_events_only|window\.update\(|update_with_buffer|queue|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /impl NativeWindowMinifbFramePacingAuthority[\s\S]*pub fn new\(target_fps: NativeWindowTargetFps\)/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /pub fn target_fps\(self\) -> NativeWindowTargetFps/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /pub fn target_fps_usize\(self\) -> usize[\s\S]*self\.target_fps\.as_usize\(\)/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /let instruction_target_fps = frame_interval\.target_fps\(\)[\s\S]*instruction_target_fps != self\.target_fps[\s\S]*FrameIntervalTargetFpsMismatch/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /let nanos_per_frame = frame_interval\.nanos_per_frame\(\)[\s\S]*wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame \+ 1[\s\S]*FrameIntervalWaitNanosMismatch/);
+    assert.match(nativeWindowMinifbFramePacingAuthority, /NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced/);
+    assert.doesNotMatch(nativeWindowMinifbFramePacingAuthority, /set_target_fps|window\.update\(|update_with_buffer|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|fallback|silent no-op/i);
     assert.match(nativeWindowHostLoopTurnCore, /pub fn step_native_window_host_loop<Host>\([\s\S]*backend_loop: &mut NativeWindowBackendLoop,[\s\S]*host: &mut Host/);
     assert.match(nativeWindowHostLoopTurnCore, /Host: NativeWindowRunLoopHost/);
     assert.doesNotMatch(nativeWindowHostLoopTurnCore, /host\.set_window_title\(&initial_title\)/);
@@ -415,25 +432,30 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowMinifbMessagePumpAdapter, /execute_native_window_host_loop_event_queue_wait_with_waiter/);
     assert.doesNotMatch(nativeWindowMinifbMessagePumpAdapter, /update_with_buffer|\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|register_timer_nanos|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowMinifbHostAdapter, /impl NativeWindowRunLoopHost for MinifbNativeWindowRunLoopHost/);
-    assert.match(nativeWindowMinifbHostAdapter, /type WaitError = MinifbNativeWindowHostLoopMessagePumpWaitError/);
+    assert.match(nativeWindowMinifbHostAdapter, /frame_pacing_authority: NativeWindowMinifbFramePacingAuthority/);
+    assert.match(nativeWindowMinifbHostAdapter, /type WaitError = MinifbNativeWindowHostLoopWaitError/);
     assert.match(nativeWindowMinifbHostAdapter, /poll_minifb_window_event_pump\(self\.window,\s*input\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window\.set_title\(title\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window\.update\(\)/);
     assert.match(nativeWindowMinifbHostAdapter, /self\.window[\s\S]*\.update_with_buffer\(frame\.pixels\(\),\s*frame\.width\(\),\s*frame\.height\(\)\)/);
-    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForHostEvent[\s\S]*wait_minifb_window_host_event_message_pump\(self\.window,\s*window_size,\s*size_changed\)\?/);
-    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForFrameInterval[\s\S]*wait_nanos: _[\s\S]*NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced/);
-    assert.doesNotMatch(nativeWindowMinifbWaitMethod, /window\.update\(|update_with_buffer|limit_update_rate|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|fallback|silent no-op/i);
-    assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|queue|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
+    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForHostEvent[\s\S]*wait_minifb_window_host_event_message_pump\(self\.window,\s*window_size,\s*size_changed\)[\s\S]*MinifbNativeWindowHostLoopWaitError::EventQueueWaitFailed/);
+    assert.match(nativeWindowMinifbWaitMethod, /NativeWindowHostLoopWaitInstruction::WaitForFrameInterval[\s\S]*frame_interval,[\s\S]*wait_nanos,[\s\S]*self[\s\S]*\.frame_pacing_authority[\s\S]*\.frame_interval_wait_outcome\([\s\S]*presentation,[\s\S]*window_size,[\s\S]*size_changed,[\s\S]*frame_interval,[\s\S]*wait_nanos/);
+    assert.match(nativeWindowMinifbWaitMethod, /MinifbNativeWindowHostLoopWaitError::FramePacingAuthorityFailed/);
+    assert.doesNotMatch(nativeWindowMinifbWaitMethod, /FramePresentAlreadyPaced|window\.update\(|update_with_buffer|limit_update_rate|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|fallback|silent no-op/i);
+    assert.doesNotMatch(nativeWindowMinifbHostAdapter, /\bKey\b|\bMouseButton\b|\bMouseMode\b|window\.is_open\(\)|window\.is_key_down\(|window\.get_mouse_down\(|window\.get_unscaled_mouse_pos\(|execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter|EventQueueFull|VecDeque|push_back|pop_front|timer|std::thread::sleep|Duration|setTimeout|setInterval|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op/i);
     assert.match(nativeWindowRunLoopHelper, /pub fn run_minifb_window_loop\([\s\S]*NativeWindowRunLoopConfig[\s\S]*NativeWindowRunLoopExit/);
     assert.match(nativeWindowRunLoopHelper, /WindowOptions\s*\{[\s\S]*resize:\s*true,[\s\S]*scale_mode:\s*ScaleMode::UpperLeft/);
-    assert.match(nativeWindowRunLoopHelper, /let target_fps = config\.target_fps\.as_usize\(\)/);
-    assert.match(nativeWindowRunLoopHelper, /window\.set_target_fps\(target_fps\)/);
-    assert.doesNotMatch(nativeWindowRunLoopHelper, /set_target_fps\(60\)|set_target_fps\(config\.target_fps/);
+    assert.match(nativeWindowRunLoopHelper, /let frame_pacing_authority = minifb_native_window_frame_pacing_authority\(config\.target_fps\)/);
+    assert.match(nativeWindowRunLoopHelper, /configure_minifb_window_frame_pacing\(&mut window,\s*frame_pacing_authority\)/);
+    assert.match(nativeWindowRunLoopHelper, /fn configure_minifb_window_frame_pacing[\s\S]*let target_fps = authority\.target_fps_usize\(\)[\s\S]*window\.set_target_fps\(target_fps\)/);
+    assert.doesNotMatch(nativeWindowRunLoopHelper, /set_target_fps\(0\)|set_target_fps\(60\)|set_target_fps\(config\.target_fps/);
     assert.match(nativeWindowRunLoopHelper, /window\.set_background_color\(9,\s*13,\s*18\)/);
-    assert.match(nativeWindowRunLoopHelper, /let mut host = MinifbNativeWindowRunLoopHost/);
+    assert.match(nativeWindowRunLoopHelper, /let mut host = MinifbNativeWindowRunLoopHost[\s\S]*frame_pacing_authority/);
     assert.match(nativeWindowRunLoopHelper, /run_native_window_host_loop_with_policy_and_target_fps\([\s\S]*&mut backend_loop,[\s\S]*&mut host,[\s\S]*config\.host_loop_policy,[\s\S]*config\.target_fps/);
     assert.match(nativeWindowRunLoopHelper, /NativeWindowRunLoopError::WindowPresentFailed/);
     assert.match(nativeWindowRunLoopHelper, /NativeWindowRunLoopError::WaitDecisionMissing/);
+    assert.match(nativeWindowRunLoopHelper, /minifb_native_window_host_loop_wait_error_message/);
+    assert.doesNotMatch(nativeWindowRunLoopHelper, /execute_native_window_host_loop_wait_with_owner|NativeWindowHostLoopDeadlineTimerAdapter|native_window_host_loop_std_deadline_timer_adapter/);
     assert.doesNotMatch(nativeWindowMinifbRunner, /poll_minifb_window_event_pump|step_host_action|NativeWindowHostAction::|current_present_frame_for_window|update_with_buffer\(/);
     assert.match(nativeWindowBackendLoopHelper, /CloseRequested[\s\S]*return Ok\(NativeWindowBackendLoopStepOutcome::CloseRequested/);
     assert.match(nativeWindowBackendLoopHelper, /NativeWindowBackendLoopStepOutcome::Unavailable/);
@@ -446,6 +468,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_backend_loop_host_action_drawable_presents_final_frame_evidence/);
     assert.match(libSource, /native_window_target_fps_accepts_default_and_custom_values/);
     assert.match(libSource, /native_window_target_fps_rejects_zero_and_too_high_values/);
+    assert.match(libSource, /native_window_minifb_frame_pacing_authority_accepts_matching_frame_interval/);
+    assert.match(libSource, /native_window_minifb_frame_pacing_authority_accepts_remainder_carry_wait_nanos/);
+    assert.match(libSource, /native_window_minifb_frame_pacing_authority_rejects_target_fps_mismatch/);
+    assert.match(libSource, /native_window_minifb_frame_pacing_authority_rejects_invalid_wait_nanos/);
     assert.match(libSource, /native_window_host_loop_turn_slice_accepts_default_and_custom_values/);
     assert.match(libSource, /native_window_host_loop_turn_slice_rejects_zero_and_too_high_values/);
     assert.match(libSource, /native_window_run_loop_config_preserves_demo_state/);
@@ -825,6 +851,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /Native window host-loop frame interval timer registration outcome checkpoint/);
     assert.match(platformDoc, /FrameIntervalTimerRegistered/);
     assert.match(platformDoc, /timer registration 成功の wait completion 偽装/);
+    assert.match(platformDoc, /F5he/);
+    assert.match(platformDoc, /NativeWindowMinifbFramePacingAuthority/);
+    assert.match(platformDoc, /set_target_fps 0/);
+    assert.match(platformDoc, /tight loop/);
     assert.match(platformDoc, /https:\/\/developer\.apple\.com\/documentation\/appkit\/nsapplication\/run/);
     assert.match(platformDoc, /https:\/\/learn\.microsoft\.com\/en-us\/windows\/win32\/winmsg\/wm-close/);
     assert.match(platformDoc, /https:\/\/www\.x\.org\/releases\/X11R7\.7\/doc\/xorg-docs\/icccm\/icccm\.html/);
@@ -910,6 +940,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /NativeWindowHostLoopSchedulerResumeState/);
     assert.match(implementationPlan, /TimerFireResumeRequired/);
     assert.match(implementationPlan, /PLAN_APPROVED/);
+    assert.match(implementationPlan, /Phase F5he: Native minifb frame pacing authority boundary/);
+    assert.match(implementationPlan, /NativeWindowMinifbFramePacingAuthority/);
+    assert.match(implementationPlan, /FramePresentAlreadyPaced/);
+    assert.match(implementationPlan, /set_target_fps 0/);
+    assert.match(implementationPlan, /deadline timer owner 未接続/);
     assert.match(standardSpec, /resizable minifb window smoke backend/);
     assert.match(standardSpec, /NativeSurfaceState::Unavailable/);
     assert.match(standardSpec, /F5gd Native window event pump boundary/);
@@ -981,6 +1016,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5ha Native window host-loop scheduler timer resume gate boundary/);
     assert.match(standardSpec, /NativeWindowHostLoopSchedulerResumeState/);
     assert.match(standardSpec, /TimerFireResumeRequired/);
+    assert.match(standardSpec, /F5he Native minifb frame pacing authority boundary/);
+    assert.match(standardSpec, /NativeWindowMinifbFramePacingAuthority/);
+    assert.match(standardSpec, /minifb internal `Window::set_target_fps` pacing が active authority/);
+    assert.match(standardSpec, /set_target_fps 0/);
     assert.match(standardSpec, /F5ff Native window resize redraw checkpoint/);
     assert.match(standardSpec, /F5fg Native presenter operation identity input boundary/);
     assert.match(standardSpec, /F5fh Native formal presenter session boundary/);

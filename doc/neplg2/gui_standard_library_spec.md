@@ -555,6 +555,18 @@ host event path の成功は `HostEventPumpAlreadyPaced` へ写す。frame inter
 
 F5hd は wait owner composition boundary までであり、selector ownership、OS message loop timer、minifb wait hook の pacing 置換、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。fallback、silent no-op、busy loop による代替は禁止する。
 
+## F5he Native minifb frame pacing authority boundary
+
+2026-06-19 の F5he では、minifb smoke backend の frame interval wait を `NativeWindowMinifbFramePacingAuthority` に閉じる。
+
+authority は `NativeWindowTargetFps` を保持する。`WaitForFrameInterval` instruction が持つ `NativeWindowFrameIntervalRequest.target_fps` と authority target が一致し、`wait_nanos` が `nanos_per_frame` または `nanos_per_frame + 1` の場合だけ `NativeWindowHostLoopWaitOutcome::FramePresentAlreadyPaced` を返す。不一致は `NativeWindowMinifbFramePacingAuthorityError` の target fps mismatch / wait nanos mismatch として返す。
+
+`FramePresentAlreadyPaced` は、minifb internal `Window::set_target_fps` pacing が active authority であることを表す evidence である。wait hook が sleep、deadline timer wait、OS selector wait を行ったという意味ではない。
+
+`run_minifb_window_loop` は `config.target_fps` から authority を作り、authority の `target_fps_usize` だけを `Window::set_target_fps` へ渡す。`set_target_fps 0` は minifb internal wait を無効化し、現在の host event wait path を tight loop にするため禁止する。future selector / message-loop timer backend を minifb に接続する場合は、minifb internal pacing と deadline timer owner の二重 authority を避ける。
+
+F5he は minifb internal target-fps pacing authority boundary までであり、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、selector ownership、OS message-loop timer、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

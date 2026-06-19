@@ -326,6 +326,21 @@ subagent review:
 
 - Darwin the 2nd に F5hd 計画を渡し、F5hb/F5hc 後の root-cause slice として `PLAN_APPROVED` を得た。required constraints は、lower error 全体を wrapper に保持すること、host event と frame interval の branch exclusivity を test すること、minifb を変更しないことである。
 
+## Phase F5he: Native minifb frame pacing authority boundary
+
+F5he では、minifb smoke backend が持つ `Window::set_target_fps` based pacing を typed authority として明示する。これは F5hd wait owner を minifb wait hook へ接続する phase ではない。現在の minifb host event wait は `window.update` による message pump adapter を使い、frame interval wait は minifb の internal target-fps pacing authority が `FramePresentAlreadyPaced` を返す。
+
+`NativeWindowMinifbFramePacingAuthority` は validated `NativeWindowTargetFps` を保持する。`WaitForFrameInterval` instruction の `frame_interval.target_fps` が authority target と一致し、`wait_nanos` が `nanos_per_frame` または remainder carry 分の `nanos_per_frame + 1` の場合だけ `FramePresentAlreadyPaced` を返す。不一致は `FrameIntervalTargetFpsMismatch` または `FrameIntervalWaitNanosMismatch` として fail closed にする。
+
+`run_minifb_window_loop` は `minifb_native_window_frame_pacing_authority config.target_fps` で authority を作り、`configure_minifb_window_frame_pacing` が `authority.target_fps_usize` を `window.set_target_fps` へ渡す。`set_target_fps 0` は minifb 内部 wait を無効化するため、この phase では禁止する。`set_target_fps 60` や raw `config.target_fps` の直渡しも禁止する。
+
+この phase は minifb internal target-fps pacing authority の明文化までであり、selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。future deadline timer owner と minifb internal pacing は同時に frame interval wait authority になってはいけない。
+
+subagent review:
+
+- Darwin the 2nd の初回 plan review は、`set_target_fps 0` による即時置換を `CHANGES_REQUESTED` とした。現在の `WaitForHostEvent` は `window.update` を通るため、minifb internal pacing を無効化すると tight loop になるためである。
+- 改訂 plan では、F5he を minifb internal target-fps pacing authority boundary に絞り、typed `NativeWindowTargetFps` を保持する authority helper、`FramePresentAlreadyPaced` の authority 経由化、`set_target_fps 0` 禁止、deadline timer owner 未接続を条件として `PLAN_APPROVED` を得た。
+
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
