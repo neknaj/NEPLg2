@@ -387,7 +387,7 @@ F5gn は wait decision classification までであり、formal OS wait strategy�
 
 2026-06-19 の F5go では、F5gn の wait decision を host wait boundary へ渡す。`NativeWindowRunLoopHost` は `WaitError` associated type と `wait_after_budget_exhausted` を持つ。`NativeWindowHostLoopError EventError PresentError WaitError` は `HostWaitFailed WaitError` と `WaitDecisionMissing` を含み、host wait failure と missing wait evidence を他の error class から分離する。
 
-`NativeWindowHostLoopWaitOutcome` は wait hook の outcome evidence であり、`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を持つ。minifb smoke backend は `Window::set_target_fps` を rate limit authority とし、wait hook では追加の `window.update`、`update_with_buffer`、`Duration`、`std::thread::sleep`、queue、timer を実行しない。`Window::update` と `update_with_buffer` が内部で pacing されるため、wait hook は already-paced outcome を返すだけである。
+`NativeWindowHostLoopWaitOutcome` は wait hook の outcome evidence であり、`HostEventPumpAlreadyPaced`、`FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered` を持つ。minifb smoke backend は `Window::set_target_fps` を rate limit authority とし、wait hook では追加の `window.update`、`update_with_buffer`、`Duration`、`std::thread::sleep`、queue、timer を実行しない。`Window::update` と `update_with_buffer` が内部で pacing されるため、minifb wait hook は already-paced outcome を返すだけである。`FrameIntervalTimerRegistered` は external scheduler 向けの timer registration evidence であり、already-paced outcome ではない。
 
 `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` の場合だけ `wait_after_budget_exhausted` を呼ぶ。`last_wait_decision = None` は `NativeWindowRunLoopError::WaitDecisionMissing` へ写る fail-closed path であり、zero budget や missing evidence を silent no-op にしない。
 
@@ -480,6 +480,16 @@ F5gv は normalized status adapter boundary までであり、real OS event queu
 minifb smoke backend では `MinifbNativeWindowHostLoopMessagePumpAdapter` が `window.update` を実行する。`MinifbNativeWindowRunLoopHost::wait_after_budget_exhausted` は host event wait を direct update ではなく `wait_minifb_window_host_event_message_pump` 経由で F5gu / F5gv の event queue waiter 境界へ渡す。frame interval wait は従来通り frame pacing 側の outcome として扱い、message pump adapter では処理しない。
 
 F5gw は message pump adapter boundary までであり、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。message pump adapter が timer registration、thread sleep、busy loop、silent no-op、fallback へ迂回することは禁止する。
+
+## F5gx Native window host-loop frame interval timer registration outcome boundary
+
+2026-06-19 の F5gx では、F5gt の timer registration backend を `NativeWindowHostLoopWaitOutcome` へ接続する。timer registration 成功は future timer fire の予約を表すだけであり、frame interval wait 完了や present pacing 完了を意味しないため、`FramePresentAlreadyPaced` へは写さない。
+
+`NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` は `presentation`、`window_size`、`size_changed`、`wait_nanos`、`timer_registration_id` を保持する。`execute_native_window_host_loop_timer_registration_wait_with_registrar` は `WaitForFrameInterval` instruction を F5gt executor へ渡し、F5gt の successful registration outcome だけをこの wait outcome へ変換する。
+
+`WaitForHostEvent` は `HostEventTimerRegistrationUnsupported` として fail closed にする。timer registration backend が host event wait を queue wait、message pump、thread sleep、busy loop、silent no-op で代替することは禁止する。
+
+F5gx は timer registration outcome boundary までであり、actual timer fire / wakeup、real OS timer backend connection、minifb wait hook への接続、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

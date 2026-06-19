@@ -143,7 +143,7 @@ F5gn では、F5gm の `NativeWindowHostLoopContinueEvidence` を future schedul
 
 F5go では、F5gn の `NativeWindowHostLoopWaitDecision` を `NativeWindowRunLoopHost::wait_after_budget_exhausted` に渡し、policy runner が bounded slice の間で host wait boundary を必ず通るようにする。`NativeWindowRunLoopHost` は `WaitError` associated type を持ち、wait hook failure は `NativeWindowHostLoopError::HostWaitFailed` として event pump failure、present failure、host action failure から分離する。
 
-`NativeWindowHostLoopWaitOutcome` は wait hook の outcome evidence であり、`HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を持つ。minifb の `Window::update` と `update_with_buffer` は `set_target_fps` による rate limit を内部で通るため、minifb adapter の wait hook は追加の `window.update`、`update_with_buffer`、`std::thread::sleep`、`Duration`、queue、timer を実行せず、すでに pace 済みであることだけを typed outcome として返す。これにより event pump の二重実行と frame pacing の二重適用を避ける。
+`NativeWindowHostLoopWaitOutcome` は wait hook の outcome evidence であり、`HostEventPumpAlreadyPaced`、`FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered` を持つ。minifb の `Window::update` と `update_with_buffer` は `set_target_fps` による rate limit を内部で通るため、minifb adapter の wait hook は追加の `update_with_buffer`、`std::thread::sleep`、`Duration`、queue、timer を実行せず、すでに pace 済みであることだけを typed outcome として返す。`FrameIntervalTimerRegistered` は timer registration evidence であり、frame pacing 完了を意味しない。これにより event pump の二重実行、frame pacing の二重適用、timer registration 成功の wait completion 偽装を避ける。
 
 `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` で host wait hook を呼ぶ。`last_wait_decision = None` は `NativeWindowHostLoopError::WaitDecisionMissing` として fail closed にし、zero budget / missing wait evidence を silent no-op として飲み込まない。
 
@@ -226,6 +226,20 @@ F5gw では、F5gv の normalized status adapter に接続する message pump ad
 subagent review:
 
 - Darwin the 2nd に F5gw 計画を渡し、F5gv の normalized status boundary へ接続すること、OS 固有 status / failure を typed Result / enum に分離すること、real OS timer backend を別 slice に残すこと、source policy の観点で確認させた。結果は `PLAN_APPROVED` である。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+## Phase F5gx: Native window host-loop frame interval timer registration outcome boundary
+
+F5gx では、F5gt の timer registration backend を `NativeWindowHostLoopWaitOutcome` へ接続する。ただし timer registration 成功は wait completion ではないため、`FramePresentAlreadyPaced` には写さない。
+
+`NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` は `presentation`、`window_size`、`size_changed`、`wait_nanos`、`timer_registration_id` を保持する。`execute_native_window_host_loop_timer_registration_wait_with_registrar` は `WaitForFrameInterval` instruction だけを F5gt executor へ渡し、成功時だけこの outcome を返す。`WaitForHostEvent` は F5gt の `HostEventTimerRegistrationUnsupported` を保持し、message pump path に残す。
+
+minifb smoke backend の wait hook は F5gx path へ接続しない。minifb の frame interval は引き続き `Window::set_target_fps` / `update_with_buffer` の pacing authority により `FramePresentAlreadyPaced` として扱う。F5gx は external scheduler が timer registration evidence を受け取るための boundary であり、actual timer fire、thread sleep、busy loop、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。fallback、silent no-op、wait completion の偽装は禁止する。
+
+subagent review:
+
+- Darwin the 2nd の初回 plan review は、timer registration 成功を `FramePresentAlreadyPaced` へ写す計画を `PLAN_BLOCKED` とした。
+- 修正版では `FrameIntervalTimerRegistered` outcome を追加し、timer registration evidence と pacing completion を型で分離する方針に変更した。再 review は `PLAN_APPROVED` である。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl`、`examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` は GUI substrate の application update と render command stream を確認しつつ、現 checkpoint では `platforms/gui/web` の stdout legacy smoke transport で Web Playground host へ frame を出力する。これは正式な same app code contract ではなく、formal host surface ABI へ移行する対象である。Counter は action projection 互換 path を維持し、それ以外の interactive example は full `GuiWebEvent` polling を使う。text label を持つ button の stdout emission は `GuiWebButtonConfig` と `gui_web_stdout_button` へ集約し、example 側の重複した `fill_rect -> text_run -> action_rect` 手書きを戻さない。
