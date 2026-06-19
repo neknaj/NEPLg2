@@ -1403,6 +1403,33 @@ subagent review:
 - Darwin the 2nd に F5gr 計画を渡し、scheduler remainder accumulator が pure rename ではないこと、target FPS 変更時の reset、no fallback / no sleep / no queue の観点で確認させる。
 - 実装後に subagent review を受け、指摘があれば修正する。
 
+## Phase F5gs: Native window host-loop thread wait backend boundary
+
+Phase F5gs では、F5gr の `NativeWindowHostLoopWaitInstruction` を native thread wait backend へ渡す execution boundary を追加する。minifb smoke backend は `Window::set_target_fps` により `update` / `update_with_buffer` 内部で pace されるため、この thread wait backend を minifb wait hook へ接続しない。
+
+実装:
+
+- `NativeWindowHostLoopThreadSleeper` trait を追加し、`sleep_for_nanos wait_nanos` を injected boundary にする。
+- `NativeWindowHostLoopThreadWaitError` を追加し、`HostEventWaitUnsupported`、`FrameIntervalWaitNanosMismatch`、`SleeperFailed` を分ける。
+- `NativeWindowHostLoopThreadWaitOutcome` を追加し、frame interval sleep 成功を typed outcome として返す。
+- `execute_native_window_host_loop_thread_wait_with_sleeper` を追加し、frame interval instruction の場合だけ sleeper を 1 回呼ぶ。
+- `wait_nanos` は実行前に `nanos_per_frame` または `nanos_per_frame + 1` であることを再検査し、不一致なら sleeper を呼ばず fail closed にする。
+- host event wait は OS event queue backend がないため `HostEventWaitUnsupported` を返す。
+- `StdNativeWindowHostLoopThreadSleeper` と `execute_native_window_host_loop_thread_wait` を `cfg(not(target_arch = "wasm32"))` で追加し、actual std backend だけが `std::thread::sleep(std::time::Duration::from_nanos(...))` を呼ぶ。
+- source policy は `Duration` / `std::thread::sleep` が F5gs backend slice だけにあること、scheduler / planner / minifb hook へ漏れていないことを検査する。
+
+非目標:
+
+- minifb wait hook へ thread wait を接続しない。
+- host event queue、selector、message pump、timer registration は含めない。
+- FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は含めない。
+- fallback、silent no-op、busy loop は含めない。
+
+subagent review:
+
+- Darwin the 2nd に F5gs 計画を渡し、minifb double pacing を避けること、host event wait が unsupported として fail closed になること、sleep が F5gs backend helper に閉じることを確認させる。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

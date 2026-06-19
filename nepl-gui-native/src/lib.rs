@@ -1463,6 +1463,109 @@ pub enum NativeWindowHostLoopWaitOutcome {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopThreadWaitError<SleeperError> {
+    HostEventWaitUnsupported {
+        window_size: NativeWindowSize,
+        size_changed: bool,
+    },
+    FrameIntervalWaitNanosMismatch {
+        wait_nanos: u32,
+        nanos_per_frame: u32,
+    },
+    SleeperFailed(SleeperError),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowHostLoopThreadWaitOutcome {
+    FrameIntervalSlept {
+        presentation: NativeWindowBackendLoopPresentation,
+        window_size: NativeWindowSize,
+        size_changed: bool,
+        wait_nanos: u32,
+    },
+}
+
+pub trait NativeWindowHostLoopThreadSleeper {
+    type Error;
+
+    fn sleep_for_nanos(&mut self, wait_nanos: u32) -> Result<(), Self::Error>;
+}
+
+pub fn execute_native_window_host_loop_thread_wait_with_sleeper<Sleeper>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    sleeper: &mut Sleeper,
+) -> Result<
+    NativeWindowHostLoopThreadWaitOutcome,
+    NativeWindowHostLoopThreadWaitError<Sleeper::Error>,
+>
+where
+    Sleeper: NativeWindowHostLoopThreadSleeper,
+{
+    match instruction {
+        NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed,
+        } => Err(
+            NativeWindowHostLoopThreadWaitError::HostEventWaitUnsupported {
+                window_size,
+                size_changed,
+            },
+        ),
+        NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+            frame_interval,
+            wait_nanos,
+        } => {
+            let nanos_per_frame = frame_interval.nanos_per_frame();
+            if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
+                return Err(
+                    NativeWindowHostLoopThreadWaitError::FrameIntervalWaitNanosMismatch {
+                        wait_nanos,
+                        nanos_per_frame,
+                    },
+                );
+            }
+            sleeper
+                .sleep_for_nanos(wait_nanos)
+                .map_err(NativeWindowHostLoopThreadWaitError::SleeperFailed)?;
+            Ok(NativeWindowHostLoopThreadWaitOutcome::FrameIntervalSlept {
+                presentation,
+                window_size,
+                size_changed,
+                wait_nanos,
+            })
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StdNativeWindowHostLoopThreadSleeper;
+
+#[cfg(not(target_arch = "wasm32"))]
+impl NativeWindowHostLoopThreadSleeper for StdNativeWindowHostLoopThreadSleeper {
+    type Error = std::convert::Infallible;
+
+    fn sleep_for_nanos(&mut self, wait_nanos: u32) -> Result<(), Self::Error> {
+        std::thread::sleep(std::time::Duration::from_nanos(u64::from(wait_nanos)));
+        Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn execute_native_window_host_loop_thread_wait(
+    instruction: NativeWindowHostLoopWaitInstruction,
+) -> Result<
+    NativeWindowHostLoopThreadWaitOutcome,
+    NativeWindowHostLoopThreadWaitError<std::convert::Infallible>,
+> {
+    let mut sleeper = StdNativeWindowHostLoopThreadSleeper;
+    execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowHostLoopTurn {
     Continue(NativeWindowHostLoopContinueEvidence),
     Exit(NativeWindowRunLoopExit),
@@ -6162,6 +6265,110 @@ mod tests {
     }
 
     #[test]
+    fn native_window_thread_wait_sleeps_for_frame_interval_instruction() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 8,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_666,
+        };
+        let mut sleeper = ScriptedNativeWindowHostLoopThreadSleeper::new();
+
+        assert_eq!(
+            execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
+                .unwrap(),
+            NativeWindowHostLoopThreadWaitOutcome::FrameIntervalSlept {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos: 16_666_666,
+            }
+        );
+        assert_eq!(sleeper.sleep_calls, vec![16_666_666]);
+    }
+
+    #[test]
+    fn native_window_thread_wait_rejects_host_event_without_queue_backend() {
+        let window_size = NativeWindowSize::new(0, 240);
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed: true,
+        };
+        let mut sleeper = ScriptedNativeWindowHostLoopThreadSleeper::new();
+
+        assert_eq!(
+            execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
+                .unwrap_err(),
+            NativeWindowHostLoopThreadWaitError::HostEventWaitUnsupported {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(sleeper.sleep_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_thread_wait_rejects_invalid_wait_nanos_without_sleep() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 9,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: false,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 1,
+        };
+        let mut sleeper = ScriptedNativeWindowHostLoopThreadSleeper::new();
+
+        assert_eq!(
+            execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
+                .unwrap_err(),
+            NativeWindowHostLoopThreadWaitError::FrameIntervalWaitNanosMismatch {
+                wait_nanos: 1,
+                nanos_per_frame: 16_666_666,
+            }
+        );
+        assert!(sleeper.sleep_calls.is_empty());
+    }
+
+    #[test]
+    fn native_window_thread_wait_preserves_sleeper_error() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 10,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let instruction = NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed: true,
+            frame_interval: native_window_frame_interval_request(NativeWindowTargetFps::default()),
+            wait_nanos: 16_666_667,
+        };
+        let mut sleeper =
+            ScriptedNativeWindowHostLoopThreadSleeper::new().with_error("sleep failed");
+
+        assert_eq!(
+            execute_native_window_host_loop_thread_wait_with_sleeper(instruction, &mut sleeper)
+                .unwrap_err(),
+            NativeWindowHostLoopThreadWaitError::SleeperFailed("sleep failed")
+        );
+        assert_eq!(sleeper.sleep_calls, vec![16_666_667]);
+    }
+
+    #[test]
     fn run_native_window_host_loop_bounded_zero_budget_initializes_without_polling() {
         let mut loop_state = native_window_backend_loop_counter();
         let initial_size = loop_state.initial_size();
@@ -7268,6 +7475,38 @@ mod tests {
             };
             self.wait_outcomes.push(outcome.clone());
             Ok(outcome)
+        }
+    }
+
+    struct ScriptedNativeWindowHostLoopThreadSleeper {
+        sleep_calls: Vec<u32>,
+        error: Option<&'static str>,
+    }
+
+    impl ScriptedNativeWindowHostLoopThreadSleeper {
+        fn new() -> Self {
+            Self {
+                sleep_calls: Vec::new(),
+                error: None,
+            }
+        }
+
+        fn with_error(mut self, error: &'static str) -> Self {
+            self.error = Some(error);
+            self
+        }
+    }
+
+    impl NativeWindowHostLoopThreadSleeper for ScriptedNativeWindowHostLoopThreadSleeper {
+        type Error = &'static str;
+
+        fn sleep_for_nanos(&mut self, wait_nanos: u32) -> Result<(), Self::Error> {
+            self.sleep_calls.push(wait_nanos);
+            if let Some(error) = self.error {
+                Err(error)
+            } else {
+                Ok(())
+            }
         }
     }
 
