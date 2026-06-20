@@ -69,10 +69,11 @@ assert.ok(
         source.includes("unified stream normalizer") &&
         source.includes("Actual walker event producer bridge stage0") &&
         source.includes("Actual walker operation classifier stage0") &&
+        source.includes("Actual walker traversal source stage0") &&
         source.includes("Actual walker operation producer bridge stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, and operation producer bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, and operation producer bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -193,6 +194,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSource(?:Kind|Record|Table)\b/,
+    "actual walker traversal source kind, record, and owner table must stay private until actual Resource IR traversal owns source production",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind|SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord|SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable)\b/m,
+    "public functions must not expose private actual walker traversal source payload or owner table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualWalkerOperation(?:Kind|Record|Table)\b/,
     "actual walker operation classifier kind, record, and owner table must stay private until actual Resource IR traversal owns operation production",
 );
@@ -276,6 +287,11 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput\b/,
     "actual walker split output owner pair must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable\b/,
+    "actual walker traversal source table owner must not implement Clone or Copy",
 );
 assert.doesNotMatch(
     code,
@@ -924,6 +940,9 @@ assertOrdered(
         "RequestEntryMissing %i32",
         "RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
         "ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "ActualWalkerTraversalSourceTableAllocFailed %StdErrorKind",
+        "ActualWalkerTraversalSourcePushFailed %StdErrorKind",
+        "ActualWalkerTraversalSourceReadFailed %i32",
         "ActualWalkerOperationTableAllocFailed %StdErrorKind",
         "ActualWalkerOperationPushFailed %StdErrorKind",
         "ActualWalkerOperationReadFailed %i32",
@@ -931,7 +950,7 @@ assertOrdered(
         "NormalizerRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind",
         "Stage0FixtureAllocFailed %StdErrorKind",
     ],
-    "actual walker event producer bridge error taxonomy must distinguish request collection, request entry, request recheck, proof key, operation table, operation push/read, event build, normalizer, and fixture failures",
+    "actual walker event producer bridge error taxonomy must distinguish request collection, request entry, request recheck, proof key, traversal source table, traversal source push/read, operation table, operation push/read, event build, normalizer, and fixture failures",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_code"),
@@ -1019,6 +1038,55 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 0",
     ],
     "actual walker event producer bridge stage0 must cover unsupported traversal, observation precedence, and placeholder fingerprint rejection without exposing private unified event tables",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind"),
+    [
+        "ResourceIrTraversalUnavailable",
+    ],
+    "actual walker traversal source kind must represent unavailable Resource IR traversal as a typed source, not as direct accepted proof",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "operation_ordinal %i32",
+        "from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "kind %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind",
+    ],
+    "actual walker traversal source record must retain request key, graph id, ordinal, endpoint ids, and typed source kind",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push"),
+    [
+        "eq record.key.body_module_fingerprint 0",
+        "lt record.graph_id.index 0",
+        "lt record.operation_ordinal 0",
+        "lt record.from_place.index 0",
+        "lt record.to_place.index 0",
+        "ActualWalkerTraversalSourcePushFailed StdErrorKind::InvalidOperation",
+    ],
+    "actual walker traversal source table push must reject placeholder fingerprints and invalid graph/operation/place ids before projection",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record"),
+    /_:/,
+    "actual walker traversal source to operation projection must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record"),
+    [
+        "ResourceIrTraversalUnavailable:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation",
+    ],
+    "actual walker traversal source projection must map unavailable Resource IR traversal only to UnknownResourceOperation",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record"),
+    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|proof_table_push|resource_graph_input_push|Wasm|LLVM/,
+    "actual walker traversal source projection must not synthesize accepted proof, accepted private-cache operations, direct GraphInput, proof table records, or backend bytes",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind"),
@@ -1148,17 +1216,17 @@ assertOrdered(
     "actual walker operation producer bridge stage0 summary must expose only typed result payloads and not private operation tables",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),
     [
         "selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel",
         "Result::Ok table:",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
         "selfhost_memo_call_backend_request_table_len &table",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module &table operations0 root body_module_fingerprint 0 request_count",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module &table sources0 root body_module_fingerprint 0 request_count",
         "selfhost_memo_call_backend_request_table_free table",
         "RequestCollectionFailed e",
     ],
-    "actual walker operation producer bridge must build request authority internally from HIR root, create a private operation table, append request-derived operations, and close the request table",
+    "actual walker operation producer bridge must build request authority internally from HIR root, create a private traversal source table, append request-derived sources, and close the request table",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_operations"),
@@ -1169,33 +1237,60 @@ assertOrdered(
     "actual walker operation producer bridge must close the private operation table on non-push failures",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_traversal_sources"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Err error",
+    ],
+    "actual walker operation producer bridge must close the private traversal source table on source build failures",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
     [
         "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
         "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
         "selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index",
         "selfhost_memo_call_backend_private_cache_resource_place_id_new 0",
-        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push operations record",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources record",
         "ProofKeyRejected e",
         "RequestRecheckRejected e",
     ],
-    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and emit only typed unknown operation records while actual traversal is unavailable",
+    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and emit only typed traversal-unavailable source records while actual traversal is unavailable",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop"),
     [
         "selfhost_memo_call_backend_request_table_get_entry table idx",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint operations idx",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module table next_operations root_expr_id body_module_fingerprint add idx 1 n",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint sources idx",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module table next_sources root_expr_id body_module_fingerprint add idx 1 n",
         "RequestEntryMissing idx",
     ],
-    "actual walker operation producer bridge request loop must read request entries, thread the operation owner, and fail closed on missing entries",
+    "actual walker operation producer bridge request loop must read request entries, thread the traversal source owner, and fail closed on missing entries",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
     /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|resource_graph_input_push|proof_table_push|Wasm|LLVM/,
     "actual walker operation producer bridge must not synthesize accepted proof, accepted private-cache operation records, direct GraphInput, proof table records, or backend bytes",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_get sources idx",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record source",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push operations record",
+        "ActualWalkerTraversalSourceReadFailed idx",
+    ],
+    "actual walker operation producer bridge must project traversal source records into operation records through a typed source-to-operation boundary",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+    ],
+    "actual walker operation producer bridge must build traversal sources first, project them to operation records, and close the source table",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_from_hir_root_result"),
@@ -1213,8 +1308,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_(?:fail|append|operations|from|stage0_run)/m,
-    "actual walker operation producer bridge internals must stay module-private and must not expose private operation table construction APIs",
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_(?:fail|append|traversal|operations|from|stage0_run)/m,
+    "actual walker operation producer bridge internals must stay module-private and must not expose private traversal source or operation table construction APIs",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0"),

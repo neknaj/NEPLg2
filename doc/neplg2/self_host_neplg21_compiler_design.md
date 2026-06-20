@@ -2225,17 +2225,17 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 ## 2026-06-21 memo_call backend actual walker operation producer bridge stage0 checkpoint
 
-`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root 由来の request authority から producer-owned operation table を作り、既存 operation classifier / unified event normalizer へ渡す operation producer bridge stage0 を追加した。
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root 由来の request authority から producer-owned traversal source table を作り、それを operation table へ投影して既存 operation classifier / unified event normalizer へ渡す operation producer bridge stage0 を追加した。
 
-この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、public caller が operation table を渡す accepted path を作らず、HIR root から request table を内部再構築し、各 request entry と proof key を再照合したうえで module-private operation table owner を作る境界である。stage0 producer は request ごとに `UnknownResourceOperation` record だけを作る。`PrivateCacheStoragePlace`、`ReturnedOwnedClonePlace`、`CloneOutOwnedValueEdge` などの accepted 側 operation は出さない。
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、public caller が traversal source table や operation table を渡す accepted path を作らず、HIR root から request table を内部再構築し、各 request entry と proof key を再照合したうえで module-private traversal source table owner を作る境界である。stage0 producer は request ごとに `ResourceIrTraversalUnavailable` source record だけを作り、source-to-operation projection がそれを `UnknownResourceOperation` record へ変換する。`PrivateCacheStoragePlace`、`ReturnedOwnedClonePlace`、`CloneOutOwnedValueEdge` などの accepted 側 operation は producer source boundary でも projection boundary でも出さない。
 
 producer bridge は operation table を作った後、`selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result` を必ず通す。scanner、graph gate、observation ban gate、unified normalizer を producer bridge から直接呼ばず、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment も合成しない。これにより、actual traversal 未接続の stage0 が no-escape proof を観測したように見えることを避ける。
 
-operation table owner cleanup もこの boundary で固定した。request recheck / proof key 生成 / missing request entry の失敗では producer bridge が operation table owner を閉じる。operation table push の失敗では push 側が owner を閉じる。classifier 実行後は producer bridge が borrowed operation table を閉じる。request table は operations_from_hir_root の内部で必ず閉じ、error payload に owner を入れない。
+traversal source table と operation table の owner cleanup もこの boundary で固定した。request recheck / proof key 生成 / missing request entry の失敗では producer bridge が traversal source table owner を閉じる。traversal source table push の失敗では push 側が owner を閉じる。source-to-operation projection 後は producer bridge が traversal source table を閉じる。operation table push の失敗では push 側が owner を閉じる。classifier 実行後は producer bridge が borrowed operation table を閉じる。request table は traversal source construction の内部で必ず閉じ、error payload に owner を入れない。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。operation producer bridge が HIR root authority から private operation table を作ること、stage0 では `UnknownResourceOperation` だけを emit すること、accepted proof / accepted operation / GraphInput / proof table / backend bytes を合成しないこと、operation classifier bypass を作らないこと、operation table cleanup と request table cleanup があること、producer bridge internals を public API にしないこと、line count / doc comment amount limiting checks を追加しないことを固定している。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。operation producer bridge が HIR root authority から private traversal source table を作ること、source table と operation table を public API に出さないこと、stage0 source は `ResourceIrTraversalUnavailable` だけであり projection は `UnknownResourceOperation` だけへ写すこと、accepted proof / accepted operation / GraphInput / proof table / backend bytes を合成しないこと、operation classifier bypass を作らないこと、source table / operation table / request table cleanup があること、producer bridge internals を public API にしないこと、line count / doc comment amount limiting checks を追加しないことを固定している。
 
-計算量として、stage0 producer bridge は request 数 `m` に対して O(m) 個の operation record を作る。その後の classifier は現状 O(m * o) で operation table を照合する。actual traversal の探索範囲削減、operation bucket 化、graph id index 化は後続最適化として扱えるが、HIR root authority、producer-owned table、unknown-only fail-closed stage0、classifier / normalizer 経由は proof boundary として維持する。
+計算量として、stage0 producer bridge は request 数 `m` に対して O(m) 個の traversal source record を作る。source-to-operation projection は source 数 `s` に対して O(s) であり、その後の classifier は現状 O(m * o) で operation table を照合する。actual traversal の探索範囲削減、source / operation bucket 化、graph id index 化は後続最適化として扱えるが、HIR root authority、producer-owned source table、source-to-operation projection、unknown-only fail-closed stage0、classifier / normalizer 経由は proof boundary として維持する。
 
 検証:
 
@@ -2246,6 +2246,7 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 残件:
 
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed operation record または unified event stream を生成する境界。
+- actual traversal source table に real Resource IR traversal 由来の accepted / escaping / observation source を流す境界。
 - actual traversal 由来の closed private cache storage / clone-out owned value / return reference / public store / observation operation の分類。
 - fresh private cache region proof、PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation。
