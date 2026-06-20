@@ -2562,10 +2562,68 @@ assertOrdered(
     ],
     "actual traversal body adapter must keep the future real-body input boundary explicit while stage0 remains unavailable-only",
 );
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "Result::Ok sources",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "Result::Err e",
+    ],
+    "actual traversal body adapter must consume typed body input owners through the existing collector and close input/observation owners on success and failure",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_with_owners_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+    ],
+    "actual traversal body adapter stage0 count helper must close the private source table after reading the count",
+);
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result")),
     /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual traversal body adapter stage0 must not synthesize accepted sources, fresh witnesses, lower proof tables, backend bytes, effect masks, or artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body input adapter must only produce traversal source tables and must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary"),
+    [
+        "accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "observation_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "unsupported_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+    ],
+    "actual traversal body input adapter stage0 summary must expose only source counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_stage0"),
+    [
+        "accepted_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
+        "observation_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_observation_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
+        "unsupported_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
+    ],
+    "actual traversal body input adapter stage0 must cover accepted-shaped, observation-shaped, unsupported, and malformed placeholder body inputs",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_(?!input_stage0\b)/m,
+    "actual traversal body adapter helpers must stay module-private; only the typed stage0 summary function may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),

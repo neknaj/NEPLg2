@@ -729,3 +729,33 @@ subagent review:
 - fresh private cache region witness は source generation と別 authority として生成し、matching key / graph / ordinal で照合する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body input adapter stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal body adapter が既存 `ResourceWalkerInput` owner と `ObservationBanTable` owner を消費して `ActualWalkerTraversalSourceTable` owner を返す private helper を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real HIR lowering result / Resource IR body から body input owner を作る部分はまだ未接続である。今回固定したのは、real body input が届いた後に adapter が複数 traversal source を返せる owner boundary である。
+
+`actual_traversal_body_adapter_sources_from_input_owners_result` は既存 collector を経由し、success / failure のどちらでも walker input owner と observation table owner を閉じる。成功時に返す source table owner は caller が閉じる。source count smoke は count を読んだ後に source table owner を閉じる。production HIR-root path はまだこの fixture helper を呼ばず、real body input が届くまでは unavailable-only のままである。
+
+public stage0 summary は accepted-shaped input source count、observation-shaped input source count、unsupported input source count、placeholder rejected result だけを返す。private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出さない。accepted-shaped source count は source authority shape の smoke であり、fresh private region proof や backend representation 完了ではない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。body input adapter が existing collector を経由すること、input / observation owner cleanup、source table cleanup、summary の public payload 制限、adapter internals の public API 化禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定している。行数や doc comment 量を制限する検査は追加していない。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-input-adapter-doctest-current.json`
+
+subagent review:
+
+- Meitner design review は、次 slice として private typed actual traversal body input/result boundary を推奨した。fixture-only body input は、production HIR-root path が accepted source を合成しない限り許容できる。key / graph / body identity binding、source kind taxonomy、duplicate / orphan rejection、fail-closed owner cleanup、actual-vs-fixture naming separation、proof / fresh witness coupling 禁止は今固定すべき境界であり、index 化は後続最適化でよいという指摘だった。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- production HIR-root adapter が real body input available のときだけ source table owner path へ進む分岐。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。

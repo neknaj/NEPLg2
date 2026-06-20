@@ -76779,3 +76779,38 @@ MERGE_APPROVED
 - fresh private cache region witness を source generation と別 authority として生成し、matching key / graph / ordinal で照合する。
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body input adapter checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual traversal body adapter が `ResourceWalkerInput` owner と `ObservationBanTable` owner を消費して `ActualWalkerTraversalSourceTable` owner を返す private helper を追加した。
+- helper は既存 collector を経由し、success / failure のどちらでも walker input owner と observation table owner を閉じる。
+- source count smoke helper は source table length を読んだあと source table owner を閉じる。
+- production HIR-root path はまだ body input fixture helper を呼ばず、real body input が届くまでは unavailable-only のままにした。
+- public stage0 summary は accepted-shaped input source count、observation-shaped input source count、unsupported input source count、placeholder rejected result だけを返す。private walker input、observation table、source table、operation table、fresh witness table、proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body input adapter stage0 checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、existing collector 経由、input / observation owner cleanup、source table cleanup、summary public payload、adapter internals public 禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、次 slice として private typed actual traversal body input/result boundary を推奨した。
+- required 指摘は、fixture-only body input は production HIR-root path が accepted source を合成しない限り許容できること、key / graph / body identity binding、source kind taxonomy、duplicate / orphan rejection、fail-closed owner cleanup、actual-vs-fixture naming separation、proof / fresh witness coupling 禁止は今固定すべきこと、index 化は後続最適化でよいことだった。今回の実装は既存 typed body input owner を adapter helper で消費し、production path を unavailable-only のまま保つ形で対応した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-input-adapter-doctest-current.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ source table owner path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。

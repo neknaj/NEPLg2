@@ -2554,6 +2554,38 @@ subagent review:
 - `PrivateCacheStoragePlace + CloneOutOwnedValueEdge` の accepted source は、real traversal body と fresh witness の両方が揃った場合だけ request-evidence bridge へ進める。
 - PrivateCache / PrivateState effect masking と sealed memoized backend representation は、Resource proof と request-evidence proof の後続 boundary で扱う。
 
+## 2026-06-21 memo_call backend actual traversal body input adapter stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal body adapter が既存 `ResourceWalkerInput` owner と `ObservationBanTable` owner を消費し、`ActualWalkerTraversalSourceTable` owner へ変換する private helper を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real HIR lowering result / Resource IR body から input owner を作る部分はまだ未接続である。目的は、real body input が来た後に adapter が複数 source を返せる owner boundary を先に固定することである。前 checkpoint の `source_from_request_result` は unavailable fallback として単一 source record を返すが、real body input path は place / edge / observation / unsupported source を複数持つため、source table owner を返す helper を別に用意した。
+
+`actual_traversal_body_adapter_sources_from_input_owners_result` は borrowed collector を通して source table owner を作り、success / failure のどちらでも walker input owner と observation table owner を閉じる。成功時に返した source table owner は caller が閉じる。source count smoke は source table length を読んだ後に source table owner を閉じる。production HIR-root path はまだこの fixture helper を呼ばず、real body input が届くまでは `ResourceIrTraversalUnavailable` の unavailable-only path を保つ。
+
+public summary は accepted-shaped input source count、observation-shaped input source count、unsupported input source count、placeholder rejected result だけを返す。private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出さない。accepted-shaped source count は body input adapter の shape smoke であり、fresh private region proof、PrivateCache / PrivateState effect masking、sealed backend representation の完了を意味しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。body input adapter が既存 collector を経由して source table owner だけを返すこと、input / observation owner cleanup、source count helper の source table cleanup、summary の public payload 制限、adapter internals の public API 化禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は body record 数 `b`、place event 数 `p`、edge event 数 `e`、unsupported event 数 `u`、observation record 数 `a` に対して O(b + p + e + u + a) である。duplicate ordinal、orphan edge、key / graph mismatch、malformed record の検査は既存 collector / scanner 側の fail-closed contract に従う。request-key bucket、graph/event index、proof lookup index、fixture 分割は後からできる最適化であり、source authority と owner cleanup の境界を先に固定した。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-input-adapter-doctest-current.json`
+
+subagent review:
+
+- Meitner design review は、次 slice として private typed actual traversal body input/result boundary を推奨した。fixture-only body input table は、production HIR-root path が accepted source を合成しない限り許容できる。key / graph / body identity binding、source kind taxonomy、duplicate / orphan rejection、fail-closed owner cleanup、actual-vs-fixture naming separation、proof / fresh witness coupling 禁止は今固定すべき境界であり、index 化は後続最適化でよいという指摘だった。今回の実装は既存 typed body input owner を adapter helper で消費し、production path を unavailable-only のまま保つ形で対応した。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ source table owner path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
