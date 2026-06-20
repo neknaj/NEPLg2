@@ -1,3 +1,44 @@
+# 2026-06-20 Agent2 GUI native F5jh Linux Xauthority environment acquisition boundary
+
+## scope
+
+- F5jf の path request boundary の前段として、authority-file path variable と home-directory path variable の取得を trait-injected reader に分離する。
+- authority-file path variable が present の場合は home-directory path variable を読まず、F5jf の explicit path plan にだけ接続する。
+- direct `std::env` adapter、actual filesystem / VFS adapter、file bytes read、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- authority-file path variable を先に読み、present の場合は home-directory path variable を読まない方針が承認された。
+- success は既存 `NativeWindowLinuxX11XauthorityPathPlan` を返し、read failure と path plan failure を enum branch で分ける方針が承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityEnvironmentValueKind`、`NativeWindowLinuxX11XauthorityEnvironmentReader`、`NativeWindowLinuxX11XauthorityEnvironmentPathPlanError` を追加した。
+- `native_window_linux_x11_xauthority_path_plan_from_environment` を追加し、authority-file path variable present 時は home-directory path variable を読まない。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jh contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: `cargo check` は既存 dead_code warning を 2 件報告したが、F5jh の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、authority-file path variable priority、home-directory path variable non-read when authority is present、read failure / path plan failure split、no direct env/fs/VFS / no file bytes / no credential setup / no runner / no fallback / no synthetic policy は満たしていると確認された。
+- blocker は F5jh 節に implementation review 結果が記録されていないことだけだったため、この節を追加して修正した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual environment adapter、actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jg Linux Xauthority file bytes acquisition boundary
 
 ## scope
