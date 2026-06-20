@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5io Linux owner-ready input-to-host boundary
+
+## scope
+
+- F5in の owner-ready input を F5im の owner-retaining run-loop host へ渡す境界を追加する。
+- visual host と input を同時に受け、失敗時にも両方を回収できる `Result` にする。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5in input-to-host handoff を X11 / Wayland integration 前に固定するのが正しい次 slice と確認された。
+- helper は infallible ではなく `Result` とし、input 構築後に owner が close された場合を再検査することが条件として確認された。
+- error は host と input を保持し、lower-level config / selection / capability validation だけを使い、generic runner support gate、runner / CLI / minifb / sys API、fallback、sleep、synthetic readiness、backend-only / producer-only extraction を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostBuildError` を追加し、config failure、backend support failure、Linux event-source support failure、closed owner を分け、各 failure で host と input を保持するようにした。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_input` を追加し、F5in input を再検査してから F5im owner-retaining run-loop host へ full owner を渡すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5io contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_input -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、helper が explicit `Result` / enum stages を使い、host と input を failure で保持し、lower-level config / selection / capability / owner-open state を再検査し、generic runner support gate を呼ばず、`input.into_parts` を success 時だけ使い、full owner を F5im wrapper に渡し、backend-only extraction、producer drop、sys / minifb / runner dispatch、fallback、sleep、synthetic readiness を導入していないことが確認された。
+- 指摘は、この section が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5in Linux platform-wait owner-ready run-loop input boundary
 
 ## scope

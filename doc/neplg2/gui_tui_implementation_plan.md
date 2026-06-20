@@ -1475,6 +1475,32 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - owner-ready input を generic platform wait backend selection や minifb default runner へ接続しない。
 
+### Phase F5io: Native Linux owner-ready input-to-host boundary
+
+目的:
+
+- F5in の owner-ready input を F5im の owner-retaining run-loop host へ渡す明示的な boundary を追加する。
+- visual host owner と Linux owner-ready input を失敗時にも回収できる `Result` にし、runner 実装前の host wrapping contract を固定する。
+- generic support gate の Linux `PlatformRunnerIntegrationMissing` behavior を維持したまま、input-to-host handoff だけを進める。
+
+実装:
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostBuildError` を追加し、config failure、backend support failure、Linux event-source support failure、closed owner を分ける。すべての failure は host と input を保持して返す。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_input` を追加し、platform-wait config、Linux backend kind、selection platform、Linux capability、owner open state を再検査する。
+- success path は `input.into_parts` で config と full owner を取り出し、full owner だけを `native_window_host_loop_linux_externally_wakeable_event_source_run_loop_host_from_owner` へ渡す。
+
+検証:
+
+- Rust unit tests で accepted input が visual host operation を inner host へ委譲し、wait を Linux owner backend へ渡すことを検査する。
+- Rust unit tests で F5in input 作成後に owner が close された場合、`OwnerClosed` が host と input を返すことを検査する。
+- source policy で generic support gate 呼び出し、runner / CLI / minifb / sys API、fallback / sleep / synthetic readiness、backend-only / producer-only extraction を禁止する。
+
+非目標:
+
+- Linux platform wait runner support gate を `Ok` にしない。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sys API construction、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- input-to-host helper を generic platform wait backend selection や minifb default runner へ接続しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

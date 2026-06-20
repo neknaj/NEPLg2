@@ -1313,6 +1313,35 @@ where
     },
 }
 
+#[derive(Debug)]
+pub enum NativeWindowLinuxPlatformWaitRunLoopHostBuildError<Host, BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    Config {
+        host: Host,
+        input: NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+        error: NativeWindowRunLoopPlatformWaitBackendConfigError,
+    },
+    BackendSupportFailed {
+        host: Host,
+        input: NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+        error: NativeWindowHostLoopPlatformWaitBackendSupportError,
+    },
+    LinuxEventSourceSupportFailed {
+        host: Host,
+        input: NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+        error: NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError,
+    },
+    OwnerClosed {
+        host: Host,
+        input: NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    },
+}
+
 #[cfg(target_os = "windows")]
 pub type NativeWindowWindowsPlatformWaitHostLoopError = NativeWindowHostLoopError<
     NativeWindowEventPumpError,
@@ -5276,6 +5305,109 @@ where
     ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
 {
     NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost::new(host, owner)
+}
+
+pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_input<
+    Host,
+    BackendApi,
+    ProducerApi,
+>(
+    host: Host,
+    input: NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+) -> Result<
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    >,
+    NativeWindowLinuxPlatformWaitRunLoopHostBuildError<Host, BackendApi, ProducerApi>,
+>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    let config = input.config();
+    let platform_wait_config = match native_window_run_loop_platform_wait_backend_config(config) {
+        Ok(platform_wait_config) => platform_wait_config,
+        Err(error) => {
+            return Err(NativeWindowLinuxPlatformWaitRunLoopHostBuildError::Config {
+                host,
+                input,
+                error,
+            });
+        }
+    };
+    let selection = platform_wait_config.selection();
+    if let Err(error) = validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+        NativeWindowHostLoopPlatformKind::Linux,
+        selection.backend(),
+    ) {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopHostBuildError::BackendSupportFailed {
+                host,
+                input,
+                error,
+            },
+        );
+    }
+    if selection.platform() != NativeWindowHostLoopPlatformKind::Linux {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopHostBuildError::BackendSupportFailed {
+                host,
+                input,
+                error:
+                    NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                        current: NativeWindowHostLoopPlatformKind::Linux,
+                        requested: selection.backend(),
+                    },
+            },
+        );
+    }
+    let capability =
+        match native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+            platform_wait_config,
+        ) {
+            Ok(capability) => capability,
+            Err(error) => {
+                return Err(NativeWindowLinuxPlatformWaitRunLoopHostBuildError::Config {
+                    host,
+                    input,
+                    error,
+                });
+            }
+        };
+    let capability =
+        match validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+            capability,
+        ) {
+            Ok(capability) => capability,
+            Err(error) => {
+                return Err(
+                    NativeWindowLinuxPlatformWaitRunLoopHostBuildError::LinuxEventSourceSupportFailed {
+                        host,
+                        input,
+                        error,
+                    },
+                );
+            }
+        };
+    if !input.owner().are_handles_open() {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopHostBuildError::OwnerClosed {
+                host,
+                input,
+                selection,
+                capability,
+            },
+        );
+    }
+
+    let (_config, owner) = input.into_parts();
+    Ok(
+        native_window_host_loop_linux_externally_wakeable_event_source_run_loop_host_from_owner(
+            host, owner,
+        ),
+    )
 }
 
 impl<Api> NativeWindowHostLoopDeadlineTimerClock
@@ -12861,6 +12993,124 @@ mod tests {
                 assert!(!owner.are_handles_open());
             }
             error => panic!("expected closed owner error, got {error:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_host_from_input_delegates_visual_and_waits_through_owner(
+    ) {
+        let window_size = NativeWindowSize::new(640, 480);
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+        );
+        assert!(matches!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
+                missing:
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                        ..
+                    },
+                ..
+            }
+        ));
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(62, 63)
+            .with_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+            ]);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(70);
+        let owner =
+            native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+                backend,
+                producer_api,
+            )
+            .unwrap();
+        let input = native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap();
+
+        let mut host = native_window_host_loop_linux_platform_wait_run_loop_host_from_input(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            input,
+        )
+        .unwrap();
+
+        host.set_window_title("linux platform wait input");
+        host.pump_events_only();
+        assert_eq!(
+            host.host().titles,
+            vec!["linux platform wait input".to_string()]
+        );
+        assert_eq!(host.host().pump_count, 1);
+        assert_eq!(
+            host.wait_after_budget_exhausted(
+                NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+                    window_size,
+                    size_changed: true,
+                },
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(
+            host.wait_adapter().owner().backend().api().event_wait_calls,
+            vec![(62, 64)]
+        );
+        assert!(host.wait_adapter().owner().are_handles_open());
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_host_from_input_rejects_closed_owner_with_host_and_input(
+    ) {
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+        );
+        let selection = native_window_run_loop_platform_wait_backend_selection(config).unwrap();
+        let owner = native_window_linux_externally_wakeable_run_loop_test_owner(65, 66, 71);
+        let mut input = native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap();
+        assert_eq!(
+            input.owner_mut().backend_mut().close_handles_if_open(),
+            true
+        );
+
+        match native_window_host_loop_linux_platform_wait_run_loop_host_from_input(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            input,
+        ) {
+            Ok(_) => panic!("closed owner must not build Linux platform wait run-loop host"),
+            Err(NativeWindowLinuxPlatformWaitRunLoopHostBuildError::OwnerClosed {
+                host,
+                input,
+                selection: returned_selection,
+                capability,
+            }) => {
+                assert_eq!(host.cursor, 0);
+                assert!(host.wait_instructions.is_empty());
+                assert_eq!(input.config(), config);
+                assert_eq!(returned_selection, selection);
+                assert_eq!(
+                    capability,
+                    NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource
+                );
+                assert!(!input.owner().are_handles_open());
+            }
+            Err(error) => panic!("expected closed owner error, got {error:?}"),
         }
     }
 
