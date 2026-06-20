@@ -1057,6 +1057,14 @@ owned fd は `Copy` / `Clone` を持たず、private state で open / closed を
 
 F5iz は acquisition / provider ownership checkpoint である。selector registration 後に provider-owned fd が backend unregister より先に close されないことを保証する final owner bundle / drop-order contract、actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate の `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5ja Native Linux owned fd run-loop drop-order boundary
+
+F5ja では、F5iz で取得した owned fd provider を runner-safe path へ渡すための final owner bundle を追加する。acquired fd path は `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost` を通し、generic provider host を裸で使わない。wrapper は selector backend owner と owned fd provider を同じ private owner tree に保持し、public `into_parts`、provider mutable accessor、owned fd close escape を出さない。
+
+この boundary の中心契約は drop order である。success path では lower host / selector backend が provider-owned fd より先に drop されるため、registered window event source fd は selector から unregister された後に provider が fd を close する。host build failure でも、F5iv の generic error をそのまま保持せず、lower error を provider より先に置く F5ja 専用 enum へ詰め替える。これにより、owner construction 後の failure error を drop した場合も selector unregister が provider fd close より先に起きる。
+
+F5ja は drop-order / owner bundle checkpoint である。actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate の `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence はまだ追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

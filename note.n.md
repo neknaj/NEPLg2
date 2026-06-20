@@ -1,3 +1,51 @@
+# 2026-06-20 Agent2 GUI native F5ja Linux acquired-fd final owner drop-order boundary
+
+## scope
+
+- F5iz の Linux window event source owned fd provider を、selector registration 後にも安全に保持できる final owner bundle へ渡す。
+- acquired fd path は専用 wrapper `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost` を通し、provider mutable accessor、host-only escape、provider-only escape、public `into_parts` を出さない。
+- actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate `Ok` 化、runner / CLI dispatch、minifb wait replacement、fallback、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `PLAN_CHANGES`。
+- 指摘は、success drop order だけでなく host build failure error の drop order も固定すること、generic F5iv error を裸で保持せず即時詰め替えること、borrowed accessor を狭くすること、success / post-registration failure の両方を shared order log で検査することだった。
+- revised plan では lower error を provider より先に置く F5ja 専用 error、generic F5iv error の即時 destructure / rewrap、final wrapper の provider mutable access 不提供、source policy の final-wrapper slice scoping、success / failure shared order log tests を追加し、`PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost` を追加し、lower Linux owner-retaining run-loop host と owned fd provider を private owner tree に閉じ込めた。
+- `native_window_linux_window_event_source_owned_fd_run_loop_host_with_apis` を追加し、F5iz provider acquisition、F5iu prepared platform config、F5iv run-loop handoff を順に通す acquired-fd 専用 helper にした。
+- F5ja 専用 build error は lower backend / descriptor / error を provider より先に持つ field order にし、generic F5iv `HostBuildFailed` を即時 destructure して詰め替えるようにした。
+- scripted Linux raw APIs に shared order log を追加し、success drop と host build failure drop の両方で `unregister-window-fd` が `close-owned-fd` より先になることを検査した。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ja contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_owned_fd_run_loop_host_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy / docs content blocker はなく、F5ja wrapper が acquired-fd provider を private owner tree に保持し、provider / host / owned-fd mutable escape を出さず、generic F5iv error を lower-error-first field order へ詰め替え、success と post-registration failure の両方で unregister-before-owned-fd-close を検査していることが確認された。
+- 指摘は、この section が pending のままだったことだった。
+- 指摘対応として、初回 review result と確認内容をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5iq Linux window event source fd missing reason boundary
 
 ## scope
