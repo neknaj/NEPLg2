@@ -1377,6 +1377,14 @@ keyboard evidence は `NativeWindowLinuxWindowEventSourceObservation`、`NativeW
 
 F5kg は raw keyboard event evidence boundary だけを担当する。IME composition、text input、keysym / layout / modifier mapping、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
 
+## F5kh Native Linux X11 raw keyboard modifier evidence boundary
+
+F5kh は F5kg の keyboard evidence に X11 core event の raw `state` field を追加する boundary である。`NativeWindowKeyboardModifierState` は X11 `state` を `u16` の raw evidence として保持する。この値は X11 の key/button mask bitset であり、portable `Modifiers`、layout 済み key、shortcut、IME text ではない。
+
+X11 `KeyPress` / `KeyRelease` decode は event packet offset 28 から little-endian `u16` を読み、`NativeWindowKeyboardEvent` に raw keycode と raw modifier state を同時に保持する。`NativeWindowKeyboardEvent::new` は existing compatibility path として empty modifier state を使い、X11 concrete decode は modifier-aware constructor を使う。raw keycode `0` は引き続き typed observation error である。raw modifier state は全 `u16` 値を valid evidence として扱い、その値によって error にしない。
+
+F5kh は raw modifier evidence boundary だけを担当する。portable modifier mapping、keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

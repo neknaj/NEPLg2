@@ -1070,9 +1070,15 @@ pub enum NativeWindowKeyboardEventKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowKeyboardModifierState {
+    raw_state: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowKeyboardEvent {
     kind: NativeWindowKeyboardEventKind,
     raw_keycode: u8,
+    modifier_state: NativeWindowKeyboardModifierState,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7462,6 +7468,7 @@ const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
 const NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET: usize = 28;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS: u8 = 2;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE: u8 = 3;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS: u8 = 4;
@@ -10660,12 +10667,13 @@ fn native_window_linux_x11_keyboard_event(
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
 ) -> Result<NativeWindowKeyboardEvent, NativeWindowLinuxX11EventSourceObservationError> {
     let raw_keycode = packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET];
-    if raw_keycode == 0 {
-        return Err(
-            NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid { raw_keycode },
-        );
-    }
-    Ok(NativeWindowKeyboardEvent { kind, raw_keycode })
+    let modifier_state = NativeWindowKeyboardModifierState::new(native_window_linux_x11_u16_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET,
+    ));
+    NativeWindowKeyboardEvent::new_with_modifier_state(kind, raw_keycode, modifier_state).map_err(
+        |_| NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid { raw_keycode },
+    )
 }
 
 fn native_window_linux_x11_event_packet_to_observation(
@@ -14868,10 +14876,26 @@ impl NativeWindowKeyboardEvent {
         kind: NativeWindowKeyboardEventKind,
         raw_keycode: u8,
     ) -> Result<Self, NativeWindowEventPumpError> {
+        Self::new_with_modifier_state(
+            kind,
+            raw_keycode,
+            NativeWindowKeyboardModifierState::empty(),
+        )
+    }
+
+    pub fn new_with_modifier_state(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+        modifier_state: NativeWindowKeyboardModifierState,
+    ) -> Result<Self, NativeWindowEventPumpError> {
         if raw_keycode == 0 {
             return Err(NativeWindowEventPumpError::InvalidKeyboardKeycode { raw_keycode });
         }
-        Ok(Self { kind, raw_keycode })
+        Ok(Self {
+            kind,
+            raw_keycode,
+            modifier_state,
+        })
     }
 
     pub fn kind(self) -> NativeWindowKeyboardEventKind {
@@ -14880,6 +14904,24 @@ impl NativeWindowKeyboardEvent {
 
     pub fn raw_keycode(self) -> u8 {
         self.raw_keycode
+    }
+
+    pub fn modifier_state(self) -> NativeWindowKeyboardModifierState {
+        self.modifier_state
+    }
+}
+
+impl NativeWindowKeyboardModifierState {
+    pub const fn empty() -> Self {
+        Self { raw_state: 0 }
+    }
+
+    pub const fn new(raw_state: u16) -> Self {
+        Self { raw_state }
+    }
+
+    pub fn raw_state(self) -> u16 {
+        self.raw_state
     }
 }
 
@@ -20827,6 +20869,7 @@ mod tests {
     fn scripted_x11_key_event(
         kind: NativeWindowKeyboardEventKind,
         raw_keycode: u8,
+        raw_modifier_state: u16,
         send_event: bool,
     ) -> Vec<u8> {
         let event_type = match kind {
@@ -20842,6 +20885,9 @@ mod tests {
             event_type
         };
         packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET] = raw_keycode;
+        packet[NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET + 2]
+            .copy_from_slice(&raw_modifier_state.to_le_bytes());
         packet
     }
 
@@ -25613,17 +25659,17 @@ mod tests {
     }
 
     #[test]
-    fn native_window_linux_x11_keyboard_decode_preserves_raw_key_evidence() {
+    fn native_window_linux_x11_keyboard_decode_preserves_raw_key_and_modifier_evidence() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(640, 360),
             previous_mouse_down: true,
         };
         let press: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 38, true)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 38, 0x0005, true)
                 .try_into()
                 .unwrap();
         let release: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Released, 38, false)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Released, 38, 0x0014, false)
                 .try_into()
                 .unwrap();
 
@@ -25643,7 +25689,16 @@ mod tests {
             Some(NativeWindowKeyboardEvent {
                 kind: NativeWindowKeyboardEventKind::Pressed,
                 raw_keycode: 38,
+                modifier_state: NativeWindowKeyboardModifierState::new(0x0005),
             })
+        );
+        assert_eq!(
+            press_observation
+                .keyboard_event()
+                .unwrap()
+                .modifier_state()
+                .raw_state(),
+            0x0005
         );
         assert_eq!(press_observation.current_size(), input.previous_size);
         assert!(press_observation.mouse_down());
@@ -25662,7 +25717,16 @@ mod tests {
             Some(NativeWindowKeyboardEvent {
                 kind: NativeWindowKeyboardEventKind::Released,
                 raw_keycode: 38,
+                modifier_state: NativeWindowKeyboardModifierState::new(0x0014),
             })
+        );
+        assert_eq!(
+            release_observation
+                .keyboard_event()
+                .unwrap()
+                .modifier_state()
+                .raw_state(),
+            0x0014
         );
     }
 
@@ -25673,7 +25737,7 @@ mod tests {
             previous_mouse_down: false,
         };
         let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 0, false)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 0, 0x0001, false)
                 .try_into()
                 .unwrap();
 
@@ -37555,8 +37619,12 @@ mod tests {
     #[test]
     fn native_window_backend_loop_host_action_preserves_keyboard_evidence() {
         let mut unavailable_loop = native_window_backend_loop_counter();
-        let keyboard_event =
-            NativeWindowKeyboardEvent::new(NativeWindowKeyboardEventKind::Pressed, 38).unwrap();
+        let keyboard_event = NativeWindowKeyboardEvent::new_with_modifier_state(
+            NativeWindowKeyboardEventKind::Pressed,
+            38,
+            NativeWindowKeyboardModifierState::new(0x0005),
+        )
+        .unwrap();
         let unavailable_snapshot =
             build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
                 unavailable_loop.event_pump_input(),
