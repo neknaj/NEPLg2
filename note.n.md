@@ -75539,3 +75539,29 @@ MERGE_APPROVED
 - after review broader guard pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
 - after review broader guard pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
 - Bacon / Hegel の再レビューは `REVIEW_APPROVED`。commit-blocking finding は無い。
+
+## 2026-06-21 Agent2 GUI native F5kf Linux X11 StructureNotify / Expose event evidence boundary
+
+- F5kf では、X11 default event mask に `ExposureMask` と `StructureNotifyMask` を追加し、`ConfigureNotify` / `MapNotify` / `Expose` を明示 event evidence として扱う。
+- subagent 計画レビューでは、`Expose` や `MapNotify` を previous-state observation として no-op 化しないこと、pointer sample availability だけで `PointerMotion` を合成しないこと、event evidence を snapshot / backend loop / host action まで保持することが指摘された。
+- 指摘対応として、`NativeWindowEventPumpEventKind` を追加し、compatibility builder は close / resize / pointer button だけを推論し、X11 concrete decode は explicit builder で event kind を渡す方針に修正した。
+- この checkpoint は keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback redraw、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo check -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_pump -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action -- --nocapture`
+- Rawls の implementation review は、legacy `NativeWindowLinuxWindowEventSourceObservation::new` path が `Poll` を先に固定すると resize / pointer button の compatibility inference を失う点を `CHANGES_REQUESTED` とした。
+- 指摘対応として、observation が `Poll` の場合は existing raw snapshot builder へ渡して close / resize / pointer button inference を保持し、X11 concrete decode の explicit event kind だけ explicit builder で保持するように分けた。
+- after review follow-up pass: `cargo fmt -p nepl-gui-native -- --check`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_event_pump -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- after review follow-up pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- after review follow-up pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- after review follow-up pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- after review follow-up pass with LF/CRLF warnings only: `git diff --check`
+- Rawls / Boyle の再レビューは `REVIEW_APPROVED`。commit-blocking finding は無い。
