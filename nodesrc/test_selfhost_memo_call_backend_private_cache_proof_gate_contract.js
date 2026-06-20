@@ -72,9 +72,10 @@ assert.ok(
         source.includes("Actual walker traversal source stage0") &&
         source.includes("Actual walker operation producer bridge stage0") &&
         source.includes("Private cache region proof stage0") &&
+        source.includes("Region no-escape candidate stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, and operation producer bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, and no-escape candidate checker are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -205,13 +206,13 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheRegionProof(?:InputKind|InputRecord|Status|Record|Table)\b/,
-    "private cache region proof input, status, record, and owner table must stay private until actual Resource IR traversal and effect masking own the proof boundary",
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheRegion(?:Proof(?:InputKind|InputRecord|Status|Record|Table)|NoEscapeCandidate(?:Status|Record))\b/,
+    "private cache region proof input/status payload, no-escape candidate payload, and owner table must stay private until actual Resource IR traversal and effect masking own the proof boundary",
 );
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheRegionProofInputKind|SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord|SelfhostMemoCallBackendPrivateCacheRegionProofStatus|SelfhostMemoCallBackendPrivateCacheRegionProofRecord|SelfhostMemoCallBackendPrivateCacheRegionProofTable)\b/m,
-    "public functions must not expose private cache region proof input/status payload or owner table types in their signatures",
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheRegionProofInputKind|SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord|SelfhostMemoCallBackendPrivateCacheRegionProofStatus|SelfhostMemoCallBackendPrivateCacheRegionProofRecord|SelfhostMemoCallBackendPrivateCacheRegionProofTable|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord)\b/m,
+    "public functions must not expose private cache region proof input/status payload, no-escape candidate payload, or owner table types in their signatures",
 );
 assert.doesNotMatch(
     code,
@@ -1598,12 +1599,37 @@ assertOrdered(
     "private cache region proof table must be a Vec-backed owner table",
 );
 assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus"),
+    ["PrivateCacheRegionNoEscapeCandidateAccepted"],
+    "region no-escape candidate status must stay distinct from Resource no-escape proof status",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "root_operation_ordinal %i32",
+        "support_operation_ordinal %i32",
+        "status %SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus",
+    ],
+    "region no-escape candidate record must retain the single request key, graph id, root/support ordinals, and candidate-only status",
+);
+assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind"),
     [
         "RegionProofTableAllocFailed %StdErrorKind",
         "RegionProofRecordPushFailed %StdErrorKind",
         "RegionProofRecordReadFailed %i32",
         "TraversalSourceReadFailed %i32",
+        "RegionProofEmpty",
+        "RegionProofBodyModuleFingerprintPlaceholder %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofGraphIdInvalid %i32",
+        "RegionProofOperationOrdinalInvalid %i32",
+        "RegionProofKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofGraphMismatch %i32",
+        "RegionProofRootDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofSupportDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofOperationOrdinalDuplicate %i32",
         "RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
@@ -1611,7 +1637,7 @@ assertOrdered(
         "RegionProofMissingFreshRegion",
         "Stage0SourceRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
-    "private cache region proof producer errors must keep allocation, read, escape, observation, unsupported, unavailable, missing, and source-fixture failures distinct",
+    "private cache region proof producer errors must keep allocation, read, empty, malformed origin, mismatch, duplicate, escape, observation, unsupported, unavailable, missing, and source-fixture failures distinct",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind"),
@@ -1776,9 +1802,120 @@ assert.doesNotMatch(
     "private cache region proof stage0 must not synthesize accepted Resource proof, request proof records, GraphInput, backend bytes, or effect masking",
 );
 assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_scan_record_result"),
+    /_:/,
+    "region no-escape candidate scan must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_scan_record_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_key_eq record.key expected_key",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id expected_graph_id",
+        "PrivateCacheRegionRootCandidate:",
+        "RegionProofRootDuplicate record.key",
+        "RegionProofOperationOrdinalDuplicate record.operation_ordinal",
+        "PrivateCacheRegionSupportCandidate:",
+        "RegionProofSupportDuplicate record.key",
+        "RegionProofOperationOrdinalDuplicate record.operation_ordinal",
+        "PrivateCacheRegionMayEscape:",
+        "RegionProofMayEscape record.key",
+        "PrivateCacheRegionObservationRejected:",
+        "RegionProofObservationRejected record.key",
+        "PrivateCacheRegionUnsupported:",
+        "RegionProofUnsupported record.key",
+        "PrivateCacheRegionUnavailable:",
+        "RegionProofUnavailable record.key",
+        "RegionProofGraphMismatch record.graph_id.index",
+        "RegionProofKeyMismatch record.key",
+    ],
+    "region no-escape candidate scan must require one key, one graph, one root, one support, unique ordinal, and distinct bad-status errors",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop"),
+    /_:/,
+    "region no-escape candidate loop must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop"),
+    [
+        "and seen_root seen_support",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_new expected_key expected_graph_id root_operation_ordinal support_operation_ordinal",
+        "RegionProofMissingFreshRegion",
+        "RegionProofRecordReadFailed idx",
+    ],
+    "region no-escape candidate loop must require both root and support before returning candidate-only accepted status",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result"),
+    [
+        "eq n 0",
+        "RegionProofEmpty",
+        "selfhost_memo_call_backend_private_cache_region_proof_table_get table 0",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_validate_result first",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop table 0 n first.key first.graph_id false -1 false -1",
+    ],
+    "region no-escape candidate table checker must reject empty tables and seed the single key/graph expectation from the first validated record",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0")),
+    /PrivateCacheNoEscapeProven|RequestEvidenceProven|proof_table_push|resource_proof_table_push|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend/,
+    "region no-escape candidate stage0 must not synthesize Resource proof, request-evidence proof, GraphInput, backend bytes, or effect masking",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary"),
+    [
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "empty_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "root_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "support_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_support_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "region no-escape candidate stage0 summary must expose only typed Result payloads for accepted and fail-closed representative paths",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0"),
+    [
+        "accepted_result",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result",
+        "empty_rejected",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_empty_result",
+        "key_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_key_mismatch_result",
+        "graph_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_graph_mismatch_result",
+        "root_duplicate_rejected",
+        "PrivateCacheRegionRootCandidate",
+        "support_duplicate_rejected",
+        "PrivateCacheRegionSupportCandidate",
+        "ordinal_duplicate_rejected",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_ordinal_duplicate_result",
+        "missing_support_rejected",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_missing_support_result",
+        "may_escape_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result",
+        "observation_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation",
+        "unsupported_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource",
+        "unavailable_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result",
+    ],
+    "region no-escape candidate stage0 must cover accepted, empty, key/graph mismatch, duplicate, missing support, escaping, observation, unsupported, unavailable, and placeholder paths",
+);
+assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)/m,
-    "private cache region proof helpers must stay module-private and only the typed smoke summary may be public",
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_(?:proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)|no_escape_candidate_(?:record|scan|loop|from|i32|stage0_))/m,
+    "private cache region proof and no-escape candidate helpers must stay module-private and only typed smoke summaries may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),

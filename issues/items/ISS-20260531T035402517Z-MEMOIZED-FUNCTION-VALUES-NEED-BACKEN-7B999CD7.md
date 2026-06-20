@@ -430,6 +430,32 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - source / operation / region proof table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 selfhost memo_call backend region no-escape candidate consistency checker checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、private cache region proof table を no-escape proof へ進める直前の consistency checker stage0 を追加した。
+
+この checkpoint は `PrivateCacheNoEscapeProven` ではない。`PrivateCacheRegionRootCandidate` と `PrivateCacheRegionSupportCandidate` を、単一 request key / 単一 graph / root 1 件 / support 1 件 / unique ordinal / bad status なし、という candidate-only record へ畳むだけである。actual Resource IR traversal、fresh private region proof、PrivateCache / PrivateState effect masking、request-evidence proof table、Resource proof table、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は合成しない。
+
+checker は empty table、key mismatch、graph mismatch、root duplicate、support duplicate、operation ordinal duplicate、root/support 欠落、escape、observation、unsupported、unavailable、placeholder / malformed origin を typed enum error として fail-closed にする。複数 support を持つ本物の graph-shaped proof は後続の actual Resource IR traversal / graph proof boundary が担当し、この stage0 では誤って candidate を accepted Resource proof に昇格しないことを優先する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。candidate status / candidate record の public exposure 禁止、candidate helper の public API 化禁止、wildcard fallback 禁止、Resource proof / request-evidence proof / GraphInput / backend bytes / effect mask 合成禁止、summary が Result payload だけを公開することを固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-doctest.json`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table へ accepted / escaping / observation / unsupported source を生成する境界。
+- candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- source / operation / region proof table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 2026-06-21 selfhost memo_call backend actual walker traversal source collector stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 `SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` と `SelfhostMemoCallBackendPrivateCacheObservationBanTable` から module-private traversal source table owner を作る collector stage0 を追加した。

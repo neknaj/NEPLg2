@@ -34,6 +34,7 @@
 //: - Actual walker traversal source projection stage0 は、actual traversal が将来返す accepted / escaping / observation / unavailable source vocabulary を source-to-operation projection 経由で classifier に渡せることを private fixture で確認します。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source を actual traversal 未接続のまま合成しません。
 //: - Actual walker traversal source collector stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` を borrowed input として読み、operation producer が読む traversal source table owner を作ります。known unsupported traversal / observation は `ResourceIrTraversalUnavailable` へ潰さず、`UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持します。この collector は GraphInput、proof table、operation table、backend bytes を作りません。
 //: - Private cache region proof stage0 は、traversal source table を private region proof input / status table へ写し、closed clone / neutral internal edge / escaping / observation / unsupported / unavailable / placeholder の代表 path を fail-closed に畳みます。この stage は Pure mask、`PrivateCacheNoEscapeProven`、sealed backend representation、artifact proof record を作りません。
+//: - Region no-escape candidate stage0 は、private region proof table が単一 request key / 単一 graph に閉じ、root candidate と support candidate が 1 件ずつだけ存在し、duplicate や bad status が無いことを確認します。この stage は candidate consistency checker で止まり、Resource proof table や request-evidence proof table へ昇格しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -49,6 +50,7 @@
 //: - actual walker operation producer bridge は現状、traversal source table と operation table の二段階 owner を通します。これは actual traversal 本体が返す source stream と、classifier が読む operation vocabulary を分けるための境界であり、後続で source/operation の bucket 化や直接 projection に置換できます。
 //: - actual walker traversal source collector は body 数 `b`、place 数 `p`、edge 数 `e`、unsupported 数 `u`、observation 数 `a` に対して validation と source append を線形に行います。known unsupported と traversal unavailable を分ける contract は semantic 境界なので、後続の index 化でも維持します。
 //: - private cache region proof stage0 は source 数 `s` に対して O(s) 時間で input / status table を作り、同じく O(s) 時間で fail-closed fold を行います。これは actual non-escape proof の探索計算量ではなく、source vocabulary と proof status の contract を固定するための smoke です。
+//: - region no-escape candidate checker は region proof record 数 `r` に対して O(r) 時間で、単一 key / graph、root / support の存在、duplicate ordinal、bad status を検査します。複数 support を効率的に扱う graph-shaped proof は後続 stage で追加しますが、candidate を `PrivateCacheNoEscapeProven` と混同しない contract は維持します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -279,6 +281,42 @@
 //:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_unknown_result_eq summary.observation_rejected expected_key
 //:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_placeholder_result_eq summary.placeholder_rejected
 //:     let shown checks_print_report checks3
+//:     checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn candidate_i32_result_is_err %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind bool \result:
+//:     match result:
+//:         Result::Ok _value:
+//:             false
+//:         Result::Err _error:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 match summary.accepted_result:
+//:         Result::Ok n:
+//:             check_eq_i32 1 n
+//:         Result::Err _e:
+//:             Result::Err "region no-escape candidate accepted path failed"
+//:     let checks2 checks_push checks1 check candidate_i32_result_is_err summary.empty_rejected
+//:     let checks3 checks_push checks2 check candidate_i32_result_is_err summary.key_mismatch_rejected
+//:     let checks4 checks_push checks3 check candidate_i32_result_is_err summary.may_escape_rejected
+//:     let shown checks_print_report checks4
 //:     checks_exit_code shown
 //: ```
 
@@ -883,6 +921,30 @@ struct SelfhostMemoCallBackendPrivateCacheRegionProofRecord:
 struct SelfhostMemoCallBackendPrivateCacheRegionProofTable:
     records %Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord
 
+//: SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus: region proof consistency checker の中間状態
+//:
+//: [目的/もくてき]:
+//: - private cache region proof table が単一 key / 単一 graph に閉じ、root candidate と support candidate を 1 件ずつ持つことだけを表します。
+//:
+//: [契約/けいやく]:
+//: - この status は `PrivateCacheNoEscapeProven` ではありません。actual Resource IR traversal、fresh region proof、PrivateCache / PrivateState effect masking、sealed backend representation、artifact proof はまだ後続 stage の責務です。
+//: - status は module-private です。public API に出すのは Result payload を持つ smoke summary だけにし、外部 caller が candidate を accepted proof として渡せる入口を作りません。
+enum SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus:
+    PrivateCacheRegionNoEscapeCandidateAccepted
+
+//: SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord: region candidate consistency checker の成功 record
+//:
+//: [契約/けいやく]:
+//: - key と graph id は table 内の全 record が一致した authority を保持します。
+//: - root / support ordinal は、同じ operation ordinal を二重に使っていないことを確認した結果です。
+//: - record は proof artifact ではありません。この record から request-evidence proof table、Resource proof table、backend bytes、Pure mask を作ってはいけません。
+struct SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    root_operation_ordinal %i32
+    support_operation_ordinal %i32
+    status %SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus
+
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: actual walker が列挙する Resource operation 相当の最小分類
 //:
 //: [目的/もくてき]:
@@ -1090,6 +1152,15 @@ pub enum SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind:
     RegionProofRecordPushFailed %StdErrorKind
     RegionProofRecordReadFailed %i32
     TraversalSourceReadFailed %i32
+    RegionProofEmpty
+    RegionProofBodyModuleFingerprintPlaceholder %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofGraphIdInvalid %i32
+    RegionProofOperationOrdinalInvalid %i32
+    RegionProofKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofGraphMismatch %i32
+    RegionProofRootDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofSupportDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofOperationOrdinalDuplicate %i32
     RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey
@@ -1205,6 +1276,29 @@ pub struct SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
     returned_value_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     owns_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     clone_out_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary: region no-escape candidate consistency smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - region proof table が no-escape 候補へ進む直前に、単一 key / 単一 graph / root-support 対 / duplicate rejection / bad status rejection を確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを公開します。private candidate status、candidate record、region proof table owner は公開しません。
+//: - accepted result は consistency checker の成功だけを表します。`PrivateCacheNoEscapeProven`、request evidence proof、Pure mask、sealed backend representation、artifact projection には接続しません。
+pub struct SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    empty_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    root_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    support_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    missing_support_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
@@ -1775,6 +1869,32 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofRecord:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofRecord SelfhostMemoCallBackendPrivateCacheRegionProofRecord \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus: region no-escape candidate status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は consistency checker の分類値だけであり、owner table や backend state を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus: region no-escape candidate status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord: region no-escape candidate record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key、graph id、ordinal、status だけを保持し、region proof table owner や Resource proof table owner は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord: region no-escape candidate record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: operation kind を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1935,6 +2055,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
 //: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary: region proof smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary: region no-escape candidate smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private candidate record や region proof table owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary: region no-escape candidate smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -7792,6 +7925,147 @@ fn selfhost_memo_call_backend_private_cache_region_proof_fold_loop %fn &Selfhost
 fn selfhost_memo_call_backend_private_cache_region_proof_fold_i32_result %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table:
     selfhost_memo_call_backend_private_cache_region_proof_fold_loop table 0 selfhost_memo_call_backend_private_cache_region_proof_table_len table false false
 
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_new: no-escape candidate record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この record は consistency checker の出力であり、Resource proof table record ではありません。
+//: - root / support ordinal を保持するのは、同じ traversal operation を root と support の両方として二重消費していないことを後続 diagnostic が確認できるようにするためです。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord \key\graph_id\root_operation_ordinal\support_operation_ordinal:
+    SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord key graph_id root_operation_ordinal support_operation_ordinal SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus::PrivateCacheRegionNoEscapeCandidateAccepted
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_validate_result: region proof record の authority field を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - table push でも同じ構造検査を行いますが、consistency checker は borrowed table を読む最後の gate なので、placeholder origin や負の graph / ordinal をここでも fail-closed にします。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheRegionProofRecord Result unit SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \record:
+    if:
+        eq record.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofBodyModuleFingerprintPlaceholder record.key
+        else:
+            if:
+                lt record.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofGraphIdInvalid record.graph_id.index
+                else:
+                    if:
+                        lt record.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofOperationOrdinalInvalid record.operation_ordinal
+                        else:
+                            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_scan_record_result: 1 record を candidate consistency state へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - 全 record は同じ proof key と graph id に属していなければなりません。mismatch を first-wins にすると別 request や別 graph の support source で root を補えてしまうため、typed error として拒否します。
+//: - root と support は stage0 では 1 件ずつだけ受け入れます。複数 support を扱う本物の graph-shaped proof は actual Resource IR traversal と graph proof が所有する後続 boundary で追加します。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_scan_record_result %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn bool fn i32 fn bool fn i32 fn SelfhostMemoCallBackendPrivateCacheRegionProofRecord Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\idx\n\expected_key\expected_graph_id\seen_root\root_operation_ordinal\seen_support\support_operation_ordinal\record:
+    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_validate_result record:
+        Result::Ok _valid:
+            if:
+                selfhost_memo_call_backend_private_cache_proof_key_eq record.key expected_key
+                then:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id expected_graph_id
+                        then:
+                            match record.status:
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                                    if:
+                                        seen_root
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRootDuplicate record.key
+                                        else:
+                                            if:
+                                                and seen_support eq record.operation_ordinal support_operation_ordinal
+                                                then:
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofOperationOrdinalDuplicate record.operation_ordinal
+                                                else:
+                                                    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop table add idx 1 n expected_key expected_graph_id true record.operation_ordinal seen_support support_operation_ordinal
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate:
+                                    if:
+                                        seen_support
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofSupportDuplicate record.key
+                                        else:
+                                            if:
+                                                and seen_root eq record.operation_ordinal root_operation_ordinal
+                                                then:
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofOperationOrdinalDuplicate record.operation_ordinal
+                                                else:
+                                                    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop table add idx 1 n expected_key expected_graph_id seen_root root_operation_ordinal true record.operation_ordinal
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionMayEscape:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofMayEscape record.key
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionObservationRejected:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofObservationRejected record.key
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnsupported:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofUnsupported record.key
+                                SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnavailable:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofUnavailable record.key
+                        else:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofGraphMismatch record.graph_id.index
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofKeyMismatch record.key
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop: region proof table を no-escape candidate 直前で[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - wildcard fallback は使いません。region proof status が増えた場合、それを candidate、escape、observation、unsupported、unavailable のどれとして扱うかを明示します。
+//: - loop が成功しても返すのは `PrivateCacheRegionNoEscapeCandidateAccepted` だけです。既存 `PrivateCacheNoEscapeProven` や `RequestEvidenceProven` へ変換しません。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn bool fn i32 fn bool fn i32 Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\idx\n\expected_key\expected_graph_id\seen_root\root_operation_ordinal\seen_support\support_operation_ordinal:
+    if:
+        ge idx n
+        then:
+            if:
+                and seen_root seen_support
+                then:
+                    Result::Ok selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_new expected_key expected_graph_id root_operation_ordinal support_operation_ordinal
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofMissingFreshRegion
+        else:
+            match selfhost_memo_call_backend_private_cache_region_proof_table_get table idx:
+                Option::Some record:
+                    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_scan_record_result table idx n expected_key expected_graph_id seen_root root_operation_ordinal seen_support support_operation_ordinal record
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result: region proof table を candidate record へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - empty table は missing fresh region と同一視せず、`RegionProofEmpty` として分けます。producer が何も観測していない場合と、root/support の片方だけを観測した場合では原因が違うためです。
+//: - 最初の record の key / graph id を期待値として使い、残りの record が同じ request occurrence と同じ graph に属することを検査します。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table:
+    let n %i32 selfhost_memo_call_backend_private_cache_region_proof_table_len table
+    if:
+        eq n 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofEmpty
+        else:
+            match selfhost_memo_call_backend_private_cache_region_proof_table_get table 0:
+                Option::Some first:
+                    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_record_validate_result first:
+                        Result::Ok _valid:
+                            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_loop table 0 n first.key first.graph_id false -1 false -1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRecordReadFailed 0
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_i32_result: candidate record result を smoke count へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - i32 へ写すのは public doctest / source policy の代表結果用です。candidate record 自体は private のままにし、accepted Resource proof や backend plan の代替にしません。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_i32_result %fn Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate_result:
+    match candidate_result:
+        Result::Ok candidate:
+            match candidate.status:
+                SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus::PrivateCacheRegionNoEscapeCandidateAccepted:
+                    Result::Ok 1
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_with_sources_result: source owner から region proof smoke を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -7864,6 +8138,162 @@ pub fn selfhost_memo_call_backend_private_cache_region_proof_stage0 %impure fn v
     let unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result
     SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary accepted_result neutral_edge_accepted_result entry_without_root_rejected returned_value_without_root_rejected owns_edge_without_root_rejected clone_out_edge_without_root_rejected may_escape_rejected observation_rejected unsupported_rejected unavailable_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_sources_result: source owner から no-escape candidate smoke を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source table はこの helper が必ず閉じます。region proof table も candidate checker 後に必ず閉じます。
+//: - この helper は candidate checker までで止まり、Resource proof producer や request-evidence gate は呼びません。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \sources:
+    let table_result %Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result &sources
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+    match table_result:
+        Result::Ok table:
+            let candidate_result %Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table
+            selfhost_memo_call_backend_private_cache_region_proof_table_free table
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_i32_result candidate_result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result: source fixture result を candidate checker へ[渡/わた]す
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result %impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \source_result:
+    match source_result:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_sources_result sources
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_record: candidate fixture 用 record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - fixture は body fingerprint / graph id / ordinal / status だけを変えて、checker の拒否条件を個別に確認します。
+//: - この helper も module-private であり、外部 caller が region proof record を作る入口ではありません。
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheRegionProofStatus SelfhostMemoCallBackendPrivateCacheRegionProofRecord \body_module_fingerprint\graph_index\operation_ordinal\status:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint body_module_fingerprint
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
+    SelfhostMemoCallBackendPrivateCacheRegionProofRecord key graph_id operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result: fixture record を table へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionProofStatus Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\body_module_fingerprint\graph_index\operation_ordinal\status:
+    let record %SelfhostMemoCallBackendPrivateCacheRegionProofRecord selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_record body_module_fingerprint graph_index operation_ordinal status
+    selfhost_memo_call_backend_private_cache_region_proof_table_push table record
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result: fixture table を閉じながら candidate checker を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table:
+    let candidate_result %Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table
+    selfhost_memo_call_backend_private_cache_region_proof_table_free table
+    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_i32_result candidate_result
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_empty_result: empty table rejection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_empty_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table:
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_two_record_table_result: root / support fixture table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_two_record_table_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \root_fingerprint\support_fingerprint\root_graph_index\support_graph_index:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table0 root_fingerprint root_graph_index 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table1 support_fingerprint support_graph_index 1 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_key_mismatch_result: key mismatch rejection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_key_mismatch_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_two_record_table_result 77 78 0 0:
+        Result::Ok table:
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_graph_mismatch_result: graph mismatch rejection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_graph_mismatch_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_two_record_table_result 77 77 0 1:
+        Result::Ok table:
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_table_result: duplicate fixture table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_table_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofStatus impure fn i32 Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \duplicate_status\duplicate_ordinal:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table0 77 0 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                Result::Ok table1:
+                    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table1 77 0 1 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate:
+                        Result::Ok table2:
+                            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table2 77 0 duplicate_ordinal duplicate_status
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_result: duplicate rejection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofStatus impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \duplicate_status\duplicate_ordinal:
+    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_table_result duplicate_status duplicate_ordinal:
+        Result::Ok table:
+            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_ordinal_duplicate_result: root と support が同じ ordinal を使う case を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_ordinal_duplicate_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table0 77 0 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                Result::Ok table1:
+                    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table1 77 0 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate:
+                        Result::Ok table2:
+                            selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_missing_support_result: root だけの table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_missing_support_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_push_record_result table0 77 0 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_with_table_result table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0: region no-escape candidate consistency checker の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - region proof table が no-escape proof へ進む前に、単一 request / 単一 graph / root-support 対 / duplicate rejection / bad status rejection を満たすことを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR traversal 本体、fresh private region proof、PrivateCache / PrivateState effect masking、Resource proof table への変換、sealed backend representation はまだ未接続です。この public smoke は private fixture table と private candidate checker だけを使います。
+pub fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result
+    let empty_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_empty_result
+    let key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_key_mismatch_result
+    let graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_graph_mismatch_result
+    let root_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_result SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate 2
+    let support_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_duplicate_result SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate 2
+    let ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_ordinal_duplicate_result
+    let missing_support_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_missing_support_result
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+    let unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result
+    SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary accepted_result empty_rejected key_mismatch_rejected graph_mismatch_rejected root_duplicate_rejected support_duplicate_rejected ordinal_duplicate_rejected missing_support_rejected may_escape_rejected observation_rejected unsupported_rejected unavailable_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:

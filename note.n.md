@@ -1,3 +1,40 @@
+# 2026-06-21 selfhost memo_call region no-escape candidate consistency checker
+
+## 目的
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の続きとして、private cache region candidate stage0 の出力を、actual no-escape proof へ進める前の consistency checker まで進めた。
+- `PrivateCacheRegionRootCandidate` と `PrivateCacheRegionSupportCandidate` を直接 `PrivateCacheNoEscapeProven` にせず、candidate-only の中間 status / record に留めることで、actual Resource IR traversal、fresh private region proof、PrivateCache / PrivateState effect masking、sealed backend representation を未接続のまま accepted Resource proof と誤認しない境界にした。
+
+## subagent review
+
+- 実装前 review で Wegener は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、root/support candidate から既存 `PrivateCacheNoEscapeProven` へ進めるのは早すぎるため、中間 status で止めること、single key / single graph、duplicate、empty、bad status を fail-closed にすること、Resource proof table / request-evidence proof table / GraphInput / backend bytes / effect mask を合成しないことだった。
+- 対応として `SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus` と `SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord` を module-private に追加し、public には Result payload の stage0 summary だけを公開した。
+- 実装後 review で Wegener は `REVIEW_APPROVED` を返した。candidate status / record が module-private に留まり、既存 Resource proof と混同される公開経路が無いこと、duplicate / mismatch / bad status が fail-closed であること、source policy が private exposure ban と proof / backend / effect mask 合成禁止を固定していることを確認した。
+
+## 実装内容
+
+- region proof table から candidate-only record へ進む checker を追加した。
+- checker は empty table、key mismatch、graph mismatch、root duplicate、support duplicate、operation ordinal duplicate、root/support 欠落、escape、observation、unsupported、unavailable、placeholder / malformed origin を typed enum error として拒否する。
+- stage0 public summary は accepted / empty / key mismatch / graph mismatch / duplicate / ordinal duplicate / missing support / may escape / observation / unsupported / unavailable / placeholder を代表 case として返す。
+- module doc と source policy は、candidate checker が `PrivateCacheNoEscapeProven`、`RequestEvidenceProven`、GraphInput、backend bytes、Pure mask、artifact proof を作らないことを固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-doctest.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with CRLF warnings only: `git diff --check`
+- pass: subagent implementation review by Wegener
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 244 秒で timeout した。対象 module 専用 policy は通過済み。
+
+## 未接続
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
+- candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+
 # 2026-06-21 Agent2 GUI native F5kd Linux X11 WM protocol ChangeProperty registration boundary
 
 ## 目的
