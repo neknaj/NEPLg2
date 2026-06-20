@@ -1501,6 +1501,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sys API construction、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - input-to-host helper を generic platform wait backend selection や minifb default runner へ接続しない。
 
+### Phase F5ip: Native Linux cfg sys host factory boundary
+
+目的:
+
+- F5io の input-to-host handoff を、cfg Linux sys API を注入する host factory として組み立てる。
+- runner / CLI dispatch へ進む前に、config validation、sys backend construction、owner construction、F5in input construction、F5io handoff の順序を型とテストで固定する。
+- validation failure、backend failure、owner failure、input failure、host handoff failure を string 化せず、host / config / lower owner-bearing error を保持して返す。
+
+実装:
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostFromConfigBuildError` を追加し、config、backend support、Linux event-source support、backend build、owner build、input build、host build の failure stage を分ける。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を追加し、scripted backend API / producer API を注入できるようにする。
+- helper は `PlatformWait` config、Linux backend kind、selection platform、Linux event-source capability を raw API construction より前に検査し、成功時だけ Linux selector / timerfd backend、externally-wakeable owner、F5in input、F5io run-loop host を順に作る。
+- cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_from_config` は、backend owner 用と producer owner 用に別々の `NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入するだけにする。
+
+検証:
+
+- Rust unit tests で injected helper の success path が owner-retaining host を作り、wait が Linux owner backend を通ることを検査する。
+- Rust unit tests で config validation failure が raw API construction 前に止まり、backend build failure と owner build failure が host / config / lower owner を保持することを検査する。
+- source policy で validation before raw construction、F5in / F5io helper 経由、cfg sys wrapper の inject-only contract、generic support gate / runner / CLI / minifb / fallback / synthetic readiness 非導入を固定する。
+
+非目標:
+
+- Linux platform wait runner support gate を `Ok` にしない。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、support-gate readiness、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- helper を generic platform wait backend selection や minifb default runner へ接続しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

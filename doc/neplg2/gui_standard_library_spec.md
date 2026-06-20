@@ -949,6 +949,14 @@ F5io では、F5in の `NativeWindowLinuxPlatformWaitRunLoopInput` を F5im の 
 
 F5io は input-to-host checkpoint であり、Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sys API construction、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
+## F5ip Native Linux cfg sys host factory boundary
+
+F5ip では、F5io の input-to-host handoff を cfg Linux sys API から組み立てる helper を追加する。これは Linux runner readiness ではなく、`NativeWindowRunLoopConfig` と visual host から Linux selector / timerfd backend、host-event signal producer、F5in input、F5io owner-retaining host へ進む construction order を固定する境界である。
+
+testable helper は `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` とし、scripted raw API を注入できる。`PlatformWait` config、Linux backend kind、selection platform、`ExternallyWakeableEventSource` capability を raw API construction より前に検査する。検査失敗は host と config を保持する typed error として返し、backend construction failure、owner build failure、F5in input build failure、F5io host build failure はそれぞれ別 variant で下位 error を保持する。
+
+cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_from_config` は、2 つの独立した `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を backend owner 用と producer owner 用に注入するだけである。generic Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing` を返し、CLI dispatch、`run_linux_platform_wait_window_loop`、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer-fired evidence fabrication は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

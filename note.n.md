@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5ip Linux cfg sys host factory boundary
+
+## scope
+
+- F5io の input-to-host handoff を cfg Linux sys API で組み立てる factory boundary を追加する。
+- generic support gate の Linux `PlatformRunnerIntegrationMissing` behavior は維持し、runner / CLI dispatch は今回 scope 外にする。
+- validation failure、backend build failure、owner build failure、input build failure、host handoff failure を stage 別の `Result` error として保持する。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- sys wrapper だけではなく、scripted raw API を注入できる testable helper を作ることが条件として確認された。
+- `PlatformWait` config、Linux selection / backend kind、`ExternallyWakeableEventSource` capability は raw sys / backend construction より前に検査することが条件として確認された。
+- helper は backend、owner、F5in input、F5io host の順で既存 contract を通し、generic support gate、runner / CLI / minifb / X11 / Wayland 固有 code、fallback、sleep、busy loop、synthetic readiness、timer evidence fabrication を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostFromConfigBuildError` を追加し、config、backend support、Linux event-source support、backend build、owner build、input build、host build の failure stage を分けた。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を追加し、scripted backend API / producer API を注入できる host factory boundary を作った。
+- cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_from_config` を追加し、backend owner 用と producer owner 用に別々の `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を注入するだけにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ip contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_config -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、validation が raw construction より前に行われ、所有権回復が typed error に保持され、generic support gate、runner / CLI / minifb / fallback / synthetic readiness path が導入されていないことが確認された。
+- 指摘は、この section が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5io Linux owner-ready input-to-host boundary
 
 ## scope
