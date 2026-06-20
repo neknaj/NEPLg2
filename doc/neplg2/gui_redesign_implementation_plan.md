@@ -2884,3 +2884,38 @@ Phase F5ke では、F5kd の `ChangeProperty` accepted boundary を越えた rea
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で send-event bit masking、accepted registration context requirement、typed mismatch errors、no fallback が承認される。
+
+## Phase F5kf: Native Linux X11 StructureNotify and Expose event evidence boundary
+
+Phase F5kf では、X11 `StructureNotifyMask` と `ExposureMask` を top-level window default event mask に追加し、購読した event packet を platform-neutral な `NativeWindowEventPumpEventKind` へ写す。これは event evidence boundary であり、keyboard / IME、Wayland concrete decoding、Linux runner dispatch、support gate `Ok` 化ではない。
+
+実装:
+
+- `NativeWindowEventPumpEventKind` を追加し、`Poll`、`CloseRequested`、`WindowResized`、`PointerMotion`、`PointerButton`、`WindowMapped`、`RedrawRequested` を区別する。
+- `NativeWindowEventPumpSnapshot`、`NativeWindowBackendLoopStepOutcome::Unavailable`、`NativeWindowBackendLoopDrawableStep`、`NativeWindowHostAction` に event kind を保持し、observation から backend loop / host action まで消さずに伝える。
+- 既存の compatibility builder は close、resize、pointer button だけを推論し、pointer sample が存在するだけでは `PointerMotion` を合成しない。具体 backend は explicit builder で event kind を渡す。
+- X11 event decode は `ConfigureNotify` を `WindowResized`、`MotionNotify` を `PointerMotion`、button press / release を `PointerButton`、`MapNotify` を `WindowMapped`、`Expose` を `RedrawRequested`、accepted `WM_DELETE_WINDOW` `ClientMessage` を `CloseRequested` として返す。
+- `MapNotify` と `Expose` は previous size / mouse state を保持し、dummy resize、dummy pointer、blank redraw、silent no-op へ落とさない。
+- source-policy は default event mask に StructureNotify / Exposure が含まれること、MapNotify / Expose decode が明示 event kind を持つこと、pointer sample だけで motion を合成しないことを検査する。
+
+非目標:
+
+- keyboard / IME decode は含めない。
+- Wayland concrete event decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback redraw、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- default event mask が `ButtonPress | ButtonRelease | PointerMotion | Exposure | StructureNotify` を含む。
+- `ConfigureNotify`、`MapNotify`、`Expose` がそれぞれ `WindowResized`、`WindowMapped`、`RedrawRequested` として観測できる。
+- `Expose` は send-event bit 付き packet でも event type を正規化して扱う。
+- pointer sample availability だけでは `PointerMotion` を推論せず、X11 `MotionNotify` のような concrete source だけが explicit motion evidence を渡す。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_event_pump -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で explicit event evidence、no inferred pointer motion、no silent no-op、no runner/support-gate scope creep が承認される。

@@ -1357,6 +1357,16 @@ matching close は `os_close_requested = true`、`exit_shortcut_requested = fals
 
 F5ke は `ClientMessage` decode boundary だけを担当する。StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5kf Native Linux X11 StructureNotify and Expose event evidence boundary
+
+F5kf は X11 event packet を platform-neutral event kind へ写す boundary である。`NativeWindowEventPumpEventKind` は `Poll`、`CloseRequested`、`WindowResized`、`PointerMotion`、`PointerButton`、`WindowMapped`、`RedrawRequested` を分ける。`NativeWindowLinuxWindowEventSourceObservation` は event kind を保持し、`NativeWindowEventPumpSnapshot`、backend loop outcome、host action へ伝播する。
+
+default event mask は `ButtonPress | ButtonRelease | PointerMotion | Exposure | StructureNotify` とする。これにより X11 top-level window は resize、map、expose を実際に受け取るが、受け取った event を no-op observation として潰してはならない。`ConfigureNotify` は `WindowResized`、`MapNotify` は `WindowMapped`、`Expose` は `RedrawRequested` として decode する。`Expose` も send-event bit を落とした event type で判定する。
+
+compatibility builder は close、resize、pointer button だけを event kind として推論し、pointer sample があるだけでは `PointerMotion` を合成しない。concrete backend が motion event を読んだ場合だけ explicit builder で `PointerMotion` を渡す。
+
+F5kf は event evidence boundary だけを担当する。keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback redraw、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

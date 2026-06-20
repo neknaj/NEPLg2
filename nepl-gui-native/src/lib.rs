@@ -1039,6 +1039,17 @@ pub enum NativeWindowEventPumpCloseState {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowEventPumpEventKind {
+    Poll,
+    CloseRequested,
+    WindowResized,
+    PointerMotion,
+    PointerButton,
+    WindowMapped,
+    RedrawRequested,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowPointerButtonTransition {
     Unchanged,
     Pressed,
@@ -1064,6 +1075,7 @@ pub struct NativeWindowEventPumpInput {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NativeWindowEventPumpSnapshot {
+    pub event_kind: NativeWindowEventPumpEventKind,
     pub close_state: NativeWindowEventPumpCloseState,
     pub window_size: NativeWindowSize,
     pub surface_state: NativeWindowPresenterSurfaceState,
@@ -1108,6 +1120,7 @@ pub enum NativeWindowBackendLoopPointerAction {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowBackendLoopDrawableStep {
+    pub event_kind: NativeWindowEventPumpEventKind,
     pub window_size: NativeWindowSize,
     pub size_changed: bool,
     pub resize_redraw: Option<NativeWindowBackendLoopPresentation>,
@@ -1121,6 +1134,7 @@ pub enum NativeWindowBackendLoopStepOutcome {
         close_state: NativeWindowEventPumpCloseState,
     },
     Unavailable {
+        event_kind: NativeWindowEventPumpEventKind,
         window_size: NativeWindowSize,
         size_changed: bool,
     },
@@ -1139,10 +1153,12 @@ pub enum NativeWindowHostAction {
         reason: NativeWindowHostTerminalReason,
     },
     PumpEventsOnly {
+        event_kind: NativeWindowEventPumpEventKind,
         window_size: NativeWindowSize,
         size_changed: bool,
     },
     PresentFrame {
+        event_kind: NativeWindowEventPumpEventKind,
         presentation: NativeWindowBackendLoopPresentation,
         window_size: NativeWindowSize,
         size_changed: bool,
@@ -1524,6 +1540,7 @@ pub enum NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError<ProviderErr
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NativeWindowLinuxWindowEventSourceObservation {
+    event_kind: NativeWindowEventPumpEventKind,
     os_close_requested: bool,
     exit_shortcut_requested: bool,
     current_size: NativeWindowSize,
@@ -7145,13 +7162,41 @@ impl NativeWindowLinuxWindowEventSourceObservation {
         mouse_down: bool,
         pointer_raw: Option<(f32, f32)>,
     ) -> Self {
+        let event_kind = if os_close_requested || exit_shortcut_requested {
+            NativeWindowEventPumpEventKind::CloseRequested
+        } else {
+            NativeWindowEventPumpEventKind::Poll
+        };
+        Self::new_with_event_kind(
+            event_kind,
+            os_close_requested,
+            exit_shortcut_requested,
+            current_size,
+            mouse_down,
+            pointer_raw,
+        )
+    }
+
+    pub fn new_with_event_kind(
+        event_kind: NativeWindowEventPumpEventKind,
+        os_close_requested: bool,
+        exit_shortcut_requested: bool,
+        current_size: NativeWindowSize,
+        mouse_down: bool,
+        pointer_raw: Option<(f32, f32)>,
+    ) -> Self {
         Self {
+            event_kind,
             os_close_requested,
             exit_shortcut_requested,
             current_size,
             mouse_down,
             pointer_raw,
         }
+    }
+
+    pub fn event_kind(self) -> NativeWindowEventPumpEventKind {
+        self.event_kind
     }
 
     pub fn os_close_requested(self) -> bool {
@@ -7181,15 +7226,26 @@ pub fn native_window_linux_window_event_source_snapshot_from_observation(
     observation: NativeWindowLinuxWindowEventSourceObservation,
 ) -> Result<NativeWindowEventPumpSnapshot, NativeWindowLinuxWindowEventSourceObservationSnapshotError>
 {
-    build_native_window_event_pump_snapshot_from_raw(
-        input,
-        observation.os_close_requested(),
-        observation.exit_shortcut_requested(),
-        observation.current_size(),
-        observation.mouse_down(),
-        observation.pointer_raw(),
-    )
-    .map_err(|error| {
+    let result = match observation.event_kind() {
+        NativeWindowEventPumpEventKind::Poll => build_native_window_event_pump_snapshot_from_raw(
+            input,
+            observation.os_close_requested(),
+            observation.exit_shortcut_requested(),
+            observation.current_size(),
+            observation.mouse_down(),
+            observation.pointer_raw(),
+        ),
+        event_kind => build_native_window_event_pump_snapshot_from_raw_with_event_kind(
+            input,
+            observation.os_close_requested(),
+            observation.exit_shortcut_requested(),
+            observation.current_size(),
+            observation.mouse_down(),
+            observation.pointer_raw(),
+            event_kind,
+        ),
+    };
+    result.map_err(|error| {
         NativeWindowLinuxWindowEventSourceObservationSnapshotError::SnapshotConstructionFailed {
             descriptor,
             error,
@@ -7335,6 +7391,8 @@ pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK: u32 = 0x0
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS: u32 = 0x0000_0004;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE: u32 = 0x0000_0008;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION: u32 = 0x0000_0040;
+pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE: u32 = 0x0000_8000;
+pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_STRUCTURE_NOTIFY: u32 = 0x0002_0000;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_UNUSED_HIGH_BITS: u32 = 0xfe00_0000;
 pub const NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS: u32 = 0xe000_0000;
 
@@ -7356,6 +7414,8 @@ const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS: u8 = 4;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE: u8 = 5;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY: u8 = 6;
+const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE: u8 = 12;
+const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MAP_NOTIFY: u8 = 19;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY: u8 = 22;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE: u8 = 33;
 const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_OFFSET: usize = 1;
@@ -8686,6 +8746,8 @@ pub fn native_window_linux_x11_top_level_window_default_event_mask() -> u32 {
     NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
         | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
         | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
+        | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
+        | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_STRUCTURE_NOTIFY
 }
 
 fn native_window_linux_x11_top_level_window_validate_resource_id(
@@ -10523,13 +10585,16 @@ fn native_window_linux_x11_client_message_close_observation(
             },
         );
     }
-    Ok(NativeWindowLinuxWindowEventSourceObservation::new(
-        true,
-        false,
-        input.previous_size,
-        input.previous_mouse_down,
-        None,
-    ))
+    Ok(
+        NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+            NativeWindowEventPumpEventKind::CloseRequested,
+            true,
+            false,
+            input.previous_size,
+            input.previous_mouse_down,
+            None,
+        ),
+    )
 }
 
 fn native_window_linux_x11_event_packet_to_observation(
@@ -10575,41 +10640,47 @@ fn native_window_linux_x11_event_packet_to_observation(
         NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY => {
             let width = usize::from(native_window_linux_x11_u16_le(packet, 20));
             let height = usize::from(native_window_linux_x11_u16_le(packet, 22));
-            Ok(NativeWindowLinuxWindowEventSourceObservation::new(
-                false,
-                false,
-                NativeWindowSize::new(width, height),
-                input.previous_mouse_down,
-                None,
-            ))
+            Ok(
+                NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                    NativeWindowEventPumpEventKind::WindowResized,
+                    false,
+                    false,
+                    NativeWindowSize::new(width, height),
+                    input.previous_mouse_down,
+                    None,
+                ),
+            )
         }
-        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY => {
-            Ok(NativeWindowLinuxWindowEventSourceObservation::new(
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY => Ok(
+            NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                NativeWindowEventPumpEventKind::PointerMotion,
                 false,
                 false,
                 input.previous_size,
                 input.previous_mouse_down,
                 Some(native_window_linux_x11_event_pointer_raw(packet)),
-            ))
-        }
-        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS => {
-            Ok(NativeWindowLinuxWindowEventSourceObservation::new(
+            ),
+        ),
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS => Ok(
+            NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                NativeWindowEventPumpEventKind::PointerButton,
                 false,
                 false,
                 input.previous_size,
                 true,
                 Some(native_window_linux_x11_event_pointer_raw(packet)),
-            ))
-        }
-        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE => {
-            Ok(NativeWindowLinuxWindowEventSourceObservation::new(
+            ),
+        ),
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE => Ok(
+            NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                NativeWindowEventPumpEventKind::PointerButton,
                 false,
                 false,
                 input.previous_size,
                 false,
                 Some(native_window_linux_x11_event_pointer_raw(packet)),
-            ))
-        }
+            ),
+        ),
         NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE => {
             native_window_linux_x11_client_message_close_observation(
                 input,
@@ -10617,6 +10688,26 @@ fn native_window_linux_x11_event_packet_to_observation(
                 registered_wm_protocol_context,
             )
         }
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MAP_NOTIFY => Ok(
+            NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                NativeWindowEventPumpEventKind::WindowMapped,
+                false,
+                false,
+                input.previous_size,
+                input.previous_mouse_down,
+                None,
+            ),
+        ),
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE => Ok(
+            NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind(
+                NativeWindowEventPumpEventKind::RedrawRequested,
+                false,
+                false,
+                input.previous_size,
+                input.previous_mouse_down,
+                None,
+            ),
+        ),
         response_type => Err(
             NativeWindowLinuxX11EventSourceObservationError::EventTypeUnsupported { response_type },
         ),
@@ -14667,6 +14758,28 @@ pub fn native_window_pointer_sample_from_raw(
     Ok(NativeWindowPointerSample::Available { x, y })
 }
 
+fn native_window_event_pump_infer_event_kind(
+    close_state: NativeWindowEventPumpCloseState,
+    size_changed: bool,
+    mouse_left_transition: NativeWindowPointerButtonTransition,
+) -> NativeWindowEventPumpEventKind {
+    match close_state {
+        NativeWindowEventPumpCloseState::OsCloseRequested
+        | NativeWindowEventPumpCloseState::ExitShortcutRequested => {
+            NativeWindowEventPumpEventKind::CloseRequested
+        }
+        NativeWindowEventPumpCloseState::Open => {
+            if size_changed {
+                NativeWindowEventPumpEventKind::WindowResized
+            } else if mouse_left_transition != NativeWindowPointerButtonTransition::Unchanged {
+                NativeWindowEventPumpEventKind::PointerButton
+            } else {
+                NativeWindowEventPumpEventKind::Poll
+            }
+        }
+    }
+}
+
 pub fn build_native_window_event_pump_snapshot(
     input: NativeWindowEventPumpInput,
     os_close_requested: bool,
@@ -14687,8 +14800,45 @@ pub fn build_native_window_event_pump_snapshot(
         (true, false) => NativeWindowPointerButtonTransition::Released,
         _ => NativeWindowPointerButtonTransition::Unchanged,
     };
+    let size_changed = current_size != input.previous_size;
+    let event_kind =
+        native_window_event_pump_infer_event_kind(close_state, size_changed, mouse_left_transition);
+
+    build_native_window_event_pump_snapshot_with_event_kind(
+        input,
+        os_close_requested,
+        exit_shortcut_requested,
+        current_size,
+        mouse_down,
+        pointer_sample,
+        event_kind,
+    )
+}
+
+pub fn build_native_window_event_pump_snapshot_with_event_kind(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_sample: NativeWindowPointerSample,
+    event_kind: NativeWindowEventPumpEventKind,
+) -> NativeWindowEventPumpSnapshot {
+    let close_state = if os_close_requested {
+        NativeWindowEventPumpCloseState::OsCloseRequested
+    } else if exit_shortcut_requested {
+        NativeWindowEventPumpCloseState::ExitShortcutRequested
+    } else {
+        NativeWindowEventPumpCloseState::Open
+    };
+    let mouse_left_transition = match (input.previous_mouse_down, mouse_down) {
+        (false, true) => NativeWindowPointerButtonTransition::Pressed,
+        (true, false) => NativeWindowPointerButtonTransition::Released,
+        _ => NativeWindowPointerButtonTransition::Unchanged,
+    };
 
     NativeWindowEventPumpSnapshot {
+        event_kind,
         close_state,
         window_size: current_size,
         surface_state: current_size.presenter_surface_state(),
@@ -14718,6 +14868,30 @@ pub fn build_native_window_event_pump_snapshot_from_raw(
         current_size,
         mouse_down,
         pointer_sample,
+    ))
+}
+
+pub fn build_native_window_event_pump_snapshot_from_raw_with_event_kind(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_raw: Option<(f32, f32)>,
+    event_kind: NativeWindowEventPumpEventKind,
+) -> Result<NativeWindowEventPumpSnapshot, NativeWindowEventPumpError> {
+    let pointer_sample = match pointer_raw {
+        Some((x, y)) => native_window_pointer_sample_from_raw(x, y)?,
+        None => NativeWindowPointerSample::Unavailable,
+    };
+    Ok(build_native_window_event_pump_snapshot_with_event_kind(
+        input,
+        os_close_requested,
+        exit_shortcut_requested,
+        current_size,
+        mouse_down,
+        pointer_sample,
+        event_kind,
     ))
 }
 
@@ -14976,6 +15150,7 @@ impl NativeWindowBackendLoop {
             self.state.previous_size = snapshot.window_size;
             self.state.previous_mouse_down = snapshot.mouse_down;
             return Ok(NativeWindowBackendLoopStepOutcome::Unavailable {
+                event_kind: snapshot.event_kind,
                 window_size: snapshot.window_size,
                 size_changed: snapshot.size_changed,
             });
@@ -15051,6 +15226,7 @@ impl NativeWindowBackendLoop {
         let final_frame = self.current_presentation_for_window(width, height)?;
         Ok(NativeWindowBackendLoopStepOutcome::Drawable(
             NativeWindowBackendLoopDrawableStep {
+                event_kind: snapshot.event_kind,
                 window_size: snapshot.window_size,
                 size_changed: snapshot.size_changed,
                 resize_redraw,
@@ -15176,14 +15352,17 @@ fn native_window_host_action_from_backend_loop_outcome(
             Ok(NativeWindowHostAction::Terminate { reason })
         }
         NativeWindowBackendLoopStepOutcome::Unavailable {
+            event_kind,
             window_size,
             size_changed,
         } => Ok(NativeWindowHostAction::PumpEventsOnly {
+            event_kind,
             window_size,
             size_changed,
         }),
         NativeWindowBackendLoopStepOutcome::Drawable(drawable) => {
             Ok(NativeWindowHostAction::PresentFrame {
+                event_kind: drawable.event_kind,
                 presentation: drawable.final_frame,
                 window_size: drawable.window_size,
                 size_changed: drawable.size_changed,
@@ -16296,6 +16475,7 @@ where
             }))
         }
         NativeWindowHostAction::PumpEventsOnly {
+            event_kind: _,
             window_size,
             size_changed,
         } => {
@@ -16312,6 +16492,7 @@ where
             ))
         }
         NativeWindowHostAction::PresentFrame {
+            event_kind: _,
             presentation,
             window_size,
             size_changed,
@@ -19108,6 +19289,7 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(unchanged.event_kind, NativeWindowEventPumpEventKind::Poll);
         assert_eq!(unchanged.close_state, NativeWindowEventPumpCloseState::Open);
         assert!(!unchanged.size_changed);
         assert_eq!(
@@ -19127,6 +19309,10 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(
+            resized.event_kind,
+            NativeWindowEventPumpEventKind::WindowResized
+        );
         assert!(resized.size_changed);
         assert_eq!(
             resized.surface_state,
@@ -19145,6 +19331,10 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(
+            unavailable.event_kind,
+            NativeWindowEventPumpEventKind::WindowResized
+        );
         assert!(unavailable.size_changed);
         assert_eq!(
             unavailable.surface_state,
@@ -19163,6 +19353,10 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(
+            restored.event_kind,
+            NativeWindowEventPumpEventKind::WindowResized
+        );
         assert!(restored.size_changed);
         assert_eq!(
             restored.surface_state,
@@ -19192,6 +19386,7 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(idle.event_kind, NativeWindowEventPumpEventKind::Poll);
         assert_eq!(
             idle.mouse_left_transition,
             NativeWindowPointerButtonTransition::Unchanged
@@ -19209,6 +19404,10 @@ mod tests {
             Some((12.0, 34.0)),
         )
         .unwrap();
+        assert_eq!(
+            pressed.event_kind,
+            NativeWindowEventPumpEventKind::PointerButton
+        );
         assert_eq!(
             pressed.mouse_left_transition,
             NativeWindowPointerButtonTransition::Pressed
@@ -19230,6 +19429,7 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(held.event_kind, NativeWindowEventPumpEventKind::Poll);
         assert_eq!(
             held.mouse_left_transition,
             NativeWindowPointerButtonTransition::Unchanged
@@ -19247,6 +19447,10 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(
+            released.event_kind,
+            NativeWindowEventPumpEventKind::PointerButton
+        );
         assert_eq!(
             released.mouse_left_transition,
             NativeWindowPointerButtonTransition::Released
@@ -19287,6 +19491,47 @@ mod tests {
     }
 
     #[test]
+    fn native_window_event_pump_event_kind_does_not_synthesize_pointer_motion() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 480),
+            previous_mouse_down: false,
+        };
+        let inferred = build_native_window_event_pump_snapshot_from_raw(
+            input,
+            false,
+            false,
+            NativeWindowSize::new(640, 480),
+            false,
+            Some((20.0, 30.0)),
+        )
+        .unwrap();
+        let explicit = build_native_window_event_pump_snapshot_from_raw_with_event_kind(
+            input,
+            false,
+            false,
+            NativeWindowSize::new(640, 480),
+            false,
+            Some((20.0, 30.0)),
+            NativeWindowEventPumpEventKind::PointerMotion,
+        )
+        .unwrap();
+
+        assert_eq!(inferred.event_kind, NativeWindowEventPumpEventKind::Poll);
+        assert_eq!(
+            inferred.pointer_sample,
+            NativeWindowPointerSample::Available { x: 20.0, y: 30.0 }
+        );
+        assert_eq!(
+            explicit.event_kind,
+            NativeWindowEventPumpEventKind::PointerMotion
+        );
+        assert_eq!(
+            explicit.pointer_sample,
+            NativeWindowPointerSample::Available { x: 20.0, y: 30.0 }
+        );
+    }
+
+    #[test]
     fn native_window_event_pump_separates_os_close_and_exit_shortcut() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(640, 480),
@@ -19303,6 +19548,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
+            os_close.event_kind,
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
+        assert_eq!(
             os_close.close_state,
             NativeWindowEventPumpCloseState::OsCloseRequested
         );
@@ -19317,6 +19566,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
+            shortcut.event_kind,
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
+        assert_eq!(
             shortcut.close_state,
             NativeWindowEventPumpCloseState::ExitShortcutRequested
         );
@@ -19330,6 +19583,10 @@ mod tests {
             None,
         )
         .unwrap();
+        assert_eq!(
+            os_close_wins.event_kind,
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
         assert_eq!(
             os_close_wins.close_state,
             NativeWindowEventPumpCloseState::OsCloseRequested
@@ -20358,6 +20615,24 @@ mod tests {
         packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY;
         packet[20..22].copy_from_slice(&width.to_le_bytes());
         packet[22..24].copy_from_slice(&height.to_le_bytes());
+        packet
+    }
+
+    fn scripted_x11_map_notify_event(send_event: bool) -> Vec<u8> {
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MAP_NOTIFY;
+        if send_event {
+            packet[0] |= 0x80;
+        }
+        packet
+    }
+
+    fn scripted_x11_expose_event(send_event: bool) -> Vec<u8> {
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE;
+        if send_event {
+            packet[0] |= 0x80;
+        }
         packet
     }
 
@@ -22482,7 +22757,7 @@ mod tests {
             request.as_bytes(),
             &[
                 1, 0, 10, 0, 1, 0, 32, 0, 35, 1, 0, 0, 10, 0, 20, 0, 128, 2, 224, 1, 0, 0, 1, 0, 0,
-                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 0, 0, 0,
+                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 128, 2, 0,
             ]
         );
     }
@@ -22557,7 +22832,7 @@ mod tests {
             request.as_bytes(),
             &[
                 1, 0, 10, 0, 1, 0, 32, 0, 35, 1, 0, 0, 10, 0, 20, 0, 128, 2, 224, 1, 0, 0, 1, 0, 0,
-                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 0, 0, 0, 8, 0, 2, 0, 1, 0, 32, 0,
+                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 128, 2, 0, 8, 0, 2, 0, 1, 0, 32, 0,
             ]
         );
         assert_eq!(request.as_bytes(), recomposed_bytes.as_slice());
@@ -22566,8 +22841,10 @@ mod tests {
             NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_STRUCTURE_NOTIFY
         );
-        assert_eq!(input.event_mask() & 0x0002_8000, 0);
+        assert_eq!(input.event_mask() & 0x0002_8000, 0x0002_8000);
     }
 
     #[test]
@@ -22744,6 +23021,8 @@ mod tests {
             NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_STRUCTURE_NOTIFY
         );
     }
 
@@ -25074,6 +25353,109 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_structure_expose_decode_preserves_event_kind() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: true,
+        };
+        let configure: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_configure_notify_event(1024, 768)
+                .try_into()
+                .unwrap();
+        let map: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_map_notify_event(false).try_into().unwrap();
+        let expose: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_expose_event(true).try_into().unwrap();
+
+        let configure_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &configure, None, None, None,
+        )
+        .unwrap();
+        let map_observation =
+            native_window_linux_x11_event_packet_to_observation(input, &map, None, None, None)
+                .unwrap();
+        let expose_observation =
+            native_window_linux_x11_event_packet_to_observation(input, &expose, None, None, None)
+                .unwrap();
+
+        assert_eq!(
+            configure_observation.event_kind(),
+            NativeWindowEventPumpEventKind::WindowResized
+        );
+        assert_eq!(
+            configure_observation.current_size(),
+            NativeWindowSize::new(1024, 768)
+        );
+        assert_eq!(
+            map_observation.event_kind(),
+            NativeWindowEventPumpEventKind::WindowMapped
+        );
+        assert_eq!(map_observation.current_size(), input.previous_size);
+        assert!(map_observation.mouse_down());
+        assert_eq!(map_observation.pointer_raw(), None);
+        assert_eq!(
+            expose_observation.event_kind(),
+            NativeWindowEventPumpEventKind::RedrawRequested
+        );
+        assert_eq!(expose_observation.current_size(), input.previous_size);
+        assert!(expose_observation.mouse_down());
+        assert_eq!(expose_observation.pointer_raw(), None);
+        assert_eq!(native_window_linux_x11_response_type_raw(&expose), 0x8c);
+        assert_eq!(
+            native_window_linux_x11_event_response_type(&expose),
+            NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_event_decode_marks_pointer_and_close_kinds() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+        );
+        let context = NativeWindowLinuxX11RegisteredWmProtocolContext::new(0x0020_001b, atoms);
+        let motion: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_motion_notify_event(17, 23).try_into().unwrap();
+        let close: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001b,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+
+        let motion_observation =
+            native_window_linux_x11_event_packet_to_observation(input, &motion, None, None, None)
+                .unwrap();
+        let close_observation = native_window_linux_x11_event_packet_to_observation(
+            input,
+            &close,
+            None,
+            None,
+            Some(context),
+        )
+        .unwrap();
+
+        assert_eq!(
+            motion_observation.event_kind(),
+            NativeWindowEventPumpEventKind::PointerMotion
+        );
+        assert_eq!(motion_observation.pointer_raw(), Some((17.0, 23.0)));
+        assert_eq!(
+            close_observation.event_kind(),
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
+        assert!(close_observation.os_close_requested());
+    }
+
+    #[test]
     fn native_window_linux_x11_client_message_decode_reports_registered_close() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(640, 360),
@@ -25104,6 +25486,10 @@ mod tests {
         )
         .unwrap();
 
+        assert_eq!(
+            observation.event_kind(),
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
         assert!(observation.os_close_requested());
         assert!(!observation.exit_shortcut_requested());
         assert_eq!(observation.current_size(), NativeWindowSize::new(640, 360));
@@ -25897,6 +26283,10 @@ mod tests {
             .poll_window_event_source_observation(descriptor, input)
             .unwrap();
 
+        assert_eq!(
+            observation.event_kind(),
+            NativeWindowEventPumpEventKind::WindowResized
+        );
         assert_eq!(observation.current_size(), NativeWindowSize::new(1024, 768));
         assert!(observation.mouse_down());
         assert_eq!(observation.pointer_raw(), None);
@@ -26555,6 +26945,10 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
+            snapshot.event_kind,
+            NativeWindowEventPumpEventKind::CloseRequested
+        );
+        assert_eq!(
             snapshot.close_state,
             NativeWindowEventPumpCloseState::OsCloseRequested
         );
@@ -26573,6 +26967,61 @@ mod tests {
         assert_eq!(
             snapshot.pointer_sample,
             NativeWindowPointerSample::Available { x: 12.5, y: 24.25 }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_observation_snapshot_infers_legacy_resize_and_button_evidence(
+    ) {
+        let descriptor = NativeWindowLinuxWindowEventSourceDescriptor::new(
+            NativeWindowLinuxWindowEventSourceKind::ToolkitExternal,
+            143,
+        );
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let resized = NativeWindowLinuxWindowEventSourceObservation::new(
+            false,
+            false,
+            NativeWindowSize::new(800, 450),
+            true,
+            Some((12.5, 24.25)),
+        );
+        let button = NativeWindowLinuxWindowEventSourceObservation::new(
+            false,
+            false,
+            NativeWindowSize::new(640, 360),
+            true,
+            Some((12.5, 24.25)),
+        );
+
+        let resized_snapshot = native_window_linux_window_event_source_snapshot_from_observation(
+            descriptor, input, resized,
+        )
+        .unwrap();
+        let button_snapshot = native_window_linux_window_event_source_snapshot_from_observation(
+            descriptor, input, button,
+        )
+        .unwrap();
+
+        assert_eq!(
+            resized_snapshot.event_kind,
+            NativeWindowEventPumpEventKind::WindowResized
+        );
+        assert!(resized_snapshot.size_changed);
+        assert_eq!(
+            resized_snapshot.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Pressed
+        );
+        assert_eq!(
+            button_snapshot.event_kind,
+            NativeWindowEventPumpEventKind::PointerButton
+        );
+        assert!(!button_snapshot.size_changed);
+        assert_eq!(
+            button_snapshot.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Pressed
         );
     }
 
@@ -26642,6 +27091,10 @@ mod tests {
         assert_eq!(adapter.provider().inputs, vec![input]);
         assert_eq!(adapter.provider().cursor, 1);
         assert_eq!(snapshot.close_state, NativeWindowEventPumpCloseState::Open);
+        assert_eq!(
+            snapshot.event_kind,
+            NativeWindowEventPumpEventKind::WindowResized
+        );
         assert_eq!(
             snapshot.surface_state,
             NativeWindowPresenterSurfaceState::Drawable {
@@ -36778,6 +37231,7 @@ mod tests {
         assert_eq!(
             loop_state.step_host_action(snapshot).unwrap(),
             NativeWindowHostAction::PumpEventsOnly {
+                event_kind: NativeWindowEventPumpEventKind::WindowResized,
                 window_size: NativeWindowSize::new(0, 284),
                 size_changed: true,
             }
@@ -36802,6 +37256,7 @@ mod tests {
         assert_eq!(
             loop_state.step_host_action(snapshot).unwrap(),
             NativeWindowHostAction::PresentFrame {
+                event_kind: NativeWindowEventPumpEventKind::WindowResized,
                 presentation: NativeWindowBackendLoopPresentation {
                     frame_id: 2,
                     width: 660,
@@ -36836,6 +37291,7 @@ mod tests {
         assert_eq!(
             loop_state.step(snapshot).unwrap(),
             NativeWindowBackendLoopStepOutcome::Unavailable {
+                event_kind: NativeWindowEventPumpEventKind::WindowResized,
                 window_size: NativeWindowSize::new(0, 284),
                 size_changed: true,
             }
