@@ -7397,6 +7397,12 @@ pub enum NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolAtomMeaning {
+    WmProtocols,
+    WmDeleteWindow,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan {
     wm_protocols_sequence: Option<u16>,
     wm_delete_window_sequence: Option<u16>,
@@ -7519,9 +7525,15 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
         correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
         error: NativeWindowLinuxX11InternAtomReplyParseError,
     },
+    WmProtocolAtomAssignmentFailed {
+        correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
+        reply: NativeWindowLinuxX11InternAtomReply,
+        error: NativeWindowLinuxX11WmProtocolAtomAssignmentError,
+    },
     WmProtocolAtomInternReplyReceived {
         correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
         reply: NativeWindowLinuxX11InternAtomReply,
+        completed_atoms: Option<NativeWindowLinuxX11WmProtocolAtoms>,
     },
     ServerReplyReceived {
         reply: NativeWindowLinuxX11ServerReplyHeader,
@@ -7835,6 +7847,27 @@ pub enum NativeWindowLinuxX11InternAtomReplyParseError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11WmProtocolAtoms {
+    wm_protocols_atom: NativeWindowLinuxX11AtomId,
+    wm_delete_window_atom: NativeWindowLinuxX11AtomId,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolAtomAssignmentError {
+    DuplicateAssignment {
+        meaning: NativeWindowLinuxX11WmProtocolAtomMeaning,
+        existing: NativeWindowLinuxX11AtomId,
+        incoming: NativeWindowLinuxX11AtomId,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11WmProtocolAtomAssignmentState {
+    wm_protocols_atom: Option<NativeWindowLinuxX11AtomId>,
+    wm_delete_window_atom: Option<NativeWindowLinuxX11AtomId>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11XauthorityPathSource {
     ExplicitAuthorityFile,
     HomeDirectoryDefault,
@@ -8064,6 +8097,7 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     wm_protocol_atom_intern_batch_written_len: usize,
     wm_protocol_atom_intern_request_sequence_plan:
         Option<NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan>,
+    wm_protocol_atom_assignment_state: NativeWindowLinuxX11WmProtocolAtomAssignmentState,
     next_x11_request_sequence: u16,
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
     setup_prefix_len: usize,
@@ -9082,6 +9116,91 @@ pub fn native_window_linux_x11_intern_atom_reply_from_packet(
     })
 }
 
+impl NativeWindowLinuxX11WmProtocolAtoms {
+    pub fn new(
+        wm_protocols_atom: NativeWindowLinuxX11AtomId,
+        wm_delete_window_atom: NativeWindowLinuxX11AtomId,
+    ) -> Self {
+        Self {
+            wm_protocols_atom,
+            wm_delete_window_atom,
+        }
+    }
+
+    pub fn wm_protocols_atom(&self) -> NativeWindowLinuxX11AtomId {
+        self.wm_protocols_atom
+    }
+
+    pub fn wm_delete_window_atom(&self) -> NativeWindowLinuxX11AtomId {
+        self.wm_delete_window_atom
+    }
+}
+
+impl NativeWindowLinuxX11WmProtocolAtomAssignmentState {
+    pub fn new() -> Self {
+        Self {
+            wm_protocols_atom: None,
+            wm_delete_window_atom: None,
+        }
+    }
+
+    pub fn wm_protocols_atom(&self) -> Option<NativeWindowLinuxX11AtomId> {
+        self.wm_protocols_atom
+    }
+
+    pub fn wm_delete_window_atom(&self) -> Option<NativeWindowLinuxX11AtomId> {
+        self.wm_delete_window_atom
+    }
+
+    pub fn completed_atoms(&self) -> Option<NativeWindowLinuxX11WmProtocolAtoms> {
+        Some(NativeWindowLinuxX11WmProtocolAtoms::new(
+            self.wm_protocols_atom?,
+            self.wm_delete_window_atom?,
+        ))
+    }
+
+    pub fn assign_reply(
+        &mut self,
+        correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
+        reply: NativeWindowLinuxX11InternAtomReply,
+    ) -> Result<
+        Option<NativeWindowLinuxX11WmProtocolAtoms>,
+        NativeWindowLinuxX11WmProtocolAtomAssignmentError,
+    > {
+        self.assign_atom(
+            NativeWindowLinuxX11WmProtocolAtomMeaning::from_reply_correlation(correlation),
+            reply.atom_id(),
+        )
+    }
+
+    pub fn assign_atom(
+        &mut self,
+        meaning: NativeWindowLinuxX11WmProtocolAtomMeaning,
+        atom_id: NativeWindowLinuxX11AtomId,
+    ) -> Result<
+        Option<NativeWindowLinuxX11WmProtocolAtoms>,
+        NativeWindowLinuxX11WmProtocolAtomAssignmentError,
+    > {
+        let slot = match meaning {
+            NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols => &mut self.wm_protocols_atom,
+            NativeWindowLinuxX11WmProtocolAtomMeaning::WmDeleteWindow => {
+                &mut self.wm_delete_window_atom
+            }
+        };
+        if let Some(existing) = *slot {
+            return Err(
+                NativeWindowLinuxX11WmProtocolAtomAssignmentError::DuplicateAssignment {
+                    meaning,
+                    existing,
+                    incoming: atom_id,
+                },
+            );
+        }
+        *slot = Some(atom_id);
+        Ok(self.completed_atoms())
+    }
+}
+
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
     pub fn new(authority_file_path: Option<&'a str>, home_directory_path: Option<&'a str>) -> Self {
         Self {
@@ -10014,6 +10133,21 @@ impl NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan {
     }
 }
 
+impl NativeWindowLinuxX11WmProtocolAtomMeaning {
+    pub fn from_reply_correlation(
+        correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
+    ) -> Self {
+        match correlation {
+            NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation::WmProtocols => {
+                Self::WmProtocols
+            }
+            NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation::WmDeleteWindow => {
+                Self::WmDeleteWindow
+            }
+        }
+    }
+}
+
 impl NativeWindowLinuxX11ServerReplyHeader {
     pub fn reply_data(&self) -> u8 {
         self.reply_data
@@ -10217,6 +10351,8 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
                 NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::NotConfigured,
             wm_protocol_atom_intern_batch_written_len: 0,
             wm_protocol_atom_intern_request_sequence_plan: None,
+            wm_protocol_atom_assignment_state:
+                NativeWindowLinuxX11WmProtocolAtomAssignmentState::new(),
             next_x11_request_sequence: NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE,
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
             setup_prefix_len: 0,
@@ -10290,6 +10426,8 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         self.wm_protocol_atom_intern_batch_written_len = 0;
         self.wm_protocol_atom_intern_request_sequence_plan =
             Some(NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan::new());
+        self.wm_protocol_atom_assignment_state =
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState::new();
         self.wm_protocol_atom_intern_batch_write_state =
             NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::BatchPending;
     }
@@ -10358,6 +10496,12 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         &self,
     ) -> Option<NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan> {
         self.wm_protocol_atom_intern_request_sequence_plan
+    }
+
+    pub fn wm_protocol_atom_assignment_state(
+        &self,
+    ) -> NativeWindowLinuxX11WmProtocolAtomAssignmentState {
+        self.wm_protocol_atom_assignment_state
     }
 
     pub fn next_x11_request_sequence(&self) -> u16 {
@@ -11113,10 +11257,27 @@ where
             return NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived { reply };
         };
         match native_window_linux_x11_intern_atom_reply_from_packet(&packet) {
-            Ok(reply) => NativeWindowLinuxX11EventSourceObservationError::WmProtocolAtomInternReplyReceived {
-                correlation,
-                reply,
-            },
+            Ok(reply) => {
+                match self
+                    .wm_protocol_atom_assignment_state
+                    .assign_reply(correlation, reply)
+                {
+                    Ok(completed_atoms) => {
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolAtomInternReplyReceived {
+                            correlation,
+                            reply,
+                            completed_atoms,
+                        }
+                    }
+                    Err(error) => {
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolAtomAssignmentFailed {
+                            correlation,
+                            reply,
+                            error,
+                        }
+                    }
+                }
+            }
             Err(error) => {
                 NativeWindowLinuxX11EventSourceObservationError::WmProtocolAtomInternReplyParseFailed {
                     correlation,
@@ -22286,6 +22447,107 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_wm_protocol_atom_assignment_completes_after_both_slots() {
+        let wm_protocols_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap();
+        let wm_delete_window_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap();
+        let mut state = NativeWindowLinuxX11WmProtocolAtomAssignmentState::new();
+
+        assert_eq!(
+            state
+                .assign_atom(
+                    NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols,
+                    wm_protocols_atom,
+                )
+                .unwrap(),
+            None
+        );
+        assert_eq!(state.wm_protocols_atom(), Some(wm_protocols_atom));
+        assert_eq!(state.wm_delete_window_atom(), None);
+        assert_eq!(state.completed_atoms(), None);
+
+        assert_eq!(
+            state
+                .assign_atom(
+                    NativeWindowLinuxX11WmProtocolAtomMeaning::WmDeleteWindow,
+                    wm_delete_window_atom,
+                )
+                .unwrap(),
+            Some(NativeWindowLinuxX11WmProtocolAtoms::new(
+                wm_protocols_atom,
+                wm_delete_window_atom,
+            ))
+        );
+        assert_eq!(
+            state.completed_atoms().unwrap().wm_protocols_atom(),
+            wm_protocols_atom
+        );
+        assert_eq!(
+            state.completed_atoms().unwrap().wm_delete_window_atom(),
+            wm_delete_window_atom
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_atom_assignment_rejects_duplicate_slot() {
+        let original = NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap();
+        let duplicate = NativeWindowLinuxX11AtomId::new(0x0000_00f3).unwrap();
+        let mut state = NativeWindowLinuxX11WmProtocolAtomAssignmentState::new();
+
+        assert_eq!(
+            state
+                .assign_atom(
+                    NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols,
+                    original,
+                )
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            state
+                .assign_atom(
+                    NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols,
+                    duplicate,
+                )
+                .unwrap_err(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentError::DuplicateAssignment {
+                meaning: NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols,
+                existing: original,
+                incoming: duplicate,
+            }
+        );
+        assert_eq!(state.wm_protocols_atom(), Some(original));
+        assert_eq!(state.wm_delete_window_atom(), None);
+        assert_eq!(state.completed_atoms(), None);
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_atom_assignment_maps_reply_correlation() {
+        let wm_delete_window_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap();
+        let mut state = NativeWindowLinuxX11WmProtocolAtomAssignmentState::new();
+
+        assert_eq!(
+            state
+                .assign_reply(
+                    NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation::WmDeleteWindow,
+                    NativeWindowLinuxX11InternAtomReply {
+                        sequence: 7,
+                        atom_id: wm_delete_window_atom,
+                    },
+                )
+                .unwrap(),
+            None
+        );
+        assert_eq!(state.wm_protocols_atom(), None);
+        assert_eq!(state.wm_delete_window_atom(), Some(wm_delete_window_atom));
+        assert_eq!(
+            NativeWindowLinuxX11WmProtocolAtomMeaning::from_reply_correlation(
+                NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation::WmProtocols,
+            ),
+            NativeWindowLinuxX11WmProtocolAtomMeaning::WmProtocols
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_encodes_order_and_offsets() {
         let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
 
@@ -23375,6 +23637,10 @@ mod tests {
                 wm_delete_window_sequence: Some(3),
             }
         );
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState::new()
+        );
     }
 
     #[test]
@@ -23843,6 +24109,14 @@ mod tests {
                     sequence: 2,
                     atom_id: NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
                 },
+                completed_atoms: None,
+            }
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState {
+                wm_protocols_atom: Some(NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 }),
+                wm_delete_window_atom: None,
             }
         );
         assert_eq!(
@@ -23867,6 +24141,17 @@ mod tests {
                     sequence: 3,
                     atom_id: NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
                 },
+                completed_atoms: Some(NativeWindowLinuxX11WmProtocolAtoms {
+                    wm_protocols_atom: NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+                    wm_delete_window_atom: NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+                }),
+            }
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState {
+                wm_protocols_atom: Some(NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 }),
+                wm_delete_window_atom: Some(NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 }),
             }
         );
         assert_eq!(
@@ -24413,6 +24698,10 @@ mod tests {
             provider.reader().top_level_window_request_sequence_plan(),
             None
         );
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState::new()
+        );
     }
 
     #[test]
@@ -24524,6 +24813,10 @@ mod tests {
         assert_eq!(provider.reader().pending_server_reply_header(), None);
         assert_eq!(provider.reader().pending_server_reply_packet(), None);
         assert_eq!(provider.reader().server_reply_body_remaining_len(), 0);
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState::new()
+        );
     }
 
     #[test]
@@ -24561,6 +24854,10 @@ mod tests {
         assert_eq!(provider.reader().pending_server_reply_header(), None);
         assert_eq!(provider.reader().pending_server_reply_packet(), None);
         assert_eq!(provider.reader().server_reply_body_remaining_len(), 0);
+        assert_eq!(
+            provider.reader().wm_protocol_atom_assignment_state(),
+            NativeWindowLinuxX11WmProtocolAtomAssignmentState::new()
+        );
 
         let observation = provider
             .poll_window_event_source_observation(descriptor, input)

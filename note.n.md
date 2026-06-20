@@ -1,3 +1,42 @@
+# 2026-06-21 Agent2 GUI native F5kc Linux X11 WM protocol Atom meaning assignment boundary
+
+## 目的
+
+- F5kb で相関済みになった `WM_PROTOCOLS` / `WM_DELETE_WINDOW` `InternAtom` reply を semantic slot へ割り当てる。
+- 両 Atom ID が揃った場合だけ completed owner を返し、後続の actual `ChangeProperty` registration が typed evidence を要求できるようにする。
+- actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、runner / support gate 有効化、fallback / synthetic readiness は扱わない。
+
+## subagent review
+
+- 実装前 review で Bacon と Hegel はどちらも `PLAN_APPROVED` を返した。
+- 指摘は、成功した correlated parse path だけで assignment state を更新すること、`completed_atoms` を registration / close readiness と混同しないこと、source-policy で `ChangeProperty` / `ClientMessage` / fallback の混入を防ぐことだった。
+- 対応として F5jz の InternAtom reply parser surface と F5kc の assignment surface を source-policy 上も分離し、F5kc surface 自体に登録処理禁止の検査を追加した。
+- 実装後 review では Hegel が current implementation bullet の doc inconsistency を指摘したため、F5kc 後の現状説明を修正した。
+- 再 review では Hegel と Bacon がどちらも `REVIEW_APPROVED`。残る F5kc blocker は無い。
+
+## 実装内容
+
+- `NativeWindowLinuxX11WmProtocolAtomMeaning`、`NativeWindowLinuxX11WmProtocolAtomAssignmentState`、`NativeWindowLinuxX11WmProtocolAtoms`、duplicate assignment error を追加した。
+- reader は `wm_protocol_atom_assignment_state` を保持し、WM protocol atom batch install 時に state を初期化する。
+- correlated `InternAtom` reply の parse 成功時だけ state を更新し、1 つ目の reply は `completed_atoms: None`、2 つ目で両 Atom ID が揃った場合は completed owner を返す。
+- parse failure / unmatched generic reply は assignment state を変えず、duplicate assignment は existing slot を上書きしない typed error とした。
+
+## 検証
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_assignment -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_reply -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+## 未接続
+
+- actual `ChangeProperty` registration は未接続。
+- `WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-21 Agent2 GUI native F5kb Linux X11 InternAtom reply sequence correlation boundary
 
 ## 目的
