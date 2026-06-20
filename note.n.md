@@ -75147,3 +75147,56 @@ MERGE_APPROVED
 - 指摘対応として、owned fd state を `Open` / `Closed` / `CloseFailed` に明示化し、`raw_fd()` と provider descriptor は `Open` だけ成功するようにした。`close()` は fd を state から取り出してから raw close を呼び、失敗後は `CloseFailed` state に移す。Drop は `Open` state だけを best-effort cleanup し、explicit close failure 後の retry close は行わない。
 - Rust test は close failure 後の `raw_fd()` が `CloseFailed` を返すこと、2 回目の `close()` が raw close を再実行しないこと、Drop 後も close call が 1 回のままであることを検査するように修正した。source policy も private state enum と close-once contract を検査するように更新した。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。close-state blocker は解消され、`NativeWindowLinuxWindowEventSourceOwnedFdState` が close failure 後の stale descriptor access を防ぎ、repeated `close()` と Drop が raw close を再試行しないことが確認された。
+
+## 2026-06-21 Agent2 GUI native F5jv Linux X11 server reply body drain boundary
+
+### scope
+
+- F5jv は、X11 server reply header の `length_units` が示す reply body を reader が drain してから `ServerReplyReceived` を返す checkpoint とする。
+- F5jt/F5ju のままでは `length_units > 0` の body byte が socket に残り、次回 poll が body を event packet として誤 decode しうるため、generic unexpected reply の stream synchronization を根本修正する。
+- この phase では request-specific reply parser、reply correlation、InternAtom / WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、support gate `Ok` 化は扱わない。
+
+### plan_current
+
+- reader に pending reply header と remaining body byte count を保持させる。
+- `length_units * 4` は checked arithmetic と `usize` conversion で検査し、失敗時は typed `ServerReplyBodyLengthOverflow` を返す。
+- reply body drain が would-block した場合は pending state を保持し、次回 poll で新しい event packet を読まずに drain を再開する。
+- read failure / EOF / overflow は header と remaining byte count を含む typed error として返し、partial state を silent clear しない。
+- docs と source policy で、F5jv の責務、非目標、no fallback / no silent no-op、将来 request-specific parser への接続方針を固定する。
+
+### plan_review
+
+- Darwin の plan review は `PLAN_APPROVED`。
+- generic reply body をこの slice で drain / discard する設計は、現段階では request-specific reply consumer が無く、`ServerReplyReceived` が observation error であるため妥当と確認された。
+- 必須条件は、pending header / remaining body count の owner state、drain 完了後だけの `ServerReplyReceived`、would-block resume、checked arithmetic、F5ju sequence tracking 不変更、docs/source-policy/tests の追加だった。
+
+### implementation_current
+
+- `NativeWindowLinuxX11EventSourceObservationReader` に pending reply header と remaining body byte count を追加した。
+- reply body length は checked helper で計算し、body read の would-block / failed / EOF / overflow を typed error として返すようにした。
+- `poll_observation` は pending body drain を event packet read より先に処理し、新しい reply header を読んだ場合も body drain 完了後だけ `ServerReplyReceived` を返す。
+- `native_window_linux_x11_event_packet_to_observation` から reply body を残したまま header を返す branch を外し、reply body を残す経路を reader 側で閉じた。
+- docs、todo、source policy、Rust focused tests を F5jv に合わせて更新中。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass with LF/CRLF warnings only: `git diff --check`
+- after review follow-up pass: `cargo fmt -p nepl-gui-native -- --check`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- after review follow-up pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- final pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- final pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- final pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Hilbert の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- 確認内容は、pending body drain が event packet read より先に実行されること、新規 reply header でも body drain 完了後だけ `ServerReplyReceived` を返すこと、would-block / EOF / read failure / overflow が header と remaining count を持つ typed error になること、`length_units * 4` が checked arithmetic で fail-closed になることだった。
+- source policy の軽量化は巨大な `libSource` regex を dedicated slice に寄せたもので、検査意味は弱まっていないと確認された。
+- 非 blocker として hard read failure の focused test が薄い点が挙がったため、`native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_read_failure` を追加し、typed error と pending state retention を検査した。read overflow は scripted API の contract 上 buffer 超過を返せないため source policy / code review で固定する。

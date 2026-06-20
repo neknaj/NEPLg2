@@ -2536,6 +2536,39 @@ Phase F5ju では、X11 observation reader が top-level CreateWindow / MapWindo
 - `git diff --check`
 - subagent implementation review で accepted range sequence tracking、sequence-only correlation、no runner / no fallback が承認される。
 
+## Phase F5jv: Native Linux X11 server reply body drain boundary
+
+Phase F5jv では、X11 server reply header の `length_units` が示す reply body を reader が drain してから `ServerReplyReceived` を返す。F5jt は header decode boundary だけを担当していたため、`length_units > 0` の body byte が socket に残ると、次回 poll がその body を event packet として誤 decode しうる。F5jv は request-specific reply parser ではなく、generic observation stream の同期を壊さないための drain boundary である。
+
+実装:
+
+- `NativeWindowLinuxX11EventSourceObservationReader` は pending reply header と remaining body byte count を保持する。
+- `length_units * 4` は checked arithmetic と `usize` conversion で検査し、失敗時は typed `ServerReplyBodyLengthOverflow` を返す。
+- `ServerReplyReceived` は body drain 完了後だけ返す。body read が would-block した場合は pending header と remaining byte count を保持し、次回 poll は新しい event packet を読まずに drain を再開する。
+- body read failure / EOF / overflow は header と remaining byte count を含む typed error として返し、partial state を silent clear しない。
+- 現段階では body payload を parse / retain せず discard する。将来 InternAtom / GetProperty などの request-specific reply を扱う phase では、同じ stream sync contract を維持したまま request-specific reply body owner / parser へ接続する。
+- source-policy は pending reply state、checked body byte count、would-block resume、`ServerReplyReceived` が drain 完了後だけ返ること、no fallback / no silent no-op を検査する。
+
+非目標:
+
+- request / reply correlation、InternAtom / WM_DELETE_WINDOW / ChangeProperty、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は含めない。
+- reply body を application payload として公開しない。generic unexpected reply は stream sync のために drain し、typed header evidence だけを返す。
+- fallback、silent no-op、synthetic readiness、support gate `Ok` 化は作らない。
+
+完了条件:
+
+- zero-length reply は pending state を残さず `ServerReplyReceived` を返す。
+- nonzero reply は body を drain してから `ServerReplyReceived` を返し、次の event packet が body byte ではなく実 event として decode される。
+- partial body read の would-block 後、pending header と remaining byte count を保持し、次回 poll で drain を再開する。
+- EOF / read failure / overflow は typed error として返し、partial reply state を silent clear しない。
+- F5ju の setup handshake exclusion、accepted write range sequence tracking、sequence-only server error correlation を変更しない。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で reply body drain state、would-block resume、no request-specific parser / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

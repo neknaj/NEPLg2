@@ -7454,6 +7454,28 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
         error: NativeWindowLinuxX11ServerErrorPacket,
         correlation: NativeWindowLinuxX11ServerErrorCorrelation,
     },
+    ServerReplyBodyLengthOverflow {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+        units: u32,
+    },
+    ServerReplyBodyReadWouldBlock {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+        remaining_byte_count: usize,
+    },
+    ServerReplyBodyReadFailed {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+        code: u32,
+        remaining_byte_count: usize,
+    },
+    ServerReplyBodyReadEof {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+        remaining_byte_count: usize,
+    },
+    ServerReplyBodyReadOverflow {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+        byte_count: usize,
+        remaining_byte_count: usize,
+    },
     ServerReplyReceived {
         reply: NativeWindowLinuxX11ServerReplyHeader,
     },
@@ -7901,6 +7923,8 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     setup_resource_info: Option<NativeWindowLinuxX11SetupResourceInfo>,
     event_packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
     event_packet_len: usize,
+    pending_server_reply_header: Option<NativeWindowLinuxX11ServerReplyHeader>,
+    server_reply_body_remaining_len: usize,
 }
 
 pub struct NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
@@ -9491,6 +9515,24 @@ fn native_window_linux_x11_server_reply_header(
     }
 }
 
+fn native_window_linux_x11_server_reply_body_byte_len(
+    reply: NativeWindowLinuxX11ServerReplyHeader,
+) -> Result<usize, NativeWindowLinuxX11EventSourceObservationError> {
+    let units = reply.length_units();
+    let byte_len = u64::from(units).checked_mul(4).ok_or(
+        NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyLengthOverflow {
+            reply,
+            units,
+        },
+    )?;
+    usize::try_from(byte_len).map_err(|_| {
+        NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyLengthOverflow {
+            reply,
+            units,
+        }
+    })
+}
+
 fn native_window_linux_x11_event_pointer_raw(
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
 ) -> (f32, f32) {
@@ -9521,13 +9563,6 @@ fn native_window_linux_x11_event_packet_to_observation(
                 NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
                     error,
                     correlation,
-                },
-            );
-        }
-        NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY => {
-            return Err(
-                NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived {
-                    reply: native_window_linux_x11_server_reply_header(packet),
                 },
             );
         }
@@ -9606,6 +9641,8 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             setup_resource_info: None,
             event_packet: [0; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
             event_packet_len: 0,
+            pending_server_reply_header: None,
+            server_reply_body_remaining_len: 0,
         }
     }
 
@@ -9695,6 +9732,14 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
 
     pub fn setup_resource_info(&self) -> Option<NativeWindowLinuxX11SetupResourceInfo> {
         self.setup_resource_info
+    }
+
+    pub fn pending_server_reply_header(&self) -> Option<NativeWindowLinuxX11ServerReplyHeader> {
+        self.pending_server_reply_header
+    }
+
+    pub fn server_reply_body_remaining_len(&self) -> usize {
+        self.server_reply_body_remaining_len
     }
 }
 
@@ -10123,6 +10168,92 @@ where
         }
     }
 
+    fn start_server_reply_body_drain(
+        &mut self,
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let body_byte_len = native_window_linux_x11_server_reply_body_byte_len(reply)?;
+        self.pending_server_reply_header = Some(reply);
+        self.server_reply_body_remaining_len = body_byte_len;
+        Ok(())
+    }
+
+    fn drain_server_reply_body(
+        &mut self,
+        raw_fd: i32,
+        reply: NativeWindowLinuxX11ServerReplyHeader,
+    ) -> Result<
+        NativeWindowLinuxX11ServerReplyHeader,
+        NativeWindowLinuxX11EventSourceObservationError,
+    > {
+        let mut scratch = [0_u8; 256];
+        while self.server_reply_body_remaining_len > 0 {
+            let read_len = self.server_reply_body_remaining_len.min(scratch.len());
+            let read = self
+                .api
+                .read_x11_bytes_raw(raw_fd, &mut scratch[..read_len]);
+            if read < 0 {
+                let code = self.api.last_error_code();
+                if self.api.error_code_is_would_block(code) {
+                    return Err(NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadWouldBlock {
+                        reply,
+                        remaining_byte_count: self.server_reply_body_remaining_len,
+                    });
+                }
+                return Err(
+                    NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadFailed {
+                        reply,
+                        code,
+                        remaining_byte_count: self.server_reply_body_remaining_len,
+                    },
+                );
+            }
+            if read == 0 {
+                return Err(
+                    NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadEof {
+                        reply,
+                        remaining_byte_count: self.server_reply_body_remaining_len,
+                    },
+                );
+            }
+            let read = match usize::try_from(read) {
+                Ok(read) => read,
+                Err(_) => {
+                    return Err(NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadOverflow {
+                        reply,
+                        byte_count: usize::MAX,
+                        remaining_byte_count: read_len,
+                    });
+                }
+            };
+            if read > read_len {
+                return Err(
+                    NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadOverflow {
+                        reply,
+                        byte_count: read,
+                        remaining_byte_count: read_len,
+                    },
+                );
+            }
+            self.server_reply_body_remaining_len -= read;
+        }
+        self.pending_server_reply_header = None;
+        Ok(reply)
+    }
+
+    fn drain_pending_server_reply_body(
+        &mut self,
+        raw_fd: i32,
+    ) -> Result<
+        Option<NativeWindowLinuxX11ServerReplyHeader>,
+        NativeWindowLinuxX11EventSourceObservationError,
+    > {
+        let Some(reply) = self.pending_server_reply_header else {
+            return Ok(None);
+        };
+        self.drain_server_reply_body(raw_fd, reply).map(Some)
+    }
+
     fn read_event_packet(
         &mut self,
         raw_fd: i32,
@@ -10186,9 +10317,24 @@ where
         }
         self.ensure_setup_ready(descriptor)?;
         self.ensure_top_level_window_request_ready(descriptor)?;
+        if let Some(reply) = self.drain_pending_server_reply_body(descriptor.raw_fd())? {
+            return Err(
+                NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived { reply },
+            );
+        }
         self.read_event_packet(descriptor.raw_fd())?;
         let packet = self.event_packet;
         self.event_packet_len = 0;
+        if native_window_linux_x11_response_type_raw(&packet)
+            == NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY
+        {
+            let reply = native_window_linux_x11_server_reply_header(&packet);
+            self.start_server_reply_body_drain(reply)?;
+            let reply = self.drain_server_reply_body(descriptor.raw_fd(), reply)?;
+            return Err(
+                NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived { reply },
+            );
+        }
         native_window_linux_x11_event_packet_to_observation(
             input,
             &packet,
@@ -22330,7 +22476,7 @@ mod tests {
         let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(
-                11, 23, 2,
+                11, 23, 0,
             )),
         ]);
         let mut provider =
@@ -22345,10 +22491,191 @@ mod tests {
                 reply: NativeWindowLinuxX11ServerReplyHeader {
                     reply_data: 11,
                     sequence: 23,
+                    length_units: 0,
+                },
+            }
+        );
+        assert_eq!(provider.reader().pending_server_reply_header(), None);
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 0);
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_drains_server_reply_body_before_next_event() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            250,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(7, 31, 2)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(14, 18)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived {
+                reply: NativeWindowLinuxX11ServerReplyHeader {
+                    reply_data: 7,
+                    sequence: 31,
                     length_units: 2,
                 },
             }
         );
+        assert_eq!(provider.reader().pending_server_reply_header(), None);
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 0);
+
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((14.0, 18.0)));
+        assert_eq!(provider.reader().api().read_cursor, 4);
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_resumes_server_reply_body_after_would_block() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            251,
+        );
+        let reply = NativeWindowLinuxX11ServerReplyHeader {
+            reply_data: 5,
+            sequence: 37,
+            length_units: 2,
+        };
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(
+                reply.reply_data(),
+                reply.sequence(),
+                reply.length_units(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(vec![1, 2, 3]),
+            ScriptedNativeWindowLinuxX11ReadStep::Error(11),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(vec![4, 5, 6, 7, 8]),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadWouldBlock {
+                reply,
+                remaining_byte_count: 5,
+            }
+        );
+        assert_eq!(provider.reader().pending_server_reply_header(), Some(reply));
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 5);
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived { reply }
+        );
+        assert_eq!(provider.reader().pending_server_reply_header(), None);
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 0);
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_eof() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            252,
+        );
+        let reply = NativeWindowLinuxX11ServerReplyHeader {
+            reply_data: 9,
+            sequence: 41,
+            length_units: 1,
+        };
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(
+                reply.reply_data(),
+                reply.sequence(),
+                reply.length_units(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Eof,
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadEof {
+                reply,
+                remaining_byte_count: 4,
+            }
+        );
+        assert_eq!(provider.reader().pending_server_reply_header(), Some(reply));
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 4);
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_read_failure(
+    ) {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            253,
+        );
+        let reply = NativeWindowLinuxX11ServerReplyHeader {
+            reply_data: 13,
+            sequence: 43,
+            length_units: 1,
+        };
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(
+                reply.reply_data(),
+                reply.sequence(),
+                reply.length_units(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Error(77),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyBodyReadFailed {
+                reply,
+                code: 77,
+                remaining_byte_count: 4,
+            }
+        );
+        assert_eq!(provider.reader().pending_server_reply_header(), Some(reply));
+        assert_eq!(provider.reader().server_reply_body_remaining_len(), 4);
     }
 
     #[test]
