@@ -1237,6 +1237,14 @@ F5js では、F5jr の pure builder を `NativeWindowLinuxX11EventSourceObservat
 
 F5js は reader setup state から top-level request owner を生成し、event read より前に F5jp partial-write path へ渡す境界だけを担当する。server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5jt Native Linux X11 server error / reply header decode boundary
+
+F5jt では、X11 event stream から読み取った 32 byte packet の raw response type を先に判定する。`packet[0] == 0` は server error、`packet[0] == 1` は server reply header として扱い、どちらも `EventTypeUnsupported` ではなく typed observation error として返す。通常 event の type 判定では従来通り send-event high bit を除くために `response_type & 0x7f` を用いるが、この mask は server error / reply 判定より後でだけ使う。
+
+`NativeWindowLinuxX11ServerErrorPacket` は error code、sequence、bad value、minor opcode、major opcode を保持する。`NativeWindowLinuxX11ServerReplyHeader` は reply data、sequence、length units を保持する。offset は X11 fixed packet header に従い、dynamic fallback や string error conversion は行わない。
+
+F5jt は server error / reply header の typed decode boundary だけを担当する。server sequence tracking、request / reply correlation、reply body drain、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。server error を top-level request write failure と推測せず、later sequence correlation phase が owner-bearing recovery を扱う。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
