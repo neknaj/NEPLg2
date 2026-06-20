@@ -609,21 +609,37 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.doesNotMatch(nativeWindowLinuxWindowEventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(guiRedesignImplementationPlan, /Phase F5jb: Native Linux X11 setup and event observation boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jc: Native Linux X11 authorization setup request boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jd: Native Linux Xauthority record parser boundary/);
     assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
     assert.match(guiRedesignImplementationPlan, /raw API owner を消費する前に返す/);
+    assert.match(guiRedesignImplementationPlan, /family \+ address \+ display_number` と exact match/);
     assert.match(guiRedesignImplementationPlan, /Linux support gate の `Ok` 化/);
     assert.match(standardSpec, /F5jb Native Linux X11 setup and event observation boundary/);
     assert.match(standardSpec, /F5jc Native Linux X11 authorization setup request boundary/);
+    assert.match(standardSpec, /F5jd Native Linux Xauthority record parser boundary/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
+    assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
     assert.match(standardSpec, /raw fd \/ raw API owner を消費しない/);
     assert.match(standardSpec, /fallback snapshot や silent no-op は作らない/);
     assert.match(platformDoc, /F5jb/);
     assert.match(platformDoc, /F5jc/);
+    assert.match(platformDoc, /F5jd/);
     assert.match(platformDoc, /setup request write/);
+    assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11AuthorizationCredential<'a>\s*\{[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityFamily\s*\{[\s\S]*Internet,[\s\S]*Local,[\s\S]*Wild,[\s\S]*Other\(u16\)/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityParseError\s*\{[\s\S]*LengthFieldTruncated[\s\S]*PayloadTruncated[\s\S]*OffsetOverflow/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityRecord<'a>\s*\{[\s\S]*family: NativeWindowLinuxX11XauthorityFamily,[\s\S]*address: &'a \[u8\],[\s\S]*display_number: &'a \[u8\],[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthoritySelector<'a>\s*\{[\s\S]*family: NativeWindowLinuxX11XauthorityFamily,[\s\S]*address: &'a \[u8\],[\s\S]*display_number: &'a \[u8\],[\s\S]*preferred_protocol_name: Option<&'a \[u8\]>/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthoritySelection<'a>\s*\{[\s\S]*Selected\s*\{[\s\S]*credential: NativeWindowLinuxX11AuthorizationCredential<'a>[\s\S]*NoMatchingRecord/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_xauthority_read_u16_be[\s\S]*u16::from_be_bytes/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_xauthority_read_payload[\s\S]*checked_add\(byte_len\)[\s\S]*PayloadTruncated/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_read_record_at[\s\S]*AddressLength[\s\S]*DisplayNumberLength[\s\S]*ProtocolNameLength[\s\S]*ProtocolDataLength/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_select_credential[\s\S]*while offset < bytes\.len\(\)[\s\S]*selector\.matches\(&record\)[\s\S]*NativeWindowLinuxX11XauthoritySelection::Selected[\s\S]*NoMatchingRecord/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /Family::Local[\s\S]*display_number\(\) == self\.display_number|Family::Wild[\s\S]*NoMatchingRecord|unwrap_or|unwrap_or_else|ok\(\)/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11SetupRequestBuildError\s*\{[\s\S]*AuthorizationProtocolNameTooLong[\s\S]*AuthorizationProtocolDataTooLong[\s\S]*SetupRequestLengthOverflow/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11SetupRequest\s*\{[\s\S]*bytes: Vec<u8>[\s\S]*\}/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_setup_request_from_authorization[\s\S]*NativeWindowLinuxX11AuthorizationCredential[\s\S]*Result<NativeWindowLinuxX11SetupRequest, NativeWindowLinuxX11SetupRequestBuildError>[\s\S]*u16::MAX[\s\S]*native_window_linux_x11_pad4[\s\S]*native_window_linux_x11_checked_setup_request_total_len[\s\S]*bytes\.extend_from_slice\(&\(name_len as u16\)\.to_le_bytes\(\)\)[\s\S]*bytes\.resize\(bytes\.len\(\) \+ name_padding_len, 0\)[\s\S]*bytes\.extend_from_slice\(data\)[\s\S]*bytes\.resize\(bytes\.len\(\) \+ data_padding_len, 0\)/);
@@ -643,17 +659,21 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /descriptor\.source_kind\(\) != NativeWindowLinuxWindowEventSourceKind::X11Connection[\s\S]*UnsupportedSourceKind/);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /WaylandDisplay[\s\S]*poll_observation|ToolkitExternal[\s\S]*poll_observation/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_event_packet_to_observation[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY[\s\S]*NativeWindowSize::new[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY[\s\S]*native_window_linux_x11_event_pointer_raw[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS[\s\S]*true[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE[\s\S]*false/);
-    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(|XAUTHORITY|HOME|\.Xauthority|std::env|std::fs|vfs|read_to|File::|OpenOptions/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(|\bXAUTHORITY\b|\bHOME\b|\.Xauthority|std::env|std::fs|vfs|read_to|File::|OpenOptions/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_DONTWAIT/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_NOSIGNAL/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::send/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::recv/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::EAGAIN[\s\S]*libc::EWOULDBLOCK/);
-    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|XAUTHORITY|HOME|\.Xauthority|std::env|std::fs|vfs|read_to|File::|OpenOptions/i);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|\bXAUTHORITY\b|\bHOME\b|\.Xauthority|std::env|std::fs|vfs|read_to|File::|OpenOptions/i);
     assert.match(libSource, /native_window_linux_x11_setup_request_no_auth_matches_legacy_bytes/);
     assert.match(libSource, /native_window_linux_x11_setup_request_encodes_mit_magic_cookie_lengths_and_padding/);
     assert.match(libSource, /native_window_linux_x11_setup_request_rejects_too_long_auth_before_raw_api/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_resumes_partial_auth_setup_write/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_selects_exact_local_record_zero_copy/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_selection_requires_exact_family_address_and_display/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_prefers_first_exact_protocol_match/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_reports_truncated_length_and_payload/);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_polls_observation_provider/);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_keeps_typed_failures/);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_delegates_visual_and_wait/);
@@ -2263,6 +2283,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native Linux window event source normalized observation converts through typed snapshot helper",
             "Native Linux window event source observation provider plugs into run-loop event pump",
             "Native Linux X11 event observation reads setup and event bytes without runner fallback",
+            "Native Linux X11 Xauthority selector parses exact zero-copy records",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",

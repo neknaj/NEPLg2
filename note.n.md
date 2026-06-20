@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5jd Linux Xauthority record parser boundary
+
+## scope
+
+- caller supplied authority bytes だけを受け取り、`.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs は扱わない。
+- Xauthority record は MSB-first u16 length field と borrowed payload slice として parse し、protocol name / data を credential へ zero-copy で渡す。
+- selector は caller が渡した family、address、display_number、optional preferred protocol name の exact match のみを行う。
+- `FamilyLocal` の hostname 推測、`FamilyWild` の暗黙 fallback、no-auth fallback、silent success、runner / CLI dispatch、Linux support gate `Ok` 化、window creation は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- blocker は local / unix wildcard の matching contract が緩く、shared authority bytes から別 host の local record を選び得ることだった。
+- revised plan では implicit fallback を廃止し、caller supplied `family + address + display_number` の exact selector と typed `Selected` / `NoMatchingRecord` result に限定して `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFamily`、field enum、parse error、record、selector、selection を追加した。
+- record parser は MSB-first u16 length field、checked offset arithmetic、borrowed payload slice に限定した。
+- selection は preferred protocol name がある場合だけ protocol name も exact match し、見つからない場合は `NoMatchingRecord` を返す。
+- selected credential は authority bytes を borrow したまま F5jc setup request builder へ渡せる。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jd contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、parser は caller supplied bytes 上で zero-copy、checked offset arithmetic、typed parse errors、explicit `Selected` / `NoMatchingRecord` selection を満たしていると確認された。
+- exact `family + address + display_number` matching が維持され、broad `FamilyLocal` matching、implicit `FamilyWild` fallback、env / fs / VFS lookup、runner / CLI / support-gate enablement、provider / reader / raw-fd escape は見つからないと確認された。
+- 指摘は、この section が pending のままで commit readiness が記録されていなかったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- selector criteria construction、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
 # 2026-06-20 Agent2 GUI native F5jc Linux X11 authorization setup request boundary
 
 ## scope

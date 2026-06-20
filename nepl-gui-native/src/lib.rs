@@ -7259,6 +7259,9 @@ where
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN: usize = 12;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN: usize = 8;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN: usize = 32;
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET: u16 = 0;
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL: u16 = 256;
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD: u16 = 65535;
 
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
@@ -7347,9 +7350,76 @@ pub trait NativeWindowLinuxX11EventSourceRawApi {
     fn error_code_is_would_block(&self, code: u32) -> bool;
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11AuthorizationCredential<'a> {
     protocol_name: &'a [u8],
     protocol_data: &'a [u8],
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityFamily {
+    Internet,
+    Local,
+    Wild,
+    Other(u16),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityField {
+    Family,
+    AddressLength,
+    Address,
+    DisplayNumberLength,
+    DisplayNumber,
+    ProtocolNameLength,
+    ProtocolName,
+    ProtocolDataLength,
+    ProtocolData,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityParseError {
+    LengthFieldTruncated {
+        field: NativeWindowLinuxX11XauthorityField,
+        offset: usize,
+        remaining_byte_count: usize,
+    },
+    PayloadTruncated {
+        field: NativeWindowLinuxX11XauthorityField,
+        offset: usize,
+        byte_len: usize,
+        remaining_byte_count: usize,
+    },
+    OffsetOverflow {
+        field: NativeWindowLinuxX11XauthorityField,
+        offset: usize,
+        byte_len: usize,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityRecord<'a> {
+    family: NativeWindowLinuxX11XauthorityFamily,
+    address: &'a [u8],
+    display_number: &'a [u8],
+    protocol_name: &'a [u8],
+    protocol_data: &'a [u8],
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthoritySelector<'a> {
+    family: NativeWindowLinuxX11XauthorityFamily,
+    address: &'a [u8],
+    display_number: &'a [u8],
+    preferred_protocol_name: Option<&'a [u8]>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthoritySelection<'a> {
+    Selected {
+        credential: NativeWindowLinuxX11AuthorizationCredential<'a>,
+    },
+    NoMatchingRecord,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -7420,6 +7490,234 @@ impl<'a> NativeWindowLinuxX11AuthorizationCredential<'a> {
     pub fn protocol_data(&self) -> &'a [u8] {
         self.protocol_data
     }
+}
+
+impl NativeWindowLinuxX11XauthorityFamily {
+    pub fn from_raw(raw: u16) -> Self {
+        match raw {
+            NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET => Self::Internet,
+            NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL => Self::Local,
+            NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD => Self::Wild,
+            raw => Self::Other(raw),
+        }
+    }
+
+    pub fn raw(self) -> u16 {
+        match self {
+            Self::Internet => NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET,
+            Self::Local => NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL,
+            Self::Wild => NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl<'a> NativeWindowLinuxX11XauthorityRecord<'a> {
+    pub fn family(&self) -> NativeWindowLinuxX11XauthorityFamily {
+        self.family
+    }
+
+    pub fn address(&self) -> &'a [u8] {
+        self.address
+    }
+
+    pub fn display_number(&self) -> &'a [u8] {
+        self.display_number
+    }
+
+    pub fn protocol_name(&self) -> &'a [u8] {
+        self.protocol_name
+    }
+
+    pub fn protocol_data(&self) -> &'a [u8] {
+        self.protocol_data
+    }
+
+    pub fn authorization_credential(&self) -> NativeWindowLinuxX11AuthorizationCredential<'a> {
+        NativeWindowLinuxX11AuthorizationCredential::new(self.protocol_name, self.protocol_data)
+    }
+}
+
+impl<'a> NativeWindowLinuxX11XauthoritySelector<'a> {
+    pub fn new(
+        family: NativeWindowLinuxX11XauthorityFamily,
+        address: &'a [u8],
+        display_number: &'a [u8],
+        preferred_protocol_name: Option<&'a [u8]>,
+    ) -> Self {
+        Self {
+            family,
+            address,
+            display_number,
+            preferred_protocol_name,
+        }
+    }
+
+    fn matches(&self, record: &NativeWindowLinuxX11XauthorityRecord<'_>) -> bool {
+        if record.family() != self.family {
+            return false;
+        }
+        if record.address() != self.address {
+            return false;
+        }
+        if record.display_number() != self.display_number {
+            return false;
+        }
+        match self.preferred_protocol_name {
+            Some(protocol_name) => record.protocol_name() == protocol_name,
+            None => true,
+        }
+    }
+}
+
+fn native_window_linux_x11_xauthority_remaining_byte_count(bytes: &[u8], offset: usize) -> usize {
+    if offset <= bytes.len() {
+        bytes.len() - offset
+    } else {
+        0
+    }
+}
+
+fn native_window_linux_x11_xauthority_read_u16_be(
+    bytes: &[u8],
+    offset: usize,
+    field: NativeWindowLinuxX11XauthorityField,
+) -> Result<(u16, usize), NativeWindowLinuxX11XauthorityParseError> {
+    let next_offset =
+        offset
+            .checked_add(2)
+            .ok_or(NativeWindowLinuxX11XauthorityParseError::OffsetOverflow {
+                field,
+                offset,
+                byte_len: 2,
+            })?;
+    if next_offset > bytes.len() {
+        return Err(
+            NativeWindowLinuxX11XauthorityParseError::LengthFieldTruncated {
+                field,
+                offset,
+                remaining_byte_count: native_window_linux_x11_xauthority_remaining_byte_count(
+                    bytes, offset,
+                ),
+            },
+        );
+    }
+    Ok((
+        u16::from_be_bytes([bytes[offset], bytes[offset + 1]]),
+        next_offset,
+    ))
+}
+
+fn native_window_linux_x11_xauthority_read_payload<'a>(
+    bytes: &'a [u8],
+    offset: usize,
+    byte_len: usize,
+    field: NativeWindowLinuxX11XauthorityField,
+) -> Result<(&'a [u8], usize), NativeWindowLinuxX11XauthorityParseError> {
+    let next_offset = offset.checked_add(byte_len).ok_or(
+        NativeWindowLinuxX11XauthorityParseError::OffsetOverflow {
+            field,
+            offset,
+            byte_len,
+        },
+    )?;
+    if next_offset > bytes.len() {
+        return Err(NativeWindowLinuxX11XauthorityParseError::PayloadTruncated {
+            field,
+            offset,
+            byte_len,
+            remaining_byte_count: native_window_linux_x11_xauthority_remaining_byte_count(
+                bytes, offset,
+            ),
+        });
+    }
+    Ok((&bytes[offset..next_offset], next_offset))
+}
+
+pub fn native_window_linux_x11_xauthority_read_record_at(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<
+    (NativeWindowLinuxX11XauthorityRecord<'_>, usize),
+    NativeWindowLinuxX11XauthorityParseError,
+> {
+    let (family, offset) = native_window_linux_x11_xauthority_read_u16_be(
+        bytes,
+        offset,
+        NativeWindowLinuxX11XauthorityField::Family,
+    )?;
+    let (address_len, offset) = native_window_linux_x11_xauthority_read_u16_be(
+        bytes,
+        offset,
+        NativeWindowLinuxX11XauthorityField::AddressLength,
+    )?;
+    let (address, offset) = native_window_linux_x11_xauthority_read_payload(
+        bytes,
+        offset,
+        usize::from(address_len),
+        NativeWindowLinuxX11XauthorityField::Address,
+    )?;
+    let (display_number_len, offset) = native_window_linux_x11_xauthority_read_u16_be(
+        bytes,
+        offset,
+        NativeWindowLinuxX11XauthorityField::DisplayNumberLength,
+    )?;
+    let (display_number, offset) = native_window_linux_x11_xauthority_read_payload(
+        bytes,
+        offset,
+        usize::from(display_number_len),
+        NativeWindowLinuxX11XauthorityField::DisplayNumber,
+    )?;
+    let (protocol_name_len, offset) = native_window_linux_x11_xauthority_read_u16_be(
+        bytes,
+        offset,
+        NativeWindowLinuxX11XauthorityField::ProtocolNameLength,
+    )?;
+    let (protocol_name, offset) = native_window_linux_x11_xauthority_read_payload(
+        bytes,
+        offset,
+        usize::from(protocol_name_len),
+        NativeWindowLinuxX11XauthorityField::ProtocolName,
+    )?;
+    let (protocol_data_len, offset) = native_window_linux_x11_xauthority_read_u16_be(
+        bytes,
+        offset,
+        NativeWindowLinuxX11XauthorityField::ProtocolDataLength,
+    )?;
+    let (protocol_data, offset) = native_window_linux_x11_xauthority_read_payload(
+        bytes,
+        offset,
+        usize::from(protocol_data_len),
+        NativeWindowLinuxX11XauthorityField::ProtocolData,
+    )?;
+    Ok((
+        NativeWindowLinuxX11XauthorityRecord {
+            family: NativeWindowLinuxX11XauthorityFamily::from_raw(family),
+            address,
+            display_number,
+            protocol_name,
+            protocol_data,
+        },
+        offset,
+    ))
+}
+
+pub fn native_window_linux_x11_xauthority_select_credential<'a>(
+    bytes: &'a [u8],
+    selector: NativeWindowLinuxX11XauthoritySelector<'_>,
+) -> Result<NativeWindowLinuxX11XauthoritySelection<'a>, NativeWindowLinuxX11XauthorityParseError> {
+    let mut offset = 0;
+    while offset < bytes.len() {
+        let (record, next_offset) =
+            native_window_linux_x11_xauthority_read_record_at(bytes, offset)?;
+        if selector.matches(&record) {
+            return Ok(NativeWindowLinuxX11XauthoritySelection::Selected {
+                credential: record.authorization_credential(),
+            });
+        }
+        offset = next_offset;
+    }
+    Ok(NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord)
 }
 
 impl NativeWindowLinuxX11SetupRequest {
@@ -15990,6 +16288,26 @@ mod tests {
         packet
     }
 
+    fn scripted_x11_xauthority_record(
+        family: NativeWindowLinuxX11XauthorityFamily,
+        address: &[u8],
+        display_number: &[u8],
+        protocol_name: &[u8],
+        protocol_data: &[u8],
+    ) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&family.raw().to_be_bytes());
+        bytes.extend_from_slice(&(address.len() as u16).to_be_bytes());
+        bytes.extend_from_slice(address);
+        bytes.extend_from_slice(&(display_number.len() as u16).to_be_bytes());
+        bytes.extend_from_slice(display_number);
+        bytes.extend_from_slice(&(protocol_name.len() as u16).to_be_bytes());
+        bytes.extend_from_slice(protocol_name);
+        bytes.extend_from_slice(&(protocol_data.len() as u16).to_be_bytes());
+        bytes.extend_from_slice(protocol_data);
+        bytes
+    }
+
     impl NativeWindowLinuxWindowEventSourceProvider
         for ScriptedNativeWindowLinuxWindowEventSourceObservationRunLoopProvider
     {
@@ -16978,6 +17296,185 @@ mod tests {
         assert_eq!(host.host().host().pump_count, 1);
         assert_eq!(host.host().host().present_frames, vec![(1, 1)]);
         assert_eq!(host.provider().event_cursor, 0);
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selects_exact_local_record_zero_copy() {
+        let cookie = [1_u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            &cookie,
+        );
+        let selection = native_window_linux_x11_xauthority_select_credential(
+            &bytes,
+            NativeWindowLinuxX11XauthoritySelector::new(
+                NativeWindowLinuxX11XauthorityFamily::Local,
+                b"host-a",
+                b"0",
+                Some(b"MIT-MAGIC-COOKIE-1"),
+            ),
+        )
+        .unwrap();
+
+        match selection {
+            NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+                assert_eq!(credential.protocol_name(), b"MIT-MAGIC-COOKIE-1");
+                assert_eq!(credential.protocol_data(), &cookie);
+                let base = bytes.as_ptr() as usize;
+                let end = base + bytes.len();
+                let name_ptr = credential.protocol_name().as_ptr() as usize;
+                let data_ptr = credential.protocol_data().as_ptr() as usize;
+                assert!(name_ptr >= base && name_ptr < end);
+                assert!(data_ptr >= base && data_ptr < end);
+                let request =
+                    native_window_linux_x11_setup_request_from_authorization(credential).unwrap();
+                assert_eq!(&request.as_bytes()[6..8], &18_u16.to_le_bytes());
+                assert_eq!(&request.as_bytes()[8..10], &16_u16.to_le_bytes());
+            }
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+                panic!("expected exact local xauthority record")
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selection_requires_exact_family_address_and_display() {
+        let mut bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Wild,
+            b"",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            b"wild-cookie",
+        );
+        bytes.extend_from_slice(&scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"1",
+            b"MIT-MAGIC-COOKIE-1",
+            b"host-cookie",
+        ));
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_select_credential(
+                &bytes,
+                NativeWindowLinuxX11XauthoritySelector::new(
+                    NativeWindowLinuxX11XauthorityFamily::Local,
+                    b"host-a",
+                    b"0",
+                    Some(b"MIT-MAGIC-COOKIE-1"),
+                ),
+            )
+            .unwrap(),
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord
+        );
+        assert!(matches!(
+            native_window_linux_x11_xauthority_select_credential(
+                &bytes,
+                NativeWindowLinuxX11XauthoritySelector::new(
+                    NativeWindowLinuxX11XauthorityFamily::Wild,
+                    b"",
+                    b"0",
+                    Some(b"MIT-MAGIC-COOKIE-1"),
+                ),
+            )
+            .unwrap(),
+            NativeWindowLinuxX11XauthoritySelection::Selected { .. }
+        ));
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_prefers_first_exact_protocol_match() {
+        let mut bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"0",
+            b"UNSUPPORTED-AUTH",
+            b"unsupported",
+        );
+        bytes.extend_from_slice(&scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            b"selected",
+        ));
+        bytes.extend_from_slice(&scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            b"later",
+        ));
+        let selection = native_window_linux_x11_xauthority_select_credential(
+            &bytes,
+            NativeWindowLinuxX11XauthoritySelector::new(
+                NativeWindowLinuxX11XauthorityFamily::Local,
+                b"host-a",
+                b"0",
+                Some(b"MIT-MAGIC-COOKIE-1"),
+            ),
+        )
+        .unwrap();
+
+        match selection {
+            NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+                assert_eq!(credential.protocol_data(), b"selected");
+            }
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+                panic!("expected preferred protocol match")
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_reports_truncated_length_and_payload() {
+        assert_eq!(
+            native_window_linux_x11_xauthority_select_credential(
+                &[0],
+                NativeWindowLinuxX11XauthoritySelector::new(
+                    NativeWindowLinuxX11XauthorityFamily::Local,
+                    b"host-a",
+                    b"0",
+                    None,
+                ),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityParseError::LengthFieldTruncated {
+                field: NativeWindowLinuxX11XauthorityField::Family,
+                offset: 0,
+                remaining_byte_count: 1,
+            }
+        );
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            &NativeWindowLinuxX11XauthorityFamily::Local
+                .raw()
+                .to_be_bytes(),
+        );
+        bytes.extend_from_slice(&4_u16.to_be_bytes());
+        bytes.push(b'a');
+        assert_eq!(
+            native_window_linux_x11_xauthority_select_credential(
+                &bytes,
+                NativeWindowLinuxX11XauthoritySelector::new(
+                    NativeWindowLinuxX11XauthorityFamily::Local,
+                    b"host-a",
+                    b"0",
+                    None,
+                ),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityParseError::PayloadTruncated {
+                field: NativeWindowLinuxX11XauthorityField::Address,
+                offset: 4,
+                byte_len: 4,
+                remaining_byte_count: 1,
+            }
+        );
     }
 
     #[test]

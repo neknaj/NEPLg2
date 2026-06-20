@@ -1968,6 +1968,37 @@ Phase F5jc では、F5jb の X11 setup request を no-auth 固定から、author
 - `git diff --check`
 - subagent implementation review で owner消費前 validation、typed error、request byte ownership、partial write retry、no fs/env / no fallback / no runner dispatch が承認される。
 
+## Phase F5jd: Native Linux Xauthority record parser boundary
+
+Phase F5jd では、F5jc の authorization setup request owner に渡す credential を、caller supplied bytes から zero-copy で選ぶ parser / selector boundary を追加する。ここでは file path、environment variable、home directory、VFS / filesystem は扱わず、すでに caller が持っている authority file bytes だけを入力にする。
+
+実装:
+
+- Xauthority record の family、address、display number、protocol name、protocol data を borrowed slice として表す。
+- record parser は `u16` の MSB-first length field を順に読み、offset advance は checked arithmetic にする。
+- parse failure は length field truncation、payload truncation、offset overflow を enum error として返す。
+- selector は caller supplied `family + address + display_number` と exact match する。`FamilyLocal` の hostname 推測や `FamilyWild` の暗黙 fallback は行わない。
+- `preferred_protocol_name` が `Some` の場合だけ protocol name を追加条件にし、`None` では最初の exact family/address/display match を選ぶ。
+- selection result は `Selected credential` / `NoMatchingRecord` の typed enum とし、no-auth fallback policy は持たせない。
+- selected credential は record bytes から borrowed name / data を返し、F5jc setup request builder に copy なしで渡せる。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jd contract へ更新する。
+
+非目標:
+
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、file lock handling、path resolution は扱わない。
+- Hostname、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。これらは exact selector criteria を作る後続 boundary とする。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding は扱わない。
+- minifb fallback、ObservedInputOnly promotion、synthetic readiness、timer fired evidence、fallback snapshot、silent no-op は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で zero-copy parse、exact selector、typed selection、no fs/env / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
