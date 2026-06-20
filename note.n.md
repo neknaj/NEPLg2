@@ -105,6 +105,75 @@
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
 
+# 2026-06-21 Agent2 GUI native F5kl Linux X11 GetKeyboardMapping request/reply owner boundary
+
+## 目的
+
+- X11 `GetKeyboardMapping` request / reply shape を typed owner として扱い、raw keysym table を検査できるようにする。
+- raw keysym を `NativeWindowLinuxX11KeysymValue` として保持し、portable key projection や event decode へは接続しない。
+- reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate 有効化は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11GetKeyboardMappingRequest` と build error を追加し、opcode `101`、request length `2` words / 8 byte、first-keycode / count の owner bytes を固定した。
+- `NativeWindowLinuxX11KeyboardMappingReplyHeader`、`NativeWindowLinuxX11KeyboardMappingRawKeysyms`、reply parse error を追加した。
+- reply body length は `length_units * 4` と `keycode_count * keysyms_per_keycode * 4` の両方を checked arithmetic で検査し、不一致を typed error にした。
+- F5kl の仕様、実装計画、native behavior notes、source-policy、todo を更新した。
+
+## subagent review
+
+- Jason は実装前 plan review で `PLAN_APPROVED`。F5kk の次 slice として request / reply owner 境界を作る方針が適切で、event decode / keymap / IME / runner / fallback へ進めないことを guardrail とした。
+- Turing は実装前 review で `CHANGES_REQUESTED`。F5kl 専用 source-policy surface、event decode / reader state / projection scope の negative guard、docs に raw projection 禁止文を追加するよう指摘した。
+- 指摘に従い、F5kl surface と docs/source-policy の分離検査を追加した。なお X11 protocol 確認により request owner は 4 byte ではなく 8 byte とした。
+- Anscombe は実装レビューで本体を概ね承認しつつ、標準仕様側の F5kl assert と checks 出力項目の不足を指摘した。
+- 指摘に従い、`standardSpec` の F5kl 存在 / raw projection 禁止文 assert と checks 出力項目を追加した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_get_keyboard_mapping -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing dead_code warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+# 2026-06-21 Agent2 GUI native F5kk Linux X11 caller-supplied keysym value projection boundary
+
+## 目的
+
+- caller supplied X11 keysym value を typed evidence として保持し、狭い portable key evidence へ射影する。
+- raw keysym value と portable projection を別々の public input として受け取らず、projection 後も raw value を保持する。
+- keycode から keysym を取得する layout / keymap query、X11 event packet decode への接続、IME / text input、shortcut policy、runner / support gate 有効化、fallback / synthetic readiness は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11KeysymValue`、`NativeWindowPortableKey`、`NativeWindowLinuxX11KeysymProjection` を追加した。
+- `NoSymbol = 0x0000` は `NoSymbol`、unknown raw value は `Unknown { raw_keysym }` として明示し、ASCII printable range、Return / Escape / Tab / Backspace / Delete、arrow、Home / End、PageUp / PageDown だけを portable key に写す。
+- X11 named Delete `0xffff` と ASCII DEL `0x007f` を混同しない focused test を追加した。
+- F5kk の仕様、実装計画、native behavior notes、source-policy を更新した。
+
+## subagent review
+
+- Ptolemy は `REVIEW_APPROVED`。raw keysym preservation、NoSymbol / Unknown explicit state、ASCII DEL を Delete にしない test、event decode / XLookupString / XKB / keymap / IME / shortcut / runner / fallback 非接続を確認した。
+- Lovelace は初回 `CHANGES_REQUESTED` として、source-policy が `keymap` と `text_input` / `text input` をイベント復号関数内で捕捉していない点を指摘した。
+- 指摘に従い、projection surface と `native_window_linux_x11_event_packet_to_observation` の negative guard に `keymap`、`text_input`、`text input` を追加した。
+- 再 review で Lovelace は `REVIEW_APPROVED`。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keysym -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing dead_code warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+
 # 2026-06-21 Agent2 GUI native F5kd Linux X11 WM protocol ChangeProperty registration boundary
 
 ## 目的
@@ -140,11 +209,45 @@
 - pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
 - pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 Agent2 GUI native F5ki Linux X11 portable keyboard modifier evidence boundary
+
+- F5ki では、F5kh の raw X11 `state` から Shift / Control / Alt / Meta の portable modifier evidence だけを導出する。
+- subagent 計画レビューは Locke / Kepler ともに `PLAN_APPROVED`。必須条件は、raw state を全 `u16` で保持し続けること、portable projection は `NativeWindowKeyboardModifierState` からだけ導出すること、raw state と portable modifier を別々に public constructor へ渡せないようにすることだった。
+- mapping は X11 core state の `ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` に限定する。Lock / Mod2 / Mod3 / Mod5 / button mask / unknown high bit は raw state にだけ残す。
+- この checkpoint は keysym / layout mapping、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- Epicurus / Chandrasekhar の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - pass: subagent implementation review by Bacon and Hegel
+
+## 2026-06-21 Agent2 GUI native F5kj Linux Wayland raw message header evidence boundary
+
+- F5kj では、caller supplied packet bytes から Wayland raw message header だけを typed evidence として読む。
+- subagent 計画レビューは Sagan / Banach ともに `PLAN_APPROVED`。必須条件は、explicit byte order、8 byte header、object id 0 rejection、size 8 未満 rejection、4 byte alignment rejection、packet byte len 超過 rejection、fd read / drain / close や runner dispatch 非導入だった。
+- 実装方針は Wayland wire value が connection host byte order であることを明示するため、parser が `NativeWindowLinuxWaylandByteOrder` を受け取る形にした。
+- この checkpoint は xdg-shell semantic decode、keyboard / IME / text input、fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、fallback event、silent no-op、synthetic readiness を扱わない。
+- implementation review は Lorentz が Rust/API boundary を `REVIEW_APPROVED`、Boole が docs/source-policy を再確認後 `REVIEW_APPROVED`。Boole の初回指摘に従い、source-policy は direct `libc::read`、`.read`、`.read_exact`、bare `read`、`drain` の混入も拒否するように強化した。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_wayland_message_header -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+- warning: Linux target check は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code warning を表示する。`git diff --check` は既存の LF -> CRLF conversion warning を表示する。
 
 ## 未接続
 
-- `WM_DELETE_WINDOW` `ClientMessage` decode、StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+- X11 IME / text input、keysym / layout mapping、Wayland xdg-shell semantic event decoding、Wayland fd integration、Linux runner / CLI dispatch は未接続。
 
 # 2026-06-21 Agent2 GUI native F5kc Linux X11 WM protocol Atom meaning assignment boundary
 
@@ -76971,3 +77074,19 @@ MERGE_APPROVED
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 Agent2 GUI native F5kh Linux X11 raw keyboard modifier evidence boundary
+
+- F5kh では、F5kg の raw keyboard event evidence に X11 core event の raw `state` field を追加する。
+- subagent 計画レビューは Carver / Einstein ともに `PLAN_APPROVED`。必須条件は、offset 28 の little-endian `u16` を raw X11 key/button mask evidence として保持すること、raw keycode `0` だけを typed error にすること、`NativeWindowKeyboardEvent::new` は empty modifier state の互換 path として残し、X11 decode は modifier-aware constructor を使うことだった。
+- 指摘条件に従い、`NativeWindowKeyboardModifierState` を追加し、`NativeWindowKeyboardEvent` は raw keycode と raw modifier state を同時に保持する方針にした。
+- この checkpoint は portable modifier mapping、keysym / layout mapping、shortcut policy、IME / text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`

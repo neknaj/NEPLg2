@@ -1070,10 +1070,77 @@ pub enum NativeWindowKeyboardEventKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowKeyboardModifierState {
+    raw_state: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowPortableKeyboardModifiers {
+    shift: bool,
+    control: bool,
+    alt: bool,
+    meta: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeysymValue {
+    raw_value: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPortableKey {
+    NoSymbol,
+    Unknown { raw_keysym: u32 },
+    Ascii { byte: u8 },
+    Return,
+    Escape,
+    Tab,
+    Backspace,
+    Delete,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    ArrowDown,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeysymProjection {
+    raw_keysym: NativeWindowLinuxX11KeysymValue,
+    portable_key: NativeWindowPortableKey,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowKeyboardEvent {
     kind: NativeWindowKeyboardEventKind,
     raw_keycode: u8,
+    modifier_state: NativeWindowKeyboardModifierState,
+    portable_modifiers: NativeWindowPortableKeyboardModifiers,
 }
+
+const NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK: u16 = 0x0001;
+const NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK: u16 = 0x0004;
+const NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK: u16 = 0x0008;
+const NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK: u16 = 0x0040;
+const NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL: u32 = 0x0000;
+const NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN: u32 = 0x0020;
+const NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX: u32 = 0x007e;
+const NATIVE_WINDOW_X11_KEYSYM_BACKSPACE: u32 = 0xff08;
+const NATIVE_WINDOW_X11_KEYSYM_TAB: u32 = 0xff09;
+const NATIVE_WINDOW_X11_KEYSYM_RETURN: u32 = 0xff0d;
+const NATIVE_WINDOW_X11_KEYSYM_ESCAPE: u32 = 0xff1b;
+const NATIVE_WINDOW_X11_KEYSYM_HOME: u32 = 0xff50;
+const NATIVE_WINDOW_X11_KEYSYM_LEFT: u32 = 0xff51;
+const NATIVE_WINDOW_X11_KEYSYM_UP: u32 = 0xff52;
+const NATIVE_WINDOW_X11_KEYSYM_RIGHT: u32 = 0xff53;
+const NATIVE_WINDOW_X11_KEYSYM_DOWN: u32 = 0xff54;
+const NATIVE_WINDOW_X11_KEYSYM_PAGE_UP: u32 = 0xff55;
+const NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN: u32 = 0xff56;
+const NATIVE_WINDOW_X11_KEYSYM_END: u32 = 0xff57;
+const NATIVE_WINDOW_X11_KEYSYM_DELETE: u32 = 0xffff;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowEventPumpError {
@@ -1332,6 +1399,138 @@ pub enum NativeWindowLinuxWindowEventSourceFdAcquisitionError {
     Closed {
         kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWaylandByteOrder {
+    LittleEndian,
+    BigEndian,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxWaylandMessageHeader {
+    object_id: u32,
+    opcode: u16,
+    message_byte_len: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWaylandMessageHeaderError {
+    PacketTooShort {
+        byte_count: usize,
+        required_byte_count: usize,
+    },
+    ObjectIdInvalid {
+        object_id: u32,
+    },
+    MessageSizeTooSmall {
+        message_byte_len: u16,
+        min_byte_len: usize,
+    },
+    MessageSizeUnaligned {
+        message_byte_len: u16,
+        alignment: usize,
+    },
+    MessageSizeExceedsPacket {
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    },
+}
+
+pub const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN: usize = 8;
+const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT: usize = 4;
+
+fn native_window_linux_wayland_u32(
+    bytes: &[u8],
+    offset: usize,
+    byte_order: NativeWindowLinuxWaylandByteOrder,
+) -> u32 {
+    let raw = [
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ];
+    match byte_order {
+        NativeWindowLinuxWaylandByteOrder::LittleEndian => u32::from_le_bytes(raw),
+        NativeWindowLinuxWaylandByteOrder::BigEndian => u32::from_be_bytes(raw),
+    }
+}
+
+pub fn native_window_linux_wayland_message_header_from_packet(
+    byte_order: NativeWindowLinuxWaylandByteOrder,
+    packet: &[u8],
+) -> Result<NativeWindowLinuxWaylandMessageHeader, NativeWindowLinuxWaylandMessageHeaderError> {
+    if packet.len() < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN {
+        return Err(NativeWindowLinuxWaylandMessageHeaderError::PacketTooShort {
+            byte_count: packet.len(),
+            required_byte_count: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+        });
+    }
+    let object_id = native_window_linux_wayland_u32(packet, 0, byte_order);
+    let header_word = native_window_linux_wayland_u32(packet, 4, byte_order);
+    let opcode = (header_word & u32::from(u16::MAX)) as u16;
+    let message_byte_len = (header_word >> 16) as u16;
+    NativeWindowLinuxWaylandMessageHeader::new(object_id, opcode, message_byte_len, packet.len())
+}
+
+impl NativeWindowLinuxWaylandMessageHeader {
+    pub fn new(
+        object_id: u32,
+        opcode: u16,
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    ) -> Result<Self, NativeWindowLinuxWaylandMessageHeaderError> {
+        if object_id == 0 {
+            return Err(NativeWindowLinuxWaylandMessageHeaderError::ObjectIdInvalid { object_id });
+        }
+        let message_byte_count = usize::from(message_byte_len);
+        if message_byte_count < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeTooSmall {
+                    message_byte_len,
+                    min_byte_len: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+                },
+            );
+        }
+        if message_byte_count % NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT != 0 {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeUnaligned {
+                    message_byte_len,
+                    alignment: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT,
+                },
+            );
+        }
+        if message_byte_count > packet_byte_len {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeExceedsPacket {
+                    message_byte_len,
+                    packet_byte_len,
+                },
+            );
+        }
+        Ok(Self {
+            object_id,
+            opcode,
+            message_byte_len,
+        })
+    }
+
+    pub fn object_id(self) -> u32 {
+        self.object_id
+    }
+
+    pub fn opcode(self) -> u16 {
+        self.opcode
+    }
+
+    pub fn message_byte_len(self) -> u16 {
+        self.message_byte_len
+    }
+
+    pub fn payload_byte_len(self) -> usize {
+        usize::from(self.message_byte_len) - NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7407,6 +7606,7 @@ pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16;
 pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE: u8 = 18;
+pub const NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE: u8 = 101;
 pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME: &[u8] = b"WM_PROTOCOLS";
 pub const NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME: &[u8] = b"WM_DELETE_WINDOW";
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH: u8 = 0;
@@ -7417,6 +7617,10 @@ pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN: usize = 8;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_LENGTH_UNITS: u16 = 2;
+pub const NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_WORD_LEN: u16 = 2;
+pub const NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN: usize =
+    (NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_WORD_LEN as usize) * 4;
+pub const NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN: usize = 4;
 pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REPLACE_MODE: u8 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_FORMAT_32: u8 = 32;
 pub const NATIVE_WINDOW_LINUX_X11_ATOM_TYPE_ATOM_ID: u32 = 4;
@@ -7462,6 +7666,7 @@ const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
 const NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET: usize = 28;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS: u8 = 2;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE: u8 = 3;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS: u8 = 4;
@@ -8029,6 +8234,65 @@ pub enum NativeWindowLinuxX11InternAtomReplyParseError {
     AtomIdInvalid {
         raw: u32,
         error: NativeWindowLinuxX11AtomIdError,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11GetKeyboardMappingRequest {
+    first_keycode: u8,
+    keycode_count: u8,
+    bytes: [u8; NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN],
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11GetKeyboardMappingRequestBuildError {
+    FirstKeycodeInvalid { first_keycode: u8 },
+    KeycodeCountInvalid { keycode_count: u8 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeyboardMappingReplyHeader {
+    keysyms_per_keycode: u8,
+    sequence: u16,
+    length_units: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+    keycode_count: u8,
+    keysyms_per_keycode: u8,
+    raw_keysyms: Vec<NativeWindowLinuxX11KeysymValue>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11KeyboardMappingReplyParseError {
+    InvalidResponseType {
+        response_type: u8,
+    },
+    KeysymsPerKeycodeInvalid {
+        keysyms_per_keycode: u8,
+    },
+    KeycodeCountInvalid {
+        keycode_count: u8,
+    },
+    BodyLengthOverflow {
+        length_units: u32,
+    },
+    ExpectedKeysymCountOverflow {
+        keycode_count: u8,
+        keysyms_per_keycode: u8,
+    },
+    ExpectedBodyByteLenOverflow {
+        keysym_count: usize,
+        keysym_byte_len: usize,
+    },
+    BodyByteLenMismatch {
+        actual_byte_len: usize,
+        expected_byte_len: usize,
+    },
+    ExpectedBodyByteLenMismatch {
+        body_byte_len: usize,
+        expected_body_byte_len: usize,
     },
 }
 
@@ -9326,6 +9590,227 @@ pub fn native_window_linux_x11_intern_atom_reply_from_packet(
             NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET,
         ),
         atom_id,
+    })
+}
+
+impl NativeWindowLinuxX11GetKeyboardMappingRequest {
+    pub fn first_keycode(&self) -> u8 {
+        self.first_keycode
+    }
+
+    pub fn keycode_count(&self) -> u8 {
+        self.keycode_count
+    }
+
+    pub fn as_bytes(&self) -> &[u8; NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+impl NativeWindowLinuxX11KeyboardMappingReplyHeader {
+    pub fn keysyms_per_keycode(&self) -> u8 {
+        self.keysyms_per_keycode
+    }
+
+    pub fn sequence(&self) -> u16 {
+        self.sequence
+    }
+
+    pub fn length_units(&self) -> u32 {
+        self.length_units
+    }
+}
+
+impl NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+    pub fn keycode_count(&self) -> u8 {
+        self.keycode_count
+    }
+
+    pub fn keysyms_per_keycode(&self) -> u8 {
+        self.keysyms_per_keycode
+    }
+
+    pub fn raw_keysyms(&self) -> &[NativeWindowLinuxX11KeysymValue] {
+        &self.raw_keysyms
+    }
+
+    pub fn raw_keysym_count(&self) -> usize {
+        self.raw_keysyms.len()
+    }
+}
+
+pub fn native_window_linux_x11_get_keyboard_mapping_request(
+    first_keycode: u8,
+    keycode_count: u8,
+) -> Result<
+    NativeWindowLinuxX11GetKeyboardMappingRequest,
+    NativeWindowLinuxX11GetKeyboardMappingRequestBuildError,
+> {
+    if first_keycode == 0 {
+        return Err(
+            NativeWindowLinuxX11GetKeyboardMappingRequestBuildError::FirstKeycodeInvalid {
+                first_keycode,
+            },
+        );
+    }
+    if keycode_count == 0 {
+        return Err(
+            NativeWindowLinuxX11GetKeyboardMappingRequestBuildError::KeycodeCountInvalid {
+                keycode_count,
+            },
+        );
+    }
+    let mut bytes = [0_u8; NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN];
+    bytes[0] = NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE;
+    bytes[2..4].copy_from_slice(
+        &NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_WORD_LEN.to_le_bytes(),
+    );
+    bytes[4] = first_keycode;
+    bytes[5] = keycode_count;
+    Ok(NativeWindowLinuxX11GetKeyboardMappingRequest {
+        first_keycode,
+        keycode_count,
+        bytes,
+    })
+}
+
+pub fn native_window_linux_x11_keyboard_mapping_reply_header_from_packet(
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> Result<
+    NativeWindowLinuxX11KeyboardMappingReplyHeader,
+    NativeWindowLinuxX11KeyboardMappingReplyParseError,
+> {
+    let response_type = native_window_linux_x11_response_type_raw(packet);
+    if response_type != NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::InvalidResponseType {
+                response_type,
+            },
+        );
+    }
+    let keysyms_per_keycode = packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET];
+    if keysyms_per_keycode == 0 {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::KeysymsPerKeycodeInvalid {
+                keysyms_per_keycode,
+            },
+        );
+    }
+    Ok(NativeWindowLinuxX11KeyboardMappingReplyHeader {
+        keysyms_per_keycode,
+        sequence: native_window_linux_x11_u16_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET,
+        ),
+        length_units: native_window_linux_x11_u32_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET,
+        ),
+    })
+}
+
+fn native_window_linux_x11_keyboard_mapping_reply_body_byte_len(
+    length_units: u32,
+) -> Result<usize, NativeWindowLinuxX11KeyboardMappingReplyParseError> {
+    let byte_len = u64::from(length_units).checked_mul(4).ok_or(
+        NativeWindowLinuxX11KeyboardMappingReplyParseError::BodyLengthOverflow { length_units },
+    )?;
+    usize::try_from(byte_len).map_err(|_| {
+        NativeWindowLinuxX11KeyboardMappingReplyParseError::BodyLengthOverflow { length_units }
+    })
+}
+
+fn native_window_linux_x11_keyboard_mapping_expected_keysym_count(
+    keycode_count: u8,
+    keysyms_per_keycode: u8,
+) -> Result<usize, NativeWindowLinuxX11KeyboardMappingReplyParseError> {
+    if keycode_count == 0 {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::KeycodeCountInvalid {
+                keycode_count,
+            },
+        );
+    }
+    if keysyms_per_keycode == 0 {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::KeysymsPerKeycodeInvalid {
+                keysyms_per_keycode,
+            },
+        );
+    }
+    usize::from(keycode_count)
+        .checked_mul(usize::from(keysyms_per_keycode))
+        .ok_or(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::ExpectedKeysymCountOverflow {
+                keycode_count,
+                keysyms_per_keycode,
+            },
+        )
+}
+
+fn native_window_linux_x11_keyboard_mapping_expected_body_byte_len(
+    keycode_count: u8,
+    keysyms_per_keycode: u8,
+) -> Result<usize, NativeWindowLinuxX11KeyboardMappingReplyParseError> {
+    let keysym_count = native_window_linux_x11_keyboard_mapping_expected_keysym_count(
+        keycode_count,
+        keysyms_per_keycode,
+    )?;
+    keysym_count
+        .checked_mul(NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN)
+        .ok_or(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::ExpectedBodyByteLenOverflow {
+                keysym_count,
+                keysym_byte_len: NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN,
+            },
+        )
+}
+
+pub fn native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(
+    header: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+    keycode_count: u8,
+    body: &[u8],
+) -> Result<
+    NativeWindowLinuxX11KeyboardMappingRawKeysyms,
+    NativeWindowLinuxX11KeyboardMappingReplyParseError,
+> {
+    let body_byte_len =
+        native_window_linux_x11_keyboard_mapping_reply_body_byte_len(header.length_units())?;
+    if body.len() != body_byte_len {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::BodyByteLenMismatch {
+                actual_byte_len: body.len(),
+                expected_byte_len: body_byte_len,
+            },
+        );
+    }
+    let expected_body_byte_len = native_window_linux_x11_keyboard_mapping_expected_body_byte_len(
+        keycode_count,
+        header.keysyms_per_keycode(),
+    )?;
+    if body_byte_len != expected_body_byte_len {
+        return Err(
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::ExpectedBodyByteLenMismatch {
+                body_byte_len,
+                expected_body_byte_len,
+            },
+        );
+    }
+    let mut raw_keysyms =
+        Vec::with_capacity(expected_body_byte_len / NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN);
+    for chunk in body.chunks_exact(NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN) {
+        raw_keysyms.push(NativeWindowLinuxX11KeysymValue::new(u32::from_le_bytes([
+            chunk[0], chunk[1], chunk[2], chunk[3],
+        ])));
+    }
+    Ok(NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+        keycode_count,
+        keysyms_per_keycode: header.keysyms_per_keycode(),
+        raw_keysyms,
     })
 }
 
@@ -10660,12 +11145,13 @@ fn native_window_linux_x11_keyboard_event(
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
 ) -> Result<NativeWindowKeyboardEvent, NativeWindowLinuxX11EventSourceObservationError> {
     let raw_keycode = packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET];
-    if raw_keycode == 0 {
-        return Err(
-            NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid { raw_keycode },
-        );
-    }
-    Ok(NativeWindowKeyboardEvent { kind, raw_keycode })
+    let modifier_state = NativeWindowKeyboardModifierState::new(native_window_linux_x11_u16_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET,
+    ));
+    NativeWindowKeyboardEvent::new_with_modifier_state(kind, raw_keycode, modifier_state).map_err(
+        |_| NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid { raw_keycode },
+    )
 }
 
 fn native_window_linux_x11_event_packet_to_observation(
@@ -14863,15 +15349,96 @@ pub fn native_window_pointer_sample_from_raw(
     Ok(NativeWindowPointerSample::Available { x, y })
 }
 
+impl NativeWindowLinuxX11KeysymValue {
+    pub const fn new(raw_value: u32) -> Self {
+        Self { raw_value }
+    }
+
+    pub const fn raw_value(self) -> u32 {
+        self.raw_value
+    }
+
+    pub fn project_portable_key(self) -> NativeWindowLinuxX11KeysymProjection {
+        NativeWindowLinuxX11KeysymProjection::from_keysym(self)
+    }
+}
+
+impl NativeWindowPortableKey {
+    pub fn from_x11_keysym(raw_keysym: NativeWindowLinuxX11KeysymValue) -> Self {
+        let raw_value = raw_keysym.raw_value();
+        match raw_value {
+            NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL => Self::NoSymbol,
+            NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN..=NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX => {
+                Self::Ascii {
+                    byte: raw_value as u8,
+                }
+            }
+            NATIVE_WINDOW_X11_KEYSYM_RETURN => Self::Return,
+            NATIVE_WINDOW_X11_KEYSYM_ESCAPE => Self::Escape,
+            NATIVE_WINDOW_X11_KEYSYM_TAB => Self::Tab,
+            NATIVE_WINDOW_X11_KEYSYM_BACKSPACE => Self::Backspace,
+            NATIVE_WINDOW_X11_KEYSYM_DELETE => Self::Delete,
+            NATIVE_WINDOW_X11_KEYSYM_LEFT => Self::ArrowLeft,
+            NATIVE_WINDOW_X11_KEYSYM_RIGHT => Self::ArrowRight,
+            NATIVE_WINDOW_X11_KEYSYM_UP => Self::ArrowUp,
+            NATIVE_WINDOW_X11_KEYSYM_DOWN => Self::ArrowDown,
+            NATIVE_WINDOW_X11_KEYSYM_HOME => Self::Home,
+            NATIVE_WINDOW_X11_KEYSYM_END => Self::End,
+            NATIVE_WINDOW_X11_KEYSYM_PAGE_UP => Self::PageUp,
+            NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN => Self::PageDown,
+            _ => Self::Unknown {
+                raw_keysym: raw_value,
+            },
+        }
+    }
+}
+
+impl NativeWindowLinuxX11KeysymProjection {
+    pub fn from_keysym(raw_keysym: NativeWindowLinuxX11KeysymValue) -> Self {
+        let portable_key = NativeWindowPortableKey::from_x11_keysym(raw_keysym);
+        Self {
+            raw_keysym,
+            portable_key,
+        }
+    }
+
+    pub fn raw_keysym(self) -> NativeWindowLinuxX11KeysymValue {
+        self.raw_keysym
+    }
+
+    pub fn portable_key(self) -> NativeWindowPortableKey {
+        self.portable_key
+    }
+}
+
 impl NativeWindowKeyboardEvent {
     pub fn new(
         kind: NativeWindowKeyboardEventKind,
         raw_keycode: u8,
     ) -> Result<Self, NativeWindowEventPumpError> {
+        Self::new_with_modifier_state(
+            kind,
+            raw_keycode,
+            NativeWindowKeyboardModifierState::empty(),
+        )
+    }
+
+    pub fn new_with_modifier_state(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+        modifier_state: NativeWindowKeyboardModifierState,
+    ) -> Result<Self, NativeWindowEventPumpError> {
         if raw_keycode == 0 {
             return Err(NativeWindowEventPumpError::InvalidKeyboardKeycode { raw_keycode });
         }
-        Ok(Self { kind, raw_keycode })
+        let portable_modifiers =
+            NativeWindowPortableKeyboardModifiers::from_x11_core_state(modifier_state);
+        Ok(Self {
+            kind,
+            raw_keycode,
+            modifier_state,
+            portable_modifiers,
+        })
     }
 
     pub fn kind(self) -> NativeWindowKeyboardEventKind {
@@ -14880,6 +15447,65 @@ impl NativeWindowKeyboardEvent {
 
     pub fn raw_keycode(self) -> u8 {
         self.raw_keycode
+    }
+
+    pub fn modifier_state(self) -> NativeWindowKeyboardModifierState {
+        self.modifier_state
+    }
+
+    pub fn portable_modifiers(self) -> NativeWindowPortableKeyboardModifiers {
+        self.portable_modifiers
+    }
+}
+
+impl NativeWindowKeyboardModifierState {
+    pub const fn empty() -> Self {
+        Self { raw_state: 0 }
+    }
+
+    pub const fn new(raw_state: u16) -> Self {
+        Self { raw_state }
+    }
+
+    pub fn raw_state(self) -> u16 {
+        self.raw_state
+    }
+}
+
+impl NativeWindowPortableKeyboardModifiers {
+    pub const fn empty() -> Self {
+        Self {
+            shift: false,
+            control: false,
+            alt: false,
+            meta: false,
+        }
+    }
+
+    pub fn from_x11_core_state(state: NativeWindowKeyboardModifierState) -> Self {
+        let raw_state = state.raw_state();
+        Self {
+            shift: raw_state & NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK != 0,
+            control: raw_state & NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK != 0,
+            alt: raw_state & NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK != 0,
+            meta: raw_state & NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK != 0,
+        }
+    }
+
+    pub fn shift(self) -> bool {
+        self.shift
+    }
+
+    pub fn control(self) -> bool {
+        self.control
+    }
+
+    pub fn alt(self) -> bool {
+        self.alt
+    }
+
+    pub fn meta(self) -> bool {
+        self.meta
     }
 }
 
@@ -20816,6 +21442,29 @@ mod tests {
         packet
     }
 
+    fn scripted_wayland_message(
+        byte_order: NativeWindowLinuxWaylandByteOrder,
+        object_id: u32,
+        opcode: u16,
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    ) -> Vec<u8> {
+        let header_word = (u32::from(message_byte_len) << 16) | u32::from(opcode);
+        let mut packet = Vec::with_capacity(packet_byte_len.max(8));
+        match byte_order {
+            NativeWindowLinuxWaylandByteOrder::LittleEndian => {
+                packet.extend_from_slice(&object_id.to_le_bytes());
+                packet.extend_from_slice(&header_word.to_le_bytes());
+            }
+            NativeWindowLinuxWaylandByteOrder::BigEndian => {
+                packet.extend_from_slice(&object_id.to_be_bytes());
+                packet.extend_from_slice(&header_word.to_be_bytes());
+            }
+        }
+        packet.resize(packet_byte_len, 0);
+        packet
+    }
+
     fn scripted_x11_motion_notify_event(x: i16, y: i16) -> Vec<u8> {
         let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
         packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY;
@@ -20827,6 +21476,7 @@ mod tests {
     fn scripted_x11_key_event(
         kind: NativeWindowKeyboardEventKind,
         raw_keycode: u8,
+        raw_modifier_state: u16,
         send_event: bool,
     ) -> Vec<u8> {
         let event_type = match kind {
@@ -20842,6 +21492,9 @@ mod tests {
             event_type
         };
         packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET] = raw_keycode;
+        packet[NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET + 2]
+            .copy_from_slice(&raw_modifier_state.to_le_bytes());
         packet
     }
 
@@ -20932,6 +21585,23 @@ mod tests {
         packet[NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET
             ..NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET + 4]
             .copy_from_slice(&atom_id.to_le_bytes());
+        packet
+    }
+
+    fn scripted_x11_keyboard_mapping_reply_packet(
+        sequence: u16,
+        keysyms_per_keycode: u8,
+        length_units: u32,
+    ) -> [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] {
+        let mut packet = [0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET] = keysyms_per_keycode;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET + 2]
+            .copy_from_slice(&sequence.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET + 4]
+            .copy_from_slice(&length_units.to_le_bytes());
         packet
     }
 
@@ -23513,6 +24183,116 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_get_keyboard_mapping_request_encodes_owner_bytes() {
+        let request = native_window_linux_x11_get_keyboard_mapping_request(8, 3).unwrap();
+
+        assert_eq!(request.first_keycode(), 8);
+        assert_eq!(request.keycode_count(), 3);
+        assert_eq!(
+            request.len(),
+            NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN
+        );
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE,
+                0,
+                2,
+                0,
+                8,
+                3,
+                0,
+                0,
+            ]
+        );
+
+        assert_eq!(
+            native_window_linux_x11_get_keyboard_mapping_request(0, 3).unwrap_err(),
+            NativeWindowLinuxX11GetKeyboardMappingRequestBuildError::FirstKeycodeInvalid {
+                first_keycode: 0,
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_get_keyboard_mapping_request(8, 0).unwrap_err(),
+            NativeWindowLinuxX11GetKeyboardMappingRequestBuildError::KeycodeCountInvalid {
+                keycode_count: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_mapping_reply_preserves_raw_keysyms() {
+        let packet = scripted_x11_keyboard_mapping_reply_packet(92, 2, 2);
+        let body = [0x0d, 0xff, 0x00, 0x00, 0x42, 0x30, 0x00, 0x01];
+
+        let header =
+            native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet).unwrap();
+        let raw_keysyms =
+            native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(header, 1, &body)
+                .unwrap();
+
+        assert_eq!(header.sequence(), 92);
+        assert_eq!(header.keysyms_per_keycode(), 2);
+        assert_eq!(header.length_units(), 2);
+        assert_eq!(raw_keysyms.keycode_count(), 1);
+        assert_eq!(raw_keysyms.keysyms_per_keycode(), 2);
+        assert_eq!(raw_keysyms.raw_keysym_count(), 2);
+        assert_eq!(raw_keysyms.raw_keysyms()[0].raw_value(), 0xff0d);
+        assert_eq!(raw_keysyms.raw_keysyms()[1].raw_value(), 0x0100_3042);
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_mapping_reply_rejects_shape_mismatch() {
+        let mut packet = scripted_x11_keyboard_mapping_reply_packet(92, 2, 2);
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR;
+        assert_eq!(
+            native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet).unwrap_err(),
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::InvalidResponseType {
+                response_type: NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR,
+            }
+        );
+
+        let packet = scripted_x11_keyboard_mapping_reply_packet(92, 0, 0);
+        assert_eq!(
+            native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet).unwrap_err(),
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::KeysymsPerKeycodeInvalid {
+                keysyms_per_keycode: 0,
+            }
+        );
+
+        let packet = scripted_x11_keyboard_mapping_reply_packet(92, 2, 2);
+        let header =
+            native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet).unwrap();
+        assert_eq!(
+            native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(header, 0, &[0_u8; 8])
+                .unwrap_err(),
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::KeycodeCountInvalid {
+                keycode_count: 0,
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(header, 1, &[0_u8; 4])
+                .unwrap_err(),
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::BodyByteLenMismatch {
+                actual_byte_len: 4,
+                expected_byte_len: 8,
+            }
+        );
+
+        let packet = scripted_x11_keyboard_mapping_reply_packet(92, 2, 2);
+        let header =
+            native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet).unwrap();
+        assert_eq!(
+            native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(header, 2, &[0_u8; 8])
+                .unwrap_err(),
+            NativeWindowLinuxX11KeyboardMappingReplyParseError::ExpectedBodyByteLenMismatch {
+                body_byte_len: 8,
+                expected_body_byte_len: 16,
+            }
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_wm_protocol_atom_assignment_completes_after_both_slots() {
         let wm_protocols_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap();
         let wm_delete_window_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap();
@@ -25613,17 +26393,228 @@ mod tests {
     }
 
     #[test]
-    fn native_window_linux_x11_keyboard_decode_preserves_raw_key_evidence() {
+    fn native_window_linux_wayland_message_header_decodes_explicit_byte_order() {
+        let little = native_window_linux_wayland_message_header_from_packet(
+            NativeWindowLinuxWaylandByteOrder::LittleEndian,
+            &scripted_wayland_message(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                1,
+                3,
+                12,
+                12,
+            ),
+        )
+        .unwrap();
+        assert_eq!(little.object_id(), 1);
+        assert_eq!(little.opcode(), 3);
+        assert_eq!(little.message_byte_len(), 12);
+        assert_eq!(little.payload_byte_len(), 4);
+
+        let big = native_window_linux_wayland_message_header_from_packet(
+            NativeWindowLinuxWaylandByteOrder::BigEndian,
+            &scripted_wayland_message(
+                NativeWindowLinuxWaylandByteOrder::BigEndian,
+                0x0102_0304,
+                0x0405,
+                16,
+                20,
+            ),
+        )
+        .unwrap();
+        assert_eq!(big.object_id(), 0x0102_0304);
+        assert_eq!(big.opcode(), 0x0405);
+        assert_eq!(big.message_byte_len(), 16);
+        assert_eq!(big.payload_byte_len(), 8);
+    }
+
+    #[test]
+    fn native_window_linux_wayland_message_header_rejects_invalid_shape() {
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &[1, 0, 0, 0, 0, 0, 0],
+            ),
+            Err(NativeWindowLinuxWaylandMessageHeaderError::PacketTooShort {
+                byte_count: 7,
+                required_byte_count: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+            })
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    0,
+                    1,
+                    8,
+                    8,
+                ),
+            ),
+            Err(NativeWindowLinuxWaylandMessageHeaderError::ObjectIdInvalid { object_id: 0 })
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    7,
+                    8,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeTooSmall {
+                    message_byte_len: 7,
+                    min_byte_len: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+                }
+            )
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    10,
+                    12,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeUnaligned {
+                    message_byte_len: 10,
+                    alignment: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT,
+                }
+            )
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    12,
+                    8,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeExceedsPacket {
+                    message_byte_len: 12,
+                    packet_byte_len: 8,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keysym_projection_maps_ascii_and_navigation_evidence() {
+        let cases = [
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN,
+                NativeWindowPortableKey::Ascii { byte: b' ' },
+            ),
+            (0x0061, NativeWindowPortableKey::Ascii { byte: b'a' }),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX,
+                NativeWindowPortableKey::Ascii { byte: b'~' },
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_RETURN,
+                NativeWindowPortableKey::Return,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ESCAPE,
+                NativeWindowPortableKey::Escape,
+            ),
+            (NATIVE_WINDOW_X11_KEYSYM_TAB, NativeWindowPortableKey::Tab),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_BACKSPACE,
+                NativeWindowPortableKey::Backspace,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_DELETE,
+                NativeWindowPortableKey::Delete,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_LEFT,
+                NativeWindowPortableKey::ArrowLeft,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_RIGHT,
+                NativeWindowPortableKey::ArrowRight,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_UP,
+                NativeWindowPortableKey::ArrowUp,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_DOWN,
+                NativeWindowPortableKey::ArrowDown,
+            ),
+            (NATIVE_WINDOW_X11_KEYSYM_HOME, NativeWindowPortableKey::Home),
+            (NATIVE_WINDOW_X11_KEYSYM_END, NativeWindowPortableKey::End),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_PAGE_UP,
+                NativeWindowPortableKey::PageUp,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN,
+                NativeWindowPortableKey::PageDown,
+            ),
+        ];
+
+        for (raw_value, expected_key) in cases {
+            let raw_keysym = NativeWindowLinuxX11KeysymValue::new(raw_value);
+            let projection = raw_keysym.project_portable_key();
+
+            assert_eq!(projection.raw_keysym().raw_value(), raw_value);
+            assert_eq!(projection.portable_key(), expected_key);
+            assert_eq!(
+                NativeWindowPortableKey::from_x11_keysym(raw_keysym),
+                expected_key
+            );
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_keysym_projection_preserves_nosymbol_and_unknown_raw_values() {
+        let nosymbol = NativeWindowLinuxX11KeysymValue::new(NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL)
+            .project_portable_key();
+        let ascii_delete_control =
+            NativeWindowLinuxX11KeysymValue::new(0x007f).project_portable_key();
+        let unicode_plane_raw =
+            NativeWindowLinuxX11KeysymValue::new(0x0100_3042).project_portable_key();
+
+        assert_eq!(nosymbol.raw_keysym().raw_value(), 0);
+        assert_eq!(nosymbol.portable_key(), NativeWindowPortableKey::NoSymbol);
+        assert_eq!(ascii_delete_control.raw_keysym().raw_value(), 0x007f);
+        assert_eq!(
+            ascii_delete_control.portable_key(),
+            NativeWindowPortableKey::Unknown { raw_keysym: 0x007f }
+        );
+        assert_eq!(unicode_plane_raw.raw_keysym().raw_value(), 0x0100_3042);
+        assert_eq!(
+            unicode_plane_raw.portable_key(),
+            NativeWindowPortableKey::Unknown {
+                raw_keysym: 0x0100_3042
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_decode_preserves_raw_key_and_modifier_evidence() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(640, 360),
             previous_mouse_down: true,
         };
         let press: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 38, true)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 38, 0x0005, true)
                 .try_into()
                 .unwrap();
         let release: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Released, 38, false)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Released, 38, 0x0014, false)
                 .try_into()
                 .unwrap();
 
@@ -25643,7 +26634,22 @@ mod tests {
             Some(NativeWindowKeyboardEvent {
                 kind: NativeWindowKeyboardEventKind::Pressed,
                 raw_keycode: 38,
+                modifier_state: NativeWindowKeyboardModifierState::new(0x0005),
+                portable_modifiers: NativeWindowPortableKeyboardModifiers {
+                    shift: true,
+                    control: true,
+                    alt: false,
+                    meta: false,
+                },
             })
+        );
+        assert_eq!(
+            press_observation
+                .keyboard_event()
+                .unwrap()
+                .modifier_state()
+                .raw_state(),
+            0x0005
         );
         assert_eq!(press_observation.current_size(), input.previous_size);
         assert!(press_observation.mouse_down());
@@ -25662,8 +26668,50 @@ mod tests {
             Some(NativeWindowKeyboardEvent {
                 kind: NativeWindowKeyboardEventKind::Released,
                 raw_keycode: 38,
+                modifier_state: NativeWindowKeyboardModifierState::new(0x0014),
+                portable_modifiers: NativeWindowPortableKeyboardModifiers {
+                    shift: false,
+                    control: true,
+                    alt: false,
+                    meta: false,
+                },
             })
         );
+        assert_eq!(
+            release_observation
+                .keyboard_event()
+                .unwrap()
+                .modifier_state()
+                .raw_state(),
+            0x0014
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_portable_modifiers_project_only_core_key_masks() {
+        let all_projected = NativeWindowPortableKeyboardModifiers::from_x11_core_state(
+            NativeWindowKeyboardModifierState::new(0x004d),
+        );
+        let ignored = NativeWindowKeyboardModifierState::new(0x9fb2);
+        let ignored_projection =
+            NativeWindowPortableKeyboardModifiers::from_x11_core_state(ignored);
+        let empty_event =
+            NativeWindowKeyboardEvent::new(NativeWindowKeyboardEventKind::Pressed, 38).unwrap();
+
+        assert!(all_projected.shift());
+        assert!(all_projected.control());
+        assert!(all_projected.alt());
+        assert!(all_projected.meta());
+        assert_eq!(ignored.raw_state(), 0x9fb2);
+        assert!(!ignored_projection.shift());
+        assert!(!ignored_projection.control());
+        assert!(!ignored_projection.alt());
+        assert!(!ignored_projection.meta());
+        assert_eq!(
+            empty_event.portable_modifiers(),
+            NativeWindowPortableKeyboardModifiers::empty()
+        );
+        assert_eq!(empty_event.modifier_state().raw_state(), 0);
     }
 
     #[test]
@@ -25673,7 +26721,7 @@ mod tests {
             previous_mouse_down: false,
         };
         let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
-            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 0, false)
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 0, 0x0001, false)
                 .try_into()
                 .unwrap();
 
@@ -37555,8 +38603,12 @@ mod tests {
     #[test]
     fn native_window_backend_loop_host_action_preserves_keyboard_evidence() {
         let mut unavailable_loop = native_window_backend_loop_counter();
-        let keyboard_event =
-            NativeWindowKeyboardEvent::new(NativeWindowKeyboardEventKind::Pressed, 38).unwrap();
+        let keyboard_event = NativeWindowKeyboardEvent::new_with_modifier_state(
+            NativeWindowKeyboardEventKind::Pressed,
+            38,
+            NativeWindowKeyboardModifierState::new(0x0005),
+        )
+        .unwrap();
         let unavailable_snapshot =
             build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
                 unavailable_loop.event_pump_input(),

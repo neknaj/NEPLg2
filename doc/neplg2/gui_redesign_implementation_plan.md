@@ -2957,3 +2957,192 @@ Phase F5kg では、X11 `KeyPressMask` と `KeyReleaseMask` を top-level window
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で raw keyboard evidence、zero keycode typed error、no IME / keysym / runner / fallback scope creep が承認される。
+
+## Phase F5kh: Native Linux X11 raw keyboard modifier evidence boundary
+
+Phase F5kh では、F5kg の raw keyboard event evidence に X11 core event の `state` field を追加する。`state` は X11 の key/button mask bitset であり、NEPLg2 portable modifier、layout 済み key、text input、shortcut command へは変換しない。
+
+実装:
+
+- `NativeWindowKeyboardModifierState` を追加し、raw X11 `state` を `u16` の typed evidence として保持する。
+- `NativeWindowKeyboardEvent` は `Pressed` / `Released`、raw X11 keycode、raw modifier state を持つ。
+- `NativeWindowKeyboardEvent::new` は互換用に empty modifier state を使い、X11 concrete decode は modifier-aware constructor を使う。
+- X11 `KeyPress` / `KeyRelease` decode は packet offset 28 の little-endian `u16` を raw state として読む。
+- raw keycode `0` だけを typed error にし、raw state は全 `u16` 値を valid evidence として保持する。
+- source-policy は raw state offset、modifier state wrapper、X11 decode、host action propagation、IME / keysym / portable modifier mapping 非導入を検査する。
+
+非目標:
+
+- portable modifier mapping、keysym / layout mapping、shortcut policy は含めない。
+- IME composition、text input、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback text、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `KeyPress` / `KeyRelease` が raw keycode と raw modifier state を observation / snapshot / backend outcome / host action に残す。
+- raw modifier state は X11 `state` の key/button mask raw evidence として document される。
+- raw keycode `0` rejection は維持され、raw state の値で error にならない。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で raw modifier evidence、no mapping、no fallback / no silent no-op scope creep が承認される。
+
+## Phase F5ki: Native Linux X11 portable keyboard modifier evidence boundary
+
+Phase F5ki では、F5kh の raw X11 `state` evidence から Shift / Control / Alt / Meta の portable modifier evidence だけを導出する。これは X11 core state bitset の固定 projection であり、keysym、layout 済み key、text input、IME composition、shortcut command へは変換しない。
+
+実装:
+
+- `NativeWindowPortableKeyboardModifiers` を追加し、Shift / Control / Alt / Meta を bool evidence として保持する。
+- projection は `NativeWindowKeyboardModifierState` からだけ作る。raw state と portable modifiers を別々に受け取る public constructor は作らない。
+- `NativeWindowKeyboardEvent::new_with_modifier_state` は raw state を保持したうえで portable modifier evidence を内部導出する。
+- X11 core state の `ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` だけを portable projection に使う。
+- Lock、Mod2、Mod3、Mod5、button mask、unknown high bit は portable modifier へ写さず、raw state にだけ保持する。
+- source-policy は raw state preservation、portable projection bit、constructor consistency、KeySym / IME / shortcut / runner / fallback 非導入を検査する。
+
+非目標:
+
+- keysym / layout mapping、shortcut policy は含めない。
+- IME composition、text input、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback text、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `KeyPress` / `KeyRelease` が raw modifier state と portable Shift / Control / Alt / Meta evidence の両方を host action まで残す。
+- raw modifier state は全 `u16` 値を valid evidence として引き続き保持される。
+- ignored X11 state bit が portable modifier evidence を誤って立てないことを test で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で portable modifier evidence、raw state preservation、no KeySym / IME / shortcut / fallback scope creep が承認される。
+
+## Phase F5kj: Native Linux Wayland raw message header evidence boundary
+
+Phase F5kj では、caller supplied packet bytes から Wayland raw message header だけを typed evidence として読む。Wayland wire value は connection host byte order であり、portable file format の固定 endian ではないため、parser は `NativeWindowLinuxWaylandByteOrder` を明示入力に取る。header は 8 byte で、word 1 が object id、word 2 の上位 16 bit が message size、下位 16 bit が opcode である。
+
+実装:
+
+- `NativeWindowLinuxWaylandByteOrder`、`NativeWindowLinuxWaylandMessageHeader`、`NativeWindowLinuxWaylandMessageHeaderError` を追加する。
+- parser は 8 byte 未満の packet、object id 0、size 8 未満、4 byte alignment 違反、declared size が supplied packet byte len を超えて packet 外を指す場合をそれぞれ typed error として返す。
+- parser は payload の signature、object interface、xdg-shell semantic、keyboard、IME、text input へ進まない。
+- parser は fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、event queue、fallback、silent no-op、synthetic readiness を追加しない。
+- source-policy は explicit byte order、header split、shape validation、no fd / no runner / no semantic decode を固定する。
+
+非目標:
+
+- Wayland event loop、xdg-shell semantic decode、keyboard / IME / text input decode は含めない。
+- fd read / drain / close、selector registration、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback event、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- little endian / big endian の caller supplied packet が object id、opcode、message size、payload size evidence として読める。
+- invalid shape が enum error として区別される。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_wayland_message_header -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で Wayland header evidence、explicit byte order、no event loop / no semantic decode / no fallback scope creep が承認される。
+
+## Phase F5kk: Native Linux X11 caller-supplied keysym value projection boundary
+
+Phase F5kk では、caller supplied X11 keysym value を backend-local typed evidence として保持し、ごく狭い portable key evidence へ射影する。keysym は raw X11 keycode から layout / keymap を使って取得済みであるとはみなさない。この phase は「すでに caller が持っている raw keysym integer を分類する」だけであり、X11 event packet decode や keyboard layout query へは接続しない。
+
+実装:
+
+- `NativeWindowLinuxX11KeysymValue` を追加し、caller supplied raw keysym value を `u32` evidence として保持する。
+- `NativeWindowPortableKey` を追加し、`NoSymbol`、`Unknown { raw_keysym }`、ASCII `0x20..0x7e`、Return、Escape、Tab、Backspace、Delete、arrow、Home / End、PageUp / PageDown だけを表す。
+- `NativeWindowLinuxX11KeysymProjection` を追加し、raw keysym owner と portable projection を同時に保持する。
+- projection は `NativeWindowLinuxX11KeysymValue` からだけ作る。raw value と portable key を別々に受け取る public constructor は作らない。
+- X11 `NoSymbol = 0x0000` は `Unknown` ではなく `NoSymbol` として明示する。
+- X11 named Delete は `0xffff` であり、ASCII DEL `0x007f` は portable `Delete` にしない。
+- source-policy は projection helper が event packet decode から分離されていること、NoSymbol / Unknown が明示されていること、XLookupString / Xutf8LookupString / XmbLookupString / XKB / xkbcommon / keymap / runner / queue / fallback 非導入を検査する。
+
+非目標:
+
+- X11 keycode から keysym を取得する layout / keymap query は含めない。
+- `XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon は呼ばない。
+- `native_window_linux_x11_event_packet_to_observation` へは接続しない。
+- IME composition、text input、shortcut policy、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback key、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- caller supplied raw keysym value が projection 後も失われず保持される。
+- `NoSymbol`、unknown raw value、ASCII printable range、navigation key の分類が test で固定される。
+- ASCII DEL `0x007f` を X11 named Delete と誤分類しないことを test で固定する。
+- event packet decode 関数に KeySym / keysym projection / text / shortcut / fallback policy が混入しないことを source-policy で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keysym -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で keysym value projection、raw preservation、no event decode / no keymap / no fallback scope creep が承認される。
+
+## Phase F5kl: Native Linux X11 GetKeyboardMapping request/reply owner boundary
+
+Phase F5kl では、X11 core protocol の `GetKeyboardMapping` request bytes と reply raw keysym table を typed owner として扱う。これは F5kk の caller supplied raw keysym value projection より 1 段低い protocol shape boundary であり、keycode からどの keysym を選ぶか、modifier state をどう解釈するか、text input をどう生成するかは決めない。
+
+実装:
+
+- `NativeWindowLinuxX11GetKeyboardMappingRequest` を追加し、caller supplied `first_keycode`、`keycode_count`、encoded request bytes を保持する。
+- opcode は `101`、request length `2` words / 8 byte とし、bytes は `opcode, unused, length, first-keycode, count, unused` の X11 wire order に合わせる。
+- `first_keycode == 0` と `keycode_count == 0` は typed error として拒否する。setup reply の min-keycode / max-keycode を使う範囲検査は、後続の setup-owned keymap request phase に残す。
+- `NativeWindowLinuxX11KeyboardMappingReplyHeader` を追加し、fixed 32 byte reply packet から `keysyms_per_keycode`、sequence、length units を読む。
+- `NativeWindowLinuxX11KeyboardMappingRawKeysyms` を追加し、reply body の raw `KEYSYM` list を `NativeWindowLinuxX11KeysymValue` の列として保持する。
+- reply body byte length は `length_units * 4` を checked arithmetic で求め、`keycode_count * keysyms_per_keycode * 4` と一致する場合だけ受理する。
+- raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase.
+- source-policy は request byte owner、reply header、raw keysym table、checked length/count arithmetic、event decode / reader / fd IO / runner / queue / IME / text input / shortcut / fallback 非接続を検査する。
+
+非目標:
+
+- `native_window_linux_x11_event_packet_to_observation` へは接続しない。
+- `NativeWindowLinuxX11EventSourceObservationReader` の state へは接続しない。
+- raw fd write / read、reply correlation、pending keymap state、setup min-keycode / max-keycode range validation は含めない。
+- `XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon は呼ばない。
+- raw keysyms から `NativeWindowPortableKey` へ projection しない。
+- IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback key、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `GetKeyboardMapping` request bytes が opcode `101`、request length `2` words / 8 byte、caller supplied first-keycode / count を保持する。
+- malformed reply response type、zero `keysyms_per_keycode`、zero `keycode_count`、reply body length mismatch、expected keysym body length mismatch が typed error で区別される。
+- reply body の raw keysym が `NativeWindowLinuxX11KeysymValue` として保持され、portable key projection へ進まないことを test / source-policy で固定する。
+- event packet decode、reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate `Ok` 化には接続しないことを source-policy で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_get_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で GetKeyboardMapping owner、raw keysym preservation、no event decode / no keymap / no fallback scope creep が承認される。

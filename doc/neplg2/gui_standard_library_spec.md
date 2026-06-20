@@ -1377,6 +1377,52 @@ keyboard evidence は `NativeWindowLinuxWindowEventSourceObservation`、`NativeW
 
 F5kg は raw keyboard event evidence boundary だけを担当する。IME composition、text input、keysym / layout / modifier mapping、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
 
+## F5kh Native Linux X11 raw keyboard modifier evidence boundary
+
+F5kh は F5kg の keyboard evidence に X11 core event の raw `state` field を追加する boundary である。`NativeWindowKeyboardModifierState` は X11 `state` を `u16` の raw evidence として保持する。この値は X11 の key/button mask bitset であり、portable `Modifiers`、layout 済み key、shortcut、IME text ではない。
+
+X11 `KeyPress` / `KeyRelease` decode は event packet offset 28 から little-endian `u16` を読み、`NativeWindowKeyboardEvent` に raw keycode と raw modifier state を同時に保持する。`NativeWindowKeyboardEvent::new` は existing compatibility path として empty modifier state を使い、X11 concrete decode は modifier-aware constructor を使う。raw keycode `0` は引き続き typed observation error である。raw modifier state は全 `u16` 値を valid evidence として扱い、その値によって error にしない。
+
+F5kh は raw modifier evidence boundary だけを担当する。portable modifier mapping、keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
+
+## F5ki Native Linux X11 portable keyboard modifier evidence boundary
+
+F5ki は F5kh の raw X11 `state` evidence から、Shift / Control / Alt / Meta の portable modifier evidence だけを導出する boundary である。raw `state` は引き続き `NativeWindowKeyboardModifierState` に保持し、portable projection は `NativeWindowPortableKeyboardModifiers` として別に保持する。
+
+projection は `NativeWindowKeyboardModifierState` からだけ作る。`NativeWindowKeyboardEvent` は raw modifier state と portable modifier evidence を別々に public input として受け取ってはならない。`NativeWindowKeyboardEvent::new_with_modifier_state` が raw state を保持し、同じ raw state から portable projection を内部導出する。
+
+X11 core state のうち、`ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` だけを portable projection に使う。`Mod1` は Alt、`Mod4` は Meta として扱う。Lock、Mod2、Mod3、Mod5、button mask、unknown high bit は portable modifier を立てず、raw state にだけ残る。
+
+F5ki は modifier evidence projection boundary だけを担当する。keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
+
+## F5kj Native Linux Wayland raw message header evidence boundary
+
+F5kj は Wayland raw message header を backend-local typed evidence として読む boundary である。Wayland message header は 8 byte で、word 1 が object id、word 2 の上位 16 bit が message size、下位 16 bit が opcode である。Wayland wire value は connection host byte order なので、parser は caller supplied `NativeWindowLinuxWaylandByteOrder` を受け取り、暗黙 endian や portable file format 固定 endian として扱わない。
+
+parser は supplied packet bytes だけを読み、object id、opcode、message size、payload byte len を返す。packet が 8 byte 未満、object id が 0、size が header 未満、4 byte alignment 違反、packet byte len 超過の場合は `Result` error として区別する。payload signature、object interface table、xdg-shell semantic、keyboard、IME、text input はこの boundary では解釈しない。
+
+F5kj は Wayland header evidence boundary だけを担当する。Wayland event loop、xdg-shell semantic decode、fd read / drain / close、selector registration、Linux runner / CLI dispatch、support gate `Ok` 化、fallback event、silent no-op、synthetic readiness は扱わない。
+
+## F5kk Native Linux X11 caller-supplied keysym value projection boundary
+
+F5kk は caller supplied X11 keysym value を backend-local typed evidence として保持し、ごく狭い portable key evidence へ射影する boundary である。ここで扱う keysym は「caller がすでに得た raw integer」であり、raw X11 keycode から layout / keymap を使って取得する処理はこの boundary の外に置く。
+
+`NativeWindowLinuxX11KeysymValue` は raw `u32` keysym value を保持する。projection は `NativeWindowLinuxX11KeysymValue` からだけ作り、raw value と portable key を別々に受け取る public constructor は持たない。`NativeWindowLinuxX11KeysymProjection` は raw keysym owner と portable projection を同時に保持し、unknown value でも raw value を捨てない。
+
+portable projection は `NoSymbol`、`Unknown { raw_keysym }`、ASCII `0x20..0x7e`、Return、Escape、Tab、Backspace、Delete、arrow、Home / End、PageUp / PageDown だけを表す。X11 `NoSymbol = 0x0000` は `Unknown` ではなく `NoSymbol` として明示する。X11 named Delete は `0xffff` であり、ASCII DEL `0x007f` は portable `Delete` へ写さない。
+
+F5kk は keysym value projection boundary だけを担当する。`native_window_linux_x11_event_packet_to_observation` への接続、X11 keycode から keysym を得る layout / keymap query、`XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon、IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
+
+## F5kl Native Linux X11 GetKeyboardMapping request/reply owner boundary
+
+F5kl は、X11 core protocol の `GetKeyboardMapping` request と reply raw keysym table を typed owner として扱う boundary である。request は opcode `101`、request length `2` words / 8 byte を固定し、caller supplied `first_keycode` と `keycode_count` を wire bytes へ encode する。`first_keycode == 0` と `keycode_count == 0` は typed error として拒否する。setup reply の min-keycode / max-keycode を使った範囲検査は、setup-owned keymap request phase の責務であり、この boundary では行わない。
+
+reply は fixed 32 byte header から `keysyms_per_keycode`、sequence、length units を取り出し、body は `length_units * 4` byte として checked arithmetic で検査する。さらに caller supplied `keycode_count * keysyms_per_keycode * 4` と body byte length が一致することを要求し、一致しなければ typed error で fail closed にする。body の各 4 byte item は raw `KEYSYM` として little-endian で読み、`NativeWindowLinuxX11KeysymValue` に包んで保持する。
+
+raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase. この boundary は keycode からどの keysym を選ぶか、modifier state と group / level をどう解釈するか、IME / text input をどう生成するか、shortcut policy をどう扱うかは決めない。
+
+F5kl は `GetKeyboardMapping` request/reply owner と raw keysym table validation だけを担当する。`native_window_linux_x11_event_packet_to_observation`、`NativeWindowLinuxX11EventSourceObservationReader` の state、raw fd write / read、reply correlation、pending keymap state、runner、queue、IME / text input、shortcut policy、Wayland concrete keyboard decoding、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness へは接続しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
