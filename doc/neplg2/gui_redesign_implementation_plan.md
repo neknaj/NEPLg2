@@ -2766,6 +2766,40 @@ Phase F5kb では、F5ka で request boundary ごとに進めていた `InternAt
 - `git diff --check`
 - subagent implementation review で sequence retention、reply packet retention、matched reply parse/correlation、no meaning assignment / no ChangeProperty / no ClientMessage / no fallback が承認される。
 
+## Phase F5kc: Native Linux X11 WM protocol Atom meaning assignment boundary
+
+Phase F5kc では、F5kb で相関済みになった `InternAtom` reply を、`WM_PROTOCOLS` property Atom と `WM_DELETE_WINDOW` protocol Atom の semantic slot に割り当てる。これは actual WM registration ではなく、後続の `ChangeProperty` phase が「どの Atom ID が何を意味するか」を typed owner から受け取れるようにする境界である。
+
+実装:
+
+- `NativeWindowLinuxX11WmProtocolAtomMeaning` を追加し、相関種別と semantic slot を分けて表す。
+- `NativeWindowLinuxX11WmProtocolAtomAssignmentState` は `WM_PROTOCOLS` Atom ID と `WM_DELETE_WINDOW` Atom ID を `Option` として保持する。
+- `NativeWindowLinuxX11WmProtocolAtoms` は両方の Atom ID が揃った時だけ作れる completed owner とする。
+- correlated `InternAtom` reply の parse が成功した場合だけ、reader は assignment state を更新する。
+- duplicate assignment は typed error とし、既存 slot を上書きしない。
+- `WmProtocolAtomInternReplyReceived` は parsed reply と completed owner の `Option` を持ち、1 つ目の reply と 2 つ目の reply を明示的に区別する。
+
+非目標:
+
+- `ChangeProperty` による actual `WM_PROTOCOLS` property mutation は含めない。
+- `WM_DELETE_WINDOW` `ClientMessage` decode は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化、keyboard / IME、Wayland concrete decoding は含めない。
+- Atom ID の fallback、default Atom ID、synthetic readiness、silent no-op は行わない。
+
+完了条件:
+
+- assignment state は correlated reply だけを semantic slot へ割り当てる。
+- parse failure と unmatched reply は assignment state を変えない。
+- duplicate assignment は typed error として fail closed し、既存 Atom ID を保持する。
+- 2 つの Atom ID が揃った時だけ completed owner が返る。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_assignment -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_reply -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で typed assignment state、completed owner、duplicate fail-closed、no ChangeProperty / no ClientMessage / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
