@@ -1255,6 +1255,14 @@ F5ju では、F5jp/F5js が reader に保持する top-level `CreateWindow` / `M
 
 F5ju は server error correlation boundary だけを担当する。server reply body drain / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5jv Native Linux X11 server reply body drain boundary
+
+F5jv では、F5jt が decode した `NativeWindowLinuxX11ServerReplyHeader` の `length_units` を使い、header に続く reply body を reader が drain してから `ServerReplyReceived` を返す。X11 reply body length は 4 byte 単位なので、byte length は `length_units * 4` として checked arithmetic で求める。overflow や `usize` conversion failure は `ServerReplyBodyLengthOverflow` として fail closed にする。
+
+reader は pending reply header と remaining body byte count を owner state として持つ。reply body read が would-block した場合は `ServerReplyBodyReadWouldBlock` を返し、pending header と remaining byte count を保持する。次回 poll は新しい 32 byte event packet を読まず、pending body drain から再開する。read failure、EOF、overflow も header と remaining byte count を含む typed error として返し、partial state を silent clear しない。
+
+F5jv は generic unexpected reply の stream synchronization boundary であり、reply body payload を public API として保持・parse しない。将来 InternAtom / GetProperty などの request-specific reply を扱う phase では、この drain contract を保ったまま request-specific reply body owner / parser へ接続する。F5jv は request / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
