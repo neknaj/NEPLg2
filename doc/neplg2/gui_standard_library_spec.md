@@ -1013,6 +1013,18 @@ host handoff helper は visual `host`、prepared run-loop config、`backend_api`
 
 F5iv でも Linux generic support gate は `Ok` にならない。runner dispatch、CLI dispatch、minifb wait replacement、fd read / drain / close、synthetic readiness、timer evidence、event decoding は後続に残す。
 
+## F5iw Native Linux window event source provider-owned event pump boundary
+
+F5iw では、F5iv で保持した provider owner を abstract event pump provider として扱い、`NativeWindowEventPumpInput` から `NativeWindowEventPumpSnapshot` を返す境界を追加する。これは X11 / Wayland binding ではなく、window event source fd readiness の後でどの owner が event snapshot authority を持つかを型で固定する checkpoint である。
+
+event pump provider は descriptor と input を受け、typed `Result` で snapshot または provider-local error を返す。fd read / drain / close、X11 / Wayland concrete parsing、minifb event pump fallback、silent no-op は provider trait の標準 contract には含めない。
+
+provider-owned event pump host wrapper は F5iv host wrapper を consume し、provider owner、descriptor、lower host を同時に保持する。`poll_event_snapshot` は provider に委譲し、`set_window_title`、`pump_events_only`、`present_frame`、`wait_after_budget_exhausted` は lower host に委譲する。lower host event pump と provider event pump を同時 authority にせず、host-only / provider-only escape path も作らない。
+
+provider poll failure は wrapper error enum に写す。`poll_event_snapshot &mut self` は provider owner を value として返せないため、error は descriptor と provider-local error を持ち、wrapper 自体は lower host と provider owner を保持し続ける。conversion helper は F5iv host wrapper を consume する infallible helper とし、ここで曖昧な fallible owner recovery stage は作らない。
+
+F5iw でも Linux support gate は `Ok` にならない。runner dispatch、CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland sys API、minifb wait replacement、fd read / drain / close、synthetic readiness、timer evidence は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

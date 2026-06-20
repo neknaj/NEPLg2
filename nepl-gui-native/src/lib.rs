@@ -1337,6 +1337,42 @@ pub enum NativeWindowLinuxWindowEventSourceRunLoopHostFromPreparedConfigError<
     },
 }
 
+pub trait NativeWindowLinuxWindowEventSourceEventPumpProvider {
+    type Error;
+
+    fn poll_window_event_source_snapshot(
+        &mut self,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::Error>;
+}
+
+pub struct NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost<
+    Host,
+    BackendApi,
+    ProducerApi,
+    Provider,
+> where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    host: NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    >,
+    descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    provider: Provider,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError<ProviderError> {
+    ProviderPollFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        error: ProviderError,
+    },
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
     Config(NativeWindowRunLoopPlatformWaitBackendConfigError),
@@ -6194,6 +6230,150 @@ where
             },
         ),
     }
+}
+
+impl<Host, BackendApi, ProducerApi, Provider>
+    NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost<Host, BackendApi, ProducerApi, Provider>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    fn new(
+        host: NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+            Host,
+            BackendApi,
+            ProducerApi,
+        >,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        provider: Provider,
+    ) -> Self {
+        Self {
+            host,
+            descriptor,
+            provider,
+        }
+    }
+
+    pub fn host(
+        &self,
+    ) -> &NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    > {
+        &self.host
+    }
+
+    pub fn host_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    > {
+        &mut self.host
+    }
+
+    pub fn descriptor(&self) -> NativeWindowLinuxWindowEventSourceDescriptor {
+        self.descriptor
+    }
+
+    pub fn provider(&self) -> &Provider {
+        &self.provider
+    }
+
+    pub fn provider_mut(&mut self) -> &mut Provider {
+        &mut self.provider
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+            Host,
+            BackendApi,
+            ProducerApi,
+        >,
+        NativeWindowLinuxWindowEventSourceDescriptor,
+        Provider,
+    ) {
+        (self.host, self.descriptor, self.provider)
+    }
+}
+
+impl<Host, BackendApi, ProducerApi, Provider> NativeWindowRunLoopHost
+    for NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+        Provider,
+    >
+where
+    Host: NativeWindowRunLoopHost,
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+    Provider: NativeWindowLinuxWindowEventSourceEventPumpProvider,
+{
+    type EventError = NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError<Provider::Error>;
+    type PresentError = <NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    > as NativeWindowRunLoopHost>::PresentError;
+    type WaitError = <NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    > as NativeWindowRunLoopHost>::WaitError;
+
+    fn poll_event_snapshot(
+        &mut self,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::EventError> {
+        self.provider
+            .poll_window_event_source_snapshot(self.descriptor, input)
+            .map_err(|error| {
+                NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError::ProviderPollFailed {
+                    descriptor: self.descriptor,
+                    error,
+                }
+            })
+    }
+
+    fn set_window_title(&mut self, title: &str) {
+        self.host.set_window_title(title);
+    }
+
+    fn pump_events_only(&mut self) {
+        self.host.pump_events_only();
+    }
+
+    fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError> {
+        self.host.present_frame(frame)
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        instruction: NativeWindowHostLoopWaitInstruction,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        self.host.wait_after_budget_exhausted(instruction)
+    }
+}
+
+pub fn native_window_linux_window_event_source_enable_provider_event_pump<
+    Host,
+    BackendApi,
+    ProducerApi,
+    Provider,
+>(
+    host: NativeWindowLinuxWindowEventSourceRunLoopHost<Host, BackendApi, ProducerApi, Provider>,
+) -> NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost<Host, BackendApi, ProducerApi, Provider>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    let (host, descriptor, provider) = host.into_parts();
+    NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost::new(host, descriptor, provider)
 }
 
 impl<Api> NativeWindowHostLoopDeadlineTimerClock
@@ -13563,10 +13743,14 @@ mod tests {
         );
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     struct ScriptedNativeWindowLinuxWindowEventSourceProvider {
         result: Result<NativeWindowLinuxWindowEventSourceDescriptor, &'static str>,
         call_count: u32,
+        event_snapshots: Vec<Result<NativeWindowEventPumpSnapshot, &'static str>>,
+        event_cursor: usize,
+        event_descriptors: Vec<NativeWindowLinuxWindowEventSourceDescriptor>,
+        event_inputs: Vec<NativeWindowEventPumpInput>,
     }
 
     impl ScriptedNativeWindowLinuxWindowEventSourceProvider {
@@ -13577,6 +13761,10 @@ mod tests {
                     raw_fd,
                 )),
                 call_count: 0,
+                event_snapshots: Vec::new(),
+                event_cursor: 0,
+                event_descriptors: Vec::new(),
+                event_inputs: Vec::new(),
             }
         }
 
@@ -13584,7 +13772,19 @@ mod tests {
             Self {
                 result: Err(error),
                 call_count: 0,
+                event_snapshots: Vec::new(),
+                event_cursor: 0,
+                event_descriptors: Vec::new(),
+                event_inputs: Vec::new(),
             }
+        }
+
+        fn with_event_snapshots(
+            mut self,
+            event_snapshots: Vec<Result<NativeWindowEventPumpSnapshot, &'static str>>,
+        ) -> Self {
+            self.event_snapshots = event_snapshots;
+            self
         }
     }
 
@@ -13598,6 +13798,26 @@ mod tests {
         ) -> Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error> {
             self.call_count += 1;
             self.result
+        }
+    }
+
+    impl NativeWindowLinuxWindowEventSourceEventPumpProvider
+        for ScriptedNativeWindowLinuxWindowEventSourceProvider
+    {
+        type Error = &'static str;
+
+        fn poll_window_event_source_snapshot(
+            &mut self,
+            descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+            input: NativeWindowEventPumpInput,
+        ) -> Result<NativeWindowEventPumpSnapshot, Self::Error> {
+            self.event_descriptors.push(descriptor);
+            self.event_inputs.push(input);
+            let Some(result) = self.event_snapshots.get(self.event_cursor).copied() else {
+                return Err("event source script exhausted");
+            };
+            self.event_cursor += 1;
+            result
         }
     }
 
@@ -14012,6 +14232,214 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_event_pump_uses_provider_without_lower_poll_fallback(
+    ) {
+        let previous_size = NativeWindowSize::new(640, 360);
+        let next_size = NativeWindowSize::new(800, 450);
+        let input = NativeWindowEventPumpInput {
+            previous_size,
+            previous_mouse_down: false,
+        };
+        let snapshot = native_window_backend_loop_snapshot(
+            &native_window_backend_loop_counter(),
+            NativeWindowEventPumpCloseState::Open,
+            next_size,
+            true,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            106,
+        )
+        .with_event_snapshots(vec![Ok(snapshot)]);
+        let prepared_platform =
+            native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+                selection, provider,
+            )
+            .unwrap();
+        let prepared_run_loop = native_window_linux_window_event_source_prepare_run_loop_config(
+            prepared_platform,
+            GuiDemo::Counter,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+        );
+        let lower_host = native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis(
+            ScriptedNativeWindowRunLoopHost::new(vec![Err("lower event poll fallback used")]),
+            prepared_run_loop,
+            ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(107, 108),
+            ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(116),
+        )
+        .unwrap();
+        let mut host =
+            native_window_linux_window_event_source_enable_provider_event_pump(lower_host);
+
+        assert_eq!(host.poll_event_snapshot(input).unwrap(), snapshot);
+        assert_eq!(
+            host.provider().event_descriptors,
+            vec![NativeWindowLinuxWindowEventSourceDescriptor::new(
+                NativeWindowLinuxWindowEventSourceKind::X11Connection,
+                106
+            )]
+        );
+        assert_eq!(host.provider().event_inputs, vec![input]);
+        assert_eq!(host.provider().event_cursor, 1);
+        assert_eq!(host.host().host().cursor, 0);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_event_pump_failure_keeps_provider_owner() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: true,
+        };
+        let lower_snapshot = native_window_backend_loop_snapshot(
+            &native_window_backend_loop_counter(),
+            NativeWindowEventPumpCloseState::Open,
+            NativeWindowSize::new(320, 240),
+            false,
+            NativeWindowPointerSample::Unavailable,
+        );
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::WaylandDisplay,
+            117,
+        )
+        .with_event_snapshots(vec![Err("decode failed")]);
+        let prepared_platform =
+            native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+                selection, provider,
+            )
+            .unwrap();
+        let prepared_run_loop = native_window_linux_window_event_source_prepare_run_loop_config(
+            prepared_platform,
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+        );
+        let lower_host = native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis(
+            ScriptedNativeWindowRunLoopHost::new(vec![Ok(lower_snapshot)]),
+            prepared_run_loop,
+            ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(118, 119),
+            ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(127),
+        )
+        .unwrap();
+        let mut host =
+            native_window_linux_window_event_source_enable_provider_event_pump(lower_host);
+
+        assert_eq!(
+            host.poll_event_snapshot(input).unwrap_err(),
+            NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError::ProviderPollFailed {
+                descriptor: NativeWindowLinuxWindowEventSourceDescriptor::new(
+                    NativeWindowLinuxWindowEventSourceKind::WaylandDisplay,
+                    117,
+                ),
+                error: "decode failed",
+            }
+        );
+        assert_eq!(host.provider().event_cursor, 1);
+        assert_eq!(host.provider().event_inputs, vec![input]);
+        assert_eq!(host.host().host().cursor, 0);
+
+        let (_lower_host, descriptor, provider) = host.into_parts();
+        assert_eq!(descriptor.raw_fd(), 117);
+        assert_eq!(provider.call_count, 1);
+        assert_eq!(provider.event_cursor, 1);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_event_pump_delegates_visual_and_wait_to_lower_host()
+    {
+        let window_size = NativeWindowSize::new(480, 270);
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let wait_nanos = frame_interval.nanos_per_frame();
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 52,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::ToolkitExternal,
+            128,
+        );
+        let prepared_platform =
+            native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+                selection, provider,
+            )
+            .unwrap();
+        let prepared_run_loop = native_window_linux_window_event_source_prepare_run_loop_config(
+            prepared_platform,
+            GuiDemo::Mandelbrot,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+        );
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(129, 130)
+            .with_timer_host_window_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_WINDOW_EVENT_SOURCE_READY,
+            ]);
+        let lower_host = native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis(
+            ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+            prepared_run_loop,
+            backend_api,
+            ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(138),
+        )
+        .unwrap();
+        let mut host =
+            native_window_linux_window_event_source_enable_provider_event_pump(lower_host);
+        let pixels = [0x00010203_u32];
+        let frame = native_presenter_frame_from_rgb0_parts(1, 1, &pixels).unwrap();
+
+        host.set_window_title("provider event pump");
+        host.pump_events_only();
+        host.present_frame(frame).unwrap();
+        assert_eq!(
+            host.wait_after_budget_exhausted(
+                NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                    presentation,
+                    window_size,
+                    frame_interval,
+                    wait_nanos,
+                    size_changed: false,
+                },
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: false,
+            }
+        );
+        assert_eq!(
+            host.host().host().titles,
+            vec!["provider event pump".to_string()]
+        );
+        assert_eq!(host.host().host().pump_count, 1);
+        assert_eq!(host.host().host().present_frames, vec![(1, 1)]);
+        assert_eq!(host.provider().event_cursor, 0);
     }
 
     #[test]

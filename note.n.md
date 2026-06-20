@@ -74034,3 +74034,54 @@ MERGE_APPROVED
 - 指摘対応として、この欄を実際の review 結果へ更新した。
 - final re-review は `REVIEW_APPROVED`。note-only blocker は解消され、code / source-policy / docs に新しい blocker は無く、`git diff --check` は LF/CRLF 警告のみであることが確認された。
 - post-merge source-policy fix review も `REVIEW_APPROVED`。`readRepoFile` で CRLF を LF に正規化する修正は、F5iv marker を弱める one-off workaround ではなく、source policy input boundary 全体の line-ending 依存を解消する root-cause fix と確認された。
+
+## 2026-06-20 Agent2 GUI native F5iw Linux window event source provider-owned event pump boundary
+
+### scope
+
+- F5iw は、F5iv で保持した provider owner を `NativeWindowEventPumpSnapshot` の供給境界へ接続する checkpoint とする。
+- window event source fd readiness は selector / wait layer の wake evidence に留め、event snapshot authority は provider owner 側に置く。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceEventPumpProvider` trait を追加し、descriptor と `NativeWindowEventPumpInput` から `Result NativeWindowEventPumpSnapshot ProviderError` を返す contract を作る。
+- `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost Host BackendApi ProducerApi Provider` を追加し、F5iv host wrapper と provider owner を同時に保持したまま `poll_event_snapshot` だけを provider authority にする。
+- title、pump-only、present、wait は lower F5iv host へ委譲し、lower host event pump と provider event pump を同時 authority にしない。
+- provider poll failure は descriptor と provider-local error を持つ wrapper error に写し、failure 後も wrapper が lower host と provider owner を保持し続ける。
+- F5iv host wrapper から provider-owned event pump wrapper への conversion は infallible helper とし、曖昧な failure recovery stage は作らない。
+- provider-owned event pump wrapper は host-only / provider-only escape path を作らず、borrowed accessor と owner を同時に返す `into_parts` だけを許す。
+- source policy は `poll_event_snapshot` が provider を呼び lower host event pump fallback を呼ばないこと、title / pump-only / present / wait が lower host へ委譲されること、support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、actual X11 / Wayland API、synthetic readiness、timer fired evidence を禁止する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は 3 点だった。provider poll failure は provider owner を value として返せないため wrapper error と owner retention を明文化すること、source policy で provider-only poll と lower host delegation を固定すること、conversion helper を fallible にするのか infallible にするのか明確化することだった。
+- 指摘対応として、provider poll failure は `ProviderPollFailed { descriptor, error }` 形の wrapper error とし、failure 後も wrapper が lower host + provider owner を保持する contract にした。conversion helper は F5iv host wrapper を consume する infallible helper とし、source policy では provider poll / lower delegation split を固定する方針へ修正した。
+- revised plan review は `PLAN_APPROVED`。実装 constraints は、`poll_event_snapshot` が provider を descriptor + input で呼び lower host event pump fallback を呼ばないこと、provider poll failure は `ProviderPollFailed { descriptor, error }` として返し wrapper が lower host + provider owner を保持し続けること、title / pump-only / present / wait は lower F5iv host へ委譲すること、host-only / provider-only escape path を作らないこと、support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、concrete X11 / Wayland API、synthetic readiness、timer evidence を導入しないことだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceEventPumpProvider` trait を追加し、descriptor と `NativeWindowEventPumpInput` から snapshot または provider-local error を返す provider authority を定義した。
+- `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` を追加し、F5iv host wrapper から lower host、descriptor、provider owner を infallible に移して保持するようにした。
+- `poll_event_snapshot` は provider を呼び、provider failure は `ProviderPollFailed { descriptor, error }` に写す。failure 後も wrapper は lower host と provider owner を保持し続ける。
+- `set_window_title`、`pump_events_only`、`present_frame`、`wait_after_budget_exhausted` は lower F5iv host へ委譲する。lower host event pump fallback、support gate `Ok` 化、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API は導入していない。
+- Rust tests と source policy で provider-only poll、provider failure owner retention、lower host delegation、infallible conversion、禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_event_pump_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing dead_code warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、`note.n.md` のこの欄が pending のままで commit readiness が記録されていないことだけが指摘された。
+- 指摘対応として、この欄を実際の review 結果へ更新した。provider-owned poll authority、lower host poll fallback 禁止、provider failure 後の owner retention、title / pump / present / wait delegation、source policy 固定は review で blocker なしと確認された。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。note readiness blocker は解消され、tracked diff は F5iw の想定 7 ファイルのみで追加 blocker は無いことが確認された。

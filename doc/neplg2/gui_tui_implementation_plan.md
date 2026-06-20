@@ -1680,6 +1680,35 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、provider event drain / read、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5iw: Native Linux window event source provider-owned event pump boundary
+
+目的:
+
+- F5iv で保持した provider owner を、actual X11 / Wayland binding ではなく抽象 event pump provider として `NativeWindowEventPumpSnapshot` 供給境界へ接続する。
+- fd readiness は selector / wait 層の wake evidence に留め、window event の drain / decode authority は provider owner 側に置く。
+- support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、X11 / Wayland concrete parsing を導入せず、provider-owned event pump contract だけを型で固定する。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourceEventPumpProvider` trait を追加し、descriptor と `NativeWindowEventPumpInput` から `NativeWindowEventPumpSnapshot` を返す。error は provider-local enum / error type とし、string fallback や silent no-op にしない。
+- `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost Host BackendApi ProducerApi Provider` を追加し、F5iv host wrapper、descriptor、provider owner を保持したまま event pump provider を `NativeWindowRunLoopHost::poll_event_snapshot` に接続する。
+- event pump wrapper は `set_window_title`、`pump_events_only`、`present_frame`、`wait_after_budget_exhausted` を lower host へ委譲する。`poll_event_snapshot` だけ provider owner を使い、lower host event pump と provider event pump を同時 authority にしない。
+- provider poll failure は `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError::ProviderPollFailed { descriptor, error }` のような wrapper error に写す。`poll_event_snapshot &mut self` は provider owner を value として返せないため、failure 後も wrapper が lower host と provider owner を保持し続け、error は descriptor と provider-local error だけを持つ。
+- conversion helper は F5iv host wrapper を consume する infallible helper とする。validation や backend construction は F5iv までに済んでいるため、ここで fallible owner recovery contract は作らない。
+- event pump wrapper は host-only / provider-only escape path を作らず、borrowed accessor と owner を同時に返す `into_parts` だけを許す。
+- source policy で F5iw wrapper の `poll_event_snapshot` が provider を呼び、`self.host.poll_event_snapshot` を呼ばないこと、`set_window_title` / `pump_events_only` / `present_frame` / `wait_after_budget_exhausted` が lower host に委譲されることを固定する。あわせて support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、actual X11 / Wayland API、synthetic readiness、timer-fired evidence を禁止する。
+
+検証:
+
+- Rust unit tests で provider event pump が descriptor と input を受け取り、snapshot を返すことを検査する。
+- Rust unit tests で provider event pump failure が typed error になり、silent no-op や lower host event pump fallback にならず、failure 後も wrapper が provider owner を保持していることを検査する。
+- Rust unit tests で title / pump-only / present / wait は lower F5iv host へ委譲され、poll だけ provider authority になることを検査する。
+- source policy で event pump wrapper が runner dispatch / CLI / fd read-drain-close / support gate `Ok` 化へ進んでいないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
