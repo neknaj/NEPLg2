@@ -845,3 +845,23 @@ subagent review:
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body reader request context checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal body reader が将来読む request authority を module-private `ActualTraversalBodyReaderRequestContext` として束ねる checkpoint を追加した。
+
+context は request entry、root expr id、body module fingerprint、proof key、Resource graph id を owner-free に保持する。`actual_traversal_body_reader_request_context_from_entry_result` は `proof_gate_recheck_entry_result`、`proof_key_from_entry_result`、`resource_graph_id_new` をこの順で実行し、成功した場合だけ context を返す。recheck 失敗は `RequestRecheckRejected`、proof key 失敗は `ProofKeyRejected` に写す。
+
+`actual_walker_operation_producer_bridge_append_request_result` は、raw に proof key や graph id を組み立てず、context helper を通してから `actual_traversal_body_adapter_sources_from_request_context_result` へ渡すようにした。context source helper は `ProducerNotConnected` だけを unavailable source table fallback へ写し、missing / real unavailable / unsupported / malformed は typed bridge error として fail-closed にする。production availability は引き続き `ProducerNotConnected` であり、既存 unsupported producer bridge を real body reader として接続していない。
+
+public stage0 summary には `reader_context_unavailable_source_count` を追加した。これは HIR-root request entry から context を作り、現在の producer-not-connected fallback として source 1 件に到達する smoke である。context、walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context type / helper の public API 化禁止、context helper の recheck / proof key / graph id 作成順序、context availability が既存 unsupported producer bridge を呼ばないこと、append_request が raw key / graph id を直接作らないこと、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。行数や doc comment 量を制限する検査は追加していない。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- reader producer が available の場合だけ context path から production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

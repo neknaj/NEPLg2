@@ -2563,6 +2563,39 @@ assert.doesNotMatch(
     "actual traversal body input availability error must stay module-private until the real Resource IR body reader owns the public boundary",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext"),
+    [
+        "entry %SelfhostMemoCallBackendRequestTableEntry",
+        "root_expr_id %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+    ],
+    "actual traversal body reader request context must retain the rechecked request entry, root origin, body fingerprint, proof key, and graph id as owner-free authority material",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+struct\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext\b/m,
+    "actual traversal body reader request context must stay module-private and must not become caller-supplied authority",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_(?:reader_request_context|adapter_.*request_context)/m,
+    "actual traversal body reader context helpers must stay module-private until the real body reader owns the public boundary",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
+        "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext entry root_expr_id body_module_fingerprint key graph_id",
+        "ProofKeyRejected e",
+        "RequestRecheckRejected e",
+    ],
+    "actual traversal body reader request context helper must recheck the HIR entry, build the existing proof key, create graph id from request ordinal, and keep failures typed",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),
     [
         "ActualTraversalBodyInputProducerNotConnected key",
@@ -2593,6 +2626,21 @@ assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result")),
     /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
     "production body availability helper must not reuse the existing unsupported producer bridge as if it were the real Resource IR body reader",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result"),
+    [
+        "SelfhostHirModule",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
+        "field::get context \"key\"",
+        "ActualTraversalBodyInputProducerNotConnected key",
+    ],
+    "actual traversal body context availability boundary must accept the rechecked context and keep production fallback at producer-not-connected until the real reader is connected",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result")),
+    /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
+    "context availability helper must not reuse existing unsupported producer bridges as the real body reader",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record"),
@@ -2631,6 +2679,26 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources0 record",
     ],
     "actual traversal body adapter unavailable fallback must return a request-local source table owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
+        "field::get context \"key\"",
+        "field::get context \"graph_id\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context",
+        "Result::Ok output:",
+        "field::get output \"walker_input\"",
+        "field::get output \"observations\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations",
+        "ActualTraversalBodyInputProducerNotConnected fallback_key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id",
+        "ActualTraversalBodyInputMissing missing_key",
+        "ActualTraversalBodyInputUnavailable unavailable_key",
+        "ActualTraversalBodyInputUnsupported unsupported_key",
+        "ActualTraversalBodyInputMalformed scanner_error",
+    ],
+    "actual traversal body context source helper must consume available owners through the input adapter, keep producer-not-connected as the only unavailable fallback, and preserve all real reader rejections as typed errors",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result"),
@@ -2748,6 +2816,11 @@ assert.doesNotMatch(
     "actual traversal body availability helper must only route available owners into the body adapter and must not synthesize proof, fresh witness, backend, effect, or artifact records",
 );
 assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body request context helper must only route rechecked context into availability/source adapters and must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
+assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result")),
     /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual traversal body reader split connector must not synthesize proof, fresh witness, backend, effect, or artifact records",
@@ -2776,6 +2849,7 @@ assertOrdered(
         "merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -2801,6 +2875,8 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "reader_connector_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
+        "reader_context_unavailable_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77",
         "availability_missing_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_missing_source_count_result",
         "availability_unavailable_rejected",
@@ -2812,7 +2888,7 @@ assertOrdered(
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
     ],
-    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, and malformed placeholder body inputs",
+    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, reader connector, reader context fallback, and malformed placeholder body inputs",
 );
 assert.doesNotMatch(
     code,
@@ -2827,18 +2903,20 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
     [
-        "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
-        "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
-        "selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_index",
+        "Result::Ok context:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context",
         "Result::Ok request_sources:",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result sources request_sources",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_traversal_sources sources e",
-        "ProofKeyRejected e",
-        "RequestRecheckRejected e",
     ],
-    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and merge request-local source table owners from the actual traversal body adapter",
+    "actual walker operation producer bridge must derive a rechecked reader request context and merge request-local source table owners from the context-based body adapter",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result")),
+    /proof_key_from_entry_result|resource_graph_id_new/,
+    "actual walker operation producer append_request must not build proof keys or graph ids directly after the reader context boundary exists",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop"),

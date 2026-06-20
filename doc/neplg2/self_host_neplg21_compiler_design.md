@@ -2676,6 +2676,30 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
 
+## 2026-06-21 memo_call backend actual traversal body reader request context checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal body reader が将来読むための module-private `ActualTraversalBodyReaderRequestContext` を追加した。context は HIR-root request entry、root expr id、body module fingerprint、proof key、Resource graph id を owner-free な値として束ねる。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer はまだ未接続であり、production availability も引き続き `ProducerNotConnected` fallback を返す。今回固定したのは、real reader を接続するときに caller-supplied request table entry、別 key shape、別 graph id を authority にしないための semantic boundary である。
+
+`actual_traversal_body_reader_request_context_from_entry_result` は `proof_gate_recheck_entry_result`、`proof_key_from_entry_result`、`resource_graph_id_new` をこの順で実行し、成功した場合だけ context を返す。recheck 失敗は `RequestRecheckRejected`、proof key 失敗は `ProofKeyRejected` として既存 bridge error に写す。context 自体は owner を持たないため、Err path で閉じる resource は無い。producer source table owner の cleanup は、caller である operation producer bridge の `fail_with_traversal_sources` に集約する。
+
+`actual_walker_operation_producer_bridge_append_request_result` は、raw に `proof_key_from_entry_result` や `resource_graph_id_new` を呼ばず、context helper を通してから `actual_traversal_body_adapter_sources_from_request_context_result` へ進むようにした。context source helper は `Ok ActualWalkerEventSplitOutput` の場合だけ既存 input-owner adapter に owner を渡し、`ProducerNotConnected` だけを unavailable source table fallback に写す。reader 接続後に返り得る missing / real unavailable / unsupported / malformed は unavailable source に偽装せず typed bridge error として fail-closed にする。
+
+public stage0 summary には `reader_context_unavailable_source_count` を追加した。これは HIR-root request entry から context を作り、現在の未接続 fallback として source 1 件に到達することだけを示す。context、walker input、observation table、source table、fresh witness table、proof table、backend bytes、effect mask、artifact key は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context type / helper の public API 化禁止、context helper 内の recheck / proof key / graph id 作成順序、context availability が既存 unsupported producer bridge を real reader として呼ばないこと、append_request が raw key / graph id を直接作らず context helper を通ること、proof / fresh witness / backend / effect / artifact 合成禁止を固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は context 作成が request entry 1 件に対して O(1)、source table fallback は source 1 件なので O(1) である。将来の real body reader が返す source 数 `s` に対する処理は既存 request-local source table merge の O(s) に乗る。request-key bucket 化、graph index 化、reader 探索の index 化は後続最適化として扱えるが、context を real reader の authority boundary にする設計は今固定する。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- reader producer が available の場合だけ context path から production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

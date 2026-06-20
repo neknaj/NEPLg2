@@ -76930,3 +76930,44 @@ MERGE_APPROVED
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body reader request context checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader が信頼する request authority を module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext` として追加した。
+- context は request entry、root expr id、body module fingerprint、proof key、Resource graph id を owner-free に保持する。context 自体は public API に出していない。
+- `actual_traversal_body_reader_request_context_from_entry_result` は `proof_gate_recheck_entry_result`、`proof_key_from_entry_result`、`resource_graph_id_new` をこの順で実行し、recheck 失敗は `RequestRecheckRejected`、proof key 失敗は `ProofKeyRejected` に写す。
+- `actual_traversal_body_adapter_input_availability_from_request_context_result` と `actual_traversal_body_adapter_sources_from_request_context_result` を追加した。context path でも production availability はまだ `ProducerNotConnected` fallback のままであり、既存 unsupported producer bridge を real reader として呼んでいない。
+- `actual_walker_operation_producer_bridge_append_request_result` は raw に proof key / graph id を直接作らず、context helper から context-based source helper へ進む。source helper は `ProducerNotConnected` だけを unavailable source table fallback に写し、missing / real unavailable / unsupported / malformed は typed bridge error として fail-closed にする。
+- public stage0 summary に `reader_context_unavailable_source_count` を追加した。これは context path が現在の unavailable fallback source 1 件に到達する smoke であり、actual traversal body reader、accepted source、fresh witness、proof、effect mask、backend artifact の完了を意味しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body reader request context checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を actual traversal body reader request context checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context type / helper の public API 化禁止、context helper の recheck / proof key / graph id 作成順序、context availability が既存 unsupported producer bridge を呼ばないこと、append_request が raw key / graph id を直接作らないこと、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、この slice を real reader 接続前の semantic authority boundary として妥当と判断した。
+- 必須条件として、context helper が `recheck_entry -> proof_key_from_entry -> graph_id_new` を一括で実行すること、context は module-private / owner-free にすること、real reader は将来 raw `entry + graph_index` ではなく context を受けること、production availability はまだ `ProducerNotConnected` に保つこと、既存 unsupported producer bridge を real reader として呼ばないこと、accepted source / fresh witness / proof / backend / effect / artifact を合成しないことが確認された。
+- 実装ではこの指摘に従い、append_request 内の recheck / key / graph 作成を context helper へ移し、append_request は context 取得、context source helper、request-local source table merge、cleanup だけに薄くした。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。context 非公開、owner-free payload、context helper 順序、append_request の raw key / graph id 生成禁止、`ProducerNotConnected` fallback 維持、既存 unsupported producer bridge の非流用、proof / fresh witness / GraphInput / effect / backend / artifact 非合成、source policy と doc / issue / todo の整合が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-context-doctest.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- reader producer が available の場合だけ context path から production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
