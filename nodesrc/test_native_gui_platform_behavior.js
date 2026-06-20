@@ -179,6 +179,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig",
         "pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError",
     );
+    const nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopTypes = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost",
+        "pub trait NativeWindowLinuxWindowEventSourceEventPumpProvider",
+    );
     const nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl = textSliceBetween(
         libSource,
         "impl<Provider> NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig<Provider>",
@@ -193,6 +198,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         libSource,
         "pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis",
         "impl<Api> NativeWindowHostLoopDeadlineTimerClock",
+    );
+    const nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl = textSliceBetween(
+        libSource,
+        "impl<Host, BackendApi, ProducerApi, Api>\n    NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost",
+        "impl<Host, BackendApi, ProducerApi, Provider>\n    NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost",
     );
     const nativeWindowLinuxWindowEventSourceEventPumpHostImpl = textSliceBetween(
         libSource,
@@ -234,6 +244,10 @@ function runNativeGuiPlatformBehaviorRegression() {
         nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl,
         nativeWindowLinuxWindowEventSourceRunLoopHostImpl,
         nativeWindowLinuxWindowEventSourceRunLoopHostHandoff,
+    ].join("\n");
+    const nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopSurface = [
+        nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopTypes,
+        nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl,
     ].join("\n");
     const nativeWindowPlatformWaitRunnerSupportGate = textSliceBetween(
         libSource,
@@ -532,6 +546,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxWindowEventSourceFdAcquisitionSysApi, /libc::connect\([\s\S]*sockaddr_un[\s\S]*address_len/);
     assert.match(nativeWindowLinuxWindowEventSourceFdAcquisitionSysApi, /libc::close\(raw_fd\)/);
     assert.doesNotMatch(nativeWindowLinuxWindowEventSourceFdAcquisitionSysApi, /epoll|timerfd|eventfd|run_linux_platform_wait_window_loop|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|read\(|drain|selector_wait|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopTypes, /pub struct NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost<[\s\S]*host: NativeWindowLinuxWindowEventSourceRunLoopHost<[\s\S]*NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>/);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopTypes, /pub enum NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHostBuildError<[\s\S]*BackendSupportFailed\s*\{[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*error: NativeWindowHostLoopPlatformWaitBackendSupportError,[\s\S]*provider: NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>[\s\S]*HostBuildFailed\s*\{[\s\S]*error: NativeWindowLinuxPlatformWaitRunLoopHostFromConfigBuildError<[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*provider: NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>/);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl, /pub fn descriptor\(&self\) -> NativeWindowLinuxWindowEventSourceDescriptor[\s\S]*self\.host\.descriptor\(\)/);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl, /impl<Host, BackendApi, ProducerApi, Api> NativeWindowRunLoopHost[\s\S]*for NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost[\s\S]*self\.host\.poll_event_snapshot\(input\)[\s\S]*self\.host\.set_window_title\(title\)[\s\S]*self\.host\.pump_events_only\(\)[\s\S]*self\.host\.present_frame\(frame\)[\s\S]*self\.host\.wait_after_budget_exhausted\(instruction\)/);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl, /native_window_linux_window_event_source_owned_fd_run_loop_host_with_apis[\s\S]*native_window_linux_window_event_source_owned_fd_provider\(owned_fd\)[\s\S]*native_window_linux_window_event_source_prepare_platform_wait_backend_config[\s\S]*native_window_linux_window_event_source_prepare_run_loop_config[\s\S]*native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis/);
+    assert.match(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl, /NativeWindowLinuxWindowEventSourceRunLoopHostFromPreparedConfigError::HostBuildFailed\s*\{[\s\S]*provider,[\s\S]*descriptor,[\s\S]*error,[\s\S]*NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHostBuildError::HostBuildFailed\s*\{[\s\S]*error,[\s\S]*descriptor,[\s\S]*provider/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopSurface, /pub fn into_parts|pub fn host|pub fn host_mut|pub fn provider|pub fn provider_mut|owned_fd_mut|into_owned_fd|\.close\(|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|select\(|validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(libSource, /pub struct NativeWindowLinuxWindowEventSourceDescriptor\s*\{[\s\S]*source_kind: NativeWindowLinuxWindowEventSourceKind,[\s\S]*raw_fd: i32/);
     assert.match(libSource, /pub trait NativeWindowLinuxWindowEventSourceProvider\s*\{[\s\S]*type Error;[\s\S]*window_event_source_descriptor\([\s\S]*&mut self,[\s\S]*Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error>/);
     assert.match(libSource, /pub struct NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider>\s*\{[\s\S]*platform_wait_config: NativeWindowRunLoopPlatformWaitBackendConfig,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*provider: Provider/);

@@ -1797,6 +1797,38 @@ subagent review:
 - Beauvoir the 2nd の初回 plan review は `PLAN_CHANGES`。fd owner が descriptor raw fd を公開した後の drop order、explicit close 後の stale descriptor、environment-dependent unit tests、display form contract が blocker として指摘された。
 - revised plan では F5iz を acquisition/provider-only に絞り、final runner safety は後続 owner bundle/drop-order contract へ分離した。owned fd は non-Copy / non-Clone、private state、explicit close typed result、Drop cleanup-only とし、trait-injected API を primary tested boundary にする方針で `PLAN_APPROVED` を得た。
 
+### Phase F5ja: Native Linux owned fd run-loop drop-order boundary
+
+目的:
+
+- F5iz の owned fd provider を runner-safe path へ渡す final owner bundle / drop-order contract を追加する。
+- selector backend が registered window event source fd を unregister する前に provider-owned fd が close される path を閉じる。
+- acquired fd runner-safe path は F5ja final wrapper helper only とし、generic F5iv provider host の裸 path は externally-managed provider 用に残す。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost Host BackendApi ProducerApi Api` を追加し、`NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi (NativeWindowLinuxWindowEventSourceOwnedFdProvider Api)` を private field として保持する。
+- final wrapper は public `into_parts`、provider accessor、provider mutable accessor、owned fd mutable accessor、owned fd close escape、host-only / provider-only split を出さない。公開は descriptor inspection と `NativeWindowRunLoopHost` delegation に限定する。
+- `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHostBuildError` を追加する。provider-bearing variants は lower error / descriptor / config を provider より先に宣言し、error drop 時にも registered selector backend が provider-owned fd より先に drop される field order にする。
+- helper は owned fd、selection、explicit demo / counter / scale / target FPS / run policy、host、backend API、producer API を受け、owned fd provider -> F5iu prepared platform config -> F5iv prepared run-loop config -> generic F5iv host build を通す。
+- generic F5iv error はそのまま保持せず、`HostBuildFailed { provider, descriptor, error }` を即 destructure して F5ja の `HostBuildFailed { error, descriptor, provider }` へ詰め替える。
+
+検証:
+
+- Rust unit tests で final wrapper success drop 時に shared order log が `unregister-window-fd`、`close-owned-fd` の順になることを検査する。
+- Rust unit tests で window fd registration 後の producer creation failure error を drop しても `unregister-window-fd`、`close-owned-fd` の順になることを検査する。
+- source policy で F5ja final wrapper slice に public `into_parts`、`host_mut`、`provider` / `provider_mut`、`owned_fd_mut`、`into_owned_fd`、`.close()` escape がないことを固定する。
+- source policy で F5ja helper が support gate `Ok` 化、runner / CLI dispatch、fd read / drain / event parsing、minifb fallback、synthetic readiness、silent no-op へ進んでいないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland protocol handshake / event parsing、fd read / drain、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic readiness、timer evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
+subagent review:
+
+- Beauvoir the 2nd の初回 plan review は `PLAN_CHANGES`。success path だけでなく failure error drop order を field order で固定すること、generic F5iv host の `into_parts` bypass との関係を文書化すること、final wrapper の borrowed accessor を narrow にすること、success / post-registration failure の drop order test を入れることが要求された。
+- revised plan では lower error を provider より先に置く F5ja 専用 error、generic F5iv error の即時詰め替え、final wrapper の provider mutable access 不提供、source policy の final wrapper slice scoping、success / failure shared order log tests を追加し、`PLAN_APPROVED` を得た。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
