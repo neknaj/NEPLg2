@@ -1311,6 +1311,18 @@ F5ka では、F5jx の `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch` �
 
 CreateWindow / MapWindow の accepted sequence は既存 top-level sequence plan が保持する。InternAtom batch については request boundary offset を使って `next_x11_request_sequence` だけを request 完了時に進める。F5ka は InternAtom reply retain / parse / correlation、Atom ID の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、`ChangeProperty` による property mutation、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness を扱わない。
 
+## F5kb Native Linux X11 InternAtom reply sequence correlation boundary
+
+F5kb では、F5ka の InternAtom request sequence advancement を reader-owned sequence plan として保持する。Rust boundary 名としては、request sequence plan を `NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan`、reply correlation を `NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation` とする。
+
+sequence plan は `WM_PROTOCOLS` と `WM_DELETE_WINDOW` の request sequence を `Option u16` として保持する。batch partial write が request boundary を越えた時だけ sequence を記録し、would-block や failure で boundary 未到達の場合は記録しない。
+
+reader は X11 reply packet を generic `ServerReplyReceived` へ縮約する前に full packet と sequence を保持し、reply body drain が必要な場合でも packet を pending state に残して stream sync を保つ。drain 完了後、sequence が `WM_PROTOCOLS` / `WM_DELETE_WINDOW` の InternAtom request と一致する packet だけを F5jz の `native_window_linux_x11_intern_atom_reply_from_packet` に渡す。
+
+matched reply は correlation と parsed `NativeWindowLinuxX11InternAtomReply` を持つ typed observation error として返す。matched packet の parser failure は correlation と lower parser error を保持する typed error として返す。unmatched reply は既存の generic `ServerReplyReceived` のままにする。
+
+F5kb は reply correlation boundary だけを担当する。Atom ID の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

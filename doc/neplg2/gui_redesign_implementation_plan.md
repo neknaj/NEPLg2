@@ -2732,6 +2732,40 @@ Phase F5ka では、F5jx の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` `InternAtom` re
 - `git diff --check`
 - subagent implementation review で split writer ordering、batch partial-write state、no reply/correlation/registration integration、no fallback が承認される。
 
+## Phase F5kb: Native Linux X11 InternAtom reply sequence correlation boundary
+
+Phase F5kb では、F5ka で request boundary ごとに進めていた `InternAtom` request sequence を、reader-owned sequence plan として保持する。X11 reply packet が届いたとき、generic `ServerReplyReceived` に縮約する前に sequence を照合し、`WM_PROTOCOLS` / `WM_DELETE_WINDOW` request に一致する reply だけを F5jz の `InternAtom` reply parser に渡す。
+
+実装:
+
+- `NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan` を追加し、`WM_PROTOCOLS` request sequence と `WM_DELETE_WINDOW` request sequence を `Option u16` として保持する。
+- `record_wm_protocol_atom_intern_batch_accepted_range` は request boundary crossing 時に `take_next_x11_request_sequence` の戻り値を sequence plan へ記録する。
+- reply dispatch は pending body drain と stream sync contract を保ったまま、full 32 byte reply packet を保持し、body drain 完了後に sequence correlation を行う。
+- matched `InternAtom` reply は `NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation` と `NativeWindowLinuxX11InternAtomReply` を持つ typed observation error として返す。
+- matched reply の parse failure は lower `NativeWindowLinuxX11InternAtomReplyParseError` と correlation を保持する typed error として返す。
+- unmatched reply は既存の generic `ServerReplyReceived` のままにする。
+
+非目標:
+
+- `WM_PROTOCOLS` / `WM_DELETE_WINDOW` Atom ID の meaning assignment / persistent registration state は含めない。
+- `ChangeProperty` による actual WM property mutation、`WM_DELETE_WINDOW` `ClientMessage` decode は含めない。
+- keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- matched reply の malformed body length を silent success や generic reply へ fallback しない。
+
+完了条件:
+
+- batch write が `WM_PROTOCOLS` / `WM_DELETE_WINDOW` の request sequence を保持する。
+- sequence が matched した zero-body `InternAtom` reply は typed correlated reply として返る。
+- matched reply parse failure は correlation と lower parser error を保持する。
+- unmatched reply は既存 generic reply behavior を維持する。
+- reply body drain が必要な packet でも pending state は full packet を保持し、drain 完了後に dispatch する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_reply -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で sequence retention、reply packet retention、matched reply parse/correlation、no meaning assignment / no ChangeProperty / no ClientMessage / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
