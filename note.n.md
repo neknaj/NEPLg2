@@ -33,6 +33,23 @@
 - pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
 - pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 Agent2 GUI native F5ki Linux X11 portable keyboard modifier evidence boundary
+
+- F5ki では、F5kh の raw X11 `state` から Shift / Control / Alt / Meta の portable modifier evidence だけを導出する。
+- subagent 計画レビューは Locke / Kepler ともに `PLAN_APPROVED`。必須条件は、raw state を全 `u16` で保持し続けること、portable projection は `NativeWindowKeyboardModifierState` からだけ導出すること、raw state と portable modifier を別々に public constructor へ渡せないようにすることだった。
+- mapping は X11 core state の `ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` に限定する。Lock / Mod2 / Mod3 / Mod5 / button mask / unknown high bit は raw state にだけ残す。
+- この checkpoint は keysym / layout mapping、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- Epicurus / Chandrasekhar の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - pass: subagent implementation review by Bacon and Hegel
 
 ## 未接続

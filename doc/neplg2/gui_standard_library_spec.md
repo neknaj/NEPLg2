@@ -1385,6 +1385,16 @@ X11 `KeyPress` / `KeyRelease` decode は event packet offset 28 から little-en
 
 F5kh は raw modifier evidence boundary だけを担当する。portable modifier mapping、keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
 
+## F5ki Native Linux X11 portable keyboard modifier evidence boundary
+
+F5ki は F5kh の raw X11 `state` evidence から、Shift / Control / Alt / Meta の portable modifier evidence だけを導出する boundary である。raw `state` は引き続き `NativeWindowKeyboardModifierState` に保持し、portable projection は `NativeWindowPortableKeyboardModifiers` として別に保持する。
+
+projection は `NativeWindowKeyboardModifierState` からだけ作る。`NativeWindowKeyboardEvent` は raw modifier state と portable modifier evidence を別々に public input として受け取ってはならない。`NativeWindowKeyboardEvent::new_with_modifier_state` が raw state を保持し、同じ raw state から portable projection を内部導出する。
+
+X11 core state のうち、`ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` だけを portable projection に使う。`Mod1` は Alt、`Mod4` は Meta として扱う。Lock、Mod2、Mod3、Mod5、button mask、unknown high bit は portable modifier を立てず、raw state にだけ残る。
+
+F5ki は modifier evidence projection boundary だけを担当する。keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

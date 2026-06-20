@@ -1075,11 +1075,25 @@ pub struct NativeWindowKeyboardModifierState {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowPortableKeyboardModifiers {
+    shift: bool,
+    control: bool,
+    alt: bool,
+    meta: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowKeyboardEvent {
     kind: NativeWindowKeyboardEventKind,
     raw_keycode: u8,
     modifier_state: NativeWindowKeyboardModifierState,
+    portable_modifiers: NativeWindowPortableKeyboardModifiers,
 }
+
+const NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK: u16 = 0x0001;
+const NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK: u16 = 0x0004;
+const NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK: u16 = 0x0008;
+const NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK: u16 = 0x0040;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowEventPumpError {
@@ -14891,10 +14905,13 @@ impl NativeWindowKeyboardEvent {
         if raw_keycode == 0 {
             return Err(NativeWindowEventPumpError::InvalidKeyboardKeycode { raw_keycode });
         }
+        let portable_modifiers =
+            NativeWindowPortableKeyboardModifiers::from_x11_core_state(modifier_state);
         Ok(Self {
             kind,
             raw_keycode,
             modifier_state,
+            portable_modifiers,
         })
     }
 
@@ -14909,6 +14926,10 @@ impl NativeWindowKeyboardEvent {
     pub fn modifier_state(self) -> NativeWindowKeyboardModifierState {
         self.modifier_state
     }
+
+    pub fn portable_modifiers(self) -> NativeWindowPortableKeyboardModifiers {
+        self.portable_modifiers
+    }
 }
 
 impl NativeWindowKeyboardModifierState {
@@ -14922,6 +14943,43 @@ impl NativeWindowKeyboardModifierState {
 
     pub fn raw_state(self) -> u16 {
         self.raw_state
+    }
+}
+
+impl NativeWindowPortableKeyboardModifiers {
+    pub const fn empty() -> Self {
+        Self {
+            shift: false,
+            control: false,
+            alt: false,
+            meta: false,
+        }
+    }
+
+    pub fn from_x11_core_state(state: NativeWindowKeyboardModifierState) -> Self {
+        let raw_state = state.raw_state();
+        Self {
+            shift: raw_state & NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK != 0,
+            control: raw_state & NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK != 0,
+            alt: raw_state & NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK != 0,
+            meta: raw_state & NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK != 0,
+        }
+    }
+
+    pub fn shift(self) -> bool {
+        self.shift
+    }
+
+    pub fn control(self) -> bool {
+        self.control
+    }
+
+    pub fn alt(self) -> bool {
+        self.alt
+    }
+
+    pub fn meta(self) -> bool {
+        self.meta
     }
 }
 
@@ -25690,6 +25748,12 @@ mod tests {
                 kind: NativeWindowKeyboardEventKind::Pressed,
                 raw_keycode: 38,
                 modifier_state: NativeWindowKeyboardModifierState::new(0x0005),
+                portable_modifiers: NativeWindowPortableKeyboardModifiers {
+                    shift: true,
+                    control: true,
+                    alt: false,
+                    meta: false,
+                },
             })
         );
         assert_eq!(
@@ -25718,6 +25782,12 @@ mod tests {
                 kind: NativeWindowKeyboardEventKind::Released,
                 raw_keycode: 38,
                 modifier_state: NativeWindowKeyboardModifierState::new(0x0014),
+                portable_modifiers: NativeWindowPortableKeyboardModifiers {
+                    shift: false,
+                    control: true,
+                    alt: false,
+                    meta: false,
+                },
             })
         );
         assert_eq!(
@@ -25728,6 +25798,33 @@ mod tests {
                 .raw_state(),
             0x0014
         );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_portable_modifiers_project_only_core_key_masks() {
+        let all_projected = NativeWindowPortableKeyboardModifiers::from_x11_core_state(
+            NativeWindowKeyboardModifierState::new(0x004d),
+        );
+        let ignored = NativeWindowKeyboardModifierState::new(0x9fb2);
+        let ignored_projection =
+            NativeWindowPortableKeyboardModifiers::from_x11_core_state(ignored);
+        let empty_event =
+            NativeWindowKeyboardEvent::new(NativeWindowKeyboardEventKind::Pressed, 38).unwrap();
+
+        assert!(all_projected.shift());
+        assert!(all_projected.control());
+        assert!(all_projected.alt());
+        assert!(all_projected.meta());
+        assert_eq!(ignored.raw_state(), 0x9fb2);
+        assert!(!ignored_projection.shift());
+        assert!(!ignored_projection.control());
+        assert!(!ignored_projection.alt());
+        assert!(!ignored_projection.meta());
+        assert_eq!(
+            empty_event.portable_modifiers(),
+            NativeWindowPortableKeyboardModifiers::empty()
+        );
+        assert_eq!(empty_event.modifier_state().raw_state(), 0);
     }
 
     #[test]
