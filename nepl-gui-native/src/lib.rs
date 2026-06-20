@@ -7315,6 +7315,16 @@ pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION: u32 = 0x0000_0040;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_UNUSED_HIGH_BITS: u32 = 0xfe00_0000;
 pub const NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS: u32 = 0xe000_0000;
 
+const NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR: u8 = 0;
+const NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY: u8 = 1;
+const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_CODE_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_SEQUENCE_OFFSET: usize = 2;
+const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_BAD_VALUE_OFFSET: usize = 4;
+const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MINOR_OPCODE_OFFSET: usize = 8;
+const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MAJOR_OPCODE_OFFSET: usize = 10;
+const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET: usize = 2;
+const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET: usize = 4;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
@@ -7415,6 +7425,12 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     EventReadOverflow {
         byte_count: usize,
         remaining_byte_count: usize,
+    },
+    ServerErrorReceived {
+        error: NativeWindowLinuxX11ServerErrorPacket,
+    },
+    ServerReplyReceived {
+        reply: NativeWindowLinuxX11ServerReplyHeader,
     },
     EventTypeUnsupported {
         response_type: u8,
@@ -7822,6 +7838,22 @@ pub enum NativeWindowLinuxX11ResourceIdAllocationError {
         resource_id_base: u32,
         resource_id_mask: u32,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11ServerErrorPacket {
+    error_code: u8,
+    sequence: u16,
+    bad_value: u32,
+    minor_opcode: u16,
+    major_opcode: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11ServerReplyHeader {
+    reply_data: u8,
+    sequence: u16,
+    length_units: u32,
 }
 
 pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
@@ -9278,6 +9310,42 @@ pub fn native_window_linux_x11_setup_request_from_authorization(
     Ok(NativeWindowLinuxX11SetupRequest { bytes })
 }
 
+impl NativeWindowLinuxX11ServerErrorPacket {
+    pub fn error_code(&self) -> u8 {
+        self.error_code
+    }
+
+    pub fn sequence(&self) -> u16 {
+        self.sequence
+    }
+
+    pub fn bad_value(&self) -> u32 {
+        self.bad_value
+    }
+
+    pub fn minor_opcode(&self) -> u16 {
+        self.minor_opcode
+    }
+
+    pub fn major_opcode(&self) -> u8 {
+        self.major_opcode
+    }
+}
+
+impl NativeWindowLinuxX11ServerReplyHeader {
+    pub fn reply_data(&self) -> u8 {
+        self.reply_data
+    }
+
+    pub fn sequence(&self) -> u16 {
+        self.sequence
+    }
+
+    pub fn length_units(&self) -> u32 {
+        self.length_units
+    }
+}
+
 fn native_window_linux_x11_u16_le(bytes: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes([bytes[offset], bytes[offset + 1]])
 }
@@ -9295,10 +9363,53 @@ fn native_window_linux_x11_i16_le(bytes: &[u8], offset: usize) -> i16 {
     i16::from_le_bytes([bytes[offset], bytes[offset + 1]])
 }
 
+fn native_window_linux_x11_response_type_raw(
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> u8 {
+    packet[0]
+}
+
 fn native_window_linux_x11_event_response_type(
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
 ) -> u8 {
-    packet[0] & 0x7f
+    native_window_linux_x11_response_type_raw(packet) & 0x7f
+}
+
+fn native_window_linux_x11_server_error_packet(
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> NativeWindowLinuxX11ServerErrorPacket {
+    NativeWindowLinuxX11ServerErrorPacket {
+        error_code: packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_CODE_OFFSET],
+        sequence: native_window_linux_x11_u16_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_SEQUENCE_OFFSET,
+        ),
+        bad_value: native_window_linux_x11_u32_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_BAD_VALUE_OFFSET,
+        ),
+        minor_opcode: native_window_linux_x11_u16_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MINOR_OPCODE_OFFSET,
+        ),
+        major_opcode: packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MAJOR_OPCODE_OFFSET],
+    }
+}
+
+fn native_window_linux_x11_server_reply_header(
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> NativeWindowLinuxX11ServerReplyHeader {
+    NativeWindowLinuxX11ServerReplyHeader {
+        reply_data: packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET],
+        sequence: native_window_linux_x11_u16_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET,
+        ),
+        length_units: native_window_linux_x11_u32_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET,
+        ),
+    }
 }
 
 fn native_window_linux_x11_event_pointer_raw(
@@ -9317,6 +9428,23 @@ fn native_window_linux_x11_event_packet_to_observation(
     NativeWindowLinuxWindowEventSourceObservation,
     NativeWindowLinuxX11EventSourceObservationError,
 > {
+    match native_window_linux_x11_response_type_raw(packet) {
+        NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR => {
+            return Err(
+                NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                    error: native_window_linux_x11_server_error_packet(packet),
+                },
+            );
+        }
+        NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY => {
+            return Err(
+                NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived {
+                    reply: native_window_linux_x11_server_reply_header(packet),
+                },
+            );
+        }
+        _ => {}
+    }
     match native_window_linux_x11_event_response_type(packet) {
         NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY => {
             let width = usize::from(native_window_linux_x11_u16_le(packet, 20));
@@ -18309,6 +18437,52 @@ mod tests {
         packet
     }
 
+    fn scripted_x11_send_event_motion_notify_event(x: i16, y: i16) -> Vec<u8> {
+        let mut packet = scripted_x11_motion_notify_event(x, y);
+        packet[0] |= 0x80;
+        packet
+    }
+
+    fn scripted_x11_server_error_packet(
+        error_code: u8,
+        sequence: u16,
+        bad_value: u32,
+        minor_opcode: u16,
+        major_opcode: u8,
+    ) -> Vec<u8> {
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_CODE_OFFSET] = error_code;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_SEQUENCE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_SEQUENCE_OFFSET + 2]
+            .copy_from_slice(&sequence.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_BAD_VALUE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_BAD_VALUE_OFFSET + 4]
+            .copy_from_slice(&bad_value.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MINOR_OPCODE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MINOR_OPCODE_OFFSET + 2]
+            .copy_from_slice(&minor_opcode.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MAJOR_OPCODE_OFFSET] = major_opcode;
+        packet
+    }
+
+    fn scripted_x11_server_reply_header(
+        reply_data: u8,
+        sequence: u16,
+        length_units: u32,
+    ) -> Vec<u8> {
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET] = reply_data;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET + 2]
+            .copy_from_slice(&sequence.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET + 4]
+            .copy_from_slice(&length_units.to_le_bytes());
+        packet
+    }
+
     fn scripted_x11_xauthority_record(
         family: NativeWindowLinuxX11XauthorityFamily,
         address: &[u8],
@@ -21699,6 +21873,108 @@ mod tests {
             provider.reader().api().writes,
             vec![native_window_linux_x11_setup_request_bytes().to_vec()]
         );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_reports_server_error_packet() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            245,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_error_packet(
+                2,
+                17,
+                0x0020_0001,
+                3,
+                NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                error: NativeWindowLinuxX11ServerErrorPacket {
+                    error_code: 2,
+                    sequence: 17,
+                    bad_value: 0x0020_0001,
+                    minor_opcode: 3,
+                    major_opcode: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_reports_server_reply_header() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            246,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_reply_header(
+                11, 23, 2,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived {
+                reply: NativeWindowLinuxX11ServerReplyHeader {
+                    reply_data: 11,
+                    sequence: 23,
+                    length_units: 2,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_masks_send_event_bit_for_event_packets() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            247,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_send_event_motion_notify_event(31, 41),
+            ),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((31.0, 41.0)));
+        assert_eq!(observation.current_size(), NativeWindowSize::new(640, 360));
     }
 
     #[test]

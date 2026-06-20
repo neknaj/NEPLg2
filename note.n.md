@@ -1,3 +1,44 @@
+# 2026-06-20 Agent2 GUI native F5jt Linux X11 server error-reply header decode boundary
+
+## 目的
+
+- X11 event stream の 32 byte packet で `packet[0] == 0` の server error と `packet[0] == 1` の server reply header を通常 event と分離する。
+- server error / reply を `EventTypeUnsupported` に落とさず、fixed offset で typed data として保持する。
+- normal event では send-event high bit を mask する既存 behavior を維持する。
+- server sequence correlation、request / reply body drain、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、`packet[0]` の raw value で `0` / `1` を先に分類し、通常 event の mask はその後に限定することだった。
+- 実装はこの方針に従い、server error / reply header の typed decode boundary に限定した。
+- implementation review は `REVIEW_CHANGES` だった。
+- 指摘は、実装と検証は通っているが、`note.n.md` の検証欄が未実行のままで docs / todo と不整合になっているというものだった。
+- 指摘に従い、実行済みの completion checks と review status をこの note に反映した。
+
+## 実装
+
+- `NativeWindowLinuxX11ServerErrorPacket` と `NativeWindowLinuxX11ServerReplyHeader` を追加した。
+- `NativeWindowLinuxX11EventSourceObservationError` に `ServerErrorReceived` と `ServerReplyReceived` を追加した。
+- X11 observation packet decode は raw response type を先に見て、server error / reply を fail-closed typed error として返す。
+- normal event decode は従来通り send-event high bit を mask して Configure / Motion / Button を扱う。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jt contract へ更新した。
+
+## 検証
+
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_reports_server -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_masks_send_event_bit -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 446 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- server sequence correlation、request / reply body drain、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5js Linux X11 reader setup-backed top-level request generation boundary
 
 ## 目的

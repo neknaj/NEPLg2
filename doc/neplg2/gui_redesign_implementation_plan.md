@@ -2474,6 +2474,35 @@ Phase F5js では、F5jr の setup-backed request owner builder を X11 observat
 - `git diff --check`
 - subagent implementation review で typed plan、setup-backed plan missing fail-closed、setup resource info missing fail-closed、F5jp partial-write reuse、no runner / no fallback が承認される。
 
+## Phase F5jt: Native Linux X11 server error / reply header decode boundary
+
+Phase F5jt では、X11 observation reader が event packet と同じ 32 byte 境界で届く server error packet と reply header を typed data として識別する。`packet[0]` の raw response type が `0` の場合は X11 server error、`1` の場合は server reply header として扱い、通常 event の send-event high bit mask はその後の event decode だけに適用する。
+
+実装:
+
+- `NativeWindowLinuxX11ServerErrorPacket` を追加し、error code、sequence、bad value、minor opcode、major opcode を fixed offset から little-endian で取得する。
+- `NativeWindowLinuxX11ServerReplyHeader` を追加し、reply data、sequence、length units を fixed offset から little-endian で取得する。
+- `NativeWindowLinuxX11EventSourceObservationError` に `ServerErrorReceived` と `ServerReplyReceived` を追加し、server error / reply を `EventTypeUnsupported` に落とさない。
+- normal event は raw response type が `0` / `1` ではない場合だけ、既存の `response_type & 0x7f` による Configure / Motion / Button decode へ進む。
+- source-policy は raw response type の先行分岐、fixed offset parser、typed error variant、send-event high bit 付き通常 event decode を検査する。
+
+非目標:
+
+- server sequence tracking、request / reply correlation、reply body drain、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化、Wayland concrete decoding、fallback、synthetic readiness は作らない。
+- server error を top-level request write failure として推測しない。request authority は sequence correlation phase まで raw packet decode から分離する。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_reports_server -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_masks_send_event_bit -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で raw response type 先行分岐、typed server error / reply data、normal event mask 維持、no sequence correlation / no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
