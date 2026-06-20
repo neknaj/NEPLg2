@@ -347,3 +347,30 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge / observation ban gate / unified normalizer の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - observation table request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化、stage0 fixture 分割。
+
+## 2026-06-21 selfhost memo_call backend actual walker event producer bridge stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root から request authority を内部再収集し、producer-owned unified event stream を作って既存 actual walker event normalizer へ渡す producer bridge stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。目的は、actual traversal が未接続の段階でも、caller supplied request table、forged unified event table、direct GraphInput を authority にせず、HIR root 由来 request を recheck / proof key construction へ通してから unified stream へ写す境界を固定することである。
+
+bridge は request ごとに closed body event と `UnknownResourceOperation` unsupported event だけを生成する。`PrivateCacheNoEscapeProven`、`PrivateCacheStorage`、`CloneOutOwnedValue`、GraphInput、proof table record は合成しない。stage0 observation fixture は module-private helper で detected observation を unified stream に混ぜ、normalizer の observation precedence が graph path を上書きしないことを確認する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、request recheck、proof key construction、body / unsupported unified event のみの生成、normalizer 経由、normalizer bypass 禁止、accepted proof / graph payload / proof table record 合成禁止、private bridge internals の public API 化禁止を固定した。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-shard8.json`
+- timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-full.json` は 8 件中 7 件 pass 後、新規 doctest が compile timeout。shard 実行では pass しており、semantic failure ではなく大型 stage0 module の Resource 検査時間が支配している。
+
+残件:
+
+- actual Resource IR walker 本体が request / body から unified body / place / edge / unsupported / observation event stream を生成する境界。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化。

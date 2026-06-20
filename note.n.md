@@ -75898,3 +75898,48 @@ MERGE_APPROVED
 - actual Resource IR walker 本体が unified event stream を生成する境界へ進める。
 - actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+
+## 2026-06-21 selfhost memo_call actual walker event producer bridge checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker unified event normalizer stage0 の次段として actual walker event producer bridge stage0 を追加した。
+- この checkpoint は actual Resource IR walker 本体ではない。HIR root 由来 request authority から producer-owned unified event stream を作り、既存 normalizer へ渡す境界を固定した。
+- actual traversal が未接続の段階では、request ごとに closed body event と `UnknownResourceOperation` unsupported event だけを作り、normalizer / scanner / graph gate に fail-closed 判定を委ねる。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- 静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind` と `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary` を追加した。
+- bridge は HIR root から request table を内部再構築し、request entry ごとに既存の HIR payload recheck と proof key construction を通す。caller supplied request table、forged unified event table、direct GraphInput、source text、diagnostic symbol、function name は authority にしない。
+- request ごとの unified event stream は body event と unsupported event だけを生成する。`PrivateCacheNoEscapeProven`、`PrivateCacheStorage`、`CloneOutOwnedValue`、GraphInput、proof table record は合成しない。
+- producer bridge は scanner / graph gate / observation ban gate を直接呼ばず、必ず `selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result` を経由する。
+- stage0 observation fixture は module-private helper で detected observation を unified stream に混ぜるだけにした。public API から private event table や injected observation を渡す入口は作っていない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、request recheck、proof key construction、body / unsupported unified event のみの生成、normalizer 経由、normalizer bypass 禁止、accepted proof / accepted graph payload / proof table record 合成禁止、private bridge internals の public API 化禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と対象 issue を更新し、actual traversal 本体、fresh private cache region proof、PrivateCache / PrivateState masking、sealed representation、prechecked artifact key 投影を残件として維持した。
+- `todo.md` は、actual walker event producer bridge stage0 まで完了済みであり、次は actual Resource IR graph walker 本体が unified event stream を生成する境界であることに更新した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、旧 producer bridge と役割が重なるため unified normalizer へ渡す producer bridge と明確にすること、request table 内部再構築、entry recheck、proof key construction、body / unsupported event 限定、normalizer 経由、observation fixture の module-private 維持、owner cleanup の source policy 固定だった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。private unified event 型の public 露出なし、HIR-root request authority、entry recheck、proof key construction、body / unsupported event 限定、normalizer 経由、normalizer bypass なし、accepted proof / GraphInput / proof table record 合成なし、docs / issue / todo / note 整合、行数や doc comment 量の制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-shard8.json`
+- timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-full.json` は 8 件中 7 件 pass 後、新規 doctest が compile timeout。shard 実行では pass しており、semantic failure ではなく大型 stage0 module の Resource 検査時間が支配している。特に `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的だった。
+
+### remaining
+
+- actual Resource IR walker 本体が request / body から unified body / place / edge / unsupported / observation event stream を生成する境界へ進める。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+- stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化は、今回固定した typed authority / normalizer / owner cleanup contract を保って後から行う。

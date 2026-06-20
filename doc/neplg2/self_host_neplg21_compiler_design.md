@@ -2163,6 +2163,35 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - observation table request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化、stage0 fixture 分割。
 
+## 2026-06-21 memo_call backend actual walker event producer bridge stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root 由来の request authority から producer-owned unified event stream を作り、既存 actual walker event normalizer へ渡す producer bridge stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、actual walker が接続される前でも、caller supplied request table、forged unified event table、direct GraphInput を authority にしないことである。bridge は HIR root から request table を内部再構築し、各 request entry を既存 gate と同じ HIR payload recheck / proof key construction へ通す。その後、request ごとに closed body event と `UnknownResourceOperation` unsupported event だけを unified event table へ追加する。
+
+producer bridge は scanner / graph gate / observation ban gate を直接呼ばず、必ず `selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result` を経由する。これにより、前段で固定した observation precedence と owner cleanup の契約を 1 箇所に保つ。stage0 observation fixture は module-private helper で unified stream に detected observation を 1 件混ぜるだけであり、public API から private event table や injected observation を渡せる入口は作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、request recheck、proof key construction、body / unsupported unified event のみの生成、normalizer 経由、normalizer bypass 禁止、accepted proof / `PrivateCacheStorage` / `CloneOutOwnedValue` / GraphInput / proof table record 合成禁止、private bridge internals の public API 化禁止を固定している。
+
+計算量として、producer bridge 自体は request 数 `m` に対して O(m) 個の body / unsupported event を作る。現段階で重いのは、その後に通る既存 Resource checker の `resource_static_initialized_moves` と `resource_static_owner_obligations` であり、stage0 full doctest は大きな module 全体を再検査するため compile time が長い。これは stage0 fixture 分割、checker 側の initialized-state 探索削減、event / proof table index 化で後から改善できる。一方、HIR root authority、proof key 再構築、normalizer 経由、observation precedence、owner cleanup は後から変えると proof boundary を壊すため、この stage で固定する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-shard8.json`
+- timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-full.json` は 8 件中 7 件 pass 後、新規 doctest が compile timeout。shard 実行では pass しており、semantic failure ではなく既存の大型 module Resource 検査時間が支配している。
+
+残件:
+
+- actual Resource IR walker 本体が request / body から place / edge / unsupported / observation unified event stream を生成する境界。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
