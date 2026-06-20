@@ -239,6 +239,11 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub const NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN",
         "pub struct NativeWindowLinuxX11EventSourceSysApi",
     );
+    const nativeWindowLinuxX11XauthorityCredentialSetupRequest = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowLinuxX11XauthorityCredentialSetupRequestError",
+        "impl NativeWindowLinuxX11SetupRequest",
+    );
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
         "pub enum NativeWindowLinuxX11XauthorityEnvironmentValueKind",
@@ -666,6 +671,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5ji: Native Linux Xauthority process environment adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jj: Native Linux Xauthority filesystem file bytes adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jk: Native Linux Xauthority VFS file bytes adapter boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jl: Native Linux Xauthority credential setup request boundary/);
     assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
     assert.match(guiRedesignImplementationPlan, /raw API owner を消費する前に返す/);
     assert.match(guiRedesignImplementationPlan, /family \+ address \+ display_number` と exact match/);
@@ -674,6 +680,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /trait-injected reader/);
     assert.match(guiRedesignImplementationPlan, /authority-file path variable を先に読む[\s\S]*home-directory path variable を読まず/);
     assert.match(guiRedesignImplementationPlan, /`AuthorityFilePath` は `XAUTHORITY`/);
+    assert.match(guiRedesignImplementationPlan, /`?NoMatchingRecord`? は no-auth fallback にせず/);
     assert.match(guiRedesignImplementationPlan, /Linux support gate の `Ok` 化/);
     assert.match(standardSpec, /F5jb Native Linux X11 setup and event observation boundary/);
     assert.match(standardSpec, /F5jc Native Linux X11 authorization setup request boundary/);
@@ -685,6 +692,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5ji Native Linux Xauthority process environment adapter boundary/);
     assert.match(standardSpec, /F5jj Native Linux Xauthority filesystem file bytes adapter boundary/);
     assert.match(standardSpec, /F5jk Native Linux Xauthority VFS file bytes adapter boundary/);
+    assert.match(standardSpec, /F5jl Native Linux Xauthority credential setup request boundary/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
     assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
@@ -704,6 +712,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5ji/);
     assert.match(platformDoc, /F5jj/);
     assert.match(platformDoc, /F5jk/);
+    assert.match(platformDoc, /F5jl/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /selector criteria/);
@@ -713,6 +722,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /process environment adapter/);
     assert.match(platformDoc, /filesystem file bytes adapter/);
     assert.match(platformDoc, /VFS file bytes adapter/);
+    assert.match(platformDoc, /credential setup request/);
     assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11AuthorizationCredential<'a>\s*\{[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
@@ -753,6 +763,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_read_record_at[\s\S]*AddressLength[\s\S]*DisplayNumberLength[\s\S]*ProtocolNameLength[\s\S]*ProtocolDataLength/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_select_credential[\s\S]*while offset < bytes\.len\(\)[\s\S]*selector\.matches\(&record\)[\s\S]*NativeWindowLinuxX11XauthoritySelection::Selected[\s\S]*NoMatchingRecord/);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /Family::Local[\s\S]*display_number\(\) == self\.display_number|Family::Wild[\s\S]*NoMatchingRecord|unwrap_or|unwrap_or_else|ok\(\)/);
+    assert.match(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /pub enum NativeWindowLinuxX11XauthorityCredentialSetupRequestError\s*\{[\s\S]*ParseFailed\s*\{[\s\S]*error: NativeWindowLinuxX11XauthorityParseError[\s\S]*NoMatchingCredential[\s\S]*SetupRequestBuildFailed\s*\{[\s\S]*error: NativeWindowLinuxX11SetupRequestBuildError/);
+    assert.match(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /pub fn native_window_linux_x11_setup_request_from_xauthority\([\s\S]*file_bytes: &NativeWindowLinuxX11XauthorityFileBytes,[\s\S]*criteria: &NativeWindowLinuxX11XauthoritySelectorCriteria<'_>[\s\S]*Result<[\s\S]*NativeWindowLinuxX11SetupRequest,[\s\S]*NativeWindowLinuxX11XauthorityCredentialSetupRequestError/);
+    assert.match(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /native_window_linux_x11_xauthority_select_credential\([\s\S]*file_bytes\.as_bytes\(\),[\s\S]*criteria\.selector\(\)[\s\S]*\)[\s\S]*NativeWindowLinuxX11XauthorityCredentialSetupRequestError::ParseFailed/);
+    assert.match(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /match selection[\s\S]*NativeWindowLinuxX11XauthoritySelection::Selected\s*\{ credential \}[\s\S]*native_window_linux_x11_setup_request_from_authorization\(credential\)[\s\S]*SetupRequestBuildFailed/);
+    assert.match(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord[\s\S]*NativeWindowLinuxX11XauthorityCredentialSetupRequestError::NoMatchingCredential/);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityCredentialSetupRequest, /AuthorizationCredential::none|no_authorization|std::env|std::fs|vfs|read_xauthority_file_bytes|read_xauthority_environment_value|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11SetupRequestBuildError\s*\{[\s\S]*AuthorizationProtocolNameTooLong[\s\S]*AuthorizationProtocolDataTooLong[\s\S]*SetupRequestLengthOverflow/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11SetupRequest\s*\{[\s\S]*bytes: Vec<u8>[\s\S]*\}/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_setup_request_from_authorization[\s\S]*NativeWindowLinuxX11AuthorizationCredential[\s\S]*Result<NativeWindowLinuxX11SetupRequest, NativeWindowLinuxX11SetupRequestBuildError>[\s\S]*u16::MAX[\s\S]*native_window_linux_x11_pad4[\s\S]*native_window_linux_x11_checked_setup_request_total_len[\s\S]*bytes\.extend_from_slice\(&\(name_len as u16\)\.to_le_bytes\(\)\)[\s\S]*bytes\.resize\(bytes\.len\(\) \+ name_padding_len, 0\)[\s\S]*bytes\.extend_from_slice\(data\)[\s\S]*bytes\.resize\(bytes\.len\(\) \+ data_padding_len, 0\)/);
@@ -823,6 +839,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_xauthority_vfs_file_bytes_reader_forwards_exact_path/);
     assert.match(libSource, /native_window_linux_x11_xauthority_vfs_file_bytes_reader_preserves_source_failure/);
     assert.match(libSource, /native_window_linux_x11_xauthority_vfs_helper_uses_f5jg_validation/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_setup_request_uses_selected_credential/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_setup_request_rejects_no_matching_record/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_setup_request_preserves_parse_failure/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_explicit_plan_path/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_home_default_plan_path_for_parser/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_rejects_empty_and_too_large_files/);
