@@ -1,3 +1,46 @@
+# 2026-06-20 Agent2 GUI native F5jo Linux X11 top-level window create/map request owner boundary
+
+## scope
+
+- X11 top-level window の CreateWindow / MapWindow request bytes を typed owner として作る。
+- default event mask は F5jo が MapWindow を直後に送ることを考慮し、current decoder が non-fatal に扱える `ButtonPress | ButtonRelease | PointerMotion` に限定する。
+- actual raw fd write / read、setup observation reader integration、resource id allocation、server error handling、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## plan_review
+
+- Averroes the 2nd の初回 plan review は `PLAN_CHANGES`。
+- blocker は、Expose が current F5jb decoder で未対応なのに default event mask に含まれていた点だった。
+- 指摘に従い、default event mask から Expose を外し、Expose decode / subscription は後続 phase に分ける revised plan にした。
+- revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `NativeWindowLinuxX11TopLevelWindowCreateInput`、`NativeWindowLinuxX11TopLevelWindowCreateRequest`、`NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError` を追加した。
+- CreateWindow は opcode `1`、length `10`、background-pixel + event-mask value list、MapWindow は opcode `8`、length `2` として encode する。
+- window id / parent id zero、resource id high bits、zero width / height、event mask unused high bits を typed error として拒否する。
+- implementation review の指摘に従い、StructureNotify は MapNotify なども購読するため default event mask から外した。ConfigureNotify / MapNotify / Expose decode は後続 phase の責務にする。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jo contract へ更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+
+## implementation_review
+
+- Averroes the 2nd の初回 implementation review は `IMPLEMENTATION_CHANGES`。
+- blocker は、StructureNotify が ConfigureNotify だけでなく MapNotify なども購読し、F5jo の MapWindow 直後に unsupported event を発生させうる点だった。
+- 指摘に従い、default event mask を `ButtonPress | ButtonRelease | PointerMotion` へ縮小し、doc/source-policy/tests を同じ contract に更新した。
+- 再レビューは `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual X11 request write、resource id allocation、server error decode、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jn Linux Xauthority process hostname address adapter boundary
 
 ## scope

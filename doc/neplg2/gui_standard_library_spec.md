@@ -1179,6 +1179,18 @@ cfg Linux sys adapter は `libc::gethostname` だけを呼ぶ。戻り値 failur
 
 F5jn は process hostname adapter boundary だけを担当する。selector criteria construction、credential selection、setup request integration、X11 raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
 
+## F5jo Native Linux X11 top-level window create/map request owner boundary
+
+F5jo では、X11 CreateWindow / MapWindow request bytes を typed owner として作る境界を追加する。Rust boundary 名としては、input を `NativeWindowLinuxX11TopLevelWindowCreateInput`、owner を `NativeWindowLinuxX11TopLevelWindowCreateRequest`、failure を `NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError` とする。
+
+input は window id、parent window id、position、width、height、border width、background pixel、event mask を保持する。window id と parent window id は zero と top 3 bits set を typed error として拒否し、width / height は zero を typed error として拒否する。event mask は X11 `SETofEVENT` の unused high bits を拒否する。
+
+default event mask は F5jo request 自体が MapWindow を直後に送ることを考慮し、current F5jb decoder が non-fatal に扱える pointer / button event だけに合わせ、`ButtonPress | ButtonRelease | PointerMotion` に限定する。StructureNotify は ConfigureNotify だけでなく MapNotify なども購読するため、追加 event decode phase まで含めない。Expose もまだ decode しないため含めない。StructureNotify / Expose subscription と MapNotify / ConfigureNotify / Expose decode は後続 phase に分け、F5jo では silent no-op や fallback redraw event を作らない。
+
+CreateWindow request は opcode `1`、depth `CopyFromParent`、class `InputOutput`、visual `CopyFromParent`、value mask `background-pixel | event-mask` とし、value-list は X11 value-mask の bit order に従って `background-pixel`、`event-mask` の順に encode する。value count は 2 なので request length は `10` units とする。MapWindow request は opcode `8`、request length `2`、同じ window id を使う。
+
+F5jo は request owner boundary だけを担当する。actual raw fd write / read、setup observation reader integration、resource id allocation、server reply / error handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
