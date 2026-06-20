@@ -9110,6 +9110,68 @@ pub fn native_window_linux_x11_xauthority_read_file_bytes_from_filesystem(
     native_window_linux_x11_xauthority_read_file_bytes(plan, &mut reader)
 }
 
+pub trait NativeWindowLinuxX11XauthorityVfsFileBytesSource {
+    type Error;
+
+    fn read_xauthority_vfs_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityVfsFileBytesReadError<SourceError> {
+    ReadFailed { path: String, error: SourceError },
+}
+
+pub struct NativeWindowLinuxX11XauthorityVfsFileBytesReader<'a, Source>
+where
+    Source: NativeWindowLinuxX11XauthorityVfsFileBytesSource,
+{
+    source: &'a mut Source,
+}
+
+impl<'a, Source> NativeWindowLinuxX11XauthorityVfsFileBytesReader<'a, Source>
+where
+    Source: NativeWindowLinuxX11XauthorityVfsFileBytesSource,
+{
+    pub fn new(source: &'a mut Source) -> Self {
+        Self { source }
+    }
+}
+
+impl<Source> NativeWindowLinuxX11XauthorityFileBytesReader
+    for NativeWindowLinuxX11XauthorityVfsFileBytesReader<'_, Source>
+where
+    Source: NativeWindowLinuxX11XauthorityVfsFileBytesSource,
+{
+    type Error = NativeWindowLinuxX11XauthorityVfsFileBytesReadError<Source::Error>;
+
+    fn read_xauthority_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error> {
+        self.source
+            .read_xauthority_vfs_file_bytes(path)
+            .map_err(
+                |error| NativeWindowLinuxX11XauthorityVfsFileBytesReadError::ReadFailed {
+                    path: path.to_owned(),
+                    error,
+                },
+            )
+    }
+}
+
+pub fn native_window_linux_x11_xauthority_read_file_bytes_from_vfs<Source>(
+    plan: &NativeWindowLinuxX11XauthorityPathPlan,
+    source: &mut Source,
+) -> Result<
+    NativeWindowLinuxX11XauthorityFileBytes,
+    NativeWindowLinuxX11XauthorityFileBytesReadError<
+        NativeWindowLinuxX11XauthorityVfsFileBytesReadError<Source::Error>,
+    >,
+>
+where
+    Source: NativeWindowLinuxX11XauthorityVfsFileBytesSource,
+{
+    let mut reader = NativeWindowLinuxX11XauthorityVfsFileBytesReader::new(source);
+    native_window_linux_x11_xauthority_read_file_bytes(plan, &mut reader)
+}
+
 #[cfg(target_os = "linux")]
 impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
     pub fn new() -> Self {
@@ -16854,6 +16916,11 @@ mod tests {
     }
 
     #[derive(Clone, Debug, Eq, PartialEq)]
+    enum ScriptedXauthorityVfsFileReadError {
+        MissingVirtualFile,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
     enum ScriptedXauthorityEnvironmentReadError {
         Unavailable,
     }
@@ -16873,6 +16940,12 @@ mod tests {
     struct ScriptedXauthorityFileBytesReader {
         expected_path: &'static str,
         result: Option<Result<Vec<u8>, ScriptedXauthorityFileReadError>>,
+        seen_path: Option<String>,
+    }
+
+    struct ScriptedXauthorityVfsFileBytesSource {
+        expected_path: &'static str,
+        result: Option<Result<Vec<u8>, ScriptedXauthorityVfsFileReadError>>,
         seen_path: Option<String>,
     }
 
@@ -16916,6 +16989,23 @@ mod tests {
         }
     }
 
+    impl ScriptedXauthorityVfsFileBytesSource {
+        fn new(
+            expected_path: &'static str,
+            result: Result<Vec<u8>, ScriptedXauthorityVfsFileReadError>,
+        ) -> Self {
+            Self {
+                expected_path,
+                result: Some(result),
+                seen_path: None,
+            }
+        }
+
+        fn seen_path(&self) -> Option<&str> {
+            self.seen_path.as_deref()
+        }
+    }
+
     impl NativeWindowLinuxX11XauthorityEnvironmentReader for ScriptedXauthorityEnvironmentReader {
         type Error = ScriptedXauthorityEnvironmentReadError;
 
@@ -16944,6 +17034,18 @@ mod tests {
             self.result
                 .take()
                 .expect("scripted xauthority file reader result should be available")
+        }
+    }
+
+    impl NativeWindowLinuxX11XauthorityVfsFileBytesSource for ScriptedXauthorityVfsFileBytesSource {
+        type Error = ScriptedXauthorityVfsFileReadError;
+
+        fn read_xauthority_vfs_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error> {
+            assert_eq!(path, self.expected_path);
+            self.seen_path = Some(path.to_owned());
+            self.result
+                .take()
+                .expect("scripted xauthority vfs file source result should be available")
         }
     }
 
@@ -18374,6 +18476,96 @@ mod tests {
         }
 
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_vfs_file_bytes_reader_forwards_exact_path() {
+        let mut source =
+            ScriptedXauthorityVfsFileBytesSource::new("/vfs/x11/auth", Ok(vec![1_u8, 2, 3, 4]));
+        let mut reader = NativeWindowLinuxX11XauthorityVfsFileBytesReader::new(&mut source);
+
+        let bytes = reader.read_xauthority_file_bytes("/vfs/x11/auth").unwrap();
+
+        assert_eq!(bytes, vec![1_u8, 2, 3, 4]);
+        drop(reader);
+        assert_eq!(source.seen_path(), Some("/vfs/x11/auth"));
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_vfs_file_bytes_reader_preserves_source_failure() {
+        let mut source = ScriptedXauthorityVfsFileBytesSource::new(
+            "/vfs/x11/missing",
+            Err(ScriptedXauthorityVfsFileReadError::MissingVirtualFile),
+        );
+        let mut reader = NativeWindowLinuxX11XauthorityVfsFileBytesReader::new(&mut source);
+
+        assert_eq!(
+            reader
+                .read_xauthority_file_bytes("/vfs/x11/missing")
+                .unwrap_err(),
+            NativeWindowLinuxX11XauthorityVfsFileBytesReadError::ReadFailed {
+                path: "/vfs/x11/missing".to_owned(),
+                error: ScriptedXauthorityVfsFileReadError::MissingVirtualFile,
+            }
+        );
+        drop(reader);
+        assert_eq!(source.seen_path(), Some("/vfs/x11/missing"));
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_vfs_helper_uses_f5jg_validation() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(Some("/vfs/x11/auth"), None),
+        )
+        .unwrap();
+        let mut empty_source =
+            ScriptedXauthorityVfsFileBytesSource::new("/vfs/x11/auth", Ok(Vec::new()));
+
+        match native_window_linux_x11_xauthority_read_file_bytes_from_vfs(&plan, &mut empty_source)
+            .unwrap_err()
+        {
+            NativeWindowLinuxX11XauthorityFileBytesReadError::EmptyFile { source, path } => {
+                assert_eq!(
+                    source,
+                    NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+                );
+                assert_eq!(path, "/vfs/x11/auth");
+            }
+            other => panic!("expected empty-file validation error, got {other:?}"),
+        }
+
+        let mut large_source = ScriptedXauthorityVfsFileBytesSource::new(
+            "/vfs/x11/auth",
+            Ok(vec![
+                7_u8;
+                NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN + 1
+            ]),
+        );
+        match native_window_linux_x11_xauthority_read_file_bytes_from_vfs(&plan, &mut large_source)
+            .unwrap_err()
+        {
+            NativeWindowLinuxX11XauthorityFileBytesReadError::FileTooLarge {
+                source,
+                path,
+                byte_len,
+                max_byte_len,
+            } => {
+                assert_eq!(
+                    source,
+                    NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+                );
+                assert_eq!(path, "/vfs/x11/auth");
+                assert_eq!(
+                    byte_len,
+                    NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN + 1
+                );
+                assert_eq!(
+                    max_byte_len,
+                    NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN
+                );
+            }
+            other => panic!("expected too-large validation error, got {other:?}"),
+        }
     }
 
     #[test]

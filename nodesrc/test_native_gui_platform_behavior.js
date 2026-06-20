@@ -280,6 +280,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter = textSliceBetween(
         libSource,
         "pub enum NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError",
+        "pub trait NativeWindowLinuxX11XauthorityVfsFileBytesSource",
+    );
+    const nativeWindowLinuxX11XauthorityVfsFileBytesAdapter = textSliceBetween(
+        libSource,
+        "pub trait NativeWindowLinuxX11XauthorityVfsFileBytesSource",
         "impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi",
     );
     const nativeWindowLinuxWindowEventSourceEventPumpSurface = [
@@ -332,7 +337,8 @@ function runNativeGuiPlatformBehaviorRegression() {
         nativeWindowPlatformWaitBackendKind
             .replace(nativeWindowLinuxWindowEventSourceFdAcquisitionSysApi, "")
             .replace(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, "")
-            .replace(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, "");
+            .replace(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, "")
+            .replace(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, "");
     const nativeWindowPlatformWaitKindValidation = textSliceBetween(
         libSource,
         "pub fn validate_native_window_host_loop_platform_wait_backend_kind_for_platform",
@@ -659,6 +665,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5jh: Native Linux Xauthority environment acquisition boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5ji: Native Linux Xauthority process environment adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jj: Native Linux Xauthority filesystem file bytes adapter boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jk: Native Linux Xauthority VFS file bytes adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
     assert.match(guiRedesignImplementationPlan, /raw API owner を消費する前に返す/);
     assert.match(guiRedesignImplementationPlan, /family \+ address \+ display_number` と exact match/);
@@ -677,6 +684,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5jh Native Linux Xauthority environment acquisition boundary/);
     assert.match(standardSpec, /F5ji Native Linux Xauthority process environment adapter boundary/);
     assert.match(standardSpec, /F5jj Native Linux Xauthority filesystem file bytes adapter boundary/);
+    assert.match(standardSpec, /F5jk Native Linux Xauthority VFS file bytes adapter boundary/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
     assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
@@ -695,6 +703,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jh/);
     assert.match(platformDoc, /F5ji/);
     assert.match(platformDoc, /F5jj/);
+    assert.match(platformDoc, /F5jk/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /selector criteria/);
@@ -703,6 +712,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /environment path plan/);
     assert.match(platformDoc, /process environment adapter/);
     assert.match(platformDoc, /filesystem file bytes adapter/);
+    assert.match(platformDoc, /VFS file bytes adapter/);
     assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11AuthorizationCredential<'a>\s*\{[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
@@ -782,6 +792,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /impl NativeWindowLinuxX11XauthorityFileBytesReader[\s\S]*for NativeWindowLinuxX11XauthorityFilesystemFileBytesReader[\s\S]*std::fs::read\(path\)[\s\S]*NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError::ReadFailed/);
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /pub fn native_window_linux_x11_xauthority_read_file_bytes_from_filesystem\([\s\S]*let mut reader = NativeWindowLinuxX11XauthorityFilesystemFileBytesReader::new\(\)[\s\S]*native_window_linux_x11_xauthority_read_file_bytes\(plan, &mut reader\)/);
     assert.doesNotMatch(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /std::fs::write|std::fs::remove_file|File::|OpenOptions|read_to|canonicalize|exists|metadata|vfs|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub trait NativeWindowLinuxX11XauthorityVfsFileBytesSource\s*\{[\s\S]*type Error;[\s\S]*read_xauthority_vfs_file_bytes\(&mut self, path: &str\) -> Result<Vec<u8>, Self::Error>/);
+    assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub enum NativeWindowLinuxX11XauthorityVfsFileBytesReadError<SourceError>\s*\{[\s\S]*ReadFailed\s*\{[\s\S]*path: String,[\s\S]*error: SourceError/);
+    assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub struct NativeWindowLinuxX11XauthorityVfsFileBytesReader<'a, Source>[\s\S]*source: &'a mut Source/);
+    assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /impl<Source> NativeWindowLinuxX11XauthorityFileBytesReader[\s\S]*for NativeWindowLinuxX11XauthorityVfsFileBytesReader<'_, Source>[\s\S]*read_xauthority_vfs_file_bytes\(path\)[\s\S]*NativeWindowLinuxX11XauthorityVfsFileBytesReadError::ReadFailed/);
+    assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub fn native_window_linux_x11_xauthority_read_file_bytes_from_vfs<Source>\([\s\S]*let mut reader = NativeWindowLinuxX11XauthorityVfsFileBytesReader::new\(source\)[\s\S]*native_window_linux_x11_xauthority_read_file_bytes\(plan, &mut reader\)/);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /std::fs|File::|OpenOptions|read_to|canonicalize|exists|metadata|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|(?<!\.)\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata/i);
     assert.match(libSource, /native_window_linux_x11_setup_request_no_auth_matches_legacy_bytes/);
     assert.match(libSource, /native_window_linux_x11_setup_request_encodes_mit_magic_cookie_lengths_and_padding/);
@@ -804,6 +820,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_xauthority_filesystem_file_bytes_reader_reads_exact_path/);
     assert.match(libSource, /native_window_linux_x11_xauthority_filesystem_file_bytes_reader_preserves_read_failure/);
     assert.match(libSource, /native_window_linux_x11_xauthority_filesystem_helper_uses_f5jg_validation/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_vfs_file_bytes_reader_forwards_exact_path/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_vfs_file_bytes_reader_preserves_source_failure/);
+    assert.match(libSource, /native_window_linux_x11_xauthority_vfs_helper_uses_f5jg_validation/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_explicit_plan_path/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_home_default_plan_path_for_parser/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_rejects_empty_and_too_large_files/);
