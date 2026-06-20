@@ -73836,3 +73836,51 @@ MERGE_APPROVED
 
 - 次 slice では actual X11 / Wayland window event source fd acquisition、readiness status classification、Linux runner / CLI dispatch へ進む。
 - macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5is Linux window event source readiness status boundary
+
+### scope
+
+- F5is は F5ir の registered external window event source fd を、Linux selector 層で独立 readiness status として分類する checkpoint である。
+- window event source readiness は event pump へ戻るための non-timer wake であり、timer fired evidence、scheduler completion、Linux runner readiness ではない。
+- actual X11 / Wayland fd acquisition、event parsing、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、new status constant と `WindowEventSourceReady` enum variant を追加すること、host-event-only wait は strict に保つこと、registered window path だけ explicit new raw method を呼ぶこと、optional / sentinel fd を使わないこと、cfg Linux sys shim は external fd を read / drain / close しないこと、support gate / runner / CLI / minifb wait replacement へ進まないことだった。
+- `WindowEventSourceReady` を upper `NativeWindowHostLoopInterruptibleDeadlineWaiter` の `HostEventReady` へ写すことは、この trait が timer deadline と non-timer wake だけを区別するため許可された。ただし Linux selector layer では source を区別し、docs / source policy で timer evidence ではないことを固定する。
+
+### implementation
+
+- `NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_WINDOW_EVENT_SOURCE_READY` と `NativeWindowHostLoopLinuxSelectorTimerFdWake::WindowEventSourceReady` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `selector_wait_for_timer_host_or_window_event_raw` を追加し、backend は registered window event source fd がある場合だけこの raw method を呼ぶ。
+- cfg Linux sys shim は `event.u64` が window event source fd と一致した場合、external fd を read / drain / close せず `WINDOW_EVENT_SOURCE_READY` を返す。
+- host-event-only wait は `HOST_EVENT_READY` だけを success とし、window event source readiness は unexpected status のままにした。
+- direct backend waiter と owner-retaining run-loop host は、`WindowEventSourceReady` を event pump へ戻る non-timer wake として扱う。
+- scripted raw API、Never raw API、unit tests、source policy、GUI docs、`todo.md` を F5is contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable_run_loop_host_maps_window_event_source_to_event_pump -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5is blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- code / source policy / docs blocker は無く、Linux support gate fail-closed、distinct `WindowEventSourceReady`、strict host-event-only waits、registered path only raw wait、external fd read / drain / close 禁止は確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだった。この指摘に従い、実行済み review 結果を記録した。
+- 再レビューは `REVIEW_APPROVED`。previous note blocker は解消され、tracked diff は F5is scope に限定されていると確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、event parsing、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。

@@ -969,6 +969,18 @@ backend は window event source fd を高々 1 つだけ registered token とし
 
 cfg Linux sys shim は `epoll_ctl EPOLL_CTL_ADD` / `EPOLL_CTL_DEL` で external fd を selector に登録解除するだけである。external window event source fd の取得、X11 / Wayland event decoding、readiness status classification、Linux runner support gate の `Ok` 化、CLI dispatch、synthetic readiness、timer fired evidence は F5ir では実装しない。
 
+## F5is Native Linux window event source readiness status boundary
+
+F5is では、registered external window event source fd の readiness を Linux selector status として明示する。`NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_WINDOW_EVENT_SOURCE_READY` と `NativeWindowHostLoopLinuxSelectorTimerFdWake::WindowEventSourceReady` は、timerfd readiness、host-event `eventfd` readiness、window / platform event source readiness を同じ `HostEventReady` 名へ潰さないための分類である。
+
+registered window event source fd が無い場合、deadline-or-event wait は従来通り `selector_wait_for_timer_or_event_raw` を使う。registered token がある場合だけ、`selector_wait_for_timer_host_or_window_event_raw` に selector、timerfd、host-event fd、window event source fd をすべて渡す。optional raw fd や sentinel fd は使わない。
+
+cfg Linux sys shim は `epoll_wait` の event data が window event source fd と一致した場合、external fd を read、drain、signal、close せず `WINDOW_EVENT_SOURCE_READY` を返す。external fd の event parsing と drain は X11 / Wayland 等の owner 側の責務であり、この boundary は readiness classification だけを行う。
+
+host-event-only wait は `HOST_EVENT_READY` だけを success とし、`WINDOW_EVENT_SOURCE_READY` は unexpected status として扱う。deadline-or-event wait では Linux selector enum に `WindowEventSourceReady` が残る。`NativeWindowHostLoopInterruptibleDeadlineWaiter` の generic wake へ写す時だけ、timer ではない event-pump wake として `HostEventReady` に変換する。これは event pump へ戻る evidence であり、timer fired evidence、scheduler completion、Linux runner readiness ではない。
+
+F5is は readiness classification checkpoint であり、actual X11 / Wayland fd acquisition、event decoding、Linux runner support gate の `Ok` 化、CLI dispatch、minifb wait replacement、synthetic timer fired evidence は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -1576,6 +1576,30 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、window event source readiness status classification、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence は実装しない。
 
+### Phase F5is: Native Linux window event source readiness status boundary
+
+目的:
+
+- F5ir で登録できるようになった external window event source fd の readiness を、Linux selector 層で timer / host-event `eventfd` と別 status として分類する。
+- window event source readiness は event pump へ戻るための non-timer wake であり、timer fired evidence、scheduler completion、Linux runner readiness ではないことを型と test で固定する。
+- host-event-only wait は host-event `eventfd` だけを success とし、window event source readiness を silent success にしない。
+
+実装:
+
+- `NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_WINDOW_EVENT_SOURCE_READY` と `NativeWindowHostLoopLinuxSelectorTimerFdWake::WindowEventSourceReady` を追加する。
+- registered window event source fd がある場合だけ、`selector_wait_for_timer_host_or_window_event_raw selector timer host_event window_event_source` を呼ぶ。registered fd が無い場合は従来の `selector_wait_for_timer_or_event_raw` を使う。
+- cfg Linux sys shim は `epoll_wait` の `event.u64` が window event source fd と一致した場合、fd を read / drain / close せず `WINDOW_EVENT_SOURCE_READY` を返す。
+- `NativeWindowHostLoopInterruptibleDeadlineWaiter` 実装では、`WindowEventSourceReady` を `HostEventReady` と同じ non-timer wake として写し、event pump へ戻す。Linux selector enum では source の区別を保持する。
+
+検証:
+
+- Rust unit tests で status mapping、host-event-only strictness、registered window fd path の new raw method 呼び出し、run-loop adapter が window fd readiness を event pump wake として扱うことを検査する。
+- source policy で new status / enum / raw method、registered path only、external fd read / drain / close 禁止、support gate / runner / CLI / minifb / fallback / synthetic timer evidence 非導入を固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
