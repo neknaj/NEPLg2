@@ -71,6 +71,7 @@ assert.ok(
         source.includes("Actual walker operation classifier stage0") &&
         source.includes("Actual walker traversal source stage0") &&
         source.includes("Actual walker operation producer bridge stage0") &&
+        source.includes("Private cache region proof stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
     "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, and operation producer bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
@@ -204,6 +205,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheRegionProof(?:InputKind|InputRecord|Status|Record|Table)\b/,
+    "private cache region proof input, status, record, and owner table must stay private until actual Resource IR traversal and effect masking own the proof boundary",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheRegionProofInputKind|SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord|SelfhostMemoCallBackendPrivateCacheRegionProofStatus|SelfhostMemoCallBackendPrivateCacheRegionProofRecord|SelfhostMemoCallBackendPrivateCacheRegionProofTable)\b/m,
+    "public functions must not expose private cache region proof input/status payload or owner table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualWalkerOperation(?:Kind|Record|Table)\b/,
     "actual walker operation classifier kind, record, and owner table must stay private until actual Resource IR traversal owns operation production",
 );
@@ -292,6 +303,11 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable\b/,
     "actual walker traversal source table owner must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheRegionProofTable\b/,
+    "private cache region proof table owner must not implement Clone or Copy",
 );
 assert.doesNotMatch(
     code,
@@ -1520,6 +1536,249 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_(?:collector_fail|place_kind|edge_kind|observation_kind|observation_status|validate|append|collect_from|collector_stage0_)/m,
     "actual walker traversal source collector helpers must stay module-private and only the typed smoke summary may be public",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionProofInputKind"),
+    [
+        "PrivateCacheRegionRoot",
+        "PrivateCacheRegionEntry",
+        "ReturnedOwnedValue",
+        "InternalOwnsEdge",
+        "InternalBorrowViewEdge",
+        "OwnedCloneOutEdge",
+        "EscapingReference",
+        "PublicStoreEscape",
+        "ExternalHandleEscape",
+        "CacheStateObservation",
+        "FunctionIdentityObservation",
+        "RawIdentityObservation",
+        "UnsupportedTraversal",
+        "UnsupportedObservation",
+        "TraversalUnavailable",
+    ],
+    "private cache region proof input kind must distinguish accepted candidates, escapes, observations, unsupported sources, and traversal-unavailable sources",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionProofStatus"),
+    [
+        "PrivateCacheRegionRootCandidate",
+        "PrivateCacheRegionSupportCandidate",
+        "PrivateCacheRegionMayEscape",
+        "PrivateCacheRegionObservationRejected",
+        "PrivateCacheRegionUnsupported",
+        "PrivateCacheRegionUnavailable",
+    ],
+    "private cache region proof status must keep root candidate, support candidate, escape, observation, unsupported, and unavailable results distinct",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "operation_ordinal %i32",
+        "from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "kind %SelfhostMemoCallBackendPrivateCacheRegionProofInputKind",
+    ],
+    "private cache region proof input record must retain request key, graph id, ordinal, endpoint ids, and typed input kind",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionProofRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "operation_ordinal %i32",
+        "status %SelfhostMemoCallBackendPrivateCacheRegionProofStatus",
+    ],
+    "private cache region proof record must retain request key, graph id, ordinal, and typed proof status",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionProofTable"),
+    ["records %Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord"],
+    "private cache region proof table must be a Vec-backed owner table",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind"),
+    [
+        "RegionProofTableAllocFailed %StdErrorKind",
+        "RegionProofRecordPushFailed %StdErrorKind",
+        "RegionProofRecordReadFailed %i32",
+        "TraversalSourceReadFailed %i32",
+        "RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionProofMissingFreshRegion",
+        "Stage0SourceRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+    ],
+    "private cache region proof producer errors must keep allocation, read, escape, observation, unsupported, unavailable, missing, and source-fixture failures distinct",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind"),
+    /_:/,
+    "private cache region proof input kind projection must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind"),
+    [
+        "PrivateCacheStoragePlace:",
+        "PrivateCacheRegionRoot",
+        "PrivateCacheEntryPlace:",
+        "PrivateCacheRegionEntry",
+        "ReturnedOwnedClonePlace:",
+        "ReturnedOwnedValue",
+        "ReturnCacheReferencePlace:",
+        "EscapingReference",
+        "PublicStorePlace:",
+        "PublicStoreEscape",
+        "ExternalHandlePlace:",
+        "ExternalHandleEscape",
+        "UnsupportedPlace:",
+        "UnsupportedTraversal",
+        "OwnsEdge:",
+        "InternalOwnsEdge",
+        "BorrowViewEdge:",
+        "InternalBorrowViewEdge",
+        "CloneOutOwnedValueEdge:",
+        "OwnedCloneOutEdge",
+        "CacheHitObservation:",
+        "CacheStateObservation",
+        "FunctionIdentityObservation:",
+        "FunctionIdentityObservation",
+        "RawIdentityObservation:",
+        "RawIdentityObservation",
+        "UnsupportedTraversalSource:",
+        "UnsupportedTraversal",
+        "UnsupportedObservationSource:",
+        "UnsupportedObservation",
+        "ResourceIrTraversalUnavailable:",
+        "TraversalUnavailable",
+    ],
+    "private cache region proof input projection must preserve accepted candidates, neutral edges, escaping edges, observations, unsupported sources, and unavailable traversal",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind"),
+    /_:/,
+    "private cache region proof status projection must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind"),
+    [
+        "PrivateCacheRegionRoot:",
+        "PrivateCacheRegionRootCandidate",
+        "PrivateCacheRegionEntry:",
+        "PrivateCacheRegionSupportCandidate",
+        "ReturnedOwnedValue:",
+        "PrivateCacheRegionSupportCandidate",
+        "InternalOwnsEdge:",
+        "PrivateCacheRegionSupportCandidate",
+        "OwnedCloneOutEdge:",
+        "PrivateCacheRegionSupportCandidate",
+        "EscapingReference:",
+        "PrivateCacheRegionMayEscape",
+        "CacheStateObservation:",
+        "PrivateCacheRegionObservationRejected",
+        "UnsupportedTraversal:",
+        "PrivateCacheRegionUnsupported",
+        "TraversalUnavailable:",
+        "PrivateCacheRegionUnavailable",
+    ],
+    "private cache region proof status projection must map root and support source classes separately and all bad sources to distinct fail-closed statuses",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_table_push"),
+    [
+        "eq record.key.body_module_fingerprint 0",
+        "lt record.graph_id.index 0",
+        "lt record.operation_ordinal 0",
+        "RegionProofRecordPushFailed StdErrorKind::InvalidOperation",
+    ],
+    "private cache region proof table push must reject placeholder fingerprints and invalid graph/operation ids",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_collect_sources_loop"),
+    /resource_graph_input_push|proof_table_push|PrivateCacheNoEscapeProven|Wasm|LLVM|PrivateCacheInPureFunction|mask_private/,
+    "private cache region proof source collection must not synthesize GraphInput, request proof table records, accepted Resource proof, backend bytes, or effect masking",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_fold_loop"),
+    /_:/,
+    "private cache region proof fold must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_fold_loop"),
+    [
+        "and seen_region_root seen_support",
+        "RegionProofMissingFreshRegion",
+        "PrivateCacheRegionRootCandidate:",
+        "selfhost_memo_call_backend_private_cache_region_proof_fold_loop table add idx 1 n true seen_support",
+        "PrivateCacheRegionSupportCandidate:",
+        "selfhost_memo_call_backend_private_cache_region_proof_fold_loop table add idx 1 n seen_region_root true",
+        "PrivateCacheRegionMayEscape:",
+        "RegionProofMayEscape record.key",
+        "PrivateCacheRegionObservationRejected:",
+        "RegionProofObservationRejected record.key",
+        "PrivateCacheRegionUnsupported:",
+        "RegionProofUnsupported record.key",
+        "PrivateCacheRegionUnavailable:",
+        "RegionProofUnavailable record.key",
+    ],
+    "private cache region proof fold must require both a region root candidate and a support candidate while keeping escape, observation, unsupported, and unavailable rejection distinct",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary"),
+    [
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "neutral_edge_accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "entry_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "returned_value_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "owns_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "clone_out_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "private cache region proof stage0 summary must expose only typed result payloads and not private source or region proof owner tables",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_stage0"),
+    [
+        "accepted_result",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result",
+        "neutral_edge_accepted_result",
+        "selfhost_memo_call_backend_private_cache_region_proof_stage0_neutral_edge_table_result",
+        "entry_without_root_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEntryPlace",
+        "returned_value_without_root_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnedOwnedClonePlace",
+        "owns_edge_without_root_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::OwnsEdge",
+        "clone_out_edge_without_root_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge",
+        "may_escape_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result",
+        "observation_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation",
+        "unsupported_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource",
+        "unavailable_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result",
+    ],
+    "private cache region proof stage0 must cover accepted, neutral, rootless support, escaping, observation, unsupported, unavailable, and placeholder paths",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_stage0")),
+    /PrivateCacheNoEscapeProven|proof_table_push|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend/,
+    "private cache region proof stage0 must not synthesize accepted Resource proof, request proof records, GraphInput, backend bytes, or effect masking",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)/m,
+    "private cache region proof helpers must stay module-private and only the typed smoke summary may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),

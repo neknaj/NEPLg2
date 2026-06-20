@@ -33,6 +33,7 @@
 //: - Actual walker operation producer bridge stage0 は、traversal source table を operation table へ投影して operation classifier へ渡します。actual traversal 本体はまだ接続せず、request ごとに `ResourceIrTraversalUnavailable` source を `UnknownResourceOperation` へ変換して fail-closed に扱います。
 //: - Actual walker traversal source projection stage0 は、actual traversal が将来返す accepted / escaping / observation / unavailable source vocabulary を source-to-operation projection 経由で classifier に渡せることを private fixture で確認します。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source を actual traversal 未接続のまま合成しません。
 //: - Actual walker traversal source collector stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` を borrowed input として読み、operation producer が読む traversal source table owner を作ります。known unsupported traversal / observation は `ResourceIrTraversalUnavailable` へ潰さず、`UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持します。この collector は GraphInput、proof table、operation table、backend bytes を作りません。
+//: - Private cache region proof stage0 は、traversal source table を private region proof input / status table へ写し、closed clone / neutral internal edge / escaping / observation / unsupported / unavailable / placeholder の代表 path を fail-closed に畳みます。この stage は Pure mask、`PrivateCacheNoEscapeProven`、sealed backend representation、artifact proof record を作りません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -47,6 +48,7 @@
 //: - actual walker traversal source stage0 は request 数 `m` に対して O(m) 個の typed traversal source record を作ります。source から operation への投影は source 数 `s` に対して O(s) です。projection smoke は fixture source 数 `s` に対して O(s) で operation table を作り、その後は既存 classifier の O(m * o) 境界に従います。
 //: - actual walker operation producer bridge は現状、traversal source table と operation table の二段階 owner を通します。これは actual traversal 本体が返す source stream と、classifier が読む operation vocabulary を分けるための境界であり、後続で source/operation の bucket 化や直接 projection に置換できます。
 //: - actual walker traversal source collector は body 数 `b`、place 数 `p`、edge 数 `e`、unsupported 数 `u`、observation 数 `a` に対して validation と source append を線形に行います。known unsupported と traversal unavailable を分ける contract は semantic 境界なので、後続の index 化でも維持します。
+//: - private cache region proof stage0 は source 数 `s` に対して O(s) 時間で input / status table を作り、同じく O(s) 時間で fail-closed fold を行います。これは actual non-escape proof の探索計算量ではなく、source vocabulary と proof status の contract を固定するための smoke です。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -807,6 +809,80 @@ struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord:
 struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable:
     records %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord
 
+//: SelfhostMemoCallBackendPrivateCacheRegionProofInputKind: traversal source から private region proof へ渡す入力分類
+//:
+//: [目的/もくてき]:
+//: - actual traversal source の語彙を、そのまま proof status と同一視せず、private cache region proof が読む入力語彙へ一段正規化します。
+//:
+//: [契約/けいやく]:
+//: - この enum は module-private です。外部 caller が proof 入力を偽造して accepted path を作る public API は作りません。
+//: - `TraversalUnavailable` は actual Resource IR traversal 本体が未接続であることだけを表します。known unsupported source、observation、escape sink と混同してはいけません。
+//: - `PrivateCacheRegionRoot`、`PrivateCacheRegionEntry`、`ReturnedOwnedValue`、`InternalOwnsEdge`、`InternalBorrowViewEdge`、`OwnedCloneOutEdge` は、この stage0 では「bad source が無い場合にだけ region candidate smoke の候補になる」入力です。Pure mask や sealed backend representation の完了ではありません。
+enum SelfhostMemoCallBackendPrivateCacheRegionProofInputKind:
+    PrivateCacheRegionRoot
+    PrivateCacheRegionEntry
+    ReturnedOwnedValue
+    InternalOwnsEdge
+    InternalBorrowViewEdge
+    OwnedCloneOutEdge
+    EscapingReference
+    PublicStoreEscape
+    ExternalHandleEscape
+    CacheStateObservation
+    FunctionIdentityObservation
+    RawIdentityObservation
+    UnsupportedTraversal
+    UnsupportedObservation
+    TraversalUnavailable
+
+//: SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord: private region proof producer が読む正規化済み入力 record
+//:
+//: [契約/けいやく]:
+//: - key / graph id / ordinal / place id は traversal source record からそのまま受け取ります。source text、display name、diagnostic text、backend bytes は authority にしません。
+//: - input record は owner ではありません。owner lifecycle は `SelfhostMemoCallBackendPrivateCacheRegionProofTable` が保持します。
+struct SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheRegionProofInputKind
+
+//: SelfhostMemoCallBackendPrivateCacheRegionProofStatus: private cache region proof の record 状態
+//:
+//: [契約/けいやく]:
+//: - `PrivateCacheRegionRootCandidate` は private cache region の root source を見つけたことだけを表します。
+//: - `PrivateCacheRegionSupportCandidate` は region root に付随する entry / owned value / internal edge source を見つけたことだけを表します。
+//: - fold は root candidate と support candidate の両方を要求します。support だけの table は root なし candidate として fail-closed にします。
+//: - この status は PrivateCache / PrivateState effect を Pure へ mask する権限ではありません。effect masking は後続の Resource effect fold issue が担当します。
+//: - `PrivateCacheRegionMayEscape`、`PrivateCacheRegionObservationRejected`、`PrivateCacheRegionUnsupported`、`PrivateCacheRegionUnavailable` はいずれも fail-closed です。これらを proof table や backend bytes へ変換してはいけません。
+enum SelfhostMemoCallBackendPrivateCacheRegionProofStatus:
+    PrivateCacheRegionRootCandidate
+    PrivateCacheRegionSupportCandidate
+    PrivateCacheRegionMayEscape
+    PrivateCacheRegionObservationRejected
+    PrivateCacheRegionUnsupported
+    PrivateCacheRegionUnavailable
+
+//: SelfhostMemoCallBackendPrivateCacheRegionProofRecord: private region proof producer の 1 record
+//:
+//: [契約/けいやく]:
+//: - record は traversal source 由来の key、graph id、ordinal と status だけを保持します。
+//: - root candidate または support candidate の record が 1 件あることだけでは十分ではありません。table fold が全 record を読み、root と support の両方があり、bad status が無いことを確認してはじめて stage0 accepted smoke になります。
+struct SelfhostMemoCallBackendPrivateCacheRegionProofRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    status %SelfhostMemoCallBackendPrivateCacheRegionProofStatus
+
+//: SelfhostMemoCallBackendPrivateCacheRegionProofTable: private region proof record の owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private owner です。外部 caller が proof record を渡して accepted path を作る入口は作りません。
+//: - table 自体に `Clone` / `Copy` を実装してはいけません。
+struct SelfhostMemoCallBackendPrivateCacheRegionProofTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord
+
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: actual walker が列挙する Resource operation 相当の最小分類
 //:
 //: [目的/もくてき]:
@@ -1001,6 +1077,26 @@ pub enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeError
     NormalizerRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
     Stage0FixtureAllocFailed %StdErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind: private cache region proof producer の拒否分類
+//:
+//: [目的/もくてき]:
+//: - traversal source から private cache region candidate smoke へ進む途中で、どの境界が fail-closed になったかを enum payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - error payload は owner table を含みません。途中失敗時には producer helper が source table または region proof table を閉じます。
+//: - `RegionProofAccepted` のような成功 error は作りません。accepted smoke は `Result::Ok` だけで表し、Pure mask や backend representation には接続しません。
+pub enum SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind:
+    RegionProofTableAllocFailed %StdErrorKind
+    RegionProofRecordPushFailed %StdErrorKind
+    RegionProofRecordReadFailed %i32
+    TraversalSourceReadFailed %i32
+    RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionProofMissingFreshRegion
+    Stage0SourceRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -1093,6 +1189,27 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollect
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary: traversal source 由来 private region proof smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - traversal source table から private cache region proof table を作り、closed path、escaping path、observation path、unsupported path、unavailable path、placeholder rejection が分離されていることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを公開します。private source table、region proof input record、region proof table owner は公開しません。
+//: - accepted result は region proof vocabulary と fail-closed fold の接続 smoke であり、actual Resource IR traversal 本体、PrivateCache / PrivateState effect masking、sealed backend representation の完了を意味しません。
+pub struct SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    neutral_edge_accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    entry_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    returned_value_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    owns_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    clone_out_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
@@ -1606,6 +1723,58 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceReco
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofInputKind: region proof input kind を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - kind は source classification tag だけであり、region proof table owner や backend state を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofInputKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofInputKind SelfhostMemoCallBackendPrivateCacheRegionProofInputKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofInputKind: region proof input kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofInputKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofInputKind SelfhostMemoCallBackendPrivateCacheRegionProofInputKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord: region proof input record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - input record は typed key、graph id、ordinal、place id、input kind だけを持ち、owner table は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord: region proof input record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofStatus: region proof status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は proof fold の分類値であり、Pure mask authority や sealed backend owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofStatus SelfhostMemoCallBackendPrivateCacheRegionProofStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStatus: region proof status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofStatus SelfhostMemoCallBackendPrivateCacheRegionProofStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofRecord: region proof record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は typed key と status だけを保持し、region proof table owner は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofRecord SelfhostMemoCallBackendPrivateCacheRegionProofRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofRecord: region proof record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofRecord SelfhostMemoCallBackendPrivateCacheRegionProofRecord \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: operation kind を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1674,6 +1843,22 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridge
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind: region proof producer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error payload は typed enum と key/index だけを持ち、source table owner や region proof table owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind: region proof producer error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest と source policy が error 分類を値として比較するための marker です。owner-bearing diagnostic が必要になった場合はこの Copy impl を削除します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary: unified event producer bridge smoke summary を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1737,6 +1922,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCol
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary: collector smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary: region proof smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private source table や region proof table owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary: region proof smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -6279,6 +6477,148 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table
                     v::free v::vec_push_error_vec e
                     Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalSourcePushFailed error
 
+//: selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind: traversal source kind を region proof input kind へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard fallback は使いません。actual traversal source が増えた場合は、fresh region 候補、escape、observation、unsupported、unavailable のどれに属するかを明示する必要があります。
+//: - observation と unsupported は fail-closed input へ写し、root / support candidate へ混ぜません。
+fn selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind SelfhostMemoCallBackendPrivateCacheRegionProofInputKind \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PrivateCacheRegionRoot
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEntryPlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PrivateCacheRegionEntry
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnedOwnedClonePlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::ReturnedOwnedValue
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::EscapingReference
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStorePlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PublicStoreEscape
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ExternalHandlePlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::ExternalHandleEscape
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedPlace:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::OwnsEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::InternalOwnsEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::BorrowViewEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::InternalBorrowViewEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::OwnedCloneOutEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferenceEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::EscapingReference
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStoreEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PublicStoreEscape
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CallBoundaryUnsupportedEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::RawIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedObservationSource:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::TraversalUnavailable
+
+//: selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind: region proof input kind を fail-closed status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - region root source は `PrivateCacheRegionRootCandidate` に写します。
+//: - entry / owned value / internal edge は `PrivateCacheRegionSupportCandidate` に写します。support だけでは accepted にならず、fold で root candidate も要求します。
+//: - escape、observation、unsupported、unavailable はそれぞれ別 status に保持し、diagnostic と後続 gate が原因を区別できるようにします。
+fn selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind %fn SelfhostMemoCallBackendPrivateCacheRegionProofInputKind SelfhostMemoCallBackendPrivateCacheRegionProofStatus \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PrivateCacheRegionRoot:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PrivateCacheRegionEntry:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::ReturnedOwnedValue:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::InternalOwnsEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::InternalBorrowViewEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::OwnedCloneOutEdge:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::EscapingReference:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionMayEscape
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PublicStoreEscape:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionMayEscape
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::ExternalHandleEscape:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionMayEscape
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionObservationRejected
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionObservationRejected
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::RawIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionObservationRejected
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnsupported
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnsupported
+        SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::TraversalUnavailable:
+            SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnavailable
+
+//: selfhost_memo_call_backend_private_cache_region_proof_input_record_from_source: source record を region proof input record へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_input_record_from_source %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord \source:
+    let kind %SelfhostMemoCallBackendPrivateCacheRegionProofInputKind selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind source.kind
+    SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord source.key source.graph_id source.operation_ordinal source.from_place source.to_place kind
+
+//: selfhost_memo_call_backend_private_cache_region_proof_record_from_input: input record を proof status record へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - endpoint 情報は input validation と後続 actual traversal の authority として使います。この stage0 record では fold に必要な key / graph / ordinal / status だけを保持します。
+fn selfhost_memo_call_backend_private_cache_region_proof_record_from_input %fn SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord SelfhostMemoCallBackendPrivateCacheRegionProofRecord \input:
+    let status %SelfhostMemoCallBackendPrivateCacheRegionProofStatus selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind input.kind
+    SelfhostMemoCallBackendPrivateCacheRegionProofRecord input.key input.graph_id input.operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_new: [空/から]の region proof table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_proof_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheRegionProofTable records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_free: region proof table owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_region_proof_table_free %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_len: region proof record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_table_len %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_get: region proof record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_region_proof_table_get %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable fn i32 Option SelfhostMemoCallBackendPrivateCacheRegionProofRecord \table\idx:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord field::get_ref table "records"
+    v::get records idx
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_push: region proof record を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - placeholder fingerprint、負の graph id、負の operation ordinal は producer origin が証明できないため、table owner を閉じて拒否します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、lower `StdErrorKind` を保持します。
+fn selfhost_memo_call_backend_private_cache_region_proof_table_push %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofRecord Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\record:
+    if:
+        or or eq record.key.body_module_fingerprint 0 lt record.graph_id.index 0 lt record.operation_ordinal 0
+        then:
+            selfhost_memo_call_backend_private_cache_region_proof_table_free table
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRecordPushFailed StdErrorKind::InvalidOperation
+        else:
+            let records %Vec SelfhostMemoCallBackendPrivateCacheRegionProofRecord field::get table "records"
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheRegionProofTable next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRecordPushFailed error
+
 //: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_fail_with_sources: collector 失敗時に source table owner を[閉/と]じる
 //:
 //: [契約/けいやく]:
@@ -7369,6 +7709,161 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_c
     let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_observation_result 77 SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_run_i32_from_input_result 77 selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
     SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary accepted_result neutral_edge_accepted_result may_escape_rejected unsupported_rejected observation_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_region_proof_fail_with_table: region proof table を閉じて error を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_fail_with_table %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\error:
+    selfhost_memo_call_backend_private_cache_region_proof_table_free table
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_region_proof_append_source_result: traversal source record を region proof table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - traversal source は input record に正規化してから proof status へ写します。source kind から proof table を直接作らないことで、将来 actual traversal 入力を差し替えても boundary を保てます。
+fn selfhost_memo_call_backend_private_cache_region_proof_append_source_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\source:
+    let input %SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord selfhost_memo_call_backend_private_cache_region_proof_input_record_from_source source
+    let record %SelfhostMemoCallBackendPrivateCacheRegionProofRecord selfhost_memo_call_backend_private_cache_region_proof_record_from_input input
+    selfhost_memo_call_backend_private_cache_region_proof_table_push table record
+
+//: selfhost_memo_call_backend_private_cache_region_proof_collect_sources_loop: source table を region proof table へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_collect_sources_loop %impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \sources\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok table
+        else:
+            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_get sources idx:
+                Option::Some source:
+                    match selfhost_memo_call_backend_private_cache_region_proof_append_source_result table source:
+                        Result::Ok next_table:
+                            selfhost_memo_call_backend_private_cache_region_proof_collect_sources_loop sources next_table add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_region_proof_fail_with_table table SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::TraversalSourceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result: traversal source table から region proof table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - sources は borrowed input であり、この関数は閉じません。caller が owner lifecycle を管理します。
+//: - この関数が作るのは region proof table owner だけです。request evidence proof table、GraphInput、backend bytes、effect mask は作りません。
+fn selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result %impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \sources:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            selfhost_memo_call_backend_private_cache_region_proof_collect_sources_loop sources table0 0 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_fold_loop: region proof table を fail-closed に[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - root candidate record は private cache region root を見つけたことだけを表します。support candidate record は付随 source を見つけたことだけを表します。
+//: - table 全体に bad status が無く、root candidate と support candidate の両方を確認するまで `Ok` を返しません。
+//: - match は wildcard fallback を使いません。status が増えた場合、accepted / rejected のどちらに畳むかを明示する必要があります。
+fn selfhost_memo_call_backend_private_cache_region_proof_fold_loop %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable fn i32 fn i32 fn bool fn bool Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\idx\n\seen_region_root\seen_support:
+    if:
+        ge idx n
+        then:
+            if:
+                and seen_region_root seen_support
+                then:
+                    Result::Ok 1
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofMissingFreshRegion
+        else:
+            match selfhost_memo_call_backend_private_cache_region_proof_table_get table idx:
+                Option::Some record:
+                    match record.status:
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate:
+                            selfhost_memo_call_backend_private_cache_region_proof_fold_loop table add idx 1 n true seen_support
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionSupportCandidate:
+                            selfhost_memo_call_backend_private_cache_region_proof_fold_loop table add idx 1 n seen_region_root true
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionMayEscape:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofMayEscape record.key
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionObservationRejected:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofObservationRejected record.key
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnsupported:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofUnsupported record.key
+                        SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionUnavailable:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofUnavailable record.key
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_region_proof_fold_i32_result: region proof table の accepted count smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_fold_i32_result %fn &SelfhostMemoCallBackendPrivateCacheRegionProofTable Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table:
+    selfhost_memo_call_backend_private_cache_region_proof_fold_loop table 0 selfhost_memo_call_backend_private_cache_region_proof_table_len table false false
+
+//: selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_with_sources_result: source owner から region proof smoke を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source table はこの helper が必ず閉じます。region proof table も fold 後に必ず閉じます。
+fn selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_with_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \sources:
+    let table_result %Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result &sources
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+    match table_result:
+        Result::Ok table:
+            let fold_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_fold_i32_result &table
+            selfhost_memo_call_backend_private_cache_region_proof_table_free table
+            fold_result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result: source fixture result を region proof smoke へ[渡/わた]す
+fn selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result %impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \source_result:
+    match source_result:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_with_sources_result sources
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_stage0_neutral_edge_table_result: neutral edge source table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_proof_stage0_neutral_edge_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table0 0 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table1 1 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::OwnsEdge
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result: region proof table の placeholder rejection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 0
+            let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+            let record %SelfhostMemoCallBackendPrivateCacheRegionProofRecord SelfhostMemoCallBackendPrivateCacheRegionProofRecord key graph_id 0 SelfhostMemoCallBackendPrivateCacheRegionProofStatus::PrivateCacheRegionRootCandidate
+            match selfhost_memo_call_backend_private_cache_region_proof_table_push table0 record:
+                Result::Ok table1:
+                    let fold_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_fold_i32_result &table1
+                    selfhost_memo_call_backend_private_cache_region_proof_table_free table1
+                    fold_result
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_proof_stage0: traversal source 由来 private region proof の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - traversal source table から region proof input / status table へ写し、closed region 候補と fail-closed source を分けて畳めることを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR traversal 本体、PrivateCache / PrivateState effect masking、sealed backend representation はまだ未接続です。この public smoke は private fixture source table と private region proof table だけを使います。
+pub fn selfhost_memo_call_backend_private_cache_region_proof_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result
+    let neutral_edge_accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_region_proof_stage0_neutral_edge_table_result
+    let entry_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEntryPlace
+    let returned_value_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnedOwnedClonePlace
+    let owns_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::OwnsEdge
+    let clone_out_edge_without_root_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+    let unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result
+    SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary accepted_result neutral_edge_accepted_result entry_without_root_rejected returned_value_without_root_rejected owns_edge_without_root_rejected clone_out_edge_without_root_rejected may_escape_rejected observation_rejected unsupported_rejected unavailable_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:

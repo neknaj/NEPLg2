@@ -76287,3 +76287,51 @@ MERGE_APPROVED
 - PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
 - source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、typed source vocabulary / known unsupported と unavailable の分離 / collector boundary contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call private cache region candidate checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker traversal source collector が作る source table を private cache region proof の入力候補へ写す stage0 を追加した。
+- この checkpoint は fresh private region proof や no-escape proof の完了ではない。private cache storage source を `PrivateCacheRegionRootCandidate` として保持し、entry / returned owned value / internal edge / clone-out edge source を `PrivateCacheRegionSupportCandidate` として保持し、escape / observation / unsupported / unavailable を別 status と別 error で拒否する境界を固定した。
+- `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` は stage0 candidate であり、`PrivateCacheNoEscapeProven`、`RequestEvidenceProven`、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key を意味しない。fold は root と support の両方を要求し、entry-only、returned-value-only、owns-edge-only、clone-out-edge-only の table は accepted smoke にしない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match、module-private owner boundary、authority source の限定、契約と未実装の明示的な分離、試作段階でも雑な proof 合成を避ける方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。region proof candidate の doc comment には、目的、candidate と proof の違い、作ってよいもの、作ってはいけない proof / backend / effect mask、計算量、残件を明記した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheRegionProofInputKind`、`SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord`、`SelfhostMemoCallBackendPrivateCacheRegionProofStatus`、`SelfhostMemoCallBackendPrivateCacheRegionProofRecord`、`SelfhostMemoCallBackendPrivateCacheRegionProofTable` を module-private 型として追加した。
+- proof status の success-like path は `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` と命名し、実証済み proof と誤読される `FreshPrivateCacheRegionProven` のような名称は使わない形にした。
+- `selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind` と `selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind` は wildcard-free の明示 match にした。accepted / neutral source は candidate、escape / observation / unsupported / unavailable source はそれぞれ別 status へ写す。
+- region proof table は owner であり module-private のままにした。owner table に Clone / Copy は追加していない。
+- fold は root candidate と support candidate の両方がある場合だけ success とし、escape / observation / unsupported / unavailable / missing root-or-support candidate を別 error で返す。placeholder fingerprint と負の graph/source ordinal は table push 時点で fail-closed にする。
+- `SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary` と `selfhost_memo_call_backend_private_cache_region_proof_stage0` を追加した。summary は Result payload だけを公開し、private input / proof table owner を公開しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、region proof input/status/record/table の public exposure 禁止、proof table Clone / Copy 禁止、source kind projection / status projection / fold の wildcard fallback 禁止、distinct rejection、proof/backend/effect mask 合成禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、candidate boundary 完了と actual Resource IR traversal 本体、fresh private region proof、no-escape proof、PrivateCache / PrivateState masking、sealed backend、artifact projection、`MemoKey` / `MemoValue` aggregate proof を残件として整理した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_NEEDS_CHANGES`。
+- required 指摘は、`FreshPrivateCacheRegionProven` のような proof 完了名を使わず candidate として命名すること、proof table / Resource proof / Pure mask / backend representation を合成しないこと、owner table を public API や Clone / Copy にしないこと、fold で escape / observation / unsupported / unavailable を別 error にすること、`ResourceIrTraversalUnavailable` を unsupported の catch-all に戻さないことだった。
+- 今回の実装で `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` へ分け、source policy でも rootless support candidate rejection、candidate と proof の分離、module-private owner boundary、distinct rejection、proof/backend/effect mask 合成禁止を固定した。
+- Wegener の initial implementation review は `REVIEW_NEEDS_CHANGES`。`PrivateCacheRegionCandidate` 単一 status では edge-only / clone-only / entry-only table が accepted smoke になるため、region root を別条件として要求する必要があるという blocker だった。
+- blocker 対応として、`PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` へ status を分離し、fold が `seen_region_root` と `seen_support` の両方を要求するようにした。stage0 summary には entry-only / returned-value-only / owns-edge-only / clone-out-edge-only の rootless support rejection smoke を追加した。
+- Wegener の fix review は `REVIEW_APPROVED`。rootless support table が accepted smoke にならないこと、proof/backend/effect 合成が無いこと、module-private owner boundary、wildcard fallback 禁止、docs / issue / todo / note の candidate と残件の分離が確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を生成する境界へ進める。
+- `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` を fresh private cache region proof と no-escape proof へ進める checker-layer boundary へ進める。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation / region proof table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、candidate boundary / source authority / distinct rejection contract を保って後から行う。

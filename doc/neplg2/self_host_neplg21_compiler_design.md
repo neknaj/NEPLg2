@@ -2311,6 +2311,36 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 memo_call backend private cache region candidate stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual walker traversal source collector が作る source table を読み、private cache region proof の入力候補を module-private table として分類する stage0 を追加した。
+
+この checkpoint は fresh private region proof そのものではない。ここで固定したのは、accepted source、neutral source、escape source、observation source、unsupported source、unavailable source を同じ「証明済み」扱いにしないための typed candidate boundary である。private cache storage source は `PrivateCacheRegionRootCandidate` へ進め、entry / owned value / internal edge source は `PrivateCacheRegionSupportCandidate` へ進める。fold は root と support の両方を要求するため、entry-only、returned-value-only、edge-only、clone-out-only の table は accepted smoke にならない。これらの candidate は no-escape proof、fresh region proof、Pure mask、sealed backend representation を意味しない。escape、observation、unsupported、unavailable はそれぞれ別の status と error に写し、catch-all や wildcard fallback で rejected source を accepted source に紛れ込ませない。
+
+region proof input kind / input record / status / proof record / proof table は module-private である。public API は `SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary` だけを返し、caller supplied proof table や owner table を渡す入口を持たない。proof table は owner であり Clone / Copy にしない。record authority は traversal source が持つ proof key、graph id、source ordinal、place id、source kind に限定し、source text、diagnostic label、display name、backend representation、GraphInput、Resource IR proof object を authority にしない。
+
+stage0 fold は `PrivateCacheRegionRootCandidate` と `PrivateCacheRegionSupportCandidate` の両方を成功条件として要求し、escape / observation / unsupported / unavailable / missing root-or-support candidate を別々の typed error にする。placeholder fingerprint と負の graph/source ordinal も rejected status へ混ぜず、table push 時点で fail-closed にする。これにより、actual traversal 本体が未接続の状態で `PrivateCacheNoEscapeProven`、`RequestEvidenceProven`、PrivateCache / PrivateState effect mask、Wasm / LLVM backend bytes、`.neplobj` / `.neplproof` artifact key を合成しないことを明確にした。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。module-private region proof input/status/record/table の public exposure 禁止、proof table owner の Clone / Copy 禁止、source kind projection と status projection と fold の wildcard fallback 禁止、escape / observation / unsupported / unavailable の distinct error 化、proof/backend/effect mask 合成禁止、line count / doc comment amount limiting checks の禁止を固定している。
+
+計算量として、source table から region proof input table を作る処理と fold は source 数 `s` に対して O(s) である。source-key bucket 化や source ordinal index 化は後続最適化として扱えるが、candidate と proof の名称分離、module-private owner table、distinct rejection、backend / effect mask 非合成は semantic contract として維持する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-selfhost-shard8of8.json`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を生成する境界。
+- `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` を fresh private cache region proof と no-escape proof へ進める checker-layer boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- source / operation / region proof table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
