@@ -7302,6 +7302,7 @@ pub const NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN: usize = 
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16;
+pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE: u8 = 18;
 pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME: &[u8] = b"WM_PROTOCOLS";
 pub const NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME: &[u8] = b"WM_DELETE_WINDOW";
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH: u8 = 0;
@@ -7312,12 +7313,19 @@ pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN: usize = 8;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_LENGTH_UNITS: u16 = 2;
+pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REPLACE_MODE: u8 = 0;
+pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_FORMAT_32: u8 = 32;
+pub const NATIVE_WINDOW_LINUX_X11_ATOM_TYPE_ATOM_ID: u32 = 4;
+pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_LENGTH_UNITS: u16 = 7;
+pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_DATA_ITEM_COUNT: u32 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN: usize =
     ((NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS as usize)
         + (NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT as usize))
         * 4;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN: usize =
     (NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS as usize) * 4;
+pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN: usize =
+    (NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_LENGTH_UNITS as usize) * 4;
 pub const NATIVE_WINDOW_LINUX_X11_TOP_LEVEL_WINDOW_REQUEST_BYTE_LEN: usize =
     NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
         + NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN;
@@ -7364,6 +7372,7 @@ pub enum NativeWindowLinuxX11TopLevelWindowRequestWriteState {
     NotConfigured,
     SetupBackedBuildPending,
     RequestPending,
+    WmProtocolRegistrationPending,
     Ready,
     Failed,
 }
@@ -7377,10 +7386,20 @@ pub enum NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolRegistrationWriteState {
+    NotConfigured,
+    WaitingForAtoms,
+    RequestPending,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11ServerErrorCorrelation {
     Unmatched,
     TopLevelWindowCreate { window_id: u32 },
     TopLevelWindowMap { window_id: u32 },
+    WmProtocolRegistration { window_id: u32 },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7406,6 +7425,12 @@ pub enum NativeWindowLinuxX11WmProtocolAtomMeaning {
 pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan {
     wm_protocols_sequence: Option<u16>,
     wm_delete_window_sequence: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11WmProtocolRegistrationSequencePlan {
+    window_id: u32,
+    change_property_sequence: Option<u16>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7483,6 +7508,22 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     },
     WmProtocolAtomInternBatchWriteReturnedZero,
     WmProtocolAtomInternBatchWriteOverflow {
+        byte_count: usize,
+        remaining_byte_count: usize,
+    },
+    WmProtocolRegistrationPreviouslyFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    },
+    WmProtocolRegistrationWindowMissing,
+    WmProtocolRegistrationRequestBuildFailed {
+        error: NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError,
+    },
+    WmProtocolRegistrationWriteWouldBlock,
+    WmProtocolRegistrationWriteFailed {
+        code: u32,
+    },
+    WmProtocolRegistrationWriteReturnedZero,
+    WmProtocolRegistrationWriteOverflow {
         byte_count: usize,
         remaining_byte_count: usize,
     },
@@ -7852,6 +7893,24 @@ pub struct NativeWindowLinuxX11WmProtocolAtoms {
     wm_delete_window_atom: NativeWindowLinuxX11AtomId,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11WmProtocolRegistrationRequest {
+    window_id: u32,
+    atoms: NativeWindowLinuxX11WmProtocolAtoms,
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError {
+    WindowIdInvalid {
+        error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+    },
+    RequestLengthMismatch {
+        actual_byte_len: usize,
+        expected_byte_len: usize,
+    },
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11WmProtocolAtomAssignmentError {
     DuplicateAssignment {
@@ -8098,6 +8157,11 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     wm_protocol_atom_intern_request_sequence_plan:
         Option<NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan>,
     wm_protocol_atom_assignment_state: NativeWindowLinuxX11WmProtocolAtomAssignmentState,
+    wm_protocol_registration_request: Option<NativeWindowLinuxX11WmProtocolRegistrationRequest>,
+    wm_protocol_registration_write_state: NativeWindowLinuxX11WmProtocolRegistrationWriteState,
+    wm_protocol_registration_written_len: usize,
+    wm_protocol_registration_sequence_plan:
+        Option<NativeWindowLinuxX11WmProtocolRegistrationSequencePlan>,
     next_x11_request_sequence: u16,
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
     setup_prefix_len: usize,
@@ -9136,6 +9200,73 @@ impl NativeWindowLinuxX11WmProtocolAtoms {
     }
 }
 
+impl NativeWindowLinuxX11WmProtocolRegistrationRequest {
+    pub fn window_id(&self) -> u32 {
+        self.window_id
+    }
+
+    pub fn atoms(&self) -> NativeWindowLinuxX11WmProtocolAtoms {
+        self.atoms
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+pub fn native_window_linux_x11_wm_protocol_registration_request(
+    window_id: u32,
+    atoms: NativeWindowLinuxX11WmProtocolAtoms,
+) -> Result<
+    NativeWindowLinuxX11WmProtocolRegistrationRequest,
+    NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError,
+> {
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+        window_id,
+    )
+    .map_err(|error| {
+        NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError::WindowIdInvalid { error }
+    })?;
+
+    let mut bytes =
+        Vec::with_capacity(NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN);
+    bytes.push(NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE);
+    bytes.push(NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REPLACE_MODE);
+    bytes.extend_from_slice(
+        &NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_LENGTH_UNITS.to_le_bytes(),
+    );
+    bytes.extend_from_slice(&window_id.to_le_bytes());
+    bytes.extend_from_slice(&atoms.wm_protocols_atom().raw().to_le_bytes());
+    bytes.extend_from_slice(&NATIVE_WINDOW_LINUX_X11_ATOM_TYPE_ATOM_ID.to_le_bytes());
+    bytes.push(NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_FORMAT_32);
+    bytes.extend_from_slice(&[0_u8; 3]);
+    bytes.extend_from_slice(
+        &NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_DATA_ITEM_COUNT.to_le_bytes(),
+    );
+    bytes.extend_from_slice(&atoms.wm_delete_window_atom().raw().to_le_bytes());
+
+    if bytes.len() != NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN {
+        return Err(
+            NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError::RequestLengthMismatch {
+                actual_byte_len: bytes.len(),
+                expected_byte_len:
+                    NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN,
+            },
+        );
+    }
+
+    Ok(NativeWindowLinuxX11WmProtocolRegistrationRequest {
+        window_id,
+        atoms,
+        bytes,
+    })
+}
+
 impl NativeWindowLinuxX11WmProtocolAtomAssignmentState {
     pub fn new() -> Self {
         Self {
@@ -10133,6 +10264,41 @@ impl NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan {
     }
 }
 
+impl NativeWindowLinuxX11WmProtocolRegistrationSequencePlan {
+    pub fn new(window_id: u32) -> Self {
+        Self {
+            window_id,
+            change_property_sequence: None,
+        }
+    }
+
+    pub fn window_id(&self) -> u32 {
+        self.window_id
+    }
+
+    pub fn change_property_sequence(&self) -> Option<u16> {
+        self.change_property_sequence
+    }
+
+    fn record_change_property_sequence(&mut self, sequence: u16) {
+        if self.change_property_sequence.is_none() {
+            self.change_property_sequence = Some(sequence);
+        }
+    }
+
+    fn server_error_correlation(
+        &self,
+        error: NativeWindowLinuxX11ServerErrorPacket,
+    ) -> NativeWindowLinuxX11ServerErrorCorrelation {
+        if self.change_property_sequence == Some(error.sequence()) {
+            return NativeWindowLinuxX11ServerErrorCorrelation::WmProtocolRegistration {
+                window_id: self.window_id,
+            };
+        }
+        NativeWindowLinuxX11ServerErrorCorrelation::Unmatched
+    }
+}
+
 impl NativeWindowLinuxX11WmProtocolAtomMeaning {
     pub fn from_reply_correlation(
         correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
@@ -10261,6 +10427,9 @@ fn native_window_linux_x11_event_packet_to_observation(
     top_level_window_request_sequence_plan: Option<
         NativeWindowLinuxX11TopLevelWindowRequestSequencePlan,
     >,
+    wm_protocol_registration_sequence_plan: Option<
+        NativeWindowLinuxX11WmProtocolRegistrationSequencePlan,
+    >,
 ) -> Result<
     NativeWindowLinuxWindowEventSourceObservation,
     NativeWindowLinuxX11EventSourceObservationError,
@@ -10268,10 +10437,19 @@ fn native_window_linux_x11_event_packet_to_observation(
     match native_window_linux_x11_response_type_raw(packet) {
         NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR => {
             let error = native_window_linux_x11_server_error_packet(packet);
-            let correlation = match top_level_window_request_sequence_plan {
+            let top_level_correlation = match top_level_window_request_sequence_plan {
                 Some(plan) => plan.server_error_correlation(error),
                 None => NativeWindowLinuxX11ServerErrorCorrelation::Unmatched,
             };
+            let correlation =
+                if top_level_correlation != NativeWindowLinuxX11ServerErrorCorrelation::Unmatched {
+                    top_level_correlation
+                } else {
+                    match wm_protocol_registration_sequence_plan {
+                        Some(plan) => plan.server_error_correlation(error),
+                        None => NativeWindowLinuxX11ServerErrorCorrelation::Unmatched,
+                    }
+                };
             return Err(
                 NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
                     error,
@@ -10353,6 +10531,11 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             wm_protocol_atom_intern_request_sequence_plan: None,
             wm_protocol_atom_assignment_state:
                 NativeWindowLinuxX11WmProtocolAtomAssignmentState::new(),
+            wm_protocol_registration_request: None,
+            wm_protocol_registration_write_state:
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::NotConfigured,
+            wm_protocol_registration_written_len: 0,
+            wm_protocol_registration_sequence_plan: None,
             next_x11_request_sequence: NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE,
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
             setup_prefix_len: 0,
@@ -10428,8 +10611,46 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             Some(NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan::new());
         self.wm_protocol_atom_assignment_state =
             NativeWindowLinuxX11WmProtocolAtomAssignmentState::new();
+        self.wm_protocol_registration_request = None;
+        self.wm_protocol_registration_written_len = 0;
+        self.wm_protocol_registration_sequence_plan = None;
+        self.wm_protocol_registration_write_state =
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::WaitingForAtoms;
         self.wm_protocol_atom_intern_batch_write_state =
             NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::BatchPending;
+    }
+
+    fn install_wm_protocol_registration_request(
+        &mut self,
+        atoms: NativeWindowLinuxX11WmProtocolAtoms,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let Some(window_id) = self
+            .top_level_window_request
+            .as_ref()
+            .map(NativeWindowLinuxX11TopLevelWindowCreateRequest::window_id)
+        else {
+            self.wm_protocol_registration_write_state =
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed;
+            return Err(
+                NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWindowMissing,
+            );
+        };
+        let request = native_window_linux_x11_wm_protocol_registration_request(window_id, atoms)
+            .map_err(|error| {
+                self.wm_protocol_registration_write_state =
+                    NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed;
+                NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationRequestBuildFailed {
+                    error,
+                }
+            })?;
+        self.wm_protocol_registration_request = Some(request);
+        self.wm_protocol_registration_written_len = 0;
+        self.wm_protocol_registration_sequence_plan = Some(
+            NativeWindowLinuxX11WmProtocolRegistrationSequencePlan::new(window_id),
+        );
+        self.wm_protocol_registration_write_state =
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::RequestPending;
+        Ok(())
     }
 
     pub fn api(&self) -> &Api {
@@ -10504,6 +10725,28 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         self.wm_protocol_atom_assignment_state
     }
 
+    pub fn wm_protocol_registration_request(
+        &self,
+    ) -> Option<&NativeWindowLinuxX11WmProtocolRegistrationRequest> {
+        self.wm_protocol_registration_request.as_ref()
+    }
+
+    pub fn wm_protocol_registration_write_state(
+        &self,
+    ) -> NativeWindowLinuxX11WmProtocolRegistrationWriteState {
+        self.wm_protocol_registration_write_state
+    }
+
+    pub fn wm_protocol_registration_written_len(&self) -> usize {
+        self.wm_protocol_registration_written_len
+    }
+
+    pub fn wm_protocol_registration_sequence_plan(
+        &self,
+    ) -> Option<NativeWindowLinuxX11WmProtocolRegistrationSequencePlan> {
+        self.wm_protocol_registration_sequence_plan
+    }
+
     pub fn next_x11_request_sequence(&self) -> u16 {
         self.next_x11_request_sequence
     }
@@ -10554,6 +10797,15 @@ where
     ) -> NativeWindowLinuxX11EventSourceObservationError {
         self.wm_protocol_atom_intern_batch_write_state =
             NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::Failed;
+        error
+    }
+
+    fn fail_wm_protocol_registration(
+        &mut self,
+        error: NativeWindowLinuxX11EventSourceObservationError,
+    ) -> NativeWindowLinuxX11EventSourceObservationError {
+        self.wm_protocol_registration_write_state =
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed;
         error
     }
 
@@ -10623,6 +10875,21 @@ where
                     NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow,
                     sequence,
                 );
+            }
+        }
+    }
+
+    fn record_wm_protocol_registration_request_accepted_range(
+        &mut self,
+        previous_written_len: usize,
+        accepted_end_len: usize,
+    ) {
+        if previous_written_len < NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN
+            && accepted_end_len >= NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN
+        {
+            let sequence = self.take_next_x11_request_sequence();
+            if let Some(plan) = self.wm_protocol_registration_sequence_plan.as_mut() {
+                plan.record_change_property_sequence(sequence);
             }
         }
     }
@@ -10896,6 +11163,136 @@ where
         }
     }
 
+    fn write_wm_protocol_registration_request(
+        &mut self,
+        raw_fd: i32,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let Some(request_len) = self
+            .wm_protocol_registration_request
+            .as_ref()
+            .map(NativeWindowLinuxX11WmProtocolRegistrationRequest::len)
+        else {
+            self.wm_protocol_registration_write_state =
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::NotConfigured;
+            self.wm_protocol_registration_sequence_plan = None;
+            return Ok(());
+        };
+        while self.wm_protocol_registration_written_len < request_len {
+            let remaining = request_len - self.wm_protocol_registration_written_len;
+            let written = {
+                let request = match self.wm_protocol_registration_request.as_ref() {
+                    Some(request) => request.as_bytes(),
+                    None => {
+                        self.wm_protocol_registration_write_state =
+                            NativeWindowLinuxX11WmProtocolRegistrationWriteState::NotConfigured;
+                        self.wm_protocol_registration_sequence_plan = None;
+                        return Ok(());
+                    }
+                };
+                self.api.write_x11_bytes_raw(
+                    raw_fd,
+                    &request[self.wm_protocol_registration_written_len..],
+                )
+            };
+            if written < 0 {
+                let code = self.api.last_error_code();
+                if self.api.error_code_is_would_block(code) {
+                    return Err(
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteWouldBlock,
+                    );
+                }
+                return Err(self.fail_wm_protocol_registration(
+                    NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteFailed {
+                        code,
+                    },
+                ));
+            }
+            if written == 0 {
+                return Err(self.fail_wm_protocol_registration(
+                    NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteReturnedZero,
+                ));
+            }
+            let written = match usize::try_from(written) {
+                Ok(written) => written,
+                Err(_) => {
+                    return Err(self.fail_wm_protocol_registration(
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteOverflow {
+                            byte_count: usize::MAX,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
+            if written > remaining {
+                return Err(self.fail_wm_protocol_registration(
+                    NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteOverflow {
+                        byte_count: written,
+                        remaining_byte_count: remaining,
+                    },
+                ));
+            }
+            let previous_written_len = self.wm_protocol_registration_written_len;
+            let accepted_end_len = match previous_written_len.checked_add(written) {
+                Some(value) => value,
+                None => {
+                    return Err(self.fail_wm_protocol_registration(
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteOverflow {
+                            byte_count: written,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
+            if accepted_end_len > request_len {
+                return Err(self.fail_wm_protocol_registration(
+                    NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteOverflow {
+                        byte_count: written,
+                        remaining_byte_count: remaining,
+                    },
+                ));
+            }
+            self.record_wm_protocol_registration_request_accepted_range(
+                previous_written_len,
+                accepted_end_len,
+            );
+            self.wm_protocol_registration_written_len = accepted_end_len;
+        }
+        self.wm_protocol_registration_write_state =
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready;
+        Ok(())
+    }
+
+    fn ensure_wm_protocol_registration_ready(
+        &mut self,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    ) -> Result<bool, NativeWindowLinuxX11EventSourceObservationError> {
+        let raw_fd = descriptor.raw_fd();
+        if raw_fd < 0 {
+            return Err(NativeWindowLinuxX11EventSourceObservationError::InvalidRawFd { raw_fd });
+        }
+        loop {
+            match self.wm_protocol_registration_write_state {
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::NotConfigured => {
+                    return Ok(true);
+                }
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::WaitingForAtoms => {
+                    return Ok(false);
+                }
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::RequestPending => {
+                    self.write_wm_protocol_registration_request(raw_fd)?;
+                }
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready => return Ok(true),
+                NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed => {
+                    return Err(
+                        NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationPreviouslyFailed {
+                            descriptor,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     fn write_top_level_window_request(
         &mut self,
         descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
@@ -10917,6 +11314,11 @@ where
                 NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN,
             )?;
             self.ensure_wm_protocol_atom_intern_batch_ready(descriptor)?;
+            if !self.ensure_wm_protocol_registration_ready(descriptor)? {
+                self.top_level_window_request_state =
+                    NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending;
+                return Ok(());
+            }
             self.write_top_level_window_request_until(raw_fd, request_len)?;
         } else {
             self.write_top_level_window_request_until(raw_fd, request_len)?;
@@ -11142,6 +11544,15 @@ where
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending => {
                     self.write_top_level_window_request(descriptor)?;
                 }
+                NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending => {
+                    if self.ensure_wm_protocol_registration_ready(descriptor)? {
+                        self.top_level_window_request_state =
+                            NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending;
+                        self.write_top_level_window_request(descriptor)?;
+                    } else {
+                        return Ok(());
+                    }
+                }
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready => return Ok(()),
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed => {
                     return Err(
@@ -11263,6 +11674,13 @@ where
                     .assign_reply(correlation, reply)
                 {
                     Ok(completed_atoms) => {
+                        if let Some(atoms) = completed_atoms {
+                            if let Err(error) =
+                                self.install_wm_protocol_registration_request(atoms)
+                            {
+                                return error;
+                            }
+                        }
                         NativeWindowLinuxX11EventSourceObservationError::WmProtocolAtomInternReplyReceived {
                             correlation,
                             reply,
@@ -11367,6 +11785,7 @@ where
             input,
             &packet,
             self.top_level_window_request_sequence_plan,
+            self.wm_protocol_registration_sequence_plan,
         )
     }
 }
@@ -22548,6 +22967,74 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_wm_protocol_registration_request_encodes_change_property() {
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap(),
+            NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap(),
+        );
+
+        let request =
+            native_window_linux_x11_wm_protocol_registration_request(0x0020_0020, atoms).unwrap();
+
+        assert_eq!(request.window_id(), 0x0020_0020);
+        assert_eq!(request.atoms(), atoms);
+        assert_eq!(
+            request.len(),
+            NATIVE_WINDOW_LINUX_X11_WM_PROTOCOL_REGISTRATION_REQUEST_BYTE_LEN
+        );
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE,
+                NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REPLACE_MODE,
+                7,
+                0,
+                0x20,
+                0x00,
+                0x20,
+                0x00,
+                0xf1,
+                0x00,
+                0x00,
+                0x00,
+                0x04,
+                0x00,
+                0x00,
+                0x00,
+                NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_FORMAT_32,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0xf2,
+                0x00,
+                0x00,
+                0x00,
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_registration_request_rejects_invalid_window_id() {
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap(),
+            NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap(),
+        );
+
+        assert_eq!(
+            native_window_linux_x11_wm_protocol_registration_request(0, atoms).unwrap_err(),
+            NativeWindowLinuxX11WmProtocolRegistrationRequestBuildError::WindowIdInvalid {
+                error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdZero {
+                    kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+                },
+            }
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_encodes_order_and_offsets() {
         let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
 
@@ -23541,7 +24028,7 @@ mod tests {
     }
 
     #[test]
-    fn native_window_linux_x11_wm_protocol_atom_intern_batch_write_runs_between_create_and_map() {
+    fn native_window_linux_x11_wm_protocol_atom_intern_batch_waits_for_registration_before_map() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(320, 240),
             previous_mouse_down: false,
@@ -23565,7 +24052,6 @@ mod tests {
         let top_level_bytes = top_level_request.as_bytes().to_vec();
         let create_len = top_level_request.create_window_request_byte_len();
         let create_bytes = top_level_bytes[..create_len].to_vec();
-        let map_bytes = top_level_bytes[create_len..].to_vec();
         let batch_bytes = batch.as_bytes().to_vec();
         let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
             NativeWindowLinuxWindowEventSourceKind::X11Connection,
@@ -23573,7 +24059,6 @@ mod tests {
         );
         let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
-            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(14, 28)),
         ]);
         let mut provider =
             native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
@@ -23585,14 +24070,16 @@ mod tests {
             );
         let descriptor = provider.window_event_source_descriptor().unwrap();
 
-        let observation = provider
-            .poll_window_event_source_observation(descriptor, input)
-            .unwrap();
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::EventReadWouldBlock
+        );
 
-        assert_eq!(observation.pointer_raw(), Some((14.0, 28.0)));
         assert_eq!(
             provider.reader().api().writes,
-            vec![setup_bytes, create_bytes, batch_bytes, map_bytes]
+            vec![setup_bytes, create_bytes, batch_bytes]
         );
         assert_eq!(
             provider
@@ -23612,10 +24099,17 @@ mod tests {
         );
         assert_eq!(
             provider.reader().top_level_window_request_state(),
-            NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending
         );
-        assert_eq!(provider.reader().top_level_window_request_written_len(), 48);
-        assert_eq!(provider.reader().next_x11_request_sequence(), 5);
+        assert_eq!(
+            provider.reader().top_level_window_request_written_len(),
+            create_len
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::WaitingForAtoms
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 4);
         assert_eq!(
             provider
                 .reader()
@@ -23624,7 +24118,7 @@ mod tests {
             NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
                 window_id: 0x0020_0010,
                 create_window_sequence: Some(1),
-                map_window_sequence: Some(4),
+                map_window_sequence: None,
             }
         );
         assert_eq!(
@@ -23667,7 +24161,6 @@ mod tests {
         let setup_len = setup_request.len();
         let top_level_bytes = top_level_request.as_bytes().to_vec();
         let create_len = top_level_request.create_window_request_byte_len();
-        let map_len = top_level_request.map_window_request_byte_len();
         let batch_bytes = batch.as_bytes().to_vec();
         let wm_protocols_end = batch.request_end_byte_offset(
             NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols,
@@ -23678,7 +24171,6 @@ mod tests {
         );
         let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
-            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(3, 9)),
         ])
         .with_write_steps(vec![
             ScriptedNativeWindowLinuxX11WriteStep::Bytes(setup_len),
@@ -23686,7 +24178,6 @@ mod tests {
             ScriptedNativeWindowLinuxX11WriteStep::Bytes(wm_protocols_end),
             ScriptedNativeWindowLinuxX11WriteStep::Error(11),
             ScriptedNativeWindowLinuxX11WriteStep::Bytes(batch_bytes.len() - wm_protocols_end),
-            ScriptedNativeWindowLinuxX11WriteStep::Bytes(map_len),
         ]);
         let mut provider =
             native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
@@ -23743,11 +24234,13 @@ mod tests {
             }
         );
 
-        let observation = provider
-            .poll_window_event_source_observation(descriptor, input)
-            .unwrap();
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::EventReadWouldBlock
+        );
 
-        assert_eq!(observation.pointer_raw(), Some((3.0, 9.0)));
         assert_eq!(
             provider.reader().api().writes[1],
             top_level_bytes[..create_len]
@@ -23762,16 +24255,24 @@ mod tests {
             batch_bytes[wm_protocols_end..]
         );
         assert_eq!(
-            provider.reader().api().writes[5],
-            top_level_bytes[create_len..]
-        );
-        assert_eq!(
             provider
                 .reader()
                 .wm_protocol_atom_intern_batch_write_state(),
             NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::Ready
         );
-        assert_eq!(provider.reader().next_x11_request_sequence(), 5);
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_written_len(),
+            create_len
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::WaitingForAtoms
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 4);
         assert_eq!(
             provider
                 .reader()
@@ -23780,7 +24281,7 @@ mod tests {
             NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
                 window_id: 0x0020_0011,
                 create_window_sequence: Some(1),
-                map_window_sequence: Some(4),
+                map_window_sequence: None,
             }
         );
         assert_eq!(
@@ -24013,7 +24514,6 @@ mod tests {
         );
         let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
-            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(8, 13)),
         ]);
         let mut provider =
             native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
@@ -24025,12 +24525,14 @@ mod tests {
             );
         let descriptor = provider.window_event_source_descriptor().unwrap();
 
-        let observation = provider
-            .poll_window_event_source_observation(descriptor, input)
-            .unwrap();
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::EventReadWouldBlock
+        );
 
-        assert_eq!(observation.pointer_raw(), Some((8.0, 13.0)));
-        assert_eq!(provider.reader().next_x11_request_sequence(), 5);
+        assert_eq!(provider.reader().next_x11_request_sequence(), 4);
         assert_eq!(
             provider
                 .reader()
@@ -24039,7 +24541,7 @@ mod tests {
             NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
                 window_id: 0x0020_0014,
                 create_window_sequence: Some(1),
-                map_window_sequence: Some(4),
+                map_window_sequence: None,
             }
         );
         assert_eq!(
@@ -24075,6 +24577,15 @@ mod tests {
         )
         .unwrap();
         let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+        let top_level_bytes = top_level_request.as_bytes().to_vec();
+        let create_len = top_level_request.create_window_request_byte_len();
+        let completed_atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+        );
+        let registration_request =
+            native_window_linux_x11_wm_protocol_registration_request(0x0020_0015, completed_atoms)
+                .unwrap();
         let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
             NativeWindowLinuxWindowEventSourceKind::X11Connection,
             268,
@@ -24155,6 +24666,18 @@ mod tests {
             }
         );
         assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::RequestPending
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .wm_protocol_registration_request()
+                .unwrap()
+                .as_bytes(),
+            registration_request.as_bytes()
+        );
+        assert_eq!(
             provider
                 .reader()
                 .wm_protocol_atom_intern_request_sequence_plan()
@@ -24170,6 +24693,221 @@ mod tests {
             .unwrap();
 
         assert_eq!(observation.pointer_raw(), Some((17.0, 23.0)));
+        assert_eq!(provider.reader().api().writes.len(), 5);
+        assert_eq!(
+            provider.reader().api().writes[3],
+            registration_request.as_bytes()
+        );
+        assert_eq!(
+            provider.reader().api().writes[4],
+            top_level_bytes[create_len..]
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .wm_protocol_registration_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11WmProtocolRegistrationSequencePlan {
+                window_id: 0x0020_0015,
+                change_property_sequence: Some(4),
+            }
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0015,
+                create_window_sequence: Some(1),
+                map_window_sequence: Some(5),
+            }
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 6);
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_registration_write_failure_blocks_map() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_0019,
+                0x0000_0123,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+            ),
+        )
+        .unwrap();
+        let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+        let setup_len = setup_request.len();
+        let create_len = top_level_request.create_window_request_byte_len();
+        let batch_len = batch.len();
+        let registration_request = native_window_linux_x11_wm_protocol_registration_request(
+            0x0020_0019,
+            NativeWindowLinuxX11WmProtocolAtoms::new(
+                NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+                NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+            ),
+        )
+        .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            272,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(2, 0, 0x0000_00f1).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(3, 0, 0x0000_00f2).to_vec(),
+            ),
+        ])
+        .with_write_steps(vec![
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(setup_len),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(create_len),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(batch_len),
+            ScriptedNativeWindowLinuxX11WriteStep::Error(5),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+                batch,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationWriteFailed {
+                code: 5,
+            }
+        );
+
+        assert_eq!(provider.reader().api().writes.len(), 4);
+        assert_eq!(
+            provider.reader().api().writes[3],
+            registration_request.as_bytes()
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_written_len(),
+            create_len
+        );
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::WmProtocolRegistrationPreviouslyFailed {
+                descriptor,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_registration_server_error_is_correlated() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_001a,
+                0x0000_0123,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+            ),
+        )
+        .unwrap();
+        let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            273,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(2, 0, 0x0000_00f1).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(3, 0, 0x0000_00f2).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_error_packet(
+                2,
+                4,
+                0x0020_001a,
+                0,
+                NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+                batch,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                error: NativeWindowLinuxX11ServerErrorPacket {
+                    error_code: 2,
+                    sequence: 4,
+                    bad_value: 0x0020_001a,
+                    minor_opcode: 0,
+                    major_opcode: NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REQUEST_OPCODE,
+                },
+                correlation: NativeWindowLinuxX11ServerErrorCorrelation::WmProtocolRegistration {
+                    window_id: 0x0020_001a,
+                },
+            }
+        );
     }
 
     #[test]

@@ -302,6 +302,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11WmProtocolAtomAssignmentTypes = textSliceBetween(
         libSource,
         "pub struct NativeWindowLinuxX11WmProtocolAtoms",
+        "pub struct NativeWindowLinuxX11WmProtocolRegistrationRequest",
+    );
+    const nativeWindowLinuxX11WmProtocolRegistrationTypes = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxX11WmProtocolRegistrationRequest",
+        "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11WmProtocolAtomAssignmentError",
+    );
+    const nativeWindowLinuxX11WmProtocolAtomAssignmentStateTypes = textSliceBetween(
+        libSource,
+        "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11WmProtocolAtomAssignmentError",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11XauthorityPathSource",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressImpl = textSliceBetween(
@@ -337,6 +347,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11WmProtocolAtomAssignmentImpl = textSliceBetween(
         libSource,
         "impl NativeWindowLinuxX11WmProtocolAtoms",
+        "impl NativeWindowLinuxX11WmProtocolRegistrationRequest",
+    );
+    const nativeWindowLinuxX11WmProtocolRegistrationImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11WmProtocolRegistrationRequest",
+        "impl NativeWindowLinuxX11WmProtocolAtomAssignmentState",
+    );
+    const nativeWindowLinuxX11WmProtocolAtomAssignmentStateImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11WmProtocolAtomAssignmentState",
         "impl<'a> NativeWindowLinuxX11XauthorityLookupInput",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressHelpers = textSliceBetween(
@@ -377,7 +397,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     ].join("\n");
     const nativeWindowLinuxX11WmProtocolAtomAssignmentSurface = [
         nativeWindowLinuxX11WmProtocolAtomAssignmentTypes,
+        nativeWindowLinuxX11WmProtocolAtomAssignmentStateTypes,
         nativeWindowLinuxX11WmProtocolAtomAssignmentImpl,
+        nativeWindowLinuxX11WmProtocolAtomAssignmentStateImpl,
+    ].join("\n");
+    const nativeWindowLinuxX11WmProtocolRegistrationSurface = [
+        nativeWindowLinuxX11WmProtocolRegistrationTypes,
+        nativeWindowLinuxX11WmProtocolRegistrationImpl,
     ].join("\n");
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
@@ -1197,11 +1223,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn write_top_level_window_request_until[\s\S]*TopLevelWindowRequestWriteWouldBlock[\s\S]*TopLevelWindowRequestWriteFailed[\s\S]*TopLevelWindowRequestWriteReturnedZero[\s\S]*TopLevelWindowRequestWriteOverflow[\s\S]*written > remaining[\s\S]*checked_add\(written\)[\s\S]*accepted_end_len > target_len[\s\S]*record_top_level_window_request_accepted_range[\s\S]*top_level_window_request_written_len = accepted_end_len/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn write_wm_protocol_atom_intern_batch[\s\S]*map\(NativeWindowLinuxX11WmProtocolAtomInternRequestBatch::len\)[\s\S]*NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::NotConfigured[\s\S]*while self\.wm_protocol_atom_intern_batch_written_len < batch_len[\s\S]*write_x11_bytes_raw[\s\S]*WmProtocolAtomInternBatchWriteWouldBlock[\s\S]*WmProtocolAtomInternBatchWriteFailed[\s\S]*WmProtocolAtomInternBatchWriteReturnedZero[\s\S]*WmProtocolAtomInternBatchWriteOverflow[\s\S]*record_wm_protocol_atom_intern_batch_accepted_range[\s\S]*wm_protocol_atom_intern_batch_written_len = accepted_end_len[\s\S]*NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::Ready/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn ensure_wm_protocol_atom_intern_batch_ready[\s\S]*NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState::NotConfigured =>[\s\S]*return Ok\(\(\)\)[\s\S]*BatchPending =>[\s\S]*self\.write_wm_protocol_atom_intern_batch\(raw_fd\)\?[\s\S]*Ready => return Ok\(\(\)\)[\s\S]*Failed =>[\s\S]*WmProtocolAtomInternBatchPreviouslyFailed/);
-    assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn write_top_level_window_request\([\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor[\s\S]*if self\.wm_protocol_atom_intern_request_batch\.is_some\(\)[\s\S]*write_top_level_window_request_until\([\s\S]*NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN[\s\S]*ensure_wm_protocol_atom_intern_batch_ready\(descriptor\)\?[\s\S]*write_top_level_window_request_until\(raw_fd, request_len\)\?[\s\S]*else[\s\S]*write_top_level_window_request_until\(raw_fd, request_len\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready/);
+    assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn write_top_level_window_request\([\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor[\s\S]*if self\.wm_protocol_atom_intern_request_batch\.is_some\(\)[\s\S]*write_top_level_window_request_until\([\s\S]*NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN[\s\S]*ensure_wm_protocol_atom_intern_batch_ready\(descriptor\)\?[\s\S]*if !self\.ensure_wm_protocol_registration_ready\(descriptor\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending[\s\S]*return Ok\(\(\)\)[\s\S]*write_top_level_window_request_until\(raw_fd, request_len\)\?[\s\S]*else[\s\S]*write_top_level_window_request_until\(raw_fd, request_len\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready/);
     assert.doesNotMatch(nativeWindowLinuxX11ObservationReaderImpl, /ChangeProperty|ClientMessage|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|WindowOptions|window\.update\(|update_with_buffer|support gate|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn build_setup_backed_top_level_window_request[\s\S]*let Some\(plan\) = self\.setup_backed_top_level_window_create_plan[\s\S]*TopLevelWindowRequestSetupBackedPlanMissing[\s\S]*TopLevelWindowRequestSetupResourceInfoMissing[\s\S]*native_window_linux_x11_top_level_window_create_request_from_setup_resource_info[\s\S]*plan\.create_input\(setup_resource_info\)[\s\S]*TopLevelWindowRequestBuildFailed[\s\S]*self\.install_top_level_window_request\(request\)/);
     assert.doesNotMatch(nativeWindowLinuxX11ObservationReaderImpl, /let Some\(plan\) = self\.setup_backed_top_level_window_create_plan else \{[\s\S]{0,500}NotConfigured[\s\S]{0,500}Ok\(\(\)\)/);
-    assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn ensure_top_level_window_request_ready[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured =>[\s\S]*return Ok\(\(\)\)[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending =>[\s\S]*self\.build_setup_backed_top_level_window_request\(\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending =>[\s\S]*self\.write_top_level_window_request\(descriptor\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready => return Ok\(\(\)\)[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed =>[\s\S]*TopLevelWindowRequestPreviouslyFailed/);
+    assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn ensure_top_level_window_request_ready[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured =>[\s\S]*return Ok\(\(\)\)[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending =>[\s\S]*self\.build_setup_backed_top_level_window_request\(\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending =>[\s\S]*self\.write_top_level_window_request\(descriptor\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::WmProtocolRegistrationPending =>[\s\S]*if self\.ensure_wm_protocol_registration_ready\(descriptor\)\?[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending[\s\S]*self\.write_top_level_window_request\(descriptor\)\?[\s\S]*else[\s\S]*return Ok\(\(\)\)[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready => return Ok\(\(\)\)[\s\S]*NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed =>[\s\S]*TopLevelWindowRequestPreviouslyFailed/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn drain_setup_body[\s\S]*self\.setup_body_bytes\.extend_from_slice\(&scratch\[..read\]\)[\s\S]*native_window_linux_x11_setup_resource_info_from_little_endian_success_body[\s\S]*SetupResourceInfoParseFailed[\s\S]*self\.setup_state = NativeWindowLinuxX11EventSourceSetupState::Ready/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn start_server_reply_body_drain[\s\S]*packet: \[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN\][\s\S]*native_window_linux_x11_server_reply_header\(&packet\)[\s\S]*native_window_linux_x11_server_reply_body_byte_len\(reply\)\?[\s\S]*pending_server_reply_header = Some\(reply\)[\s\S]*pending_server_reply_packet = Some\(packet\)[\s\S]*server_reply_body_remaining_len = body_byte_len/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /fn drain_server_reply_body[\s\S]*packet: \[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN\][\s\S]*while self\.server_reply_body_remaining_len > 0[\s\S]*read_x11_bytes_raw\(raw_fd,[\s\S]*ServerReplyBodyReadWouldBlock[\s\S]*ServerReplyBodyReadFailed[\s\S]*ServerReplyBodyReadEof[\s\S]*ServerReplyBodyReadOverflow[\s\S]*self\.server_reply_body_remaining_len -= read[\s\S]*self\.pending_server_reply_header = None[\s\S]*self\.pending_server_reply_packet = None[\s\S]*Ok\(packet\)/);
@@ -1226,7 +1252,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /fn native_window_linux_x11_server_reply_header[\s\S]*NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET[\s\S]*NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET[\s\S]*NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /fn native_window_linux_x11_server_reply_body_byte_len[\s\S]*let units = reply\.length_units\(\)[\s\S]*u64::from\(units\)\.checked_mul\(4\)[\s\S]*ServerReplyBodyLengthOverflow[\s\S]*usize::try_from\(byte_len\)\.map_err/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /if native_window_linux_x11_response_type_raw\(&packet\)[\s\S]*NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY[\s\S]*self\.start_server_reply_body_drain\(packet\)\?[\s\S]*let packet = self\.drain_server_reply_body\(descriptor\.raw_fd\(\), packet\)\?[\s\S]*server_reply_error_from_packet\(packet\)/);
-    assert.match(nativeWindowLinuxX11EventPacketToObservation, /match native_window_linux_x11_response_type_raw\(packet\)[\s\S]*NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR[\s\S]*let error = native_window_linux_x11_server_error_packet\(packet\)[\s\S]*let correlation = match top_level_window_request_sequence_plan[\s\S]*ServerErrorReceived[\s\S]*error,[\s\S]*correlation,[\s\S]*match native_window_linux_x11_event_response_type\(packet\)/);
+    assert.match(nativeWindowLinuxX11EventPacketToObservation, /match native_window_linux_x11_response_type_raw\(packet\)[\s\S]*NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR[\s\S]*let error = native_window_linux_x11_server_error_packet\(packet\)[\s\S]*let top_level_correlation = match top_level_window_request_sequence_plan[\s\S]*let correlation =\s*if top_level_correlation[\s\S]*NativeWindowLinuxX11ServerErrorCorrelation::Unmatched[\s\S]*match wm_protocol_registration_sequence_plan[\s\S]*ServerErrorReceived[\s\S]*error,[\s\S]*correlation,[\s\S]*match native_window_linux_x11_event_response_type\(packet\)/);
     assert.doesNotMatch(nativeWindowLinuxX11EventPacketToObservation, /NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY[\s\S]*ServerReplyReceived/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /EventTypeUnsupported/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY/);
@@ -1274,7 +1300,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_observation_provider_resumes_partial_auth_setup_write/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_writes_top_level_request_after_setup/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_resumes_partial_top_level_request_write/);
-    assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_batch_write_runs_between_create_and_map/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_batch_waits_for_registration_before_map/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_batch_write_resumes_partial_batch/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_batch_write_failure_blocks_map/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_batch_create_overaccept_blocks_batch_and_map/);
@@ -1282,6 +1308,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_reply_correlates_batch_replies/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_reply_parse_failure_is_correlated/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_reply_drains_body_before_parse_failure/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_registration_request_encodes_change_property/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_registration_request_rejects_invalid_window_id/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_registration_write_failure_blocks_map/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_registration_server_error_is_correlated/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_fails_closed_after_top_level_request_failure/);
     assert.match(libSource, /native_window_linux_x11_setup_resource_info_parses_little_endian_success_body/);
     assert.match(libSource, /native_window_linux_x11_setup_resource_info_rejects_invalid_client_id_space/);
