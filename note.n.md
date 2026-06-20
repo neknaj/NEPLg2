@@ -1,3 +1,38 @@
+# 2026-06-21 Agent2 GUI native F5kl Linux X11 GetKeyboardMapping request/reply owner boundary
+
+## 目的
+
+- X11 `GetKeyboardMapping` request / reply shape を typed owner として扱い、raw keysym table を検査できるようにする。
+- raw keysym を `NativeWindowLinuxX11KeysymValue` として保持し、portable key projection や event decode へは接続しない。
+- reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate 有効化は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11GetKeyboardMappingRequest` と build error を追加し、opcode `101`、request length `2` words / 8 byte、first-keycode / count の owner bytes を固定した。
+- `NativeWindowLinuxX11KeyboardMappingReplyHeader`、`NativeWindowLinuxX11KeyboardMappingRawKeysyms`、reply parse error を追加した。
+- reply body length は `length_units * 4` と `keycode_count * keysyms_per_keycode * 4` の両方を checked arithmetic で検査し、不一致を typed error にした。
+- F5kl の仕様、実装計画、native behavior notes、source-policy、todo を更新した。
+
+## subagent review
+
+- Jason は実装前 plan review で `PLAN_APPROVED`。F5kk の次 slice として request / reply owner 境界を作る方針が適切で、event decode / keymap / IME / runner / fallback へ進めないことを guardrail とした。
+- Turing は実装前 review で `CHANGES_REQUESTED`。F5kl 専用 source-policy surface、event decode / reader state / projection scope の negative guard、docs に raw projection 禁止文を追加するよう指摘した。
+- 指摘に従い、F5kl surface と docs/source-policy の分離検査を追加した。なお X11 protocol 確認により request owner は 4 byte ではなく 8 byte とした。
+- Anscombe は実装レビューで本体を概ね承認しつつ、標準仕様側の F5kl assert と checks 出力項目の不足を指摘した。
+- 指摘に従い、`standardSpec` の F5kl 存在 / raw projection 禁止文 assert と checks 出力項目を追加した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_get_keyboard_mapping -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing dead_code warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
 # 2026-06-21 Agent2 GUI native F5kk Linux X11 caller-supplied keysym value projection boundary
 
 ## 目的

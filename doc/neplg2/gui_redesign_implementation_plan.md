@@ -3104,3 +3104,45 @@ Phase F5kk では、caller supplied X11 keysym value を backend-local typed evi
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で keysym value projection、raw preservation、no event decode / no keymap / no fallback scope creep が承認される。
+
+## Phase F5kl: Native Linux X11 GetKeyboardMapping request/reply owner boundary
+
+Phase F5kl では、X11 core protocol の `GetKeyboardMapping` request bytes と reply raw keysym table を typed owner として扱う。これは F5kk の caller supplied raw keysym value projection より 1 段低い protocol shape boundary であり、keycode からどの keysym を選ぶか、modifier state をどう解釈するか、text input をどう生成するかは決めない。
+
+実装:
+
+- `NativeWindowLinuxX11GetKeyboardMappingRequest` を追加し、caller supplied `first_keycode`、`keycode_count`、encoded request bytes を保持する。
+- opcode は `101`、request length `2` words / 8 byte とし、bytes は `opcode, unused, length, first-keycode, count, unused` の X11 wire order に合わせる。
+- `first_keycode == 0` と `keycode_count == 0` は typed error として拒否する。setup reply の min-keycode / max-keycode を使う範囲検査は、後続の setup-owned keymap request phase に残す。
+- `NativeWindowLinuxX11KeyboardMappingReplyHeader` を追加し、fixed 32 byte reply packet から `keysyms_per_keycode`、sequence、length units を読む。
+- `NativeWindowLinuxX11KeyboardMappingRawKeysyms` を追加し、reply body の raw `KEYSYM` list を `NativeWindowLinuxX11KeysymValue` の列として保持する。
+- reply body byte length は `length_units * 4` を checked arithmetic で求め、`keycode_count * keysyms_per_keycode * 4` と一致する場合だけ受理する。
+- raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase.
+- source-policy は request byte owner、reply header、raw keysym table、checked length/count arithmetic、event decode / reader / fd IO / runner / queue / IME / text input / shortcut / fallback 非接続を検査する。
+
+非目標:
+
+- `native_window_linux_x11_event_packet_to_observation` へは接続しない。
+- `NativeWindowLinuxX11EventSourceObservationReader` の state へは接続しない。
+- raw fd write / read、reply correlation、pending keymap state、setup min-keycode / max-keycode range validation は含めない。
+- `XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon は呼ばない。
+- raw keysyms から `NativeWindowPortableKey` へ projection しない。
+- IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback key、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `GetKeyboardMapping` request bytes が opcode `101`、request length `2` words / 8 byte、caller supplied first-keycode / count を保持する。
+- malformed reply response type、zero `keysyms_per_keycode`、zero `keycode_count`、reply body length mismatch、expected keysym body length mismatch が typed error で区別される。
+- reply body の raw keysym が `NativeWindowLinuxX11KeysymValue` として保持され、portable key projection へ進まないことを test / source-policy で固定する。
+- event packet decode、reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate `Ok` 化には接続しないことを source-policy で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_get_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で GetKeyboardMapping owner、raw keysym preservation、no event decode / no keymap / no fallback scope creep が承認される。
