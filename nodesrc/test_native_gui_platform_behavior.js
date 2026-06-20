@@ -282,6 +282,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11TopLevelWindowCreateRequestTypes = textSliceBetween(
         libSource,
         "pub enum NativeWindowLinuxX11TopLevelWindowResourceIdKind",
+        "pub struct NativeWindowLinuxX11InternAtomRequest",
+    );
+    const nativeWindowLinuxX11InternAtomRequestTypes = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxX11InternAtomRequest",
+        "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind",
+    );
+    const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchTypes = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11XauthorityPathSource",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressImpl = textSliceBetween(
@@ -297,6 +307,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11TopLevelWindowCreateRequestImpl = textSliceBetween(
         libSource,
         "impl NativeWindowLinuxX11TopLevelWindowCreateInput",
+        "impl NativeWindowLinuxX11InternAtomRequest",
+    );
+    const nativeWindowLinuxX11InternAtomRequestImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11InternAtomRequest",
+        "impl NativeWindowLinuxX11WmProtocolAtomInternRequestBatch",
+    );
+    const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11WmProtocolAtomInternRequestBatch",
         "impl<'a> NativeWindowLinuxX11XauthorityLookupInput",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressHelpers = textSliceBetween(
@@ -322,6 +342,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11TopLevelWindowCreateRequestSurface = [
         nativeWindowLinuxX11TopLevelWindowCreateRequestTypes,
         nativeWindowLinuxX11TopLevelWindowCreateRequestImpl,
+    ].join("\n");
+    const nativeWindowLinuxX11InternAtomRequestSurface = [
+        nativeWindowLinuxX11InternAtomRequestTypes,
+        nativeWindowLinuxX11InternAtomRequestImpl,
+    ].join("\n");
+    const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface = [
+        nativeWindowLinuxX11WmProtocolAtomInternRequestBatchTypes,
+        nativeWindowLinuxX11WmProtocolAtomInternRequestBatchImpl,
     ].join("\n");
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
@@ -766,6 +794,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5jt: Native Linux X11 server error \/ reply header decode boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5ju: Native Linux X11 request sequence correlation boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jv: Native Linux X11 server reply body drain boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jw: Native Linux X11 InternAtom request owner boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jx: Native Linux X11 WM protocol atom InternAtom request batch boundary/);
+    assert.match(guiRedesignImplementationPlan, /generic `InternAtom` owner は X11 counted bytes を扱うため、NUL byte を C string terminator として拒否しない/);
+    assert.match(guiRedesignImplementationPlan, /actual write、accepted write progress、sequence assignment、reply body retention\/parser、request \/ reply correlation は含めない/);
+    assert.match(guiRedesignImplementationPlan, /actual property registration ではない/);
+    assert.match(guiRedesignImplementationPlan, /両 request は `only_if_exists = false`/);
+    assert.match(guiRedesignImplementationPlan, /registration naming を含まない/);
     assert.match(guiRedesignImplementationPlan, /actual hostname \/ process identity acquisition は扱わない/);
     assert.match(guiRedesignImplementationPlan, /raw API を 1 回だけ呼ぶ/);
     assert.match(guiRedesignImplementationPlan, /empty hostname bytes は F5jm helper の `EmptyAddress` に委譲/);
@@ -818,6 +853,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5jt Native Linux X11 server error \/ reply header decode boundary/);
     assert.match(standardSpec, /F5ju Native Linux X11 request sequence correlation boundary/);
     assert.match(standardSpec, /F5jv Native Linux X11 server reply body drain boundary/);
+    assert.match(standardSpec, /F5jw Native Linux X11 InternAtom request owner boundary/);
+    assert.match(standardSpec, /F5jx Native Linux X11 WM protocol atom InternAtom request batch boundary/);
+    assert.match(standardSpec, /generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず/);
+    assert.match(standardSpec, /raw fd write\/read、accepted write progress、sequence assignment、InternAtom reply parse \/ retain、request \/ reply correlation/);
+    assert.match(standardSpec, /`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch/);
+    assert.match(standardSpec, /Atom ID が取得済みであることや window property が登録済みであることを意味しない/);
+    assert.match(standardSpec, /`ChangeProperty` による `WM_PROTOCOLS` property mutation/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
     assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
@@ -865,6 +907,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jt/);
     assert.match(platformDoc, /F5ju/);
     assert.match(platformDoc, /F5jv/);
+    assert.match(platformDoc, /F5jw/);
+    assert.match(platformDoc, /F5jx/);
+    assert.match(platformDoc, /actual WM protocol registration ではなく/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /selector criteria/);
@@ -905,9 +950,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.doesNotMatch(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /NativeWindowLinuxX11XauthoritySelectorCriteria|NativeWindowLinuxX11XauthoritySelection|NoMatchingRecord|std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS: u16 = 8/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN: usize = 8/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_LENGTH_UNITS: u16 = 2/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_BACKGROUND_PIXEL: u32 = 0x0000_0002/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK: u32 = 0x0000_0800/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS: u32 = 0xe000_0000/);
@@ -951,6 +999,34 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_observation_provider_fails_closed_when_setup_resource_info_is_missing/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_plan_is_missing/);
     assert.match(libSource, /native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_build_fails/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /pub struct NativeWindowLinuxX11InternAtomRequest\s*\{[\s\S]*name_byte_len: u16,[\s\S]*only_if_exists: bool,[\s\S]*bytes: Vec<u8>/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /pub enum NativeWindowLinuxX11InternAtomRequestBuildError\s*\{[\s\S]*NameEmpty[\s\S]*NameTooLong\s*\{[\s\S]*byte_len: usize,[\s\S]*max_byte_len: usize[\s\S]*RequestLengthOverflow\s*\{[\s\S]*base_byte_len: usize,[\s\S]*name_byte_len: usize,[\s\S]*name_padding_byte_len: usize[\s\S]*RequestLengthUnitsTooLarge\s*\{[\s\S]*request_byte_len: usize,[\s\S]*length_units: usize,[\s\S]*max_length_units: usize/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /impl NativeWindowLinuxX11InternAtomRequest[\s\S]*pub fn name_byte_len\(&self\) -> u16[\s\S]*pub fn only_if_exists\(&self\) -> bool[\s\S]*pub fn as_bytes\(&self\) -> &\[u8\][\s\S]*pub fn len\(&self\) -> usize/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /native_window_linux_x11_checked_intern_atom_request_total_len[\s\S]*NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN[\s\S]*checked_add\(name_byte_len\)[\s\S]*checked_add\(name_padding_byte_len\)[\s\S]*RequestLengthOverflow/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /native_window_linux_x11_checked_intern_atom_request_length_units[\s\S]*let length_units = request_byte_len \/ 4[\s\S]*length_units > usize::from\(u16::MAX\)[\s\S]*RequestLengthUnitsTooLarge/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /pub fn native_window_linux_x11_intern_atom_request\([\s\S]*only_if_exists: bool,[\s\S]*name: &\[u8\][\s\S]*NameEmpty[\s\S]*NameTooLong[\s\S]*native_window_linux_x11_pad4\(name_byte_len\)[\s\S]*checked_intern_atom_request_total_len[\s\S]*checked_intern_atom_request_length_units/);
+    assert.match(nativeWindowLinuxX11InternAtomRequestSurface, /bytes\.push\(NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE\)[\s\S]*bytes\.push\(if only_if_exists \{ 1 \} else \{ 0 \}\)[\s\S]*length_units\.to_le_bytes\(\)[\s\S]*name_byte_len as u16[\s\S]*0_u16\.to_le_bytes\(\)[\s\S]*bytes\.extend_from_slice\(name\)[\s\S]*bytes\.resize\(bytes\.len\(\) \+ name_padding_byte_len, 0\)/);
+    assert.doesNotMatch(nativeWindowLinuxX11InternAtomRequestSurface, /NativeWindowLinuxX11EventSourceObservationReader|ServerReplyReceived|ServerErrorReceived|NativeWindowLinuxX11ServerReplyHeader|write_x11_bytes_raw|read_x11_bytes_raw|ChangeProperty|ClientMessage|WM_DELETE_WINDOW_ATOM|AtomId|std::env|std::fs|vfs|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|WindowOptions|window\.update\(|update_with_buffer|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_encodes_wm_protocols/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_encodes_wm_delete_window/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_pads_counted_names/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_allows_counted_nul_byte/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_rejects_empty_and_too_long_name/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_request_helpers_fail_closed_on_length_overflow/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME: &\[u8\] = b"WM_PROTOCOLS"/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME: &\[u8\] = b"WM_DELETE_WINDOW"/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind\s*\{[\s\S]*WmProtocols,[\s\S]*WmDeleteWindow/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestBatch\s*\{[\s\S]*bytes: Vec<u8>,[\s\S]*wm_protocols_end_byte_offset: usize,[\s\S]*wm_delete_window_start_byte_offset: usize,[\s\S]*wm_delete_window_end_byte_offset: usize/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError\s*\{[\s\S]*InternAtomRequestBuildFailed\s*\{[\s\S]*kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind,[\s\S]*error: NativeWindowLinuxX11InternAtomRequestBuildError[\s\S]*BatchLengthOverflow\s*\{[\s\S]*first_request_byte_len: usize,[\s\S]*second_request_byte_len: usize/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /impl NativeWindowLinuxX11WmProtocolAtomInternRequestBatch[\s\S]*pub fn as_bytes\(&self\) -> &\[u8\][\s\S]*pub fn len\(&self\) -> usize[\s\S]*wm_protocols_start_byte_offset[\s\S]*wm_protocols_end_byte_offset[\s\S]*wm_delete_window_start_byte_offset[\s\S]*wm_delete_window_end_byte_offset[\s\S]*request_start_byte_offset[\s\S]*request_end_byte_offset/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /native_window_linux_x11_checked_wm_protocol_atom_intern_request_batch_total_len[\s\S]*checked_add\(second_request_byte_len\)[\s\S]*BatchLengthOverflow/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_from_names[\s\S]*native_window_linux_x11_intern_atom_request\(false, wm_protocols_name\)[\s\S]*WmProtocols[\s\S]*native_window_linux_x11_intern_atom_request\(false, wm_delete_window_name\)[\s\S]*WmDeleteWindow/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /let wm_protocols_end_byte_offset = wm_protocols_request\.len\(\)[\s\S]*let wm_delete_window_start_byte_offset = wm_protocols_end_byte_offset[\s\S]*checked_wm_protocol_atom_intern_request_batch_total_len[\s\S]*bytes\.extend_from_slice\(wm_protocols_request\.as_bytes\(\)\)[\s\S]*bytes\.extend_from_slice\(wm_delete_window_request\.as_bytes\(\)\)/);
+    assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub fn native_window_linux_x11_wm_protocol_atom_intern_request_batch\(\)[\s\S]*NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME[\s\S]*NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME/);
+    assert.doesNotMatch(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /NativeWindowLinuxX11EventSourceObservationReader|ServerReplyReceived|ServerErrorReceived|NativeWindowLinuxX11ServerReplyHeader|write_x11_bytes_raw|read_x11_bytes_raw|AtomId|ChangeProperty|ClientMessage|register|registration|KeyPress|IME|std::env|std::fs|vfs|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|WindowOptions|window\.update\(|update_with_buffer|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_encodes_order_and_offsets/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_preserves_lower_error/);
+    assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_fails_closed_on_overflow/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityPathSource\s*\{[\s\S]*ExplicitAuthorityFile,[\s\S]*HomeDirectoryDefault/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityLookupInput<'a>\s*\{[\s\S]*authority_file_path: Option<&'a str>,[\s\S]*home_directory_path: Option<&'a str>/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityPathPlan\s*\{[\s\S]*source: NativeWindowLinuxX11XauthorityPathSource,[\s\S]*path: String/);
@@ -974,8 +1050,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /impl NativeWindowLinuxX11XauthorityFileBytes[\s\S]*fn new\(bytes: Vec<u8>\) -> Self[\s\S]*pub fn as_bytes\(&self\) -> &\[u8\][\s\S]*pub fn len\(&self\) -> usize/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_read_file_bytes_with_limit<Reader>[\s\S]*let source = plan\.source\(\);[\s\S]*let path = plan\.path\(\);[\s\S]*reader\.read_xauthority_file_bytes\(path\)[\s\S]*ReadFailed[\s\S]*bytes\.is_empty\(\)[\s\S]*EmptyFile[\s\S]*bytes\.len\(\) > max_byte_len[\s\S]*FileTooLarge[\s\S]*NativeWindowLinuxX11XauthorityFileBytes::new\(bytes\)/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_read_file_bytes<Reader>[\s\S]*NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN/);
-    assert.doesNotMatch(nativeWindowLinuxX11XauthorityEnvironmentSurface, /read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata|fallback|silent no-op|synthetic|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop/i);
-    assert.doesNotMatch(nativeWindowLinuxX11XauthorityFileBytesSurface, /native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata|fallback|silent no-op|synthetic|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop/i);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityEnvironmentSurface, /read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata|fallback|silent no-op|synthetic|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop/i);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityFileBytesSurface, /native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata|fallback|silent no-op|synthetic|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop/i);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_xauthority_display_number_bytes[\s\S]*\[0_u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN\][\s\S]*while value > 0[\s\S]*bytes\[index\] = reversed\[len - 1 - index\]/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn native_window_linux_x11_xauthority_local_selector_criteria_from_display[\s\S]*native_window_linux_x11_display_number\(display\)\?[\s\S]*NativeWindowLinuxX11XauthorityFamily::Local[\s\S]*local_authority_address/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_xauthority_read_u16_be[\s\S]*u16::from_be_bytes/);
@@ -1065,7 +1141,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /descriptor\.source_kind\(\) != NativeWindowLinuxWindowEventSourceKind::X11Connection[\s\S]*UnsupportedSourceKind/);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /WaylandDisplay[\s\S]*poll_observation|ToolkitExternal[\s\S]*poll_observation/);
     assert.match(nativeWindowLinuxX11EventPacketToObservation, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY[\s\S]*NativeWindowSize::new[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY[\s\S]*native_window_linux_x11_event_pointer_raw[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS[\s\S]*true[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE[\s\S]*false/);
-    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(|\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(|\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_DONTWAIT/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_NOSIGNAL/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::send/);
@@ -1084,19 +1160,19 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /std::env::VarError::NotUnicode\(value\)[\s\S]*NativeWindowLinuxX11XauthorityProcessEnvironmentReadError::NotUnicode/);
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /impl NativeWindowLinuxX11XauthorityEnvironmentReader[\s\S]*for NativeWindowLinuxX11XauthorityProcessEnvironmentReader[\s\S]*std::env::var\(native_window_linux_x11_xauthority_environment_variable_name\(variable\)\)/);
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /pub fn native_window_linux_x11_xauthority_path_plan_from_process_environment\([\s\S]*let mut reader = NativeWindowLinuxX11XauthorityProcessEnvironmentReader::new\(\)[\s\S]*native_window_linux_x11_xauthority_path_plan_from_environment\(&mut reader\)/);
-    assert.doesNotMatch(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /std::env::var\([\s\S]*\.ok\(|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /std::env::var\([\s\S]*\.ok\(|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /pub enum NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError\s*\{[\s\S]*ReadFailed\s*\{[\s\S]*path: String,[\s\S]*error: std::io::Error/);
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /pub struct NativeWindowLinuxX11XauthorityFilesystemFileBytesReader/);
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /impl NativeWindowLinuxX11XauthorityFileBytesReader[\s\S]*for NativeWindowLinuxX11XauthorityFilesystemFileBytesReader[\s\S]*std::fs::read\(path\)[\s\S]*NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError::ReadFailed/);
     assert.match(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /pub fn native_window_linux_x11_xauthority_read_file_bytes_from_filesystem\([\s\S]*let mut reader = NativeWindowLinuxX11XauthorityFilesystemFileBytesReader::new\(\)[\s\S]*native_window_linux_x11_xauthority_read_file_bytes\(plan, &mut reader\)/);
-    assert.doesNotMatch(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /std::fs::write|std::fs::remove_file|File::|OpenOptions|read_to|canonicalize|exists|metadata|vfs|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityFilesystemFileBytesAdapter, /std::fs::write|std::fs::remove_file|File::|OpenOptions|read_to|canonicalize|\.exists\(|metadata|vfs|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub trait NativeWindowLinuxX11XauthorityVfsFileBytesSource\s*\{[\s\S]*type Error;[\s\S]*read_xauthority_vfs_file_bytes\(&mut self, path: &str\) -> Result<Vec<u8>, Self::Error>/);
     assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub enum NativeWindowLinuxX11XauthorityVfsFileBytesReadError<SourceError>\s*\{[\s\S]*ReadFailed\s*\{[\s\S]*path: String,[\s\S]*error: SourceError/);
     assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub struct NativeWindowLinuxX11XauthorityVfsFileBytesReader<'a, Source>[\s\S]*source: &'a mut Source/);
     assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /impl<Source> NativeWindowLinuxX11XauthorityFileBytesReader[\s\S]*for NativeWindowLinuxX11XauthorityVfsFileBytesReader<'_, Source>[\s\S]*read_xauthority_vfs_file_bytes\(path\)[\s\S]*NativeWindowLinuxX11XauthorityVfsFileBytesReadError::ReadFailed/);
     assert.match(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /pub fn native_window_linux_x11_xauthority_read_file_bytes_from_vfs<Source>\([\s\S]*let mut reader = NativeWindowLinuxX11XauthorityVfsFileBytesReader::new\(source\)[\s\S]*native_window_linux_x11_xauthority_read_file_bytes\(plan, &mut reader\)/);
-    assert.doesNotMatch(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /std::fs|File::|OpenOptions|read_to|canonicalize|exists|metadata|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
-    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|(?<!\.)\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|exists|metadata/i);
+    assert.doesNotMatch(nativeWindowLinuxX11XauthorityVfsFileBytesAdapter, /std::fs|File::|OpenOptions|read_to|canonicalize|\.exists\(|metadata|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|fallback|silent no-op|synthetic/i);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic|(?<!\.)\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata/i);
     assert.match(libSource, /native_window_linux_x11_setup_request_no_auth_matches_legacy_bytes/);
     assert.match(libSource, /native_window_linux_x11_setup_request_encodes_mit_magic_cookie_lengths_and_padding/);
     assert.match(libSource, /native_window_linux_x11_setup_request_rejects_too_long_auth_before_raw_api/);

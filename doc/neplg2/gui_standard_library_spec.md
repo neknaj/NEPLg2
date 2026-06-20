@@ -1263,6 +1263,24 @@ reader は pending reply header と remaining body byte count を owner state �
 
 F5jv は generic unexpected reply の stream synchronization boundary であり、reply body payload を public API として保持・parse しない。将来 InternAtom / GetProperty などの request-specific reply を扱う phase では、この drain contract を保ったまま request-specific reply body owner / parser へ接続する。F5jv は request / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5jw Native Linux X11 InternAtom request owner boundary
+
+F5jw では、X11 `InternAtom` request を raw fd write から分離した typed bytes owner として作る。request は atom name bytes と `only_if_exists` bool を受け取り、opcode `16`、request length、name length、unused field、name bytes、4 byte padding を little-endian X11 request として encode する。request length は `2 + padded_name_len / 4` units とし、padding byte はすべて zero にする。
+
+atom name は X11 protocol の counted bytes として扱う。generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず、NUL を含む counted name も bytes として保持する。空 name、`u16` を超える name length、total byte length overflow、request length units の `u16` 超過は `NativeWindowLinuxX11InternAtomRequestBuildError` で fail closed にする。`only_if_exists` は bool から `0` / `1` だけに encode し、raw flag byte は public input にしない。
+
+F5jw は request bytes owner boundary だけを担当する。raw fd write/read、accepted write progress、sequence assignment、InternAtom reply parse / retain、request / reply correlation、Atom ID owner、WM_DELETE_WINDOW registration、ChangeProperty、ClientMessage decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。ICCCM の well-known atom name policy は後続の WM protocol helper で扱い、generic InternAtom counted bytes contract と混ぜない。
+
+## F5jx Native Linux X11 WM protocol atom InternAtom request batch boundary
+
+F5jx では、F5jw の `NativeWindowLinuxX11InternAtomRequest` を合成し、`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch を typed owner として作る。Rust boundary 名としては、atom kind を `NativeWindowLinuxX11WmProtocolAtomInternRequestKind`、owner を `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch`、error を `NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError` とする。
+
+batch owner は concatenated request bytes と request boundary offset だけを保持する。order は必ず `WM_PROTOCOLS`、`WM_DELETE_WINDOW` であり、両 request は `only_if_exists = false` で作る。これは ICCCM well-known atom を server に intern させるための request bytes であり、Atom ID が取得済みであることや window property が登録済みであることを意味しない。
+
+F5jx は generic `InternAtom` encoding を複製せず、F5jw helper の結果を連結するだけにする。lower helper が失敗した場合は atom kind と lower error を保持し、concat byte length overflow は typed error で返す。caller supplied arbitrary atom name helper は public API にしないため、generic counted bytes policy と WM well-known name policy を混ぜない。
+
+F5jx は request batch owner boundary だけを担当する。raw fd write/read、accepted write progress、sequence assignment、InternAtom reply parse / retain、request / reply correlation、Atom ID owner、`ChangeProperty` による `WM_PROTOCOLS` property mutation、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
