@@ -2124,6 +2124,37 @@ Phase F5jh では、F5jf の caller supplied path request の前段として、p
 - `git diff --check`
 - subagent implementation review で environment acquisition が path plan boundary にだけ接続され、no direct env/fs/VFS / no file read / no credential selection / no fallback / no runner dispatch が承認される。
 
+## Phase F5ji: Native Linux Xauthority process environment adapter boundary
+
+Phase F5ji では、F5jh の injected environment reader に対する cfg Linux actual process environment adapter を追加する。これは process environment adapter contract であり、filesystem / VFS read、credential selection、setup request integration、runner / CLI dispatch は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityProcessEnvironmentReader` は `NativeWindowLinuxX11XauthorityEnvironmentReader` を実装する cfg Linux reader とする。
+- `AuthorityFilePath` は `XAUTHORITY`、`HomeDirectoryPath` は `HOME` へ固定 mapping する。mapping は runtime string input や fallback table にしない。
+- per-variable read は `std::env::var` だけを呼び、`VarError::NotPresent` は `Ok None`、`VarError::NotUnicode` は `NotUnicode variable OsString` として typed error にする。
+- `std::env::var(...).ok()` で NotUnicode を missing と同一視しない。
+- priority、empty explicit path rejection、home default path creation は F5jh / F5jf helper に委譲し、adapter は path planning を実装しない。
+- convenience helper は process environment reader を作り、F5jh `native_window_linux_x11_xauthority_path_plan_from_environment` を呼ぶだけにする。
+- source policy は F5jh injected surface と actual process environment adapter surface を分け、actual adapter surface だけで `std::env::var` と `XAUTHORITY` / `HOME` を許可する。
+
+非目標:
+
+- actual filesystem / VFS adapter、`std::fs`、`File`、`OpenOptions`、`read_to*`、metadata / exists / canonicalize、file locking は扱わない。
+- Xauthority file bytes read、record parse、credential selection、setup request integration は扱わない。
+- Hostname / `gethostname`、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `git diff --check`
+- subagent implementation review で actual env adapter が F5jh にだけ接続され、no fs/VFS / no file read / no credential selection / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

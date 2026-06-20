@@ -8990,6 +8990,81 @@ impl NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi
 }
 
 #[cfg(target_os = "linux")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityProcessEnvironmentReadError {
+    NotUnicode {
+        variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+        value: std::ffi::OsString,
+    },
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityProcessEnvironmentReader;
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11XauthorityProcessEnvironmentReader {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn native_window_linux_x11_xauthority_environment_variable_name(
+    variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+) -> &'static str {
+    match variable {
+        NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath => "XAUTHORITY",
+        NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath => "HOME",
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn native_window_linux_x11_xauthority_environment_value_from_var_result(
+    variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+    result: Result<String, std::env::VarError>,
+) -> Result<Option<String>, NativeWindowLinuxX11XauthorityProcessEnvironmentReadError> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(value)) => Err(
+            NativeWindowLinuxX11XauthorityProcessEnvironmentReadError::NotUnicode {
+                variable,
+                value,
+            },
+        ),
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11XauthorityEnvironmentReader
+    for NativeWindowLinuxX11XauthorityProcessEnvironmentReader
+{
+    type Error = NativeWindowLinuxX11XauthorityProcessEnvironmentReadError;
+
+    fn read_xauthority_environment_value(
+        &mut self,
+        variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+    ) -> Result<Option<String>, Self::Error> {
+        native_window_linux_x11_xauthority_environment_value_from_var_result(
+            variable,
+            std::env::var(native_window_linux_x11_xauthority_environment_variable_name(variable)),
+        )
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn native_window_linux_x11_xauthority_path_plan_from_process_environment() -> Result<
+    NativeWindowLinuxX11XauthorityPathPlan,
+    NativeWindowLinuxX11XauthorityEnvironmentPathPlanError<
+        NativeWindowLinuxX11XauthorityProcessEnvironmentReadError,
+    >,
+> {
+    let mut reader = NativeWindowLinuxX11XauthorityProcessEnvironmentReader::new();
+    native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader)
+}
+
+#[cfg(target_os = "linux")]
 impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
     pub fn new() -> Self {
         Self::default()
@@ -18096,6 +18171,54 @@ mod tests {
             NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::EnvironmentReadFailed {
                 variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
                 error: ScriptedXauthorityEnvironmentReadError::Unavailable,
+            }
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_process_environment_maps_variable_names() {
+        assert_eq!(
+            native_window_linux_x11_xauthority_environment_variable_name(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+            ),
+            "XAUTHORITY"
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_environment_variable_name(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+            ),
+            "HOME"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_process_environment_maps_not_present_without_value() {
+        assert_eq!(
+            native_window_linux_x11_xauthority_environment_value_from_var_result(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Err(std::env::VarError::NotPresent),
+            )
+            .unwrap(),
+            None
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_process_environment_preserves_not_unicode_value() {
+        let value = <std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(vec![0xff]);
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_environment_value_from_var_result(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                Err(std::env::VarError::NotUnicode(value.clone())),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityProcessEnvironmentReadError::NotUnicode {
+                variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                value,
             }
         );
     }
