@@ -1169,6 +1169,16 @@ reader は `read_x11_local_authority_address` だけを持つ。`native_window_l
 
 F5jm は injected local authority address owner boundary だけを担当する。actual `gethostname` / process identity acquisition、`DISPLAY` env acquisition、`XAUTHORITY` / `HOME` env、filesystem / VFS file bytes read、credential selection、setup request integration、raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
 
+## F5jn Native Linux Xauthority process hostname address adapter boundary
+
+F5jn では、F5jm の `NativeWindowLinuxX11LocalAuthorityAddressReader` に対する cfg Linux process hostname adapter を追加する。Rust boundary 名としては、raw API trait を `NativeWindowLinuxX11LocalAuthorityAddressRawApi`、reader を `NativeWindowLinuxX11ProcessLocalAuthorityAddressReader`、failure を `NativeWindowLinuxX11LocalAuthorityAddressProcessReadError` とする。
+
+raw API trait は caller supplied buffer を受け取り、`gethostname` 相当の side effect だけを実行する。reader は `NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1` bytes の buffer を確保し、raw API を 1 回だけ呼ぶ。buffer 内の最初の NUL byte までを hostname bytes とし、NUL が無い場合は typed `HostnameNotTerminated` failure として返す。空 hostname は reader 内で補正せず、F5jm helper の `EmptyAddress` へ委譲する。
+
+cfg Linux sys adapter は `libc::gethostname` だけを呼ぶ。戻り値 failure は raw API failure として保持し、`std::env`、filesystem / VFS、DISPLAY parsing、Xauthority file lookup、credential selection、setup request construction へは進まない。convenience helper は sys adapter を reader に包み、F5jm `native_window_linux_x11_local_authority_address` を呼ぶだけにする。
+
+F5jn は process hostname adapter boundary だけを担当する。selector criteria construction、credential selection、setup request integration、X11 raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

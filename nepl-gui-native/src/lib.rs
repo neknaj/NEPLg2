@@ -7478,6 +7478,23 @@ pub enum NativeWindowLinuxX11LocalAuthorityAddressReadError<ReaderError> {
     },
 }
 
+pub trait NativeWindowLinuxX11LocalAuthorityAddressRawApi {
+    type Error;
+
+    fn get_hostname_raw(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11LocalAuthorityAddressProcessReadError<RawError> {
+    GetHostnameFailed { error: RawError },
+    HostnameNotTerminated { buffer_byte_len: usize },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api> {
+    api: Api,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11XauthorityPathSource {
     ExplicitAuthorityFile,
@@ -7776,6 +7793,48 @@ impl NativeWindowLinuxX11LocalAuthorityAddress {
 
     pub fn len(&self) -> usize {
         self.bytes.len()
+    }
+}
+
+impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api> {
+    pub fn new(api: Api) -> Self {
+        Self { api }
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn into_api(self) -> Api {
+        self.api
+    }
+}
+
+impl<Api> NativeWindowLinuxX11LocalAuthorityAddressReader
+    for NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>
+where
+    Api: NativeWindowLinuxX11LocalAuthorityAddressRawApi,
+{
+    type Error = NativeWindowLinuxX11LocalAuthorityAddressProcessReadError<Api::Error>;
+
+    fn read_x11_local_authority_address(&mut self) -> Result<Vec<u8>, Self::Error> {
+        let mut buffer =
+            vec![0_u8; NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1];
+        self.api.get_hostname_raw(&mut buffer).map_err(|error| {
+            NativeWindowLinuxX11LocalAuthorityAddressProcessReadError::GetHostnameFailed { error }
+        })?;
+        let Some(byte_len) = buffer.iter().position(|byte| *byte == 0) else {
+            return Err(
+                NativeWindowLinuxX11LocalAuthorityAddressProcessReadError::HostnameNotTerminated {
+                    buffer_byte_len: buffer.len(),
+                },
+            );
+        };
+        Ok(buffer[..byte_len].to_vec())
     }
 }
 
@@ -9050,6 +9109,45 @@ impl NativeWindowLinuxX11EventSourceRawApi for NativeWindowLinuxX11EventSourceSy
     fn error_code_is_would_block(&self, code: u32) -> bool {
         code == libc::EAGAIN as u32 || code == libc::EWOULDBLOCK as u32
     }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11LocalAuthorityAddressSysApi;
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11LocalAuthorityAddressSysApi {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11LocalAuthorityAddressRawApi
+    for NativeWindowLinuxX11LocalAuthorityAddressSysApi
+{
+    type Error = std::io::Error;
+
+    fn get_hostname_raw(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        let result = unsafe { libc::gethostname(buffer.as_mut_ptr().cast(), buffer.len()) };
+        if result != 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn native_window_linux_x11_local_authority_address_from_process_hostname() -> Result<
+    NativeWindowLinuxX11LocalAuthorityAddress,
+    NativeWindowLinuxX11LocalAuthorityAddressReadError<
+        NativeWindowLinuxX11LocalAuthorityAddressProcessReadError<std::io::Error>,
+    >,
+> {
+    let mut reader = NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new(
+        NativeWindowLinuxX11LocalAuthorityAddressSysApi::new(),
+    );
+    native_window_linux_x11_local_authority_address(&mut reader)
 }
 
 #[cfg(target_os = "linux")]
@@ -17075,6 +17173,11 @@ mod tests {
     }
 
     #[derive(Clone, Debug, Eq, PartialEq)]
+    enum ScriptedX11LocalAuthorityAddressRawError {
+        Unavailable,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
     struct ScriptedXauthorityEnvironmentReadStep {
         variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
         result: Result<Option<String>, ScriptedXauthorityEnvironmentReadError>,
@@ -17101,6 +17204,12 @@ mod tests {
     struct ScriptedX11LocalAuthorityAddressReader {
         result: Option<Result<Vec<u8>, ScriptedX11LocalAuthorityAddressReadError>>,
         call_count: usize,
+    }
+
+    struct ScriptedX11LocalAuthorityAddressRawApi {
+        result: Option<Result<Vec<u8>, ScriptedX11LocalAuthorityAddressRawError>>,
+        call_count: usize,
+        seen_buffer_len: Option<usize>,
     }
 
     impl ScriptedXauthorityEnvironmentReadStep {
@@ -17173,6 +17282,24 @@ mod tests {
         }
     }
 
+    impl ScriptedX11LocalAuthorityAddressRawApi {
+        fn new(result: Result<Vec<u8>, ScriptedX11LocalAuthorityAddressRawError>) -> Self {
+            Self {
+                result: Some(result),
+                call_count: 0,
+                seen_buffer_len: None,
+            }
+        }
+
+        fn call_count(&self) -> usize {
+            self.call_count
+        }
+
+        fn seen_buffer_len(&self) -> Option<usize> {
+            self.seen_buffer_len
+        }
+    }
+
     impl NativeWindowLinuxX11XauthorityEnvironmentReader for ScriptedXauthorityEnvironmentReader {
         type Error = ScriptedXauthorityEnvironmentReadError;
 
@@ -17224,6 +17351,22 @@ mod tests {
             self.result
                 .take()
                 .expect("scripted local authority address result should be available")
+        }
+    }
+
+    impl NativeWindowLinuxX11LocalAuthorityAddressRawApi for ScriptedX11LocalAuthorityAddressRawApi {
+        type Error = ScriptedX11LocalAuthorityAddressRawError;
+
+        fn get_hostname_raw(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
+            self.call_count += 1;
+            self.seen_buffer_len = Some(buffer.len());
+            let payload = self
+                .result
+                .take()
+                .expect("scripted local authority address raw result should be available")?;
+            assert!(payload.len() <= buffer.len());
+            buffer[..payload.len()].copy_from_slice(&payload);
+            Ok(())
         }
     }
 
@@ -18908,6 +19051,74 @@ mod tests {
                 byte_index: 4,
             }
         );
+    }
+
+    #[test]
+    fn native_window_linux_x11_process_local_authority_address_reads_nul_terminated_hostname() {
+        let raw_api =
+            ScriptedX11LocalAuthorityAddressRawApi::new(Ok(b"workstation-02\0ignored".to_vec()));
+        let mut reader = NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new(raw_api);
+
+        let address = native_window_linux_x11_local_authority_address(&mut reader).unwrap();
+        let raw_api = reader.into_api();
+
+        assert_eq!(address.as_bytes(), b"workstation-02");
+        assert_eq!(raw_api.call_count(), 1);
+        assert_eq!(
+            raw_api.seen_buffer_len(),
+            Some(NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1)
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_process_local_authority_address_preserves_raw_failure() {
+        let raw_api = ScriptedX11LocalAuthorityAddressRawApi::new(Err(
+            ScriptedX11LocalAuthorityAddressRawError::Unavailable,
+        ));
+        let mut reader = NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new(raw_api);
+
+        assert_eq!(
+            native_window_linux_x11_local_authority_address(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::ReadFailed {
+                error:
+                    NativeWindowLinuxX11LocalAuthorityAddressProcessReadError::GetHostnameFailed {
+                        error: ScriptedX11LocalAuthorityAddressRawError::Unavailable,
+                    },
+            }
+        );
+        assert_eq!(reader.api().call_count(), 1);
+    }
+
+    #[test]
+    fn native_window_linux_x11_process_local_authority_address_rejects_missing_nul() {
+        let raw_api = ScriptedX11LocalAuthorityAddressRawApi::new(Ok(vec![
+            b'a';
+            NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN
+                + 1
+        ]));
+        let mut reader = NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new(raw_api);
+
+        assert_eq!(
+            native_window_linux_x11_local_authority_address(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::ReadFailed {
+                error: NativeWindowLinuxX11LocalAuthorityAddressProcessReadError::HostnameNotTerminated {
+                    buffer_byte_len: NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1,
+                },
+            }
+        );
+        assert_eq!(reader.api().call_count(), 1);
+    }
+
+    #[test]
+    fn native_window_linux_x11_process_local_authority_address_delegates_empty_hostname() {
+        let raw_api = ScriptedX11LocalAuthorityAddressRawApi::new(Ok(vec![0]));
+        let mut reader = NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new(raw_api);
+
+        assert_eq!(
+            native_window_linux_x11_local_authority_address(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::EmptyAddress
+        );
+        assert_eq!(reader.api().call_count(), 1);
     }
 
     #[test]

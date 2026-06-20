@@ -247,11 +247,21 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11LocalAuthorityAddressTypes = textSliceBetween(
         libSource,
         "pub struct NativeWindowLinuxX11LocalAuthorityAddress",
+        "pub trait NativeWindowLinuxX11LocalAuthorityAddressRawApi",
+    );
+    const nativeWindowLinuxX11ProcessLocalAuthorityAddressTypes = textSliceBetween(
+        libSource,
+        "pub trait NativeWindowLinuxX11LocalAuthorityAddressRawApi",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11XauthorityPathSource",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressImpl = textSliceBetween(
         libSource,
         "impl NativeWindowLinuxX11LocalAuthorityAddress",
+        "impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>",
+    );
+    const nativeWindowLinuxX11ProcessLocalAuthorityAddressImpl = textSliceBetween(
+        libSource,
+        "impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>",
         "impl<'a> NativeWindowLinuxX11XauthorityLookupInput",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressHelpers = textSliceBetween(
@@ -269,6 +279,10 @@ function runNativeGuiPlatformBehaviorRegression() {
         nativeWindowLinuxX11LocalAuthorityAddressImpl,
         nativeWindowLinuxX11LocalAuthorityAddressHelpers,
         nativeWindowLinuxX11LocalAuthorityAddressBridge,
+    ].join("\n");
+    const nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface = [
+        nativeWindowLinuxX11ProcessLocalAuthorityAddressTypes,
+        nativeWindowLinuxX11ProcessLocalAuthorityAddressImpl,
     ].join("\n");
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
@@ -301,6 +315,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11EventSourceSysApi = textSliceBetween(
         libSource,
         "pub struct NativeWindowLinuxX11EventSourceSysApi",
+        "pub struct NativeWindowLinuxX11LocalAuthorityAddressSysApi",
+    );
+    const nativeWindowLinuxX11LocalAuthorityAddressSysAdapter = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxX11LocalAuthorityAddressSysApi",
         "impl NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi",
     );
     const nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter = textSliceBetween(
@@ -699,7 +718,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5jk: Native Linux Xauthority VFS file bytes adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jl: Native Linux Xauthority credential setup request boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jm: Native Linux Xauthority local authority address owner boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jn: Native Linux Xauthority process hostname address adapter boundary/);
     assert.match(guiRedesignImplementationPlan, /actual hostname \/ process identity acquisition は扱わない/);
+    assert.match(guiRedesignImplementationPlan, /raw API を 1 回だけ呼ぶ/);
+    assert.match(guiRedesignImplementationPlan, /empty hostname bytes は F5jm helper の `EmptyAddress` に委譲/);
     assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
     assert.match(guiRedesignImplementationPlan, /raw API owner を消費する前に返す/);
     assert.match(guiRedesignImplementationPlan, /family \+ address \+ display_number` と exact match/);
@@ -722,6 +744,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5jk Native Linux Xauthority VFS file bytes adapter boundary/);
     assert.match(standardSpec, /F5jl Native Linux Xauthority credential setup request boundary/);
     assert.match(standardSpec, /F5jm Native Linux Xauthority local authority address owner boundary/);
+    assert.match(standardSpec, /F5jn Native Linux Xauthority process hostname address adapter boundary/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
     assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
@@ -743,6 +766,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jk/);
     assert.match(platformDoc, /F5jl/);
     assert.match(platformDoc, /F5jm/);
+    assert.match(platformDoc, /F5jn/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /selector criteria/);
@@ -754,6 +778,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /VFS file bytes adapter/);
     assert.match(platformDoc, /credential setup request/);
     assert.match(platformDoc, /local authority address owner/);
+    assert.match(platformDoc, /process hostname adapter/);
     assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11AuthorizationCredential<'a>\s*\{[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
@@ -768,6 +793,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11LocalAuthorityAddressSurface, /pub fn native_window_linux_x11_local_authority_address<Reader>[\s\S]*NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN/);
     assert.match(nativeWindowLinuxX11LocalAuthorityAddressSurface, /pub fn native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address[\s\S]*local_authority_address: &'a NativeWindowLinuxX11LocalAuthorityAddress[\s\S]*native_window_linux_x11_xauthority_local_selector_criteria_from_display\([\s\S]*local_authority_address\.as_bytes\(\)/);
     assert.doesNotMatch(nativeWindowLinuxX11LocalAuthorityAddressSurface, /Family::Wild|AuthorizationCredential::none|NoMatchingRecord|std::env|std::fs|vfs|gethostname|hostname|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /pub trait NativeWindowLinuxX11LocalAuthorityAddressRawApi\s*\{[\s\S]*type Error;[\s\S]*get_hostname_raw\(&mut self, buffer: &mut \[u8\]\) -> Result<\(\), Self::Error>/);
+    assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /pub enum NativeWindowLinuxX11LocalAuthorityAddressProcessReadError<RawError>\s*\{[\s\S]*GetHostnameFailed\s*\{[\s\S]*error: RawError[\s\S]*HostnameNotTerminated\s*\{[\s\S]*buffer_byte_len: usize/);
+    assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /pub struct NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>\s*\{[\s\S]*api: Api/);
+    assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*pub fn new\(api: Api\) -> Self[\s\S]*pub fn api\(&self\) -> &Api[\s\S]*pub fn api_mut\(&mut self\) -> &mut Api[\s\S]*pub fn into_api\(self\) -> Api/);
+    assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11LocalAuthorityAddressReader[\s\S]*for NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*Api: NativeWindowLinuxX11LocalAuthorityAddressRawApi[\s\S]*vec!\[0_u8; NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN \+ 1\][\s\S]*get_hostname_raw\(&mut buffer\)[\s\S]*GetHostnameFailed[\s\S]*position\(\|byte\| \*byte == 0\)[\s\S]*HostnameNotTerminated[\s\S]*buffer_byte_len: buffer\.len\(\)[\s\S]*Ok\(buffer\[..byte_len\]\.to_vec\(\)\)/);
+    assert.doesNotMatch(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /NativeWindowLinuxX11XauthoritySelectorCriteria|NativeWindowLinuxX11XauthoritySelection|NoMatchingRecord|std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityPathSource\s*\{[\s\S]*ExplicitAuthorityFile,[\s\S]*HomeDirectoryDefault/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityLookupInput<'a>\s*\{[\s\S]*authority_file_path: Option<&'a str>,[\s\S]*home_directory_path: Option<&'a str>/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityPathPlan\s*\{[\s\S]*source: NativeWindowLinuxX11XauthorityPathSource,[\s\S]*path: String/);
@@ -831,6 +862,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::send/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::recv/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::EAGAIN[\s\S]*libc::EWOULDBLOCK/);
+    assert.match(nativeWindowLinuxX11LocalAuthorityAddressSysAdapter, /pub struct NativeWindowLinuxX11LocalAuthorityAddressSysApi/);
+    assert.match(nativeWindowLinuxX11LocalAuthorityAddressSysAdapter, /impl NativeWindowLinuxX11LocalAuthorityAddressRawApi[\s\S]*for NativeWindowLinuxX11LocalAuthorityAddressSysApi[\s\S]*type Error = std::io::Error/);
+    assert.match(nativeWindowLinuxX11LocalAuthorityAddressSysAdapter, /fn get_hostname_raw\(&mut self, buffer: &mut \[u8\]\) -> Result<\(\), Self::Error>[\s\S]*libc::gethostname\(buffer\.as_mut_ptr\(\)\.cast\(\), buffer\.len\(\)\)[\s\S]*std::io::Error::last_os_error\(\)/);
+    assert.match(nativeWindowLinuxX11LocalAuthorityAddressSysAdapter, /pub fn native_window_linux_x11_local_authority_address_from_process_hostname\(\)[\s\S]*NativeWindowLinuxX11ProcessLocalAuthorityAddressReader::new[\s\S]*NativeWindowLinuxX11LocalAuthorityAddressSysApi::new\(\)[\s\S]*native_window_linux_x11_local_authority_address\(&mut reader\)/);
+    assert.doesNotMatch(nativeWindowLinuxX11LocalAuthorityAddressSysAdapter, /std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|AuthorizationCredential::none|NoMatchingRecord|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /pub enum NativeWindowLinuxX11XauthorityProcessEnvironmentReadError\s*\{[\s\S]*NotUnicode\s*\{[\s\S]*variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,[\s\S]*value: std::ffi::OsString/);
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /pub struct NativeWindowLinuxX11XauthorityProcessEnvironmentReader/);
     assert.match(nativeWindowLinuxX11XauthorityProcessEnvironmentAdapter, /AuthorityFilePath => "XAUTHORITY"/);
@@ -882,6 +918,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_local_authority_address_preserves_exact_bytes/);
     assert.match(libSource, /native_window_linux_x11_local_authority_address_preserves_reader_failure/);
     assert.match(libSource, /native_window_linux_x11_local_authority_address_rejects_empty_too_long_and_nul/);
+    assert.match(libSource, /native_window_linux_x11_process_local_authority_address_reads_nul_terminated_hostname/);
+    assert.match(libSource, /native_window_linux_x11_process_local_authority_address_preserves_raw_failure/);
+    assert.match(libSource, /native_window_linux_x11_process_local_authority_address_rejects_missing_nul/);
+    assert.match(libSource, /native_window_linux_x11_process_local_authority_address_delegates_empty_hostname/);
     assert.match(libSource, /native_window_linux_x11_xauthority_selector_criteria_uses_authority_address_owner/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_explicit_plan_path/);
     assert.match(libSource, /native_window_linux_x11_xauthority_file_bytes_reads_home_default_plan_path_for_parser/);
