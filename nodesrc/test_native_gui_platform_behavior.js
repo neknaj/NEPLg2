@@ -147,6 +147,16 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub enum NativeWindowHostLoopLinuxEventSourceCapability",
         "pub enum NativeWindowHostLoopPlatformWaitBackendKind",
     );
+    const nativeWindowLinuxWindowEventSourcePrepareConfig = textSliceBetween(
+        libSource,
+        "pub fn native_window_linux_window_event_source_prepare_platform_wait_backend_config",
+        "impl NativeWindowRunLoopWaitBackend",
+    );
+    const nativeWindowLinuxWindowEventSourcePreparedConfigImpl = textSliceBetween(
+        libSource,
+        "impl<Provider> NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider>",
+        "pub fn native_window_linux_window_event_source_prepare_platform_wait_backend_config",
+    );
     const nativeWindowPlatformWaitRunnerSupportGate = textSliceBetween(
         libSource,
         "pub fn validate_native_window_run_loop_platform_wait_runner_support_for_platform",
@@ -422,6 +432,15 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitRunnerMissingIntegration\s*\{[\s\S]*LinuxWindowEventSourceFdMissing\s*\{[\s\S]*capability: NativeWindowHostLoopLinuxEventSourceCapability[\s\S]*LinuxWindowEventSourceEventParsingMissing\s*\{[\s\S]*capability: NativeWindowHostLoopLinuxEventSourceCapability[\s\S]*MacosActualSysShimMissing/);
     assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitRunnerSupportError\s*\{[\s\S]*Config\(NativeWindowRunLoopPlatformWaitBackendConfigError\),[\s\S]*BackendSupportFailed\(NativeWindowHostLoopPlatformWaitBackendSupportError\),[\s\S]*LinuxEventSourceSupportFailed\(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError\),[\s\S]*PlatformRunnerIntegrationMissing\s*\{[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*missing: NativeWindowRunLoopPlatformWaitRunnerMissingIntegration[\s\S]*PlatformRunnerUnavailable/);
     assert.doesNotMatch(libSource, /LinuxExternallyWakeableEventSourceOwnerMissing|LinuxExternallyWakeableEventSourceIntegrationMissing/);
+    assert.match(libSource, /pub enum NativeWindowLinuxWindowEventSourceKind\s*\{[\s\S]*X11Connection,[\s\S]*WaylandDisplay,[\s\S]*ToolkitExternal/);
+    assert.match(libSource, /pub struct NativeWindowLinuxWindowEventSourceDescriptor\s*\{[\s\S]*source_kind: NativeWindowLinuxWindowEventSourceKind,[\s\S]*raw_fd: i32/);
+    assert.match(libSource, /pub trait NativeWindowLinuxWindowEventSourceProvider\s*\{[\s\S]*type Error;[\s\S]*window_event_source_descriptor\([\s\S]*&mut self,[\s\S]*Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error>/);
+    assert.match(libSource, /pub struct NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider>\s*\{[\s\S]*platform_wait_config: NativeWindowRunLoopPlatformWaitBackendConfig,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*provider: Provider/);
+    assert.doesNotMatch(libSource, /#\[derive\([^\]]*(Clone|Copy)[^\]]*\)\]\s*pub struct NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourcePreparedConfigImpl, /pub fn new\s*\(/);
+    assert.match(libSource, /pub enum NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError<Provider, ProviderError>\s*\{[\s\S]*BackendSupportFailed\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*error: NativeWindowHostLoopPlatformWaitBackendSupportError[\s\S]*ProviderFailed\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*error: ProviderError[\s\S]*InvalidDescriptor\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*error: NativeWindowHostLoopLinuxSelectorTimerFdBackendError/);
+    assert.match(nativeWindowLinuxWindowEventSourcePrepareConfig, /validate_native_window_host_loop_platform_wait_backend_kind_for_platform\([\s\S]*NativeWindowHostLoopPlatformKind::Linux,[\s\S]*selection\.backend\(\)[\s\S]*provider\.window_event_source_descriptor\(\)[\s\S]*native_window_host_loop_linux_window_event_source_fd_from_raw\(descriptor\.raw_fd\(\)\)[\s\S]*NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_window_event_source_raw_fd\([\s\S]*selection,[\s\S]*descriptor\.raw_fd\(\)[\s\S]*NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig::new/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourcePrepareConfig, /NativeWindowRunLoopConfig::|new_with_platform_wait_backend_config|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|poll\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(libSource, /pub type NativeWindowWindowsPlatformWaitHostLoopError[\s\S]*NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError[\s\S]*NativeWindowHostLoopPlatformWaitBackendError<[\s\S]*NativeWindowHostLoopWindowsWaitBackendError,[\s\S]*NativeWindowHostLoopMacosRunLoopTimerBackendError,[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdBackendError/);
     assert.match(libSource, /impl NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*pub fn authority_mode[\s\S]*MinifbInternalTargetFps[\s\S]*native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps[\s\S]*HostOwnedDeadlineTimer[\s\S]*native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer/);
     assert.match(libSource, /impl Default for NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*Self::MinifbInternalTargetFps/);

@@ -73936,3 +73936,45 @@ MERGE_APPROVED
 
 - 次 slice では actual X11 / Wayland window event source fd acquisition、event decoding、Linux runner / CLI dispatch へ進む。
 - macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5iu Linux window event source provider-owned platform config boundary
+
+### scope
+
+- F5iu は F5it の raw fd config を provider-owned prepared platform-wait config へ進める checkpoint である。
+- selection と provider だけから full `NativeWindowRunLoopConfig` は作らない。demo、counter、scale、target FPS、run policy は caller が既存 constructor へ明示する。
+- provider owner と descriptor と platform-wait config を同じ prepared value に保持し、fd non-owning value だけを残して owner を落とす形にしない。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は、selection + provider だけで full `NativeWindowRunLoopConfig` を作ると demo / scale / target FPS / run policy を暗黙 default 化してしまうことだった。
+- revised plan は `PLAN_APPROVED`。F5iu は owner-bearing `NativeWindowRunLoopPlatformWaitBackendConfig` preparation だけに留め、provider call は Linux + `LinuxSelectorTimerFd` selection validation 後に 1 回だけ行い、fd validation は既存 typed Linux window fd validation を使い、success/error すべてで provider owner を保持する方針になった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceKind`、`NativeWindowLinuxWindowEventSourceDescriptor`、`NativeWindowLinuxWindowEventSourceProvider` を追加した。
+- `NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig Provider` は platform-wait config、descriptor、provider を保持し、provider に対する Clone / Copy は提供しない。
+- `native_window_linux_window_event_source_prepare_platform_wait_backend_config` は selection validation、provider descriptor call、fd validation、platform-wait config construction の順に進む。
+- error enum は backend selection failure、provider failure、invalid descriptor を分け、provider owner / selection / descriptor を回収できる形にした。
+- docs、source policy、`todo.md` を F5iu contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_prepare_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5iu blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は、`NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig` の `pub fn new` が、Linux selection validation、provider exactly-once call、descriptor fd validation を bypass して prepared value を捏造できる public constructor になっていたことだった。
+- 追加指摘として、source policy が prepared value の public constructor 禁止を固定していなかったことと、この `implementation_review` 欄が pending のままだったことも commit readiness blocker だった。
+- 指摘対応として、prepared value constructor を private にし、`nodesrc/test_native_gui_platform_behavior.js` に `pub fn new` 禁止を追加した。
+- final re-review は `REVIEW_APPROVED`。public constructor bypass が残っていないこと、provider ownership が success/error path で保持されること、invalid selection が provider call 前に拒否されること、fd validation が既存 typed Linux fd path を使うこと、full `NativeWindowRunLoopConfig` を helper が構築しないこと、source policy と docs/note/todo が F5iu scope と整合することが確認された。

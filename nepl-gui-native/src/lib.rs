@@ -1248,6 +1248,54 @@ pub enum NativeWindowRunLoopPlatformWaitBackendConfigError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceKind {
+    X11Connection,
+    WaylandDisplay,
+    ToolkitExternal,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxWindowEventSourceDescriptor {
+    source_kind: NativeWindowLinuxWindowEventSourceKind,
+    raw_fd: i32,
+}
+
+pub trait NativeWindowLinuxWindowEventSourceProvider {
+    type Error;
+
+    fn window_event_source_descriptor(
+        &mut self,
+    ) -> Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error>;
+}
+
+#[derive(Debug)]
+pub struct NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider> {
+    platform_wait_config: NativeWindowRunLoopPlatformWaitBackendConfig,
+    descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    provider: Provider,
+}
+
+#[derive(Debug)]
+pub enum NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError<Provider, ProviderError> {
+    BackendSupportFailed {
+        provider: Provider,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        error: NativeWindowHostLoopPlatformWaitBackendSupportError,
+    },
+    ProviderFailed {
+        provider: Provider,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        error: ProviderError,
+    },
+    InvalidDescriptor {
+        provider: Provider,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        error: NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
     Config(NativeWindowRunLoopPlatformWaitBackendConfigError),
     Build(NativeWindowHostLoopPlatformWaitHostBuildError),
@@ -1597,6 +1645,139 @@ impl NativeWindowRunLoopPlatformWaitBackendConfig {
     pub fn linux_window_event_source_raw_fd(self) -> Option<i32> {
         self.linux_window_event_source_raw_fd
     }
+}
+
+impl NativeWindowLinuxWindowEventSourceDescriptor {
+    pub fn new(source_kind: NativeWindowLinuxWindowEventSourceKind, raw_fd: i32) -> Self {
+        Self {
+            source_kind,
+            raw_fd,
+        }
+    }
+
+    pub fn source_kind(self) -> NativeWindowLinuxWindowEventSourceKind {
+        self.source_kind
+    }
+
+    pub fn raw_fd(self) -> i32 {
+        self.raw_fd
+    }
+}
+
+impl<Provider> NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider> {
+    fn new(
+        platform_wait_config: NativeWindowRunLoopPlatformWaitBackendConfig,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        provider: Provider,
+    ) -> Self {
+        Self {
+            platform_wait_config,
+            descriptor,
+            provider,
+        }
+    }
+
+    pub fn platform_wait_config(&self) -> NativeWindowRunLoopPlatformWaitBackendConfig {
+        self.platform_wait_config
+    }
+
+    pub fn descriptor(&self) -> NativeWindowLinuxWindowEventSourceDescriptor {
+        self.descriptor
+    }
+
+    pub fn provider(&self) -> &Provider {
+        &self.provider
+    }
+
+    pub fn provider_mut(&mut self) -> &mut Provider {
+        &mut self.provider
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        NativeWindowRunLoopPlatformWaitBackendConfig,
+        NativeWindowLinuxWindowEventSourceDescriptor,
+        Provider,
+    ) {
+        (self.platform_wait_config, self.descriptor, self.provider)
+    }
+}
+
+pub fn native_window_linux_window_event_source_prepare_platform_wait_backend_config<Provider>(
+    selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    mut provider: Provider,
+) -> Result<
+    NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider>,
+    NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError<Provider, Provider::Error>,
+>
+where
+    Provider: NativeWindowLinuxWindowEventSourceProvider,
+{
+    if let Err(error) = validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+        NativeWindowHostLoopPlatformKind::Linux,
+        selection.backend(),
+    ) {
+        return Err(
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::BackendSupportFailed {
+                provider,
+                selection,
+                error,
+            },
+        );
+    }
+    if selection.platform() != NativeWindowHostLoopPlatformKind::Linux {
+        return Err(
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::BackendSupportFailed {
+                provider,
+                selection,
+                error:
+                    NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                        current: NativeWindowHostLoopPlatformKind::Linux,
+                        requested: selection.backend(),
+                    },
+            },
+        );
+    }
+
+    let descriptor = match provider.window_event_source_descriptor() {
+        Ok(descriptor) => descriptor,
+        Err(error) => {
+            return Err(
+                NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::ProviderFailed {
+                    provider,
+                    selection,
+                    error,
+                },
+            );
+        }
+    };
+
+    if let Err(error) =
+        native_window_host_loop_linux_window_event_source_fd_from_raw(descriptor.raw_fd())
+    {
+        return Err(
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::InvalidDescriptor {
+                provider,
+                selection,
+                descriptor,
+                error,
+            },
+        );
+    }
+
+    let platform_wait_config =
+        NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_window_event_source_raw_fd(
+            selection,
+            descriptor.raw_fd(),
+        );
+    Ok(
+        NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig::new(
+            platform_wait_config,
+            descriptor,
+            provider,
+        ),
+    )
 }
 
 impl NativeWindowRunLoopWaitBackend {
@@ -13114,6 +13295,227 @@ mod tests {
             .unwrap(),
             0
         );
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    struct ScriptedNativeWindowLinuxWindowEventSourceProvider {
+        result: Result<NativeWindowLinuxWindowEventSourceDescriptor, &'static str>,
+        call_count: u32,
+    }
+
+    impl ScriptedNativeWindowLinuxWindowEventSourceProvider {
+        fn ok(source_kind: NativeWindowLinuxWindowEventSourceKind, raw_fd: i32) -> Self {
+            Self {
+                result: Ok(NativeWindowLinuxWindowEventSourceDescriptor::new(
+                    source_kind,
+                    raw_fd,
+                )),
+                call_count: 0,
+            }
+        }
+
+        fn err(error: &'static str) -> Self {
+            Self {
+                result: Err(error),
+                call_count: 0,
+            }
+        }
+    }
+
+    impl NativeWindowLinuxWindowEventSourceProvider
+        for ScriptedNativeWindowLinuxWindowEventSourceProvider
+    {
+        type Error = &'static str;
+
+        fn window_event_source_descriptor(
+            &mut self,
+        ) -> Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error> {
+            self.call_count += 1;
+            self.result
+        }
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_prepare_keeps_provider_with_valid_fd() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            0,
+        );
+
+        let prepared =
+            native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+                selection, provider,
+            )
+            .unwrap();
+
+        assert_eq!(prepared.platform_wait_config().selection(), selection);
+        assert_eq!(
+            prepared
+                .platform_wait_config()
+                .linux_event_source_capability(),
+            Some(NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource)
+        );
+        assert_eq!(
+            prepared
+                .platform_wait_config()
+                .linux_window_event_source_raw_fd(),
+            Some(0)
+        );
+        assert_eq!(
+            prepared.descriptor().source_kind(),
+            NativeWindowLinuxWindowEventSourceKind::X11Connection
+        );
+        assert_eq!(prepared.descriptor().raw_fd(), 0);
+        assert_eq!(prepared.provider().call_count, 1);
+
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            prepared.platform_wait_config(),
+        );
+        assert_eq!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
+                selection,
+                missing:
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceEventParsingMissing {
+                        capability:
+                            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+                    },
+            }
+        );
+
+        let (platform_wait_config, descriptor, provider) = prepared.into_parts();
+        assert_eq!(
+            platform_wait_config.linux_window_event_source_raw_fd(),
+            Some(0)
+        );
+        assert_eq!(
+            descriptor.source_kind(),
+            NativeWindowLinuxWindowEventSourceKind::X11Connection
+        );
+        assert_eq!(provider.call_count, 1);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_prepare_rejects_negative_fd_with_provider() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::WaylandDisplay,
+            -1,
+        );
+
+        match native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+            selection, provider,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::InvalidDescriptor {
+                provider,
+                selection: error_selection,
+                descriptor,
+                error,
+            } => {
+                assert_eq!(provider.call_count, 1);
+                assert_eq!(error_selection, selection);
+                assert_eq!(
+                    descriptor.source_kind(),
+                    NativeWindowLinuxWindowEventSourceKind::WaylandDisplay
+                );
+                assert_eq!(descriptor.raw_fd(), -1);
+                assert_eq!(
+                    error,
+                    NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidWindowEventSourceRawFd {
+                        raw_fd: -1,
+                    }
+                );
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_prepare_preserves_provider_failure() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::err("provider failed");
+
+        match native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+            selection, provider,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::ProviderFailed {
+                provider,
+                selection: error_selection,
+                error,
+            } => {
+                assert_eq!(provider.call_count, 1);
+                assert_eq!(error_selection, selection);
+                assert_eq!(error, "provider failed");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_prepare_rejects_selection_before_provider_call() {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Windows,
+                NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::ToolkitExternal,
+            90,
+        );
+
+        match native_window_linux_window_event_source_prepare_platform_wait_backend_config(
+            selection, provider,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError::BackendSupportFailed {
+                provider,
+                selection: error_selection,
+                error,
+            } => {
+                assert_eq!(provider.call_count, 0);
+                assert_eq!(error_selection, selection);
+                assert_eq!(
+                    error,
+                    NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                        current: NativeWindowHostLoopPlatformKind::Linux,
+                        requested:
+                            NativeWindowHostLoopPlatformWaitBackendKind::WindowsWaitableTimerMessageWait,
+                    }
+                );
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]

@@ -1627,6 +1627,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5iu: Native Linux window event source provider-owned platform config boundary
+
+目的:
+
+- F5it の raw fd config を、fd owner を落とさない provider-owned boundary へ進める。
+- actual X11 / Wayland backend や toolkit が持つ event source fd は non-owning raw value として config へ写せるが、その fd の owner / event decoder provider は prepared value が保持し続ける。
+- selection と provider だけから full `NativeWindowRunLoopConfig` を作らない。demo、counter、scale、target FPS、run policy は caller が既存 constructor へ明示的に渡す。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourceKind` と `NativeWindowLinuxWindowEventSourceDescriptor` を追加する。kind は `X11Connection`、`WaylandDisplay`、`ToolkitExternal` を分け、descriptor は kind と raw fd だけを持つ。
+- `NativeWindowLinuxWindowEventSourceProvider` trait を追加し、provider が `window_event_source_descriptor` を 1 回返す境界にする。
+- `NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig Provider` を追加し、`NativeWindowRunLoopPlatformWaitBackendConfig`、descriptor、provider owner を同時に保持する。prepared value は provider に対して Clone / Copy を実装しない。
+- `native_window_linux_window_event_source_prepare_platform_wait_backend_config selection provider` を追加する。Linux + `LinuxSelectorTimerFd` selection を検査してから provider を 1 回だけ呼び、descriptor fd を既存 typed fd validation で検査し、`NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_window_event_source_raw_fd` だけを作って prepared value に入れる。
+- error は provider owner を保持し、selection validation failure、provider failure、descriptor fd validation failure を enum で分ける。
+
+検証:
+
+- Rust unit tests で fd `0` が valid descriptor として prepared platform config に残ること、provider owner が success/error で回収できること、provider failure と negative fd が型付き error になることを検査する。
+- Rust unit tests で Windows selection などの invalid selection が provider call 前に拒否されることを検査する。
+- Rust unit tests で caller が prepared platform config を明示的に `NativeWindowRunLoopConfig::new_with_platform_wait_backend_config` へ渡した場合でも、Linux support gate は `LinuxWindowEventSourceEventParsingMissing` のまま fail-closed になることを検査する。
+- source policy で F5iu helper が full `NativeWindowRunLoopConfig` を作らないこと、CLI raw-fd option、runner dispatch、minifb fallback、fd read / drain / close、synthetic readiness、fallback / silent no-op を導入しないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、provider から event object を drain する処理、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
