@@ -2100,6 +2100,106 @@ assertOrdered(
     ],
     "fresh witness request-evidence stage0 must cover accepted HIR-root gate path, body fingerprint mismatch, missing witness, and rejected witness",
 );
+assert.doesNotMatch(
+    source,
+    /^pub\s+struct\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBundle\b/m,
+    "actual traversal bundle owner must remain module-private and must not be public",
+);
+assert.doesNotMatch(
+    source,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBundle\b/,
+    "actual traversal bundle owner must not implement Clone or Copy",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBundle"),
+    [
+        "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
+        "witnesses %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable",
+    ],
+    "actual traversal bundle must carry only the source table owner and fresh witness table owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_free"),
+    [
+        'field::get bundle "sources"',
+        'field::get bundle "witnesses"',
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+    ],
+    "actual traversal bundle cleanup must close source owner before witness owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_accepted_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 0 1 status",
+        "Stage0SourceRejected e",
+    ],
+    "actual traversal accepted fixture must pair root/support source ordinals 0/1 with matching witness ordinals",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_unsupported_source_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "Stage0SourceRejected e",
+    ],
+    "actual traversal unsupported fixture must keep unsupported source distinct even when a matching witness exists",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result"),
+    [
+        'let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get bundle "sources"',
+        'let witnesses %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable field::get bundle "witnesses"',
+        "selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table",
+        "selfhost_memo_call_backend_private_cache_region_proof_table_free table",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result module root fuel body_module_fingerprint candidate witnesses",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+    ],
+    "actual traversal bundle gate must close source owner, extract candidate through existing checker, and pass witness owner only to the existing request-evidence bridge",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result")),
+    /selfhost_memo_call_backend_private_cache_resource_proof_table_push|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal bundle gate must not synthesize lower proof records, GraphInput, backend bytes, effect masking, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary"),
+    [
+        "accepted_request_count %i32",
+        "accepted_proof_count %i32",
+        "body_fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unsupported_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "actual traversal bundle summary must expose only counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_run_summary_result 77 77",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "body_fingerprint_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_run_i32_result 78 77",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "rejected_witness_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "unsupported_source_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_unsupported_source_result 77",
+        "accepted.request_count",
+        "accepted.proven_request_count",
+    ],
+    "actual traversal bundle stage0 must cover accepted, body fingerprint mismatch, missing witness, rejected witness, and unsupported source paths",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result")),
+    /PrivateCacheStoragePlace|CloneOutOwnedValueEdge|PrivateCacheRegionFreshWitnessCandidateAccepted/,
+    "HIR-root operation producer path must not emit accepted source or witness while actual Resource IR traversal is still unconnected",
+);
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary"),
     [

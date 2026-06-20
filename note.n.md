@@ -76542,3 +76542,44 @@ MERGE_APPROVED
 - after review follow-up pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - after review follow-up pass with LF/CRLF warnings only: `git diff --check`
 - Rawls / Boyle の再レビューは `REVIEW_APPROVED`。commit-blocking finding は無い。
+
+## 2026-06-21 selfhost memo_call actual traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、将来の actual Resource IR traversal producer が返すべき最小 bundle contract を stage0 fixture として追加した。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` は module-private owner として traversal source table と fresh witness table を保持する。public API、Clone / Copy、caller supplied accepted path は追加していない。
+- この checkpoint は actual Resource IR traversal 本体ではない。accepted source と matching witness は stage0 fixture でのみ作り、HIR-root production path は引き続き `ResourceIrTraversalUnavailable` source だけを emit する。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match、module-private owner boundary、契約と現状の分離、試作段階でも雑な proof 合成を避ける方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。bundle stage0 の doc comment には、目的、契約、actual traversal 本体ではないこと、owner cleanup、計算量、残件を記述した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` と `SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary` を追加した。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result` は、source table から既存 region proof table producer を通し、source owner を閉じ、既存 no-escape candidate checker を通して candidate を作る。candidate extraction に失敗した場合は witness owner を閉じる。candidate extraction に成功した場合だけ witness owner を既存 fresh witness request-evidence bridge へ渡す。
+- public stage0 は accepted request/proof count、body fingerprint mismatch、missing witness、rejected witness、unsupported source の typed `Result` payload だけを返す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、bundle owner の public exposure 禁止、Clone / Copy 禁止、cleanup order、accepted fixture の root/support ordinal と matching witness ordinal、unsupported source + matching witness の fail-closed、HIR-root production path が accepted source / witness を emit しないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、bundle stage0 完了と actual Resource IR traversal 本体、producer-owned actual traversal bundle、PrivateCache / PrivateState effect masking、sealed backend、artifact projectionを残件として整理した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、命名を `actual traversal bundle stage0` に留めること、actual traversal 本体完了と誤読させないこと、bundle owner を module-private にし Clone / Copy と public signature exposure を禁止すること、source table / region proof table / witness table の cleanup order を固定すること、accepted fixture の root/support ordinal と witness ordinal 一致を source policy で固定すること、direct ResourceProofTable push / request proof table push / GraphInput / backend / Pure mask / artifact key を作らないこと、既存 HIR-root operation producer path は `ResourceIrTraversalUnavailable` のみを emit し続けることだった。
+- 今回の実装では、bundle gate を既存 `region_no_escape_candidate_from_table_result -> region_fresh_witness_request_evidence_gate_result` 経由にし、HIR-root production path には accepted source/witness を追加していない。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-bundle-doctest.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed walker input または traversal source table を生成する boundary へ進める。
+- actual traversal 由来の fresh witness table を生成し、bundle fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。

@@ -503,6 +503,29 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation と prechecked artifact key projection。
 
+## 2026-06-21 selfhost memo_call backend actual traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、将来の actual Resource IR traversal producer が返すべき最小 bundle contract を固定する stage0 を追加した。bundle は module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` として、`traversal source table` owner と `fresh witness table` owner を保持する。
+
+この checkpoint は actual Resource IR traversal 本体ではない。accepted source と matching fresh witness は stage0 fixture でのみ作る。HIR-root production path は引き続き `ResourceIrTraversalUnavailable` source だけを emit し、actual traversal 未接続のまま closed private cache storage や clone-out owned value を観測したように見せない。
+
+bundle gate は source table から既存 region proof table producer を通し、source owner を閉じ、既存 no-escape candidate checker を通して candidate を作る。candidate extraction に失敗した場合は witness owner を閉じる。candidate extraction に成功した場合だけ witness owner を既存 fresh witness request-evidence bridge へ渡す。direct ResourceProofTable push、request proof table push、GraphInput、backend bytes、Pure mask、`.neplobj` / `.neplproof` artifact key は合成しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。bundle owner の public exposure 禁止、Clone / Copy 禁止、cleanup order、accepted fixture の root/support ordinal と matching witness ordinal、unsupported source + matching witness の fail-closed、HIR-root production path が accepted source / witness を emit しないことを固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-bundle-doctest.json`
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed traversal source table または walker input table を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、bundle fixture ではなく producer-owned bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 ## 2026-06-21 selfhost memo_call backend actual walker traversal source collector stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 `SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` と `SelfhostMemoCallBackendPrivateCacheObservationBanTable` から module-private traversal source table owner を作る collector stage0 を追加した。

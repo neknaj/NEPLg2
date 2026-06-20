@@ -2418,6 +2418,25 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation と prechecked artifact key projection。
 
+## 2026-06-21 memo_call backend actual traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、将来の actual Resource IR traversal producer が返すべき最小 bundle contract を固定する stage0 を追加した。bundle は module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` として `traversal source table` と `fresh witness table` の owner を保持する。
+
+この checkpoint は actual Resource IR traversal 本体ではない。実際の Resource IR body、place graph、effect operation、cache lookup / insert operation はまだ読まない。accepted source と matching fresh witness は stage0 fixture でのみ作り、HIR-root production path は引き続き request ごとに `ResourceIrTraversalUnavailable` source だけを emit する。これにより、actual traversal 未接続の段階で closed private cache storage や clone-out owned value を本当に観測したように見えることを避ける。
+
+bundle gate は source table から既存 `selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result` を通して region proof table を作り、source owner を閉じる。その後、既存 `selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result` で candidate を抽出し、region proof table owner を閉じる。candidate extraction に失敗した場合は witness owner を閉じる。candidate extraction に成功した場合だけ、witness owner を既存 `selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result` へ渡して消費させる。
+
+public stage0 summary は accepted request/proof count と、body fingerprint mismatch、missing witness、rejected witness、unsupported source の typed `Result` payload だけを公開する。bundle owner、source table、witness table、candidate、Resource proof table、request-evidence proof table は public API に出さない。source policy でも bundle の public exposure、Clone / Copy、direct ResourceProofTable push、request proof table push、GraphInput、backend bytes、Pure mask、`.neplobj` / `.neplproof` artifact key の合成を禁止した。
+
+計算量として、この stage0 は source 数 `s` と witness 数 `w` に対して O(s + w) で source / witness の整合性を既存 gates へ渡す。ここで固定した owner cleanup、source authority、candidate checker 経由、fresh witness gate 経由は semantic boundary である。actual Resource IR traversal の探索範囲削減、source / operation bucket 化、proof lookup index 化、stage0 fixture 分割は後続最適化として扱えるが、production HIR-root path が accepted fixture を出さない契約は維持する。
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed traversal source table または walker input table を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、bundle fixture ではなく producer-owned bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
