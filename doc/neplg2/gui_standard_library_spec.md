@@ -1345,6 +1345,18 @@ registration request の normal request sequence は、accepted write progress �
 
 F5kd は `ChangeProperty` registration write boundary だけを担当する。`WM_DELETE_WINDOW` `ClientMessage` decode、StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5ke Native Linux X11 WM_DELETE_WINDOW ClientMessage decode boundary
+
+F5ke では、F5kd の registration accepted boundary を越えた top-level window について、X11 `ClientMessage` event を `WM_DELETE_WINDOW` close request observation へ decode する。Rust boundary 名としては、accepted registration context を `NativeWindowLinuxX11RegisteredWmProtocolContext`、decode failure を `ClientMessage...` 系の `NativeWindowLinuxX11EventSourceObservationError` variant とする。
+
+`ClientMessage` event type は raw response byte ではなく `native_window_linux_x11_event_response_type` で send-event bit を落として判定する。したがって raw response byte が `33` でも `33 | 0x80` でも `ClientMessage` として扱う。ただし close request として受けるには、registration context が存在し、format が `32`、event の window id が context の window id と一致し、message type Atom が context の `WM_PROTOCOLS` Atom と一致し、data32[0] が context の `WM_DELETE_WINDOW` Atom と一致しなければならない。
+
+registration context は `ChangeProperty` request owner が存在するだけでは作らない。reader は `NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready` の場合だけ `NativeWindowLinuxX11RegisteredWmProtocolContext` を返す。`WaitingForAtoms`、`RequestPending`、`Failed`、`NotConfigured` では context は `None` であり、`ClientMessage` は `ClientMessageWmProtocolNotRegistered` として typed error にする。これにより Atom assignment と actual WM protocol registration accepted boundary を混同しない。
+
+matching close は `os_close_requested = true`、`exit_shortcut_requested = false`、size と mouse state は previous input を保持し、pointer sample は `None` の observation を返す。mismatch は format、window id、message type Atom、protocol Atom ごとの typed error にする。unsupported ClientMessage を silent ignore したり、generic unsupported event へ潰したりしない。
+
+F5ke は `ClientMessage` decode boundary だけを担当する。StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

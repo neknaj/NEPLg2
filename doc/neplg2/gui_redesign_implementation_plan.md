@@ -2848,3 +2848,39 @@ Phase F5kd では、F5kc の completed Atom owner を使い、X11 top-level wind
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で 28 byte / 7 units encoding、no MapWindow before registration、fail-closed write state、no ClientMessage / no fallback が承認される。
+
+## Phase F5ke: Native Linux X11 WM_DELETE_WINDOW ClientMessage decode boundary
+
+Phase F5ke では、F5kd の `ChangeProperty` accepted boundary を越えた reader-owned registration context を使い、X11 `ClientMessage` event を `WM_DELETE_WINDOW` close request observation へ decode する。これは event packet decode boundary であり、runner dispatch や support gate `Ok` 化ではない。
+
+実装:
+
+- `NativeWindowLinuxX11RegisteredWmProtocolContext` を追加し、accepted registration に対応する window id と `WM_PROTOCOLS` / `WM_DELETE_WINDOW` Atom owner を保持する。
+- reader は `wm_protocol_registration_write_state == Ready` の場合だけ `registered_wm_protocol_context()` から context を返す。request owner が存在しても accepted write boundary 前なら context は返さない。
+- `ClientMessage` 判定は raw response byte ではなく `native_window_linux_x11_event_response_type(packet)` を使う。send-event bit 付き raw `33 | 0x80` も event type `33` として扱う。
+- decode helper は format `32`、window id、message type Atom `WM_PROTOCOLS`、data32[0] `WM_DELETE_WINDOW` を registration context と照合する。
+- mismatch は format / window / message type Atom / protocol Atom の typed error とする。
+- registration context が無い `ClientMessage` は `ClientMessageWmProtocolNotRegistered` として fail closed にし、generic unsupported event や silent ignore へ落とさない。
+- matching close は os close requested observation だけを返し、size と mouse state は previous input を保持する。
+- source-policy は ClientMessage decode が accepted registration context に依存し、fallback、silent no-op、synthetic readiness、runner dispatch を含まないことを検査する。
+
+非目標:
+
+- StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- Atom fallback、default Atom、synthetic readiness、silent no-op は行わない。
+
+完了条件:
+
+- raw `33` と send-event bit 付き raw `161` の `ClientMessage` が同じ close decode path を通る。
+- assigned atoms や registration request owner があっても、registration accepted context が無ければ close observation を返さない。
+- format、window id、message type Atom、protocol Atom の mismatch が typed error になる。
+- provider integration test で accepted registration 後の `WM_DELETE_WINDOW` `ClientMessage` が os close requested observation になる。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_client_message -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で send-event bit masking、accepted registration context requirement、typed mismatch errors、no fallback が承認される。
