@@ -1263,6 +1263,14 @@ reader は pending reply header と remaining body byte count を owner state �
 
 F5jv は generic unexpected reply の stream synchronization boundary であり、reply body payload を public API として保持・parse しない。将来 InternAtom / GetProperty などの request-specific reply を扱う phase では、この drain contract を保ったまま request-specific reply body owner / parser へ接続する。F5jv は request / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5jw Native Linux X11 InternAtom request owner boundary
+
+F5jw では、X11 `InternAtom` request を raw fd write から分離した typed bytes owner として作る。request は atom name bytes と `only_if_exists` bool を受け取り、opcode `16`、request length、name length、unused field、name bytes、4 byte padding を little-endian X11 request として encode する。request length は `2 + padded_name_len / 4` units とし、padding byte はすべて zero にする。
+
+atom name は X11 protocol の counted bytes として扱う。generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず、NUL を含む counted name も bytes として保持する。空 name、`u16` を超える name length、total byte length overflow、request length units の `u16` 超過は `NativeWindowLinuxX11InternAtomRequestBuildError` で fail closed にする。`only_if_exists` は bool から `0` / `1` だけに encode し、raw flag byte は public input にしない。
+
+F5jw は request bytes owner boundary だけを担当する。raw fd write/read、accepted write progress、sequence assignment、InternAtom reply parse / retain、request / reply correlation、Atom ID owner、WM_DELETE_WINDOW registration、ChangeProperty、ClientMessage decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。ICCCM の well-known atom name policy は後続の WM protocol helper で扱い、generic InternAtom counted bytes contract と混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

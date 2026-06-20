@@ -7301,12 +7301,15 @@ pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN: usize = 1024 * 1
 pub const NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN: usize = 255;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8;
+pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH: u8 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_INPUT_OUTPUT_CLASS: u16 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_VISUAL: u32 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS: u16 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2;
+pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN: usize = 8;
+pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_LENGTH_UNITS: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN: usize =
     ((NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS as usize)
         + (NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT as usize))
@@ -7689,6 +7692,32 @@ pub enum NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError {
     },
     TopLevelWindowCreateRequestBuildFailed {
         error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11InternAtomRequest {
+    name_byte_len: u16,
+    only_if_exists: bool,
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11InternAtomRequestBuildError {
+    NameEmpty,
+    NameTooLong {
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    RequestLengthOverflow {
+        base_byte_len: usize,
+        name_byte_len: usize,
+        name_padding_byte_len: usize,
+    },
+    RequestLengthUnitsTooLarge {
+        request_byte_len: usize,
+        length_units: usize,
+        max_length_units: usize,
     },
 }
 
@@ -8552,6 +8581,96 @@ pub fn native_window_linux_x11_top_level_window_create_request_from_setup_resour
             error,
         },
     )
+}
+
+impl NativeWindowLinuxX11InternAtomRequest {
+    pub fn name_byte_len(&self) -> u16 {
+        self.name_byte_len
+    }
+
+    pub fn only_if_exists(&self) -> bool {
+        self.only_if_exists
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+fn native_window_linux_x11_checked_intern_atom_request_total_len(
+    name_byte_len: usize,
+    name_padding_byte_len: usize,
+) -> Result<usize, NativeWindowLinuxX11InternAtomRequestBuildError> {
+    NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN
+        .checked_add(name_byte_len)
+        .and_then(|len| len.checked_add(name_padding_byte_len))
+        .ok_or(
+            NativeWindowLinuxX11InternAtomRequestBuildError::RequestLengthOverflow {
+                base_byte_len: NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN,
+                name_byte_len,
+                name_padding_byte_len,
+            },
+        )
+}
+
+fn native_window_linux_x11_checked_intern_atom_request_length_units(
+    request_byte_len: usize,
+) -> Result<u16, NativeWindowLinuxX11InternAtomRequestBuildError> {
+    let length_units = request_byte_len / 4;
+    if length_units > usize::from(u16::MAX) {
+        return Err(
+            NativeWindowLinuxX11InternAtomRequestBuildError::RequestLengthUnitsTooLarge {
+                request_byte_len,
+                length_units,
+                max_length_units: usize::from(u16::MAX),
+            },
+        );
+    }
+    Ok(length_units as u16)
+}
+
+pub fn native_window_linux_x11_intern_atom_request(
+    only_if_exists: bool,
+    name: &[u8],
+) -> Result<NativeWindowLinuxX11InternAtomRequest, NativeWindowLinuxX11InternAtomRequestBuildError>
+{
+    let name_byte_len = name.len();
+    if name_byte_len == 0 {
+        return Err(NativeWindowLinuxX11InternAtomRequestBuildError::NameEmpty);
+    }
+    let max_name_byte_len = usize::from(u16::MAX);
+    if name_byte_len > max_name_byte_len {
+        return Err(
+            NativeWindowLinuxX11InternAtomRequestBuildError::NameTooLong {
+                byte_len: name_byte_len,
+                max_byte_len: max_name_byte_len,
+            },
+        );
+    }
+    let name_padding_byte_len = native_window_linux_x11_pad4(name_byte_len);
+    let request_byte_len = native_window_linux_x11_checked_intern_atom_request_total_len(
+        name_byte_len,
+        name_padding_byte_len,
+    )?;
+    let length_units =
+        native_window_linux_x11_checked_intern_atom_request_length_units(request_byte_len)?;
+    let mut bytes = Vec::with_capacity(request_byte_len);
+    bytes.push(NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE);
+    bytes.push(if only_if_exists { 1 } else { 0 });
+    bytes.extend_from_slice(&length_units.to_le_bytes());
+    bytes.extend_from_slice(&(name_byte_len as u16).to_le_bytes());
+    bytes.extend_from_slice(&0_u16.to_le_bytes());
+    bytes.extend_from_slice(name);
+    bytes.resize(bytes.len() + name_padding_byte_len, 0);
+    Ok(NativeWindowLinuxX11InternAtomRequest {
+        name_byte_len: name_byte_len as u16,
+        only_if_exists,
+        bytes,
+    })
 }
 
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
@@ -21099,6 +21218,117 @@ mod tests {
                     event_mask: 0xfe00_0004,
                     unused_bits: 0xfe00_0000,
                 },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_encodes_wm_protocols() {
+        let request = native_window_linux_x11_intern_atom_request(false, b"WM_PROTOCOLS").unwrap();
+
+        assert_eq!(request.name_byte_len(), 12);
+        assert!(!request.only_if_exists());
+        assert_eq!(request.len(), 20);
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                16, 0, 5, 0, 12, 0, 0, 0, b'W', b'M', b'_', b'P', b'R', b'O', b'T', b'O', b'C',
+                b'O', b'L', b'S',
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_encodes_wm_delete_window() {
+        let request =
+            native_window_linux_x11_intern_atom_request(true, b"WM_DELETE_WINDOW").unwrap();
+
+        assert_eq!(request.name_byte_len(), 16);
+        assert!(request.only_if_exists());
+        assert_eq!(request.len(), 24);
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                16, 1, 6, 0, 16, 0, 0, 0, b'W', b'M', b'_', b'D', b'E', b'L', b'E', b'T', b'E',
+                b'_', b'W', b'I', b'N', b'D', b'O', b'W',
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_pads_counted_names() {
+        let cases: &[(&[u8], usize, u16)] =
+            &[(b"A", 3, 3), (b"AB", 2, 3), (b"ABC", 1, 3), (b"ABCD", 0, 3)];
+
+        for (name, expected_padding, expected_length_units) in cases {
+            let request = native_window_linux_x11_intern_atom_request(false, name).unwrap();
+            let expected_len = NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN
+                + name.len()
+                + expected_padding;
+            assert_eq!(request.len(), expected_len);
+            assert_eq!(
+                &request.as_bytes()[2..4],
+                &expected_length_units.to_le_bytes()
+            );
+            assert_eq!(
+                &request.as_bytes()[4..6],
+                &(name.len() as u16).to_le_bytes()
+            );
+            assert_eq!(&request.as_bytes()[8..8 + name.len()], *name);
+            assert!(request.as_bytes()[8 + name.len()..]
+                .iter()
+                .all(|byte| *byte == 0));
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_allows_counted_nul_byte() {
+        let request = native_window_linux_x11_intern_atom_request(false, b"A\0B").unwrap();
+
+        assert_eq!(request.name_byte_len(), 3);
+        assert_eq!(&request.as_bytes()[8..11], b"A\0B");
+        assert_eq!(request.as_bytes()[11], 0);
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_rejects_empty_and_too_long_name() {
+        assert_eq!(
+            native_window_linux_x11_intern_atom_request(false, b"").unwrap_err(),
+            NativeWindowLinuxX11InternAtomRequestBuildError::NameEmpty
+        );
+
+        let too_long = vec![b'a'; usize::from(u16::MAX) + 1];
+        assert_eq!(
+            native_window_linux_x11_intern_atom_request(false, &too_long).unwrap_err(),
+            NativeWindowLinuxX11InternAtomRequestBuildError::NameTooLong {
+                byte_len: usize::from(u16::MAX) + 1,
+                max_byte_len: usize::from(u16::MAX),
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_request_helpers_fail_closed_on_length_overflow() {
+        assert_eq!(
+            native_window_linux_x11_checked_intern_atom_request_total_len(usize::MAX, 1)
+                .unwrap_err(),
+            NativeWindowLinuxX11InternAtomRequestBuildError::RequestLengthOverflow {
+                base_byte_len: NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_BASE_REQUEST_BYTE_LEN,
+                name_byte_len: usize::MAX,
+                name_padding_byte_len: 1,
+            }
+        );
+
+        let too_many_units_request_byte_len = (usize::from(u16::MAX) + 1) * 4;
+        assert_eq!(
+            native_window_linux_x11_checked_intern_atom_request_length_units(
+                too_many_units_request_byte_len,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11InternAtomRequestBuildError::RequestLengthUnitsTooLarge {
+                request_byte_len: too_many_units_request_byte_len,
+                length_units: usize::from(u16::MAX) + 1,
+                max_length_units: usize::from(u16::MAX),
             }
         );
     }
