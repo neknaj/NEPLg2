@@ -1,3 +1,43 @@
+# 2026-06-20 Agent2 GUI native F5jp Linux X11 top-level window request partial-write boundary
+
+## scope
+
+- F5jo の CreateWindow / MapWindow request owner を、X11 observation reader が setup ready 後、event read 前に partial-write できる境界へ接続する。
+- 既存 constructor は `NotConfigured` のまま維持し、request owner を渡さない場合は window request を書かない。
+- resource id allocation、root window discovery、server error / reply handling、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## plan_review
+
+- Huygens the 2nd の plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` を追加し、top-level request write を `NotConfigured` / `RequestPending` / `Ready` / `Failed` で管理する。
+- `NativeWindowLinuxX11EventSourceObservationReader` に optional request owner、write state、written byte count を追加した。
+- setup ready 後、event packet read 前に request bytes を `write_x11_bytes_raw` へ渡す。
+- would-block は retryable typed error として返し、partial byte count を保持する。
+- hard failure / zero write / overflow は typed error として返し、以後の poll は `TopLevelWindowRequestPreviouslyFailed` で fail-closed にする。
+- provider wrapper と helper に setup request + top-level request owner を同時に受ける constructor を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jp contract へ更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `git diff --check`
+
+## implementation_review
+
+- Huygens the 2nd の implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- resource id allocation、root window discovery、X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5jo Linux X11 top-level window create/map request owner boundary
 
 ## scope
