@@ -292,6 +292,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchTypes = textSliceBetween(
         libSource,
         "pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind",
+        "pub struct NativeWindowLinuxX11AtomId",
+    );
+    const nativeWindowLinuxX11InternAtomReplyTypes = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxX11AtomId",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11XauthorityPathSource",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressImpl = textSliceBetween(
@@ -317,6 +322,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchImpl = textSliceBetween(
         libSource,
         "impl NativeWindowLinuxX11WmProtocolAtomInternRequestBatch",
+        "impl NativeWindowLinuxX11AtomId",
+    );
+    const nativeWindowLinuxX11InternAtomReplyImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11AtomId",
         "impl<'a> NativeWindowLinuxX11XauthorityLookupInput",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressHelpers = textSliceBetween(
@@ -350,6 +360,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface = [
         nativeWindowLinuxX11WmProtocolAtomInternRequestBatchTypes,
         nativeWindowLinuxX11WmProtocolAtomInternRequestBatchImpl,
+    ].join("\n");
+    const nativeWindowLinuxX11InternAtomReplySurface = [
+        nativeWindowLinuxX11InternAtomReplyTypes,
+        nativeWindowLinuxX11InternAtomReplyImpl,
     ].join("\n");
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
@@ -797,10 +811,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5jw: Native Linux X11 InternAtom request owner boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jx: Native Linux X11 WM protocol atom InternAtom request batch boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jy: Native Linux X11 top-level CreateWindow\/MapWindow split request owner boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jz: Native Linux X11 InternAtom reply packet AtomId owner boundary/);
     assert.match(guiRedesignImplementationPlan, /generic `InternAtom` owner は X11 counted bytes を扱うため、NUL byte を C string terminator として拒否しない/);
     assert.match(guiRedesignImplementationPlan, /actual write、accepted write progress、sequence assignment、reply body retention\/parser、request \/ reply correlation は含めない/);
     assert.match(guiRedesignImplementationPlan, /actual property registration ではない/);
     assert.match(guiRedesignImplementationPlan, /両 request は `only_if_exists = false`/);
+    assert.match(guiRedesignImplementationPlan, /fixed 32 byte reply packet から nonzero Atom ID/);
+    assert.match(guiRedesignImplementationPlan, /current reader の generic reply handling を変更せず/);
     assert.match(guiRedesignImplementationPlan, /registration naming を含まない/);
     assert.match(guiRedesignImplementationPlan, /actual hostname \/ process identity acquisition は扱わない/);
     assert.match(guiRedesignImplementationPlan, /raw API を 1 回だけ呼ぶ/);
@@ -857,10 +874,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5jw Native Linux X11 InternAtom request owner boundary/);
     assert.match(standardSpec, /F5jx Native Linux X11 WM protocol atom InternAtom request batch boundary/);
     assert.match(standardSpec, /F5jy Native Linux X11 top-level CreateWindow\/MapWindow split request owner boundary/);
+    assert.match(standardSpec, /F5jz Native Linux X11 InternAtom reply packet AtomId owner boundary/);
     assert.match(standardSpec, /generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず/);
     assert.match(standardSpec, /raw fd write\/read、accepted write progress、sequence assignment、InternAtom reply parse \/ retain、request \/ reply correlation/);
     assert.match(standardSpec, /`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch/);
     assert.match(standardSpec, /Atom ID が取得済みであることや window property が登録済みであることを意味しない/);
+    assert.match(standardSpec, /nonzero Atom ID を `NativeWindowLinuxX11AtomId` として保持/);
+    assert.match(standardSpec, /only_if_exists = true` では意味を持ち得る/);
+    assert.match(standardSpec, /後続 integration phase は 32 byte reply packet を generic header へ縮約する前に retain \/ parse/);
     assert.match(standardSpec, /`ChangeProperty` による `WM_PROTOCOLS` property mutation/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
@@ -912,6 +933,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jw/);
     assert.match(platformDoc, /F5jx/);
     assert.match(platformDoc, /F5jy/);
+    assert.match(platformDoc, /F5jz/);
     assert.match(platformDoc, /actual WM protocol registration ではなく/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
@@ -1028,6 +1050,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_intern_atom_request_helpers_fail_closed_on_length_overflow/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME: &\[u8\] = b"WM_PROTOCOLS"/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME: &\[u8\] = b"WM_DELETE_WINDOW"/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_EXPECTED_LENGTH_UNITS: u32 = 0/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET: usize = 8/);
     assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind\s*\{[\s\S]*WmProtocols,[\s\S]*WmDeleteWindow/);
     assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestBatch\s*\{[\s\S]*bytes: Vec<u8>,[\s\S]*wm_protocols_end_byte_offset: usize,[\s\S]*wm_delete_window_start_byte_offset: usize,[\s\S]*wm_delete_window_end_byte_offset: usize/);
     assert.match(nativeWindowLinuxX11WmProtocolAtomInternRequestBatchSurface, /pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError\s*\{[\s\S]*InternAtomRequestBuildFailed\s*\{[\s\S]*kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind,[\s\S]*error: NativeWindowLinuxX11InternAtomRequestBuildError[\s\S]*BatchLengthOverflow\s*\{[\s\S]*first_request_byte_len: usize,[\s\S]*second_request_byte_len: usize/);
@@ -1040,6 +1064,18 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_encodes_order_and_offsets/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_preserves_lower_error/);
     assert.match(libSource, /native_window_linux_x11_wm_protocol_atom_intern_request_batch_fails_closed_on_overflow/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /pub struct NativeWindowLinuxX11AtomId\s*\{[\s\S]*raw: u32/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /pub enum NativeWindowLinuxX11AtomIdError\s*\{[\s\S]*Zero/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /pub struct NativeWindowLinuxX11InternAtomReply\s*\{[\s\S]*sequence: u16,[\s\S]*atom_id: NativeWindowLinuxX11AtomId/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /pub enum NativeWindowLinuxX11InternAtomReplyParseError\s*\{[\s\S]*InvalidResponseType\s*\{[\s\S]*response_type: u8[\s\S]*UnexpectedLengthUnits\s*\{[\s\S]*length_units: u32,[\s\S]*expected_length_units: u32[\s\S]*AtomIdInvalid\s*\{[\s\S]*raw: u32,[\s\S]*error: NativeWindowLinuxX11AtomIdError/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /impl NativeWindowLinuxX11AtomId[\s\S]*pub fn new\(raw: u32\) -> Result<Self, NativeWindowLinuxX11AtomIdError>[\s\S]*raw == 0[\s\S]*NativeWindowLinuxX11AtomIdError::Zero[\s\S]*pub fn raw\(self\) -> u32/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /impl NativeWindowLinuxX11InternAtomReply[\s\S]*pub fn sequence\(&self\) -> u16[\s\S]*pub fn atom_id\(&self\) -> NativeWindowLinuxX11AtomId/);
+    assert.match(nativeWindowLinuxX11InternAtomReplySurface, /pub fn native_window_linux_x11_intern_atom_reply_from_packet\([\s\S]*&\[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN\][\s\S]*response_type != NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY[\s\S]*InvalidResponseType[\s\S]*NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET[\s\S]*UnexpectedLengthUnits[\s\S]*NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET[\s\S]*AtomIdInvalid[\s\S]*NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET/);
+    assert.doesNotMatch(nativeWindowLinuxX11InternAtomReplySurface, /NativeWindowLinuxX11EventSourceObservationReader|pending_server_reply|ServerReplyReceived|ServerErrorReceived|write_x11_bytes_raw|read_x11_bytes_raw|accepted|correlation|request_start_byte_offset|request_end_byte_offset|WmProtocols|WmDeleteWindow|ChangeProperty|ClientMessage|MapWindow|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|WindowOptions|window\.update\(|update_with_buffer|support gate|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_reply_packet_preserves_sequence_and_atom_id/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_reply_packet_rejects_wrong_response_type/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_reply_packet_rejects_nonzero_length_units/);
+    assert.match(libSource, /native_window_linux_x11_intern_atom_reply_packet_rejects_zero_atom_id/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityPathSource\s*\{[\s\S]*ExplicitAuthorityFile,[\s\S]*HomeDirectoryDefault/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityLookupInput<'a>\s*\{[\s\S]*authority_file_path: Option<&'a str>,[\s\S]*home_directory_path: Option<&'a str>/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityPathPlan\s*\{[\s\S]*source: NativeWindowLinuxX11XauthorityPathSource,[\s\S]*path: String/);
