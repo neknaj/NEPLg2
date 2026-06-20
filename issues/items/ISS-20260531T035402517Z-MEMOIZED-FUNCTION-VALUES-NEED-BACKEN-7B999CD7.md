@@ -402,6 +402,36 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 selfhost memo_call backend collector-owned traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 collector が作る traversal source table と matching fresh witness table を同じ bundle lifecycle に載せる collector-owned traversal bundle stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。actual Resource IR body、HIR lowering result、cache lookup / insert operation、effect operation はまだ読まない。accepted path は private `ResourceWalkerInput + ObservationBanTable` fixture から collector を経由して作る。production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source や fresh witness を actual traversal 未接続のまま生成しない。
+
+collector-owned helper は、walker input と observation table を owner として受け取り、既存 `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result` で source table を作る。source collection の成功・失敗の両方で input / observation owner を閉じる。source collection が失敗した場合は witness table を作らず、`Stage0SourceRejected` で fail-closed にする。source table 作成後の witness 生成失敗では、既存 `actual_traversal_bundle_stage0_with_sources_result` が source owner を閉じる。
+
+accepted fixture は `PrivateCacheStoragePlace` root ordinal `0` と `CloneOutOwnedValueEdge` support ordinal `1` を collector output から作り、matching witness ordinal `0/1` と照合する。unsupported source + matching witness、observation source + matching witness はどちらも fail-closed にする。
+
+bundle gate は既存の `region_no_escape_candidate_from_table_result -> region_fresh_witness_request_evidence_gate_result` 経由に留める。direct ResourceProofTable push、request proof table push、GraphInput 合成、PrivateCache / PrivateState effect mask、sealed backend bytes、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。collector-owned helper の cleanup order、input fixture failure の `Stage0SourceRejected` 化、accepted fixture の root/support ordinal と witness ordinal の一致、unsupported / observation source の fail-closed、lower proof / backend / effect / artifact 合成禁止、public summary の Result payload 限定を固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-collector-owned-bundle-doctest-current.json`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed traversal source table または walker input table を生成する境界。
+- actual traversal 由来の fresh witness table を生成し、collector fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する境界。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 2026-06-21 selfhost memo_call backend private cache region candidate stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual walker traversal source collector が作る source table を private cache region proof の入力候補へ分類する stage0 を追加した。

@@ -2437,6 +2437,33 @@ public stage0 summary は accepted request/proof count と、body fingerprint mi
 - PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation と prechecked artifact key projection。
 
+## 2026-06-21 memo_call backend collector-owned traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 collector が作る traversal source table と matching fresh witness table を同じ bundle lifecycle に載せる collector-owned traversal bundle stage0 を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。実際の Resource IR body、HIR lowering result、cache lookup / insert operation、effect operation はまだ読まない。accepted path は private `ResourceWalkerInput + ObservationBanTable` fixture から collector を通して作る。production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source や fresh witness を actual traversal 未接続のまま生成しない。
+
+collector-owned helper は、walker input と observation table を owner として受け取り、`selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result` を通して source table を作る。source collection 成功後は input と observation owner を閉じ、source table と matching witness table を `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` に束ねる。source collection 失敗時は input と observation owner を閉じ、witness table は作らない。source table 作成後の witness 生成失敗では既存 `actual_traversal_bundle_stage0_with_sources_result` が source owner を閉じる。
+
+bundle gate は既存の `region_no_escape_candidate_from_table_result -> region_fresh_witness_request_evidence_gate_result` 経由に留める。candidate extraction に失敗した場合は witness owner を閉じ、candidate extraction に成功した場合だけ witness owner を request-evidence bridge へ渡す。direct ResourceProofTable push、request proof table push、GraphInput 合成、PrivateCache / PrivateState effect mask、sealed backend bytes、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+
+public summary は accepted request/proof count、body fingerprint mismatch、missing witness、unsupported collector source、observation collector source の typed `Result` payload だけを返す。bundle、source table、witness table、candidate、Resource proof table、request-evidence proof table は public API に出さない。
+
+計算量として、この stage0 は collector input の body / place / edge / unsupported / observation 数 `g`、source 数 `s`、witness 数 `w`、request 数 `n`、proof record 数 `p` に対して O(g + s + w + n + p) である。ここで固定した owner cleanup、collector output authority、matching witness ordinal、existing request-evidence bridge 経由は semantic boundary である。source / operation table request-key bucket 化、proof lookup index 化、stage0 fixture 分割は後続最適化として扱える。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-collector-owned-bundle-doctest-current.json`
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed traversal source table または walker input table を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、collector fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

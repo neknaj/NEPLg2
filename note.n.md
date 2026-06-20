@@ -76614,3 +76614,45 @@ MERGE_APPROVED
 - after simplification pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
 - after simplification pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - after simplification pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 selfhost memo_call collector-owned traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、既存 collector が生成する traversal source table と matching fresh witness table を同じ bundle lifecycle に載せる stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted source は collector fixture から作り、fresh witness も stage0 witness fixture から作る。HIR-root production path は引き続き `ResourceIrTraversalUnavailable` source だけを emit する。
+- public API は smoke summary の counts と typed `Result` payload だけを返す。walker input、observation table、source table、witness table、region proof table、candidate、bundle owner は module-private のままにしている。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した上で、試作段階でも外部に見せてよい contract と内部 owner boundary を分ける方針を優先した。
+- `Result` / enum / struct / exhaustive match を使い、fail-closed path を明示的な error payload として残している。
+- 行数や doc comment 量を制限する検査は追加していない。NEPL selfhost 側の doc comment には、目的、owner cleanup、stage0 の非目標、計算量、残件を記述している。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary` を追加し、accepted path、body fingerprint mismatch、missing witness、unsupported collector source、observation collector source を同じ representative smoke で確認できるようにした。
+- `selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result` は、walker input と observation table を owner として受け取り、既存 `actual_walker_traversal_source_collect_from_walker_input_result` で source table を作る。source collection の成功・失敗の両方で input / observation owner を閉じる。
+- `selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_from_input_result` は input fixture failure を `Stage0SourceRejected ActualWalkerTraversalInputRejected` に写し、observation table 作成失敗時は input owner を閉じる。
+- accepted fixture は `PrivateCacheStorage` root ordinal `0` と `CloneOutOwnedValue` support ordinal `1` を collector 経由で source にし、matching witness ordinal `0/1` と組み合わせる。unsupported / observation source も matching witness を与えて fail-closed を確認する。
+- direct lower proof push、GraphInput、Wasm / LLVM backend bytes、PrivateCache / PrivateState effect masking、sealed backend、`.neplobj` / `.neplproof` artifact key は追加していない。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、`collector-owned traversal bundle stage0` を actual traversal completion と誤読させないこと、collector path の owner を public signature に出さないこと、source collection success / failure と witness handoff の cleanup order を固定すること、accepted fixture の root/support ordinal と witness ordinal 一致を source policy で固定すること、HIR-root production path は `ResourceIrTraversalUnavailable` のみを保つことだった。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、public に出ているのが summary と smoke function だけであること、collector / source / witness / candidate / proof table owner が public signature に漏れていないこと、collector success / failure と observation table failure の cleanup order が source policy で固定されていること、accepted fixture の source ordinal `0/1` と matching witness ordinal `0/1` が一致していること、unsupported / observation source が matching witness 付きでも fail-closed になることを確認した。
+- HIR-root production path が `ResourceIrTraversalUnavailable` のみを emit し続け、actual Resource IR traversal、GraphInput、direct proof push、backend bytes、effect mask、artifact key を追加していないこともレビューで確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-collector-owned-bundle-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed walker input または traversal source table と fresh witness table を生成する。
+- collector fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
