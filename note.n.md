@@ -75506,3 +75506,36 @@ MERGE_APPROVED
 - 確認内容は、pending body drain が event packet read より先に実行されること、新規 reply header でも body drain 完了後だけ `ServerReplyReceived` を返すこと、would-block / EOF / read failure / overflow が header と remaining count を持つ typed error になること、`length_units * 4` が checked arithmetic で fail-closed になることだった。
 - source policy の軽量化は巨大な `libSource` regex を dedicated slice に寄せたもので、検査意味は弱まっていないと確認された。
 - 非 blocker として hard read failure の focused test が薄い点が挙がったため、`native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_read_failure` を追加し、typed error と pending state retention を検査した。read overflow は scripted API の contract 上 buffer 超過を返せないため source policy / code review で固定する。
+## 2026-06-21 Agent2 GUI native F5ke Linux X11 WM_DELETE_WINDOW ClientMessage decode boundary
+
+- F5ke では、F5kd の `ChangeProperty` accepted boundary を越えた registration context だけを authority として、X11 `ClientMessage` を `WM_DELETE_WINDOW` close observation へ decode する。
+- subagent 計画レビューでは、raw response byte ではなく send-event bit を落とした event type で判定すること、assigned Atom だけで close decode しないこと、accepted registration context を必須にすることが指摘された。
+- 指摘対応として、`NativeWindowLinuxX11RegisteredWmProtocolContext` を registration write state `Ready` のときだけ返す reader accessor とし、format / window / message type Atom / protocol Atom の mismatch を typed error として分ける方針に修正した。
+- この checkpoint は StructureNotify / Expose、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_client_message -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_reports_registered_client_message_close -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_registered_context_requires_accepted_registration -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Bacon / Hegel の implementation review は、実装自体ではなく doc の現状記述に `WM_DELETE_WINDOW` `ClientMessage` decode が未接続のまま残っている点を `CHANGES_REQUESTED` とした。
+- 指摘対応として、F5ke 以降は accepted registration context に基づく close decode まで接続済みであること、未接続なのは StructureNotify / Expose、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、synthetic readiness であることに揃えた。
+- after review follow-up pass: `cargo fmt -p nepl-gui-native -- --check`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_client_message -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_reports_registered_client_message_close -- --nocapture`
+- after review follow-up pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_registered_context_requires_accepted_registration -- --nocapture`
+- after review follow-up pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- after review follow-up pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- after review follow-up pass with LF/CRLF warnings only: `git diff --check`
+- after review broader guard pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- after review broader guard pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- Bacon / Hegel の再レビューは `REVIEW_APPROVED`。commit-blocking finding は無い。

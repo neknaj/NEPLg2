@@ -7357,6 +7357,12 @@ const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS: u8 = 4;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE: u8 = 5;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY: u8 = 6;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY: u8 = 22;
+const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE: u8 = 33;
+const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_WINDOW_ID_OFFSET: usize = 4;
+const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_TYPE_ATOM_OFFSET: usize = 8;
+const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_DATA_32_0_OFFSET: usize = 12;
+const NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32: u8 = 32;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11EventSourceSetupState {
@@ -7431,6 +7437,12 @@ pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan {
 pub struct NativeWindowLinuxX11WmProtocolRegistrationSequencePlan {
     window_id: u32,
     change_property_sequence: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11RegisteredWmProtocolContext {
+    window_id: u32,
+    atoms: NativeWindowLinuxX11WmProtocolAtoms,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7578,6 +7590,23 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     },
     ServerReplyReceived {
         reply: NativeWindowLinuxX11ServerReplyHeader,
+    },
+    ClientMessageWmProtocolNotRegistered,
+    ClientMessageFormatMismatch {
+        format: u8,
+        expected_format: u8,
+    },
+    ClientMessageWindowMismatch {
+        window_id: u32,
+        registered_window_id: u32,
+    },
+    ClientMessageTypeAtomMismatch {
+        type_atom_raw: u32,
+        expected_wm_protocols_atom: NativeWindowLinuxX11AtomId,
+    },
+    ClientMessageProtocolAtomMismatch {
+        protocol_atom_raw: u32,
+        expected_wm_delete_window_atom: NativeWindowLinuxX11AtomId,
     },
     EventTypeUnsupported {
         response_type: u8,
@@ -10299,6 +10328,20 @@ impl NativeWindowLinuxX11WmProtocolRegistrationSequencePlan {
     }
 }
 
+impl NativeWindowLinuxX11RegisteredWmProtocolContext {
+    fn new(window_id: u32, atoms: NativeWindowLinuxX11WmProtocolAtoms) -> Self {
+        Self { window_id, atoms }
+    }
+
+    pub fn window_id(self) -> u32 {
+        self.window_id
+    }
+
+    pub fn atoms(self) -> NativeWindowLinuxX11WmProtocolAtoms {
+        self.atoms
+    }
+}
+
 impl NativeWindowLinuxX11WmProtocolAtomMeaning {
     pub fn from_reply_correlation(
         correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
@@ -10421,6 +10464,74 @@ fn native_window_linux_x11_event_pointer_raw(
     )
 }
 
+fn native_window_linux_x11_client_message_close_observation(
+    input: NativeWindowEventPumpInput,
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+    registered_context: Option<NativeWindowLinuxX11RegisteredWmProtocolContext>,
+) -> Result<
+    NativeWindowLinuxWindowEventSourceObservation,
+    NativeWindowLinuxX11EventSourceObservationError,
+> {
+    let Some(context) = registered_context else {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageWmProtocolNotRegistered,
+        );
+    };
+    let format = packet[NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_OFFSET];
+    if format != NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32 {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageFormatMismatch {
+                format,
+                expected_format: NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+            },
+        );
+    }
+    let window_id = native_window_linux_x11_u32_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_WINDOW_ID_OFFSET,
+    );
+    if window_id != context.window_id() {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageWindowMismatch {
+                window_id,
+                registered_window_id: context.window_id(),
+            },
+        );
+    }
+    let atoms = context.atoms();
+    let type_atom_raw = native_window_linux_x11_u32_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_TYPE_ATOM_OFFSET,
+    );
+    if type_atom_raw != atoms.wm_protocols_atom().raw() {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageTypeAtomMismatch {
+                type_atom_raw,
+                expected_wm_protocols_atom: atoms.wm_protocols_atom(),
+            },
+        );
+    }
+    let protocol_atom_raw = native_window_linux_x11_u32_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_DATA_32_0_OFFSET,
+    );
+    if protocol_atom_raw != atoms.wm_delete_window_atom().raw() {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageProtocolAtomMismatch {
+                protocol_atom_raw,
+                expected_wm_delete_window_atom: atoms.wm_delete_window_atom(),
+            },
+        );
+    }
+    Ok(NativeWindowLinuxWindowEventSourceObservation::new(
+        true,
+        false,
+        input.previous_size,
+        input.previous_mouse_down,
+        None,
+    ))
+}
+
 fn native_window_linux_x11_event_packet_to_observation(
     input: NativeWindowEventPumpInput,
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
@@ -10430,6 +10541,7 @@ fn native_window_linux_x11_event_packet_to_observation(
     wm_protocol_registration_sequence_plan: Option<
         NativeWindowLinuxX11WmProtocolRegistrationSequencePlan,
     >,
+    registered_wm_protocol_context: Option<NativeWindowLinuxX11RegisteredWmProtocolContext>,
 ) -> Result<
     NativeWindowLinuxWindowEventSourceObservation,
     NativeWindowLinuxX11EventSourceObservationError,
@@ -10497,6 +10609,13 @@ fn native_window_linux_x11_event_packet_to_observation(
                 false,
                 Some(native_window_linux_x11_event_pointer_raw(packet)),
             ))
+        }
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE => {
+            native_window_linux_x11_client_message_close_observation(
+                input,
+                packet,
+                registered_wm_protocol_context,
+            )
         }
         response_type => Err(
             NativeWindowLinuxX11EventSourceObservationError::EventTypeUnsupported { response_type },
@@ -10745,6 +10864,24 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         &self,
     ) -> Option<NativeWindowLinuxX11WmProtocolRegistrationSequencePlan> {
         self.wm_protocol_registration_sequence_plan
+    }
+
+    pub fn registered_wm_protocol_context(
+        &self,
+    ) -> Option<NativeWindowLinuxX11RegisteredWmProtocolContext> {
+        if self.wm_protocol_registration_write_state
+            != NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready
+        {
+            return None;
+        }
+        self.wm_protocol_registration_request
+            .as_ref()
+            .map(|request| {
+                NativeWindowLinuxX11RegisteredWmProtocolContext::new(
+                    request.window_id(),
+                    request.atoms(),
+                )
+            })
     }
 
     pub fn next_x11_request_sequence(&self) -> u16 {
@@ -11786,6 +11923,7 @@ where
             &packet,
             self.top_level_window_request_sequence_plan,
             self.wm_protocol_registration_sequence_plan,
+            self.registered_wm_protocol_context(),
         )
     }
 }
@@ -20237,6 +20375,31 @@ mod tests {
         packet
     }
 
+    fn scripted_x11_client_message_event(
+        window_id: u32,
+        type_atom_raw: u32,
+        protocol_atom_raw: u32,
+        format: u8,
+        send_event: bool,
+    ) -> Vec<u8> {
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE;
+        if send_event {
+            packet[0] |= 0x80;
+        }
+        packet[NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_OFFSET] = format;
+        packet[NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_WINDOW_ID_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_WINDOW_ID_OFFSET + 4]
+            .copy_from_slice(&window_id.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_TYPE_ATOM_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_TYPE_ATOM_OFFSET + 4]
+            .copy_from_slice(&type_atom_raw.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_DATA_32_0_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_DATA_32_0_OFFSET + 4]
+            .copy_from_slice(&protocol_atom_raw.to_le_bytes());
+        packet
+    }
+
     fn scripted_x11_server_error_packet(
         error_code: u8,
         sequence: u16,
@@ -24907,6 +25070,374 @@ mod tests {
                     window_id: 0x0020_001a,
                 },
             }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_client_message_decode_reports_registered_close() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: true,
+        };
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+        );
+        let context = NativeWindowLinuxX11RegisteredWmProtocolContext::new(0x0020_001b, atoms);
+        let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001b,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+
+        let observation = native_window_linux_x11_event_packet_to_observation(
+            input,
+            &packet,
+            None,
+            None,
+            Some(context),
+        )
+        .unwrap();
+
+        assert!(observation.os_close_requested());
+        assert!(!observation.exit_shortcut_requested());
+        assert_eq!(observation.current_size(), NativeWindowSize::new(640, 360));
+        assert!(observation.mouse_down());
+        assert_eq!(observation.pointer_raw(), None);
+    }
+
+    #[test]
+    fn native_window_linux_x11_client_message_decode_masks_send_event_bit() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(800, 450),
+            previous_mouse_down: false,
+        };
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+        );
+        let context = NativeWindowLinuxX11RegisteredWmProtocolContext::new(0x0020_001c, atoms);
+        let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001c,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                true,
+            )
+            .try_into()
+            .unwrap();
+
+        let observation = native_window_linux_x11_event_packet_to_observation(
+            input,
+            &packet,
+            None,
+            None,
+            Some(context),
+        )
+        .unwrap();
+
+        assert!(observation.os_close_requested());
+        assert_eq!(native_window_linux_x11_response_type_raw(&packet), 0xa1);
+        assert_eq!(
+            native_window_linux_x11_event_response_type(&packet),
+            NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_client_message_decode_rejects_unregistered_protocol() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001d,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(input, &packet, None, None, None)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageWmProtocolNotRegistered
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_client_message_decode_rejects_mismatches() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let atoms = NativeWindowLinuxX11WmProtocolAtoms::new(
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+        );
+        let context = NativeWindowLinuxX11RegisteredWmProtocolContext::new(0x0020_001e, atoms);
+        let wrong_format: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(0x0020_001e, 0x0000_00f1, 0x0000_00f2, 8, false)
+                .try_into()
+                .unwrap();
+        let wrong_window: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001f,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+        let wrong_type: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001e,
+                0x0000_00f3,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+        let wrong_protocol: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_001e,
+                0x0000_00f1,
+                0x0000_00f4,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                false,
+            )
+            .try_into()
+            .unwrap();
+
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(
+                input,
+                &wrong_format,
+                None,
+                None,
+                Some(context),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageFormatMismatch {
+                format: 8,
+                expected_format: NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(
+                input,
+                &wrong_window,
+                None,
+                None,
+                Some(context),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageWindowMismatch {
+                window_id: 0x0020_001f,
+                registered_window_id: 0x0020_001e,
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(
+                input,
+                &wrong_type,
+                None,
+                None,
+                Some(context),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageTypeAtomMismatch {
+                type_atom_raw: 0x0000_00f3,
+                expected_wm_protocols_atom: NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(
+                input,
+                &wrong_protocol,
+                None,
+                None,
+                Some(context),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageProtocolAtomMismatch {
+                protocol_atom_raw: 0x0000_00f4,
+                expected_wm_delete_window_atom: NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_reports_registered_client_message_close() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_0021,
+                0x0000_0123,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+            ),
+        )
+        .unwrap();
+        let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            274,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(2, 0, 0x0000_00f1).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(3, 0, 0x0000_00f2).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_client_message_event(
+                0x0020_0021,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                true,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+                batch,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert!(observation.os_close_requested());
+        assert_eq!(observation.current_size(), NativeWindowSize::new(640, 360));
+        assert_eq!(observation.pointer_raw(), None);
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready
+        );
+        assert_eq!(
+            provider.reader().registered_wm_protocol_context(),
+            Some(NativeWindowLinuxX11RegisteredWmProtocolContext::new(
+                0x0020_0021,
+                NativeWindowLinuxX11WmProtocolAtoms::new(
+                    NativeWindowLinuxX11AtomId { raw: 0x0000_00f1 },
+                    NativeWindowLinuxX11AtomId { raw: 0x0000_00f2 },
+                ),
+            ))
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_registered_context_requires_accepted_registration() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_0022,
+                0x0000_0123,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+            ),
+        )
+        .unwrap();
+        let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+        let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_client_message_event(
+                0x0020_0022,
+                0x0000_00f1,
+                0x0000_00f2,
+                NATIVE_WINDOW_LINUX_X11_CLIENT_MESSAGE_FORMAT_32,
+                true,
+            )
+            .try_into()
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            275,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(2, 0, 0x0000_00f1).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_intern_atom_reply_packet(3, 0, 0x0000_00f2).to_vec(),
+            ),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_top_level_window_request_and_wm_protocol_atom_intern_request_batch(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+                batch,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+        let _ = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+
+        assert!(provider
+            .reader()
+            .wm_protocol_registration_request()
+            .is_some());
+        assert_eq!(
+            provider.reader().wm_protocol_registration_write_state(),
+            NativeWindowLinuxX11WmProtocolRegistrationWriteState::RequestPending
+        );
+        assert_eq!(provider.reader().registered_wm_protocol_context(), None);
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(
+                input,
+                &packet,
+                None,
+                provider.reader().wm_protocol_registration_sequence_plan(),
+                provider.reader().registered_wm_protocol_context(),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ClientMessageWmProtocolNotRegistered
         );
     }
 
