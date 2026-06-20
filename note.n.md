@@ -1,3 +1,37 @@
+# 2026-06-21 Agent2 GUI native F5jw Linux X11 InternAtom request owner boundary
+
+## 目的
+
+- WM_DELETE_WINDOW protocol registration の前段として、X11 `InternAtom` request bytes を typed owner として作る。
+- raw fd write/read、reply parsing、reply correlation、ChangeProperty、ClientMessage decode は scope 外にする。
+- X11 atom name は counted bytes として扱い、generic owner では NUL byte を C string terminator として拒否しない。
+- empty name、too-long name、length overflow、request length units overflow は enum error で fail closed にする。
+
+## subagent review
+
+- plan review は Go だった。
+- 指摘は、`InternAtom` request owner を WM_DELETE_WINDOW の前段に置く順序は妥当だが、generic owner で NUL byte を拒否してはいけないというものだった。
+- 実装方針はこの指摘に従い、generic counted bytes owner と将来の ICCCM well-known atom helper を分離する。
+
+## 実装
+
+- `NativeWindowLinuxX11InternAtomRequest` と `NativeWindowLinuxX11InternAtomRequestBuildError` を追加した。
+- `native_window_linux_x11_intern_atom_request` は opcode `16`、`only_if_exists` 0/1、request length units、name length、unused zero、name bytes、zero padding を little-endian で encode する。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jw contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_intern_atom_request -- --nocapture` は 6 件通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は 79 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 458 件通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- InternAtom write/reply correlation、Atom ID owner、WM_DELETE_WINDOW registration、ChangeProperty、ClientMessage decode、keyboard / IME、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-21 Agent2 GUI native F5ju Linux X11 request sequence correlation boundary
 
 ## 目的
