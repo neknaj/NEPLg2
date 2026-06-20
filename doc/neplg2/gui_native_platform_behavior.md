@@ -551,6 +551,8 @@ F5ki では、F5kh の raw `state` から Shift / Control / Alt / Meta の porta
 
 F5kk では、caller supplied X11 keysym value を `NativeWindowLinuxX11KeysymValue` として保持し、`NativeWindowPortableKey` へ狭く射影する。`NoSymbol = 0x0000` は `NoSymbol` として明示し、unknown raw value は `Unknown { raw_keysym }` として raw value を保持する。ASCII `0x20..0x7e` は printable ASCII として扱い、X11 named Delete `0xffff` と ASCII DEL `0x007f` を混同しない。F5kk は keysym value projection boundary であり、X11 keycode から keysym を取得する layout / keymap query、X11 event packet decode への接続、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
 
+F5kl では、X11 `GetKeyboardMapping` の request / reply shape を typed owner として扱う。request は opcode `101`、request length `2` words / 8 byte、caller supplied first-keycode / count を保持する。reply は 32 byte header の `keysyms_per_keycode` と length units、および body の raw keysym list を検査し、`length_units * 4` と `keycode_count * keysyms_per_keycode * 4` が一致する場合だけ raw keysym table owner を作る。raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase. F5kl は event packet decode、reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate `Ok` 化には接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。

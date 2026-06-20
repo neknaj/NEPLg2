@@ -1413,6 +1413,16 @@ portable projection は `NoSymbol`、`Unknown { raw_keysym }`、ASCII `0x20..0x7
 
 F5kk は keysym value projection boundary だけを担当する。`native_window_linux_x11_event_packet_to_observation` への接続、X11 keycode から keysym を得る layout / keymap query、`XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon、IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
 
+## F5kl Native Linux X11 GetKeyboardMapping request/reply owner boundary
+
+F5kl は、X11 core protocol の `GetKeyboardMapping` request と reply raw keysym table を typed owner として扱う boundary である。request は opcode `101`、request length `2` words / 8 byte を固定し、caller supplied `first_keycode` と `keycode_count` を wire bytes へ encode する。`first_keycode == 0` と `keycode_count == 0` は typed error として拒否する。setup reply の min-keycode / max-keycode を使った範囲検査は、setup-owned keymap request phase の責務であり、この boundary では行わない。
+
+reply は fixed 32 byte header から `keysyms_per_keycode`、sequence、length units を取り出し、body は `length_units * 4` byte として checked arithmetic で検査する。さらに caller supplied `keycode_count * keysyms_per_keycode * 4` と body byte length が一致することを要求し、一致しなければ typed error で fail closed にする。body の各 4 byte item は raw `KEYSYM` として little-endian で読み、`NativeWindowLinuxX11KeysymValue` に包んで保持する。
+
+raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase. この boundary は keycode からどの keysym を選ぶか、modifier state と group / level をどう解釈するか、IME / text input をどう生成するか、shortcut policy をどう扱うかは決めない。
+
+F5kl は `GetKeyboardMapping` request/reply owner と raw keysym table validation だけを担当する。`native_window_linux_x11_event_packet_to_observation`、`NativeWindowLinuxX11EventSourceObservationReader` の state、raw fd write / read、reply correlation、pending keymap state、runner、queue、IME / text input、shortcut policy、Wayland concrete keyboard decoding、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness へは接続しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
