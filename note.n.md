@@ -1,3 +1,42 @@
+# 2026-06-21 Agent2 GUI native F5kb Linux X11 InternAtom reply sequence correlation boundary
+
+## 目的
+
+- F5ka で reader が accepted write progress から割り当てた `WM_PROTOCOLS` / `WM_DELETE_WINDOW` `InternAtom` request sequence を、server reply dispatch と照合する。
+- matched reply は generic `ServerReplyReceived` へ縮約する前に full 32 byte packet を保持し、reply body drain 完了後に `native_window_linux_x11_intern_atom_reply_from_packet` へ渡す。
+- unmatched reply は従来通り generic reply として報告し、Atom meaning assignment、actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、runner / support gate 有効化は扱わない。
+
+## subagent review
+
+- 実装前 review で Bacon は `PLAN_APPROVED with cautions`、Hegel は `PLAN_APPROVED` を返した。
+- 指摘は、pending drain と newly read reply が同じ dispatch helper を通ること、pending state が header だけでなく full packet を保持すること、matched reply で nonzero body length があっても body drain 後に correlated parse failure を返すこと、matched sequence を消費することだった。
+- 対応として `pending_server_reply_packet` と `server_reply_error_from_packet` を追加し、pending / fresh reply の両方を同じ correlated dispatch path に通した。
+- 実装後 review では Hegel と Bacon がどちらも `REVIEW_APPROVED`。残る F5kb blocker は無い。
+
+## 実装内容
+
+- `NativeWindowLinuxX11WmProtocolAtomInternRequestSequencePlan` が batch request sequence を保持し、matched reply sequence を消費する。
+- reader は `record_wm_protocol_atom_intern_batch_accepted_range` で `take_next_x11_request_sequence` の戻り値を request kind ごとに記録する。
+- reply body drain は full packet を保持したまま stream sync を回復し、matched reply だけを `WmProtocolAtomInternReplyReceived` / `WmProtocolAtomInternReplyParseFailed` として返す。
+- focused tests と source-policy は sequence retention、reply correlation、parse failure correlation、body drain before parse failure、generic reply compatibility を固定した。
+
+## 検証
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_reply -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_batch -- --nocapture`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+## 未接続
+
+- Atom ID の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、actual `ChangeProperty` registration は未接続。
+- `WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-21 Agent2 GUI native F5ka Linux X11 InternAtom batch partial-write scheduling boundary
 
 ## 目的
