@@ -74,9 +74,10 @@ assert.ok(
         source.includes("Private cache region proof stage0") &&
         source.includes("Region no-escape candidate stage0") &&
         source.includes("Fresh region witness stage0") &&
+        source.includes("Fresh witness request-evidence stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, and fresh witness bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, and request-evidence bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -2041,6 +2042,65 @@ assert.doesNotMatch(
     "fresh witness stage0 must not call request-evidence gate, synthesize request proof table records, GraphInput, backend bytes, effect masking, or artifact keys",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_result candidate &witnesses",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+        "selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result module root fuel body_module_fingerprint &resource_proofs",
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_proofs",
+        "RegionFreshWitnessResourceProofRejected e",
+    ],
+    "fresh witness request-evidence bridge must consume witness owner, build Resource proof table, call only the existing Resource proof gate, and close owner tables",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_stage0_run_summary_with_table_result"),
+    [
+        "match witness_result:",
+        "Result::Ok witnesses:",
+        "match selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_candidate_result:",
+        "Result::Ok candidate:",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result &module root 8 body_module_fingerprint candidate witnesses",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+        "Stage0FixtureAllocFailed e",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+        "Result::Err e",
+    ],
+    "fresh witness request-evidence stage0 helper must close witness owner when module fixture or candidate construction fails",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result")),
+    /resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "fresh witness request-evidence bridge must not bypass the existing Resource proof gate or create backend/effect/artifact outputs",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRequestEvidenceStage0Summary"),
+    [
+        "accepted_request_count %i32",
+        "accepted_proof_count %i32",
+        "body_fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "rejected_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "fresh witness request-evidence stage0 summary must expose only counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_stage0_run_summary_result 77 77 0 0 1",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "request_evidence_stage0_run_i32_result 78 77 0 0 1",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "rejected_status_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "accepted.request_count",
+        "accepted.proven_request_count",
+    ],
+    "fresh witness request-evidence stage0 must cover accepted HIR-root gate path, body fingerprint mismatch, missing witness, and rejected witness",
+);
+assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary"),
     [
         "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
@@ -2098,6 +2158,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_(?:proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)|no_escape_candidate_(?:record|scan|loop|from|i32|stage0_)|fresh_witness_(?:record|table|candidate|resource|scan|loop|stage0_))/m,
     "private cache region proof, no-escape candidate, and fresh witness helpers must stay module-private and only typed smoke summaries may be public",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_(?:gate|stage0_run)\b/m,
+    "fresh witness request-evidence bridge internals must stay module-private; only the typed stage0 summary function may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),

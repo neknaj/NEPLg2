@@ -475,7 +475,31 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 残件:
 
 - actual Resource IR traversal 本体から fresh-region witness table を作る boundary。
-- fresh witness bridge で作った Resource proof table を、producer-owned request-evidence gate へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
+## 2026-06-21 selfhost memo_call backend fresh witness request-evidence bridge checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、fresh-region witness bridge が作った module-private `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を既存 request-evidence gate へ接続する bridge を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。目的は、candidate consistency checker と fresh-region witness の一致から得た Resource proof を、caller supplied request table や public proof table ではなく、HIR root から request table を内部再構築する既存 `selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result` へ渡すことである。既存 gate は request entry の HIR payload recheck と proof key construction を再実行するため、root / body module fingerprint / request kind / effect / type argument count が一致しない proof は accepted summary にならない。
+
+bridge は fresh witness table owner を消費し、success / error のどちらでも閉じる。生成された Resource proof table も既存 gate 呼び出し後に必ず閉じる。`PrivateCacheRegionFreshWitnessMissing` と `PrivateCacheRegionFreshWitnessRejected` は Resource proof table 生成前に止まり、body fingerprint mismatch は既存 request-evidence gate の rejection として `RegionFreshWitnessResourceProofRejected` に包まれる。
+
+public stage0 は request count / proof count と representative fail-closed `Result` payload だけを返す。成功は non-executable summary であり、actual Resource IR traversal、PrivateCache / PrivateState effect masking、sealed backend representation、cache lookup / insert、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。fresh-witness-only stage が request-evidence gate を呼ばないこと、新 request-evidence bridge stage だけが既存 Resource proof gate を呼ぶこと、低層 proof table writer / request-evidence converter bypass、backend / effect / artifact 合成、private helper の public API 化を禁止することを固定した。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-request-evidence-doctest.json`
+
+残件:
+
+- actual Resource IR traversal 本体から fresh-region witness table を作る boundary。
+- actual traversal 由来の fresh witness と Resource proof / request-evidence bridge を上位 orchestration へ接続する boundary。
 - PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation と prechecked artifact key projection。
 
