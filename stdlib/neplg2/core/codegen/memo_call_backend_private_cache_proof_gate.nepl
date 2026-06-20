@@ -25,6 +25,7 @@
 //: - Resource graph producer は body / place / edge の typed graph input を module-private Resource observation table へ畳む境界まで接続済みです。現 checkpoint では actual Resource IR walker 本体ではなく、walker が返すべき graph input contract と typed graph input fold を固定します。
 //: - Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します。event stream はまだ actual walker 由来ではなく stage0 fixture だけですが、body / place / edge / unsupported event の authority 境界、owner cleanup、unsupported override を先に固定します。
 //: - Resource walker producer bridge は、HIR root から request table を内部再構築し、request occurrence ごとの private walker event stream を module-private に生成して既存 scanner / graph gate へ渡します。actual Resource IR traversal が閉じた graph を返せない部分は typed unsupported event として fail-closed に扱い、成功 proof にはしません。
+//: - Resource observation ban stage0 は、cache hit / miss / size / clear / debug と、function equality / hash / debug / wrapper identity / raw address observation を typed observation kind から unsupported walker event へ畳みます。これは actual walker からの検出結果を受けるための分類境界であり、NoEscape proof を合成する境界ではありません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -32,6 +33,7 @@
 //: - graph producer は body 数を `b`、place 数を `q`、edge 数を `e` とすると、現状の preflight duplicate / orphan / endpoint 検査に O(b*b + q*(b+q) + e*(b+q+e)) 時間を使います。これは後続で index 化できますが、closed graph だけを proof authority にする fail-closed contract は維持します。
 //: - walker input scanner は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると、duplicate / membership / unsupported override の線形 scan に O((b+p+e+u)^2) 時間を使います。これは index 化可能ですが、event stream の typed authority と unsupported override の contract を先に固定します。
 //: - producer bridge は現状、request table を O(n) で収集し、request 数 `m` に対して O(m) 個の body / unsupported event を作ります。その後の scanner と graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従います。actual Resource IR walker が接続された後も、request authority を HIR root から再収集する contract は維持します。
+//: - observation kind から unsupported reason への分類は O(1) です。実際の HIR / Resource IR traversal が観測 operation を列挙する計算量は、actual walker stage の doc comment で別に記録します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -190,6 +192,30 @@
 //:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_unknown_result_eq summary.unsupported_rejected expected_key
 //:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq summary.placeholder_rejected
 //:     let shown checks_print_report checks2
+//:     checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_resource_observation_ban_stage0
+//:     let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.cache_observation_rejected expected_key
+//:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.function_identity_observation_rejected expected_key
+//:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.raw_identity_observation_rejected expected_key
+//:     let shown checks_print_report checks3
 //:     checks_exit_code shown
 //: ```
 
@@ -518,8 +544,67 @@ enum SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason:
     UnknownProjection
     UnknownCallBoundary
     CacheObservationUnsupported
+    FunctionIdentityObservationUnsupported
     RawIdentityObservationUnsupported
     PrivateStateBoundaryUnsupported
+
+//: SelfhostMemoCallBackendPrivateCacheObservationKind: memoized function の pure 化を壊す可観測操作の分類
+//:
+//: [目的/もくてき]:
+//: - actual Resource IR walker が将来検出する cache 観測と function identity 観測を、文字列や診断名ではなく typed enum として扱います。
+//:
+//: [契約/けいやく]:
+//: - ここに並ぶ操作は、private cache region が外へ逃げなくても pure public API から観測できると memoization の参照透過性を壊します。
+//: - この enum は module-private です。外部 caller が観測種別を渡して accepted path を作る public API は作りません。
+//: - cache hit / miss、size、stats、clear、debug、cache region identity は cache state の観測または変更を公開するため `CacheObservationUnsupported` へ畳みます。
+//: - function equality、hash、debug、closure allocation identity は memoized wrapper identity の観測なので `FunctionIdentityObservationUnsupported` へ畳みます。
+//: - raw address / raw representation は raw identity の観測なので `RawIdentityObservationUnsupported` へ畳みます。
+enum SelfhostMemoCallBackendPrivateCacheObservationKind:
+    CacheHitObserved
+    CacheMissObserved
+    CacheSizeObserved
+    CacheStatsObserved
+    CacheClearObserved
+    CacheDebugObserved
+    CacheRegionIdentityObserved
+    FunctionEqualityObserved
+    FunctionHashObserved
+    FunctionDebugObserved
+    ClosureAllocationIdentityObserved
+    RawIdentityObserved
+    RawRepresentationObserved
+    UnsupportedObservation
+
+//: SelfhostMemoCallBackendPrivateCacheObservationBanStatus: 可観測操作禁止検査の record 状態
+//:
+//: [目的/もくてき]:
+//: - actual walker が見つけた観測禁止操作を、成功 proof と混ぜずに scanner の unsupported event へ渡すための status です。
+//:
+//: [契約/けいやく]:
+//: - `NoObservationDetected` は「この 1 record では観測を報告していない」ことだけを表します。body 全体に観測が無い証明ではないため、NoEscape proof や accepted backend plan に使ってはいけません。
+//: - `ObservationDetected` は pure public API で観測できる操作を検出したことを表し、必ず unsupported walker event へ変換して fail-closed に扱います。
+enum SelfhostMemoCallBackendPrivateCacheObservationBanStatus:
+    NoObservationDetected
+    ObservationDetected %SelfhostMemoCallBackendPrivateCacheObservationKind
+
+//: SelfhostMemoCallBackendPrivateCacheObservationBanRecord: observation ban producer が読む 1 record
+//:
+//: [契約/けいやく]:
+//: - key は既存 request-evidence gate と同じ proof key です。memoized occurrence、root、module fingerprint、request kind、effect、type argument count を落としません。
+//: - operation ordinal は walker event stream 内での順序証拠です。scanner が cross-kind duplicate を検査できるよう、この record から unsupported event へそのまま渡します。
+struct SelfhostMemoCallBackendPrivateCacheObservationBanRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus
+
+//: SelfhostMemoCallBackendPrivateCacheObservationBanTable: observation ban record の owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private owner です。外部 caller が forged observation table を public API に渡して accepted path を作る経路は作りません。
+//: - table 自体に `Clone` / `Copy` を実装してはいけません。
+struct SelfhostMemoCallBackendPrivateCacheObservationBanTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheObservationBanRecord
 
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord: future walker が返す private-cache graph header
 //:
@@ -602,6 +687,25 @@ pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind:
     OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
     Stage0FixtureAllocFailed %StdErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind: 可観測操作禁止 producer の拒否分類
+//:
+//: [目的/もくてき]:
+//: - HIR root 由来 request、private observation table、walker scanner、graph gate のどこで fail-closed になったかを enum payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - observation table owner や walker input owner は error payload に入れません。
+//: - `OutputGraphGateRejected` は観測禁止操作または未証明 graph が既存 graph gate で拒否されたことを表します。これは accepted backend plan ではありません。
+pub enum SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind:
+    RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind
+    RequestEntryMissing %i32
+    RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    ObservationRecordReadFailed %i32
+    WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: walker scanner smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -614,6 +718,18 @@ pub struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Su
     duplicate_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
     missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary: 可観測操作禁止境界の smoke 結果
+//:
+//: [目的/もくてき]:
+//: - cache observation、function identity observation、raw identity observation がいずれも Unknown proof rejection へ流れることを public doctest で確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - summary は private observation kind や walker input owner を公開しません。公開されるのは既存 scanner error を持つ Result だけです。
+pub struct SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary:
+    cache_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind
+    function_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind
+    raw_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind: HIR root 由来 producer bridge の拒否分類
 //:
@@ -945,6 +1061,45 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheObservationKind: observation kind を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - kind は owner を持たない enum tag です。copy は観測禁止操作を accepted proof へ昇格する操作ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheObservationKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheObservationKind SelfhostMemoCallBackendPrivateCacheObservationKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheObservationKind: observation kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheObservationKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheObservationKind SelfhostMemoCallBackendPrivateCacheObservationKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheObservationBanStatus: observation ban status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は enum tag と observation kind だけを持ち、observation table owner は copy しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheObservationBanStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheObservationBanStatus: observation ban status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheObservationBanStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheObservationBanRecord: observation ban record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key、graph id、operation ordinal、status だけを持ちます。owner table は `SelfhostMemoCallBackendPrivateCacheObservationBanTable` が保持します。
+impl Clone for SelfhostMemoCallBackendPrivateCacheObservationBanRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheObservationBanRecord SelfhostMemoCallBackendPrivateCacheObservationBanRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheObservationBanRecord: observation ban record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheObservationBanRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheObservationBanRecord SelfhostMemoCallBackendPrivateCacheObservationBanRecord \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord: walker body record を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1010,6 +1165,19 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerError
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind: observation ban producer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ちます。observation table owner や walker input owner は payload に入れません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind: observation ban producer error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: scanner stage0 summary を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1021,6 +1189,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStag
 //: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: scanner stage0 summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary: observation ban smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private observation table owner や walker input owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary: observation ban smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind: producer bridge error を値として[複製/ふくせい]する
@@ -1206,6 +1387,54 @@ fn selfhost_memo_call_backend_private_cache_resource_proof_table_push %impure fn
                 Result::Err e:
                     selfhost_memo_call_backend_private_cache_resource_proof_table_free table
                     Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_record_new: observation ban record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_observation_ban_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanRecord \key\graph_id\operation_ordinal\status:
+    SelfhostMemoCallBackendPrivateCacheObservationBanRecord key graph_id operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_table_new: [空/から]の observation ban table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_observation_ban_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheObservationBanTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheObservationBanRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheObservationBanTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_table_free: observation ban table owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_observation_ban_table_free %impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_table_len: observation ban record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_observation_ban_table_len %fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheObservationBanRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_table_get: observation ban record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_observation_ban_table_get %fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable fn i32 Option SelfhostMemoCallBackendPrivateCacheObservationBanRecord \table\idx:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheObservationBanRecord field::get_ref table "records"
+    v::get records idx
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_table_push: observation ban record を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `body_module_fingerprint == 0`、負の graph id、負の operation ordinal は producer origin を証明できないので、table owner を閉じて拒否します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、stage0 fixture failure として扱える `StdErrorKind` を返します。
+fn selfhost_memo_call_backend_private_cache_observation_ban_table_push %impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheObservationBanRecord Result SelfhostMemoCallBackendPrivateCacheObservationBanTable StdErrorKind \table\record:
+    if:
+        or or eq record.key.body_module_fingerprint 0 lt record.graph_id.index 0 lt record.operation_ordinal 0
+        then:
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free table
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            let records %Vec SelfhostMemoCallBackendPrivateCacheObservationBanRecord field::get table "records"
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheObservationBanTable next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
 
 //: selfhost_memo_call_backend_private_cache_resource_graph_id_new: graph id を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_resource_graph_id_new %fn i32 SelfhostMemoCallBackendPrivateCacheResourceGraphId \index:
@@ -4081,6 +4310,38 @@ pub fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_
                 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq: observation ban が Unknown proof として拒否されたか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - cache hit/miss や function identity などの可観測操作が、accepted proof ではなく scanner / graph gate の Unknown proof rejection へ流れたことを doctest から確認します。
+//:
+//: [契約/けいやく]:
+//: - `OutputGraphGateRejected` 以外を true にしません。request collection、HIR recheck、fixture allocation などの失敗は observation ban の分類成功ではないため、false として扱います。
+pub fn selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::OutputGraphGateRejected graph_error:
+                    selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq Result::Err graph_error expected_key
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestEntryMissing _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestRecheckRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ProofKeyRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ObservationRecordReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::WalkerInputBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ScannerOutputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq: producer bridge が placeholder fingerprint を key 生成前に拒否したか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -4436,6 +4697,244 @@ pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_st
     let missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
     SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary accepted_result may_escape_rejected missing_rejected unsupported_rejected duplicate_ordinal_rejected missing_body_event_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason: observation kind を walker unsupported reason へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - cache state の観測は `CacheObservationUnsupported`、function wrapper identity の観測は `FunctionIdentityObservationUnsupported`、raw representation の観測は `RawIdentityObservationUnsupported` へ明示的に畳みます。
+//: - wildcard fallback は使いません。新しい observation kind を追加した場合、どの fail-closed reason へ流すかをこの match へ追記する必要があります。
+fn selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason %fn SelfhostMemoCallBackendPrivateCacheObservationKind SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheMissObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheSizeObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheStatsObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheClearObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheDebugObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::CacheRegionIdentityObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::CacheObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::FunctionIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionHashObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::FunctionIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionDebugObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::FunctionIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::ClosureAllocationIdentityObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::FunctionIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::RawIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::RawRepresentationObserved:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::RawIdentityObservationUnsupported
+        SelfhostMemoCallBackendPrivateCacheObservationKind::UnsupportedObservation:
+            SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
+
+//: selfhost_memo_call_backend_private_cache_observation_status_to_reason: observation ban status から unsupported reason を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - `NoObservationDetected` は全体の無観測証明ではないため、`Option::None` として扱います。caller はこれを accepted proof に変換してはいけません。
+//: - `ObservationDetected` だけが unsupported event を作ります。
+fn selfhost_memo_call_backend_private_cache_observation_status_to_reason %fn SelfhostMemoCallBackendPrivateCacheObservationBanStatus Option SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason \status:
+    match status:
+        SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected:
+            none
+        SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected kind:
+            some selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason kind
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key: observation record が request key に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key %fn SelfhostMemoCallBackendPrivateCacheObservationBanRecord fn SelfhostMemoCallBackendPrivateCacheProofKey bool \record\key:
+    selfhost_memo_call_backend_private_cache_proof_key_eq record.key key
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input: observation gate 失敗時に walker input を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \input\error:
+    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result: observation record を unsupported event へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - request key が一致しない record は別 request 用なので、この request の walker input には追加しません。
+//: - 観測禁止操作が検出された場合は unsupported event として追加します。accepted place / edge や `PrivateCacheNoEscapeProven` は作りません。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanRecord impure fn SelfhostMemoCallBackendPrivateCacheProofKey Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \input\record\key:
+    if:
+        selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key record key
+        then:
+            match selfhost_memo_call_backend_private_cache_observation_status_to_reason record.status:
+                Option::Some reason:
+                    let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal reason
+                    match selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input unsupported:
+                        Result::Ok next_input:
+                            Result::Ok next_input
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::WalkerInputBuildRejected e
+                Option::None:
+                    Result::Ok input
+        else:
+            Result::Ok input
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_append_records_loop: request key に対応する observation records を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_observation_ban_append_records_loop %impure fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \observations\input\key\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok input
+        else:
+            match selfhost_memo_call_backend_private_cache_observation_ban_table_get observations idx:
+                Option::Some record:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result input record key:
+                        Result::Ok next_input:
+                            selfhost_memo_call_backend_private_cache_observation_ban_append_records_loop observations next_input key add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input input SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ObservationRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_append_request_result: request entry と observation table を walker input へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - HIR payload recheck と proof key construction を既存 gate と同じ関数で必ず通します。
+//: - body header は作りますが、accepted private-cache place / edge は作りません。observation record が無い場合も空 closed graph として後段が Unknown に倒します。
+fn selfhost_memo_call_backend_private_cache_observation_ban_append_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \module\entry\root_expr_id\body_module_fingerprint\observations\input\graph_index:
+    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry:
+        Result::Ok _rechecked:
+            match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
+                Result::Ok key:
+                    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
+                    let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+                    match selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input body:
+                        Result::Ok input1:
+                            selfhost_memo_call_backend_private_cache_observation_ban_append_records_loop observations input1 key 0 selfhost_memo_call_backend_private_cache_observation_ban_table_len observations
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::WalkerInputBuildRejected e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input input SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ProofKeyRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input input SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestRecheckRejected e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_append_requests_loop: request table 全体を observation-aware walker input へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_observation_ban_append_requests_loop %impure fn &SelfhostHirModule impure fn &SelfhostMemoCallBackendRequestTable impure fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \module\table\observations\input\root_expr_id\body_module_fingerprint\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok input
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_observation_ban_append_request_result module entry root_expr_id body_module_fingerprint observations input idx:
+                        Result::Ok next_input:
+                            selfhost_memo_call_backend_private_cache_observation_ban_append_requests_loop module table observations next_input root_expr_id body_module_fingerprint add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_observation_ban_fail_with_input input SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_input_from_hir_root_result: HIR root と observation table から private walker input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_observation_ban_input_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \module\root\fuel\body_module_fingerprint\observations:
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+                Result::Ok input0:
+                    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
+                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_append_requests_loop module &table observations input0 root body_module_fingerprint 0 request_count
+                    selfhost_memo_call_backend_request_table_free table
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_request_table_free table
+                    Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::WalkerInputBuildRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::RequestCollectionFailed e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result: observation ban table を scanner / graph gate へ[接続/せつぞく]する
+//:
+//: [契約/けいやく]:
+//: - caller supplied request table は受け取らず、HIR root から request authority を再収集します。
+//: - private observation table は accepted proof table ではありません。観測禁止操作は unsupported event へ変換され、既存 graph gate で Unknown proof として拒否されます。
+fn selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheObservationBanTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \module\root\fuel\body_module_fingerprint\observations:
+    match selfhost_memo_call_backend_private_cache_observation_ban_input_from_hir_root_result module root fuel body_module_fingerprint observations:
+        Result::Ok input:
+            match selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input:
+                Result::Ok graph:
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+                    match result:
+                        Result::Ok summary:
+                            Result::Ok summary
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::OutputGraphGateRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::ScannerOutputRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_stage0_single_table_result: 1 observation record の stage0 table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - stage0 fixture は actual walker の代替として observation kind を 1 つだけ渡します。これは観測禁止分類の経路を固定するための入力であり、NoEscape proof ではありません。
+//: - table 生成や push が失敗した場合は fixture construction failure として `Stage0FixtureAllocFailed` に畳み、private table owner を外へ出しません。
+fn selfhost_memo_call_backend_private_cache_observation_ban_stage0_single_table_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_observation_ban_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+            let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected kind
+            let record %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new key graph_id 0 status
+            match selfhost_memo_call_backend_private_cache_observation_ban_table_push table0 record:
+                Result::Ok table1:
+                    Result::Ok table1
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::Stage0FixtureAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_summary_result: stage0 module と observation table を[閉/と]じながら gate を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - HIR module と observation table は、この関数の内部で必ず閉じます。
+//: - 成功 summary は現時点では期待しません。観測禁止操作は unsupported graph を経由して Unknown proof rejection になることを public smoke で確認します。
+fn selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_summary_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \kind:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            match selfhost_memo_call_backend_private_cache_observation_ban_stage0_single_table_result kind:
+                Result::Ok observations:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result &module root 8 77 &observations
+                    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result: observation ban result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_summary_result kind:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_observation_ban_stage0: 可観測操作禁止分類の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - cache state observation、function wrapper identity observation、raw identity observation が、それぞれ accepted proof ではなく Unknown proof rejection へ落ちることを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR walker はまだこの record を生成していません。この関数は typed observation classifier と scanner / graph gate 接続だけを固定します。
+pub fn selfhost_memo_call_backend_private_cache_resource_observation_ban_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary \void:
+    let cache_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
+    let function_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved
+    let raw_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved
+    SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary cache_observation_rejected function_identity_observation_rejected raw_identity_observation_rejected
 
 //: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input: producer bridge 失敗時に private walker input を[閉/と]じる
 //:

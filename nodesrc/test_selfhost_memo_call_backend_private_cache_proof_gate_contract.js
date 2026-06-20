@@ -65,9 +65,10 @@ assert.ok(
         source.includes("proof record / proof table / proof table writer / gate 本体は module-private") &&
         source.includes("Resource observation producer も同じ module-private proof table writer を使います") &&
         source.includes("Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します") &&
+        source.includes("Resource observation ban stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0 is present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -168,6 +169,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheObservation(?:Kind|BanStatus|BanRecord|BanTable)\b/,
+    "observation ban kind, status, record, and owner table must stay private until actual Resource IR walker owns observation production",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheObservationKind|SelfhostMemoCallBackendPrivateCacheObservationBanStatus|SelfhostMemoCallBackendPrivateCacheObservationBanRecord|SelfhostMemoCallBackendPrivateCacheObservationBanTable)\b/m,
+    "public functions must not expose private observation ban payload or owner table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -226,6 +237,11 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceWalkerInput\b/,
     "Resource walker input owner Clone/Copy ban must apply to the whole module, not only the declaration area",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheObservationBanTable\b/,
+    "observation ban table owner must not implement Clone or Copy",
 );
 assertOrdered(
     source,
@@ -622,10 +638,155 @@ assertOrdered(
         "UnknownProjection",
         "UnknownCallBoundary",
         "CacheObservationUnsupported",
+        "FunctionIdentityObservationUnsupported",
         "RawIdentityObservationUnsupported",
         "PrivateStateBoundaryUnsupported",
     ],
     "Resource walker unsupported reason must use typed event reasons instead of display strings",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheObservationKind"),
+    [
+        "CacheHitObserved",
+        "CacheMissObserved",
+        "CacheSizeObserved",
+        "CacheStatsObserved",
+        "CacheClearObserved",
+        "CacheDebugObserved",
+        "CacheRegionIdentityObserved",
+        "FunctionEqualityObserved",
+        "FunctionHashObserved",
+        "FunctionDebugObserved",
+        "ClosureAllocationIdentityObserved",
+        "RawIdentityObserved",
+        "RawRepresentationObserved",
+        "UnsupportedObservation",
+    ],
+    "observation kind must distinguish cache observation, function identity observation, raw identity observation, and unsupported observation explicitly",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheObservationBanStatus"),
+    [
+        "NoObservationDetected",
+        "ObservationDetected %SelfhostMemoCallBackendPrivateCacheObservationKind",
+    ],
+    "observation ban status must keep one-record no-observation separate from a detected observation",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind"),
+    [
+        "RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind",
+        "RequestEntryMissing %i32",
+        "RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "ObservationRecordReadFailed %i32",
+        "WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind",
+        "Stage0FixtureAllocFailed %StdErrorKind",
+    ],
+    "observation ban producer error taxonomy must distinguish request collection, request recheck, proof key, observation read, walker input, scanner output, graph gate, and fixture failures",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason"),
+    /_:/,
+    "observation kind classifier must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason"),
+    [
+        "CacheHitObserved:",
+        "CacheObservationUnsupported",
+        "CacheMissObserved:",
+        "CacheObservationUnsupported",
+        "CacheSizeObserved:",
+        "CacheObservationUnsupported",
+        "CacheStatsObserved:",
+        "CacheObservationUnsupported",
+        "CacheClearObserved:",
+        "CacheObservationUnsupported",
+        "CacheDebugObserved:",
+        "CacheObservationUnsupported",
+        "CacheRegionIdentityObserved:",
+        "CacheObservationUnsupported",
+        "FunctionEqualityObserved:",
+        "FunctionIdentityObservationUnsupported",
+        "FunctionHashObserved:",
+        "FunctionIdentityObservationUnsupported",
+        "FunctionDebugObserved:",
+        "FunctionIdentityObservationUnsupported",
+        "ClosureAllocationIdentityObserved:",
+        "FunctionIdentityObservationUnsupported",
+        "RawIdentityObserved:",
+        "RawIdentityObservationUnsupported",
+        "RawRepresentationObserved:",
+        "RawIdentityObservationUnsupported",
+        "UnsupportedObservation:",
+        "UnknownResourceOperation",
+    ],
+    "observation kind classifier must map every visible observation class to the correct fail-closed unsupported reason",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_observation_status_to_reason"),
+    [
+        "NoObservationDetected:",
+        "none",
+        "ObservationDetected kind:",
+        "some selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason kind",
+    ],
+    "observation ban status fold must not treat a single no-observation record as proof, and must map detected observations through the typed classifier",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key record key",
+        "Option::Some reason:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal reason",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input unsupported",
+        "Option::None:",
+        "Result::Ok input",
+    ],
+    "observation producer bridge must append detected observations as unsupported events and leave no-observation records neutral",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result"),
+    /PrivateCacheNoEscapeProven|PrivateCacheStorage|CloneOutOwnedValue/,
+    "observation producer bridge must not synthesize accepted private-cache proof, place, or clone-out edge",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_observation_ban_input_from_hir_root_result module root fuel body_module_fingerprint observations",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input",
+        "Result::Ok graph:",
+        "selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_free graph",
+        "OutputGraphGateRejected e",
+        "ScannerOutputRejected e",
+    ],
+    "observation ban gate must rebuild request authority from HIR root, pass private walker input through the scanner, close GraphInput, and wrap graph/scanner failures",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_observation_ban_(?:input_from_hir_root_result|gate_from_hir_root_result|append_request_result|append_requests_loop|append_records_loop|table_new|table_push|table_free)\b/m,
+    "observation ban internals must stay module-private and must not expose HIR-root gate or private observation table construction as public accepted-path APIs",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_observation_ban_stage0"),
+    [
+        "cache_observation_rejected",
+        "CacheHitObserved",
+        "function_identity_observation_rejected",
+        "FunctionEqualityObserved",
+        "raw_identity_observation_rejected",
+        "RawIdentityObserved",
+    ],
+    "observation ban stage0 must cover cache observation, function identity observation, and raw identity observation",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq"),
+    /_:/,
+    "observation ban unknown result helper must not use wildcard fallback",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind"),

@@ -2119,7 +2119,21 @@ stage0 smoke は accepted graph、MayEscape graph、missing graph、unsupported 
 
 source policy は、producer bridge error taxonomy、wildcard なしの error code helper、HIR root からの request table 内部構築、request recheck、proof key construction、scanner 経由、GraphInput cleanup、unsupported traversal の Unknown rejection、placeholder fingerprint rejection、bridge internals の public API 化禁止を固定している。
 
-この checkpoint 後も、actual Resource IR graph walker 本体、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。producer bridge 自体は request 数 `m` に対して O(m) 個の body / unsupported event を作る。後続の scanner / graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従う。request/key bucket 化や graph lookup index 化は後続最適化でよいが、HIR root recheck、scanner 経由、unsupported fail-closed、private type exposure ban は semantic contract として維持する。
+この checkpoint 後も、actual Resource IR graph walker 本体、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。producer bridge 自体は request 数 `m` に対して O(m) 個の body / unsupported event を作る。後続の scanner / graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従う。request/key bucket 化や graph lookup index 化は後続最適化でよいが、HIR root recheck、scanner 経由、unsupported fail-closed、private type exposure ban は semantic contract として維持する。
+
+## 2026-06-21 memo_call backend Resource observation ban classifier stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、memoized function の pure 化を壊す可観測操作を typed observation kind として分類し、Resource walker の unsupported event へ畳む observation ban stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。ここで固定したのは、actual walker が将来検出する cache observation / function identity observation / raw identity observation を、NoEscape proof とは別の fail-closed event stream として扱う境界である。`NoObservationDetected` は「その record では観測を報告していない」ことだけを表し、body 全体の無観測証明や `PrivateCacheNoEscapeProven` には変換しない。`ObservationDetected(kind)` だけが `SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord` へ変換される。
+
+分類は明示的な enum match で行う。cache hit / miss / size / stats / clear / debug / cache region identity は `CacheObservationUnsupported`、function equality / hash / debug / closure allocation identity は `FunctionIdentityObservationUnsupported`、raw identity / raw representation は `RawIdentityObservationUnsupported`、未分類の observation は `UnknownResourceOperation` へ畳む。wildcard fallback は使わず、observation kind を追加した場合は分類先を必ず追記する。
+
+observation kind / status / record / table は module-private である。public API には private observation table を受け取る accepted path を作らず、stage0 public summary だけを出す。gate は HIR root から request table を内部再構築し、request entry を HIR payload と再照合して proof key を作り、observation record を scanner 経由で graph gate へ渡す。これにより caller supplied request table、source text、diagnostic symbol、function name、display string を authority にしない。
+
+source policy は、private observation type が public signature に出ないこと、observation table owner が Clone / Copy にならないこと、classification match が wildcard-free であること、observation bridge が `PrivateCacheNoEscapeProven` / `PrivateCacheStorage` / `CloneOutOwnedValue` を合成しないこと、stage0 が cache observation / function identity observation / raw identity observation をすべて Unknown proof rejection に落とすことを固定している。
+
+この checkpoint 後も、actual Resource IR graph walker が実際に cache hit / miss / stats / clear / debug / function identity / raw identity observation を検出して observation table へ出す boundary、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。observation kind から unsupported reason への分類は O(1) であり、observation table と request table の照合は現状 O(m * o) である。request/key bucket 化や observation table index 化は後からできる最適化だが、NoEscape proof と observation ban を分離する semantic contract は維持する。
 
 ## 既存 issue との対応
 

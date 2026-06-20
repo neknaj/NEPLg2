@@ -75689,3 +75689,32 @@ MERGE_APPROVED
 - 確認内容は、pending body drain が event packet read より先に実行されること、新規 reply header でも body drain 完了後だけ `ServerReplyReceived` を返すこと、would-block / EOF / read failure / overflow が header と remaining count を持つ typed error になること、`length_units * 4` が checked arithmetic で fail-closed になることだった。
 - source policy の軽量化は巨大な `libSource` regex を dedicated slice に寄せたもので、検査意味は弱まっていないと確認された。
 - 非 blocker として hard read failure の focused test が薄い点が挙がったため、`native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_read_failure` を追加し、typed error と pending state retention を検査した。read overflow は scripted API の contract 上 buffer 超過を返せないため source policy / code review で固定する。
+
+## 2026-06-21 selfhost memo_call Resource observation ban classifier checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource walker producer bridge stage0 の次段として observation ban classifier stage0 を追加した。
+- cache hit / miss / size / stats / clear / debug / cache region identity、function equality / hash / debug / closure allocation identity、raw identity / raw representation を typed observation kind として分類し、Resource walker unsupported event へ畳む境界を固定した。
+- この checkpoint は NoEscape proof ではない。`NoObservationDetected` は 1 record の中立状態であり、`PrivateCacheNoEscapeProven` や accepted private-cache place / edge には変換しない。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheObservationKind`、`SelfhostMemoCallBackendPrivateCacheObservationBanStatus`、`SelfhostMemoCallBackendPrivateCacheObservationBanRecord`、`SelfhostMemoCallBackendPrivateCacheObservationBanTable` を module-private 型として追加した。
+- `SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind` と public stage0 summary を追加し、request collection、request recheck、proof key、observation read、walker input build、scanner output、graph gate rejection、fixture allocation を enum payload で分けた。
+- observation kind classifier は wildcard fallback を使わず、cache observation を `CacheObservationUnsupported`、function identity observation を `FunctionIdentityObservationUnsupported`、raw identity observation を `RawIdentityObservationUnsupported`、unsupported observation を `UnknownResourceOperation` へ畳む。
+- observation ban gate は HIR root から request table を内部再構築し、HIR payload recheck と proof key construction を通したうえで observation record を scanner / graph gate へ渡す。caller supplied request table、source text、diagnostic symbol、function name、display string は authority にしない。
+- source policy を更新し、private observation type の public signature 露出禁止、observation table owner の Clone / Copy 禁止、classification match の wildcard 禁止、accepted proof / place / edge 合成禁止、stage0 の cache / function identity / raw identity smoke を固定した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- partial pass before timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-observation-ban.json` は 6 件中 5 件 pass 後に全体累積時間で timeout。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 5/6 -o tmp/selfhost-memo-call-backend-private-cache-observation-ban-shard5.json`
+
+### remaining
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して observation table へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。

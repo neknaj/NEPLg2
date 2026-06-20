@@ -289,8 +289,33 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 - actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する境界。
 - fresh private cache region proof、PrivateCache / PrivateState effect masking。
-- cache hit / miss / size / clear / raw identity observation ban。
+- actual Resource IR walker が cache hit / miss / size / clear / debug、function identity、raw identity observation を検出して typed observation stream へ出す境界。
 - sealed memoized backend representation。
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - graph lookup index 化、walker event operation ordinal index 化、producer bridge request/key bucket 化、stage0 fixture 分割。
+
+## 2026-06-21 selfhost memo_call backend Resource observation ban classifier stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、memoized function の pure 化を壊す可観測操作を typed observation kind として分類し、Resource walker の unsupported event へ畳む observation ban stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。目的は、actual walker が将来検出する cache observation / function identity observation / raw identity observation を、NoEscape proof とは別の fail-closed stream として扱う境界を固定することである。`NoObservationDetected` は 1 record の中立状態であり、body 全体の無観測証明や `PrivateCacheNoEscapeProven` には変換しない。`ObservationDetected(kind)` だけが typed unsupported event を作る。
+
+分類は enum と exhaustive match で行う。cache hit / miss / size / stats / clear / debug / cache region identity は `CacheObservationUnsupported`、function equality / hash / debug / closure allocation identity は `FunctionIdentityObservationUnsupported`、raw identity / raw representation は `RawIdentityObservationUnsupported`、unsupported observation は `UnknownResourceOperation` へ畳む。wildcard fallback は使わない。
+
+observation kind / status / record / table は module-private である。public API には private observation table を受け取る accepted path を作らず、stage0 summary と typed result helper だけを公開する。gate は HIR root から request table を内部再構築し、HIR payload recheck と proof key construction を通したうえで observation record を scanner / graph gate へ渡す。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 5/6 -o tmp/selfhost-memo-call-backend-private-cache-observation-ban-shard5.json`
+
+残件:
+
+- actual Resource IR walker 本体から typed body / place / edge / unsupported event stream を生成する境界。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して observation table へ出す境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge / observation ban gate の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- observation table request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。
