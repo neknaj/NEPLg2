@@ -7283,6 +7283,14 @@ where
 
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN: usize = 12;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN: usize = 8;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN: usize = 32;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_BASE_OFFSET: usize = 4;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_MASK_OFFSET: usize = 8;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_VENDOR_LENGTH_OFFSET: usize = 16;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET: usize = 20;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_PIXMAP_FORMAT_COUNT_OFFSET: usize = 21;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_PIXMAP_FORMAT_BYTE_LEN: usize = 8;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SCREEN_FIXED_BYTE_LEN: usize = 40;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN: usize = 32;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET: u16 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL: u16 = 256;
@@ -7377,6 +7385,9 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     },
     SetupBodyLengthOverflow {
         units: u16,
+    },
+    SetupResourceInfoParseFailed {
+        error: NativeWindowLinuxX11SetupResourceInfoParseError,
     },
     TopLevelWindowRequestPreviouslyFailed {
         descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
@@ -7696,6 +7707,82 @@ pub struct NativeWindowLinuxX11SetupRequest {
     bytes: Vec<u8>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11SetupResourceInfo {
+    resource_id_base: u32,
+    resource_id_mask: u32,
+    first_root_window_id: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11SetupResourceInfoParseError {
+    BodyTooShort {
+        byte_len: usize,
+        min_byte_len: usize,
+    },
+    VendorSectionLengthOverflow {
+        vendor_byte_len: usize,
+        padding_byte_len: usize,
+    },
+    VendorSectionTruncated {
+        byte_len: usize,
+        required_byte_len: usize,
+    },
+    PixmapFormatSectionLengthOverflow {
+        format_count: u8,
+        format_byte_len: usize,
+    },
+    PixmapFormatSectionOffsetOverflow {
+        vendor_section_end: usize,
+        pixmap_format_byte_len: usize,
+    },
+    PixmapFormatSectionTruncated {
+        byte_len: usize,
+        required_byte_len: usize,
+    },
+    NoRootScreen,
+    FirstScreenHeaderOffsetOverflow {
+        first_screen_offset: usize,
+        screen_header_byte_len: usize,
+    },
+    FirstScreenHeaderTruncated {
+        byte_len: usize,
+        required_byte_len: usize,
+    },
+    ResourceIdMaskEmpty,
+    ResourceIdBaseMaskOverlap {
+        resource_id_base: u32,
+        resource_id_mask: u32,
+    },
+    ClientResourceIdSpaceUsesHighBits {
+        resource_id_base: u32,
+        resource_id_mask: u32,
+        unused_high_bits: u32,
+    },
+    FirstRootWindowIdZero,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11ResourceIdAllocationError {
+    SerialZero,
+    SerialExhausted {
+        serial: u32,
+        resource_id_mask: u32,
+        mask_bit_count: u32,
+    },
+    GeneratedResourceIdZero {
+        serial: u32,
+        resource_id_base: u32,
+        resource_id_mask: u32,
+    },
+    GeneratedResourceIdOutsideBaseMask {
+        serial: u32,
+        generated_id: u32,
+        resource_id_base: u32,
+        resource_id_mask: u32,
+    },
+}
+
 pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     api: Api,
     setup_request: NativeWindowLinuxX11SetupRequest,
@@ -7707,6 +7794,8 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
     setup_prefix_len: usize,
     setup_body_remaining_len: usize,
+    setup_body_bytes: Vec<u8>,
+    setup_resource_info: Option<NativeWindowLinuxX11SetupResourceInfo>,
     event_packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
     event_packet_len: usize,
 }
@@ -8637,8 +8726,223 @@ impl NativeWindowLinuxX11SetupRequest {
     }
 }
 
+impl NativeWindowLinuxX11SetupResourceInfo {
+    pub fn resource_id_base(&self) -> u32 {
+        self.resource_id_base
+    }
+
+    pub fn resource_id_mask(&self) -> u32 {
+        self.resource_id_mask
+    }
+
+    pub fn first_root_window_id(&self) -> u32 {
+        self.first_root_window_id
+    }
+}
+
 fn native_window_linux_x11_pad4(byte_len: usize) -> usize {
     (4 - (byte_len % 4)) % 4
+}
+
+fn native_window_linux_x11_checked_padded_len(
+    byte_len: usize,
+) -> Result<usize, NativeWindowLinuxX11SetupResourceInfoParseError> {
+    let padding_byte_len = native_window_linux_x11_pad4(byte_len);
+    byte_len.checked_add(padding_byte_len).ok_or(
+        NativeWindowLinuxX11SetupResourceInfoParseError::VendorSectionLengthOverflow {
+            vendor_byte_len: byte_len,
+            padding_byte_len,
+        },
+    )
+}
+
+fn native_window_linux_x11_setup_resource_info_validate_client_id_space(
+    resource_id_base: u32,
+    resource_id_mask: u32,
+) -> Result<(), NativeWindowLinuxX11SetupResourceInfoParseError> {
+    if resource_id_mask == 0 {
+        return Err(NativeWindowLinuxX11SetupResourceInfoParseError::ResourceIdMaskEmpty);
+    }
+    if resource_id_base & resource_id_mask != 0 {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::ResourceIdBaseMaskOverlap {
+                resource_id_base,
+                resource_id_mask,
+            },
+        );
+    }
+    let unused_high_bits = (resource_id_base | resource_id_mask)
+        & NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS;
+    if unused_high_bits != 0 {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::ClientResourceIdSpaceUsesHighBits {
+                resource_id_base,
+                resource_id_mask,
+                unused_high_bits,
+            },
+        );
+    }
+    Ok(())
+}
+
+pub fn native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+    body: &[u8],
+) -> Result<
+    Option<NativeWindowLinuxX11SetupResourceInfo>,
+    NativeWindowLinuxX11SetupResourceInfoParseError,
+> {
+    if body.is_empty() {
+        return Ok(None);
+    }
+    if body.len() < NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::BodyTooShort {
+                byte_len: body.len(),
+                min_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN,
+            },
+        );
+    }
+    let resource_id_base = native_window_linux_x11_u32_le(
+        body,
+        NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_BASE_OFFSET,
+    );
+    let resource_id_mask = native_window_linux_x11_u32_le(
+        body,
+        NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_MASK_OFFSET,
+    );
+    native_window_linux_x11_setup_resource_info_validate_client_id_space(
+        resource_id_base,
+        resource_id_mask,
+    )?;
+
+    let vendor_byte_len = usize::from(native_window_linux_x11_u16_le(
+        body,
+        NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_VENDOR_LENGTH_OFFSET,
+    ));
+    let vendor_padded_byte_len = native_window_linux_x11_checked_padded_len(vendor_byte_len)?;
+    let vendor_section_end = NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN
+        .checked_add(vendor_padded_byte_len)
+        .ok_or(
+            NativeWindowLinuxX11SetupResourceInfoParseError::VendorSectionLengthOverflow {
+                vendor_byte_len,
+                padding_byte_len: native_window_linux_x11_pad4(vendor_byte_len),
+            },
+        )?;
+    if body.len() < vendor_section_end {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::VendorSectionTruncated {
+                byte_len: body.len(),
+                required_byte_len: vendor_section_end,
+            },
+        );
+    }
+
+    let root_count = body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET];
+    if root_count == 0 {
+        return Err(NativeWindowLinuxX11SetupResourceInfoParseError::NoRootScreen);
+    }
+    let format_count = body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_PIXMAP_FORMAT_COUNT_OFFSET];
+    let pixmap_format_byte_len = usize::from(format_count)
+        .checked_mul(NATIVE_WINDOW_LINUX_X11_SETUP_PIXMAP_FORMAT_BYTE_LEN)
+        .ok_or(
+            NativeWindowLinuxX11SetupResourceInfoParseError::PixmapFormatSectionLengthOverflow {
+                format_count,
+                format_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_PIXMAP_FORMAT_BYTE_LEN,
+            },
+        )?;
+    let first_screen_offset = vendor_section_end
+        .checked_add(pixmap_format_byte_len)
+        .ok_or(
+            NativeWindowLinuxX11SetupResourceInfoParseError::PixmapFormatSectionOffsetOverflow {
+                vendor_section_end,
+                pixmap_format_byte_len,
+            },
+        )?;
+    if body.len() < first_screen_offset {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::PixmapFormatSectionTruncated {
+                byte_len: body.len(),
+                required_byte_len: first_screen_offset,
+            },
+        );
+    }
+    let first_screen_header_end = first_screen_offset
+        .checked_add(NATIVE_WINDOW_LINUX_X11_SETUP_SCREEN_FIXED_BYTE_LEN)
+        .ok_or(
+            NativeWindowLinuxX11SetupResourceInfoParseError::FirstScreenHeaderOffsetOverflow {
+                first_screen_offset,
+                screen_header_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_SCREEN_FIXED_BYTE_LEN,
+            },
+        )?;
+    if body.len() < first_screen_header_end {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::FirstScreenHeaderTruncated {
+                byte_len: body.len(),
+                required_byte_len: first_screen_header_end,
+            },
+        );
+    }
+    let first_root_window_id = native_window_linux_x11_u32_le(body, first_screen_offset);
+    if first_root_window_id == 0 {
+        return Err(NativeWindowLinuxX11SetupResourceInfoParseError::FirstRootWindowIdZero);
+    }
+
+    Ok(Some(NativeWindowLinuxX11SetupResourceInfo {
+        resource_id_base,
+        resource_id_mask,
+        first_root_window_id,
+    }))
+}
+
+pub fn native_window_linux_x11_resource_id_from_serial(
+    setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+    serial: u32,
+) -> Result<u32, NativeWindowLinuxX11ResourceIdAllocationError> {
+    if serial == 0 {
+        return Err(NativeWindowLinuxX11ResourceIdAllocationError::SerialZero);
+    }
+    let resource_id_mask = setup_resource_info.resource_id_mask();
+    let mut serial_bits = serial;
+    let mut masked_serial = 0_u32;
+    for bit_index in 0..u32::BITS {
+        let bit = 1_u32 << bit_index;
+        if resource_id_mask & bit != 0 {
+            if serial_bits & 1 != 0 {
+                masked_serial |= bit;
+            }
+            serial_bits >>= 1;
+        }
+    }
+    if serial_bits != 0 {
+        return Err(
+            NativeWindowLinuxX11ResourceIdAllocationError::SerialExhausted {
+                serial,
+                resource_id_mask,
+                mask_bit_count: resource_id_mask.count_ones(),
+            },
+        );
+    }
+    let generated_id = setup_resource_info.resource_id_base() | masked_serial;
+    if generated_id == 0 {
+        return Err(
+            NativeWindowLinuxX11ResourceIdAllocationError::GeneratedResourceIdZero {
+                serial,
+                resource_id_base: setup_resource_info.resource_id_base(),
+                resource_id_mask,
+            },
+        );
+    }
+    if generated_id & !resource_id_mask != setup_resource_info.resource_id_base() {
+        return Err(
+            NativeWindowLinuxX11ResourceIdAllocationError::GeneratedResourceIdOutsideBaseMask {
+                serial,
+                generated_id,
+                resource_id_base: setup_resource_info.resource_id_base(),
+                resource_id_mask,
+            },
+        );
+    }
+    Ok(generated_id)
 }
 
 fn native_window_linux_x11_checked_setup_request_total_len(
@@ -8712,6 +9016,15 @@ pub fn native_window_linux_x11_setup_request_from_authorization(
 
 fn native_window_linux_x11_u16_le(bytes: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes([bytes[offset], bytes[offset + 1]])
+}
+
+fn native_window_linux_x11_u32_le(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 fn native_window_linux_x11_i16_le(bytes: &[u8], offset: usize) -> i16 {
@@ -8806,6 +9119,8 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
             setup_prefix_len: 0,
             setup_body_remaining_len: 0,
+            setup_body_bytes: Vec::new(),
+            setup_resource_info: None,
             event_packet: [0; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
             event_packet_len: 0,
         }
@@ -8853,6 +9168,10 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
 
     pub fn top_level_window_request_written_len(&self) -> usize {
         self.top_level_window_request_written_len
+    }
+
+    pub fn setup_resource_info(&self) -> Option<NativeWindowLinuxX11SetupResourceInfo> {
+        self.setup_resource_info
     }
 }
 
@@ -9058,6 +9377,8 @@ where
                     )
                 })?;
                 self.setup_body_remaining_len = setup_body_len;
+                self.setup_body_bytes.clear();
+                self.setup_resource_info = None;
                 self.setup_state = if setup_body_len == 0 {
                     NativeWindowLinuxX11EventSourceSetupState::Ready
                 } else {
@@ -9119,8 +9440,22 @@ where
                     },
                 ));
             }
+            self.setup_body_bytes.extend_from_slice(&scratch[..read]);
             self.setup_body_remaining_len -= read;
         }
+        self.setup_resource_info =
+            match native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &self.setup_body_bytes,
+            ) {
+                Ok(setup_resource_info) => setup_resource_info,
+                Err(error) => {
+                    return Err(self.fail_setup(
+                        NativeWindowLinuxX11EventSourceObservationError::SetupResourceInfoParseFailed {
+                            error,
+                        },
+                    ));
+                }
+            };
         self.setup_state = NativeWindowLinuxX11EventSourceSetupState::Ready;
         Ok(())
     }
@@ -17572,6 +17907,41 @@ mod tests {
         prefix
     }
 
+    fn scripted_x11_setup_success_resource_body(
+        resource_id_base: u32,
+        resource_id_mask: u32,
+        first_root_window_id: u32,
+    ) -> Vec<u8> {
+        let vendor = b"NEP";
+        let vendor_padded_byte_len = vendor.len() + native_window_linux_x11_pad4(vendor.len());
+        let mut body = vec![0_u8; NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN];
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_BASE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_BASE_OFFSET + 4]
+            .copy_from_slice(&resource_id_base.to_le_bytes());
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_MASK_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_MASK_OFFSET + 4]
+            .copy_from_slice(&resource_id_mask.to_le_bytes());
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_VENDOR_LENGTH_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_VENDOR_LENGTH_OFFSET + 2]
+            .copy_from_slice(&(vendor.len() as u16).to_le_bytes());
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET] = 1;
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_PIXMAP_FORMAT_COUNT_OFFSET] = 1;
+        body.extend_from_slice(vendor);
+        body.resize(
+            NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN + vendor_padded_byte_len,
+            0,
+        );
+        body.extend_from_slice(&[0_u8; NATIVE_WINDOW_LINUX_X11_SETUP_PIXMAP_FORMAT_BYTE_LEN]);
+        let first_screen_offset = body.len();
+        body.resize(
+            first_screen_offset + NATIVE_WINDOW_LINUX_X11_SETUP_SCREEN_FIXED_BYTE_LEN,
+            0,
+        );
+        body[first_screen_offset..first_screen_offset + 4]
+            .copy_from_slice(&first_root_window_id.to_le_bytes());
+        body
+    }
+
     fn scripted_x11_configure_notify_event(width: u16, height: u16) -> Vec<u8> {
         let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
         packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY;
@@ -20148,6 +20518,152 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_setup_resource_info_parses_little_endian_success_body() {
+        let body = scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0xe000_0123);
+
+        let setup_resource_info =
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(&body)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(setup_resource_info.resource_id_base(), 0x0020_0000);
+        assert_eq!(setup_resource_info.resource_id_mask(), 0x001f_ffff);
+        assert_eq!(setup_resource_info.first_root_window_id(), 0xe000_0123);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_resource_info_rejects_invalid_client_id_space() {
+        let empty_mask_body = scripted_x11_setup_success_resource_body(0x0020_0000, 0, 0x123);
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &empty_mask_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::ResourceIdMaskEmpty
+        );
+
+        let overlap_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x0020_0000, 0x123);
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &overlap_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::ResourceIdBaseMaskOverlap {
+                resource_id_base: 0x0020_0000,
+                resource_id_mask: 0x0020_0000,
+            }
+        );
+
+        let high_bits_body =
+            scripted_x11_setup_success_resource_body(0x2000_0000, 0x001f_ffff, 0x123);
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &high_bits_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::ClientResourceIdSpaceUsesHighBits {
+                resource_id_base: 0x2000_0000,
+                resource_id_mask: 0x001f_ffff,
+                unused_high_bits: 0x2000_0000,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_resource_info_rejects_missing_or_truncated_screen() {
+        let short_body = vec![0_u8; NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN - 1];
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &short_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::BodyTooShort {
+                byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN - 1,
+                min_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN,
+            }
+        );
+
+        let mut no_root_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0x123);
+        no_root_body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET] = 0;
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &no_root_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::NoRootScreen
+        );
+
+        let mut truncated_screen_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0x123);
+        truncated_screen_body.pop();
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &truncated_screen_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::FirstScreenHeaderTruncated {
+                byte_len: truncated_screen_body.len(),
+                required_byte_len: truncated_screen_body.len() + 1,
+            }
+        );
+
+        let zero_root_body = scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0);
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &zero_root_body
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::FirstRootWindowIdZero
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_resource_id_from_serial_maps_sparse_mask() {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x1000,
+            resource_id_mask: 0x000a,
+            first_root_window_id: 0x123,
+        };
+
+        assert_eq!(
+            native_window_linux_x11_resource_id_from_serial(setup_resource_info, 1).unwrap(),
+            0x1002
+        );
+        assert_eq!(
+            native_window_linux_x11_resource_id_from_serial(setup_resource_info, 2).unwrap(),
+            0x1008
+        );
+        assert_eq!(
+            native_window_linux_x11_resource_id_from_serial(setup_resource_info, 3).unwrap(),
+            0x100a
+        );
+        assert_eq!(
+            native_window_linux_x11_resource_id_from_serial(setup_resource_info, 4).unwrap_err(),
+            NativeWindowLinuxX11ResourceIdAllocationError::SerialExhausted {
+                serial: 4,
+                resource_id_mask: 0x000a,
+                mask_bit_count: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_resource_id_from_serial_rejects_invalid_serials() {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0,
+            resource_id_mask: 1,
+            first_root_window_id: 0x123,
+        };
+
+        assert_eq!(
+            native_window_linux_x11_resource_id_from_serial(setup_resource_info, 0).unwrap_err(),
+            NativeWindowLinuxX11ResourceIdAllocationError::SerialZero
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_observation_provider_resumes_partial_auth_setup_write() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(320, 240),
@@ -20403,9 +20919,12 @@ mod tests {
             NativeWindowLinuxWindowEventSourceKind::X11Connection,
             231,
         );
+        let setup_body = scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0x123);
         let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
-            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(8)),
-            ScriptedNativeWindowLinuxX11ReadStep::Bytes(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
             ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_configure_notify_event(
                 1024, 768,
             )),
@@ -20429,10 +20948,119 @@ mod tests {
             provider.reader().top_level_window_request_state(),
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured
         );
+        assert_eq!(
+            provider.reader().setup_resource_info(),
+            Some(NativeWindowLinuxX11SetupResourceInfo {
+                resource_id_base: 0x0020_0000,
+                resource_id_mask: 0x001f_ffff,
+                first_root_window_id: 0x123,
+            })
+        );
         assert_eq!(provider.provider().call_count, 1);
         assert_eq!(
             provider.reader().api().writes,
             vec![native_window_linux_x11_setup_request_bytes().to_vec()]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_resumes_partial_setup_resource_body() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            239,
+        );
+        let setup_body = scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0x123);
+        let first_body_chunk_len = 13;
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                setup_body[..first_body_chunk_len].to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Error(11),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                setup_body[first_body_chunk_len..].to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(10, 11)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::SetupBodyReadWouldBlock
+        );
+        assert_eq!(
+            provider.reader().setup_state(),
+            NativeWindowLinuxX11EventSourceSetupState::ResponseBodyPending
+        );
+
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((10.0, 11.0)));
+        assert_eq!(
+            provider.reader().setup_resource_info(),
+            Some(NativeWindowLinuxX11SetupResourceInfo {
+                resource_id_base: 0x0020_0000,
+                resource_id_mask: 0x001f_ffff,
+                first_root_window_id: 0x123,
+            })
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_fails_closed_after_setup_resource_parse_failure(
+    ) {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            240,
+        );
+        let malformed_body = vec![1_u8, 2, 3, 4, 5, 6, 7, 8];
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                malformed_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(malformed_body.clone()),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(1, 2)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider(provider, raw_api);
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::SetupResourceInfoParseFailed {
+                error: NativeWindowLinuxX11SetupResourceInfoParseError::BodyTooShort {
+                    byte_len: malformed_body.len(),
+                    min_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN,
+                },
+            }
+        );
+        assert_eq!(
+            provider.reader().setup_state(),
+            NativeWindowLinuxX11EventSourceSetupState::Failed
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::SetupPreviouslyFailed { descriptor }
         );
     }
 

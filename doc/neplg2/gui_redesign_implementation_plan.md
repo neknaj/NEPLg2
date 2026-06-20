@@ -2383,6 +2383,39 @@ Phase F5jp では、F5jo の CreateWindow / MapWindow request owner を、既存
 - `git diff --check`
 - subagent implementation review で setup-ready 後 request write boundary、partial write recovery、no runner / no fallback が承認される。
 
+## Phase F5jq: Native Linux X11 setup resource info and resource id allocation boundary
+
+Phase F5jq では、X11 setup success body から resource-id-base、resource-id-mask、first screen root window id を取り出し、client resource id allocation helper へ渡せる typed owner を追加する。これは setup body parse / resource id allocation boundary であり、top-level request generation、server error / reply handling、WM_DELETE_WINDOW、keyboard / IME、Linux runner / CLI dispatch、support gate `Ok` 化はまだ行わない。
+
+実装:
+
+- X11 setup success body の 32 byte fixed body、vendor string + 4 byte padding、pixmap format list、first screen header を checked arithmetic で読む parser を追加する。
+- `NativeWindowLinuxX11SetupResourceInfo` は `resource_id_base`、`resource_id_mask`、`first_root_window_id` を private field として保持し、read-only accessor だけを公開する。
+- parse error は `NativeWindowLinuxX11SetupResourceInfoParseError` とし、short body、section truncation、offset overflow、mask zero、base/mask overlap、client id high bits、root count zero、root id zero を分ける。
+- first root window id は server-owned id なので client resource id mask/base validation を適用せず、zero だけ拒否する。
+- `native_window_linux_x11_resource_id_from_serial` は sparse mask に対応し、serial bit を mask set bit へ low-to-high に詰める。
+- allocation error は `NativeWindowLinuxX11ResourceIdAllocationError` とし、serial zero、serial exhausted、generated id zero、base/mask invariant violation を分ける。
+- `NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes を保持し、body read 完了時に parser を呼ぶ。parse failure は `SetupResourceInfoParseFailed` で fail-closed にする。
+- empty setup body は historical scripted observation compatibility の `Ok(None)` として扱い、native GUI readiness や synthetic root window discovery には使わない。
+- Rust focused tests は success body parse、invalid client id space、missing/truncated screen、sparse mask allocation、partial setup body resume、parse failure fail-closed を検査する。
+- source-policy は F5jq が top-level request generation、runner dispatch、support gate `Ok` 化、WM_DELETE_WINDOW、keyboard / IME、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- setup resource info から actual CreateWindow request を生成する mutable window id owner は含めない。
+- server error / reply decode、sequence tracking、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化、fallback、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_resource -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_resource_id -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で setup resource parser、sparse resource allocator、reader fail-closed integration、no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
