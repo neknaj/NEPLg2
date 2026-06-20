@@ -1323,6 +1323,16 @@ matched reply は correlation と parsed `NativeWindowLinuxX11InternAtomReply` �
 
 F5kb は reply correlation boundary だけを担当する。Atom ID の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5kc Native Linux X11 WM protocol Atom meaning assignment boundary
+
+F5kc では、F5kb の correlated `InternAtom` reply を `WM_PROTOCOLS` property Atom と `WM_DELETE_WINDOW` protocol Atom の semantic slot に割り当てる。Rust boundary 名としては、semantic slot を `NativeWindowLinuxX11WmProtocolAtomMeaning`、assignment state を `NativeWindowLinuxX11WmProtocolAtomAssignmentState`、両方が揃った completed owner を `NativeWindowLinuxX11WmProtocolAtoms` とする。
+
+assignment state は `WM_PROTOCOLS` Atom ID と `WM_DELETE_WINDOW` Atom ID を別々の `Option` として保持する。reader は matched reply の parse が成功した場合だけ state を更新し、parse failure と unmatched generic reply では state を変えない。duplicate assignment は typed error とし、既存 slot を上書きしない。
+
+`WmProtocolAtomInternReplyReceived` は parsed reply と completed owner の `Option` を返す。1 つ目の reply では `None`、2 つ目の reply で両 Atom ID が揃った場合だけ `Some NativeWindowLinuxX11WmProtocolAtoms` になる。この `Some` は Atom ID が揃ったことだけを表し、window property が registered されたことは表さない。
+
+F5kc は meaning assignment boundary だけを担当する。actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
