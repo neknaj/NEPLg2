@@ -2601,6 +2601,39 @@ Phase F5jw では、WM_DELETE_WINDOW protocol registration の前段として、
 - `git diff --check`
 - subagent implementation review で InternAtom request owner、counted bytes contract、no raw write/read / no reply correlation / no fallback が承認される。
 
+## Phase F5jx: Native Linux X11 WM protocol atom InternAtom request batch boundary
+
+Phase F5jx では、F5jw の generic `InternAtom` request owner を使い、ICCCM の `WM_PROTOCOLS` と `WM_DELETE_WINDOW` に対する request batch bytes owner を追加する。F5jx は WM protocol registration の前段であり、actual property registration ではない。raw fd write/read、accepted write progress、sequence assignment、reply parsing / correlation、Atom ID owner、`ChangeProperty`、`ClientMessage` decode は行わない。
+
+実装:
+
+- owner は `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch` とし、concatenated request bytes と request boundary offset を所有する。
+- atom kind は `WmProtocols` と `WmDeleteWindow` の enum で表し、future sequence assignment は byte boundary を越えた accepted write progress によってだけ行える形にする。
+- well-known names は `WM_PROTOCOLS`、`WM_DELETE_WINDOW` の fixed ASCII bytes とし、caller supplied arbitrary name helper は public API にしない。
+- 両 request は `only_if_exists = false` で F5jw `native_window_linux_x11_intern_atom_request` に委譲して作る。
+- lower `InternAtom` build failure は atom kind と lower error を保持し、batch length overflow は typed error で fail closed にする。
+- source-policy は batch surface が raw fd write/read、reply parse/correlation、Atom ID owner、`ChangeProperty`、`ClientMessage`、support gate `Ok` 化、fallback、silent no-op、synthetic readiness、registration naming を含まないことを検査する。
+
+非目標:
+
+- request batch の actual write、accepted write progress、sequence assignment は含めない。
+- reply body retention/parser、request / reply correlation、Atom ID owner は含めない。
+- `WM_PROTOCOLS` property の `ChangeProperty`、`WM_DELETE_WINDOW` `ClientMessage` decode は含めない。
+- keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は含めない。
+
+完了条件:
+
+- request order は `WM_PROTOCOLS`、`WM_DELETE_WINDOW` の順に固定される。
+- 両 request は opcode `16` かつ `only_if_exists = false` として encode される。
+- combined bytes は F5jw owner で作った 2 request の単純連結であり、byte boundary offset が exact である。
+- lower error と concat overflow は enum error として保持される。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_request_batch -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で WM protocol atom request batch owner、exact offset、no raw write/read / no registration / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

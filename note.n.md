@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI native F5jx Linux X11 WM protocol atom InternAtom request batch boundary
+
+## 目的
+
+- F5jw の generic `InternAtom` request owner を、WM protocol 登録の前段となる typed batch owner へ接続する。
+- `WM_PROTOCOLS` と `WM_DELETE_WINDOW` の request bytes を固定 order で所有し、future sequence assignment 用の byte boundary offset を保持する。
+- actual raw fd write/read、reply correlation、Atom ID owner、`ChangeProperty`、`ClientMessage` decode は scope 外にする。
+- WM protocol registration 完了と偽装せず、まだ request batch bytes owner だけであることを doc/source-policy に固定する。
+
+## subagent review
+
+- plan review は 2 件とも `PLAN_APPROVED` だった。
+- 指摘は、F5jx を registration ではなく request batch owner と呼ぶこと、`only_if_exists = false` を使うこと、encoding を F5jw helper に委譲すること、sequence number ではなく byte boundary offset だけを保持することだった。
+- 実装方針はこの指摘に従い、raw fd write / reply parse / Atom ID / `ChangeProperty` / `ClientMessage` には進まない。
+- implementation review は 2 件とも承認だった。
+- 指摘は無く、pure batch owner、F5jw helper delegation、exact offset、lower error wrapping、no raw fd / no reply / no registration / no fallback が確認された。
+
+## 実装
+
+- `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch` と `NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError` を追加した。
+- `native_window_linux_x11_wm_protocol_atom_intern_request_batch` は `WM_PROTOCOLS`、`WM_DELETE_WINDOW` の順で `InternAtom(false, name)` request を連結する。
+- batch owner は combined bytes、`WM_PROTOCOLS` end offset、`WM_DELETE_WINDOW` start / end offset を保持する。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jx contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_request_batch -- --nocapture` は 3 件通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は 82 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 461 件通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- InternAtom request batch write、accepted write progress 由来の sequence assignment、InternAtom reply body owner / parser、request / reply correlation、Atom ID owner、`ChangeProperty` による actual `WM_PROTOCOLS` property 登録、`WM_DELETE_WINDOW` `ClientMessage` decode は未接続。
+
 # 2026-06-21 Agent2 GUI native F5jw Linux X11 InternAtom request owner boundary
 
 ## 目的
