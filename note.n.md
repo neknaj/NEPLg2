@@ -1,3 +1,47 @@
+# 2026-06-20 Agent2 GUI native F5ji Linux Xauthority process environment adapter boundary
+
+## scope
+
+- F5jh の injected environment reader に対する cfg Linux actual process environment adapter を追加する。
+- `AuthorityFilePath` は `XAUTHORITY`、`HomeDirectoryPath` は `HOME` へ固定 mapping する。
+- `NotPresent` は `Ok None`、`NotUnicode` は raw `OsString` を保持する typed error とし、missing と同一視しない。
+- filesystem / VFS adapter、file bytes read、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- `NotUnicode` は `OsString` を保持し、helper は F5jh の path-plan helper へ委譲する方針が承認された。
+- actual adapter surface と F5jh injected reader surface を source policy で分ける方針が承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityProcessEnvironmentReader` と `NativeWindowLinuxX11XauthorityProcessEnvironmentReadError` を追加した。
+- `std::env::var` の `NotPresent` / `NotUnicode` を明示的に `Result Option String` / typed error へ写す変換 helper を追加した。
+- `native_window_linux_x11_xauthority_path_plan_from_process_environment` を追加し、F5jh helper への委譲だけを行う。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5ji contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5ji の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、`NotPresent -> Ok None`、`NotUnicode` raw `OsString` 保持、F5jh path-plan helper への委譲、`.ok()` / fs / runner / fallback 禁止は満たしていると確認された。
+- blocker は F5ji 節に implementation review 結果が記録されていないことだけだったため、この節を追加して対応した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jh Linux Xauthority environment acquisition boundary
 
 ## scope
@@ -37,7 +81,7 @@
 
 ## residual
 
-- actual environment adapter、actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration は未実装である。
+- F5ji で actual process environment adapter は接続済みである。actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration は未実装である。
 
 # 2026-06-20 Agent2 GUI native F5jg Linux Xauthority file bytes acquisition boundary
 
@@ -83,7 +127,7 @@
 
 ## residual
 
-- `XAUTHORITY` / `HOME` acquisition boundary と actual filesystem / VFS adapter は未実装である。
+- `XAUTHORITY` / `HOME` acquisition boundary は F5jh / F5ji で接続済みである。actual filesystem / VFS adapter は未実装である。
 - credential selection / setup request integration、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
 
 # 2026-06-20 Agent2 GUI native F5jf Linux Xauthority lookup path request boundary
