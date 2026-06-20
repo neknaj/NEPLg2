@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5im Linux externally-wakeable event source run-loop host boundary
+
+## scope
+
+- F5il owner を backend-only path へ public 分解せず、owner 全体を保持したまま `NativeWindowRunLoopHost` の wait hook として使う境界を追加する。
+- Linux selector / timerfd backend による wait と external signal producer の所有を同じ wrapper に閉じる。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence / scheduler-ready evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- owner の public `into_parts` を private 化または削除し、source policy で public split を禁止することが条件として確認された。
+- new wrapper は backend 単体ではなく `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` 全体を保持することが条件として確認された。
+- wait は owner 内 backend へ渡し、signal は producer にだけ委譲し、support gate、CLI dispatch、Linux runner、fallback、synthetic readiness を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter` を追加し、owner 全体と timer registration id cursor を保持するようにした。
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost` を追加し、visual host operation は inner host、wait operation は owner-retaining adapter へ委譲するようにした。
+- owner の public `into_parts` を削除し、backend 単体を owner から public に取り出せないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5im contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、public owner split が消え、wrapper が full owner を保持し、backend-only platform wrapper へ逃げず、signal が producer にだけ委譲され、fallback / synthetic runner path が source policy で固定されていることは確認された。
+- 指摘は、この section の `verification_current` と `implementation_review` が最新状態を記録していなかったことだった。
+- 指摘対応として、node source policy と broader native lib test の pass、初回 review result をこの欄へ記録した。
+- 追加検証の window bin test、Linux target check、`git diff --check` も記録したうえで再レビューを受け、`REVIEW_APPROVED_TO_COMMIT` が返った。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5il Linux externally-wakeable event source owner boundary
 
 ## scope

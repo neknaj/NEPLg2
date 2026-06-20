@@ -1422,6 +1422,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - minifb `InputCallback` を blocking wait readiness source として扱わない。
 
+### Phase F5im: Native Linux externally-wakeable event source run-loop host boundary
+
+目的:
+
+- F5il owner を backend と producer に public 分解せず、owner 全体を保持したまま `NativeWindowRunLoopHost` の wait hook として使える境界を追加する。
+- Linux selector / timerfd backend による wait と external signal producer の所有を同じ wrapper に閉じ、producer を落として backend だけを既存 single-owner wrapper へ渡す経路を閉じる。
+- wait hook は backend-observed readiness だけを outcome へ写し、signal request は producer にだけ委譲する。
+
+実装:
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter` を追加し、`next_raw_id` と `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` を保持する。
+- `execute_native_window_host_loop_linux_externally_wakeable_event_source_wait_with_adapter` を追加し、host event wait と frame interval wait を owner 内 backend へ委譲する。
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost` を追加し、visual host operation は inner host、wait operation は owner-retaining adapter へ委譲する。
+- owner の public `into_parts` を削除し、backend 単体を owner から public に取り出せないようにする。
+
+検証:
+
+- Rust unit tests で owner-retaining run-loop host が host event wait を backend へ渡し、inner host の wait hook を呼ばないことを検査する。
+- Rust unit tests で frame interval wait 後も producer が保持され、signal 可能であることを検査する。
+- source policy で public owner split、backend-only wrapper への逃げ道、Linux runner / CLI / minifb / fallback / synthetic evidence 非導入を固定する。
+
+非目標:
+
+- Linux platform wait runner support gate を `Ok` にしない。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- owner-retaining adapter を generic platform wait backend selection や minifb default runner へ接続しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

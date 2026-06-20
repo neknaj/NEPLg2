@@ -4715,15 +4715,6 @@ where
         &mut self.producer
     }
 
-    pub fn into_parts(
-        self,
-    ) -> (
-        NativeWindowHostLoopLinuxSelectorTimerFdBackend<BackendApi>,
-        NativeWindowHostLoopLinuxHostEventSignalProducer<ProducerApi>,
-    ) {
-        (self.backend, self.producer)
-    }
-
     pub fn are_handles_open(&self) -> bool {
         self.backend.are_handles_open() && self.producer.are_handles_open()
     }
@@ -4785,6 +4776,291 @@ where
     fn drop(&mut self) {
         self.close_handles_if_open();
     }
+}
+
+pub struct NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<
+    BackendApi,
+    ProducerApi,
+> where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    next_raw_id: u32,
+    owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+}
+
+impl<BackendApi, ProducerApi>
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn new(
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+    ) -> Self {
+        Self {
+            next_raw_id: 1,
+            owner,
+        }
+    }
+
+    pub fn next_raw_id(&self) -> u32 {
+        self.next_raw_id
+    }
+
+    pub fn owner(
+        &self,
+    ) -> &NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi> {
+        &self.owner
+    }
+
+    pub fn owner_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>
+    {
+        &mut self.owner
+    }
+
+    pub fn into_owner(
+        self,
+    ) -> NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi> {
+        self.owner
+    }
+
+    pub fn signal_host_event(
+        &mut self,
+    ) -> Result<(), NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        self.owner.signal_host_event()
+    }
+}
+
+pub fn execute_native_window_host_loop_linux_externally_wakeable_event_source_wait_with_adapter<
+    BackendApi,
+    ProducerApi,
+>(
+    instruction: NativeWindowHostLoopWaitInstruction,
+    adapter: &mut NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<
+        BackendApi,
+        ProducerApi,
+    >,
+) -> Result<
+    NativeWindowHostLoopWaitOutcome,
+    NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    >,
+>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    match instruction {
+        NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+            window_size,
+            size_changed,
+        } => {
+            adapter
+                .owner
+                .backend_mut()
+                .wait_for_host_event(window_size, size_changed)
+                .map_err(
+                    NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::HostEventWaitFailed,
+                )?;
+            Ok(NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed,
+            })
+        }
+        NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+            presentation,
+            window_size,
+            size_changed,
+            frame_interval,
+            wait_nanos,
+        } => {
+            let nanos_per_frame = frame_interval.nanos_per_frame();
+            if wait_nanos != nanos_per_frame && wait_nanos != nanos_per_frame + 1 {
+                return Err(
+                    NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitNanosMismatch {
+                        wait_nanos,
+                        nanos_per_frame,
+                    },
+                );
+            }
+            let raw_id = adapter.next_raw_id;
+            let next_raw_id = raw_id.checked_add(1).ok_or(
+                NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::TimerRegistrationIdOverflow {
+                    last_raw_id: raw_id,
+                },
+            )?;
+            let now_nanos = adapter.owner.backend_mut().now_nanos().map_err(
+                NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::ClockFailed,
+            )?;
+            let deadline_nanos = now_nanos.checked_add(u64::from(wait_nanos)).ok_or(
+                NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::DeadlineNanosOverflow {
+                    now_nanos,
+                    wait_nanos,
+                },
+            )?;
+            adapter.next_raw_id = next_raw_id;
+            match adapter
+                .owner
+                .backend_mut()
+                .wait_until_deadline_or_host_event(deadline_nanos, window_size, size_changed)
+                .map_err(
+                    NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError::FrameIntervalWaitFailed,
+                )?
+            {
+                NativeWindowHostLoopLinuxSelectorTimerFdWake::HostEventReady => {
+                    Ok(NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                        window_size,
+                        size_changed,
+                    })
+                }
+                NativeWindowHostLoopLinuxSelectorTimerFdWake::TimerFired => {
+                    Ok(NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                        presentation,
+                        window_size,
+                        size_changed,
+                        wait_nanos,
+                        timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id },
+                    })
+                }
+            }
+        }
+    }
+}
+
+pub struct NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+    Host,
+    BackendApi,
+    ProducerApi,
+> where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    host: Host,
+    wait_adapter:
+        NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<BackendApi, ProducerApi>,
+}
+
+impl<Host, BackendApi, ProducerApi>
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<Host, BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn new(
+        host: Host,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+    ) -> Self {
+        Self {
+            host,
+            wait_adapter: NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter::new(
+                owner,
+            ),
+        }
+    }
+
+    pub fn host(&self) -> &Host {
+        &self.host
+    }
+
+    pub fn host_mut(&mut self) -> &mut Host {
+        &mut self.host
+    }
+
+    pub fn wait_adapter(
+        &self,
+    ) -> &NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<BackendApi, ProducerApi>
+    {
+        &self.wait_adapter
+    }
+
+    pub fn wait_adapter_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<
+        BackendApi,
+        ProducerApi,
+    > {
+        &mut self.wait_adapter
+    }
+
+    pub fn signal_host_event(
+        &mut self,
+    ) -> Result<(), NativeWindowHostLoopLinuxHostEventSignalProducerError> {
+        self.wait_adapter.signal_host_event()
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        Host,
+        NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter<BackendApi, ProducerApi>,
+    ) {
+        (self.host, self.wait_adapter)
+    }
+}
+
+impl<Host, BackendApi, ProducerApi> NativeWindowRunLoopHost
+    for NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<
+        Host,
+        BackendApi,
+        ProducerApi,
+    >
+where
+    Host: NativeWindowRunLoopHost,
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    type EventError = Host::EventError;
+    type PresentError = Host::PresentError;
+    type WaitError = NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError<
+        NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+    >;
+
+    fn poll_event_snapshot(
+        &mut self,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::EventError> {
+        self.host.poll_event_snapshot(input)
+    }
+
+    fn set_window_title(&mut self, title: &str) {
+        self.host.set_window_title(title);
+    }
+
+    fn pump_events_only(&mut self) {
+        self.host.pump_events_only();
+    }
+
+    fn present_frame(&mut self, frame: NativePresenterFrame<'_>) -> Result<(), Self::PresentError> {
+        self.host.present_frame(frame)
+    }
+
+    fn wait_after_budget_exhausted(
+        &mut self,
+        instruction: NativeWindowHostLoopWaitInstruction,
+    ) -> Result<NativeWindowHostLoopWaitOutcome, Self::WaitError> {
+        execute_native_window_host_loop_linux_externally_wakeable_event_source_wait_with_adapter(
+            instruction,
+            &mut self.wait_adapter,
+        )
+    }
+}
+
+pub fn native_window_host_loop_linux_externally_wakeable_event_source_run_loop_host_from_owner<
+    Host,
+    BackendApi,
+    ProducerApi,
+>(
+    host: Host,
+    owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+) -> NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<Host, BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost::new(host, owner)
 }
 
 impl<Api> NativeWindowHostLoopDeadlineTimerClock
@@ -17028,6 +17304,127 @@ mod tests {
                 ..
             } => panic!("closed backend must be reported before producer creation"),
         }
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_run_loop_host_waits_without_splitting_owner() {
+        let window_size = NativeWindowSize::new(640, 480);
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5)
+            .with_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_HOST_EVENT_READY,
+            ]);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(20);
+        let owner =
+            native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+                backend,
+                producer_api,
+            )
+            .unwrap();
+        let mut host =
+            native_window_host_loop_linux_externally_wakeable_event_source_run_loop_host_from_owner(
+                ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+                owner,
+            );
+
+        assert_eq!(host.signal_host_event().unwrap(), ());
+        assert_eq!(
+            host.wait_after_budget_exhausted(
+                NativeWindowHostLoopWaitInstruction::WaitForHostEvent {
+                    window_size,
+                    size_changed: true,
+                },
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::HostEventPumpAlreadyPaced {
+                window_size,
+                size_changed: true,
+            }
+        );
+        assert!(host.host().wait_instructions.is_empty());
+        assert_eq!(
+            host.wait_adapter().owner().backend().api().event_wait_calls,
+            vec![(4, 6)]
+        );
+        assert!(host
+            .wait_adapter()
+            .owner()
+            .backend()
+            .api()
+            .signal_host_event_calls
+            .is_empty());
+        assert_eq!(
+            host.wait_adapter().owner().producer().api().signal_calls,
+            vec![20]
+        );
+        assert!(host.wait_adapter().owner().are_handles_open());
+    }
+
+    #[test]
+    fn native_window_linux_externally_wakeable_run_loop_host_keeps_producer_after_timer_wait() {
+        let window_size = NativeWindowSize::new(320, 200);
+        let frame_interval = native_window_frame_interval_request(NativeWindowTargetFps::default());
+        let wait_nanos = frame_interval.nanos_per_frame();
+        let presentation = NativeWindowBackendLoopPresentation {
+            frame_id: 31,
+            width: window_size.width,
+            height: window_size.height,
+        };
+        let backend_api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(8, 9)
+            .with_timer_or_event_statuses(vec![
+                NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_TIMER_FIRED,
+            ]);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(30);
+        let owner =
+            native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+                backend,
+                producer_api,
+            )
+            .unwrap();
+        let mut host =
+            native_window_host_loop_linux_externally_wakeable_event_source_run_loop_host_from_owner(
+                ScriptedNativeWindowRunLoopHost::new(Vec::new()),
+                owner,
+            );
+
+        assert_eq!(
+            host.wait_after_budget_exhausted(
+                NativeWindowHostLoopWaitInstruction::WaitForFrameInterval {
+                    presentation,
+                    window_size,
+                    size_changed: false,
+                    frame_interval,
+                    wait_nanos,
+                },
+            )
+            .unwrap(),
+            NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired {
+                presentation,
+                window_size,
+                size_changed: false,
+                wait_nanos,
+                timer_registration_id: NativeWindowHostLoopTimerRegistrationId { raw_id: 1 },
+            }
+        );
+        assert_eq!(host.wait_adapter().next_raw_id(), 2);
+        assert_eq!(
+            host.wait_adapter().owner().backend().api().timer_wait_calls,
+            vec![(8, 9, 10)]
+        );
+        assert!(host
+            .wait_adapter()
+            .owner()
+            .backend()
+            .api()
+            .event_wait_calls
+            .is_empty());
+        assert_eq!(host.signal_host_event().unwrap(), ());
+        assert_eq!(
+            host.wait_adapter().owner().producer().api().signal_calls,
+            vec![30]
+        );
+        assert!(host.wait_adapter().owner().are_handles_open());
     }
 
     #[cfg(all(feature = "window", target_os = "linux", not(target_arch = "wasm32")))]
