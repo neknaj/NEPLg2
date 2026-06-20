@@ -1301,6 +1301,16 @@ F5jz は current observation reader には接続しない。現在の reader は
 
 F5jz は raw fd write/read、reader mutation、accepted write progress、request / reply correlation、WM protocol batch sequence assignment、`ChangeProperty` による `WM_PROTOCOLS` property mutation、`ClientMessage` decode、MapWindow scheduling relocation、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5ka Native Linux X11 InternAtom batch partial-write scheduling boundary
+
+F5ka では、F5jx の `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch` を `NativeWindowLinuxX11EventSourceObservationReader` の explicit optional owner state として接続する。WM protocol batch が構成された reader は、F5jy の split owner boundary に基づき `CreateWindow -> InternAtom batch -> MapWindow` の順で raw write を進める。
+
+この boundary は MapWindow を InternAtom batch より前に送らないための最小 scheduling split を含む。batch が構成されていない reader は、従来互換の combined top-level request path を使うが、これは WM protocol registration 完了を意味しない。batch configured path と unconfigured path は state で明示的に分かれ、fallback や silent no-op として扱わない。
+
+`NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState` は `NotConfigured`、`BatchPending`、`Ready`、`Failed` を持つ。would-block は state を保持して retryable typed error を返し、hard failure、zero write、overflow は `Failed` へ進める。failed state の再 poll は previous failure として fail closed にする。
+
+CreateWindow / MapWindow の accepted sequence は既存 top-level sequence plan が保持する。InternAtom batch については request boundary offset を使って `next_x11_request_sequence` だけを request 完了時に進める。F5ka は InternAtom reply retain / parse / correlation、Atom ID の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、`ChangeProperty` による property mutation、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness を扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
