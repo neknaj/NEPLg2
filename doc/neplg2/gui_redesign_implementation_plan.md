@@ -2254,6 +2254,39 @@ Phase F5jl では、F5jg / F5jk までで得た `NativeWindowLinuxX11XauthorityF
 - `git diff --check`
 - subagent implementation review で F5jl が one-call selection / one-call setup builder の接続に留まり、no-auth fallback、raw API、env / fs / VFS、runner dispatch が混入していないことが承認される。
 
+## Phase F5jm: Native Linux Xauthority local authority address owner boundary
+
+Phase F5jm では、Xauthority `FamilyLocal` record の address と照合する local authority address を typed owner として扱う境界を追加する。これは injected reader から得た caller / host supplied hostname-equivalent bytes を検査して owner 化し、既存の selector criteria helper へ渡すための境界である。actual hostname / process identity acquisition は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11LocalAuthorityAddress` は private `Vec<u8>` owner とし、`as_bytes` / `len` だけを公開する。
+- `NativeWindowLinuxX11LocalAuthorityAddressReader` は `read_x11_local_authority_address` だけを持つ injected reader trait とする。
+- `NativeWindowLinuxX11LocalAuthorityAddressReadError` は `ReadFailed`、`EmptyAddress`、`AddressTooLong`、`AddressContainsNul` を持つ。
+- `native_window_linux_x11_local_authority_address_with_limit` は reader を 1 回だけ呼び、空 address、max byte length 超過、NUL byte を typed error として拒否する。
+- `native_window_linux_x11_local_authority_address` は standard max byte length で helper を呼ぶ。
+- `native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address` は `NativeWindowLinuxX11LocalAuthorityAddress` を借用し、既存 `native_window_linux_x11_xauthority_local_selector_criteria_from_display` へ接続する。
+- source policy は F5jm surface に `Family::Wild` fallback、empty fallback、hostname / gethostname / env / fs / VFS、raw API、window setup、runner、support gate `Ok` 化、fallback、silent no-op、synthetic readiness が混入しないことを固定する。
+
+非目標:
+
+- actual `gethostname` / process hostname / platform identity acquisition は扱わない。
+- `DISPLAY` env acquisition、`XAUTHORITY` / `HOME` env acquisition、filesystem / VFS file bytes read、path planning は扱わない。
+- credential selection、setup request integration、X11 raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- no-auth fallback、wild fallback、fallback snapshot、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- `git diff --check`
+- subagent implementation review で F5jm が injected local-authority-address owner boundary に留まり、actual hostname acquisition、env / fs / VFS、raw API、window setup、runner dispatch が混入していないことが承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

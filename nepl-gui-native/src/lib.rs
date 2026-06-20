@@ -7290,6 +7290,7 @@ pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD: u16 = 65535;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN: usize = 10;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_HOME_DEFAULT_FILE_NAME: &str = ".Xauthority";
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN: usize = 1024 * 1024;
+pub const NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN: usize = 255;
 
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
@@ -7449,6 +7450,32 @@ pub struct NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
     display_number_bytes: [u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN],
     display_number_byte_len: usize,
     preferred_protocol_name: Option<&'a [u8]>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11LocalAuthorityAddress {
+    bytes: Vec<u8>,
+}
+
+pub trait NativeWindowLinuxX11LocalAuthorityAddressReader {
+    type Error;
+
+    fn read_x11_local_authority_address(&mut self) -> Result<Vec<u8>, Self::Error>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11LocalAuthorityAddressReadError<ReaderError> {
+    ReadFailed {
+        error: ReaderError,
+    },
+    EmptyAddress,
+    AddressTooLong {
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    AddressContainsNul {
+        byte_index: usize,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7738,6 +7765,20 @@ impl<'a> NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
     }
 }
 
+impl NativeWindowLinuxX11LocalAuthorityAddress {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
     pub fn new(authority_file_path: Option<&'a str>, home_directory_path: Option<&'a str>) -> Self {
         Self {
@@ -7948,6 +7989,57 @@ where
     )
 }
 
+pub fn native_window_linux_x11_local_authority_address_with_limit<Reader>(
+    reader: &mut Reader,
+    max_byte_len: usize,
+) -> Result<
+    NativeWindowLinuxX11LocalAuthorityAddress,
+    NativeWindowLinuxX11LocalAuthorityAddressReadError<Reader::Error>,
+>
+where
+    Reader: NativeWindowLinuxX11LocalAuthorityAddressReader,
+{
+    let bytes = reader.read_x11_local_authority_address().map_err(|error| {
+        NativeWindowLinuxX11LocalAuthorityAddressReadError::ReadFailed { error }
+    })?;
+    if bytes.is_empty() {
+        return Err(NativeWindowLinuxX11LocalAuthorityAddressReadError::EmptyAddress);
+    }
+    if bytes.len() > max_byte_len {
+        return Err(
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::AddressTooLong {
+                byte_len: bytes.len(),
+                max_byte_len,
+            },
+        );
+    }
+    for (byte_index, byte) in bytes.iter().enumerate() {
+        if *byte == 0 {
+            return Err(
+                NativeWindowLinuxX11LocalAuthorityAddressReadError::AddressContainsNul {
+                    byte_index,
+                },
+            );
+        }
+    }
+    Ok(NativeWindowLinuxX11LocalAuthorityAddress::new(bytes))
+}
+
+pub fn native_window_linux_x11_local_authority_address<Reader>(
+    reader: &mut Reader,
+) -> Result<
+    NativeWindowLinuxX11LocalAuthorityAddress,
+    NativeWindowLinuxX11LocalAuthorityAddressReadError<Reader::Error>,
+>
+where
+    Reader: NativeWindowLinuxX11LocalAuthorityAddressReader,
+{
+    native_window_linux_x11_local_authority_address_with_limit(
+        reader,
+        NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN,
+    )
+}
+
 fn native_window_linux_x11_xauthority_display_number_bytes(
     display_number: u32,
 ) -> (
@@ -7987,6 +8079,19 @@ pub fn native_window_linux_x11_xauthority_local_selector_criteria_from_display<'
         display_number,
         preferred_protocol_name,
     ))
+}
+
+pub fn native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address<'a>(
+    display: &str,
+    local_authority_address: &'a NativeWindowLinuxX11LocalAuthorityAddress,
+    preferred_protocol_name: Option<&'a [u8]>,
+) -> Result<NativeWindowLinuxX11XauthoritySelectorCriteria<'a>, NativeWindowLinuxX11DisplayNameError>
+{
+    native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+        display,
+        local_authority_address.as_bytes(),
+        preferred_protocol_name,
+    )
 }
 
 fn native_window_linux_x11_xauthority_remaining_byte_count(bytes: &[u8], offset: usize) -> usize {
@@ -16965,6 +17070,11 @@ mod tests {
     }
 
     #[derive(Clone, Debug, Eq, PartialEq)]
+    enum ScriptedX11LocalAuthorityAddressReadError {
+        Unavailable,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
     struct ScriptedXauthorityEnvironmentReadStep {
         variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
         result: Result<Option<String>, ScriptedXauthorityEnvironmentReadError>,
@@ -16986,6 +17096,11 @@ mod tests {
         expected_path: &'static str,
         result: Option<Result<Vec<u8>, ScriptedXauthorityVfsFileReadError>>,
         seen_path: Option<String>,
+    }
+
+    struct ScriptedX11LocalAuthorityAddressReader {
+        result: Option<Result<Vec<u8>, ScriptedX11LocalAuthorityAddressReadError>>,
+        call_count: usize,
     }
 
     impl ScriptedXauthorityEnvironmentReadStep {
@@ -17045,6 +17160,19 @@ mod tests {
         }
     }
 
+    impl ScriptedX11LocalAuthorityAddressReader {
+        fn new(result: Result<Vec<u8>, ScriptedX11LocalAuthorityAddressReadError>) -> Self {
+            Self {
+                result: Some(result),
+                call_count: 0,
+            }
+        }
+
+        fn call_count(&self) -> usize {
+            self.call_count
+        }
+    }
+
     impl NativeWindowLinuxX11XauthorityEnvironmentReader for ScriptedXauthorityEnvironmentReader {
         type Error = ScriptedXauthorityEnvironmentReadError;
 
@@ -17085,6 +17213,17 @@ mod tests {
             self.result
                 .take()
                 .expect("scripted xauthority vfs file source result should be available")
+        }
+    }
+
+    impl NativeWindowLinuxX11LocalAuthorityAddressReader for ScriptedX11LocalAuthorityAddressReader {
+        type Error = ScriptedX11LocalAuthorityAddressReadError;
+
+        fn read_x11_local_authority_address(&mut self) -> Result<Vec<u8>, Self::Error> {
+            self.call_count += 1;
+            self.result
+                .take()
+                .expect("scripted local authority address result should be available")
         }
     }
 
@@ -18712,6 +18851,100 @@ mod tests {
                 error: ScriptedXauthorityFileReadError::PermissionDenied,
             }
         );
+    }
+
+    #[test]
+    fn native_window_linux_x11_local_authority_address_preserves_exact_bytes() {
+        let mut reader =
+            ScriptedX11LocalAuthorityAddressReader::new(Ok(b"workstation-01".to_vec()));
+
+        let address = native_window_linux_x11_local_authority_address(&mut reader).unwrap();
+
+        assert_eq!(reader.call_count(), 1);
+        assert_eq!(address.as_bytes(), b"workstation-01");
+        assert_eq!(address.len(), b"workstation-01".len());
+    }
+
+    #[test]
+    fn native_window_linux_x11_local_authority_address_preserves_reader_failure() {
+        let mut reader = ScriptedX11LocalAuthorityAddressReader::new(Err(
+            ScriptedX11LocalAuthorityAddressReadError::Unavailable,
+        ));
+
+        assert_eq!(
+            native_window_linux_x11_local_authority_address(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::ReadFailed {
+                error: ScriptedX11LocalAuthorityAddressReadError::Unavailable,
+            }
+        );
+        assert_eq!(reader.call_count(), 1);
+    }
+
+    #[test]
+    fn native_window_linux_x11_local_authority_address_rejects_empty_too_long_and_nul() {
+        let mut empty_reader = ScriptedX11LocalAuthorityAddressReader::new(Ok(Vec::new()));
+        assert_eq!(
+            native_window_linux_x11_local_authority_address_with_limit(&mut empty_reader, 8)
+                .unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::EmptyAddress
+        );
+
+        let mut large_reader = ScriptedX11LocalAuthorityAddressReader::new(Ok(b"toolong".to_vec()));
+        assert_eq!(
+            native_window_linux_x11_local_authority_address_with_limit(&mut large_reader, 3)
+                .unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::AddressTooLong {
+                byte_len: 7,
+                max_byte_len: 3,
+            }
+        );
+
+        let mut nul_reader =
+            ScriptedX11LocalAuthorityAddressReader::new(Ok(b"host\0name".to_vec()));
+        assert_eq!(
+            native_window_linux_x11_local_authority_address_with_limit(&mut nul_reader, 16)
+                .unwrap_err(),
+            NativeWindowLinuxX11LocalAuthorityAddressReadError::AddressContainsNul {
+                byte_index: 4,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selector_criteria_uses_authority_address_owner() {
+        let cookie = [51_u8, 52, 53, 54, 55, 56, 57, 58];
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"owned-host",
+            b"5",
+            b"MIT-MAGIC-COOKIE-1",
+            &cookie,
+        );
+        let mut reader = ScriptedX11LocalAuthorityAddressReader::new(Ok(b"owned-host".to_vec()));
+        let address = native_window_linux_x11_local_authority_address(&mut reader).unwrap();
+
+        let criteria =
+            native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address(
+                ":5.2",
+                &address,
+                Some(b"MIT-MAGIC-COOKIE-1"),
+            )
+            .unwrap();
+
+        assert_eq!(criteria.address(), address.as_bytes());
+        assert_eq!(criteria.display_number(), b"5");
+        let selection =
+            native_window_linux_x11_xauthority_select_credential(&bytes, criteria.selector())
+                .unwrap();
+        match selection {
+            NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+                assert_eq!(credential.protocol_name(), b"MIT-MAGIC-COOKIE-1");
+                assert_eq!(credential.protocol_data(), &cookie);
+            }
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+                panic!("expected owner-backed authority address to select exact record")
+            }
+        }
     }
 
     #[test]
