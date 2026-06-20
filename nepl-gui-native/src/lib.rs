@@ -7307,6 +7307,16 @@ pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_VISUAL: u32 = 0
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS: u16 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2;
+pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN: usize =
+    ((NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS as usize)
+        + (NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT as usize))
+        * 4;
+pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN: usize =
+    (NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS as usize) * 4;
+pub const NATIVE_WINDOW_LINUX_X11_TOP_LEVEL_WINDOW_REQUEST_BYTE_LEN: usize =
+    NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+        + NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN;
+pub const NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE: u16 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_BACKGROUND_PIXEL: u32 = 0x0000_0002;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK: u32 = 0x0000_0800;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS: u32 = 0x0000_0004;
@@ -7349,6 +7359,20 @@ pub enum NativeWindowLinuxX11TopLevelWindowRequestWriteState {
     RequestPending,
     Ready,
     Failed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11ServerErrorCorrelation {
+    Unmatched,
+    TopLevelWindowCreate { window_id: u32 },
+    TopLevelWindowMap { window_id: u32 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+    window_id: u32,
+    create_window_sequence: Option<u16>,
+    map_window_sequence: Option<u16>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7428,6 +7452,7 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     },
     ServerErrorReceived {
         error: NativeWindowLinuxX11ServerErrorPacket,
+        correlation: NativeWindowLinuxX11ServerErrorCorrelation,
     },
     ServerReplyReceived {
         reply: NativeWindowLinuxX11ServerReplyHeader,
@@ -7866,6 +7891,9 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     top_level_window_request: Option<NativeWindowLinuxX11TopLevelWindowCreateRequest>,
     top_level_window_request_state: NativeWindowLinuxX11TopLevelWindowRequestWriteState,
     top_level_window_request_written_len: usize,
+    top_level_window_request_sequence_plan:
+        Option<NativeWindowLinuxX11TopLevelWindowRequestSequencePlan>,
+    next_x11_request_sequence: u16,
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
     setup_prefix_len: usize,
     setup_body_remaining_len: usize,
@@ -9332,6 +9360,57 @@ impl NativeWindowLinuxX11ServerErrorPacket {
     }
 }
 
+impl NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+    pub fn new(window_id: u32) -> Self {
+        Self {
+            window_id,
+            create_window_sequence: None,
+            map_window_sequence: None,
+        }
+    }
+
+    pub fn window_id(&self) -> u32 {
+        self.window_id
+    }
+
+    pub fn create_window_sequence(&self) -> Option<u16> {
+        self.create_window_sequence
+    }
+
+    pub fn map_window_sequence(&self) -> Option<u16> {
+        self.map_window_sequence
+    }
+
+    fn record_create_window_sequence(&mut self, sequence: u16) {
+        if self.create_window_sequence.is_none() {
+            self.create_window_sequence = Some(sequence);
+        }
+    }
+
+    fn record_map_window_sequence(&mut self, sequence: u16) {
+        if self.map_window_sequence.is_none() {
+            self.map_window_sequence = Some(sequence);
+        }
+    }
+
+    fn server_error_correlation(
+        &self,
+        error: NativeWindowLinuxX11ServerErrorPacket,
+    ) -> NativeWindowLinuxX11ServerErrorCorrelation {
+        if self.create_window_sequence == Some(error.sequence()) {
+            return NativeWindowLinuxX11ServerErrorCorrelation::TopLevelWindowCreate {
+                window_id: self.window_id,
+            };
+        }
+        if self.map_window_sequence == Some(error.sequence()) {
+            return NativeWindowLinuxX11ServerErrorCorrelation::TopLevelWindowMap {
+                window_id: self.window_id,
+            };
+        }
+        NativeWindowLinuxX11ServerErrorCorrelation::Unmatched
+    }
+}
+
 impl NativeWindowLinuxX11ServerReplyHeader {
     pub fn reply_data(&self) -> u8 {
         self.reply_data
@@ -9424,15 +9503,24 @@ fn native_window_linux_x11_event_pointer_raw(
 fn native_window_linux_x11_event_packet_to_observation(
     input: NativeWindowEventPumpInput,
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+    top_level_window_request_sequence_plan: Option<
+        NativeWindowLinuxX11TopLevelWindowRequestSequencePlan,
+    >,
 ) -> Result<
     NativeWindowLinuxWindowEventSourceObservation,
     NativeWindowLinuxX11EventSourceObservationError,
 > {
     match native_window_linux_x11_response_type_raw(packet) {
         NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR => {
+            let error = native_window_linux_x11_server_error_packet(packet);
+            let correlation = match top_level_window_request_sequence_plan {
+                Some(plan) => plan.server_error_correlation(error),
+                None => NativeWindowLinuxX11ServerErrorCorrelation::Unmatched,
+            };
             return Err(
                 NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
-                    error: native_window_linux_x11_server_error_packet(packet),
+                    error,
+                    correlation,
                 },
             );
         }
@@ -9509,6 +9597,8 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             top_level_window_request_state:
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured,
             top_level_window_request_written_len: 0,
+            top_level_window_request_sequence_plan: None,
+            next_x11_request_sequence: NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE,
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
             setup_prefix_len: 0,
             setup_body_remaining_len: 0,
@@ -9525,9 +9615,7 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         top_level_window_request: NativeWindowLinuxX11TopLevelWindowCreateRequest,
     ) -> Self {
         let mut reader = Self::new_with_setup_request(api, setup_request);
-        reader.top_level_window_request = Some(top_level_window_request);
-        reader.top_level_window_request_state =
-            NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending;
+        reader.install_top_level_window_request(top_level_window_request);
         reader
     }
 
@@ -9541,6 +9629,20 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         reader.top_level_window_request_state =
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending;
         reader
+    }
+
+    fn install_top_level_window_request(
+        &mut self,
+        top_level_window_request: NativeWindowLinuxX11TopLevelWindowCreateRequest,
+    ) {
+        self.top_level_window_request_sequence_plan =
+            Some(NativeWindowLinuxX11TopLevelWindowRequestSequencePlan::new(
+                top_level_window_request.window_id(),
+            ));
+        self.top_level_window_request = Some(top_level_window_request);
+        self.top_level_window_request_written_len = 0;
+        self.top_level_window_request_state =
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending;
     }
 
     pub fn api(&self) -> &Api {
@@ -9581,6 +9683,16 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         self.top_level_window_request_written_len
     }
 
+    pub fn top_level_window_request_sequence_plan(
+        &self,
+    ) -> Option<NativeWindowLinuxX11TopLevelWindowRequestSequencePlan> {
+        self.top_level_window_request_sequence_plan
+    }
+
+    pub fn next_x11_request_sequence(&self) -> u16 {
+        self.next_x11_request_sequence
+    }
+
     pub fn setup_resource_info(&self) -> Option<NativeWindowLinuxX11SetupResourceInfo> {
         self.setup_resource_info
     }
@@ -9605,6 +9717,38 @@ where
         self.top_level_window_request_state =
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed;
         error
+    }
+
+    fn take_next_x11_request_sequence(&mut self) -> u16 {
+        let sequence = self.next_x11_request_sequence;
+        self.next_x11_request_sequence = self.next_x11_request_sequence.wrapping_add(1);
+        sequence
+    }
+
+    fn record_top_level_window_request_accepted_range(
+        &mut self,
+        previous_written_len: usize,
+        accepted_end_len: usize,
+    ) {
+        if self.top_level_window_request_sequence_plan.is_none() {
+            return;
+        }
+        if previous_written_len < NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+            && accepted_end_len >= NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+        {
+            let sequence = self.take_next_x11_request_sequence();
+            if let Some(plan) = self.top_level_window_request_sequence_plan.as_mut() {
+                plan.record_create_window_sequence(sequence);
+            }
+        }
+        if previous_written_len < NATIVE_WINDOW_LINUX_X11_TOP_LEVEL_WINDOW_REQUEST_BYTE_LEN
+            && accepted_end_len >= NATIVE_WINDOW_LINUX_X11_TOP_LEVEL_WINDOW_REQUEST_BYTE_LEN
+        {
+            let sequence = self.take_next_x11_request_sequence();
+            if let Some(plan) = self.top_level_window_request_sequence_plan.as_mut() {
+                plan.record_map_window_sequence(sequence);
+            }
+        }
     }
 
     fn write_setup_request(
@@ -9671,6 +9815,7 @@ where
         else {
             self.top_level_window_request_state =
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured;
+            self.top_level_window_request_sequence_plan = None;
             return Ok(());
         };
         while self.top_level_window_request_written_len < request_len {
@@ -9681,6 +9826,7 @@ where
                     None => {
                         self.top_level_window_request_state =
                             NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured;
+                        self.top_level_window_request_sequence_plan = None;
                         return Ok(());
                     }
                 };
@@ -9718,7 +9864,19 @@ where
                     ));
                 }
             };
-            if written > remaining {
+            let previous_written_len = self.top_level_window_request_written_len;
+            let accepted_end_len = match previous_written_len.checked_add(written) {
+                Some(accepted_end_len) => accepted_end_len,
+                None => {
+                    return Err(self.fail_top_level_window_request(
+                        NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestWriteOverflow {
+                            byte_count: written,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
+            if accepted_end_len > request_len {
                 return Err(self.fail_top_level_window_request(
                     NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestWriteOverflow {
                         byte_count: written,
@@ -9726,7 +9884,11 @@ where
                     },
                 ));
             }
-            self.top_level_window_request_written_len += written;
+            self.record_top_level_window_request_accepted_range(
+                previous_written_len,
+                accepted_end_len,
+            );
+            self.top_level_window_request_written_len = accepted_end_len;
         }
         self.top_level_window_request_state =
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready;
@@ -9757,10 +9919,7 @@ where
                     },
                 )
             })?;
-        self.top_level_window_request = Some(request);
-        self.top_level_window_request_written_len = 0;
-        self.top_level_window_request_state =
-            NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending;
+        self.install_top_level_window_request(request);
         Ok(())
     }
 
@@ -10030,7 +10189,11 @@ where
         self.read_event_packet(descriptor.raw_fd())?;
         let packet = self.event_packet;
         self.event_packet_len = 0;
-        native_window_linux_x11_event_packet_to_observation(input, &packet)
+        native_window_linux_x11_event_packet_to_observation(
+            input,
+            &packet,
+            self.top_level_window_request_sequence_plan,
+        )
     }
 }
 
@@ -21465,6 +21628,18 @@ mod tests {
         );
         assert_eq!(provider.reader().top_level_window_request_written_len(), 48);
         assert!(provider.reader().top_level_window_request().is_some());
+        assert_eq!(provider.reader().next_x11_request_sequence(), 3);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0001,
+                create_window_sequence: Some(1),
+                map_window_sequence: Some(2),
+            }
+        );
     }
 
     #[test]
@@ -21523,6 +21698,18 @@ mod tests {
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending
         );
         assert_eq!(provider.reader().top_level_window_request_written_len(), 12);
+        assert_eq!(provider.reader().next_x11_request_sequence(), 1);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0002,
+                create_window_sequence: None,
+                map_window_sequence: None,
+            }
+        );
 
         let observation = provider
             .poll_window_event_source_observation(descriptor, input)
@@ -21535,6 +21722,128 @@ mod tests {
         assert_eq!(
             provider.reader().top_level_window_request_state(),
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 3);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0002,
+                create_window_sequence: Some(1),
+                map_window_sequence: Some(2),
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_records_create_sequence_after_request_boundary()
+    {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_0004,
+                0x0000_0123,
+                4,
+                8,
+                800,
+                600,
+                0,
+                0x1122_3344,
+            ),
+        )
+        .unwrap();
+        let setup_len = setup_request.len();
+        let request_bytes = top_level_request.as_bytes().to_vec();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            248,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_error_packet(
+                2,
+                1,
+                0x0020_0004,
+                0,
+                NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE,
+            )),
+        ])
+        .with_write_steps(vec![
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(setup_len),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(
+                NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN,
+            ),
+            ScriptedNativeWindowLinuxX11WriteStep::Error(11),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(
+                request_bytes.len() - NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN,
+            ),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_top_level_window_request(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestWriteWouldBlock
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_written_len(),
+            NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 2);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0004,
+                create_window_sequence: Some(1),
+                map_window_sequence: None,
+            }
+        );
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                error: NativeWindowLinuxX11ServerErrorPacket {
+                    error_code: 2,
+                    sequence: 1,
+                    bad_value: 0x0020_0004,
+                    minor_opcode: 0,
+                    major_opcode: NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE,
+                },
+                correlation: NativeWindowLinuxX11ServerErrorCorrelation::TopLevelWindowCreate {
+                    window_id: 0x0020_0004,
+                },
+            }
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 3);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0004,
+                create_window_sequence: Some(1),
+                map_window_sequence: Some(2),
+            }
         );
     }
 
@@ -21591,6 +21900,19 @@ mod tests {
         assert_eq!(
             provider.reader().top_level_window_request_state(),
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed
+        );
+        assert_eq!(provider.reader().top_level_window_request_written_len(), 0);
+        assert_eq!(provider.reader().next_x11_request_sequence(), 1);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0003,
+                create_window_sequence: None,
+                map_window_sequence: None,
+            }
         );
         assert_eq!(
             provider
@@ -21911,6 +22233,86 @@ mod tests {
                     minor_opcode: 3,
                     major_opcode: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE,
                 },
+                correlation: NativeWindowLinuxX11ServerErrorCorrelation::Unmatched,
+            }
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 1);
+        assert_eq!(
+            provider.reader().top_level_window_request_sequence_plan(),
+            None
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_correlates_server_error_by_sequence() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let top_level_request = native_window_linux_x11_top_level_window_create_request(
+            NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                0x0020_0005,
+                0x0000_0123,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+            ),
+        )
+        .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            249,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_error_packet(
+                2,
+                2,
+                0x0020_0005,
+                0,
+                NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_top_level_window_request(
+                provider,
+                raw_api,
+                setup_request,
+                top_level_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                error: NativeWindowLinuxX11ServerErrorPacket {
+                    error_code: 2,
+                    sequence: 2,
+                    bad_value: 0x0020_0005,
+                    minor_opcode: 0,
+                    major_opcode: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE,
+                },
+                correlation: NativeWindowLinuxX11ServerErrorCorrelation::TopLevelWindowMap {
+                    window_id: 0x0020_0005,
+                },
+            }
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 3);
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request_sequence_plan()
+                .unwrap(),
+            NativeWindowLinuxX11TopLevelWindowRequestSequencePlan {
+                window_id: 0x0020_0005,
+                create_window_sequence: Some(1),
+                map_window_sequence: Some(2),
             }
         );
     }
