@@ -695,3 +695,37 @@ subagent review:
 - `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、event split index 化、proof lookup index 化、stage0 fixture 分割、initialized-state 探索削減。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body adapter stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、HIR-root production path の actual traversal body source 生成を `actual_traversal_body_adapter` helper へ分離した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real Resource IR body、HIR lowering result、cache lookup / insert operation、effect operation はまだ読まない。現 stage0 adapter は `ResourceIrTraversalUnavailable` source record だけを返す。
+
+今回の目的は、request recheck / proof key 生成 / graph id 作成 / owner cleanup を担当する `append_request_result` が、actual body traversal の source 生成責務まで抱え込まないようにすることである。`append_request_result` は adapter を呼び、返された source record を source table に push するだけにした。adapter error が返った場合は source table owner を閉じて fail-closed にする。
+
+production path は引き続き accepted private cache storage、clone-out owned value、fresh witness、GraphInput、Resource proof table、request-evidence proof table、backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key を合成しない。accepted source と matching witness は private fixture 専用のままであり、request identity だけから `PrivateCacheStoragePlace + CloneOutOwnedValueEdge` を作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。adapter が future real-body input boundary を保持すること、stage0 は unavailable source helper だけへ委譲すること、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が unavailable source や resource place id を直接作らないことを固定している。
+
+この分離は今やっておくべき semantic boundary である。actual traversal body を接続した後に request collection と source generation が混ざっていると、探索範囲や owner cleanup の責務が不透明になり、cache に頼らないコンパイル高速化の計算量設計も曖昧になる。一方で、request-key bucket 化、event split index 化、proof lookup index 化、adapter 内 stage0 分岐の分割は後からできる最適化として残す。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-adapter-doctest-current.json`
+
+subagent review:
+
+- Meitner design review は、次 slice を accepted proof 生成ではなく `actual traversal body adapter` の fail-closed unavailable boundary にするべきだと指摘した。actual Resource IR / HIR lowering body を読めるまでは、production path で accepted source や fresh witness を合成せず、既存 classifier / normalizer / collector / candidate checker を経由する必要がある。今回の実装はその指摘に従っている。
+- Wegener implementation review は `REVIEW_APPROVED`。`append_request_result` が direct unavailable source / place id を作らず adapter に委譲していること、adapter stage0 が unavailable-only で accepted source / fresh witness / lower proof / backend / effect / artifact を合成しないこと、source policy と doc comment が今回の境界に合っていることが確認された。
+
+残件:
+
+- adapter の内側で real Resource IR body / HIR lowering result を読み、typed place / edge / observation / unsupported source を生成する。
+- fresh private cache region witness は source generation と別 authority として生成し、matching key / graph / ordinal で照合する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

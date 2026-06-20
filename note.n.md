@@ -76744,3 +76744,38 @@ MERGE_APPROVED
 - actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、operation descriptor fixture ではなく actual traversal 由来の accepted / escaping / observation / unsupported source または operation event を生成する。
 - actual traversal 由来の fresh witness table を生成し、operation-classified actual traversal bundle として request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+## 2026-06-21 selfhost memo_call backend actual traversal body adapter checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、HIR-root production path の actual traversal body source 生成を `actual_traversal_body_adapter` helper に分離した。
+- `append_request_result` は request entry の再検査、proof key 生成、graph id 作成、adapter 呼び出し、source table push、error 時の source table owner cleanup に責務を限定した。
+- 現 stage0 adapter は real Resource IR body / HIR lowering result をまだ読まないため、`ResourceIrTraversalUnavailable` source record だけを返す。
+- production path は accepted private cache storage、clone-out owned value、fresh witness、GraphInput、Resource proof table、request-evidence proof table、backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key を合成しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body adapter stage0 checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、adapter が unavailable source helper だけを呼ぶこと、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が direct unavailable source を作らないことを source policy に固定した。
+
+### subagent review
+
+- Meitner の design review は、次 slice を accepted proof 生成ではなく actual traversal body adapter の fail-closed unavailable boundary にするべきだと指摘した。
+- required 指摘は、request identity だけから `PrivateCacheStoragePlace + CloneOutOwnedValueEdge` を合成しないこと、fresh witness を source record と同じ場所で捏造しないこと、classifier / normalizer / collector / candidate checker を bypass しないこと、production path では actual Resource IR body / HIR lowering body を読めるまで unavailable に閉じることだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。`append_request_result` が adapter に委譲していること、adapter stage0 が unavailable-only で accepted source / fresh witness / lower proof / backend / effect / artifact を合成しないこと、source policy が line / doc comment 制限を追加していないこと、日本語 doc comment が具体的であることを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-adapter-doctest-current.json`
+
+### 残件
+
+- actual traversal body adapter の内側で real Resource IR body / HIR lowering result を読み、typed place / edge / observation / unsupported source を生成する。
+- fresh private cache region witness を source generation と別 authority として生成し、matching key / graph / ordinal で照合する。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。

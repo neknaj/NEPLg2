@@ -2543,18 +2543,45 @@ assertOrdered(
     "actual walker operation producer bridge must close the private traversal source table on source build failures",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_place_id_new 0",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_record_new key graph_id 0 place place",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+    ],
+    "actual traversal body adapter unavailable helper must encode the no-real-body case as a typed unavailable traversal source",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result"),
+    [
+        "SelfhostHirModule",
+        "SelfhostMemoCallBackendRequestTableEntry",
+        "SelfhostHirExprId",
+        "body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record key graph_id",
+    ],
+    "actual traversal body adapter must keep the future real-body input boundary explicit while stage0 remains unavailable-only",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body adapter stage0 must not synthesize accepted sources, fresh witnesses, lower proof tables, backend bytes, effect masks, or artifact records",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
     [
         "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
         "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
         "selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index",
-        "selfhost_memo_call_backend_private_cache_resource_place_id_new 0",
-        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
+        "Result::Ok record:",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources record",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_traversal_sources sources e",
         "ProofKeyRejected e",
         "RequestRecheckRejected e",
     ],
-    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and emit only typed traversal-unavailable source records while actual traversal is unavailable",
+    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and delegate real-body or unavailable source creation to the actual traversal body adapter",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop"),
@@ -2567,9 +2594,9 @@ assertOrdered(
     "actual walker operation producer bridge request loop must read request entries, thread the traversal source owner, and fail closed on missing entries",
 );
 assert.doesNotMatch(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
-    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|resource_graph_input_push|proof_table_push|Wasm|LLVM/,
-    "actual walker operation producer bridge must not synthesize accepted proof, accepted private-cache operation records, direct GraphInput, proof table records, or backend bytes",
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|ResourceIrTraversalUnavailable|resource_place_id_new|resource_graph_input_push|proof_table_push|Wasm|LLVM/,
+    "actual walker operation producer bridge must not synthesize accepted proof, accepted private-cache operation records, direct unavailable source records, direct GraphInput, proof table records, or backend bytes",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_loop"),
