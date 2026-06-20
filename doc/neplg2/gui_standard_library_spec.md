@@ -959,6 +959,16 @@ cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_fro
 
 F5iq では、F5ip 後の actual blocker を反映するため、Linux support gate の missing reason を `LinuxWindowEventSourceFdMissing` に更新する。Linux owner / host factory は既にあるため、以後の未接続理由は owner missing ではなく、actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source missing である。これは Linux runner を有効化する変更ではない。
 
+## F5ir Native Linux window event source fd registration boundary
+
+F5ir では、Linux selector / timerfd backend に external window event source fd を登録する境界を追加する。window event source fd は host-event wake 用の owned `eventfd` とは別の型であり、backend はその fd を所有しない。fd `0` は有効、負値は `InvalidWindowEventSourceRawFd` として拒否する。
+
+backend は window event source fd を高々 1 つだけ registered token として保持する。既に登録済みの場合は `WindowEventSourceFdAlreadyRegistered` を raw API 呼び出し前に返し、state を変えない。raw registration failure は `RegisterWindowEventSourceFdFailed`、raw unregister failure は `UnregisterWindowEventSourceFdFailed` として返す。unregister failure では token を backend に戻し、subsequent cleanup / retry が可能な状態を保つ。
+
+`try_close_handles_if_open` は registered window event source fd の unregister を owned selector / timerfd / host-event fd cleanup より前に実行する。unregister failure では owned fd を閉じず、external fd を close したという主張もしない。`close_handles_if_open` は existing cleanup compatibility path であり、observable error handling が必要な path は `try_close_handles_if_open` を使う。
+
+cfg Linux sys shim は `epoll_ctl EPOLL_CTL_ADD` / `EPOLL_CTL_DEL` で external fd を selector に登録解除するだけである。external window event source fd の取得、X11 / Wayland event decoding、readiness status classification、Linux runner support gate の `Ok` 化、CLI dispatch、synthetic readiness、timer fired evidence は F5ir では実装しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

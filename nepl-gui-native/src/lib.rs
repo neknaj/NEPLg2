@@ -4306,6 +4306,11 @@ pub struct NativeWindowHostLoopLinuxHostEventFd {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct NativeWindowHostLoopLinuxWindowEventSourceFd {
+    raw_fd: i32,
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct NativeWindowHostLoopLinuxHostEventSignalFd {
     raw_fd: i32,
 }
@@ -4325,6 +4330,13 @@ fn native_window_host_loop_linux_timer_fd_raw(handle: &NativeWindowHostLoopLinux
 #[cfg(any(test, target_os = "linux"))]
 fn native_window_host_loop_linux_host_event_fd_raw(
     handle: &NativeWindowHostLoopLinuxHostEventFd,
+) -> i32 {
+    handle.raw_fd
+}
+
+#[cfg(any(test, target_os = "linux"))]
+fn native_window_host_loop_linux_window_event_source_fd_raw(
+    handle: &NativeWindowHostLoopLinuxWindowEventSourceFd,
 ) -> i32 {
     handle.raw_fd
 }
@@ -4373,11 +4385,15 @@ pub enum NativeWindowHostLoopLinuxSelectorTimerFdBackendError {
     InvalidSelectorRawFd { raw_fd: i32 },
     InvalidTimerRawFd { raw_fd: i32 },
     InvalidHostEventRawFd { raw_fd: i32 },
+    InvalidWindowEventSourceRawFd { raw_fd: i32 },
+    WindowEventSourceFdAlreadyRegistered { raw_fd: i32 },
     CreateSelectorFailed { code: u32 },
     CreateTimerFdFailed { code: u32 },
     RegisterTimerFdFailed { code: u32 },
     CreateHostEventFdFailed { code: u32 },
     RegisterHostEventFdFailed { code: u32 },
+    RegisterWindowEventSourceFdFailed { code: u32 },
+    UnregisterWindowEventSourceFdFailed { code: u32 },
     SignalHostEventFdFailed { code: u32 },
     ArmTimerFdFailed { code: u32 },
     SelectorWaitFailed { code: u32 },
@@ -4418,6 +4434,18 @@ pub trait NativeWindowHostLoopLinuxSelectorTimerFdRawApi {
         &mut self,
         selector: &NativeWindowHostLoopLinuxSelectorFd,
         host_event: &NativeWindowHostLoopLinuxHostEventFd,
+    ) -> bool;
+
+    fn register_window_event_source_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+    ) -> bool;
+
+    fn unregister_window_event_source_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
     ) -> bool;
 
     fn signal_host_event_fd_raw(
@@ -4511,6 +4539,22 @@ pub fn native_window_host_loop_linux_host_event_fd_from_raw(
         );
     }
     Ok(NativeWindowHostLoopLinuxHostEventFd { raw_fd })
+}
+
+pub fn native_window_host_loop_linux_window_event_source_fd_from_raw(
+    raw_fd: i32,
+) -> Result<
+    NativeWindowHostLoopLinuxWindowEventSourceFd,
+    NativeWindowHostLoopLinuxSelectorTimerFdBackendError,
+> {
+    if raw_fd < 0 {
+        return Err(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidWindowEventSourceRawFd {
+                raw_fd,
+            },
+        );
+    }
+    Ok(NativeWindowHostLoopLinuxWindowEventSourceFd { raw_fd })
 }
 
 pub fn native_window_host_loop_linux_host_event_signal_fd_from_raw(
@@ -4631,6 +4675,7 @@ pub struct NativeWindowHostLoopLinuxSelectorTimerFdBackend<
     selector: Option<NativeWindowHostLoopLinuxSelectorFd>,
     timer: Option<NativeWindowHostLoopLinuxTimerFd>,
     host_event: Option<NativeWindowHostLoopLinuxHostEventFd>,
+    window_event_source: Option<NativeWindowHostLoopLinuxWindowEventSourceFd>,
 }
 
 impl<Api> NativeWindowHostLoopLinuxSelectorTimerFdBackend<Api>
@@ -4710,6 +4755,7 @@ where
             selector: Some(selector),
             timer: Some(timer),
             host_event: Some(host_event),
+            window_event_source: None,
         })
     }
 
@@ -4725,11 +4771,77 @@ where
         self.selector.is_some() && self.timer.is_some() && self.host_event.is_some()
     }
 
-    pub fn close_handles_if_open(&mut self) -> bool {
+    pub fn has_window_event_source_fd(&self) -> bool {
+        self.window_event_source.is_some()
+    }
+
+    pub fn register_window_event_source_fd_from_raw(
+        &mut self,
+        raw_fd: i32,
+    ) -> Result<(), NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        let window_event_source =
+            native_window_host_loop_linux_window_event_source_fd_from_raw(raw_fd)?;
+        if let Some(registered) = self.window_event_source.as_ref() {
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::WindowEventSourceFdAlreadyRegistered {
+                    raw_fd: registered.raw_fd,
+                },
+            );
+        }
+        let selector = self.selector.as_ref().ok_or(
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                raw_fd: -1,
+            },
+        )?;
+        if !self
+            .api
+            .register_window_event_source_fd_raw(selector, &window_event_source)
+        {
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::RegisterWindowEventSourceFdFailed {
+                    code: self.api.last_error_code(),
+                },
+            );
+        }
+        self.window_event_source = Some(window_event_source);
+        Ok(())
+    }
+
+    pub fn unregister_window_event_source_fd_if_registered(
+        &mut self,
+    ) -> Result<bool, NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        let Some(window_event_source) = self.window_event_source.take() else {
+            return Ok(false);
+        };
+        let Some(selector) = self.selector.as_ref() else {
+            self.window_event_source = Some(window_event_source);
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidSelectorRawFd {
+                    raw_fd: -1,
+                },
+            );
+        };
+        if !self
+            .api
+            .unregister_window_event_source_fd_raw(selector, &window_event_source)
+        {
+            self.window_event_source = Some(window_event_source);
+            return Err(
+                NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnregisterWindowEventSourceFdFailed {
+                    code: self.api.last_error_code(),
+                },
+            );
+        }
+        Ok(true)
+    }
+
+    pub fn try_close_handles_if_open(
+        &mut self,
+    ) -> Result<bool, NativeWindowHostLoopLinuxSelectorTimerFdBackendError> {
+        let mut closed = self.unregister_window_event_source_fd_if_registered()?;
         let host_event = self.host_event.take();
         let timer = self.timer.take();
         let selector = self.selector.take();
-        let mut closed = false;
         if let Some(host_event) = host_event {
             let _ = self.api.close_host_event_fd_raw(&host_event);
             closed = true;
@@ -4742,7 +4854,11 @@ where
             let _ = self.api.close_selector_raw(&selector);
             closed = true;
         }
-        closed
+        Ok(closed)
+    }
+
+    pub fn close_handles_if_open(&mut self) -> bool {
+        self.try_close_handles_if_open().unwrap_or(false)
     }
 
     pub fn create_host_event_signal_producer<ProducerApi>(
@@ -5853,6 +5969,53 @@ impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
         true
     }
 
+    fn register_window_event_source_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+    ) -> bool {
+        let mut event = libc::epoll_event {
+            events: libc::EPOLLIN as u32,
+            u64: native_window_host_loop_linux_window_event_source_fd_raw(window_event_source)
+                as u64,
+        };
+        let result = unsafe {
+            libc::epoll_ctl(
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                libc::EPOLL_CTL_ADD,
+                native_window_host_loop_linux_window_event_source_fd_raw(window_event_source),
+                &mut event,
+            )
+        };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
+    fn unregister_window_event_source_fd_raw(
+        &mut self,
+        selector: &NativeWindowHostLoopLinuxSelectorFd,
+        window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+    ) -> bool {
+        let result = unsafe {
+            libc::epoll_ctl(
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                libc::EPOLL_CTL_DEL,
+                native_window_host_loop_linux_window_event_source_fd_raw(window_event_source),
+                std::ptr::null_mut(),
+            )
+        };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
     fn signal_host_event_fd_raw(
         &mut self,
         host_event: &NativeWindowHostLoopLinuxHostEventFd,
@@ -6265,6 +6428,22 @@ impl NativeWindowHostLoopLinuxSelectorTimerFdRawApi
         &mut self,
         _selector: &NativeWindowHostLoopLinuxSelectorFd,
         _host_event: &NativeWindowHostLoopLinuxHostEventFd,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn register_window_event_source_fd_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+        _window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+    ) -> bool {
+        match *self {}
+    }
+
+    fn unregister_window_event_source_fd_raw(
+        &mut self,
+        _selector: &NativeWindowHostLoopLinuxSelectorFd,
+        _window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
     ) -> bool {
         match *self {}
     }
@@ -17977,6 +18156,12 @@ mod tests {
             }
         );
         assert_eq!(
+            native_window_host_loop_linux_window_event_source_fd_from_raw(-1).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidWindowEventSourceRawFd {
+                raw_fd: -1,
+            }
+        );
+        assert_eq!(
             native_window_host_loop_linux_host_event_signal_fd_from_raw(-1).unwrap_err(),
             NativeWindowHostLoopLinuxHostEventSignalProducerError::InvalidHostEventSignalRawFd {
                 raw_fd: -1,
@@ -17986,11 +18171,17 @@ mod tests {
         let selector = native_window_host_loop_linux_selector_fd_from_raw(0).unwrap();
         let timer = native_window_host_loop_linux_timer_fd_from_raw(0).unwrap();
         let host_event = native_window_host_loop_linux_host_event_fd_from_raw(0).unwrap();
+        let window_event_source =
+            native_window_host_loop_linux_window_event_source_fd_from_raw(0).unwrap();
         let signal = native_window_host_loop_linux_host_event_signal_fd_from_raw(0).unwrap();
         assert_eq!(native_window_host_loop_linux_selector_fd_raw(&selector), 0);
         assert_eq!(native_window_host_loop_linux_timer_fd_raw(&timer), 0);
         assert_eq!(
             native_window_host_loop_linux_host_event_fd_raw(&host_event),
+            0
+        );
+        assert_eq!(
+            native_window_host_loop_linux_window_event_source_fd_raw(&window_event_source),
             0
         );
         assert_eq!(
@@ -18399,6 +18590,131 @@ mod tests {
                 ..
             } => panic!("closed backend must be reported before producer creation"),
         }
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_registers_window_event_source_without_owning_fd() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        backend
+            .register_window_event_source_fd_from_raw(90)
+            .unwrap();
+        assert!(backend.has_window_event_source_fd());
+        assert_eq!(
+            backend.api().register_window_event_source_calls,
+            vec![(4, 90)]
+        );
+        assert!(backend
+            .api()
+            .unregister_window_event_source_calls
+            .is_empty());
+
+        assert_eq!(backend.try_close_handles_if_open().unwrap(), true);
+        assert_eq!(
+            backend.api().unregister_window_event_source_calls,
+            vec![(4, 90)]
+        );
+        assert_eq!(backend.api().close_host_event_calls, vec![6]);
+        assert_eq!(backend.api().close_timer_calls, vec![5]);
+        assert_eq!(backend.api().close_selector_calls, vec![4]);
+        assert!(backend
+            .api()
+            .close_host_event_calls
+            .iter()
+            .all(|fd| *fd != 90));
+        assert!(!backend.are_handles_open());
+        assert!(!backend.has_window_event_source_fd());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_rejects_window_event_source_before_raw_calls() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend
+                .register_window_event_source_fd_from_raw(-90)
+                .unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::InvalidWindowEventSourceRawFd {
+                raw_fd: -90,
+            }
+        );
+        assert!(backend.api().register_window_event_source_calls.is_empty());
+        assert!(!backend.has_window_event_source_fd());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_preserves_window_event_source_register_failure() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5)
+            .with_register_window_event_source_result(false)
+            .with_last_error_code(77);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        assert_eq!(
+            backend.register_window_event_source_fd_from_raw(90).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::RegisterWindowEventSourceFdFailed {
+                code: 77,
+            }
+        );
+        assert_eq!(
+            backend.api().register_window_event_source_calls,
+            vec![(4, 90)]
+        );
+        assert!(backend
+            .api()
+            .unregister_window_event_source_calls
+            .is_empty());
+        assert!(!backend.has_window_event_source_fd());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_rejects_duplicate_window_event_source_before_raw_call()
+    {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+
+        backend
+            .register_window_event_source_fd_from_raw(90)
+            .unwrap();
+        assert_eq!(
+            backend.register_window_event_source_fd_from_raw(91).unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::WindowEventSourceFdAlreadyRegistered {
+                raw_fd: 90,
+            }
+        );
+        assert_eq!(
+            backend.api().register_window_event_source_calls,
+            vec![(4, 90)]
+        );
+        assert!(backend.has_window_event_source_fd());
+    }
+
+    #[test]
+    fn native_window_linux_selector_timer_fd_unregister_failure_keeps_handles_open() {
+        let api = ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(4, 5)
+            .with_unregister_window_event_source_result(false)
+            .with_last_error_code(88);
+        let mut backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(api).unwrap();
+        backend
+            .register_window_event_source_fd_from_raw(90)
+            .unwrap();
+
+        assert_eq!(
+            backend.try_close_handles_if_open().unwrap_err(),
+            NativeWindowHostLoopLinuxSelectorTimerFdBackendError::UnregisterWindowEventSourceFdFailed {
+                code: 88,
+            }
+        );
+        assert_eq!(
+            backend.api().unregister_window_event_source_calls,
+            vec![(4, 90)]
+        );
+        assert!(backend.api().close_host_event_calls.is_empty());
+        assert!(backend.api().close_timer_calls.is_empty());
+        assert!(backend.api().close_selector_calls.is_empty());
+        assert!(backend.are_handles_open());
+        assert!(backend.has_window_event_source_fd());
     }
 
     #[test]
@@ -21117,6 +21433,8 @@ mod tests {
         host_event_raw_fd: i32,
         register_result: bool,
         register_host_event_result: bool,
+        register_window_event_source_result: bool,
+        unregister_window_event_source_result: bool,
         signal_host_event_result: bool,
         arm_result: bool,
         timer_or_event_statuses: Vec<u32>,
@@ -21127,6 +21445,8 @@ mod tests {
         host_event_create_calls: usize,
         register_calls: Vec<(i32, i32)>,
         register_host_event_calls: Vec<(i32, i32)>,
+        register_window_event_source_calls: Vec<(i32, i32)>,
+        unregister_window_event_source_calls: Vec<(i32, i32)>,
         signal_host_event_calls: Vec<i32>,
         arm_calls: Vec<(i32, NativeWindowHostLoopLinuxTimerFdTimespec)>,
         timer_wait_calls: Vec<(i32, i32, i32)>,
@@ -21147,6 +21467,8 @@ mod tests {
                 host_event_raw_fd,
                 register_result: true,
                 register_host_event_result: true,
+                register_window_event_source_result: true,
+                unregister_window_event_source_result: true,
                 signal_host_event_result: true,
                 arm_result: true,
                 timer_or_event_statuses: Vec::new(),
@@ -21157,6 +21479,8 @@ mod tests {
                 host_event_create_calls: 0,
                 register_calls: Vec::new(),
                 register_host_event_calls: Vec::new(),
+                register_window_event_source_calls: Vec::new(),
+                unregister_window_event_source_calls: Vec::new(),
                 signal_host_event_calls: Vec::new(),
                 arm_calls: Vec::new(),
                 timer_wait_calls: Vec::new(),
@@ -21200,6 +21524,16 @@ mod tests {
 
         fn with_register_host_event_result(mut self, result: bool) -> Self {
             self.register_host_event_result = result;
+            self
+        }
+
+        fn with_register_window_event_source_result(mut self, result: bool) -> Self {
+            self.register_window_event_source_result = result;
+            self
+        }
+
+        fn with_unregister_window_event_source_result(mut self, result: bool) -> Self {
+            self.unregister_window_event_source_result = result;
             self
         }
 
@@ -21277,6 +21611,32 @@ mod tests {
                 native_window_host_loop_linux_host_event_fd_raw(host_event),
             ));
             self.register_host_event_result
+        }
+
+        fn register_window_event_source_fd_raw(
+            &mut self,
+            selector: &NativeWindowHostLoopLinuxSelectorFd,
+            window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+        ) -> bool {
+            self.count_raw_method_call();
+            self.register_window_event_source_calls.push((
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                native_window_host_loop_linux_window_event_source_fd_raw(window_event_source),
+            ));
+            self.register_window_event_source_result
+        }
+
+        fn unregister_window_event_source_fd_raw(
+            &mut self,
+            selector: &NativeWindowHostLoopLinuxSelectorFd,
+            window_event_source: &NativeWindowHostLoopLinuxWindowEventSourceFd,
+        ) -> bool {
+            self.count_raw_method_call();
+            self.unregister_window_event_source_calls.push((
+                native_window_host_loop_linux_selector_fd_raw(selector),
+                native_window_host_loop_linux_window_event_source_fd_raw(window_event_source),
+            ));
+            self.unregister_window_event_source_result
         }
 
         fn signal_host_event_fd_raw(

@@ -73791,3 +73791,48 @@ MERGE_APPROVED
 - Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
 - 指摘は code/doc/source policy blocker ではなく、この F5hz セクションに `verification_current` と `implementation_review` が未記録であることだった。
 - 指摘時点で、fd `0` valid / negative invalid、selector / timer / host event owner 分離、逆順 cleanup、close success で failure code を消さない方針、event-only wait の timer-fired 拒否、TimerFired / HostEventReady evidence 分離、minifb / generic platform / runner 未接続は F5hz plan と Zenn / doc 方針に沿っていると確認された。
+
+## 2026-06-20 Agent2 GUI native F5ir Linux window event source fd registration boundary
+
+### scope
+
+- F5ir は F5iq の `LinuxWindowEventSourceFdMissing` の後続として、external window event source fd を Linux selector / timerfd backend へ登録・解除する checkpoint である。
+- window event source fd は host-event wake 用 `eventfd` とは別の non-owning token とし、backend は `epoll_ctl` registration を管理するが external fd を close しない。
+- actual X11 / Wayland fd acquisition、readiness status classification、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、external fd を host-event `eventfd` と混同しないこと、fd `0` valid / negative invalid、duplicate registration before raw call、raw API 名を window-specific にすること、close teardown は unregister を先に行うこと、unregister failure を bool cleanup で隠さず typed `Result` boundary を用意すること、support gate / runner / CLI / readiness classification へ進まないことだった。
+
+### implementation
+
+- `NativeWindowHostLoopLinuxWindowEventSourceFd` と checked constructor を追加し、negative fd を `InvalidWindowEventSourceRawFd` として拒否する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `register_window_event_source_fd_raw` と `unregister_window_event_source_fd_raw` を追加し、cfg Linux sys shim は `epoll_ctl EPOLL_CTL_ADD` / `EPOLL_CTL_DEL` だけを行う。
+- Linux selector / timerfd backend は window event source fd token を 1 個だけ保持し、duplicate registration は raw API 呼び出し前に `WindowEventSourceFdAlreadyRegistered` として返す。
+- `unregister_window_event_source_fd_if_registered` と `try_close_handles_if_open` を追加し、unregister failure では token を戻して owned selector / timerfd / host-event fd cleanup を進めない。
+- scripted raw API、Never raw API、focused unit tests、source policy、GUI docs、`todo.md` を F5ir contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5ir blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker は無く、external fd non-owning、fd `0` valid、negative / duplicate before raw call、unregister failure token restore、owned handles preserved、readiness / runner / CLI / support-gate `Ok` 非導入、`try_close_handles_if_open` を typed cleanup authority とする方針は確認された。
+- 指摘は、この section の `verification_current` に `node --check` と `git diff --check` が未記録で、`implementation_review` が pending のままだったことだった。この指摘に従い、実行済み検証と review 結果を記録した。
+- 再レビューは `REVIEW_APPROVED`。previous note blockers は解消され、tracked diff は F5ir scope に限定されていると確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、readiness status classification、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。

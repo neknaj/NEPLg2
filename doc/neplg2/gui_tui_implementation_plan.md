@@ -1551,6 +1551,31 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence は実装しない。
 
+### Phase F5ir: Native Linux window event source fd registration boundary
+
+目的:
+
+- F5iq の `LinuxWindowEventSourceFdMissing` の後続として、actual X11 / Wayland 等から得た window event source fd を Linux selector / timerfd backend に登録できる境界を追加する。
+- host-event wake 用 `eventfd` と window / platform event source fd を型で分ける。window event source fd は backend が所有せず、登録解除だけを行い、close は呼ばない。
+- duplicate registration、負値 fd、raw registration failure、raw unregister failure を `Result` と enum error で表し、silent no-op や fallback にしない。
+
+実装:
+
+- `NativeWindowHostLoopLinuxWindowEventSourceFd` を追加し、fd `0` を有効、負値だけ invalid とする checked constructor を用意する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `register_window_event_source_fd_raw` と `unregister_window_event_source_fd_raw` を追加する。raw API 名は host-event fd と混同しないよう window-specific にする。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend` は `Option NativeWindowHostLoopLinuxWindowEventSourceFd` を保持し、duplicate registration は raw API 呼び出し前に拒否する。
+- `try_close_handles_if_open` は registered window event source fd の unregister を先に試み、unregister failure では token を戻して owned selector / timerfd / host-event fd を閉じない。`close_handles_if_open` は compatibility cleanup として残すが、fallible cleanup の authority は `try_close_handles_if_open` とする。
+- cfg Linux sys shim は external fd を `epoll_ctl EPOLL_CTL_ADD` / `EPOLL_CTL_DEL` で selector に出し入れするだけで、external fd を close しない。
+
+検証:
+
+- Rust unit tests で fd `0` valid / negative invalid、success path の register/unregister call、invalid / duplicate / raw failure before-state-preservation、unregister failure で owned handles を閉じないことを検査する。
+- source policy で window-specific raw API、non-owning fd、duplicate before raw call、fallible cleanup helper、external fd close 禁止、support gate / runner / CLI / minifb / fallback / synthetic readiness 非導入を固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、window event source readiness status classification、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
