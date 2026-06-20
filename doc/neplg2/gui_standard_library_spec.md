@@ -1159,6 +1159,16 @@ entry は `native_window_linux_x11_xauthority_select_credential file_bytes.as_by
 
 F5jl は credential selection と setup request owner construction の接続だけを担当する。`XAUTHORITY` / `HOME` env、filesystem / VFS file bytes read、hostname / display identity acquisition、raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。`AuthorizationCredential::none`、`NativeWindowLinuxX11SetupRequest::no_authorization`、fallback、silent no-op、synthetic readiness はこの境界で使わない。
 
+## F5jm Native Linux Xauthority local authority address owner boundary
+
+F5jm では、Xauthority `FamilyLocal` record と exact match する local authority address を typed owner として扱う境界を追加する。Rust boundary 名としては、owner を `NativeWindowLinuxX11LocalAuthorityAddress`、injected reader を `NativeWindowLinuxX11LocalAuthorityAddressReader`、error を `NativeWindowLinuxX11LocalAuthorityAddressReadError` とする。
+
+reader は `read_x11_local_authority_address` だけを持つ。`native_window_linux_x11_local_authority_address_with_limit` は reader を 1 回だけ呼び、空 address、max byte length 超過、NUL byte を typed error で拒否する。`native_window_linux_x11_local_authority_address` は standard max byte length を使う convenience helper である。失敗は `ReadFailed`、`EmptyAddress`、`AddressTooLong`、`AddressContainsNul` に分け、empty string や wildcard record への fallback は行わない。
+
+`native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address` は `NativeWindowLinuxX11LocalAuthorityAddress` を借用し、既存の `native_window_linux_x11_xauthority_local_selector_criteria_from_display` に渡すだけにする。display number parsing、criteria-owned display number bytes、preferred protocol name matching は既存 path が保持する。
+
+F5jm は injected local authority address owner boundary だけを担当する。actual `gethostname` / process identity acquisition、`DISPLAY` env acquisition、`XAUTHORITY` / `HOME` env、filesystem / VFS file bytes read、credential selection、setup request integration、raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
