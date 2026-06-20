@@ -1,3 +1,37 @@
+# 2026-06-21 Agent2 GUI native F5kk Linux X11 caller-supplied keysym value projection boundary
+
+## 目的
+
+- caller supplied X11 keysym value を typed evidence として保持し、狭い portable key evidence へ射影する。
+- raw keysym value と portable projection を別々の public input として受け取らず、projection 後も raw value を保持する。
+- keycode から keysym を取得する layout / keymap query、X11 event packet decode への接続、IME / text input、shortcut policy、runner / support gate 有効化、fallback / synthetic readiness は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11KeysymValue`、`NativeWindowPortableKey`、`NativeWindowLinuxX11KeysymProjection` を追加した。
+- `NoSymbol = 0x0000` は `NoSymbol`、unknown raw value は `Unknown { raw_keysym }` として明示し、ASCII printable range、Return / Escape / Tab / Backspace / Delete、arrow、Home / End、PageUp / PageDown だけを portable key に写す。
+- X11 named Delete `0xffff` と ASCII DEL `0x007f` を混同しない focused test を追加した。
+- F5kk の仕様、実装計画、native behavior notes、source-policy を更新した。
+
+## subagent review
+
+- Ptolemy は `REVIEW_APPROVED`。raw keysym preservation、NoSymbol / Unknown explicit state、ASCII DEL を Delete にしない test、event decode / XLookupString / XKB / keymap / IME / shortcut / runner / fallback 非接続を確認した。
+- Lovelace は初回 `CHANGES_REQUESTED` として、source-policy が `keymap` と `text_input` / `text input` をイベント復号関数内で捕捉していない点を指摘した。
+- 指摘に従い、projection surface と `native_window_linux_x11_event_packet_to_observation` の negative guard に `keymap`、`text_input`、`text input` を追加した。
+- 再 review で Lovelace は `REVIEW_APPROVED`。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keysym -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing dead_code warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+
 # 2026-06-21 Agent2 GUI native F5kd Linux X11 WM protocol ChangeProperty registration boundary
 
 ## 目的

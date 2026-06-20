@@ -53,6 +53,23 @@ function runNativeGuiPlatformBehaviorRegression() {
         "pub struct NativeWindowSize",
         "impl NativeWindowPresenterState",
     );
+    const nativeWindowLinuxX11KeysymProjectionSurface = [
+        textSliceBetween(
+            libSource,
+            "pub struct NativeWindowLinuxX11KeysymValue",
+            "pub struct NativeWindowKeyboardEvent",
+        ),
+        textSliceBetween(
+            libSource,
+            "const NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL",
+            "pub enum NativeWindowEventPumpError",
+        ),
+        textSliceBetween(
+            libSource,
+            "impl NativeWindowLinuxX11KeysymValue",
+            "impl NativeWindowKeyboardEvent",
+        ),
+    ].join("\n");
     const nativeWindowBackendLoopHelper = textSliceBetween(
         libSource,
         "enum NativeWindowBackendLoopCounterIntent",
@@ -864,6 +881,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5kh: Native Linux X11 raw keyboard modifier evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5ki: Native Linux X11 portable keyboard modifier evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5kj: Native Linux Wayland raw message header evidence boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5kk: Native Linux X11 caller-supplied keysym value projection boundary/);
     assert.match(guiRedesignImplementationPlan, /generic `InternAtom` owner は X11 counted bytes を扱うため、NUL byte を C string terminator として拒否しない/);
     assert.match(guiRedesignImplementationPlan, /actual write、accepted write progress、sequence assignment、reply body retention\/parser、request \/ reply correlation は含めない/);
     assert.match(guiRedesignImplementationPlan, /actual property registration ではない/);
@@ -881,6 +899,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Wayland wire value は connection host byte order/);
     assert.match(guiRedesignImplementationPlan, /object id 0、size 8 未満、4 byte alignment 違反、[\s\S]*packet 外[\s\S]*typed error/);
     assert.match(guiRedesignImplementationPlan, /xdg-shell semantic、keyboard、IME、text input[\s\S]*fd read \/ drain \/ close/);
+    assert.match(guiRedesignImplementationPlan, /caller supplied X11 keysym value/);
+    assert.match(guiRedesignImplementationPlan, /NoSymbol = 0x0000/);
+    assert.match(guiRedesignImplementationPlan, /ASCII `0x20\.\.0x7e`/);
+    assert.match(guiRedesignImplementationPlan, /ASCII DEL `0x007f` は portable `Delete` にしない/);
+    assert.match(guiRedesignImplementationPlan, /native_window_linux_x11_event_packet_to_observation` へは接続しない/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify は ConfigureNotify だけでなく MapNotify/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify \/ Expose subscription は F5jo では行わない/);
     assert.match(guiRedesignImplementationPlan, /CreateWindow \/ MapWindow request owner を、既存の `NativeWindowLinuxX11EventSourceObservationReader` が setup completion 後に partial write/);
@@ -939,6 +962,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5kh Native Linux X11 raw keyboard modifier evidence boundary/);
     assert.match(standardSpec, /F5ki Native Linux X11 portable keyboard modifier evidence boundary/);
     assert.match(standardSpec, /F5kj Native Linux Wayland raw message header evidence boundary/);
+    assert.match(standardSpec, /F5kk Native Linux X11 caller-supplied keysym value projection boundary/);
     assert.match(standardSpec, /generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず/);
     assert.match(standardSpec, /raw fd write\/read、accepted write progress、sequence assignment、InternAtom reply parse \/ retain、request \/ reply correlation/);
     assert.match(standardSpec, /`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch/);
@@ -948,6 +972,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /word 2 の上位 16 bit が message size、下位 16 bit が opcode/);
     assert.match(standardSpec, /size が header 未満、4 byte alignment 違反、packet byte len 超過/);
     assert.match(standardSpec, /Wayland event loop、xdg-shell semantic decode、fd read \/ drain \/ close/);
+    assert.match(standardSpec, /caller supplied X11 keysym value/);
+    assert.match(standardSpec, /raw value と portable key を別々に受け取る public constructor は持たない/);
+    assert.match(standardSpec, /X11 `NoSymbol = 0x0000` は `Unknown` ではなく `NoSymbol`/);
+    assert.match(standardSpec, /X11 named Delete は `0xffff`/);
+    assert.match(standardSpec, /ASCII DEL `0x007f` は portable `Delete` へ写さない/);
     assert.match(standardSpec, /Atom ID が取得済みであることや window property が登録済みであることを意味しない/);
     assert.match(standardSpec, /nonzero Atom ID を `NativeWindowLinuxX11AtomId` として保持/);
     assert.match(standardSpec, /only_if_exists = true` では意味を持ち得る/);
@@ -1005,6 +1034,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jy/);
     assert.match(platformDoc, /F5jz/);
     assert.match(platformDoc, /F5ka/);
+    assert.match(platformDoc, /F5kk checkpoint/);
+    assert.match(platformDoc, /caller supplied X11 keysym value/);
+    assert.match(platformDoc, /ASCII printable range/);
+    assert.match(platformDoc, /X11 named Delete `0xffff` と ASCII DEL `0x007f` を混同しない/);
+    assert.match(platformDoc, /X11 event packet decode への接続、IME \/ text input、shortcut policy/);
     assert.match(platformDoc, /actual WM protocol registration ではなく/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
@@ -1311,6 +1345,16 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub struct NativeWindowPortableKeyboardModifiers\s*\{[\s\S]*shift: bool,[\s\S]*control: bool,[\s\S]*alt: bool,[\s\S]*meta: bool/);
     assert.match(libSource, /NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK: u16 = 0x0001[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK: u16 = 0x0004[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK: u16 = 0x0008[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK: u16 = 0x0040/);
     assert.match(libSource, /impl NativeWindowPortableKeyboardModifiers[\s\S]*pub const fn empty\([\s\S]*shift: false,[\s\S]*control: false,[\s\S]*alt: false,[\s\S]*meta: false[\s\S]*pub fn from_x11_core_state\(state: NativeWindowKeyboardModifierState\)[\s\S]*state\.raw_state\(\)[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK[\s\S]*NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK[\s\S]*pub fn shift\(self\) -> bool[\s\S]*pub fn control\(self\) -> bool[\s\S]*pub fn alt\(self\) -> bool[\s\S]*pub fn meta\(self\) -> bool/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /pub struct NativeWindowLinuxX11KeysymValue\s*\{[\s\S]*raw_value: u32/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /pub enum NativeWindowPortableKey\s*\{[\s\S]*NoSymbol,[\s\S]*Unknown \{[\s\S]*raw_keysym: u32[\s\S]*\},[\s\S]*Ascii \{ byte: u8 \},[\s\S]*Return,[\s\S]*Escape,[\s\S]*Tab,[\s\S]*Backspace,[\s\S]*Delete,[\s\S]*ArrowLeft,[\s\S]*ArrowRight,[\s\S]*ArrowUp,[\s\S]*ArrowDown,[\s\S]*Home,[\s\S]*End,[\s\S]*PageUp,[\s\S]*PageDown/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /pub struct NativeWindowLinuxX11KeysymProjection\s*\{[\s\S]*raw_keysym: NativeWindowLinuxX11KeysymValue,[\s\S]*portable_key: NativeWindowPortableKey/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL: u32 = 0x0000[\s\S]*NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN: u32 = 0x0020[\s\S]*NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX: u32 = 0x007e[\s\S]*NATIVE_WINDOW_X11_KEYSYM_DELETE: u32 = 0xffff/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /impl NativeWindowLinuxX11KeysymValue[\s\S]*pub const fn new\(raw_value: u32\)[\s\S]*pub const fn raw_value\(self\) -> u32[\s\S]*pub fn project_portable_key\(self\) -> NativeWindowLinuxX11KeysymProjection[\s\S]*NativeWindowLinuxX11KeysymProjection::from_keysym\(self\)/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /impl NativeWindowPortableKey[\s\S]*pub fn from_x11_keysym\(raw_keysym: NativeWindowLinuxX11KeysymValue\) -> Self[\s\S]*NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL => Self::NoSymbol[\s\S]*NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN\.\.=NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX[\s\S]*Self::Ascii[\s\S]*NATIVE_WINDOW_X11_KEYSYM_DELETE => Self::Delete[\s\S]*_ => Self::Unknown \{[\s\S]*raw_keysym: raw_value,[\s\S]*\}/);
+    assert.match(nativeWindowLinuxX11KeysymProjectionSurface, /impl NativeWindowLinuxX11KeysymProjection[\s\S]*pub fn from_keysym\(raw_keysym: NativeWindowLinuxX11KeysymValue\) -> Self[\s\S]*NativeWindowPortableKey::from_x11_keysym\(raw_keysym\)[\s\S]*raw_keysym,[\s\S]*portable_key,[\s\S]*pub fn raw_keysym\(self\) -> NativeWindowLinuxX11KeysymValue[\s\S]*pub fn portable_key\(self\) -> NativeWindowPortableKey/);
+    assert.doesNotMatch(nativeWindowLinuxX11KeysymProjectionSurface, /XLookupString|Xutf8LookupString|XmbLookupString|\bXKB\b|xkbcommon|keymap|IME|TextInput|text_input|text input|shortcut|run_linux_platform_wait_window_loop|validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|queue|fallback|silent no-op|synthetic|libc::read|libc::recv|libc::send|epoll|poll\(/i);
+    assert.doesNotMatch(libSource, /pub fn [a-zA-Z0-9_]*\([\s\S]{0,240}raw_keysym:\s*NativeWindowLinuxX11KeysymValue[\s\S]{0,240}portable_key:\s*NativeWindowPortableKey/);
+    assert.doesNotMatch(libSource, /pub fn [a-zA-Z0-9_]*\([\s\S]{0,240}portable_key:\s*NativeWindowPortableKey[\s\S]{0,240}raw_keysym:\s*NativeWindowLinuxX11KeysymValue/);
     assert.doesNotMatch(libSource, /pub fn [a-zA-Z0-9_]*\([\s\S]{0,240}portable_modifiers:\s*NativeWindowPortableKeyboardModifiers[\s\S]{0,240}modifier_state:\s*NativeWindowKeyboardModifierState/);
     assert.doesNotMatch(libSource, /pub fn [a-zA-Z0-9_]*\([\s\S]{0,240}modifier_state:\s*NativeWindowKeyboardModifierState[\s\S]{0,240}portable_modifiers:\s*NativeWindowPortableKeyboardModifiers/);
     assert.match(libSource, /pub struct NativeWindowKeyboardEvent\s*\{[\s\S]*kind: NativeWindowKeyboardEventKind,[\s\S]*raw_keycode: u8,[\s\S]*modifier_state: NativeWindowKeyboardModifierState,[\s\S]*portable_modifiers: NativeWindowPortableKeyboardModifiers/);
@@ -1336,9 +1380,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /modifier_state\(\)[\s\S]*raw_state\(\)[\s\S]*0x0005[\s\S]*modifier_state\(\)[\s\S]*raw_state\(\)[\s\S]*0x0014/);
     assert.match(libSource, /native_window_linux_x11_keyboard_portable_modifiers_project_only_core_key_masks/);
     assert.match(libSource, /0x004d[\s\S]*all_projected\.shift\(\)[\s\S]*all_projected\.control\(\)[\s\S]*all_projected\.alt\(\)[\s\S]*all_projected\.meta\(\)[\s\S]*0x9fb2[\s\S]*ignored_projection\.shift\(\)[\s\S]*ignored_projection\.control\(\)[\s\S]*ignored_projection\.alt\(\)[\s\S]*ignored_projection\.meta\(\)/);
+    assert.match(libSource, /native_window_linux_x11_keysym_projection_maps_ascii_and_navigation_evidence/);
+    assert.match(libSource, /NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN[\s\S]*NativeWindowPortableKey::Ascii \{ byte: b' ' \}[\s\S]*0x0061[\s\S]*NativeWindowPortableKey::Ascii \{ byte: b'a' \}[\s\S]*NATIVE_WINDOW_X11_KEYSYM_DELETE[\s\S]*NativeWindowPortableKey::Delete/);
+    assert.match(libSource, /native_window_linux_x11_keysym_projection_preserves_nosymbol_and_unknown_raw_values/);
+    assert.match(libSource, /NativeWindowPortableKey::NoSymbol[\s\S]*0x007f[\s\S]*NativeWindowPortableKey::Unknown \{ raw_keysym: 0x007f \}[\s\S]*0x0100_3042[\s\S]*NativeWindowPortableKey::Unknown/);
     assert.match(libSource, /native_window_linux_x11_keyboard_decode_rejects_zero_keycode/);
     assert.match(libSource, /native_window_backend_loop_host_action_preserves_keyboard_evidence/);
-    assert.doesNotMatch(nativeWindowLinuxX11EventPacketToObservation, /XLookupString|Xutf8LookupString|XmbLookupString|Keysym|KeySym|IME|TextInput|shortcut|run_linux_platform_wait_window_loop|validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|fallback|silent no-op|synthetic/i);
+    assert.doesNotMatch(nativeWindowLinuxX11EventPacketToObservation, /XLookupString|Xutf8LookupString|XmbLookupString|Keysym|KeySym|NativeWindowPortableKey|from_x11_keysym|project_portable_key|keymap|IME|TextInput|text_input|text input|shortcut|run_linux_platform_wait_window_loop|validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|fallback|silent no-op|synthetic/i);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(|\bXAUTHORITY\b|\bHOME\b|std::env|std::fs|vfs|read_to|File::|OpenOptions|canonicalize|\.exists\(|metadata/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_DONTWAIT/);
     assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_NOSIGNAL/);

@@ -1083,6 +1083,37 @@ pub struct NativeWindowPortableKeyboardModifiers {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeysymValue {
+    raw_value: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowPortableKey {
+    NoSymbol,
+    Unknown { raw_keysym: u32 },
+    Ascii { byte: u8 },
+    Return,
+    Escape,
+    Tab,
+    Backspace,
+    Delete,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    ArrowDown,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeysymProjection {
+    raw_keysym: NativeWindowLinuxX11KeysymValue,
+    portable_key: NativeWindowPortableKey,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowKeyboardEvent {
     kind: NativeWindowKeyboardEventKind,
     raw_keycode: u8,
@@ -1094,6 +1125,22 @@ const NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK: u16 = 0x0001;
 const NATIVE_WINDOW_X11_CORE_STATE_CONTROL_MASK: u16 = 0x0004;
 const NATIVE_WINDOW_X11_CORE_STATE_ALT_MOD1_MASK: u16 = 0x0008;
 const NATIVE_WINDOW_X11_CORE_STATE_META_MOD4_MASK: u16 = 0x0040;
+const NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL: u32 = 0x0000;
+const NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN: u32 = 0x0020;
+const NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX: u32 = 0x007e;
+const NATIVE_WINDOW_X11_KEYSYM_BACKSPACE: u32 = 0xff08;
+const NATIVE_WINDOW_X11_KEYSYM_TAB: u32 = 0xff09;
+const NATIVE_WINDOW_X11_KEYSYM_RETURN: u32 = 0xff0d;
+const NATIVE_WINDOW_X11_KEYSYM_ESCAPE: u32 = 0xff1b;
+const NATIVE_WINDOW_X11_KEYSYM_HOME: u32 = 0xff50;
+const NATIVE_WINDOW_X11_KEYSYM_LEFT: u32 = 0xff51;
+const NATIVE_WINDOW_X11_KEYSYM_UP: u32 = 0xff52;
+const NATIVE_WINDOW_X11_KEYSYM_RIGHT: u32 = 0xff53;
+const NATIVE_WINDOW_X11_KEYSYM_DOWN: u32 = 0xff54;
+const NATIVE_WINDOW_X11_KEYSYM_PAGE_UP: u32 = 0xff55;
+const NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN: u32 = 0xff56;
+const NATIVE_WINDOW_X11_KEYSYM_END: u32 = 0xff57;
+const NATIVE_WINDOW_X11_KEYSYM_DELETE: u32 = 0xffff;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowEventPumpError {
@@ -15017,6 +15064,68 @@ pub fn native_window_pointer_sample_from_raw(
     Ok(NativeWindowPointerSample::Available { x, y })
 }
 
+impl NativeWindowLinuxX11KeysymValue {
+    pub const fn new(raw_value: u32) -> Self {
+        Self { raw_value }
+    }
+
+    pub const fn raw_value(self) -> u32 {
+        self.raw_value
+    }
+
+    pub fn project_portable_key(self) -> NativeWindowLinuxX11KeysymProjection {
+        NativeWindowLinuxX11KeysymProjection::from_keysym(self)
+    }
+}
+
+impl NativeWindowPortableKey {
+    pub fn from_x11_keysym(raw_keysym: NativeWindowLinuxX11KeysymValue) -> Self {
+        let raw_value = raw_keysym.raw_value();
+        match raw_value {
+            NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL => Self::NoSymbol,
+            NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN..=NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX => {
+                Self::Ascii {
+                    byte: raw_value as u8,
+                }
+            }
+            NATIVE_WINDOW_X11_KEYSYM_RETURN => Self::Return,
+            NATIVE_WINDOW_X11_KEYSYM_ESCAPE => Self::Escape,
+            NATIVE_WINDOW_X11_KEYSYM_TAB => Self::Tab,
+            NATIVE_WINDOW_X11_KEYSYM_BACKSPACE => Self::Backspace,
+            NATIVE_WINDOW_X11_KEYSYM_DELETE => Self::Delete,
+            NATIVE_WINDOW_X11_KEYSYM_LEFT => Self::ArrowLeft,
+            NATIVE_WINDOW_X11_KEYSYM_RIGHT => Self::ArrowRight,
+            NATIVE_WINDOW_X11_KEYSYM_UP => Self::ArrowUp,
+            NATIVE_WINDOW_X11_KEYSYM_DOWN => Self::ArrowDown,
+            NATIVE_WINDOW_X11_KEYSYM_HOME => Self::Home,
+            NATIVE_WINDOW_X11_KEYSYM_END => Self::End,
+            NATIVE_WINDOW_X11_KEYSYM_PAGE_UP => Self::PageUp,
+            NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN => Self::PageDown,
+            _ => Self::Unknown {
+                raw_keysym: raw_value,
+            },
+        }
+    }
+}
+
+impl NativeWindowLinuxX11KeysymProjection {
+    pub fn from_keysym(raw_keysym: NativeWindowLinuxX11KeysymValue) -> Self {
+        let portable_key = NativeWindowPortableKey::from_x11_keysym(raw_keysym);
+        Self {
+            raw_keysym,
+            portable_key,
+        }
+    }
+
+    pub fn raw_keysym(self) -> NativeWindowLinuxX11KeysymValue {
+        self.raw_keysym
+    }
+
+    pub fn portable_key(self) -> NativeWindowPortableKey {
+        self.portable_key
+    }
+}
+
 impl NativeWindowKeyboardEvent {
     pub fn new(
         kind: NativeWindowKeyboardEventKind,
@@ -25984,6 +26093,101 @@ mod tests {
                     packet_byte_len: 8,
                 }
             )
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keysym_projection_maps_ascii_and_navigation_evidence() {
+        let cases = [
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ASCII_MIN,
+                NativeWindowPortableKey::Ascii { byte: b' ' },
+            ),
+            (0x0061, NativeWindowPortableKey::Ascii { byte: b'a' }),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ASCII_MAX,
+                NativeWindowPortableKey::Ascii { byte: b'~' },
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_RETURN,
+                NativeWindowPortableKey::Return,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_ESCAPE,
+                NativeWindowPortableKey::Escape,
+            ),
+            (NATIVE_WINDOW_X11_KEYSYM_TAB, NativeWindowPortableKey::Tab),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_BACKSPACE,
+                NativeWindowPortableKey::Backspace,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_DELETE,
+                NativeWindowPortableKey::Delete,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_LEFT,
+                NativeWindowPortableKey::ArrowLeft,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_RIGHT,
+                NativeWindowPortableKey::ArrowRight,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_UP,
+                NativeWindowPortableKey::ArrowUp,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_DOWN,
+                NativeWindowPortableKey::ArrowDown,
+            ),
+            (NATIVE_WINDOW_X11_KEYSYM_HOME, NativeWindowPortableKey::Home),
+            (NATIVE_WINDOW_X11_KEYSYM_END, NativeWindowPortableKey::End),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_PAGE_UP,
+                NativeWindowPortableKey::PageUp,
+            ),
+            (
+                NATIVE_WINDOW_X11_KEYSYM_PAGE_DOWN,
+                NativeWindowPortableKey::PageDown,
+            ),
+        ];
+
+        for (raw_value, expected_key) in cases {
+            let raw_keysym = NativeWindowLinuxX11KeysymValue::new(raw_value);
+            let projection = raw_keysym.project_portable_key();
+
+            assert_eq!(projection.raw_keysym().raw_value(), raw_value);
+            assert_eq!(projection.portable_key(), expected_key);
+            assert_eq!(
+                NativeWindowPortableKey::from_x11_keysym(raw_keysym),
+                expected_key
+            );
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_keysym_projection_preserves_nosymbol_and_unknown_raw_values() {
+        let nosymbol = NativeWindowLinuxX11KeysymValue::new(NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL)
+            .project_portable_key();
+        let ascii_delete_control =
+            NativeWindowLinuxX11KeysymValue::new(0x007f).project_portable_key();
+        let unicode_plane_raw =
+            NativeWindowLinuxX11KeysymValue::new(0x0100_3042).project_portable_key();
+
+        assert_eq!(nosymbol.raw_keysym().raw_value(), 0);
+        assert_eq!(nosymbol.portable_key(), NativeWindowPortableKey::NoSymbol);
+        assert_eq!(ascii_delete_control.raw_keysym().raw_value(), 0x007f);
+        assert_eq!(
+            ascii_delete_control.portable_key(),
+            NativeWindowPortableKey::Unknown { raw_keysym: 0x007f }
+        );
+        assert_eq!(unicode_plane_raw.raw_keysym().raw_value(), 0x0100_3042);
+        assert_eq!(
+            unicode_plane_raw.portable_key(),
+            NativeWindowPortableKey::Unknown {
+                raw_keysym: 0x0100_3042
+            }
         );
     }
 

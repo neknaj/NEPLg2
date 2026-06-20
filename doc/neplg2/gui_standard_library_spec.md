@@ -1403,6 +1403,16 @@ parser は supplied packet bytes だけを読み、object id、opcode、message 
 
 F5kj は Wayland header evidence boundary だけを担当する。Wayland event loop、xdg-shell semantic decode、fd read / drain / close、selector registration、Linux runner / CLI dispatch、support gate `Ok` 化、fallback event、silent no-op、synthetic readiness は扱わない。
 
+## F5kk Native Linux X11 caller-supplied keysym value projection boundary
+
+F5kk は caller supplied X11 keysym value を backend-local typed evidence として保持し、ごく狭い portable key evidence へ射影する boundary である。ここで扱う keysym は「caller がすでに得た raw integer」であり、raw X11 keycode から layout / keymap を使って取得する処理はこの boundary の外に置く。
+
+`NativeWindowLinuxX11KeysymValue` は raw `u32` keysym value を保持する。projection は `NativeWindowLinuxX11KeysymValue` からだけ作り、raw value と portable key を別々に受け取る public constructor は持たない。`NativeWindowLinuxX11KeysymProjection` は raw keysym owner と portable projection を同時に保持し、unknown value でも raw value を捨てない。
+
+portable projection は `NoSymbol`、`Unknown { raw_keysym }`、ASCII `0x20..0x7e`、Return、Escape、Tab、Backspace、Delete、arrow、Home / End、PageUp / PageDown だけを表す。X11 `NoSymbol = 0x0000` は `Unknown` ではなく `NoSymbol` として明示する。X11 named Delete は `0xffff` であり、ASCII DEL `0x007f` は portable `Delete` へ写さない。
+
+F5kk は keysym value projection boundary だけを担当する。`native_window_linux_x11_event_packet_to_observation` への接続、X11 keycode から keysym を得る layout / keymap query、`XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon、IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
