@@ -883,7 +883,7 @@ F5ih では、`NativeWindowRunLoopConfig` の platform wait config を actual wi
 
 `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は config を読み、non-platform config を `Config NotPlatformWaitBackend`、current platform と selection の不一致を `BackendSupportFailed` として返す。Windows + `WindowsWaitableTimerMessageWait` は既存 Windows runner path として accepted selection を返す。
 
-Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` として返す。F5iq 以降、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceFdMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source が無い限り runner-ready ではない。
+Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` として返す。F5it 以降、validated `ExternallyWakeableEventSource` で actual fd を持たない config は `MissingLinuxWindowEventSourceRawFd` として返し、actual fd を持つ config は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceEventParsingMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual fd registration だけでは X11 / Wayland event decoding と runner dispatch が揃わないため runner-ready ではない。
 
 F5ik 以降、macOS は `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
 
@@ -907,7 +907,7 @@ F5ij は CLI support-gate integration だけであり、Linux runner / CLI dispa
 
 F5ik では、platform wait runner support gate の failure shape を精密化する。selection と capability validation は通るが actual runner readiness に必要な実体が未接続である場合、`PlatformRunnerUnavailable` ではなく `PlatformRunnerIntegrationMissing` を返す。
 
-`NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` は、Linux の `LinuxWindowEventSourceFdMissing` と macOS の `MacosActualSysShimMissing` を分ける。Linux missing capability と observed-input-only は従来通り config / event-source support error として返す。validated `ExternallyWakeableEventSource` だけが actual X11 / Wayland window event source fd integration または同等の platform event source missing として integration-missing になる。
+`NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` は、Linux の `LinuxWindowEventSourceFdMissing` / `LinuxWindowEventSourceEventParsingMissing` と macOS の `MacosActualSysShimMissing` を分ける。Linux missing capability、observed-input-only、fd なし externally-wakeable config は従来通り config / event-source support error として返す。fd-present `ExternallyWakeableEventSource` だけが actual X11 / Wayland event decoding と runner dispatch missing として integration-missing になる。
 
 F5ik は error modeling checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
 
@@ -927,7 +927,7 @@ F5im では、F5il の owner を backend-only path へ分解せず、`NativeWind
 
 owner から backend だけを public に取り出す API は持たない。`into_owner` は producer と backend をまとめた owner を返すだけで、`NativeWindowHostLoopLinuxSelectorTimerFdBackend` 単体を public に返さない。wait は owner 内の backend へ委譲し、signal は owner 内の producer へ委譲する。
 
-F5im は owner-retaining wait hook checkpoint であり、Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing` を返す。F5iq 以降の missing reason は `LinuxWindowEventSourceFdMissing` である。Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
+F5im は owner-retaining wait hook checkpoint であり、Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing` または config error を返す。F5it 以降、fd なし externally-wakeable config は `MissingLinuxWindowEventSourceRawFd`、fd-present config は `LinuxWindowEventSourceEventParsingMissing` で fail-closed になる。Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland event decoding、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
 ## F5in Native Linux platform-wait owner-ready run-loop input boundary
 
@@ -935,7 +935,7 @@ F5in では、F5im の owner-retaining run-loop host を Linux runner へ接続�
 
 `NativeWindowLinuxPlatformWaitRunLoopInput` は `NativeWindowRunLoopConfig` と Linux externally-wakeable owner 全体を所有する。`into_parts` は config と owner を返すだけで、backend 単体や producer 単体を public に取り出さない。これにより、producer を落とした backend-only path や、owner を失う fallible builder を runner 入口に作らない。
 
-`native_window_linux_platform_wait_run_loop_input_for_platform` は generic runner support gate を呼ばない。generic support gate は引き続き Linux を `PlatformRunnerIntegrationMissing` として扱うためである。F5iq 以降、その missing reason は `LinuxWindowEventSourceFdMissing` である。F5in helper は下位の config / platform / backend kind / Linux event-source capability / owner-open validation だけを行い、失敗時は config と owner を error variant に保持して返す。
+`native_window_linux_platform_wait_run_loop_input_for_platform` は generic runner support gate を呼ばない。generic support gate は引き続き Linux を runner-ready として扱わないためである。F5it 以降、fd なし externally-wakeable config は `MissingLinuxWindowEventSourceRawFd`、fd-present config は `LinuxWindowEventSourceEventParsingMissing` で fail-closed になる。F5in helper は下位の config / platform / backend kind / Linux event-source capability / owner-open validation だけを行い、失敗時は config と owner を error variant に保持して返す。
 
 F5in は owner-ready input checkpoint であり、Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
@@ -980,6 +980,16 @@ cfg Linux sys shim は `epoll_wait` の event data が window event source fd �
 host-event-only wait は `HOST_EVENT_READY` だけを success とし、`WINDOW_EVENT_SOURCE_READY` は unexpected status として扱う。deadline-or-event wait では Linux selector enum に `WindowEventSourceReady` が残る。`NativeWindowHostLoopInterruptibleDeadlineWaiter` の generic wake へ写す時だけ、timer ではない event-pump wake として `HostEventReady` に変換する。これは event pump へ戻る evidence であり、timer fired evidence、scheduler completion、Linux runner readiness ではない。
 
 F5is は readiness classification checkpoint であり、actual X11 / Wayland fd acquisition、event decoding、Linux runner support gate の `Ok` 化、CLI dispatch、minifb wait replacement、synthetic timer fired evidence は追加しない。
+
+## F5it Native Linux window event source fd config-to-registration boundary
+
+F5it では、Linux platform-wait config が actual externally-wakeable window event source fd を non-owning raw value として保持できるようにする。`ExternallyWakeableEventSource` は分類値であり、actual fd が無い場合は runner-ready と扱わない。
+
+`NativeWindowRunLoopPlatformWaitBackendConfig` は `linux_window_event_source_raw_fd` を optional に持つ。既存 constructor は fd を作らない。`new_with_linux_window_event_source_raw_fd` は capability を `ExternallyWakeableEventSource` にし、raw fd を保持する。fd `0` は有効な fd として保持され、負値 fd の拒否は既存の `register_window_event_source_fd_from_raw` boundary が行う。
+
+`native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` は、Linux selection と `ExternallyWakeableEventSource` capability を検査した後、backend raw construction より前に fd の存在を要求する。fd が無い場合は `MissingLinuxWindowEventSourceRawFd` を返し、raw API を呼ばない。backend construction 後は owner construction より前に window event source fd を register する。registration failure は host、config、backend、typed registration error を保持して返す。
+
+generic runner support gate は Linux fd-present config でも `Ok` を返さない。fd が無い externally-wakeable config は config error とし、fd がある config は `LinuxWindowEventSourceEventParsingMissing` として fail-closed にする。F5it では fd registration / readiness classification までを config builder へ接続するだけで、X11 / Wayland event decoding、runner dispatch、CLI dispatch、minifb wait replacement、synthetic timer evidence は追加しない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

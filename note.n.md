@@ -73884,3 +73884,55 @@ MERGE_APPROVED
 
 - 次 slice では actual X11 / Wayland window event source fd acquisition、event parsing、Linux runner / CLI dispatch へ進む。
 - macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5it Linux window event source fd config-to-registration boundary
+
+### scope
+
+- F5it は F5ir / F5is の window event source fd registration / readiness classification を、低レベル Linux `from_config_with_apis` builder へ接続する checkpoint である。
+- `ExternallyWakeableEventSource` は分類値のまま残し、actual fd が無い config は `MissingLinuxWindowEventSourceRawFd` として拒否する。
+- fd-present config でも Linux generic support gate は `Ok` を返さず、残る blocker を event decoding / runner dispatch missing として保持する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は、config が fd を持てるようになった後も generic support gate が `LinuxWindowEventSourceFdMissing` を返すと実態とずれるため、fd-present 用の missing integration reason を分ける必要があるというものだった。
+- revised plan は `PLAN_APPROVED`。required constraints は、`ObservedInputOnly` は従来通り `LinuxEventSourceSupportFailed`、fd なし externally-wakeable は `MissingLinuxWindowEventSourceRawFd`、fd-present は `LinuxWindowEventSourceEventParsingMissing` として fail-closed、backend construction 後 owner construction 前に fd register、registration failure では host / config / backend / typed error を保持、CLI raw-fd option / runner dispatch / support-gate `Ok` / fd read-drain-close / synthetic evidence 非導入だった。
+
+### implementation
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` に optional `linux_window_event_source_raw_fd` と `new_with_linux_window_event_source_raw_fd`、getter、raw fd extraction helper を追加した。
+- `NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxWindowEventSourceRawFd` と `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceEventParsingMissing` を追加した。
+- Linux generic support gate は capability validation 後に raw fd を要求し、fd がある場合も event parsing missing として fail-closed にした。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` は raw fd を backend construction 前に抽出し、backend construction 後 owner construction 前に `register_window_event_source_fd_from_raw` を呼ぶ。
+- window fd registration failure 用に、host、config、backend、typed error を保持する `WindowEventSourceRegisterFailed` error variant を追加した。
+- source policy、GUI docs、`todo.md` を F5it contract へ更新した。
+
+### verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_config_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_run_loop_platform_wait_config_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5it blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は、code / source-policy の blocker ではなく、この section の `implementation_review` が pending のままだったことと、`doc/neplg2/gui_standard_library_spec.md` の current contract が F5iq の `LinuxWindowEventSourceFdMissing` 表現のまま残っていたことだった。
+- 指摘対応として、この欄に初回 review result を記録し、spec / native behavior current summary を F5it 後の contract に更新した。fd なし externally-wakeable config は `MissingLinuxWindowEventSourceRawFd`、fd-present config は `LinuxWindowEventSourceEventParsingMissing` として fail-closed になる。
+- 2 回目の review は `CHANGES_REQUESTED`。`doc/neplg2/gui_tui_implementation_plan.md` の F5ih / F5ik に F5iq 以降 current contract として古い `LinuxWindowEventSourceFdMissing` 表現が残っていたことと、source policy が F5it current plan wording を直接固定していなかったことが blocker だった。
+- 指摘対応として、implementation plan の F5iq 文言を historical wording に変更し、F5it current contract を `MissingLinuxWindowEventSourceRawFd` / `LinuxWindowEventSourceEventParsingMissing` として明記した。`nodesrc/test_native_gui_platform_behavior.js` でも F5it current wording を固定した。
+- final re-review は `REVIEW_APPROVED`。残る `LinuxWindowEventSourceFdMissing` references は historical F5iq/F5ir/F5it context であり、stale current-contract wording ではないこと、F5it current contract が implementation plan と source policy に固定されたことが確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、event decoding、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。

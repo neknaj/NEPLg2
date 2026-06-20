@@ -1303,7 +1303,7 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を分ける。
 - `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を追加する。`NativeWindowRunLoopConfig` から platform wait config を抽出し、selection と current platform を検査する。
 - Windows + `WindowsWaitableTimerMessageWait` は selection を返す。
-- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` を返す。F5iq 以降の current contract では、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceFdMissing` として返す。
+- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` を返す。F5iq では、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceFdMissing` として返した。F5it 以降の current contract では、fd なし externally-wakeable config は `MissingLinuxWindowEventSourceRawFd` として返し、fd-present config は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceEventParsingMissing` として返す。
 - macOS は F5ik 以降 `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` を返す。
 
 検証:
@@ -1379,7 +1379,7 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 実装:
 
-- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、Linux の missing integration と `MacosActualSysShimMissing` を分ける。F5iq 以降、Linux の current variant は `LinuxWindowEventSourceFdMissing` である。
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、Linux の missing integration と `MacosActualSysShimMissing` を分ける。F5iq 時点の Linux variant は `LinuxWindowEventSourceFdMissing` だった。F5it 以降の current contract では、fd なし externally-wakeable config は config error、fd-present config は `LinuxWindowEventSourceEventParsingMissing` である。
 - `NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing` を追加し、validated selection と missing reason を保持する。
 - Linux + missing capability は `Config MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` のまま維持する。validated `ExternallyWakeableEventSource` だけを integration-missing に写す。
 - Windows + `WindowsWaitableTimerMessageWait` はこれまで通り accepted selection を返す。unsupported platform は `PlatformRunnerUnavailable` のままにする。
@@ -1595,6 +1595,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - Rust unit tests で status mapping、host-event-only strictness、registered window fd path の new raw method 呼び出し、run-loop adapter が window fd readiness を event pump wake として扱うことを検査する。
 - source policy で new status / enum / raw method、registered path only、external fd read / drain / close 禁止、support gate / runner / CLI / minifb / fallback / synthetic timer evidence 非導入を固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
+### Phase F5it: Native Linux window event source fd config-to-registration boundary
+
+目的:
+
+- F5ir / F5is で追加した fd registration / readiness classification を、低レベル Linux `from_config_with_apis` builder から実際に使えるようにする。
+- `ExternallyWakeableEventSource` という分類値だけで owner / host を構築できる穴を閉じ、actual fd を config に明示する。
+- fd が config にある場合、generic support gate の missing reason を `LinuxWindowEventSourceFdMissing` ではなく event decoding / runner dispatch missing として truthfully fail-closed にする。
+
+実装:
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` に optional `linux_window_event_source_raw_fd` を追加する。
+- `new_with_linux_window_event_source_raw_fd selection raw_fd` は capability を `ExternallyWakeableEventSource` にし、raw fd を non-owning value として保持する。
+- `MissingLinuxWindowEventSourceRawFd` config error と `LinuxWindowEventSourceEventParsingMissing` integration-missing reason を追加する。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` は capability validation 後、raw backend construction 前に raw fd を要求する。
+- backend construction 後、owner construction 前に `register_window_event_source_fd_from_raw` を呼ぶ。registration failure は host、config、backend、typed registration error を保持して返す。
+- generic support gate は Linux fd-present config でも `Ok` を返さず、event parsing / runner dispatch missing として fail-closed にする。
+
+検証:
+
+- Rust unit tests で raw fd `0` が config に保持されること、fd なし externally-wakeable config が raw API 呼び出し前に失敗すること、fd-present support gate が event parsing missing で fail-closed になることを検査する。
+- Rust unit tests で `from_config_with_apis` が fd を register してから owner を作り、window readiness を event pump wake へ写すこと、raw registration failure が backend を保持することを検査する。
+- source policy で CLI raw-fd option、runner dispatch、support-gate `Ok`、minifb promotion、fd read / drain / close、synthetic readiness / timer evidence 非導入を固定する。
 
 非目標:
 
