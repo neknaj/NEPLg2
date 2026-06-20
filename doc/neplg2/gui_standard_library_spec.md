@@ -1211,9 +1211,19 @@ parser は checked arithmetic で vendor padded length、pixmap format section�
 
 resource id allocator は sparse mask に対応し、serial の bit を resource-id-mask の set bit へ low-to-high に詰める。serial zero、mask bit 数を超える serial、generated id zero、generated id が base/mask invariant を満たさない場合は `NativeWindowLinuxX11ResourceIdAllocationError` を返す。mask が連続していないことを fallback や unsupported success にしない。
 
-`NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes を setup completion まで保持し、body read 完了時に parser を呼ぶ。parse failure は `SetupResourceInfoParseFailed` として setup failed state へ遷移する。success した resource info は reader accessor から読めるが、F5jq ではまだ CreateWindow request owner の生成、window id serial owner、root window id の parent への接続は行わない。
+`NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes を setup completion まで保持し、body read 完了時に parser を呼ぶ。parse failure は `SetupResourceInfoParseFailed` として setup failed state へ遷移する。success した resource info は reader accessor から読める。F5jq 自体では CreateWindow request owner の生成、window id serial owner、root window id の parent への接続は行わず、これらは F5jr で扱う。
 
 F5jq は setup resource info parse / allocation boundary だけを担当する。actual top-level request generation from setup info、server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
+## F5jr Native Linux X11 setup-backed top-level window request owner boundary
+
+F5jr では、F5jq の `NativeWindowLinuxX11SetupResourceInfo` と caller supplied serial から generated client window id を割り当て、setup success body 由来の first root window id を parent とする CreateWindow / MapWindow request owner を作る境界を追加する。Rust boundary 名としては、input を `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput`、failure を `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError`、builder を `native_window_linux_x11_top_level_window_create_request_from_setup_resource_info` とする。
+
+`NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput` は setup resource info、window resource serial、geometry、background pixel、event mask を保持する。window id は `native_window_linux_x11_resource_id_from_serial` により client id space から生成し、zero と unused high bits を既存の client resource id 検証で拒否する。parent window id は setup success body 由来の server-owned root id なので、client id high bits 検証は適用せず、zero だけを拒否する。
+
+F5jr の error は allocation failure と request build failure を分ける。serial zero / exhausted / generated id invariant violation は `ResourceIdAllocationFailed` とし、width zero、height zero、event mask unused bits、root id zero、request length overflow は `TopLevelWindowCreateRequestBuildFailed` として既存 build error を保持する。caller supplied `NativeWindowLinuxX11TopLevelWindowCreateInput` の public helper は従来通り parent id high bits を拒否し続ける。
+
+F5jr は setup info から top-level request owner を作る pure boundary だけを担当する。reader への自動生成接続、server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 

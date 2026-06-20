@@ -2416,6 +2416,36 @@ Phase F5jq では、X11 setup success body から resource-id-base、resource-id
 - `git diff --check`
 - subagent implementation review で setup resource parser、sparse resource allocator、reader fail-closed integration、no runner / no fallback が承認される。
 
+## Phase F5jr: Native Linux X11 setup-backed top-level window request owner boundary
+
+Phase F5jr では、F5jq の setup resource info を使い、caller supplied serial から generated client window id を作り、setup success body 由来の first root window id を parent にした CreateWindow / MapWindow request owner を生成する。これは setup-backed request owner boundary であり、reader 自動接続、server error / reply handling、WM_DELETE_WINDOW、keyboard / IME、Linux runner / CLI dispatch、support gate `Ok` 化はまだ行わない。
+
+実装:
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput` を追加し、setup resource info、window resource serial、geometry、background pixel、event mask を private field として保持する。
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError` を追加し、resource id allocation failure と request build failure を分ける。
+- 既存 `native_window_linux_x11_top_level_window_create_request` は caller supplied window id / parent id の high-bit validation を維持する。
+- request byte encoding は private helper に分離し、ID 検証済みの caller-supplied path と setup-backed path で共有する。
+- setup-backed builder は `native_window_linux_x11_resource_id_from_serial` で generated client window id を作り、window id は client resource id validation、root parent id は zero-only validation を通す。
+- source-policy は setup-backed path が Xauthority lookup、reader mutation、raw fd write、runner dispatch、support gate `Ok` 化、WM_DELETE_WINDOW、keyboard / IME、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- `NativeWindowLinuxX11EventSourceObservationReader` が setup ready 後に request を自動生成する接続は含めない。
+- server sequence / error / reply decode、window manager protocol、keyboard / IME、Linux runner / CLI dispatch は含めない。
+- StructureNotify / Expose subscription は行わない。MapNotify / ConfigureNotify / Expose decode を追加する phase まで、それらを silent no-op にしない。
+- support gate `Ok` 化、fallback、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_backed -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で setup-backed resource id allocation、root id zero-only validation、no reader mutation / no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
