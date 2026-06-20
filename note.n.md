@@ -1,3 +1,51 @@
+# 2026-06-20 Agent2 GUI native F5jf Linux Xauthority lookup path request boundary
+
+## scope
+
+- Xauthority bytes を読む前段として、caller supplied authority file path と caller supplied home directory path から要求 path を決める。
+- `authority_file_path = Some nonempty` は `ExplicitAuthorityFile` として byte-for-byte に preserving し、home directory より優先する。
+- `authority_file_path = Some empty` は fail closed にし、home default へ落とさない。
+- `authority_file_path = None` かつ `home_directory_path = Some nonempty` の場合だけ `HomeDirectoryDefault` として default file name を結合する。
+- path は NUL と length overflow を typed error にし、normalize / canonicalize / tilde expansion は行わない。
+- `XAUTHORITY` / `HOME` の env acquisition、filesystem / VFS open / read、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Required は explicit authority file path を home default より優先し、empty explicit path を fail closed にすることだった。
+- HOME default は caller supplied home directory だけから作り、`/` 終端時は `.Xauthority`、それ以外は `/.Xauthority` を append する方針で承認された。
+- NUL check と checked length は path owner 生成前の境界として扱い、env / fs / VFS / credential selection / runner / support gate へ踏み込まないことが条件だった。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityLookupInput`、`NativeWindowLinuxX11XauthorityPathSource`、`NativeWindowLinuxX11XauthorityPathPlan`、`NativeWindowLinuxX11XauthorityPathPlanError` を追加した。
+- explicit path plan は nonempty / no-NUL を検査し、source と owned path を返す。
+- home default path plan は nonempty / no-NUL と checked append を検査し、source と owned default path を返す。
+- public planner は explicit path、home default、missing location の順に pure Result boundary として分岐する。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jf contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、explicit path priority、empty explicit path fail-closed、HOME suffix rule、owner construction 前の NUL rejection、checked suffix length、env / fs / VFS / runner / support-gate / fallback 非導入は満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `XAUTHORITY` / `HOME` acquisition boundary と filesystem / VFS read boundary は未実装である。
+- credential selection / setup request integration、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
 # 2026-06-20 Agent2 GUI native F5je Linux Xauthority selector criteria boundary
 
 ## scope

@@ -1099,6 +1099,14 @@ accepted display form は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` に�
 
 F5je の criteria は family を `Local` に固定し、address は caller supplied byte slice を exact match に使う。hostname / gethostname、Unix socket peer identity、TCP/IP address、SSH forwarding display policy、`FamilyWild` fallback、no-auth fallback は扱わない。`.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding、Linux support gate の `Ok` 化、runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5jf Native Linux Xauthority lookup path request boundary
+
+F5jf では、Xauthority bytes を読む前に、caller supplied environment-like values から authority file path request を作る境界を追加する。Rust boundary 名としては、input を `NativeWindowLinuxX11XauthorityLookupInput`、source enum を `NativeWindowLinuxX11XauthorityPathSource`、owned plan を `NativeWindowLinuxX11XauthorityPathPlan`、failure を `NativeWindowLinuxX11XauthorityPathPlanError` とする。
+
+`authority_file_path = Some nonempty` は `ExplicitAuthorityFile` として byte-for-byte に preserving し、home directory より優先する。`authority_file_path = Some empty` は `EmptyAuthorityFilePath` として fail closed にし、home directory default へ進まない。`authority_file_path = None` かつ `home_directory_path = Some nonempty` の場合だけ `HomeDirectoryDefault` として default file name を結合する。home が `/` で終わる場合は `.Xauthority`、そうでない場合は `/.Xauthority` を append する。
+
+F5jf は path request boundary であり、`XAUTHORITY` / `HOME` の env acquisition、`std::env`、filesystem / VFS open / read、metadata / exists / canonicalize、file locking、Xauthority bytes parse、credential selection、setup request integration は扱わない。NUL を含む path は typed error とし、suffix append は checked length にする。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化、runner / CLI dispatch は後続にも混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

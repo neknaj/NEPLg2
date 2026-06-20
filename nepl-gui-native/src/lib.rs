@@ -7288,6 +7288,7 @@ pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET: u16 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL: u16 = 256;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD: u16 = 65535;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN: usize = 10;
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_HOME_DEFAULT_FILE_NAME: &str = ".Xauthority";
 
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
@@ -7447,6 +7448,37 @@ pub struct NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
     display_number_bytes: [u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN],
     display_number_byte_len: usize,
     preferred_protocol_name: Option<&'a [u8]>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityPathSource {
+    ExplicitAuthorityFile,
+    HomeDirectoryDefault,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityLookupInput<'a> {
+    authority_file_path: Option<&'a str>,
+    home_directory_path: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityPathPlan {
+    source: NativeWindowLinuxX11XauthorityPathSource,
+    path: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityPathPlanError {
+    MissingAuthorityLocation,
+    EmptyAuthorityFilePath,
+    AuthorityFilePathContainsNul,
+    EmptyHomeDirectory,
+    HomeDirectoryContainsNul,
+    PathLengthOverflow {
+        base_byte_len: usize,
+        suffix_byte_len: usize,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7647,6 +7679,97 @@ impl<'a> NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
             self.preferred_protocol_name,
         )
     }
+}
+
+impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
+    pub fn new(authority_file_path: Option<&'a str>, home_directory_path: Option<&'a str>) -> Self {
+        Self {
+            authority_file_path,
+            home_directory_path,
+        }
+    }
+
+    pub fn authority_file_path(&self) -> Option<&'a str> {
+        self.authority_file_path
+    }
+
+    pub fn home_directory_path(&self) -> Option<&'a str> {
+        self.home_directory_path
+    }
+}
+
+impl NativeWindowLinuxX11XauthorityPathPlan {
+    pub fn source(&self) -> NativeWindowLinuxX11XauthorityPathSource {
+        self.source
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+}
+
+fn native_window_linux_x11_xauthority_path_contains_nul(path: &str) -> bool {
+    path.as_bytes().iter().any(|byte| *byte == 0)
+}
+
+fn native_window_linux_x11_xauthority_plan_explicit_path(
+    authority_file_path: &str,
+) -> Result<NativeWindowLinuxX11XauthorityPathPlan, NativeWindowLinuxX11XauthorityPathPlanError> {
+    if authority_file_path.is_empty() {
+        return Err(NativeWindowLinuxX11XauthorityPathPlanError::EmptyAuthorityFilePath);
+    }
+    if native_window_linux_x11_xauthority_path_contains_nul(authority_file_path) {
+        return Err(NativeWindowLinuxX11XauthorityPathPlanError::AuthorityFilePathContainsNul);
+    }
+    Ok(NativeWindowLinuxX11XauthorityPathPlan {
+        source: NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile,
+        path: authority_file_path.to_owned(),
+    })
+}
+
+fn native_window_linux_x11_xauthority_plan_home_default_path(
+    home_directory_path: &str,
+) -> Result<NativeWindowLinuxX11XauthorityPathPlan, NativeWindowLinuxX11XauthorityPathPlanError> {
+    if home_directory_path.is_empty() {
+        return Err(NativeWindowLinuxX11XauthorityPathPlanError::EmptyHomeDirectory);
+    }
+    if native_window_linux_x11_xauthority_path_contains_nul(home_directory_path) {
+        return Err(NativeWindowLinuxX11XauthorityPathPlanError::HomeDirectoryContainsNul);
+    }
+    let suffix = if home_directory_path.ends_with('/') {
+        NATIVE_WINDOW_LINUX_X11_XAUTHORITY_HOME_DEFAULT_FILE_NAME
+    } else {
+        "/.Xauthority"
+    };
+    let path_byte_len = home_directory_path
+        .as_bytes()
+        .len()
+        .checked_add(suffix.as_bytes().len())
+        .ok_or(
+            NativeWindowLinuxX11XauthorityPathPlanError::PathLengthOverflow {
+                base_byte_len: home_directory_path.as_bytes().len(),
+                suffix_byte_len: suffix.as_bytes().len(),
+            },
+        )?;
+    let mut path = String::with_capacity(path_byte_len);
+    path.push_str(home_directory_path);
+    path.push_str(suffix);
+    Ok(NativeWindowLinuxX11XauthorityPathPlan {
+        source: NativeWindowLinuxX11XauthorityPathSource::HomeDirectoryDefault,
+        path,
+    })
+}
+
+pub fn native_window_linux_x11_xauthority_path_plan(
+    input: NativeWindowLinuxX11XauthorityLookupInput<'_>,
+) -> Result<NativeWindowLinuxX11XauthorityPathPlan, NativeWindowLinuxX11XauthorityPathPlanError> {
+    if let Some(authority_file_path) = input.authority_file_path() {
+        return native_window_linux_x11_xauthority_plan_explicit_path(authority_file_path);
+    }
+    if let Some(home_directory_path) = input.home_directory_path() {
+        return native_window_linux_x11_xauthority_plan_home_default_path(home_directory_path);
+    }
+    Err(NativeWindowLinuxX11XauthorityPathPlanError::MissingAuthorityLocation)
 }
 
 fn native_window_linux_x11_xauthority_display_number_bytes(
@@ -17458,6 +17581,88 @@ mod tests {
                 panic!("expected exact local xauthority record")
             }
         }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_path_plan_preserves_explicit_path() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(
+                Some("/run/user/1000/custom.auth"),
+                Some("/home/alice"),
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            plan.source(),
+            NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+        );
+        assert_eq!(plan.path(), "/run/user/1000/custom.auth");
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_path_plan_rejects_empty_explicit_path_without_home_fallback(
+    ) {
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan(
+                NativeWindowLinuxX11XauthorityLookupInput::new(Some(""), Some("/home/alice"),),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityPathPlanError::EmptyAuthorityFilePath
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_path_plan_builds_home_default_path() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("/home/alice")),
+        )
+        .unwrap();
+
+        assert_eq!(
+            plan.source(),
+            NativeWindowLinuxX11XauthorityPathSource::HomeDirectoryDefault
+        );
+        assert_eq!(plan.path(), "/home/alice/.Xauthority");
+
+        let slash_plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("/home/alice/")),
+        )
+        .unwrap();
+
+        assert_eq!(slash_plan.path(), "/home/alice/.Xauthority");
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_path_plan_reports_missing_and_invalid_paths() {
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan(
+                NativeWindowLinuxX11XauthorityLookupInput::new(None, None),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityPathPlanError::MissingAuthorityLocation
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan(
+                NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("")),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityPathPlanError::EmptyHomeDirectory
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan(
+                NativeWindowLinuxX11XauthorityLookupInput::new(Some("/tmp/a\0b"), None),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityPathPlanError::AuthorityFilePathContainsNul
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan(
+                NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("/home/a\0b")),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityPathPlanError::HomeDirectoryContainsNul
+        );
     }
 
     #[test]

@@ -2029,6 +2029,40 @@ Phase F5je では、F5jd の `NativeWindowLinuxX11XauthoritySelector` に渡す 
 - `git diff --check`
 - subagent implementation review で pure display parser、criteria-owned display bytes、caller supplied address only、no fs/env / no fallback / no runner dispatch が承認される。
 
+## Phase F5jf: Native Linux Xauthority lookup path request boundary
+
+Phase F5jf では、Xauthority bytes を読む前段として、caller supplied authority file path と caller supplied home directory path から「どの path を要求すべきか」を決める pure path request boundary を追加する。これは path selection contract であり、environment variable acquisition、filesystem / VFS read、file locking、credential selection integration は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityLookupInput` は `authority_file_path: Option str` と `home_directory_path: Option str` を受け取る。ここでは `std::env` や raw environment API を呼ばない。
+- `NativeWindowLinuxX11XauthorityPathSource` は `ExplicitAuthorityFile` と `HomeDirectoryDefault` を分ける。
+- `NativeWindowLinuxX11XauthorityPathPlan` は source と owned path string を保持する。
+- `authority_file_path = Some nonempty` は byte-for-byte に preserving し、home directory より優先する。
+- `authority_file_path = Some empty` は `EmptyAuthorityFilePath` として fail closed にし、home directory へ落とさない。
+- `authority_file_path = None` かつ `home_directory_path = Some nonempty` の場合だけ、HOME default source として default file name を結合する。
+- HOME が `/` で終わる場合は `.Xauthority`、終わらない場合は `/.Xauthority` を append し、normalize / canonicalize / tilde expansion はしない。
+- NUL を含む path は Unix path conversion の前段で typed error にする。
+- suffix append は checked length にし、overflow は `PathLengthOverflow` とする。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jf contract へ更新する。
+
+非目標:
+
+- `XAUTHORITY` / `HOME` の env acquisition、`std::env`、filesystem / VFS open / read、metadata / exists / canonicalize、file locking は扱わない。
+- Xauthority bytes parse / credential selection / setup request integration は扱わない。
+- Hostname / `gethostname`、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding は扱わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で pure path plan、explicit source enum、no env/fs/VFS / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
