@@ -2634,6 +2634,73 @@ Phase F5jx では、F5jw の generic `InternAtom` request owner を使い、ICCC
 - `git diff --check`
 - subagent implementation review で WM protocol atom request batch owner、exact offset、no raw write/read / no registration / no fallback が承認される。
 
+## Phase F5jy: Native Linux X11 top-level CreateWindow/MapWindow split request owner boundary
+
+Phase F5jy では、F5jo 以来 combined owner に閉じていた top-level `CreateWindow` と `MapWindow` の request bytes を standalone owner として分離する。これは WM protocol registration のための ordering prerequisite であり、registration phase そのものではない。後続は `CreateWindow -> InternAtom batch -> InternAtom replies / Atom IDs -> ChangeProperty WM_PROTOCOLS -> MapWindow` の順序へ進めるが、F5jy は reader state、raw fd write/read、sequence assignment、reply correlation、Atom ID、`ChangeProperty`、`ClientMessage` decode を扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11CreateWindowRequest` と `NativeWindowLinuxX11MapWindowRequest` を追加し、それぞれ window id と encoded bytes だけを所有する。
+- 既存の `NativeWindowLinuxX11TopLevelWindowCreateRequest` は互換 owner として残し、standalone `CreateWindow` owner と `MapWindow` owner の bytes をこの順で連結する。
+- standalone `CreateWindow` は既存 F5jo の resource id、width / height、event mask、request length overflow validation を再利用する。
+- standalone `MapWindow` は window id validation を同じ public error enum で返す。
+- combined owner は create byte length、map byte length、total bytes、window id を metadata として公開し、sequence number は公開しない。
+- source-policy は split owner surface が raw fd write/read、reader integration、sequence assignment、InternAtom、reply / Atom ID、`ChangeProperty`、`ClientMessage`、support gate、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- current reader partial-write path は combined owner のまま維持する。
+- InternAtom batch write、reply parser / reply correlation、Atom ID owner、WM property registration、MapWindow scheduling relocation は含めない。
+- keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は含めない。
+
+完了条件:
+
+- standalone `CreateWindow` bytes は従来 combined owner の prefix と byte-for-byte に一致する。
+- standalone `MapWindow` bytes は従来 combined owner の suffix と byte-for-byte に一致する。
+- combined owner bytes は `create.as_bytes() + map.as_bytes()` と完全一致し、既存 focused tests が維持される。
+- setup-backed generated window id / root parent path の validation と bytes が維持される。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_create_window_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_map_window_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で CreateWindow/MapWindow split owner、byte exactness、no writer/reply/registration integration、no fallback が承認される。
+
+## Phase F5jz: Native Linux X11 InternAtom reply packet AtomId owner boundary
+
+Phase F5jz では、X11 `InternAtom` の fixed 32 byte reply packet から nonzero Atom ID を取り出す pure parser と owner を追加する。これは F5jw / F5jx の request bytes と、後続の WM protocol registration を接続するための request-specific reply payload boundary である。ただし F5jz は current reader の generic reply handling を変更せず、request / reply correlation も行わない。
+
+実装:
+
+- `NativeWindowLinuxX11AtomId` は nonzero raw atom id を保持し、`raw` accessor だけを公開する。
+- Atom 0 は `only_if_exists = true` では仕様上あり得るため、F5jz の AtomId owner は nonzero Atom ID を要求する境界だと明記する。
+- `NativeWindowLinuxX11InternAtomReply` は sequence と `NativeWindowLinuxX11AtomId` を保持する。
+- `native_window_linux_x11_intern_atom_reply_from_packet` は fixed 32 byte packet を受け、response type、sequence、reply length units、atom id を little-endian で読む。
+- parser は response type が reply であること、InternAtom reply length units が `0` であること、atom id が nonzero であることを検査する。
+- source-policy は parser surface が reader mutation、raw fd write/read、accepted write progress、request / reply correlation、WM batch sequence assignment、`ChangeProperty`、`ClientMessage`、MapWindow scheduling、support gate、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- current reader の `ServerReplyReceived` / generic reply body drain behavior は変更しない。
+- WM protocol atom request batch の write、accepted write progress、sequence correlation、Atom kind mapping は含めない。
+- `ChangeProperty` による actual `WM_PROTOCOLS` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、MapWindow scheduling relocation は含めない。
+- keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は含めない。
+
+完了条件:
+
+- valid packet で sequence と nonzero Atom ID が保持される。
+- response type が reply でない packet は typed error になる。
+- nonzero reply length units は typed error になる。
+- Atom ID 0 は nonzero AtomId owner 境界として typed error になる。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_intern_atom_reply -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で nonzero AtomId owner、fixed 32 byte packet parser、no reader/correlation/registration integration、no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
