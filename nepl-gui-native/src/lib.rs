@@ -1255,6 +1255,97 @@ pub enum NativeWindowLinuxWindowEventSourceKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceFdAcquisitionKind {
+    X11Display,
+    WaylandDisplay,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceEnvironmentVariable {
+    Display,
+    WaylandDisplay,
+    XdgRuntimeDir,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceFdAcquisitionError {
+    MissingEnvironment {
+        variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable,
+    },
+    UnsupportedDisplayForm {
+        kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
+    },
+    InvalidDisplayNumber,
+    SocketPathTooLong {
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    SocketCreateFailed {
+        code: u32,
+    },
+    ConnectFailed {
+        code: u32,
+        close_code: Option<u32>,
+    },
+    InvalidAcquiredRawFd {
+        raw_fd: i32,
+    },
+    CloseFailed {
+        raw_fd: i32,
+        code: u32,
+    },
+    Closed {
+        kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
+    },
+}
+
+#[derive(Debug)]
+pub struct NativeWindowLinuxWindowEventSourceFdAcquisitionFailure<Api> {
+    api: Api,
+    error: NativeWindowLinuxWindowEventSourceFdAcquisitionError,
+}
+
+pub trait NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi {
+    fn environment_variable(
+        &mut self,
+        variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable,
+    ) -> Option<String>;
+
+    fn create_unix_stream_socket_raw(&mut self) -> i32;
+
+    fn connect_unix_stream_socket_raw(&mut self, raw_fd: i32, path: &str) -> bool;
+
+    fn close_unix_stream_socket_raw(&mut self, raw_fd: i32) -> bool;
+
+    fn last_error_code(&mut self) -> u32;
+}
+
+#[derive(Debug)]
+enum NativeWindowLinuxWindowEventSourceOwnedFdState {
+    Open { raw_fd: i32 },
+    Closed,
+    CloseFailed { raw_fd: i32, code: u32 },
+}
+
+#[derive(Debug)]
+pub struct NativeWindowLinuxWindowEventSourceOwnedFd<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
+    state: NativeWindowLinuxWindowEventSourceOwnedFdState,
+    api: Api,
+}
+
+#[derive(Debug)]
+pub struct NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    owned_fd: NativeWindowLinuxWindowEventSourceOwnedFd<Api>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxWindowEventSourceDescriptor {
     source_kind: NativeWindowLinuxWindowEventSourceKind,
     raw_fd: i32,
@@ -1782,6 +1873,364 @@ impl NativeWindowLinuxWindowEventSourceDescriptor {
 
     pub fn raw_fd(self) -> i32 {
         self.raw_fd
+    }
+}
+
+const NATIVE_WINDOW_LINUX_UNIX_SOCKET_PATH_MAX_BYTES: usize = 107;
+
+impl NativeWindowLinuxWindowEventSourceFdAcquisitionKind {
+    pub fn descriptor_source_kind(self) -> NativeWindowLinuxWindowEventSourceKind {
+        match self {
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display => {
+                NativeWindowLinuxWindowEventSourceKind::X11Connection
+            }
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay => {
+                NativeWindowLinuxWindowEventSourceKind::WaylandDisplay
+            }
+        }
+    }
+}
+
+impl<Api> NativeWindowLinuxWindowEventSourceFdAcquisitionFailure<Api> {
+    fn new(api: Api, error: NativeWindowLinuxWindowEventSourceFdAcquisitionError) -> Self {
+        Self { api, error }
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn error(&self) -> NativeWindowLinuxWindowEventSourceFdAcquisitionError {
+        self.error
+    }
+
+    pub fn into_parts(self) -> (Api, NativeWindowLinuxWindowEventSourceFdAcquisitionError) {
+        (self.api, self.error)
+    }
+}
+
+fn native_window_linux_window_event_source_check_socket_path(
+    path: &str,
+) -> Result<(), NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+    let byte_len_with_nul = path.as_bytes().len().saturating_add(1);
+    if byte_len_with_nul > NATIVE_WINDOW_LINUX_UNIX_SOCKET_PATH_MAX_BYTES + 1 {
+        return Err(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::SocketPathTooLong {
+                byte_len: byte_len_with_nul,
+                max_byte_len: NATIVE_WINDOW_LINUX_UNIX_SOCKET_PATH_MAX_BYTES + 1,
+            },
+        );
+    }
+    Ok(())
+}
+
+fn native_window_linux_wayland_socket_path(
+    runtime_dir: &str,
+    display_name: &str,
+) -> Result<String, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+    if display_name.is_empty()
+        || display_name.starts_with('/')
+        || display_name.bytes().any(|byte| byte == b'/')
+    {
+        return Err(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            },
+        );
+    }
+    let mut path = String::with_capacity(runtime_dir.len() + 1 + display_name.len());
+    path.push_str(runtime_dir);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path.push_str(display_name);
+    native_window_linux_window_event_source_check_socket_path(&path)?;
+    Ok(path)
+}
+
+fn native_window_linux_x11_display_number(
+    display: &str,
+) -> Result<u32, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+    let rest = if let Some(rest) = display.strip_prefix("unix/") {
+        rest
+    } else {
+        display
+    };
+    let Some(after_colon) = rest.strip_prefix(':') else {
+        return Err(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            },
+        );
+    };
+    let mut number = String::new();
+    let mut chars = after_colon.chars();
+    for ch in chars.by_ref() {
+        if ch == '.' {
+            let screen: String = chars.collect();
+            if screen.is_empty() || !screen.chars().all(|screen_ch| screen_ch.is_ascii_digit()) {
+                return Err(
+                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber,
+                );
+            }
+            break;
+        }
+        if !ch.is_ascii_digit() {
+            return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber);
+        }
+        number.push(ch);
+    }
+    if number.is_empty() {
+        return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber);
+    }
+    number
+        .parse::<u32>()
+        .map_err(|_| NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber)
+}
+
+fn native_window_linux_x11_socket_path(
+    display: &str,
+) -> Result<String, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+    let display_number = native_window_linux_x11_display_number(display)?;
+    let path = format!("/tmp/.X11-unix/X{display_number}");
+    native_window_linux_window_event_source_check_socket_path(&path)?;
+    Ok(path)
+}
+
+fn native_window_linux_window_event_source_socket_path_from_env<Api>(
+    api: &mut Api,
+    kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
+) -> Result<String, NativeWindowLinuxWindowEventSourceFdAcquisitionError>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    match kind {
+        NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay => {
+            let display_name = api
+                .environment_variable(
+                    NativeWindowLinuxWindowEventSourceEnvironmentVariable::WaylandDisplay,
+                )
+                .ok_or(
+                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::MissingEnvironment {
+                        variable:
+                            NativeWindowLinuxWindowEventSourceEnvironmentVariable::WaylandDisplay,
+                    },
+                )?;
+            let runtime_dir = api
+                .environment_variable(
+                    NativeWindowLinuxWindowEventSourceEnvironmentVariable::XdgRuntimeDir,
+                )
+                .ok_or(
+                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::MissingEnvironment {
+                        variable:
+                            NativeWindowLinuxWindowEventSourceEnvironmentVariable::XdgRuntimeDir,
+                    },
+                )?;
+            native_window_linux_wayland_socket_path(&runtime_dir, &display_name)
+        }
+        NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display => {
+            let display = api
+                .environment_variable(
+                    NativeWindowLinuxWindowEventSourceEnvironmentVariable::Display,
+                )
+                .ok_or(
+                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::MissingEnvironment {
+                        variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable::Display,
+                    },
+                )?;
+            native_window_linux_x11_socket_path(&display)
+        }
+    }
+}
+
+pub fn native_window_linux_window_event_source_acquire_fd_with_api<Api>(
+    kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind,
+    mut api: Api,
+) -> Result<
+    NativeWindowLinuxWindowEventSourceOwnedFd<Api>,
+    NativeWindowLinuxWindowEventSourceFdAcquisitionFailure<Api>,
+>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    let path = match native_window_linux_window_event_source_socket_path_from_env(&mut api, kind) {
+        Ok(path) => path,
+        Err(error) => {
+            return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionFailure::new(
+                api, error,
+            ));
+        }
+    };
+    let raw_fd = api.create_unix_stream_socket_raw();
+    if raw_fd < 0 {
+        let code = api.last_error_code();
+        return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionFailure::new(
+            api,
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::SocketCreateFailed { code },
+        ));
+    }
+    if !api.connect_unix_stream_socket_raw(raw_fd, &path) {
+        let code = api.last_error_code();
+        let close_code = if api.close_unix_stream_socket_raw(raw_fd) {
+            None
+        } else {
+            Some(api.last_error_code())
+        };
+        return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionFailure::new(
+            api,
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::ConnectFailed {
+                code,
+                close_code,
+            },
+        ));
+    }
+    if raw_fd < 0 {
+        return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionFailure::new(
+            api,
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidAcquiredRawFd { raw_fd },
+        ));
+    }
+    Ok(NativeWindowLinuxWindowEventSourceOwnedFd {
+        kind,
+        state: NativeWindowLinuxWindowEventSourceOwnedFdState::Open { raw_fd },
+        api,
+    })
+}
+
+impl<Api> NativeWindowLinuxWindowEventSourceOwnedFd<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    pub fn kind(&self) -> NativeWindowLinuxWindowEventSourceFdAcquisitionKind {
+        self.kind
+    }
+
+    pub fn raw_fd(&self) -> Result<i32, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+        match &self.state {
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Open { raw_fd } => Ok(*raw_fd),
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Closed => Err(
+                NativeWindowLinuxWindowEventSourceFdAcquisitionError::Closed { kind: self.kind },
+            ),
+            NativeWindowLinuxWindowEventSourceOwnedFdState::CloseFailed { raw_fd, code } => Err(
+                NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                    raw_fd: *raw_fd,
+                    code: *code,
+                },
+            ),
+        }
+    }
+
+    pub fn api(&self) -> &Api {
+        &self.api
+    }
+
+    pub fn api_mut(&mut self) -> &mut Api {
+        &mut self.api
+    }
+
+    pub fn close(&mut self) -> Result<(), NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+        let state = std::mem::replace(
+            &mut self.state,
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Closed,
+        );
+        match state {
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Open { raw_fd } => {
+                if !self.api.close_unix_stream_socket_raw(raw_fd) {
+                    let code = self.api.last_error_code();
+                    self.state = NativeWindowLinuxWindowEventSourceOwnedFdState::CloseFailed {
+                        raw_fd,
+                        code,
+                    };
+                    Err(
+                        NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                            raw_fd,
+                            code,
+                        },
+                    )
+                } else {
+                    Ok(())
+                }
+            }
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Closed => Err(
+                NativeWindowLinuxWindowEventSourceFdAcquisitionError::Closed { kind: self.kind },
+            ),
+            NativeWindowLinuxWindowEventSourceOwnedFdState::CloseFailed { raw_fd, code } => {
+                self.state =
+                    NativeWindowLinuxWindowEventSourceOwnedFdState::CloseFailed { raw_fd, code };
+                Err(
+                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                        raw_fd,
+                        code,
+                    },
+                )
+            }
+        }
+    }
+}
+
+impl<Api> Drop for NativeWindowLinuxWindowEventSourceOwnedFd<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    fn drop(&mut self) {
+        if let NativeWindowLinuxWindowEventSourceOwnedFdState::Open { raw_fd } = std::mem::replace(
+            &mut self.state,
+            NativeWindowLinuxWindowEventSourceOwnedFdState::Closed,
+        ) {
+            let _closed = self.api.close_unix_stream_socket_raw(raw_fd);
+        }
+    }
+}
+
+impl<Api> NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    pub fn new(owned_fd: NativeWindowLinuxWindowEventSourceOwnedFd<Api>) -> Self {
+        Self { owned_fd }
+    }
+
+    pub fn owned_fd(&self) -> &NativeWindowLinuxWindowEventSourceOwnedFd<Api> {
+        &self.owned_fd
+    }
+
+    pub fn owned_fd_mut(&mut self) -> &mut NativeWindowLinuxWindowEventSourceOwnedFd<Api> {
+        &mut self.owned_fd
+    }
+
+    pub fn into_owned_fd(self) -> NativeWindowLinuxWindowEventSourceOwnedFd<Api> {
+        self.owned_fd
+    }
+}
+
+pub fn native_window_linux_window_event_source_owned_fd_provider<Api>(
+    owned_fd: NativeWindowLinuxWindowEventSourceOwnedFd<Api>,
+) -> NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    NativeWindowLinuxWindowEventSourceOwnedFdProvider::new(owned_fd)
+}
+
+impl<Api> NativeWindowLinuxWindowEventSourceProvider
+    for NativeWindowLinuxWindowEventSourceOwnedFdProvider<Api>
+where
+    Api: NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi,
+{
+    type Error = NativeWindowLinuxWindowEventSourceFdAcquisitionError;
+
+    fn window_event_source_descriptor(
+        &mut self,
+    ) -> Result<NativeWindowLinuxWindowEventSourceDescriptor, Self::Error> {
+        let raw_fd = self.owned_fd.raw_fd()?;
+        Ok(NativeWindowLinuxWindowEventSourceDescriptor::new(
+            self.owned_fd.kind().descriptor_source_kind(),
+            raw_fd,
+        ))
     }
 }
 
@@ -6659,6 +7108,115 @@ where
 #[derive(Debug, Default)]
 pub struct NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
     last_error_code: u32,
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug, Default)]
+pub struct NativeWindowLinuxWindowEventSourceFdAcquisitionSysApi {
+    last_error_code: u32,
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxWindowEventSourceFdAcquisitionSysApi {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn clear_error(&mut self) {
+        self.last_error_code = 0;
+    }
+
+    fn set_error_code(&mut self, code: i32) {
+        self.last_error_code = u32::try_from(code).unwrap_or(u32::MAX);
+    }
+
+    fn set_last_os_error(&mut self) {
+        self.last_error_code = std::io::Error::last_os_error()
+            .raw_os_error()
+            .and_then(|code| u32::try_from(code).ok())
+            .unwrap_or(u32::MAX);
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi
+    for NativeWindowLinuxWindowEventSourceFdAcquisitionSysApi
+{
+    fn environment_variable(
+        &mut self,
+        variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable,
+    ) -> Option<String> {
+        let name = match variable {
+            NativeWindowLinuxWindowEventSourceEnvironmentVariable::Display => "DISPLAY",
+            NativeWindowLinuxWindowEventSourceEnvironmentVariable::WaylandDisplay => {
+                "WAYLAND_DISPLAY"
+            }
+            NativeWindowLinuxWindowEventSourceEnvironmentVariable::XdgRuntimeDir => {
+                "XDG_RUNTIME_DIR"
+            }
+        };
+        std::env::var(name).ok()
+    }
+
+    fn create_unix_stream_socket_raw(&mut self) -> i32 {
+        let raw_fd =
+            unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0) };
+        if raw_fd < 0 {
+            self.set_last_os_error();
+        } else {
+            self.clear_error();
+        }
+        raw_fd
+    }
+
+    fn connect_unix_stream_socket_raw(&mut self, raw_fd: i32, path: &str) -> bool {
+        let bytes = path.as_bytes();
+        let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+        if bytes.len() + 1 > address.sun_path.len() {
+            self.set_error_code(libc::ENAMETOOLONG);
+            return false;
+        }
+        address.sun_family = libc::AF_UNIX as libc::sa_family_t;
+        for (index, byte) in bytes.iter().enumerate() {
+            address.sun_path[index] = *byte as libc::c_char;
+        }
+        let address_len = match libc::socklen_t::try_from(
+            std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1,
+        ) {
+            Ok(address_len) => address_len,
+            Err(_) => {
+                self.set_error_code(libc::EOVERFLOW);
+                return false;
+            }
+        };
+        let result = unsafe {
+            libc::connect(
+                raw_fd,
+                (&address as *const libc::sockaddr_un).cast::<libc::sockaddr>(),
+                address_len,
+            )
+        };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
+    fn close_unix_stream_socket_raw(&mut self, raw_fd: i32) -> bool {
+        let result = unsafe { libc::close(raw_fd) };
+        if result != 0 {
+            self.set_last_os_error();
+            return false;
+        }
+        self.clear_error();
+        true
+    }
+
+    fn last_error_code(&mut self) -> u32 {
+        self.last_error_code
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -13930,6 +14488,152 @@ mod tests {
         );
     }
 
+    #[derive(Clone, Debug)]
+    struct ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi {
+        display: Option<String>,
+        wayland_display: Option<String>,
+        xdg_runtime_dir: Option<String>,
+        create_raw_fd: i32,
+        create_error_code: u32,
+        connect_result: bool,
+        connect_error_code: u32,
+        close_result: bool,
+        close_error_code: u32,
+        last_error_code: u32,
+        create_calls: u32,
+        connect_calls: Vec<(i32, String)>,
+        close_calls: std::rc::Rc<std::cell::RefCell<Vec<i32>>>,
+    }
+
+    impl ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi {
+        fn wayland(display: &str, runtime_dir: &str, raw_fd: i32) -> Self {
+            Self {
+                display: None,
+                wayland_display: Some(display.to_string()),
+                xdg_runtime_dir: Some(runtime_dir.to_string()),
+                create_raw_fd: raw_fd,
+                create_error_code: 24,
+                connect_result: true,
+                connect_error_code: 111,
+                close_result: true,
+                close_error_code: 5,
+                last_error_code: 0,
+                create_calls: 0,
+                connect_calls: Vec::new(),
+                close_calls: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+            }
+        }
+
+        fn x11(display: &str, raw_fd: i32) -> Self {
+            Self {
+                display: Some(display.to_string()),
+                wayland_display: None,
+                xdg_runtime_dir: None,
+                create_raw_fd: raw_fd,
+                create_error_code: 24,
+                connect_result: true,
+                connect_error_code: 111,
+                close_result: true,
+                close_error_code: 5,
+                last_error_code: 0,
+                create_calls: 0,
+                connect_calls: Vec::new(),
+                close_calls: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+            }
+        }
+
+        fn empty() -> Self {
+            Self {
+                display: None,
+                wayland_display: None,
+                xdg_runtime_dir: None,
+                create_raw_fd: 7,
+                create_error_code: 24,
+                connect_result: true,
+                connect_error_code: 111,
+                close_result: true,
+                close_error_code: 5,
+                last_error_code: 0,
+                create_calls: 0,
+                connect_calls: Vec::new(),
+                close_calls: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+            }
+        }
+
+        fn with_connect_failure(mut self, code: u32) -> Self {
+            self.connect_result = false;
+            self.connect_error_code = code;
+            self
+        }
+
+        fn with_close_failure(mut self, code: u32) -> Self {
+            self.close_result = false;
+            self.close_error_code = code;
+            self
+        }
+
+        fn close_calls(&self) -> Vec<i32> {
+            self.close_calls.borrow().clone()
+        }
+    }
+
+    impl NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi
+        for ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi
+    {
+        fn environment_variable(
+            &mut self,
+            variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable,
+        ) -> Option<String> {
+            match variable {
+                NativeWindowLinuxWindowEventSourceEnvironmentVariable::Display => {
+                    self.display.clone()
+                }
+                NativeWindowLinuxWindowEventSourceEnvironmentVariable::WaylandDisplay => {
+                    self.wayland_display.clone()
+                }
+                NativeWindowLinuxWindowEventSourceEnvironmentVariable::XdgRuntimeDir => {
+                    self.xdg_runtime_dir.clone()
+                }
+            }
+        }
+
+        fn create_unix_stream_socket_raw(&mut self) -> i32 {
+            self.create_calls += 1;
+            if self.create_raw_fd < 0 {
+                self.last_error_code = self.create_error_code;
+            } else {
+                self.last_error_code = 0;
+            }
+            self.create_raw_fd
+        }
+
+        fn connect_unix_stream_socket_raw(&mut self, raw_fd: i32, path: &str) -> bool {
+            self.connect_calls.push((raw_fd, path.to_string()));
+            if self.connect_result {
+                self.last_error_code = 0;
+                true
+            } else {
+                self.last_error_code = self.connect_error_code;
+                false
+            }
+        }
+
+        fn close_unix_stream_socket_raw(&mut self, raw_fd: i32) -> bool {
+            self.close_calls.borrow_mut().push(raw_fd);
+            if self.close_result {
+                self.last_error_code = 0;
+                true
+            } else {
+                self.last_error_code = self.close_error_code;
+                false
+            }
+        }
+
+        fn last_error_code(&mut self) -> u32 {
+            self.last_error_code
+        }
+    }
+
     #[derive(Clone, Debug, PartialEq)]
     struct ScriptedNativeWindowLinuxWindowEventSourceProvider {
         result: Result<NativeWindowLinuxWindowEventSourceDescriptor, &'static str>,
@@ -14114,6 +14818,214 @@ mod tests {
             self.observation_cursor += 1;
             result
         }
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_builds_wayland_owned_provider() {
+        let api = ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::wayland(
+            "wayland-0",
+            "/run/user/1000",
+            7,
+        );
+        let owned_fd = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            api,
+        )
+        .unwrap();
+
+        assert_eq!(owned_fd.raw_fd().unwrap(), 7);
+        assert_eq!(owned_fd.api().create_calls, 1);
+        assert_eq!(
+            owned_fd.api().connect_calls,
+            vec![(7, "/run/user/1000/wayland-0".to_string())]
+        );
+        let mut provider = native_window_linux_window_event_source_owned_fd_provider(owned_fd);
+        assert_eq!(
+            provider.window_event_source_descriptor().unwrap(),
+            NativeWindowLinuxWindowEventSourceDescriptor::new(
+                NativeWindowLinuxWindowEventSourceKind::WaylandDisplay,
+                7,
+            )
+        );
+
+        provider.owned_fd_mut().close().unwrap();
+        assert_eq!(provider.owned_fd().api().close_calls(), vec![7]);
+        assert_eq!(
+            provider.window_event_source_descriptor().unwrap_err(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::Closed {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_rejects_missing_wayland_env_before_socket(
+    ) {
+        let failure = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::empty(),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            failure.error(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::MissingEnvironment {
+                variable: NativeWindowLinuxWindowEventSourceEnvironmentVariable::WaylandDisplay,
+            }
+        );
+        assert_eq!(failure.api().create_calls, 0);
+        assert_eq!(failure.api().connect_calls, Vec::<(i32, String)>::new());
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_rejects_absolute_wayland_display_form(
+    ) {
+        let failure = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::wayland(
+                "/tmp/wayland-0",
+                "/run/user/1000",
+                7,
+            ),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            failure.error(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            }
+        );
+        assert_eq!(failure.api().create_calls, 0);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_rejects_socket_path_overflow_before_socket(
+    ) {
+        let runtime_dir = "/".to_string() + &"a".repeat(120);
+        let failure = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::wayland(
+                "wayland-0",
+                &runtime_dir,
+                7,
+            ),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            failure.error(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::SocketPathTooLong {
+                byte_len: runtime_dir.len() + "/wayland-0".len() + 1,
+                max_byte_len: NATIVE_WINDOW_LINUX_UNIX_SOCKET_PATH_MAX_BYTES + 1,
+            }
+        );
+        assert_eq!(failure.api().create_calls, 0);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_closes_socket_after_connect_failure()
+    {
+        let failure = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::WaylandDisplay,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::wayland(
+                "wayland-0",
+                "/run/user/1000",
+                7,
+            )
+            .with_connect_failure(111),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            failure.error(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::ConnectFailed {
+                code: 111,
+                close_code: None,
+            }
+        );
+        assert_eq!(
+            failure.api().connect_calls,
+            vec![(7, "/run/user/1000/wayland-0".to_string())]
+        );
+        assert_eq!(failure.api().close_calls(), vec![7]);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_builds_x11_owned_provider() {
+        let owned_fd = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::x11("unix/:3.0", 9),
+        )
+        .unwrap();
+
+        assert_eq!(owned_fd.raw_fd().unwrap(), 9);
+        assert_eq!(
+            owned_fd.api().connect_calls,
+            vec![(9, "/tmp/.X11-unix/X3".to_string())]
+        );
+        let mut provider = native_window_linux_window_event_source_owned_fd_provider(owned_fd);
+        assert_eq!(
+            provider.window_event_source_descriptor().unwrap(),
+            NativeWindowLinuxWindowEventSourceDescriptor::new(
+                NativeWindowLinuxWindowEventSourceKind::X11Connection,
+                9,
+            )
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_rejects_x11_host_form_before_socket()
+    {
+        let failure = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::x11("localhost:10.0", 9),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            failure.error(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            }
+        );
+        assert_eq!(failure.api().create_calls, 0);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_fd_acquisition_reports_close_failure_without_stale_closed_state(
+    ) {
+        let mut owned_fd = native_window_linux_window_event_source_acquire_fd_with_api(
+            NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            ScriptedNativeWindowLinuxWindowEventSourceFdAcquisitionRawApi::x11(":2", 9)
+                .with_close_failure(5),
+        )
+        .unwrap();
+        let close_calls = owned_fd.api().close_calls.clone();
+
+        assert_eq!(
+            owned_fd.close().unwrap_err(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                raw_fd: 9,
+                code: 5
+            }
+        );
+        assert_eq!(
+            owned_fd.raw_fd().unwrap_err(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                raw_fd: 9,
+                code: 5
+            }
+        );
+        assert_eq!(
+            owned_fd.close().unwrap_err(),
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::CloseFailed {
+                raw_fd: 9,
+                code: 5
+            }
+        );
+        drop(owned_fd);
+        assert_eq!(close_calls.borrow().as_slice(), &[9]);
     }
 
     #[test]

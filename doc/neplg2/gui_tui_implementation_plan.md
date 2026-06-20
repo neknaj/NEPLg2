@@ -1764,6 +1764,39 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5iz: Native Linux window event source fd acquisition boundary
+
+目的:
+
+- actual X11 / Wayland event decoding へ進む前に、Linux window event source fd acquisition を typed sys boundary と provider owner boundary として固定する。
+- acquisition を runner readiness と偽装せず、local Unix domain socket fd を取得して provider owner が保持するところまでに限定する。
+- environment / display form / path length / socket / connect / close failure を enum error と `Result` で表し、fallback、silent no-op、panic にしない。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionKind`、environment variable enum、typed acquisition error を追加する。
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi` を追加し、environment read、Unix stream socket create、connect、close、last error code を trait-injected contract にする。
+- cfg Linux の `NativeWindowLinuxWindowEventSourceFdAcquisitionSysApi` は `std::env::var`、`libc::socket AF_UNIX SOCK_STREAM SOCK_CLOEXEC`、`libc::connect`、`libc::close` だけを行う薄い wrapper とする。
+- Wayland は `XDG_RUNTIME_DIR` + relative `WAYLAND_DISPLAY` だけを受け、absolute path、slash-containing name、path length overflow を typed error にする。
+- X11 は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` だけを受け、host / tcp display form、invalid display number、path length overflow を typed error にする。
+- acquired fd owner は `Copy` / `Clone` を持たず、private `Option<i32>` state を保持する。明示 close は typed `Result`、`Drop` は best-effort cleanup とする。
+- owned fd provider は open fd の descriptor だけを返し、明示 close 後は stale descriptor ではなく typed `Closed` error を返す。
+
+検証:
+
+- Rust unit tests で trait-injected Wayland success、missing env、unsupported absolute display form、path too long、connect failure cleanup、X11 success、host display form rejection、close failure state を検査する。
+- source policy で trait-injected tests、cfg wrapper の薄さ、support gate `Ok` 非導入、runner / CLI dispatch 非導入、fd read / drain / protocol parsing 非導入、minifb fallback / synthetic readiness / timer evidence 非導入を固定する。
+
+非目標:
+
+- F5iz acquired fd を full runner-safe として文書化しない。selector registration 後に provider-owned fd が backend unregister より先に close されないことを保証する final owner bundle / drop-order contract は後続に分ける。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate `Ok` 化、actual X11 / Wayland protocol handshake / event parsing、fd read / drain、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic readiness、timer evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+
+subagent review:
+
+- Beauvoir the 2nd の初回 plan review は `PLAN_CHANGES`。fd owner が descriptor raw fd を公開した後の drop order、explicit close 後の stale descriptor、environment-dependent unit tests、display form contract が blocker として指摘された。
+- revised plan では F5iz を acquisition/provider-only に絞り、final runner safety は後続 owner bundle/drop-order contract へ分離した。owned fd は non-Copy / non-Clone、private state、explicit close typed result、Drop cleanup-only とし、trait-injected API を primary tested boundary にする方針で `PLAN_APPROVED` を得た。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

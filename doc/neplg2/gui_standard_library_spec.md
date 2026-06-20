@@ -1047,6 +1047,16 @@ helper は infallible である。validation、backend construction、fd registr
 
 F5iy でも Linux support gate は `Ok` にならない。actual X11 / Wayland sys API、fd read / drain / close、runner dispatch、CLI dispatch、`run_linux_platform_wait_window_loop`、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5iz Native Linux window event source fd acquisition boundary
+
+F5iz では、actual X11 / Wayland event decoding へ進む前に、Linux の window event source fd を取得して provider owner として保持する境界を追加する。これは protocol handshake や event parser ではなく、`DISPLAY` / `WAYLAND_DISPLAY` / `XDG_RUNTIME_DIR` から Unix domain socket fd を得る sys boundary と、その fd を `NativeWindowLinuxWindowEventSourceDescriptor` として返す provider boundary である。
+
+fd acquisition は trait-injected raw API を主契約とし、cfg Linux の libc wrapper は `std::env::var`、`socket AF_UNIX SOCK_STREAM SOCK_CLOEXEC`、`connect`、`close` だけを行う薄い実装とする。Wayland は相対 `WAYLAND_DISPLAY` 名だけを受け、絶対 path や slash を含む display 名は `UnsupportedDisplayForm` として拒否する。X11 は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` だけを受け、host / tcp display form は `UnsupportedDisplayForm` として拒否する。
+
+owned fd は `Copy` / `Clone` を持たず、private state で open / closed を保持する。明示 `close` は typed `Result` を返し、成功後の provider descriptor request は stale raw fd ではなく `Closed` error を返す。`Drop` は cleanup best-effort であり、close success evidence として扱わない。
+
+F5iz は acquisition / provider ownership checkpoint である。selector registration 後に provider-owned fd が backend unregister より先に close されないことを保証する final owner bundle / drop-order contract、actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate の `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

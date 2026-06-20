@@ -74173,3 +74173,54 @@ MERGE_APPROVED
 - 指摘はこの欄が pending のままで commit readiness が記録されていないことだけだった。
 - 指摘対応として、この欄を実際の review 結果へ更新した。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iz Linux window event source fd acquisition boundary
+
+### scope
+
+- F5iz は、actual X11 / Wayland event decoding の前段として、Linux window event source fd acquisition を typed sys boundary と provider owner boundary に分けて固定する checkpoint とする。
+- Wayland は `XDG_RUNTIME_DIR` と相対 `WAYLAND_DISPLAY` 名から Unix domain socket path を作る。slash や絶対 path は unsupported display form として拒否する。
+- X11 は local Unix form の `:N` / `:N.screen` / `unix/:N` / `unix/:N.screen` だけを受ける。host / tcp form は unsupported display form として拒否する。
+- acquired fd は provider owner が保持し、descriptor request は open state の raw fd だけを返す。明示 close 後は stale descriptor ではなく typed closed error を返す。
+- selector registration 後に provider-owned fd が backend unregister より先に close されない final owner bundle / drop-order contract、actual protocol parsing、fd read / drain、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi` を追加し、environment variable lookup、Unix stream socket creation、connect、close、last error code を trait-injected boundary にする。
+- cfg Linux sys wrapper は `std::env::var`、`socket AF_UNIX SOCK_STREAM SOCK_CLOEXEC`、`connect`、`close` だけを行う薄い実装にする。
+- `NativeWindowLinuxWindowEventSourceOwnedFd` は raw fd を private state enum として保持し、non-Copy / non-Clone owner とする。
+- `close` は fallible Result とし、成功後は closed state、失敗後は close-failed state にする。Drop は open state だけを best-effort cleanup し、error reporting authority や retry authority にはしない。
+- `NativeWindowLinuxWindowEventSourceOwnedFdProvider` は open owned fd から `NativeWindowLinuxWindowEventSourceDescriptor` を返し、closed state は typed error とする。
+- tests と source policy で trait-injected acquisition、form validation、connect failure cleanup、closed state、no runner / no CLI / no fd drain / no support gate `Ok` 化を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `PLAN_CHANGES`。
+- 指摘は、fd owner / drop-order contract の過大主張を避けること、closed-fd state を stale descriptor として返さないこと、primary tests を trait-injected acquisition path に置くこと、Wayland / X11 display form の受理範囲を仕様化することだった。
+- revised plan では F5iz を acquisition/provider-only に絞り、final runner safety は後続 owner bundle / drop-order contract へ分離した。owned fd は non-Copy / non-Clone、private state、explicit close typed Result、Drop cleanup-only とし、trait-injected API を primary tested boundary にする方針で `PLAN_APPROVED` を得た。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionKind`、environment variable enum、typed acquisition error、owner-bearing failure、raw API trait を追加した。
+- Wayland / X11 display form validation と Unix socket path construction を追加し、unsupported form と path overflow は raw API 呼び出し前に失敗するようにした。
+- `native_window_linux_window_event_source_acquire_fd_with_api` は trait API から socket 作成と connect を行い、connect failure では acquired raw fd を close して close code も typed error に保持する。
+- `NativeWindowLinuxWindowEventSourceOwnedFd` と provider wrapper を追加し、open fd だけ descriptor として公開するようにした。explicit close 成功後は closed error、explicit close 失敗後は close-failed error を返し、descriptor も Drop retry も発生しない。
+- cfg Linux sys wrapper は Linux 上だけで env / socket / connect / close を実装する。event read / drain、protocol parsing、runner / CLI dispatch、support gate `Ok` 化は追加していない。
+- Rust tests と source policy を追加し、Wayland / X11 success、missing env、unsupported display form、path overflow、connect failure cleanup、closed state、non-Copy / non-Clone owner、scope 外禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_fd_acquisition_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- 指摘は、`close()` failure 後に `raw_fd: Some(raw_fd)` が残り、subsequent `raw_fd()` / provider descriptor が stale fd を返せること、さらに Drop が同じ fd を retry close できることだった。これは close at most once と no stale descriptor after closed / uncertain close state の contract に反する。
+- 指摘対応として、owned fd state を `Open` / `Closed` / `CloseFailed` に明示化し、`raw_fd()` と provider descriptor は `Open` だけ成功するようにした。`close()` は fd を state から取り出してから raw close を呼び、失敗後は `CloseFailed` state に移す。Drop は `Open` state だけを best-effort cleanup し、explicit close failure 後の retry close は行わない。
+- Rust test は close failure 後の `raw_fd()` が `CloseFailed` を返すこと、2 回目の `close()` が raw close を再実行しないこと、Drop 後も close call が 1 回のままであることを検査するように修正した。source policy も private state enum と close-once contract を検査するように更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。close-state blocker は解消され、`NativeWindowLinuxWindowEventSourceOwnedFdState` が close failure 後の stale descriptor access を防ぎ、repeated `close()` と Drop が raw close を再試行しないことが確認された。
