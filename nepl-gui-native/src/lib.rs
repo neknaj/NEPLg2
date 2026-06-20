@@ -7302,6 +7302,8 @@ pub const NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN: usize = 
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16;
+pub const NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME: &[u8] = b"WM_PROTOCOLS";
+pub const NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME: &[u8] = b"WM_DELETE_WINDOW";
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH: u8 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_INPUT_OUTPUT_CLASS: u16 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_VISUAL: u32 = 0;
@@ -7718,6 +7720,32 @@ pub enum NativeWindowLinuxX11InternAtomRequestBuildError {
         request_byte_len: usize,
         length_units: usize,
         max_length_units: usize,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestKind {
+    WmProtocols,
+    WmDeleteWindow,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11WmProtocolAtomInternRequestBatch {
+    bytes: Vec<u8>,
+    wm_protocols_end_byte_offset: usize,
+    wm_delete_window_start_byte_offset: usize,
+    wm_delete_window_end_byte_offset: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError {
+    InternAtomRequestBuildFailed {
+        kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind,
+        error: NativeWindowLinuxX11InternAtomRequestBuildError,
+    },
+    BatchLengthOverflow {
+        first_request_byte_len: usize,
+        second_request_byte_len: usize,
     },
 }
 
@@ -8671,6 +8699,125 @@ pub fn native_window_linux_x11_intern_atom_request(
         only_if_exists,
         bytes,
     })
+}
+
+impl NativeWindowLinuxX11WmProtocolAtomInternRequestBatch {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub fn wm_protocols_start_byte_offset(&self) -> usize {
+        0
+    }
+
+    pub fn wm_protocols_end_byte_offset(&self) -> usize {
+        self.wm_protocols_end_byte_offset
+    }
+
+    pub fn wm_delete_window_start_byte_offset(&self) -> usize {
+        self.wm_delete_window_start_byte_offset
+    }
+
+    pub fn wm_delete_window_end_byte_offset(&self) -> usize {
+        self.wm_delete_window_end_byte_offset
+    }
+
+    pub fn request_start_byte_offset(
+        &self,
+        kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind,
+    ) -> usize {
+        match kind {
+            NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols => {
+                self.wm_protocols_start_byte_offset()
+            }
+            NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow => {
+                self.wm_delete_window_start_byte_offset()
+            }
+        }
+    }
+
+    pub fn request_end_byte_offset(
+        &self,
+        kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind,
+    ) -> usize {
+        match kind {
+            NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols => {
+                self.wm_protocols_end_byte_offset()
+            }
+            NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow => {
+                self.wm_delete_window_end_byte_offset()
+            }
+        }
+    }
+}
+
+fn native_window_linux_x11_checked_wm_protocol_atom_intern_request_batch_total_len(
+    first_request_byte_len: usize,
+    second_request_byte_len: usize,
+) -> Result<usize, NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError> {
+    first_request_byte_len
+        .checked_add(second_request_byte_len)
+        .ok_or(
+            NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::BatchLengthOverflow {
+                first_request_byte_len,
+                second_request_byte_len,
+            },
+        )
+}
+
+fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_from_names(
+    wm_protocols_name: &[u8],
+    wm_delete_window_name: &[u8],
+) -> Result<
+    NativeWindowLinuxX11WmProtocolAtomInternRequestBatch,
+    NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError,
+> {
+    let wm_protocols_request =
+        native_window_linux_x11_intern_atom_request(false, wm_protocols_name).map_err(|error| {
+            NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::InternAtomRequestBuildFailed {
+                kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols,
+                error,
+            }
+        })?;
+    let wm_delete_window_request =
+        native_window_linux_x11_intern_atom_request(false, wm_delete_window_name).map_err(
+            |error| {
+                NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::InternAtomRequestBuildFailed {
+                    kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow,
+                    error,
+                }
+            },
+        )?;
+    let wm_protocols_end_byte_offset = wm_protocols_request.len();
+    let wm_delete_window_start_byte_offset = wm_protocols_end_byte_offset;
+    let wm_delete_window_end_byte_offset =
+        native_window_linux_x11_checked_wm_protocol_atom_intern_request_batch_total_len(
+            wm_protocols_request.len(),
+            wm_delete_window_request.len(),
+        )?;
+    let mut bytes = Vec::with_capacity(wm_delete_window_end_byte_offset);
+    bytes.extend_from_slice(wm_protocols_request.as_bytes());
+    bytes.extend_from_slice(wm_delete_window_request.as_bytes());
+    Ok(NativeWindowLinuxX11WmProtocolAtomInternRequestBatch {
+        bytes,
+        wm_protocols_end_byte_offset,
+        wm_delete_window_start_byte_offset,
+        wm_delete_window_end_byte_offset,
+    })
+}
+
+pub fn native_window_linux_x11_wm_protocol_atom_intern_request_batch() -> Result<
+    NativeWindowLinuxX11WmProtocolAtomInternRequestBatch,
+    NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError,
+> {
+    native_window_linux_x11_wm_protocol_atom_intern_request_batch_from_names(
+        NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME,
+        NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME,
+    )
 }
 
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
@@ -21329,6 +21476,109 @@ mod tests {
                 request_byte_len: too_many_units_request_byte_len,
                 length_units: usize::from(u16::MAX) + 1,
                 max_length_units: usize::from(u16::MAX),
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_encodes_order_and_offsets() {
+        let batch = native_window_linux_x11_wm_protocol_atom_intern_request_batch().unwrap();
+
+        let wm_protocols_request =
+            native_window_linux_x11_intern_atom_request(false, b"WM_PROTOCOLS").unwrap();
+        let wm_delete_window_request =
+            native_window_linux_x11_intern_atom_request(false, b"WM_DELETE_WINDOW").unwrap();
+        let expected_len = wm_protocols_request.len() + wm_delete_window_request.len();
+        let mut expected = Vec::with_capacity(expected_len);
+        expected.extend_from_slice(wm_protocols_request.as_bytes());
+        expected.extend_from_slice(wm_delete_window_request.as_bytes());
+
+        assert_eq!(
+            NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME,
+            b"WM_PROTOCOLS"
+        );
+        assert_eq!(
+            NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME,
+            b"WM_DELETE_WINDOW"
+        );
+        assert_eq!(batch.len(), expected_len);
+        assert_eq!(batch.as_bytes(), expected.as_slice());
+        assert_eq!(batch.as_bytes()[1], 0);
+        assert_eq!(batch.as_bytes()[wm_protocols_request.len() + 1], 0);
+        assert_eq!(batch.wm_protocols_start_byte_offset(), 0);
+        assert_eq!(
+            batch.wm_protocols_end_byte_offset(),
+            wm_protocols_request.len()
+        );
+        assert_eq!(
+            batch.wm_delete_window_start_byte_offset(),
+            wm_protocols_request.len()
+        );
+        assert_eq!(batch.wm_delete_window_end_byte_offset(), expected_len);
+        assert_eq!(
+            batch.request_start_byte_offset(
+                NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols,
+            ),
+            0
+        );
+        assert_eq!(
+            batch.request_end_byte_offset(
+                NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols,
+            ),
+            wm_protocols_request.len()
+        );
+        assert_eq!(
+            batch.request_start_byte_offset(
+                NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow,
+            ),
+            wm_protocols_request.len()
+        );
+        assert_eq!(
+            batch.request_end_byte_offset(
+                NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow,
+            ),
+            expected_len
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_preserves_lower_error() {
+        assert_eq!(
+            native_window_linux_x11_wm_protocol_atom_intern_request_batch_from_names(
+                b"",
+                b"WM_DELETE_WINDOW",
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::InternAtomRequestBuildFailed {
+                kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmProtocols,
+                error: NativeWindowLinuxX11InternAtomRequestBuildError::NameEmpty,
+            }
+        );
+
+        assert_eq!(
+            native_window_linux_x11_wm_protocol_atom_intern_request_batch_from_names(
+                b"WM_PROTOCOLS",
+                b"",
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::InternAtomRequestBuildFailed {
+                kind: NativeWindowLinuxX11WmProtocolAtomInternRequestKind::WmDeleteWindow,
+                error: NativeWindowLinuxX11InternAtomRequestBuildError::NameEmpty,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_wm_protocol_atom_intern_request_batch_fails_closed_on_overflow() {
+        assert_eq!(
+            native_window_linux_x11_checked_wm_protocol_atom_intern_request_batch_total_len(
+                usize::MAX,
+                1,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError::BatchLengthOverflow {
+                first_request_byte_len: usize::MAX,
+                second_request_byte_len: 1,
             }
         );
     }
