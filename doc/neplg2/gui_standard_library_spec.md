@@ -1149,6 +1149,16 @@ adapter は F5jg から渡された exact `path` を mutable VFS source の `rea
 
 convenience helper は caller supplied VFS source を借用して reader adapter を構築し、F5jg `native_window_linux_x11_xauthority_read_file_bytes` を呼んで `NativeWindowLinuxX11XauthorityFileBytes` を返すだけにする。F5jk は VFS adapter boundary であり、actual Web VFS、native resource root、direct `std::fs` / `File` / `OpenOptions` / `read_to*`、metadata / exists / canonicalize、file locking、record parse、credential selection、setup request integration、runner / CLI dispatch は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化は後続にも混ぜない。
 
+## F5jl Native Linux Xauthority credential setup request boundary
+
+F5jl では、`NativeWindowLinuxX11XauthorityFileBytes` と `NativeWindowLinuxX11XauthoritySelectorCriteria` から exact selector selection を行い、`NativeWindowLinuxX11SetupRequest` を作る接続境界を追加する。
+
+Rust boundary 名としては、error を `NativeWindowLinuxX11XauthorityCredentialSetupRequestError`、entry を `native_window_linux_x11_setup_request_from_xauthority` とする。error は `ParseFailed NativeWindowLinuxX11XauthorityParseError`、`NoMatchingCredential`、`SetupRequestBuildFailed NativeWindowLinuxX11SetupRequestBuildError` を持つ。
+
+entry は `native_window_linux_x11_xauthority_select_credential file_bytes.as_bytes criteria.selector` を 1 回だけ呼び、`Selected credential` の場合だけ `native_window_linux_x11_setup_request_from_authorization credential` を呼ぶ。`NoMatchingRecord` は no-auth fallback にせず `NoMatchingCredential` として返す。parse failure と setup request build failure は lower error を保持し、string 化や generic host failure へ潰さない。
+
+F5jl は credential selection と setup request owner construction の接続だけを担当する。`XAUTHORITY` / `HOME` env、filesystem / VFS file bytes read、hostname / display identity acquisition、raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。`AuthorizationCredential::none`、`NativeWindowLinuxX11SetupRequest::no_authorization`、fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -1,3 +1,48 @@
+# 2026-06-20 Agent2 GUI native F5jl Linux Xauthority credential setup request boundary
+
+## scope
+
+- Xauthority file bytes owner と selector criteria から、exact selector で credential を選択して authorization setup request owner を作る。
+- `NoMatchingRecord` は no-auth fallback にせず、typed `NoMatchingCredential` として fail closed にする。
+- parse failure と setup request build failure は lower error を保持する。
+- env / fs / VFS acquisition、hostname / display identity acquisition、raw fd / raw API owner、window creation、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- helper は `NativeWindowLinuxX11XauthorityFileBytes` と `NativeWindowLinuxX11XauthoritySelectorCriteria` だけを受け取り、env / fs / VFS reader、raw fd / raw API owner、X11 reader state に触れないことが required とされた。
+- `NoMatchingRecord` は `NoMatchingCredential` へ写像し、no-auth constructor や `AuthorizationCredential::none` を呼ばないことが required とされた。
+- parse failure と setup request build failure は lower error を branch 内に保持することが required とされた。
+- source policy は `select_credential(file_bytes.as_bytes(), criteria.selector())` を一度だけ呼び、`Selected` の場合だけ setup request builder を呼ぶ構成を pin することが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityCredentialSetupRequestError` を追加し、parse failure、no matching credential、setup request build failure を typed error として分けた。
+- `native_window_linux_x11_setup_request_from_xauthority` を追加し、credential selection と authorization setup request builder の接続だけを担当させた。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jl contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target checks は既存 dead_code warning を報告したが、F5jl の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jl 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- hostname / display identity policy、window setup、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jk Linux Xauthority VFS file bytes adapter boundary
 
 ## scope

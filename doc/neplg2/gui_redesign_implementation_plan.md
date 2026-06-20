@@ -2221,6 +2221,39 @@ Phase F5jk では、F5jg の injected file bytes reader に対する VFS source 
 - `git diff --check`
 - subagent implementation review で VFS adapter が F5jg にだけ接続され、exact path forwarding、typed source failure、no fs / no credential selection / no fallback / no runner dispatch が承認される。
 
+## Phase F5jl: Native Linux Xauthority credential setup request boundary
+
+Phase F5jl では、F5jg / F5jk までで得た `NativeWindowLinuxX11XauthorityFileBytes` と F5je の `NativeWindowLinuxX11XauthoritySelectorCriteria` から、Xauthority credential を exact selector で選び、F5jc の authorization setup request owner を作る。これは credential selection と setup request encoding の接続境界であり、environment / filesystem / VFS acquisition、raw fd / raw API owner、window creation、runner / CLI dispatch は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityCredentialSetupRequestError` は `ParseFailed`、`NoMatchingCredential`、`SetupRequestBuildFailed` を持つ。
+- `native_window_linux_x11_setup_request_from_xauthority` は `NativeWindowLinuxX11XauthorityFileBytes` と `NativeWindowLinuxX11XauthoritySelectorCriteria` だけを借用する。
+- helper は `native_window_linux_x11_xauthority_select_credential file_bytes.as_bytes criteria.selector` を 1 回だけ呼ぶ。
+- `Selected credential` の場合だけ `native_window_linux_x11_setup_request_from_authorization credential` を 1 回だけ呼び、encoded setup request owner を返す。
+- `NoMatchingRecord` は no-auth fallback にせず、`NoMatchingCredential` として fail closed にする。
+- parse failure と setup request build failure は lower error を string 化せず enum branch に保持する。
+- source policy は F5jl surface に env / fs / VFS read、raw API、runner、window setup、`AuthorizationCredential::none`、`no_authorization`、fallback、silent no-op、synthetic readiness が混入しないことを固定する。
+
+非目標:
+
+- hostname / display identity acquisition は扱わない。
+- `XAUTHORITY` / `HOME` env acquisition、filesystem / VFS file bytes read、path planning は扱わない。
+- X11 raw fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- no-auth fallback、fallback snapshot、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- `git diff --check`
+- subagent implementation review で F5jl が one-call selection / one-call setup builder の接続に留まり、no-auth fallback、raw API、env / fs / VFS、runner dispatch が混入していないことが承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

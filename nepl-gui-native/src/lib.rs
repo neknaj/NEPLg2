@@ -8139,6 +8139,45 @@ pub fn native_window_linux_x11_xauthority_select_credential<'a>(
     Ok(NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityCredentialSetupRequestError {
+    ParseFailed {
+        error: NativeWindowLinuxX11XauthorityParseError,
+    },
+    NoMatchingCredential,
+    SetupRequestBuildFailed {
+        error: NativeWindowLinuxX11SetupRequestBuildError,
+    },
+}
+
+pub fn native_window_linux_x11_setup_request_from_xauthority(
+    file_bytes: &NativeWindowLinuxX11XauthorityFileBytes,
+    criteria: &NativeWindowLinuxX11XauthoritySelectorCriteria<'_>,
+) -> Result<
+    NativeWindowLinuxX11SetupRequest,
+    NativeWindowLinuxX11XauthorityCredentialSetupRequestError,
+> {
+    let selection = native_window_linux_x11_xauthority_select_credential(
+        file_bytes.as_bytes(),
+        criteria.selector(),
+    )
+    .map_err(|error| {
+        NativeWindowLinuxX11XauthorityCredentialSetupRequestError::ParseFailed { error }
+    })?;
+    match selection {
+        NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+            native_window_linux_x11_setup_request_from_authorization(credential).map_err(|error| {
+                NativeWindowLinuxX11XauthorityCredentialSetupRequestError::SetupRequestBuildFailed {
+                    error,
+                }
+            })
+        }
+        NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+            Err(NativeWindowLinuxX11XauthorityCredentialSetupRequestError::NoMatchingCredential)
+        }
+    }
+}
+
 impl NativeWindowLinuxX11SetupRequest {
     fn no_authorization() -> Self {
         Self {
@@ -18749,6 +18788,81 @@ mod tests {
                 panic!("expected local display criteria to ignore screen suffix")
             }
         }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_setup_request_uses_selected_credential() {
+        let cookie = [31_u8, 32, 33, 34, 35, 36, 37, 38];
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"local-address",
+            b"2",
+            b"MIT-MAGIC-COOKIE-1",
+            &cookie,
+        );
+        let file_bytes = NativeWindowLinuxX11XauthorityFileBytes::new(bytes);
+        let criteria = native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+            ":2",
+            b"local-address",
+            Some(b"MIT-MAGIC-COOKIE-1"),
+        )
+        .unwrap();
+        let expected = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::new(b"MIT-MAGIC-COOKIE-1", &cookie),
+        )
+        .unwrap();
+
+        let request =
+            native_window_linux_x11_setup_request_from_xauthority(&file_bytes, &criteria).unwrap();
+
+        assert_eq!(request.as_bytes(), expected.as_bytes());
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_setup_request_rejects_no_matching_record() {
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"local-address",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            &[41_u8; 16],
+        );
+        let file_bytes = NativeWindowLinuxX11XauthorityFileBytes::new(bytes);
+        let criteria = native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+            ":0",
+            b"different-address",
+            Some(b"MIT-MAGIC-COOKIE-1"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            native_window_linux_x11_setup_request_from_xauthority(&file_bytes, &criteria)
+                .unwrap_err(),
+            NativeWindowLinuxX11XauthorityCredentialSetupRequestError::NoMatchingCredential
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_setup_request_preserves_parse_failure() {
+        let file_bytes = NativeWindowLinuxX11XauthorityFileBytes::new(vec![0_u8]);
+        let criteria = native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+            ":0",
+            b"local-address",
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            native_window_linux_x11_setup_request_from_xauthority(&file_bytes, &criteria)
+                .unwrap_err(),
+            NativeWindowLinuxX11XauthorityCredentialSetupRequestError::ParseFailed {
+                error: NativeWindowLinuxX11XauthorityParseError::LengthFieldTruncated {
+                    field: NativeWindowLinuxX11XauthorityField::Family,
+                    offset: 0,
+                    remaining_byte_count: 1,
+                },
+            }
+        );
     }
 
     #[test]
