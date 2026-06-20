@@ -39,6 +39,7 @@
 //: - Fresh witness request-evidence stage0 は、fresh witness bridge が作った Resource proof table を既存 `resource_proof_gate_from_hir_root_result` へ渡し、HIR root から再構築した request table との照合まで進めます。この stage は request occurrence gate の non-executable summary だけを返し、actual Resource IR traversal、Pure mask、sealed backend representation、artifact proof record はまだ作りません。
 //: - Actual traversal bundle stage0 は、将来の actual Resource IR traversal producer が返すべき最小の `traversal source table + fresh witness table` owner contract を private fixture で確認します。これは actual traversal 本体ではありません。HIR-root production path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source と witness は stage0 fixture 内だけで作ります。
 //: - Collector-owned traversal bundle stage0 は、既存 collector が作る traversal source table と matching fresh witness table を同じ bundle lifecycle に載せ、既存 request-evidence bridge へ渡します。これは actual Resource IR body traversal ではなく、collector output を source-only smoke で終わらせず fresh witness と同じ owner boundary へ接続する前段契約です。
+//: - Producer-owned unavailable traversal bundle stage0 は、HIR-root request authority から既存 producer が作る `ResourceIrTraversalUnavailable` source table を bundle lifecycle に載せます。well-formed な witness 形式を与えても source が unavailable であるため accepted proof にはならず、actual traversal 未接続の production path が fail-closed のまま request-evidence bridge へ接続されることを確認します。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -59,6 +60,7 @@
 //: - fresh witness request-evidence bridge は witness 検査 O(w)、Resource proof table から request-evidence table への変換 O(p)、既存 request gate の request 再収集 O(n + m)、proof lookup O(m * p) に従います。ここで固定するのは HIR root authority と owner cleanup の契約であり、proof lookup の sorted index 化は後続で置換できます。
 //: - actual traversal bundle stage0 は source 数 `s` と witness 数 `w` に対して O(s + w) 時間で、source table から region candidate を作り、matching witness を request-evidence bridge へ渡します。actual Resource IR body traversal の探索範囲、PrivateCache / PrivateState effect fold、sealed backend lowering はまだ別 stage の計算量として扱います。
 //: - collector-owned traversal bundle stage0 は collector input の body / place / edge / unsupported / observation 数を `g`、source 数を `s`、witness 数を `w` とすると O(g + s + w + n + p) です。actual Resource IR body traversal を読む計算量ではなく、collector output owner と fresh witness owner を同じ bundle boundary で閉じるための stage0 計算量です。
+//: - producer-owned unavailable traversal bundle stage0 は HIR root からの request 再収集 O(n)、unavailable source table 生成 O(n)、source / witness gate O(s + w)、既存 request-evidence 再照合 O(n + p) に従います。ここで固定するのは production authority と owner cleanup であり、actual Resource IR traversal の探索範囲や accepted source 生成の計算量ではありません。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -483,6 +485,41 @@
 //:         Result::Err _setup:
 //:             let checks0 checks_new
 //:             let checks1 checks_push checks0 Result::Err "collector-owned traversal bundle stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+//:
+//: neplg2:test
+//: ```stdout
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn producer_unavailable_bundle_i32_result_is_err %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind bool \result:
+//:     match result:
+//:         Result::Ok _value:
+//:             false
+//:         Result::Err _error:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check producer_unavailable_bundle_i32_result_is_err summary.well_formed_witness_rejected
+//:             let checks2 checks_push checks1 check producer_unavailable_bundle_i32_result_is_err summary.missing_witness_rejected
+//:             let checks3 checks_push checks2 check producer_unavailable_bundle_i32_result_is_err summary.rejected_witness_rejected
+//:             let shown checks_print_report checks3
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "producer-owned unavailable traversal bundle stage0 setup failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
@@ -1612,6 +1649,20 @@ pub struct SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage
     unsupported_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     observation_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary: producer-owned unavailable source bundle 接続 smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - HIR root 由来 request authority から producer-owned traversal source table を作り、bundle lifecycle へ渡しても、actual traversal 未接続の `ResourceIrTraversalUnavailable` source は accepted proof にならないことを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は typed Result payload だけを公開します。source table、fresh witness table、bundle、candidate、Resource proof table は公開しません。
+//: - `well_formed_witness_rejected` は witness の key / graph / ordinal 形式が整っていても source 側が unavailable なので拒否されることを表します。accepted proof count ではありません。
+//: - actual Resource IR body traversal、accepted `PrivateCacheStorage` source、`CloneOutOwnedValue` source、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
+pub struct SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary:
+    well_formed_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -2453,6 +2504,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleS
 //: Copy for SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary: collector-owned bundle smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary: producer-owned unavailable bundle smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は owner を持たない Result payload だけを保持します。producer-owned source table、fresh witness table、bundle は private helper 内で閉じます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary: producer-owned unavailable bundle smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -9363,6 +9427,53 @@ pub fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle
             Result::Ok SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count body_fingerprint_mismatch_rejected missing_witness_rejected unsupported_source_rejected observation_source_rejected
         Result::Err e:
             Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result: HIR-root producer source を bundle に[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - HIR root 由来 request authority から producer-owned traversal source table を作り、既存 bundle helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - 現在の production producer は `ResourceIrTraversalUnavailable` source だけを作ります。well-formed な witness 形式を与えても、source 側に accepted root / support が無いので candidate extraction で fail-closed になります。
+//: - source table 生成に失敗した場合は `Stage0SourceRejected` に写します。source table 生成後の source / witness cleanup は既存 `actual_traversal_bundle_stage0_with_sources_result` と bundle gate に委譲します。
+//: - collector fixture、accepted projection fixture、GraphInput、direct proof table push、backend bytes、effect masking、artifact key は使いません。
+fn selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\root\fuel\body_module_fingerprint\witness_body_module_fingerprint\root_operation_ordinal\support_operation_ordinal\status:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 root_operation_ordinal support_operation_ordinal status
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result: producer-owned unavailable bundle rejection を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - HIR module fixture は request occurrence authority を作るためだけに使います。accepted traversal source は fixture で合成しません。
+//: - `body_module_fingerprint` と witness payload が整っていても、producer source は unavailable なので `Result::Err` になることを確認します。
+fn selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result %impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \body_module_fingerprint\witness_body_module_fingerprint\status:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            let result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_run_i32_with_bundle_result body_module_fingerprint selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result &module root 8 body_module_fingerprint witness_body_module_fingerprint 0 1 status
+            selfhost_hir_module_free module
+            result
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessResourceProofRejected SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0: producer-owned unavailable source bundle 接続 contract の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - HIR-root producer が作る `ResourceIrTraversalUnavailable` source table を bundle lifecycle へ渡し、well-formed / missing / rejected witness のどれを与えても accepted proof へ進まないことを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR body traversal はまだ接続していません。accepted `PrivateCacheStorage` source、`CloneOutOwnedValue` source、fresh witness producer、effect masking、backend representation は作りません。
+pub fn selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    let well_formed_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessMissing
+    let rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessRejected
+    Result::Ok SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary well_formed_witness_rejected missing_witness_rejected rejected_witness_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:

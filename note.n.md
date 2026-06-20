@@ -76656,3 +76656,46 @@ MERGE_APPROVED
 - actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed walker input または traversal source table と fresh witness table を生成する。
 - collector fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+
+## 2026-06-21 selfhost memo_call producer-owned unavailable traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、HIR-root request authority から既存 producer が作る `ResourceIrTraversalUnavailable` source table を actual traversal bundle lifecycle へ渡す stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted `PrivateCacheStorage` source、`CloneOutOwnedValue` source、real fresh witness producer、PrivateCache / PrivateState effect masking、sealed backend representation、artifact projection は作っていない。
+- public summary は well-formed witness、missing witness、rejected witness の typed rejection payload だけを返す。accepted request count / proof count は持たせず、source table、witness table、bundle、candidate、Resource proof table、request-evidence proof tableも公開していない。
+
+### zenn_policy
+
+- 2026-06-21 に確認済みの Zenn 方針に従い、表面上の成功を増やすのではなく、production authority と fail-closed の境界を先に固定した。
+- 試作段階でも accepted proof を合成せず、`ResourceIrTraversalUnavailable` source が well-formed witness 付きでも拒否されることを型付き `Result` payload と source policy で固定した。
+- 行数や doc comment 量を制限する検査は追加していない。doc comment には目的、契約、非目標、owner cleanup、計算量を記述した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary` を追加し、owner を持たない rejection summary として `Clone` / `Copy` を追加した。
+- `selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result` は `actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result` を通して source table owner を作り、成功時だけ既存 `actual_traversal_bundle_stage0_with_sources_result` へ渡す。source 生成失敗は `Stage0SourceRejected` に写す。
+- public smoke は stage0 HIR module fixture から HIR-root producer を通し、well-formed / missing / rejected witness status のいずれでも unavailable source のため accepted proof に進まないことを確認する。
+- source policy では producer helper が HIR-root producer source を通ること、collector fixture / accepted projection fixture を使わないこと、direct proof push / GraphInput / backend / effect mask / sealed backend / artifact key 合成禁止、HIR-root production path が accepted source / witness を emit しないことを固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、名前と doc comment を `producer-owned unavailable traversal bundle stage0` に寄せること、accepted count を summary に持たせないこと、`matching witness` ではなく key / graph / ordinal 形式として well-formed な witness でも source unavailable により fail-closed になると表現することだった。
+- 実装はこの指摘に合わせ、summary を rejection payload のみとし、well-formed witness 付きの unavailable source rejection を中心にした。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、producer helper が HIR-root producer source を通ること、collector fixture / accepted projection fixture を使っていないこと、public summary が rejection `Result` payload のみに限定されていること、source 生成失敗の `Stage0SourceRejected` 化と source 生成成功後の cleanup 委譲に owner leak / double free が無いことを確認した。
+- direct proof push、GraphInput、backend bytes、PrivateCache / PrivateState mask、sealed backend、`.neplobj` / `.neplproof` key 合成が無いこと、doc / issue / note / todo が actual traversal 本体未接続のまま unavailable source fail-closed bundle接続であることを明記していることも確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-producer-owned-unavailable-bundle-doctest-current.json`
+- after implementation review pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-producer-owned-unavailable-bundle-post-doc-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、accepted / escaping / observation / unsupported source を生成する。
+- actual traversal 由来の fresh witness table を生成し、producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。

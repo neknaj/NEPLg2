@@ -2288,6 +2288,42 @@ assertOrdered(
     ],
     "collector-owned traversal bundle stage0 must cover accepted, body fingerprint mismatch, missing witness, unsupported collector source, and observation collector source paths",
 );
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 root_operation_ordinal support_operation_ordinal status",
+        "Stage0SourceRejected e",
+    ],
+    "producer-owned unavailable traversal bundle helper must use HIR-root producer source table and delegate source/witness cleanup to the existing bundle helper",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result")),
+    /resource_walker_stage0_closed_place_edge_input_result|actual_walker_traversal_source_projection_stage0_closed_clone_table_result|collector_owned_traversal_bundle_accepted_bundle_result|selfhost_memo_call_backend_private_cache_resource_proof_table_push|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "producer-owned unavailable traversal bundle helper must not use accepted fixtures, collector fixtures, lower proof synthesis, GraphInput, backend bytes, effect masking, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary"),
+    [
+        "well_formed_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "producer-owned unavailable traversal bundle summary must expose only typed rejection payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0"),
+    [
+        "well_formed_witness_rejected",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "rejected_witness_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "ProducerOwnedUnavailableTraversalBundleStage0Summary well_formed_witness_rejected missing_witness_rejected rejected_witness_rejected",
+    ],
+    "producer-owned unavailable traversal bundle stage0 must keep all representative witness statuses on rejection payloads",
+);
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result")),
     /PrivateCacheStoragePlace|CloneOutOwnedValueEdge|PrivateCacheRegionFreshWitnessCandidateAccepted/,

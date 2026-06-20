@@ -432,6 +432,31 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 selfhost memo_call backend producer-owned unavailable traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR-root request authority から producer-owned traversal source table を作り、actual traversal bundle lifecycle へ渡す producer-owned unavailable traversal bundle stage0 を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。現行 producer は request entry から `ResourceIrTraversalUnavailable` source だけを作る。key / graph / ordinal 形式として well-formed な witness を与えても、source 側に accepted root / support が無いため candidate extraction で fail-closed になる。
+
+producer-owned helper は、`selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result` を通して source table owner を作る。source 生成成功時は既存 `actual_traversal_bundle_stage0_with_sources_result` に渡し、source / witness cleanup は既存 bundle helper と bundle gate に委譲する。source 生成失敗時は `Stage0SourceRejected` に写す。
+
+public summary は well-formed witness、missing witness、rejected witness の typed rejection payload だけを返す。accepted request count / proof count は持たせていない。bundle、source table、witness table、candidate、Resource proof table、request-evidence proof table は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer helper が HIR-root producer source を通ること、collector fixture / accepted projection fixture を使わないこと、direct proof push / GraphInput / backend / effect mask / sealed backend / artifact key 合成禁止、HIR-root production path が accepted source / witness を emit しないことを固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-producer-owned-unavailable-bundle-doctest-current.json`
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、accepted / escaping / observation / unsupported source を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 ## 2026-06-21 selfhost memo_call backend private cache region candidate stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual walker traversal source collector が作る source table を private cache region proof の入力候補へ分類する stage0 を追加した。
