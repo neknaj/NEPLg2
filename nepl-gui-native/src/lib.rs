@@ -7335,6 +7335,7 @@ pub enum NativeWindowLinuxX11EventSourceSetupState {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11TopLevelWindowRequestWriteState {
     NotConfigured,
+    SetupBackedBuildPending,
     RequestPending,
     Ready,
     Failed,
@@ -7391,6 +7392,11 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     },
     TopLevelWindowRequestPreviouslyFailed {
         descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    },
+    TopLevelWindowRequestSetupBackedPlanMissing,
+    TopLevelWindowRequestSetupResourceInfoMissing,
+    TopLevelWindowRequestBuildFailed {
+        error: NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError,
     },
     TopLevelWindowRequestWriteWouldBlock,
     TopLevelWindowRequestWriteFailed {
@@ -7563,6 +7569,18 @@ pub struct NativeWindowLinuxX11TopLevelWindowCreateInput {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput {
     setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+    window_resource_serial: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    background_pixel: u32,
+    event_mask: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan {
     window_resource_serial: u32,
     x: i16,
     y: i16,
@@ -7811,6 +7829,8 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     setup_request: NativeWindowLinuxX11SetupRequest,
     setup_state: NativeWindowLinuxX11EventSourceSetupState,
     setup_request_written_len: usize,
+    setup_backed_top_level_window_create_plan:
+        Option<NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan>,
     top_level_window_request: Option<NativeWindowLinuxX11TopLevelWindowCreateRequest>,
     top_level_window_request_state: NativeWindowLinuxX11TopLevelWindowRequestWriteState,
     top_level_window_request_written_len: usize,
@@ -8170,6 +8190,84 @@ impl NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput {
 
     pub fn event_mask(&self) -> u32 {
         self.event_mask
+    }
+}
+
+impl NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan {
+    pub fn new(
+        window_resource_serial: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        background_pixel: u32,
+    ) -> Self {
+        Self::new_with_event_mask(
+            window_resource_serial,
+            x,
+            y,
+            width,
+            height,
+            border_width,
+            background_pixel,
+            native_window_linux_x11_top_level_window_default_event_mask(),
+        )
+    }
+
+    pub fn new_with_event_mask(
+        window_resource_serial: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        background_pixel: u32,
+        event_mask: u32,
+    ) -> Self {
+        Self {
+            window_resource_serial,
+            x,
+            y,
+            width,
+            height,
+            border_width,
+            background_pixel,
+            event_mask,
+        }
+    }
+
+    pub fn window_resource_serial(&self) -> u32 {
+        self.window_resource_serial
+    }
+
+    pub fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn event_mask(&self) -> u32 {
+        self.event_mask
+    }
+
+    pub fn create_input(
+        self,
+        setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+    ) -> NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput {
+        NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new_with_event_mask(
+            setup_resource_info,
+            self.window_resource_serial,
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.border_width,
+            self.background_pixel,
+            self.event_mask,
+        )
     }
 }
 
@@ -9278,6 +9376,7 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
             setup_request,
             setup_state: NativeWindowLinuxX11EventSourceSetupState::RequestPending,
             setup_request_written_len: 0,
+            setup_backed_top_level_window_create_plan: None,
             top_level_window_request: None,
             top_level_window_request_state:
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured,
@@ -9304,6 +9403,18 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         reader
     }
 
+    pub fn new_with_setup_request_and_setup_backed_top_level_window_create_plan(
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+        plan: NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan,
+    ) -> Self {
+        let mut reader = Self::new_with_setup_request(api, setup_request);
+        reader.setup_backed_top_level_window_create_plan = Some(plan);
+        reader.top_level_window_request_state =
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending;
+        reader
+    }
+
     pub fn api(&self) -> &Api {
         &self.api
     }
@@ -9324,6 +9435,12 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         &self,
     ) -> Option<&NativeWindowLinuxX11TopLevelWindowCreateRequest> {
         self.top_level_window_request.as_ref()
+    }
+
+    pub fn setup_backed_top_level_window_create_plan(
+        &self,
+    ) -> Option<NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan> {
+        self.setup_backed_top_level_window_create_plan
     }
 
     pub fn top_level_window_request_state(
@@ -9485,6 +9602,37 @@ where
         }
         self.top_level_window_request_state =
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready;
+        Ok(())
+    }
+
+    fn build_setup_backed_top_level_window_request(
+        &mut self,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let Some(plan) = self.setup_backed_top_level_window_create_plan else {
+            return Err(self.fail_top_level_window_request(
+                NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestSetupBackedPlanMissing,
+            ));
+        };
+        let Some(setup_resource_info) = self.setup_resource_info else {
+            return Err(self.fail_top_level_window_request(
+                NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestSetupResourceInfoMissing,
+            ));
+        };
+        let request =
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+                plan.create_input(setup_resource_info),
+            )
+            .map_err(|error| {
+                self.fail_top_level_window_request(
+                    NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestBuildFailed {
+                        error,
+                    },
+                )
+            })?;
+        self.top_level_window_request = Some(request);
+        self.top_level_window_request_written_len = 0;
+        self.top_level_window_request_state =
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending;
         Ok(())
     }
 
@@ -9670,6 +9818,9 @@ where
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::NotConfigured => {
                     return Ok(());
                 }
+                NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending => {
+                    self.build_setup_backed_top_level_window_request()?;
+                }
                 NativeWindowLinuxX11TopLevelWindowRequestWriteState::RequestPending => {
                     self.write_top_level_window_request(raw_fd)?;
                 }
@@ -9795,6 +9946,23 @@ impl<Provider, Api> NativeWindowLinuxX11WindowEventSourceObservationProvider<Pro
         }
     }
 
+    pub fn new_with_setup_request_and_setup_backed_top_level_window_create_plan(
+        provider: Provider,
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+        plan: NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan,
+    ) -> Self {
+        Self {
+            provider,
+            reader:
+                NativeWindowLinuxX11EventSourceObservationReader::new_with_setup_request_and_setup_backed_top_level_window_create_plan(
+                    api,
+                    setup_request,
+                    plan,
+                ),
+        }
+    }
+
     pub fn provider(&self) -> &Provider {
         &self.provider
     }
@@ -9840,6 +10008,23 @@ pub fn native_window_linux_x11_window_event_source_observation_provider_with_set
         api,
         setup_request,
         top_level_window_request,
+    )
+}
+
+pub fn native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_top_level_window_create_plan<
+    Provider,
+    Api,
+>(
+    provider: Provider,
+    api: Api,
+    setup_request: NativeWindowLinuxX11SetupRequest,
+    plan: NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan,
+) -> NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
+    NativeWindowLinuxX11WindowEventSourceObservationProvider::new_with_setup_request_and_setup_backed_top_level_window_create_plan(
+        provider,
+        api,
+        setup_request,
+        plan,
     )
 }
 
@@ -21243,6 +21428,223 @@ mod tests {
         );
         assert_eq!(provider.reader().api().read_cursor, 1);
         assert_eq!(provider.reader().api().writes.len(), 2);
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_builds_top_level_request_from_setup_resource_info(
+    ) {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_bytes = setup_request.as_bytes().to_vec();
+        let setup_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0xe000_0123);
+        let plan = NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan::new(
+            1,
+            5,
+            7,
+            640,
+            480,
+            0,
+            0x00aa_bbcc,
+        );
+        let expected_request =
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+                plan.create_input(NativeWindowLinuxX11SetupResourceInfo {
+                    resource_id_base: 0x0020_0000,
+                    resource_id_mask: 0x001f_ffff,
+                    first_root_window_id: 0xe000_0123,
+                }),
+            )
+            .unwrap();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            241,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(12, 16)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_top_level_window_create_plan(
+                provider,
+                raw_api,
+                setup_request,
+                plan,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((12.0, 16.0)));
+        assert_eq!(
+            provider.reader().api().writes,
+            vec![setup_bytes, expected_request.as_bytes().to_vec()]
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::Ready
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .top_level_window_request()
+                .map(NativeWindowLinuxX11TopLevelWindowCreateRequest::window_id),
+            Some(0x0020_0001)
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .setup_backed_top_level_window_create_plan(),
+            Some(plan)
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_fails_closed_when_setup_resource_info_is_missing(
+    ) {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let plan =
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan::new(1, 0, 0, 640, 480, 0, 0);
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            242,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(1, 2)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_top_level_window_create_plan(
+                provider,
+                raw_api,
+                setup_request,
+                plan,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestSetupResourceInfoMissing
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestPreviouslyFailed {
+                descriptor,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_plan_is_missing()
+    {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0xe000_0123);
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            244,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(1, 2)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        provider.reader.top_level_window_request_state =
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending;
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestSetupBackedPlanMissing
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed
+        );
+        assert!(provider.reader().top_level_window_request().is_none());
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_build_fails() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body =
+            scripted_x11_setup_success_resource_body(0x0020_0000, 0x001f_ffff, 0xe000_0123);
+        let plan =
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan::new(0, 0, 0, 640, 480, 0, 0);
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            243,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(1, 2)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_top_level_window_create_plan(
+                provider,
+                raw_api,
+                setup_request,
+                plan,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::TopLevelWindowRequestBuildFailed {
+                error:
+                    NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::ResourceIdAllocationFailed {
+                        error: NativeWindowLinuxX11ResourceIdAllocationError::SerialZero,
+                    },
+            }
+        );
+        assert_eq!(
+            provider.reader().top_level_window_request_state(),
+            NativeWindowLinuxX11TopLevelWindowRequestWriteState::Failed
+        );
+        assert!(provider.reader().top_level_window_request().is_none());
     }
 
     #[test]

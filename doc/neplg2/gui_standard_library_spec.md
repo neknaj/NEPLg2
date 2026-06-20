@@ -1225,6 +1225,18 @@ F5jr の error は allocation failure と request build failure を分ける。s
 
 F5jr は setup info から top-level request owner を作る pure boundary だけを担当する。reader への自動生成接続、server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5js Native Linux X11 reader setup-backed top-level request generation boundary
+
+F5js では、F5jr の pure builder を `NativeWindowLinuxX11EventSourceObservationReader` の setup completion path に接続する。reader が window resource serial、geometry、background pixel、event mask を暗黙に決めることは禁止する。caller は `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` を渡し、reader は setup success body から得た `NativeWindowLinuxX11SetupResourceInfo` と plan を合成して request owner を作る。
+
+`NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` は setup resource info を持たず、window resource serial、x / y、width / height、border width、background pixel、event mask だけを保持する。default event mask を使う constructor は caller が明示的に選ぶ entry であり、reader 内 hidden default ではない。plan は `create_input` により F5jr の `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput` へ変換される。
+
+`NativeWindowLinuxX11TopLevelWindowRequestWriteState` は `NotConfigured`、`SetupBackedBuildPending`、`RequestPending`、`Ready`、`Failed` を持つ。`SetupBackedBuildPending` は setup が `Ready` になり、かつ `setup_resource_info` が存在する場合だけ request owner build へ進む。build success 後は既存 F5jp の `RequestPending` partial-write path を再利用する。
+
+`SetupBackedBuildPending` なのに plan が無い場合は `TopLevelWindowRequestSetupBackedPlanMissing`、setup resource info が無い場合は `TopLevelWindowRequestSetupResourceInfoMissing`、F5jr builder が失敗した場合は `TopLevelWindowRequestBuildFailed` を返し、top-level request state を `Failed` にする。failed state で再 poll された場合は `TopLevelWindowRequestPreviouslyFailed` を返す。missing plan、missing setup info、allocation failure、request build failure を skip / no-op / fallback success に変換してはならない。
+
+F5js は reader setup state から top-level request owner を生成し、event read より前に F5jp partial-write path へ渡す境界だけを担当する。server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
