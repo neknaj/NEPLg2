@@ -3031,3 +3031,35 @@ Phase F5ki では、F5kh の raw X11 `state` evidence から Shift / Control / A
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で portable modifier evidence、raw state preservation、no KeySym / IME / shortcut / fallback scope creep が承認される。
+
+## Phase F5kj: Native Linux Wayland raw message header evidence boundary
+
+Phase F5kj では、caller supplied packet bytes から Wayland raw message header だけを typed evidence として読む。Wayland wire value は connection host byte order であり、portable file format の固定 endian ではないため、parser は `NativeWindowLinuxWaylandByteOrder` を明示入力に取る。header は 8 byte で、word 1 が object id、word 2 の上位 16 bit が message size、下位 16 bit が opcode である。
+
+実装:
+
+- `NativeWindowLinuxWaylandByteOrder`、`NativeWindowLinuxWaylandMessageHeader`、`NativeWindowLinuxWaylandMessageHeaderError` を追加する。
+- parser は 8 byte 未満の packet、object id 0、size 8 未満、4 byte alignment 違反、declared size が supplied packet byte len を超えて packet 外を指す場合をそれぞれ typed error として返す。
+- parser は payload の signature、object interface、xdg-shell semantic、keyboard、IME、text input へ進まない。
+- parser は fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、event queue、fallback、silent no-op、synthetic readiness を追加しない。
+- source-policy は explicit byte order、header split、shape validation、no fd / no runner / no semantic decode を固定する。
+
+非目標:
+
+- Wayland event loop、xdg-shell semantic decode、keyboard / IME / text input decode は含めない。
+- fd read / drain / close、selector registration、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback event、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- little endian / big endian の caller supplied packet が object id、opcode、message size、payload size evidence として読める。
+- invalid shape が enum error として区別される。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_wayland_message_header -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で Wayland header evidence、explicit byte order、no event loop / no semantic decode / no fallback scope creep が承認される。

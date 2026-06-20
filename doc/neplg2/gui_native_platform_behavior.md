@@ -31,6 +31,12 @@ Linux Wayland:
 - compositor capability によって minimize などが無い場合があり、backend は unsupported operation を silent success とみなさず capability と `Result` で表す。
 - Wayland は compositor 主導で window geometry が決まるため、application が要求した size を唯一の正としない。標準 API では backend から来た surface state を `WindowEventKind` と size に正規化する。
 
+F5kj checkpoint:
+
+- 現実装は caller supplied packet bytes から 8 byte Wayland message header を typed evidence として読む境界までを持つ。
+- header parser は explicit byte order、object id、opcode、message size、payload byte len、shape error を扱う。
+- xdg-shell configure / close、keyboard、IME、text input、fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化はまだ接続しない。
+
 Linux X11:
 
 - window manager は top-level window を reparent したり、client の希望と異なる size / position を割り当てたりできる。

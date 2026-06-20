@@ -52,9 +52,26 @@
 - Epicurus / Chandrasekhar の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - pass: subagent implementation review by Bacon and Hegel
 
+## 2026-06-21 Agent2 GUI native F5kj Linux Wayland raw message header evidence boundary
+
+- F5kj では、caller supplied packet bytes から Wayland raw message header だけを typed evidence として読む。
+- subagent 計画レビューは Sagan / Banach ともに `PLAN_APPROVED`。必須条件は、explicit byte order、8 byte header、object id 0 rejection、size 8 未満 rejection、4 byte alignment rejection、packet byte len 超過 rejection、fd read / drain / close や runner dispatch 非導入だった。
+- 実装方針は Wayland wire value が connection host byte order であることを明示するため、parser が `NativeWindowLinuxWaylandByteOrder` を受け取る形にした。
+- この checkpoint は xdg-shell semantic decode、keyboard / IME / text input、fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、fallback event、silent no-op、synthetic readiness を扱わない。
+- implementation review は Lorentz が Rust/API boundary を `REVIEW_APPROVED`、Boole が docs/source-policy を再確認後 `REVIEW_APPROVED`。Boole の初回指摘に従い、source-policy は direct `libc::read`、`.read`、`.read_exact`、bare `read`、`drain` の混入も拒否するように強化した。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_wayland_message_header -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+- warning: Linux target check は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code warning を表示する。`git diff --check` は既存の LF -> CRLF conversion warning を表示する。
+
 ## 未接続
 
-- `WM_DELETE_WINDOW` `ClientMessage` decode、StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+- X11 IME / text input、keysym / layout mapping、Wayland xdg-shell semantic event decoding、Wayland fd integration、Linux runner / CLI dispatch は未接続。
 
 # 2026-06-21 Agent2 GUI native F5kc Linux X11 WM protocol Atom meaning assignment boundary
 

@@ -160,6 +160,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     );
     const nativeWindowLinuxWindowEventSourceFdAcquisitionSurface =
         nativeWindowLinuxWindowEventSourceFdAcquisitionTypes + "\n" + nativeWindowLinuxWindowEventSourceFdAcquisitionImpl;
+    const nativeWindowLinuxWaylandMessageHeaderSurface = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowLinuxWaylandByteOrder",
+        "pub enum NativeWindowLinuxX11DisplayNameError",
+    );
     const nativeWindowLinuxWindowEventSourceFdAcquisitionSysApi = textSliceBetween(
         libSource,
         "pub struct NativeWindowLinuxWindowEventSourceFdAcquisitionSysApi",
@@ -857,6 +862,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5kf: Native Linux X11 StructureNotify and Expose event evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5kg: Native Linux X11 raw keyboard event evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5kh: Native Linux X11 raw keyboard modifier evidence boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5ki: Native Linux X11 portable keyboard modifier evidence boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5kj: Native Linux Wayland raw message header evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /generic `InternAtom` owner は X11 counted bytes を扱うため、NUL byte を C string terminator として拒否しない/);
     assert.match(guiRedesignImplementationPlan, /actual write、accepted write progress、sequence assignment、reply body retention\/parser、request \/ reply correlation は含めない/);
     assert.match(guiRedesignImplementationPlan, /actual property registration ではない/);
@@ -871,6 +878,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /`ButtonPress \| ButtonRelease \| PointerMotion`/);
     assert.match(guiRedesignImplementationPlan, /offset 28 の little-endian `u16` を raw state として読む/);
     assert.match(guiRedesignImplementationPlan, /portable modifier mapping、keysym \/ layout mapping、shortcut policy は含めない/);
+    assert.match(guiRedesignImplementationPlan, /Wayland wire value は connection host byte order/);
+    assert.match(guiRedesignImplementationPlan, /object id 0、size 8 未満、4 byte alignment 違反、[\s\S]*packet 外[\s\S]*typed error/);
+    assert.match(guiRedesignImplementationPlan, /xdg-shell semantic、keyboard、IME、text input[\s\S]*fd read \/ drain \/ close/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify は ConfigureNotify だけでなく MapNotify/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify \/ Expose subscription は F5jo では行わない/);
     assert.match(guiRedesignImplementationPlan, /CreateWindow \/ MapWindow request owner を、既存の `NativeWindowLinuxX11EventSourceObservationReader` が setup completion 後に partial write/);
@@ -927,11 +937,17 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5kf Native Linux X11 StructureNotify and Expose event evidence boundary/);
     assert.match(standardSpec, /F5kg Native Linux X11 raw keyboard event evidence boundary/);
     assert.match(standardSpec, /F5kh Native Linux X11 raw keyboard modifier evidence boundary/);
+    assert.match(standardSpec, /F5ki Native Linux X11 portable keyboard modifier evidence boundary/);
+    assert.match(standardSpec, /F5kj Native Linux Wayland raw message header evidence boundary/);
     assert.match(standardSpec, /generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず/);
     assert.match(standardSpec, /raw fd write\/read、accepted write progress、sequence assignment、InternAtom reply parse \/ retain、request \/ reply correlation/);
     assert.match(standardSpec, /`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch/);
     assert.match(standardSpec, /X11 の key\/button mask bitset/);
     assert.match(standardSpec, /raw modifier state は全 `u16` 値を valid evidence/);
+    assert.match(standardSpec, /Wayland message header は 8 byte で、word 1 が object id/);
+    assert.match(standardSpec, /word 2 の上位 16 bit が message size、下位 16 bit が opcode/);
+    assert.match(standardSpec, /size が header 未満、4 byte alignment 違反、packet byte len 超過/);
+    assert.match(standardSpec, /Wayland event loop、xdg-shell semantic decode、fd read \/ drain \/ close/);
     assert.match(standardSpec, /Atom ID が取得済みであることや window property が登録済みであることを意味しない/);
     assert.match(standardSpec, /nonzero Atom ID を `NativeWindowLinuxX11AtomId` として保持/);
     assert.match(standardSpec, /only_if_exists = true` では意味を持ち得る/);
@@ -1028,6 +1044,17 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*pub fn new\(api: Api\) -> Self[\s\S]*pub fn api\(&self\) -> &Api[\s\S]*pub fn api_mut\(&mut self\) -> &mut Api[\s\S]*pub fn into_api\(self\) -> Api/);
     assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11LocalAuthorityAddressReader[\s\S]*for NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*Api: NativeWindowLinuxX11LocalAuthorityAddressRawApi[\s\S]*vec!\[0_u8; NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN \+ 1\][\s\S]*get_hostname_raw\(&mut buffer\)[\s\S]*GetHostnameFailed[\s\S]*position\(\|byte\| \*byte == 0\)[\s\S]*HostnameNotTerminated[\s\S]*buffer_byte_len: buffer\.len\(\)[\s\S]*Ok\(buffer\[..byte_len\]\.to_vec\(\)\)/);
     assert.doesNotMatch(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /NativeWindowLinuxX11XauthoritySelectorCriteria|NativeWindowLinuxX11XauthoritySelection|NoMatchingRecord|std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /pub enum NativeWindowLinuxWaylandByteOrder\s*\{[\s\S]*LittleEndian,[\s\S]*BigEndian/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /pub struct NativeWindowLinuxWaylandMessageHeader\s*\{[\s\S]*object_id: u32,[\s\S]*opcode: u16,[\s\S]*message_byte_len: u16/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /pub enum NativeWindowLinuxWaylandMessageHeaderError\s*\{[\s\S]*PacketTooShort\s*\{[\s\S]*byte_count: usize,[\s\S]*required_byte_count: usize[\s\S]*ObjectIdInvalid\s*\{[\s\S]*object_id: u32[\s\S]*MessageSizeTooSmall\s*\{[\s\S]*message_byte_len: u16,[\s\S]*min_byte_len: usize[\s\S]*MessageSizeUnaligned\s*\{[\s\S]*message_byte_len: u16,[\s\S]*alignment: usize[\s\S]*MessageSizeExceedsPacket\s*\{[\s\S]*message_byte_len: u16,[\s\S]*packet_byte_len: usize/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /pub const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN: usize = 8/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT: usize = 4/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /fn native_window_linux_wayland_u32\([\s\S]*byte_order: NativeWindowLinuxWaylandByteOrder[\s\S]*LittleEndian => u32::from_le_bytes\(raw\),[\s\S]*BigEndian => u32::from_be_bytes\(raw\)/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /pub fn native_window_linux_wayland_message_header_from_packet\([\s\S]*byte_order: NativeWindowLinuxWaylandByteOrder,[\s\S]*packet: &\[u8\][\s\S]*Result<NativeWindowLinuxWaylandMessageHeader, NativeWindowLinuxWaylandMessageHeaderError>[\s\S]*packet\.len\(\) < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN[\s\S]*PacketTooShort[\s\S]*native_window_linux_wayland_u32\(packet, 0, byte_order\)[\s\S]*native_window_linux_wayland_u32\(packet, 4, byte_order\)[\s\S]*header_word & u32::from\(u16::MAX\)[\s\S]*header_word >> 16[\s\S]*NativeWindowLinuxWaylandMessageHeader::new/);
+    assert.match(nativeWindowLinuxWaylandMessageHeaderSurface, /impl NativeWindowLinuxWaylandMessageHeader[\s\S]*pub fn new\([\s\S]*object_id: u32,[\s\S]*opcode: u16,[\s\S]*message_byte_len: u16,[\s\S]*packet_byte_len: usize[\s\S]*object_id == 0[\s\S]*ObjectIdInvalid[\s\S]*message_byte_count < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN[\s\S]*MessageSizeTooSmall[\s\S]*message_byte_count % NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT != 0[\s\S]*MessageSizeUnaligned[\s\S]*message_byte_count > packet_byte_len[\s\S]*MessageSizeExceedsPacket[\s\S]*pub fn object_id\(self\) -> u32[\s\S]*pub fn opcode\(self\) -> u16[\s\S]*pub fn message_byte_len\(self\) -> u16[\s\S]*pub fn payload_byte_len\(self\) -> usize/);
+    assert.match(libSource, /native_window_linux_wayland_message_header_decodes_explicit_byte_order/);
+    assert.match(libSource, /native_window_linux_wayland_message_header_rejects_invalid_shape/);
+    assert.doesNotMatch(nativeWindowLinuxWaylandMessageHeaderSurface, /read_|libc::read\s*\(|\.read\s*\(|\.read_exact\s*\(|\bread\s*\(|recv|send|poll|epoll|\bdrain\b|close\(|xdg|Keyboard|IME|TextInput|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|WindowOptions|window\.update\(|update_with_buffer|support gate|fallback|silent no-op|synthetic|queue/i);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8/);
     assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REQUEST_OPCODE: u8 = 16/);

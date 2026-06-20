@@ -1355,6 +1355,138 @@ pub enum NativeWindowLinuxWindowEventSourceFdAcquisitionError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWaylandByteOrder {
+    LittleEndian,
+    BigEndian,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxWaylandMessageHeader {
+    object_id: u32,
+    opcode: u16,
+    message_byte_len: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWaylandMessageHeaderError {
+    PacketTooShort {
+        byte_count: usize,
+        required_byte_count: usize,
+    },
+    ObjectIdInvalid {
+        object_id: u32,
+    },
+    MessageSizeTooSmall {
+        message_byte_len: u16,
+        min_byte_len: usize,
+    },
+    MessageSizeUnaligned {
+        message_byte_len: u16,
+        alignment: usize,
+    },
+    MessageSizeExceedsPacket {
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    },
+}
+
+pub const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN: usize = 8;
+const NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT: usize = 4;
+
+fn native_window_linux_wayland_u32(
+    bytes: &[u8],
+    offset: usize,
+    byte_order: NativeWindowLinuxWaylandByteOrder,
+) -> u32 {
+    let raw = [
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ];
+    match byte_order {
+        NativeWindowLinuxWaylandByteOrder::LittleEndian => u32::from_le_bytes(raw),
+        NativeWindowLinuxWaylandByteOrder::BigEndian => u32::from_be_bytes(raw),
+    }
+}
+
+pub fn native_window_linux_wayland_message_header_from_packet(
+    byte_order: NativeWindowLinuxWaylandByteOrder,
+    packet: &[u8],
+) -> Result<NativeWindowLinuxWaylandMessageHeader, NativeWindowLinuxWaylandMessageHeaderError> {
+    if packet.len() < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN {
+        return Err(NativeWindowLinuxWaylandMessageHeaderError::PacketTooShort {
+            byte_count: packet.len(),
+            required_byte_count: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+        });
+    }
+    let object_id = native_window_linux_wayland_u32(packet, 0, byte_order);
+    let header_word = native_window_linux_wayland_u32(packet, 4, byte_order);
+    let opcode = (header_word & u32::from(u16::MAX)) as u16;
+    let message_byte_len = (header_word >> 16) as u16;
+    NativeWindowLinuxWaylandMessageHeader::new(object_id, opcode, message_byte_len, packet.len())
+}
+
+impl NativeWindowLinuxWaylandMessageHeader {
+    pub fn new(
+        object_id: u32,
+        opcode: u16,
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    ) -> Result<Self, NativeWindowLinuxWaylandMessageHeaderError> {
+        if object_id == 0 {
+            return Err(NativeWindowLinuxWaylandMessageHeaderError::ObjectIdInvalid { object_id });
+        }
+        let message_byte_count = usize::from(message_byte_len);
+        if message_byte_count < NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeTooSmall {
+                    message_byte_len,
+                    min_byte_len: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+                },
+            );
+        }
+        if message_byte_count % NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT != 0 {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeUnaligned {
+                    message_byte_len,
+                    alignment: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT,
+                },
+            );
+        }
+        if message_byte_count > packet_byte_len {
+            return Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeExceedsPacket {
+                    message_byte_len,
+                    packet_byte_len,
+                },
+            );
+        }
+        Ok(Self {
+            object_id,
+            opcode,
+            message_byte_len,
+        })
+    }
+
+    pub fn object_id(self) -> u32 {
+        self.object_id
+    }
+
+    pub fn opcode(self) -> u16 {
+        self.opcode
+    }
+
+    pub fn message_byte_len(self) -> u16 {
+        self.message_byte_len
+    }
+
+    pub fn payload_byte_len(self) -> usize {
+        usize::from(self.message_byte_len) - NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11DisplayNameError {
     UnsupportedDisplayForm,
     InvalidDisplayNumber,
@@ -20916,6 +21048,29 @@ mod tests {
         packet
     }
 
+    fn scripted_wayland_message(
+        byte_order: NativeWindowLinuxWaylandByteOrder,
+        object_id: u32,
+        opcode: u16,
+        message_byte_len: u16,
+        packet_byte_len: usize,
+    ) -> Vec<u8> {
+        let header_word = (u32::from(message_byte_len) << 16) | u32::from(opcode);
+        let mut packet = Vec::with_capacity(packet_byte_len.max(8));
+        match byte_order {
+            NativeWindowLinuxWaylandByteOrder::LittleEndian => {
+                packet.extend_from_slice(&object_id.to_le_bytes());
+                packet.extend_from_slice(&header_word.to_le_bytes());
+            }
+            NativeWindowLinuxWaylandByteOrder::BigEndian => {
+                packet.extend_from_slice(&object_id.to_be_bytes());
+                packet.extend_from_slice(&header_word.to_be_bytes());
+            }
+        }
+        packet.resize(packet_byte_len, 0);
+        packet
+    }
+
     fn scripted_x11_motion_notify_event(x: i16, y: i16) -> Vec<u8> {
         let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
         packet[0] = NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY;
@@ -25713,6 +25868,122 @@ mod tests {
         assert_eq!(
             native_window_linux_x11_event_response_type(&expose),
             NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE
+        );
+    }
+
+    #[test]
+    fn native_window_linux_wayland_message_header_decodes_explicit_byte_order() {
+        let little = native_window_linux_wayland_message_header_from_packet(
+            NativeWindowLinuxWaylandByteOrder::LittleEndian,
+            &scripted_wayland_message(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                1,
+                3,
+                12,
+                12,
+            ),
+        )
+        .unwrap();
+        assert_eq!(little.object_id(), 1);
+        assert_eq!(little.opcode(), 3);
+        assert_eq!(little.message_byte_len(), 12);
+        assert_eq!(little.payload_byte_len(), 4);
+
+        let big = native_window_linux_wayland_message_header_from_packet(
+            NativeWindowLinuxWaylandByteOrder::BigEndian,
+            &scripted_wayland_message(
+                NativeWindowLinuxWaylandByteOrder::BigEndian,
+                0x0102_0304,
+                0x0405,
+                16,
+                20,
+            ),
+        )
+        .unwrap();
+        assert_eq!(big.object_id(), 0x0102_0304);
+        assert_eq!(big.opcode(), 0x0405);
+        assert_eq!(big.message_byte_len(), 16);
+        assert_eq!(big.payload_byte_len(), 8);
+    }
+
+    #[test]
+    fn native_window_linux_wayland_message_header_rejects_invalid_shape() {
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &[1, 0, 0, 0, 0, 0, 0],
+            ),
+            Err(NativeWindowLinuxWaylandMessageHeaderError::PacketTooShort {
+                byte_count: 7,
+                required_byte_count: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+            })
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    0,
+                    1,
+                    8,
+                    8,
+                ),
+            ),
+            Err(NativeWindowLinuxWaylandMessageHeaderError::ObjectIdInvalid { object_id: 0 })
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    7,
+                    8,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeTooSmall {
+                    message_byte_len: 7,
+                    min_byte_len: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_HEADER_BYTE_LEN,
+                }
+            )
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    10,
+                    12,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeUnaligned {
+                    message_byte_len: 10,
+                    alignment: NATIVE_WINDOW_LINUX_WAYLAND_MESSAGE_ALIGNMENT,
+                }
+            )
+        );
+        assert_eq!(
+            native_window_linux_wayland_message_header_from_packet(
+                NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                &scripted_wayland_message(
+                    NativeWindowLinuxWaylandByteOrder::LittleEndian,
+                    1,
+                    1,
+                    12,
+                    8,
+                ),
+            ),
+            Err(
+                NativeWindowLinuxWaylandMessageHeaderError::MessageSizeExceedsPacket {
+                    message_byte_len: 12,
+                    packet_byte_len: 8,
+                }
+            )
         );
     }
 
