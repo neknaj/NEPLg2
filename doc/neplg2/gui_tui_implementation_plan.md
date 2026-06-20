@@ -1303,7 +1303,7 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を分ける。
 - `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を追加する。`NativeWindowRunLoopConfig` から platform wait config を抽出し、selection と current platform を検査する。
 - Windows + `WindowsWaitableTimerMessageWait` は selection を返す。
-- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` を返す。F5ik 以降の current contract では、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として返す。
+- Linux + missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` を返す。F5iq 以降の current contract では、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceFdMissing` として返す。
 - macOS は F5ik 以降 `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` を返す。
 
 検証:
@@ -1374,12 +1374,12 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 目的:
 
 - platform wait selection と capability validation は通るが actual runner readiness に必要な実体が未接続である場合を、generic unavailable ではなく typed missing integration reason として返す。
-- Linux の `ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source owner が無い限り runner-ready ではないことを enum で固定する。
+- Linux の `ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source が無い限り runner-ready ではないことを enum で固定する。
 - macOS は raw / trait boundary まで存在するが actual sys shim / run-loop ownership が無いため、unsupported platform とは別の missing integration として表す。
 
 実装:
 
-- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、`LinuxExternallyWakeableEventSourceOwnerMissing` と `MacosActualSysShimMissing` を分ける。
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、Linux の missing integration と `MacosActualSysShimMissing` を分ける。F5iq 以降、Linux の current variant は `LinuxWindowEventSourceFdMissing` である。
 - `NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing` を追加し、validated selection と missing reason を保持する。
 - Linux + missing capability は `Config MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` のまま維持する。validated `ExternallyWakeableEventSource` だけを integration-missing に写す。
 - Windows + `WindowsWaitableTimerMessageWait` はこれまで通り accepted selection を返す。unsupported platform は `PlatformRunnerUnavailable` のままにする。
@@ -1527,6 +1527,29 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - Linux platform wait runner support gate を `Ok` にしない。
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、support-gate readiness、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - helper を generic platform wait backend selection や minifb default runner へ接続しない。
+
+### Phase F5iq: Native Linux window event source fd missing reason boundary
+
+目的:
+
+- F5il から F5ip で Linux externally-wakeable owner、owner-retaining wait hook、owner-ready input、input-to-host handoff、cfg sys host factory まで接続済みになったため、generic support gate の missing reason を実態に合わせる。
+- Linux support gate は引き続き fail closed とし、未接続理由を owner missing ではなく actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source missing として表す。
+- host-event `eventfd` producer と window / platform event source fd を混同しない。
+
+実装:
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` の Linux variant を `LinuxWindowEventSourceFdMissing` に更新し、既存の `NativeWindowHostLoopLinuxEventSourceCapability` を保持する。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は Linux validated `ExternallyWakeableEventSource` に対して引き続き `PlatformRunnerIntegrationMissing` を返す。
+- source policy で旧 `LinuxExternallyWakeableEventSourceOwnerMissing` 名を拒否し、support gate が runner / CLI / minifb / fallback / sleep / synthetic readiness へ進まないことを固定する。
+
+検証:
+
+- Rust unit tests で Linux externally-wakeable support gate failure が `LinuxWindowEventSourceFdMissing` になることを検査する。
+- source policy で new variant、old variant rejection、runner / CLI / sys / minifb / fallback 非導入を検査する。
+
+非目標:
+
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence は実装しない。
 
 ## Checkpoint Commit Rule
 

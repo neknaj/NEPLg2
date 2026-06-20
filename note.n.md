@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5iq Linux window event source fd missing reason boundary
+
+## scope
+
+- F5ip 後の Linux generic support gate missing reason を、owner missing ではなく actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source missing として表す。
+- Linux support gate は引き続き fail closed とし、`PlatformRunnerIntegrationMissing` を返す。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5ip で owner と cfg sys factory は存在するため、旧 `LinuxExternallyWakeableEventSourceOwnerMissing` は stale であり、現在の blocker を window / platform event source fd missing として表すことが妥当と確認された。
+- host-event `eventfd` producer と window event source fd を混同しないため、variant 名は `LinuxWindowEventSourceFdMissing` を使うことが条件として確認された。
+- Linux missing capability と `ObservedInputOnly` の staged error を維持し、validated `ExternallyWakeableEventSource` の integration-missing reason だけを更新することが条件として確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` の Linux variant を `LinuxWindowEventSourceFdMissing` に更新した。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は Linux validated `ExternallyWakeableEventSource` に対して引き続き `PlatformRunnerIntegrationMissing` を返し、Linux runner を有効化しないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5iq contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support_rejects_linux_externally_wakeable_until_integrated -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、Rust enum variant が更新され、Linux は引き続き `PlatformRunnerIntegrationMissing` を返し、runner / CLI / minifb / fallback / sleep / synthetic readiness が導入されていないことが確認された。
+- 指摘 1: この section の `implementation_review` が pending のままだった。
+- 指摘 2: `gui_native_platform_behavior.md` の current implementation summary がまだ Linux externally-wakeable event source owner missing と説明していた。
+- 指摘対応として、この欄へ初回 review result を記録し、native behavior summary を `LinuxWindowEventSourceFdMissing` / actual X11-Wayland window event-source fd integration missing へ更新した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。旧名の残存は source policy rejection text と historical note context だけで、current implementation / native behavior contract には残っていないと確認された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable platform event source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ip Linux cfg sys host factory boundary
 
 ## scope

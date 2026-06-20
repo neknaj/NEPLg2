@@ -1251,7 +1251,7 @@ pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopPlatformWaitRunnerMissingIntegration {
-    LinuxExternallyWakeableEventSourceOwnerMissing {
+    LinuxWindowEventSourceFdMissing {
         capability: NativeWindowHostLoopLinuxEventSourceCapability,
     },
     MacosActualSysShimMissing,
@@ -3652,7 +3652,7 @@ pub fn validate_native_window_run_loop_platform_wait_runner_support_for_platform
                 NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                     selection,
                     missing:
-                        NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                        NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceFdMissing {
                             capability,
                         },
                 },
@@ -12945,7 +12945,7 @@ mod tests {
             NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                 selection,
                 missing:
-                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceFdMissing {
                         capability,
                     },
             }
@@ -13046,7 +13046,7 @@ mod tests {
             .unwrap_err(),
             NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                 missing:
-                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceFdMissing {
                         ..
                     },
                 ..
@@ -13226,7 +13226,7 @@ mod tests {
             .unwrap_err(),
             NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
                 missing:
-                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceFdMissing {
                         ..
                     },
                 ..

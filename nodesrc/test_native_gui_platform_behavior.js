@@ -419,9 +419,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowRunLoopFrameIntervalWaitBackendError\s*\{[\s\S]*Unsupported\s*\{[\s\S]*runner: NativeWindowRunLoopFrameIntervalWaitBackendRunner,[\s\S]*requested: NativeWindowRunLoopWaitBackend,[\s\S]*reason: NativeWindowFrameIntervalWaitAuthorityModeError/);
     assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitBackendConfigError\s*\{[\s\S]*NotPlatformWaitBackend\s*\{[\s\S]*requested: NativeWindowRunLoopWaitBackend[\s\S]*MissingLinuxEventSourceCapability\s*\{[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection/);
     assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError\s*\{[\s\S]*Config\(NativeWindowRunLoopPlatformWaitBackendConfigError\),[\s\S]*Build\(NativeWindowHostLoopPlatformWaitHostBuildError\)/);
-    assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitRunnerMissingIntegration\s*\{[\s\S]*LinuxExternallyWakeableEventSourceOwnerMissing\s*\{[\s\S]*capability: NativeWindowHostLoopLinuxEventSourceCapability[\s\S]*MacosActualSysShimMissing/);
+    assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitRunnerMissingIntegration\s*\{[\s\S]*LinuxWindowEventSourceFdMissing\s*\{[\s\S]*capability: NativeWindowHostLoopLinuxEventSourceCapability[\s\S]*MacosActualSysShimMissing/);
     assert.match(libSource, /pub enum NativeWindowRunLoopPlatformWaitRunnerSupportError\s*\{[\s\S]*Config\(NativeWindowRunLoopPlatformWaitBackendConfigError\),[\s\S]*BackendSupportFailed\(NativeWindowHostLoopPlatformWaitBackendSupportError\),[\s\S]*LinuxEventSourceSupportFailed\(NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError\),[\s\S]*PlatformRunnerIntegrationMissing\s*\{[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*missing: NativeWindowRunLoopPlatformWaitRunnerMissingIntegration[\s\S]*PlatformRunnerUnavailable/);
-    assert.doesNotMatch(libSource, /LinuxExternallyWakeableEventSourceIntegrationMissing/);
+    assert.doesNotMatch(libSource, /LinuxExternallyWakeableEventSourceOwnerMissing|LinuxExternallyWakeableEventSourceIntegrationMissing/);
     assert.match(libSource, /pub type NativeWindowWindowsPlatformWaitHostLoopError[\s\S]*NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError[\s\S]*NativeWindowHostLoopPlatformWaitBackendError<[\s\S]*NativeWindowHostLoopWindowsWaitBackendError,[\s\S]*NativeWindowHostLoopMacosRunLoopTimerBackendError,[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdBackendError/);
     assert.match(libSource, /impl NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*pub fn authority_mode[\s\S]*MinifbInternalTargetFps[\s\S]*native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps[\s\S]*HostOwnedDeadlineTimer[\s\S]*native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer/);
     assert.match(libSource, /impl Default for NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*Self::MinifbInternalTargetFps/);
@@ -431,7 +431,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /impl Default for NativeWindowRunLoopWaitBackend[\s\S]*Self::MinifbInternalTargetFps/);
     assert.match(nativeWindowPlatformWaitRunnerSupportGate, /validate_native_window_run_loop_platform_wait_runner_support_for_platform[\s\S]*native_window_run_loop_platform_wait_backend_config\(config\)[\s\S]*validate_native_window_host_loop_platform_wait_backend_kind_for_platform[\s\S]*selection\.platform\(\) != current[\s\S]*NativeWindowRunLoopPlatformWaitRunnerSupportError::BackendSupportFailed/);
     assert.match(nativeWindowPlatformWaitRunnerSupportGate, /NativeWindowHostLoopPlatformKind::Windows => Ok\(selection\)/);
-    assert.match(nativeWindowPlatformWaitRunnerSupportGate, /NativeWindowHostLoopPlatformKind::Linux[\s\S]*native_window_run_loop_linux_event_source_capability_from_platform_wait_config[\s\S]*validate_native_window_host_loop_linux_blocking_wait_event_source_capability[\s\S]*PlatformRunnerIntegrationMissing[\s\S]*LinuxExternallyWakeableEventSourceOwnerMissing/);
+    assert.match(nativeWindowPlatformWaitRunnerSupportGate, /NativeWindowHostLoopPlatformKind::Linux[\s\S]*native_window_run_loop_linux_event_source_capability_from_platform_wait_config[\s\S]*validate_native_window_host_loop_linux_blocking_wait_event_source_capability[\s\S]*PlatformRunnerIntegrationMissing[\s\S]*LinuxWindowEventSourceFdMissing/);
     assert.match(nativeWindowPlatformWaitRunnerSupportGate, /NativeWindowHostLoopPlatformKind::Macos[\s\S]*PlatformRunnerIntegrationMissing[\s\S]*MacosActualSysShimMissing/);
     assert.match(nativeWindowPlatformWaitRunnerSupportGate, /NativeWindowHostLoopPlatformKind::Unsupported[\s\S]*PlatformRunnerUnavailable/);
     assert.match(nativeWindowPlatformWaitRunnerSupportGate, /validate_native_window_run_loop_platform_wait_runner_support\([\s\S]*native_window_host_loop_current_platform_kind\(\)/);
@@ -1557,6 +1557,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /ObservedInputOnlyUnsupportedForBlockingWait/);
     assert.match(platformDoc, /ExternallyWakeableEventSource/);
     assert.match(platformDoc, /fd owner、selector registration、`HostEventReady` outcome/);
+    assert.match(platformDoc, /F5iq/);
+    assert.match(platformDoc, /LinuxWindowEventSourceFdMissing/);
+    assert.match(platformDoc, /actual X11 \/ Wayland window event source fd integration/);
     assert.match(platformDoc, /F5if/);
     assert.match(platformDoc, /LinuxEventSourceSupportFailed/);
     assert.match(platformDoc, /暗黙に `ExternallyWakeableEventSource` を渡さない/);
@@ -1742,6 +1745,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(implementationPlan, /ObservedInputOnlyUnsupportedForBlockingWait/);
     assert.match(implementationPlan, /fd owner、selector registration、wait outcome、runner dispatch を意味しない/);
     assert.match(implementationPlan, /ExternallyWakeableEventSource` を受理しても/);
+    assert.match(implementationPlan, /Phase F5iq: Native Linux window event source fd missing reason boundary/);
+    assert.match(implementationPlan, /LinuxWindowEventSourceFdMissing/);
+    assert.match(implementationPlan, /old variant rejection|旧 `LinuxExternallyWakeableEventSourceOwnerMissing` 名を拒否/);
     assert.match(implementationPlan, /Phase F5if: Native Linux platform wait backend event source config gate/);
     assert.match(implementationPlan, /LinuxEventSourceSupportFailed/);
     assert.match(implementationPlan, /旧 two-argument Linux helper call/);
@@ -1921,6 +1927,9 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /ObservedInputOnlyUnsupportedForBlockingWait/);
     assert.match(standardSpec, /fd owner、selector registration、wait outcome、runner dispatch/);
     assert.match(standardSpec, /actual X11 \/ Wayland fd integration/);
+    assert.match(standardSpec, /F5iq/);
+    assert.match(standardSpec, /LinuxWindowEventSourceFdMissing/);
+    assert.match(standardSpec, /window event source fd integration/);
     assert.match(standardSpec, /F5if Native Linux platform wait backend event source config gate/);
     assert.match(standardSpec, /LinuxEventSourceSupportFailed/);
     assert.match(standardSpec, /cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` も explicit event source capability を要求/);

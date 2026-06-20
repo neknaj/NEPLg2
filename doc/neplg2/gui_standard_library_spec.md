@@ -883,7 +883,7 @@ F5ih では、`NativeWindowRunLoopConfig` の platform wait config を actual wi
 
 `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は config を読み、non-platform config を `Config NotPlatformWaitBackend`、current platform と selection の不一致を `BackendSupportFailed` として返す。Windows + `WindowsWaitableTimerMessageWait` は既存 Windows runner path として accepted selection を返す。
 
-Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` として返す。F5ik 以降、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland fd owner / selector registration または同等の event source integration が無い限り runner-ready ではない。
+Linux では F5ig の explicit event source capability を要求する。missing capability は `MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` として返す。F5iq 以降、validated `ExternallyWakeableEventSource` は `PlatformRunnerIntegrationMissing LinuxWindowEventSourceFdMissing` として返す。`ExternallyWakeableEventSource` は分類値であり、actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source が無い限り runner-ready ではない。
 
 F5ik 以降、macOS は `PlatformRunnerIntegrationMissing MacosActualSysShimMissing` として返し、unsupported platform は `PlatformRunnerUnavailable` として返す。F5ih は Linux raw/sys backend construction、`run_linux_platform_wait_window_loop`、CLI dispatch、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op を追加しない。
 
@@ -907,13 +907,13 @@ F5ij は CLI support-gate integration だけであり、Linux runner / CLI dispa
 
 F5ik では、platform wait runner support gate の failure shape を精密化する。selection と capability validation は通るが actual runner readiness に必要な実体が未接続である場合、`PlatformRunnerUnavailable` ではなく `PlatformRunnerIntegrationMissing` を返す。
 
-`NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` は、Linux の `LinuxExternallyWakeableEventSourceOwnerMissing` と macOS の `MacosActualSysShimMissing` を分ける。Linux missing capability と observed-input-only は従来通り config / event-source support error として返す。validated `ExternallyWakeableEventSource` だけが external event source owner / selector registration missing として integration-missing になる。
+`NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` は、Linux の `LinuxWindowEventSourceFdMissing` と macOS の `MacosActualSysShimMissing` を分ける。Linux missing capability と observed-input-only は従来通り config / event-source support error として返す。validated `ExternallyWakeableEventSource` だけが actual X11 / Wayland window event source fd integration または同等の platform event source missing として integration-missing になる。
 
 F5ik は error modeling checkpoint であり、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、synthetic `HostEventReady`、timer fired evidence、fallback、silent no-op は追加しない。
 
 ## F5il Native Linux externally-wakeable event source owner boundary
 
-F5il では、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる。これは F5ik の `LinuxExternallyWakeableEventSourceOwnerMissing` を解消するための前段であり、runner support gate を成功させる phase ではない。
+F5il では、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる。これは F5ik の owner missing stage を解消するための前段であり、runner support gate を成功させる phase ではない。
 
 `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` は Linux selector / timerfd backend と host-event signal producer を private field として持つ。builder は構築済み backend と producer raw API を受け取り、backend が open であることを確認してから `create_host_event_signal_producer` を呼ぶ。closed backend は `BackendClosed`、producer 作成失敗は `HostEventSignalProducerFailed` として backend owner を返す。
 
@@ -927,7 +927,7 @@ F5im では、F5il の owner を backend-only path へ分解せず、`NativeWind
 
 owner から backend だけを public に取り出す API は持たない。`into_owner` は producer と backend をまとめた owner を返すだけで、`NativeWindowHostLoopLinuxSelectorTimerFdBackend` 単体を public に返さない。wait は owner 内の backend へ委譲し、signal は owner 内の producer へ委譲する。
 
-F5im は owner-retaining wait hook checkpoint であり、Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` を返す。Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
+F5im は owner-retaining wait hook checkpoint であり、Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing` を返す。F5iq 以降の missing reason は `LinuxWindowEventSourceFdMissing` である。Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
 ## F5in Native Linux platform-wait owner-ready run-loop input boundary
 
@@ -935,7 +935,7 @@ F5in では、F5im の owner-retaining run-loop host を Linux runner へ接続�
 
 `NativeWindowLinuxPlatformWaitRunLoopInput` は `NativeWindowRunLoopConfig` と Linux externally-wakeable owner 全体を所有する。`into_parts` は config と owner を返すだけで、backend 単体や producer 単体を public に取り出さない。これにより、producer を落とした backend-only path や、owner を失う fallible builder を runner 入口に作らない。
 
-`native_window_linux_platform_wait_run_loop_input_for_platform` は generic runner support gate を呼ばない。generic support gate は引き続き Linux を `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として扱うためである。F5in helper は下位の config / platform / backend kind / Linux event-source capability / owner-open validation だけを行い、失敗時は config と owner を error variant に保持して返す。
+`native_window_linux_platform_wait_run_loop_input_for_platform` は generic runner support gate を呼ばない。generic support gate は引き続き Linux を `PlatformRunnerIntegrationMissing` として扱うためである。F5iq 以降、その missing reason は `LinuxWindowEventSourceFdMissing` である。F5in helper は下位の config / platform / backend kind / Linux event-source capability / owner-open validation だけを行い、失敗時は config と owner を error variant に保持して返す。
 
 F5in は owner-ready input checkpoint であり、Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
@@ -956,6 +956,8 @@ F5ip では、F5io の input-to-host handoff を cfg Linux sys API から組み�
 testable helper は `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` とし、scripted raw API を注入できる。`PlatformWait` config、Linux backend kind、selection platform、`ExternallyWakeableEventSource` capability を raw API construction より前に検査する。検査失敗は host と config を保持する typed error として返し、backend construction failure、owner build failure、F5in input build failure、F5io host build failure はそれぞれ別 variant で下位 error を保持する。
 
 cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_from_config` は、2 つの独立した `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を backend owner 用と producer owner 用に注入するだけである。generic Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing` を返し、CLI dispatch、`run_linux_platform_wait_window_loop`、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer-fired evidence fabrication は追加しない。
+
+F5iq では、F5ip 後の actual blocker を反映するため、Linux support gate の missing reason を `LinuxWindowEventSourceFdMissing` に更新する。Linux owner / host factory は既にあるため、以後の未接続理由は owner missing ではなく、actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source missing である。これは Linux runner を有効化する変更ではない。
 
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
