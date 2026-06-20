@@ -2109,6 +2109,18 @@ stage0 smoke は accepted graph、MayEscape graph、missing graph、unsupported 
 
 この checkpoint 後も、actual Resource IR graph walker 本体、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。現 scanner preflight は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると O((b+p+e+u)^2) である。walker event operation ordinal index 化、graph lookup index 化、stage0 fixture 分割は、今回固定した typed event authority / unsupported override / owner cleanup / private type exposure ban を保ったまま後からできる最適化として扱う。
 
+## 2026-06-21 memo_call backend Resource walker producer bridge stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root から request table を内部再構築し、producer-owned な private walker event stream を作って既存 scanner / graph gate へ渡す bridge stage0 を追加した。
+
+この checkpoint も actual Resource IR walker 本体ではない。ここで固定したのは、stage0 fixture や caller-supplied request table ではなく、borrowed `SelfhostHirModule` と root expression id から request authority を再収集し、各 request entry を HIR payload と再照合してから private walker input を作る境界である。`SelfhostMemoCallBackendPrivateCacheResourceWalkerInput`、body / place / edge / unsupported event record、`SelfhostMemoCallBackendPrivateCacheResourceGraphInput` は引き続き module-private であり、public API から forged event stream を accepted path へ渡す経路は作らない。
+
+現段階では actual Resource traversal が private-cache place、edge、identity observation、fresh region proof をまだ生成できない。そのため producer bridge は `PrivateCacheNoEscapeProven` や accepted `PrivateCacheStorage` / `CloneOutOwnedValue` graph を合成しない。request occurrence ごとに proof key と closed body header を作り、未接続 traversal は `UnknownResourceOperation` の typed unsupported event として scanner へ渡す。scanner は unsupported event を `TraversalUnsupported` graph body へ変換し、graph producer / Resource producer / request-evidence gate は `ResourceProofUnknown` として fail-closed に拒否する。
+
+source policy は、producer bridge error taxonomy、wildcard なしの error code helper、HIR root からの request table 内部構築、request recheck、proof key construction、scanner 経由、GraphInput cleanup、unsupported traversal の Unknown rejection、placeholder fingerprint rejection、bridge internals の public API 化禁止を固定している。
+
+この checkpoint 後も、actual Resource IR graph walker 本体、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。producer bridge 自体は request 数 `m` に対して O(m) 個の body / unsupported event を作る。後続の scanner / graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従う。request/key bucket 化や graph lookup index 化は後続最適化でよいが、HIR root recheck、scanner 経由、unsupported fail-closed、private type exposure ban は semantic contract として維持する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

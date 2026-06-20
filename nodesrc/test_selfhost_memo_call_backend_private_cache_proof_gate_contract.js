@@ -757,6 +757,83 @@ assertOrdered(
     ],
     "Resource walker scanner stage0 must cover accepted, may-escape, missing, unsupported, duplicate ordinal, missing body event, and placeholder fingerprint paths",
 );
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind"),
+    [
+        "RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind",
+        "RequestEntryMissing %i32",
+        "RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind",
+        "Stage0FixtureAllocFailed %StdErrorKind",
+    ],
+    "Resource walker producer bridge error taxonomy must distinguish request collection, request entry, request recheck, proof key, private walker input, scanner output, graph gate, and fixture failures",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_code"),
+    /_:/,
+    "Resource walker producer bridge error code helper must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_input_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel",
+        "Result::Ok table:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_new",
+        "selfhost_memo_call_backend_request_table_len &table",
+        "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_requests_loop module &table input0 root body_module_fingerprint 0 request_count",
+        "selfhost_memo_call_backend_request_table_free table",
+        "RequestCollectionFailed e",
+    ],
+    "Resource walker producer bridge must build its request table internally from HIR root, create a private walker input owner, append request-derived events, and close the request table",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_request_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
+        "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
+        "SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input body",
+        "SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input1 unsupported",
+    ],
+    "Resource walker producer bridge must recheck each request entry, derive the proof key from the request, emit a closed body header, and represent the unimplemented actual traversal as a typed unsupported event",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_request_result"),
+    /PrivateCacheNoEscapeProven|PrivateCacheStorage|CloneOutOwnedValue/,
+    "Resource walker producer bridge must not synthesize an accepted no-escape proof or accepted private-cache place/edge while actual Resource IR traversal is still unsupported",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_input_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input",
+        "Result::Ok graph:",
+        "selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_free graph",
+        "OutputGraphGateRejected e",
+        "ScannerOutputRejected e",
+    ],
+    "Resource walker producer bridge must pass producer-owned private walker input through the existing scanner before invoking the graph gate, and must close GraphInput on graph gate success or failure",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_(?:input_from_hir_root_result|from_hir_root_result|append_request_result|append_requests_loop)\b/m,
+    "Resource walker producer bridge internals must stay module-private and must not expose HIR-root bridge or private event input construction as public accepted-path APIs",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0"),
+    [
+        "unsupported_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result 77",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result 0",
+    ],
+    "Resource walker producer bridge stage0 must cover unsupported actual traversal and placeholder fingerprint rejection without exposing private walker input",
+);
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_proof_table_push"),
     /^pub\s+fn/m,

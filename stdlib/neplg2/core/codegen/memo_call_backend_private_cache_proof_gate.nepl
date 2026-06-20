@@ -24,12 +24,14 @@
 //: - Resource observation producer も同じ module-private proof table writer を使います。現 checkpoint では public accepted path を追加せず、stage0 smoke だけで Resource observation から request-evidence gate へ流す境界を確認します。
 //: - Resource graph producer は body / place / edge の typed graph input を module-private Resource observation table へ畳む境界まで接続済みです。現 checkpoint では actual Resource IR walker 本体ではなく、walker が返すべき graph input contract と typed graph input fold を固定します。
 //: - Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します。event stream はまだ actual walker 由来ではなく stage0 fixture だけですが、body / place / edge / unsupported event の authority 境界、owner cleanup、unsupported override を先に固定します。
+//: - Resource walker producer bridge は、HIR root から request table を内部再構築し、request occurrence ごとの private walker event stream を module-private に生成して既存 scanner / graph gate へ渡します。actual Resource IR traversal が閉じた graph を返せない部分は typed unsupported event として fail-closed に扱い、成功 proof にはしません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
 //: - proof lookup は現状、request ごとに proof table を線形走査するため proof record 数を `p` とすると O(m * p) 時間です。
 //: - graph producer は body 数を `b`、place 数を `q`、edge 数を `e` とすると、現状の preflight duplicate / orphan / endpoint 検査に O(b*b + q*(b+q) + e*(b+q+e)) 時間を使います。これは後続で index 化できますが、closed graph だけを proof authority にする fail-closed contract は維持します。
 //: - walker input scanner は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると、duplicate / membership / unsupported override の線形 scan に O((b+p+e+u)^2) 時間を使います。これは index 化可能ですが、event stream の typed authority と unsupported override の contract を先に固定します。
+//: - producer bridge は現状、request table を O(n) で収集し、request 数 `m` に対して O(m) 個の body / unsupported event を作ります。その後の scanner と graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従います。actual Resource IR walker が接続された後も、request authority を HIR root から再収集する contract は維持します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -166,6 +168,28 @@
 //:     let checks6 checks_push checks5 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq summary.missing_body_event_rejected SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing expected_key
 //:     let checks7 checks_push checks6 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq summary.placeholder_rejected SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
 //:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0
+//:     let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_unknown_result_eq summary.unsupported_rejected expected_key
+//:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq summary.placeholder_rejected
+//:     let shown checks_print_report checks2
 //:     checks_exit_code shown
 //: ```
 
@@ -591,6 +615,35 @@ pub struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Su
     missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind: HIR root 由来 producer bridge の拒否分類
+//:
+//: [目的/もくてき]:
+//: - actual Resource IR walker 本体へ接続する前段として、HIR root から request を再収集し、producer-owned な private walker event stream を作る境界の失敗を enum として表します。
+//:
+//: [契約/けいやく]:
+//: - caller supplied request table、public walker event stream、direct GraphInput は authority にしません。
+//: - actual traversal が閉じた graph を作れない場合は `WalkerInputBuildRejected` や `ScannerOutputRejected` ではなく、typed unsupported event を scanner / graph gate へ流し、最終的に `OutputGraphGateRejected` の Unknown proof として返します。
+pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind:
+    RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind
+    RequestEntryMissing %i32
+    RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - HIR root から内部再収集した request が private walker event stream に写され、unsupported traversal と placeholder fingerprint が成功 proof にならないことを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は public ですが、private walker input owner や event record は含みません。
+pub struct SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary:
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -968,6 +1021,35 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStag
 //: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: scanner stage0 summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind: producer bridge error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error payload は typed enum と index だけです。private walker input owner や request table owner は payload に入れません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind: producer bridge error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest と source policy が error 分類を値として比較するための marker です。owner-bearing diagnostic を追加する場合は Copy を外します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge stage0 summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private event owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge stage0 summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -3945,6 +4027,87 @@ pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_un
                 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_code: producer bridge error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が display string ではなく enum 分類で producer bridge の拒否理由を比較できるようにします。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_code %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestCollectionFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestEntryMissing _idx:
+            2
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestRecheckRejected _e:
+            3
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ProofKeyRejected _e:
+            4
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected _e:
+            5
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ScannerOutputRejected _e:
+            6
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::OutputGraphGateRejected _e:
+            7
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+            8
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_kind_eq: producer bridge error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_code a selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_error_code b
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_unknown_result_eq: producer bridge が unsupported traversal を Unknown proof として拒否したか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR root から内部構築された request occurrence が scanner / graph gate を通り、actual Resource walker 未接続の unsupported event として fail-closed になったことを確認します。
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::OutputGraphGateRejected graph_error:
+                    selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq Result::Err graph_error expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestEntryMissing _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestRecheckRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ProofKeyRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ScannerOutputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq: producer bridge が placeholder fingerprint を key 生成前に拒否したか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - request collection が成功しても、`body_module_fingerprint == 0` の origin から walker event や proof を作らないことを確認します。
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind bool \result:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ProofKeyRejected gate_error:
+                    selfhost_memo_call_backend_private_cache_proof_gate_error_kind_eq gate_error SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestEntryMissing _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestRecheckRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ScannerOutputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::OutputGraphGateRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key: stage0 の期待 key を[返/かえ]す
 pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
     let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
@@ -4273,6 +4436,134 @@ pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_st
     let missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
     SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary accepted_result may_escape_rejected missing_rejected unsupported_rejected duplicate_ordinal_rejected missing_body_event_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input: producer bridge 失敗時に private walker input を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - request recheck や key 生成の失敗は input push 前に起きるため、この helper が owner を閉じます。push / scanner の失敗は下位関数が owner を閉じるので、この helper を重ねて呼びません。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \input\error:
+    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_request_result: request entry を producer-owned walker event に[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - HIR root から再収集した request entry を再検査し、proof key と closed body header を作ったうえで、actual Resource traversal 未接続部分を typed unsupported event として追加します。
+//:
+//: [契約/けいやく]:
+//: - `PrivateCacheNoEscapeProven` や private-cache place / clone-out edge はここで作りません。閉じた graph の証明は actual Resource walker が place / edge / identity observation を出せる段階まで遅らせます。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\input\graph_index:
+    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry:
+        Result::Ok _rechecked:
+            match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
+                Result::Ok key:
+                    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
+                    let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+                    match selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input body:
+                        Result::Ok input1:
+                            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new key graph_id 0 SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input1 unsupported:
+                                Result::Ok input2:
+                                    Result::Ok input2
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected e
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input input SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ProofKeyRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input input SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestRecheckRejected e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_requests_loop: request table 全体を producer-owned walker input に[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_requests_loop %impure fn &SelfhostHirModule impure fn &SelfhostMemoCallBackendRequestTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \module\table\input\root_expr_id\body_module_fingerprint\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok input
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint input idx:
+                        Result::Ok next_input:
+                            selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_requests_loop module table next_input root_expr_id body_module_fingerprint add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input input SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_input_from_hir_root_result: HIR root から private walker input を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - actual Resource IR walker がまだ未接続でも、caller-supplied table ではなく HIR root 由来の request authority だけから private event stream を作る境界を固定します。
+//:
+//: [契約/けいやく]:
+//: - 成功時だけ caller が private walker input owner を受け取ります。失敗時は request table と walker input の owner をこの関数または下位 helper が閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_input_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+                Result::Ok input0:
+                    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
+                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_requests_loop module &table input0 root body_module_fingerprint 0 request_count
+                    selfhost_memo_call_backend_request_table_free table
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_request_table_free table
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::WalkerInputBuildRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::RequestCollectionFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_from_hir_root_result: producer-owned walker input を scanner / graph gate へ[接続/せつぞく]する
+//:
+//: [契約/けいやく]:
+//: - `selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result` を必ず通し、producer bridge が GraphInput を直接 accepted gate へ渡す経路は作りません。
+//: - unsupported traversal は scanner により `TraversalUnsupported` graph body へ写され、その後 Resource graph gate で Unknown proof として拒否されます。
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_input_from_hir_root_result module root fuel body_module_fingerprint:
+        Result::Ok input:
+            match selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input:
+                Result::Ok graph:
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+                    match result:
+                        Result::Ok summary:
+                            Result::Ok summary
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::OutputGraphGateRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::ScannerOutputRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result: stage0 module から producer bridge result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind \body_module_fingerprint:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_from_hir_root_result &module root 8 body_module_fingerprint
+            selfhost_hir_module_free module
+            match result:
+                Result::Ok summary:
+                    Result::Ok summary.proven_request_count
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0: producer-owned walker bridge の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR root から request table を内部再構築し、private walker input を producer-owned に作ったうえで、unsupported traversal と placeholder fingerprint を fail-closed に拒否することを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR walker はまだ接続していません。この stage0 は accepted no-escape proof を作らず、`UnknownResourceOperation` の unsupported event を通して Unknown proof rejection を確認します。
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary \void:
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result 77
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_stage0_run_i32_result 0
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary unsupported_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record: stage0 用 graph body record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \completeness:

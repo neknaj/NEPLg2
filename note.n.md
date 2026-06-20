@@ -75609,3 +75609,30 @@ MERGE_APPROVED
 - 指摘対応として、owned fd state を `Open` / `Closed` / `CloseFailed` に明示化し、`raw_fd()` と provider descriptor は `Open` だけ成功するようにした。`close()` は fd を state から取り出してから raw close を呼び、失敗後は `CloseFailed` state に移す。Drop は `Open` state だけを best-effort cleanup し、explicit close failure 後の retry close は行わない。
 - Rust test は close failure 後の `raw_fd()` が `CloseFailed` を返すこと、2 回目の `close()` が raw close を再実行しないこと、Drop 後も close call が 1 回のままであることを検査するように修正した。source policy も private state enum と close-once contract を検査するように更新した。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。close-state blocker は解消され、`NativeWindowLinuxWindowEventSourceOwnedFdState` が close failure 後の stale descriptor access を防ぎ、repeated `close()` と Drop が raw close を再試行しないことが確認された。
+
+## 2026-06-21 selfhost memo_call Resource walker producer bridge checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource walker input scanner stage0 の次段として producer-owned bridge を追加した。
+- HIR root から request table を内部再構築し、各 request entry を HIR payload と再照合して private walker input を作る境界を固定した。
+- actual Resource IR walker はまだ未接続なので、accepted no-escape graph は合成せず、typed unsupported event を scanner / graph gate に通して `ResourceProofUnknown` として fail-closed にする。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind` と `SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary` を追加した。
+- producer bridge は caller supplied request table、public walker event stream、direct GraphInput を authority にしない。
+- request collection、request recheck、proof key construction、private walker input build、scanner output、graph gate rejection を typed enum で分離した。
+- source policy は bridge internals の public API 化禁止、scanner 経由、unsupported traversal の Unknown rejection、placeholder fingerprint rejection、wildcard-free error code helper を固定した。
+
+### review_current
+
+- Hegel の review では、private walker input / event record の public API 露出、HIR payload や関数名からの `PrivateCacheNoEscapeProven` 合成、caller supplied request table の authority 化が blocker と指摘された。
+- 対応として、bridge internals は module-private に保ち、public には stage0 summary と typed result helper だけを出した。
+- closed body header は作るが、private-cache place / edge や no-escape proof は作らず、`UnknownResourceOperation` の unsupported event へ落とすようにした。
+
+### remaining
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban を接続する。
+- sealed memoized backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影、request/key bucket 化や graph lookup index 化へ進める。

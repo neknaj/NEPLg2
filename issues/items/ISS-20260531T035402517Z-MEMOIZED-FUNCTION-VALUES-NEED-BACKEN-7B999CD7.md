@@ -270,3 +270,27 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。
+
+## 2026-06-21 selfhost memo_call backend Resource walker producer bridge stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root から request table を内部再構築し、producer-owned な private walker event stream を作って既存 scanner / graph gate へ渡す bridge stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。目的は、stage0 fixture ではなく HIR root 由来の request authority から private walker input を作る経路を固定し、public API から forged walker event stream や GraphInput を accepted path へ渡せない状態を維持することである。request table は `selfhost_memo_call_backend_request_table_from_hir_root_result` で内部収集し、各 entry は既存 proof gate と同じ HIR payload recheck と proof key construction を通す。
+
+現段階では actual Resource traversal が private-cache place / edge / identity observation をまだ生成できない。そのため bridge は `PrivateCacheNoEscapeProven` や accepted `PrivateCacheStorage` / `CloneOutOwnedValue` graph を合成せず、request occurrence ごとに closed body header と `UnknownResourceOperation` の typed unsupported event を作る。scanner はこの unsupported event を `TraversalUnsupported` graph body へ写し、graph producer / Resource producer / request-evidence gate は最終的に `ResourceProofUnknown` として fail-closed に拒否する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer bridge error taxonomy、error code helper の wildcard 禁止、HIR root からの request table 内部構築、request recheck、proof key construction、scanner 経由、GraphInput cleanup、unsupported traversal の Unknown rejection、placeholder fingerprint rejection、bridge internals の public API 化禁止を固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+
+残件:
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- cache hit / miss / size / clear / raw identity observation ban。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- graph lookup index 化、walker event operation ordinal index 化、producer bridge request/key bucket 化、stage0 fixture 分割。
