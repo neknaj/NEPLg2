@@ -2994,3 +2994,40 @@ Phase F5kh では、F5kg の raw keyboard event evidence に X11 core event の 
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で raw modifier evidence、no mapping、no fallback / no silent no-op scope creep が承認される。
+
+## Phase F5ki: Native Linux X11 portable keyboard modifier evidence boundary
+
+Phase F5ki では、F5kh の raw X11 `state` evidence から Shift / Control / Alt / Meta の portable modifier evidence だけを導出する。これは X11 core state bitset の固定 projection であり、keysym、layout 済み key、text input、IME composition、shortcut command へは変換しない。
+
+実装:
+
+- `NativeWindowPortableKeyboardModifiers` を追加し、Shift / Control / Alt / Meta を bool evidence として保持する。
+- projection は `NativeWindowKeyboardModifierState` からだけ作る。raw state と portable modifiers を別々に受け取る public constructor は作らない。
+- `NativeWindowKeyboardEvent::new_with_modifier_state` は raw state を保持したうえで portable modifier evidence を内部導出する。
+- X11 core state の `ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1Mask = 0x0008`、`Mod4Mask = 0x0040` だけを portable projection に使う。
+- Lock、Mod2、Mod3、Mod5、button mask、unknown high bit は portable modifier へ写さず、raw state にだけ保持する。
+- source-policy は raw state preservation、portable projection bit、constructor consistency、KeySym / IME / shortcut / runner / fallback 非導入を検査する。
+
+非目標:
+
+- keysym / layout mapping、shortcut policy は含めない。
+- IME composition、text input、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback text、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `KeyPress` / `KeyRelease` が raw modifier state と portable Shift / Control / Alt / Meta evidence の両方を host action まで残す。
+- raw modifier state は全 `u16` 値を valid evidence として引き続き保持される。
+- ignored X11 state bit が portable modifier evidence を誤って立てないことを test で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で portable modifier evidence、raw state preservation、no KeySym / IME / shortcut / fallback scope creep が承認される。
