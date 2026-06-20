@@ -1042,9 +1042,20 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind"),
     [
+        "PrivateCacheStoragePlace",
+        "PrivateCacheEntryPlace",
+        "ReturnedOwnedClonePlace",
+        "CloneOutOwnedValueEdge",
+        "ReturnCacheReferencePlace",
+        "ReturnCacheReferenceEdge",
+        "PublicStorePlace",
+        "PublicStoreEdge",
+        "CacheHitObservation",
+        "FunctionIdentityObservation",
+        "RawIdentityObservation",
         "ResourceIrTraversalUnavailable",
     ],
-    "actual walker traversal source kind must represent unavailable Resource IR traversal as a typed source, not as direct accepted proof",
+    "actual walker traversal source kind must keep accepted, escaping, observation, and unavailable traversal vocabulary typed before operation projection",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord"),
@@ -1078,15 +1089,37 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record"),
     [
+        "PrivateCacheStoragePlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheStoragePlace",
+        "PrivateCacheEntryPlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheEntryPlace",
+        "ReturnedOwnedClonePlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnedOwnedClonePlace",
+        "CloneOutOwnedValueEdge:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CloneOutOwnedValueEdge",
+        "ReturnCacheReferencePlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferencePlace",
+        "ReturnCacheReferenceEdge:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferenceEdge",
+        "PublicStorePlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStorePlace",
+        "PublicStoreEdge:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStoreEdge",
+        "CacheHitObservation:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation",
+        "FunctionIdentityObservation:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionIdentityObservation",
+        "RawIdentityObservation:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawIdentityObservation",
         "ResourceIrTraversalUnavailable:",
         "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation",
     ],
-    "actual walker traversal source projection must map unavailable Resource IR traversal only to UnknownResourceOperation",
+    "actual walker traversal source projection must explicitly map every source class into the operation classifier vocabulary",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record"),
-    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|proof_table_push|resource_graph_input_push|Wasm|LLVM/,
-    "actual walker traversal source projection must not synthesize accepted proof, accepted private-cache operations, direct GraphInput, proof table records, or backend bytes",
+    /PrivateCacheNoEscapeProven|proof_table_push|resource_graph_input_push|GraphInput|Wasm|LLVM/,
+    "actual walker traversal source projection may only create operation records and must not synthesize accepted proof, direct GraphInput, proof table records, or backend bytes",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind"),
@@ -1214,6 +1247,53 @@ assertOrdered(
         "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
     "actual walker operation producer bridge stage0 summary must expose only typed result payloads and not private operation tables",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary"),
+    [
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+    ],
+    "actual walker traversal source projection stage0 summary must expose only typed result payloads and not private source or operation tables",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0"),
+    [
+        "accepted_result",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result 77",
+        "may_escape_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_result 77",
+        "unsupported_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable",
+        "observation_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result 0",
+    ],
+    "actual walker traversal source projection stage0 must cover accepted, escaping, unknown, observation, and placeholder paths through source projection",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_summary_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result &module root 8 body_module_fingerprint &operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+    ],
+    "actual walker traversal source projection fixture must project source records to operation records, close owners, and use the existing operation classifier",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_summary_result"),
+    /resource_graph_input_push|proof_table_push|PrivateCacheNoEscapeProven|Wasm|LLVM/,
+    "actual walker traversal source projection fixture must not synthesize direct GraphInput, proof table records, accepted proof, or backend bytes",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_(?:record|push|closed|escape|single|run|accepted)/m,
+    "actual walker traversal source projection helpers must stay module-private and only the typed smoke summary may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),

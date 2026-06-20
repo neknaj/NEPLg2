@@ -402,6 +402,31 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 selfhost memo_call backend actual walker traversal source projection stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual walker traversal source vocabulary を accepted / escaping / observation / unavailable の typed source variant へ広げ、source-to-operation projection 経由で既存 operation classifier / unified event normalizer へ渡す projection stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。目的は、actual traversal が将来返す source classification tag を operation table へ入れる前段の module-private vocabulary として固定し、operation classifier vocabulary への変換を wildcard-free match で閉じることである。`ResourceIrTraversalUnavailable` は引き続き `UnknownResourceOperation` へだけ写し、accepted proof にはしない。accepted / escaping / observation source は operation record へ写るだけであり、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment は合成しない。
+
+stage0 public summary は private fixture source table を使い、accepted graph path、MayEscape path、unknown unsupported path、observation path、placeholder proof key path を確認する。これは source-to-operation projection と既存 classifier / normalizer の接続 smoke であり、operation producer bridge の HIR-root path が accepted source を生成したことを意味しない。operation producer bridge は引き続き request ごとに `ResourceIrTraversalUnavailable` source だけを emit し、actual traversal 未接続のまま no-escape proof を観測したように見せない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。traversal source vocabulary、source record authority、source table owner exposure 禁止、source table Clone / Copy 禁止、source-to-operation projection の wildcard fallback 禁止、projection fixture の owner cleanup、operation classifier 経由、producer bridge が accepted source を emit しないこと、proof / GraphInput / backend 合成禁止、line count / doc comment amount limiting checks の禁止を固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table へ accepted / escaping / observation / unavailable source を生成する境界。
+- actual traversal source と fresh private cache region proof の接続。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 2026-06-21 selfhost memo_call backend actual walker operation producer bridge stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root 由来の request authority から producer-owned traversal source table を作り、それを operation table へ投影して既存 operation classifier / unified event normalizer へ渡す operation producer bridge stage0 を追加した。

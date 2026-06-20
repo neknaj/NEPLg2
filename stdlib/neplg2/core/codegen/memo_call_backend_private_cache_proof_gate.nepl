@@ -31,6 +31,7 @@
 //: - Actual walker operation classifier stage0 は、actual Resource IR traversal が将来列挙する最小 operation vocabulary を module-private record として受け、body event と同じ request key / graph id / ordinal を保ったまま unified stream へ分類します。accepted graph を作る case は classifier 接続確認に限り、sealed backend representation や PrivateCache effect masking の完了として扱いません。
 //: - Actual walker traversal source stage0 は、HIR root から request authority を再収集し、actual Resource IR traversal がまだ未接続であることを module-private source table に記録します。source table は operation table そのものではなく、後続の actual walker が差し替える producer boundary です。
 //: - Actual walker operation producer bridge stage0 は、traversal source table を operation table へ投影して operation classifier へ渡します。actual traversal 本体はまだ接続せず、request ごとに `ResourceIrTraversalUnavailable` source を `UnknownResourceOperation` へ変換して fail-closed に扱います。
+//: - Actual walker traversal source projection stage0 は、actual traversal が将来返す accepted / escaping / observation / unavailable source vocabulary を source-to-operation projection 経由で classifier に渡せることを private fixture で確認します。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source を actual traversal 未接続のまま合成しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -42,7 +43,7 @@
 //: - unified event normalizer は event 数を `a` とすると O(a) 時間で stream を分配し、その後は observation が検出された場合は既存 observation ban gate、検出されない場合は既存 walker scanner / graph gate の計算量に従います。actual traversal の探索範囲削減や event index 化は後続で行えますが、observation precedence と owner cleanup の契約は維持します。
 //: - actual walker event producer bridge は request 数 `m` に対して O(m) 個の body / unsupported event を作り、必要に応じて stage0 observation event を O(1) で追加します。実際の Resource IR traversal の探索範囲削減は、producer が unsupported event ではなく typed place / edge / observation event を作る段階で扱います。
 //: - actual walker operation classifier は operation record 数を `o` とすると、現状 request ごとに operation table を線形走査するため O(m * o) 時間です。request key / ordinal の bucket 化は後からできる最適化ですが、operation kind の typed 分類、observation precedence、normalizer 経由の contract は維持します。
-//: - actual walker traversal source stage0 は request 数 `m` に対して O(m) 個の typed traversal source record を作ります。source から operation への投影は source 数 `s` に対して O(s) です。
+//: - actual walker traversal source stage0 は request 数 `m` に対して O(m) 個の typed traversal source record を作ります。source から operation への投影は source 数 `s` に対して O(s) です。projection smoke は fixture source 数 `s` に対して O(s) で operation table を作り、その後は既存 classifier の O(m * o) 境界に従います。
 //: - actual walker operation producer bridge は現状、traversal source table と operation table の二段階 owner を通します。これは actual traversal 本体が返す source stream と、classifier が読む operation vocabulary を分けるための境界であり、後続で source/operation の bucket 化や直接 projection に置換できます。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
@@ -758,9 +759,21 @@ struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput:
 //:
 //: [契約/けいやく]:
 //: - `ResourceIrTraversalUnavailable` は、actual Resource IR traversal 本体がまだ未接続であることを typed source として表します。
+//: - private cache storage / clone-out / escaping reference / public store / observation source は、actual traversal が返すべき分類語彙を先に固定するための variant です。
 //: - この enum は operation kind ではありません。operation classifier が読む vocabulary へは、別の projection boundary を通して変換します。
-//: - actual traversal が閉じた private-cache graph を列挙できるまでは、この source から accepted proof や backend bytes を作りません。
+//: - この source から作れるのは operation classifier 用 record までです。`PrivateCacheNoEscapeProven`、sealed backend bytes、GraphInput、proof table record は作りません。
 enum SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind:
+    PrivateCacheStoragePlace
+    PrivateCacheEntryPlace
+    ReturnedOwnedClonePlace
+    CloneOutOwnedValueEdge
+    ReturnCacheReferencePlace
+    ReturnCacheReferenceEdge
+    PublicStorePlace
+    PublicStoreEdge
+    CacheHitObservation
+    FunctionIdentityObservation
+    RawIdentityObservation
     ResourceIrTraversalUnavailable
 
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord: operation producer が読む traversal source record
@@ -1024,6 +1037,21 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierSta
 //: - summary は private operation table を公開しません。actual Resource IR traversal、fresh private region proof、PrivateCache effect masking、sealed backend representation の完了も表しません。
 pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary:
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary: traversal source projection smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - actual traversal が将来返す source vocabulary が、source-to-operation projection と既存 operation classifier / unified normalizer を通って accepted / escaping / observation / unsupported に分岐できることを確認します。
+//:
+//: [契約/けいやく]:
+//: - この summary は Result payload だけを公開します。private traversal source table、operation table、GraphInput、proof table、backend bytes は公開しません。
+//: - accepted_result は projection と既存 graph gate の接続 smoke であり、fresh private cache region proof や PrivateCache / PrivateState masking の完了を意味しません。
+pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
@@ -1643,6 +1671,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerB
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary: operation producer bridge smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary: traversal source projection smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private traversal source table や operation table owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary: traversal source projection smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -6120,7 +6161,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table
 //:
 //: [契約/けいやく]:
 //: - placeholder fingerprint、負の graph id、負の operation ordinal、負の endpoint id は actual traversal source として信頼できないため table owner を閉じて拒否します。
-//: - stage0 では `ResourceIrTraversalUnavailable` だけを記録します。accepted private-cache place / edge は source table push では作りません。
+//: - source table push は record の保存だけを行います。accepted proof、GraphInput、backend bytes は source-to-operation projection と classifier の後段でも別境界が扱います。
 fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \table\record:
     if:
         or or or or eq record.key.body_module_fingerprint 0 lt record.graph_id.index 0 lt record.operation_ordinal 0 lt record.from_place.index 0 lt record.to_place.index 0
@@ -6142,8 +6183,31 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table
 //: [契約/けいやく]:
 //: - source kind は wildcard fallback で処理せず、match で網羅します。
 //: - `ResourceIrTraversalUnavailable` は accepted graph ではないため、必ず `UnknownResourceOperation` に変換します。
+//: - accepted / escaping / observation source は operation classifier 用 record へ写すだけです。この関数は proof table、GraphInput、backend bytes を作りません。
 fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \source:
     match source.kind:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheStoragePlace
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEntryPlace:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheEntryPlace
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnedOwnedClonePlace:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnedOwnedClonePlace
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CloneOutOwnedValueEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferencePlace
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferenceEdge:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferenceEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStorePlace:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStorePlace
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStoreEdge:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStoreEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawIdentityObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation
 
@@ -6647,6 +6711,134 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer
     let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 77
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 0
     SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary unsupported_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_record: source projection smoke 用 record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - actual traversal が将来返す source vocabulary を、operation table に入れる前の module-private source record として作ります。
+//:
+//: [契約/けいやく]:
+//: - この helper は stage0 fixture 用です。source record を作るだけで、proof table、GraphInput、backend bytes は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord \operation_ordinal\from_index\to_index\kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new from_index
+    let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new to_index
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_record_new key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result: source projection smoke 用 source を table へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \table\operation_ordinal\from_index\to_index\kind:
+    let record %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_record operation_ordinal from_index to_index kind
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push table record
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result: accepted source projection smoke 用 table を[作/つく]る
+//:
+//: [現状/げんじょう]:
+//: - accepted source は actual traversal fixture からだけ作ります。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを作ります。
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table0 0 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table1 1 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result: escaping source projection smoke 用 table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table0 0 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table1 1 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferenceEdge
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result: 1 source の projection smoke 用 table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok table0:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_push_record_result table0 0 0 0 kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_summary_result: source table を operation classifier へ[投影/とうえい]して実行する
+//:
+//: [契約/けいやく]:
+//: - source table はこの helper が必ず閉じます。projection で作った operation table も classifier 実行後に閉じます。
+//: - projection は operation classifier の前段に限られます。proof table record、GraphInput、sealed backend bytes は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_summary_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\sources:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources:
+                Result::Ok operations:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result &module root 8 body_module_fingerprint &operations
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result: source projection result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\sources:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_summary_result body_module_fingerprint sources:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result: accepted source projection smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result body_module_fingerprint sources
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_result: escaping source projection smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result body_module_fingerprint sources
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_result: single source projection smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result kind:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result body_module_fingerprint sources
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0: traversal source projection の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - actual traversal が返す source classification tag が、source-to-operation projection を通って accepted graph、escaping graph、unknown unsupported、observation の各 path に到達することを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR traversal はまだ未接続です。この public smoke は private fixture source を使うだけで、operation producer bridge が accepted source を作ったことを意味しません。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result 77
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_result 77
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_accepted_result 0
+    SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary accepted_result may_escape_rejected unsupported_rejected observation_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:

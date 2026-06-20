@@ -76197,3 +76197,49 @@ MERGE_APPROVED
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
 - source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、HIR-root authority / traversal source boundary / fail-closed projection / classifier path contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker traversal source projection checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker traversal source vocabulary を accepted / escaping / observation / unavailable source へ広げた。
+- この checkpoint は actual Resource IR traversal 本体ではない。private fixture source table から source-to-operation projection、operation classifier、unified normalizer へ流れる smoke を追加し、future actual traversal が返す classification tag の境界を固定した。
+- operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit する。accepted source は private fixture 専用であり、actual traversal 未接続のまま no-escape proof を観測したようには扱わない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match による静的検査、module-private owner boundary、契約と現状の分離、試作段階でも雑設計を残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。source / operation / projection の doc comment では、目的、現状、作ってよいもの、作ってはいけない proof/backend artifact、計算量、残件を明記した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind` に private cache storage、private cache entry、returned owned clone、clone-out edge、return cache reference、public store、cache hit observation、function identity observation、raw identity observation、unavailable traversal を表す typed source variant を追加した。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record` を wildcard-free exhaustive match にし、各 source を対応する `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind` へ写すようにした。`ResourceIrTraversalUnavailable` は引き続き `UnknownResourceOperation` へだけ写す。
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary` と `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0` を追加した。summary は Result payload だけを公開し、private source table / operation table を公開しない。
+- source projection smoke は private fixture source table を作り、source-to-operation projection で operation table を作り、既存 operation classifier / unified normalizer path に渡す。GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment は合成しない。
+- source table / operation table は module-private owner のままにした。owner table に Clone / Copy は追加していない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、source vocabulary、projection exhaustive match、private helper 維持、producer bridge unavailable-only emit、proof/backend 合成禁止、owner cleanup、line / doc comment limit 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal 本体、fresh private region proof、PrivateCache / PrivateState masking、sealed backend、artifact projection、`MemoKey` / `MemoValue` aggregate proof を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘はなかった。実装時に守るべき条件として、accepted source fixture は projection/classifier 接続 smoke に限定すること、producer bridge は `ResourceIrTraversalUnavailable` のみ emit すること、projection は wildcard-free exhaustive match にすること、proof/backend/GraphInput を合成しないこと、owner table を public signature に出さないこと、source record authority を key / graph / ordinal / place / typed kind に限定することが確認された。
+- Wegener の implementation review は `REVIEW_APPROVED`。producer bridge unavailable-only、accepted source が private fixture 専用であること、projection が全 variant を explicit mapping していること、proof/backend 合成なし、owner cleanup、source policy、docs / issue / todo の残件維持、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-projection-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table へ accepted / escaping / observation / unavailable source を生成する境界へ進める。
+- actual traversal source と fresh private cache region proof を接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、source vocabulary / projection / producer unavailable-only / classifier path contract を保って後から行う。
