@@ -1709,6 +1709,34 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5ix: Native Linux window event source normalized observation boundary
+
+目的:
+
+- F5iw の provider-owned event pump を、future X11 / Wayland / toolkit event decoder が共有できる normalized observation から `NativeWindowEventPumpSnapshot` を作る境界へ分割する。
+- descriptor と `NativeWindowEventPumpInput` と observation を同時に扱い、previous size / mouse state に基づく transition と resize 判定は標準 helper 側で行う。
+- provider ごとに pointer finite check、close-state priority、surface-state derivation、size_changed 計算を重複実装しない。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourceObservation` を追加し、os close、exit shortcut、current size、mouse down、optional raw pointer を保持する。
+- `NativeWindowLinuxWindowEventSourceObservationSnapshotError` を追加し、snapshot 生成 failure を `SnapshotConstructionFailed { descriptor, error }` のように descriptor 付き typed error へ写す。
+- `native_window_linux_window_event_source_snapshot_from_observation` を追加し、descriptor、`NativeWindowEventPumpInput`、observation から `NativeWindowEventPumpSnapshot` を返す。実装は既存 `build_native_window_event_pump_snapshot_from_raw` を通し、pointer finite check、close-state priority、surface-state derivation を共通化する。
+- `NativeWindowLinuxWindowEventSourceObservationProvider` trait と、その provider を F5iw の `NativeWindowLinuxWindowEventSourceEventPumpProvider` として使う adapter を追加する。adapter は provider owner を保持し、provider observation failure と snapshot failure を別 variant で返す。
+- adapter は host / runner / CLI / wait backend を持たず、observation provider owner だけを event pump provider へ変換する。support gate `Ok` 化や `run_linux_platform_wait_window_loop` への接続は行わない。
+- source policy で snapshot helper が descriptor + input + observation を要求し、既存 raw snapshot helperを通すこと、adapter が provider observation を呼んでから snapshot helper を呼ぶこと、fd read / drain / close、actual X11 / Wayland API、runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op を導入しないことを固定する。
+
+検証:
+
+- Rust unit tests で normalized observation から resize / pointer transition / close-state priority / surface-state が既存 event pump snapshot と一致することを検査する。
+- Rust unit tests で non-finite pointer が descriptor 付き typed error になり、silent no-op や unavailable pointer へ変換されないことを検査する。
+- Rust unit tests で observation provider adapter が provider owner を保持し、observation failure と snapshot failure を分け、F5iw event pump provider として使えることを検査する。
+- source policy で F5ix が actual fd acquisition / read / drain / close / runner dispatch / CLI dispatch / support gate `Ok` 化へ進んでいないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

@@ -1373,6 +1373,49 @@ pub enum NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError<ProviderErr
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NativeWindowLinuxWindowEventSourceObservation {
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_raw: Option<(f32, f32)>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceObservationSnapshotError {
+    SnapshotConstructionFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        error: NativeWindowEventPumpError,
+    },
+}
+
+pub trait NativeWindowLinuxWindowEventSourceObservationProvider {
+    type Error;
+
+    fn poll_window_event_source_observation(
+        &mut self,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowLinuxWindowEventSourceObservation, Self::Error>;
+}
+
+pub struct NativeWindowLinuxWindowEventSourceObservationEventPumpProvider<Provider> {
+    provider: Provider,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError<ProviderError> {
+    ProviderObservationFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        error: ProviderError,
+    },
+    SnapshotConstructionFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        error: NativeWindowLinuxWindowEventSourceObservationSnapshotError,
+    },
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError {
     Config(NativeWindowRunLoopPlatformWaitBackendConfigError),
@@ -6374,6 +6417,126 @@ where
 {
     let (host, descriptor, provider) = host.into_parts();
     NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost::new(host, descriptor, provider)
+}
+
+impl NativeWindowLinuxWindowEventSourceObservation {
+    pub fn new(
+        os_close_requested: bool,
+        exit_shortcut_requested: bool,
+        current_size: NativeWindowSize,
+        mouse_down: bool,
+        pointer_raw: Option<(f32, f32)>,
+    ) -> Self {
+        Self {
+            os_close_requested,
+            exit_shortcut_requested,
+            current_size,
+            mouse_down,
+            pointer_raw,
+        }
+    }
+
+    pub fn os_close_requested(self) -> bool {
+        self.os_close_requested
+    }
+
+    pub fn exit_shortcut_requested(self) -> bool {
+        self.exit_shortcut_requested
+    }
+
+    pub fn current_size(self) -> NativeWindowSize {
+        self.current_size
+    }
+
+    pub fn mouse_down(self) -> bool {
+        self.mouse_down
+    }
+
+    pub fn pointer_raw(self) -> Option<(f32, f32)> {
+        self.pointer_raw
+    }
+}
+
+pub fn native_window_linux_window_event_source_snapshot_from_observation(
+    descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    input: NativeWindowEventPumpInput,
+    observation: NativeWindowLinuxWindowEventSourceObservation,
+) -> Result<NativeWindowEventPumpSnapshot, NativeWindowLinuxWindowEventSourceObservationSnapshotError>
+{
+    build_native_window_event_pump_snapshot_from_raw(
+        input,
+        observation.os_close_requested(),
+        observation.exit_shortcut_requested(),
+        observation.current_size(),
+        observation.mouse_down(),
+        observation.pointer_raw(),
+    )
+    .map_err(|error| {
+        NativeWindowLinuxWindowEventSourceObservationSnapshotError::SnapshotConstructionFailed {
+            descriptor,
+            error,
+        }
+    })
+}
+
+impl<Provider> NativeWindowLinuxWindowEventSourceObservationEventPumpProvider<Provider> {
+    pub fn new(provider: Provider) -> Self {
+        Self { provider }
+    }
+
+    pub fn provider(&self) -> &Provider {
+        &self.provider
+    }
+
+    pub fn provider_mut(&mut self) -> &mut Provider {
+        &mut self.provider
+    }
+
+    pub fn into_provider(self) -> Provider {
+        self.provider
+    }
+}
+
+pub fn native_window_linux_window_event_source_observation_event_pump_provider<Provider>(
+    provider: Provider,
+) -> NativeWindowLinuxWindowEventSourceObservationEventPumpProvider<Provider> {
+    NativeWindowLinuxWindowEventSourceObservationEventPumpProvider::new(provider)
+}
+
+impl<Provider> NativeWindowLinuxWindowEventSourceEventPumpProvider
+    for NativeWindowLinuxWindowEventSourceObservationEventPumpProvider<Provider>
+where
+    Provider: NativeWindowLinuxWindowEventSourceObservationProvider,
+{
+    type Error =
+        NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError<Provider::Error>;
+
+    fn poll_window_event_source_snapshot(
+        &mut self,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+        input: NativeWindowEventPumpInput,
+    ) -> Result<NativeWindowEventPumpSnapshot, Self::Error> {
+        let observation = self
+            .provider
+            .poll_window_event_source_observation(descriptor, input)
+            .map_err(|error| {
+                NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError::ProviderObservationFailed {
+                    descriptor,
+                    error,
+                }
+            })?;
+        native_window_linux_window_event_source_snapshot_from_observation(
+            descriptor,
+            input,
+            observation,
+        )
+        .map_err(|error| {
+            NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError::SnapshotConstructionFailed {
+                descriptor,
+                error,
+            }
+        })
+    }
 }
 
 impl<Api> NativeWindowHostLoopDeadlineTimerClock
@@ -13821,6 +13984,47 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Debug, PartialEq)]
+    struct ScriptedNativeWindowLinuxWindowEventSourceObservationProvider {
+        observations: Vec<Result<NativeWindowLinuxWindowEventSourceObservation, &'static str>>,
+        cursor: usize,
+        descriptors: Vec<NativeWindowLinuxWindowEventSourceDescriptor>,
+        inputs: Vec<NativeWindowEventPumpInput>,
+    }
+
+    impl ScriptedNativeWindowLinuxWindowEventSourceObservationProvider {
+        fn new(
+            observations: Vec<Result<NativeWindowLinuxWindowEventSourceObservation, &'static str>>,
+        ) -> Self {
+            Self {
+                observations,
+                cursor: 0,
+                descriptors: Vec::new(),
+                inputs: Vec::new(),
+            }
+        }
+    }
+
+    impl NativeWindowLinuxWindowEventSourceObservationProvider
+        for ScriptedNativeWindowLinuxWindowEventSourceObservationProvider
+    {
+        type Error = &'static str;
+
+        fn poll_window_event_source_observation(
+            &mut self,
+            descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+            input: NativeWindowEventPumpInput,
+        ) -> Result<NativeWindowLinuxWindowEventSourceObservation, Self::Error> {
+            self.descriptors.push(descriptor);
+            self.inputs.push(input);
+            let Some(result) = self.observations.get(self.cursor).copied() else {
+                return Err("observation script exhausted");
+            };
+            self.cursor += 1;
+            result
+        }
+    }
+
     #[test]
     fn native_window_linux_window_event_source_prepare_keeps_provider_with_valid_fd() {
         let selection =
@@ -14440,6 +14644,210 @@ mod tests {
         assert_eq!(host.host().host().pump_count, 1);
         assert_eq!(host.host().host().present_frames, vec![(1, 1)]);
         assert_eq!(host.provider().event_cursor, 0);
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_observation_snapshot_matches_event_pump_contract() {
+        let descriptor = NativeWindowLinuxWindowEventSourceDescriptor::new(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            139,
+        );
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let observation = NativeWindowLinuxWindowEventSourceObservation::new(
+            true,
+            true,
+            NativeWindowSize::new(800, 450),
+            true,
+            Some((12.5, 24.25)),
+        );
+
+        let snapshot = native_window_linux_window_event_source_snapshot_from_observation(
+            descriptor,
+            input,
+            observation,
+        )
+        .unwrap();
+
+        assert_eq!(
+            snapshot,
+            build_native_window_event_pump_snapshot_from_raw(
+                input,
+                true,
+                true,
+                NativeWindowSize::new(800, 450),
+                true,
+                Some((12.5, 24.25)),
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            snapshot.close_state,
+            NativeWindowEventPumpCloseState::OsCloseRequested
+        );
+        assert_eq!(
+            snapshot.surface_state,
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 800,
+                height: 450,
+            }
+        );
+        assert!(snapshot.size_changed);
+        assert_eq!(
+            snapshot.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Pressed
+        );
+        assert_eq!(
+            snapshot.pointer_sample,
+            NativeWindowPointerSample::Available { x: 12.5, y: 24.25 }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_observation_snapshot_rejects_non_finite_pointer_with_descriptor(
+    ) {
+        let descriptor = NativeWindowLinuxWindowEventSourceDescriptor::new(
+            NativeWindowLinuxWindowEventSourceKind::WaylandDisplay,
+            140,
+        );
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: true,
+        };
+        let observation = NativeWindowLinuxWindowEventSourceObservation::new(
+            false,
+            false,
+            NativeWindowSize::new(320, 240),
+            true,
+            Some((f32::NAN, 1.0)),
+        );
+
+        assert_eq!(
+            native_window_linux_window_event_source_snapshot_from_observation(
+                descriptor,
+                input,
+                observation,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxWindowEventSourceObservationSnapshotError::SnapshotConstructionFailed {
+                descriptor,
+                error: NativeWindowEventPumpError::InvalidPointerSample,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_observation_adapter_uses_provider_and_snapshot_helper(
+    ) {
+        let descriptor = NativeWindowLinuxWindowEventSourceDescriptor::new(
+            NativeWindowLinuxWindowEventSourceKind::ToolkitExternal,
+            141,
+        );
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(0, 0),
+            previous_mouse_down: true,
+        };
+        let observation = NativeWindowLinuxWindowEventSourceObservation::new(
+            false,
+            false,
+            NativeWindowSize::new(640, 360),
+            false,
+            None,
+        );
+        let provider =
+            ScriptedNativeWindowLinuxWindowEventSourceObservationProvider::new(vec![Ok(
+                observation,
+            )]);
+        let mut adapter =
+            native_window_linux_window_event_source_observation_event_pump_provider(provider);
+
+        let snapshot = adapter
+            .poll_window_event_source_snapshot(descriptor, input)
+            .unwrap();
+
+        assert_eq!(adapter.provider().descriptors, vec![descriptor]);
+        assert_eq!(adapter.provider().inputs, vec![input]);
+        assert_eq!(adapter.provider().cursor, 1);
+        assert_eq!(snapshot.close_state, NativeWindowEventPumpCloseState::Open);
+        assert_eq!(
+            snapshot.surface_state,
+            NativeWindowPresenterSurfaceState::Drawable {
+                width: 640,
+                height: 360,
+            }
+        );
+        assert!(snapshot.size_changed);
+        assert_eq!(
+            snapshot.mouse_left_transition,
+            NativeWindowPointerButtonTransition::Released
+        );
+        assert_eq!(
+            snapshot.pointer_sample,
+            NativeWindowPointerSample::Unavailable
+        );
+    }
+
+    #[test]
+    fn native_window_linux_window_event_source_observation_adapter_separates_provider_and_snapshot_failures(
+    ) {
+        let descriptor = NativeWindowLinuxWindowEventSourceDescriptor::new(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            142,
+        );
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let provider =
+            ScriptedNativeWindowLinuxWindowEventSourceObservationProvider::new(vec![Err(
+                "observation failed",
+            )]);
+        let mut adapter =
+            native_window_linux_window_event_source_observation_event_pump_provider(provider);
+
+        assert_eq!(
+            adapter
+                .poll_window_event_source_snapshot(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError::ProviderObservationFailed {
+                descriptor,
+                error: "observation failed",
+            }
+        );
+        assert_eq!(adapter.provider().cursor, 1);
+
+        let invalid_observation = NativeWindowLinuxWindowEventSourceObservation::new(
+            false,
+            false,
+            NativeWindowSize::new(640, 360),
+            false,
+            Some((1.0, f32::INFINITY)),
+        );
+        let provider =
+            ScriptedNativeWindowLinuxWindowEventSourceObservationProvider::new(vec![Ok(
+                invalid_observation,
+            )]);
+        let mut adapter =
+            native_window_linux_window_event_source_observation_event_pump_provider(provider);
+
+        assert_eq!(
+            adapter
+                .poll_window_event_source_snapshot(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxWindowEventSourceObservationEventPumpProviderError::SnapshotConstructionFailed {
+                descriptor,
+                error:
+                    NativeWindowLinuxWindowEventSourceObservationSnapshotError::SnapshotConstructionFailed {
+                        descriptor,
+                        error: NativeWindowEventPumpError::InvalidPointerSample,
+                    },
+            }
+        );
+        assert_eq!(adapter.provider().cursor, 1);
+        assert_eq!(adapter.provider().descriptors, vec![descriptor]);
+        assert_eq!(adapter.provider().inputs, vec![input]);
     }
 
     #[test]

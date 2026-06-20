@@ -74085,3 +74085,47 @@ MERGE_APPROVED
 - Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、`note.n.md` のこの欄が pending のままで commit readiness が記録されていないことだけが指摘された。
 - 指摘対応として、この欄を実際の review 結果へ更新した。provider-owned poll authority、lower host poll fallback 禁止、provider failure 後の owner retention、title / pump / present / wait delegation、source policy 固定は review で blocker なしと確認された。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。note readiness blocker は解消され、tracked diff は F5iw の想定 7 ファイルのみで追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5ix Linux window event source normalized observation boundary
+
+### scope
+
+- F5ix は、F5iw の provider-owned event pump の下に normalized observation to snapshot contract を追加する checkpoint とする。
+- future X11 / Wayland / toolkit decoder が得る os close、exit shortcut、current size、mouse down、optional raw pointer を標準 helper へ渡し、resize、pointer transition、surface state、close-state priority、pointer finite check を一箇所へ集約する。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceObservation` を追加し、provider が decode 結果として返す normalized observation を明示する。
+- `NativeWindowLinuxWindowEventSourceObservationSnapshotError` を追加し、snapshot construction failure を descriptor 付き typed error として返す。
+- `native_window_linux_window_event_source_snapshot_from_observation` を追加し、descriptor、`NativeWindowEventPumpInput`、observation から既存 `build_native_window_event_pump_snapshot_from_raw` 経由で snapshot を作る。
+- `NativeWindowLinuxWindowEventSourceObservationProvider` trait と adapter を追加し、observation provider owner を保持したまま F5iw の event pump provider として使えるようにする。
+- adapter error は provider observation failure と snapshot failure を分ける。non-finite pointer は unavailable pointer や silent success にせず typed error とする。
+- source policy は helper / adapter の呼び出し順序と、actual fd acquisition / read / drain / close / runner dispatch / CLI dispatch / support gate `Ok` 化 / fallback / silent no-op の禁止を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装時の必須条件は、adapter error が provider observation failure と snapshot construction failure を分けること、`&mut self` poll failure 後も provider owner を保持し続けること、snapshot helper が既存 `build_native_window_event_pump_snapshot_from_raw` を通して non-finite pointer を `Unavailable` にしないこと、source policy で provider call -> snapshot helper 順と fd read / drain / close、runner / CLI、support gate `Ok` 化、fallback / silent no-op 禁止を固定することだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceObservation` を追加し、future decoder が返す normalized observation を close state / size / mouse / pointer raw sample の最小データとして表すようにした。
+- `native_window_linux_window_event_source_snapshot_from_observation` を追加し、descriptor と `NativeWindowEventPumpInput` と observation を既存 `build_native_window_event_pump_snapshot_from_raw` に通して、resize、pointer transition、surface state、close-state priority、pointer finite check を共通化した。
+- `NativeWindowLinuxWindowEventSourceObservationProvider` と `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` adapter を追加し、provider observation failure と snapshot construction failure を descriptor 付きの別 variant で返すようにした。
+- source policy は provider observation call -> snapshot helper の順序、raw helper 経由、provider owner retention、fd read / drain / close、runner / CLI、support gate `Ok` 化、fallback / silent no-op 禁止を固定するようにした。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、snapshot helper が既存 raw helper を通すこと、non-finite pointer が descriptor 付き typed error のままになること、provider observation failure と snapshot failure が分離されること、adapter が `&mut self` poll failure 後も provider owner を保持することは確認された。
+- 指摘はこの欄が pending のままで commit readiness が記録されていないことと、`verification_current` に `git diff --check` の結果が記録されていないことだった。
+- 指摘対応として、この欄と `verification_current` を実際の review / verification 結果へ更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
