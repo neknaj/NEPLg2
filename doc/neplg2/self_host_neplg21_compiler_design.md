@@ -2489,6 +2489,39 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - PrivateCache / PrivateState effect masking。
 - sealed memoized backend representation と prechecked artifact key projection。
 
+## 2026-06-21 memo_call backend operation-classified traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、module-private operation descriptor を HIR-root request authority と operation classifier に通し、unified event stream、split、collector-owned bundle、既存 request-evidence bridge へ接続する operation-classified traversal bundle stage0 を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。実際の Resource IR body、HIR lowering result、cache lookup / insert operation、effect operation はまだ読まない。accepted path は private operation descriptor fixture から作り、production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit する。これにより、actual traversal 未接続のまま accepted private cache storage / clone-out owned value を production source として観測したように見せない。
+
+operation-classified helper は、operation table owner を受け取り、`selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result` で HIR root 由来 request と operation descriptor を再照合する。classifier success / classifier error のどちらでも operation table owner を閉じる。classifier success 後の unified event table owner は split helper に渡し、split helper が `actual_walker_event_split_result` を通して walker input owner と observation table owner へ分離する。split success 後の owner pair は既存 `collector_owned_traversal_bundle_with_owners_result` に渡して二重 free しない。split error は normalizer 失敗なので `Stage0SourceRejected (NormalizerRejected e)` に写し、classifier error は `Stage0SourceRejected e` として別に扱う。
+
+module fixture 作成に失敗した場合も、すでに operation table owner が作られているため、operation table owner を閉じてから `Stage0FixtureAllocFailed` を返す。operation table builder 自体の失敗は source build の失敗として `Stage0SourceRejected` に写す。
+
+public summary は accepted request/proof count、body fingerprint mismatch、missing witness、may escape、cache-hit observation、unsupported operation の typed `Result` payload だけを返す。operation table、unified event table、split output、walker input、observation table、source table、fresh witness table、bundle、candidate、Resource proof table、request-evidence proof table は public API に出さない。GraphInput、direct proof push、request proof push、PrivateCache / PrivateState effect mask、sealed backend bytes、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+
+計算量として、この stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w`、request 数 `n`、proof record 数 `p` に対して O(o + a + g + s + w + n + p) である。ここで固定した HIR-root request authority、operation owner cleanup、classifier / split error taxonomy、collector-owned bundle owner transfer は semantic boundary である。actual Resource IR traversal の探索範囲、operation table request-key bucket 化、event split index 化、proof lookup index 化、stage0 fixture 分割は後続最適化として扱える。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-operation-classified-bundle-doctest-current.json`
+
+subagent review:
+
+- Wegener implementation review は `REVIEW_APPROVED`。classifier error と split normalizer error の写し分け、operation owner cleanup、split success 後の owner 移譲、source policy、actual Resource IR body traversal 未接続の明記について blocking issue は無い。
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、module-private operation descriptor ではなく actual traversal 由来の accepted / escaping / observation / unsupported source または operation event を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、operation-classified actual traversal bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

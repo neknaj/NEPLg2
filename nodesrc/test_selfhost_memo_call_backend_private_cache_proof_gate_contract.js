@@ -76,6 +76,7 @@ assert.ok(
         source.includes("Fresh region witness stage0") &&
         source.includes("Fresh witness request-evidence stage0") &&
         source.includes("Collector-owned traversal bundle stage0") &&
+        source.includes("Operation-classified traversal bundle stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
     "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, and request-evidence bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
@@ -2323,6 +2324,125 @@ assertOrdered(
         "ProducerOwnedUnavailableTraversalBundleStage0Summary well_formed_witness_rejected missing_witness_rejected rejected_witness_rejected",
     ],
     "producer-owned unavailable traversal bundle stage0 must keep all representative witness statuses on rejection payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_split_events_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "Result::Ok output:",
+        'field::get output "walker_input"',
+        'field::get output "observations"',
+        "selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result input observations witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status",
+        "Result::Err e:",
+        "Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e",
+    ],
+    "operation-classified split helper must split unified events, transfer walker/observation owners to collector-owned bundle, and map split failures as NormalizerRejected",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_with_operations_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel operation_body_module_fingerprint &operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+        "Result::Ok events:",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_split_events_result events witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status",
+        "Result::Err e:",
+        "Stage0SourceRejected e",
+    ],
+    "operation-classified operation owner helper must classify through HIR-root request authority, close the operation owner, and keep classifier errors distinct from split normalizer errors",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_operation_table_result"),
+    [
+        "Result::Ok operations:",
+        "selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id",
+        "Result::Ok module:",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_with_operations_result &module root 8 operation_body_module_fingerprint operations witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status",
+        "selfhost_hir_module_free module",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+        "Stage0FixtureAllocFailed e",
+        "Result::Err e:",
+        "Stage0SourceRejected e",
+    ],
+    "operation-classified operation-table wrapper must free operations on module fixture failure and map operation table build failures as Stage0SourceRejected",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_accepted_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_closed_clone_table_result",
+        "witness_body_module_fingerprint 0 0 1 status",
+    ],
+    "operation-classified accepted bundle must pair closed private-cache storage and clone-out operation ordinals 0/1 with matching witness ordinals",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_escape_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_escape_table_result",
+        "witness_body_module_fingerprint 0 0 1",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+    ],
+    "operation-classified escape bundle must preserve escaping source rejection even with a matching witness",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_observation_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation",
+        "witness_body_module_fingerprint 0 0 1",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+    ],
+    "operation-classified observation bundle must route cache-hit observation through split/collector rejection",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_unsupported_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation",
+        "witness_body_module_fingerprint 0 0 1",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+    ],
+    "operation-classified unsupported bundle must keep unknown operations as unsupported traversal source failures",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_with_operations_result")),
+    /actual_walker_event_gate_from_hir_root_result|resource_graph_gate_from_hir_root_result|observation_ban_gate_from_hir_root_result|actual_walker_traversal_source_projection_stage0_closed_clone_table_result|collector_owned_traversal_bundle_accepted_bundle_result|selfhost_memo_call_backend_private_cache_resource_proof_table_push|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "operation-classified bundle helper must not bypass through lower gates, accepted source fixtures, lower proof synthesis, GraphInput, backend bytes, effect masking, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheOperationClassifiedTraversalBundleStage0Summary"),
+    [
+        "accepted_request_count %i32",
+        "accepted_proof_count %i32",
+        "body_fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "operation-classified traversal bundle summary must expose only counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_stage0_run_summary_result 77 77 77",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "body_fingerprint_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_stage0_run_i32_result 78 77 77",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "may_escape_rejected",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_escape_result 77",
+        "observation_rejected",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_observation_result 77",
+        "unsupported_rejected",
+        "selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_unsupported_result 77",
+        "accepted.request_count",
+        "accepted.proven_request_count",
+    ],
+    "operation-classified traversal bundle stage0 must cover accepted, body fingerprint mismatch, missing witness, escape, observation, and unsupported paths",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_(?!stage0\b)/m,
+    "operation-classified traversal bundle internals must stay module-private; only the typed stage0 summary function may be public",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result")),

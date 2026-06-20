@@ -76699,3 +76699,48 @@ MERGE_APPROVED
 - actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、accepted / escaping / observation / unsupported source を生成する。
 - actual traversal 由来の fresh witness table を生成し、producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+
+## 2026-06-21 selfhost memo_call backend operation-classified traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、module-private operation descriptor を HIR-root request authority、operation classifier、unified event split、collector-owned traversal bundle、既存 request-evidence bridge へ接続する stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted source と matching witness は private operation descriptor fixture から作る。production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、actual traversal 未接続のまま accepted private cache storage / clone-out owned value を観測したように見せない。
+- public summary は accepted request/proof count と representative fail-closed `Result` payload だけを返す。operation table、event table、split output、walker input、observation table、source table、fresh witness table、bundle、candidate、Resource proof table、request-evidence proof table は公開していない。
+
+### zenn_policy
+
+- 2026-06-21 に Zenn 方針を再確認し、試作段階でも雑な success path を作らず、Result / enum による typed fail-closed と owner cleanup を優先した。
+- doc comment は目的、契約、現状、非目標、owner 移譲、error taxonomy、計算量を明示し、コメント量を減らす検査は追加していない。
+- キャッシュや artifact ではなく、semantic boundary と traversal 探索範囲の分離を先に固定した。operation table request-key bucket 化や proof lookup index 化は、公開契約を変えずに後からできる最適化として残した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheOperationClassifiedTraversalBundleStage0Summary` を追加し、owner を持たない summary として `Clone` / `Copy` を追加した。
+- `selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_with_operations_result` は `actual_walker_operation_classifier_events_from_hir_root_result` を通し、classifier success / classifier error のどちらでも operation table owner を閉じる。
+- `selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_split_events_result` は `actual_walker_event_split_result` を通し、success 後の walker input / observation table owner を `collector_owned_traversal_bundle_with_owners_result` に渡す。split error は `Stage0SourceRejected (NormalizerRejected e)` に写す。
+- module fixture 作成に失敗した場合は、作成済み operation table owner を閉じてから `Stage0FixtureAllocFailed` を返す。
+- public smoke は accepted、body fingerprint mismatch、missing witness、may escape、cache-hit observation、unsupported operation を確認する。GraphInput、direct proof push、request proof push、backend bytes、effect mask、sealed backend、artifact key は作らない。
+- source policy では classifier / split / collector 経由、operation owner cleanup、classifier error と normalizer error の写し分け、public internals 禁止、lower gate bypass / accepted source fixture bypass / backend / effect / artifact 合成禁止を固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、classifier error と split normalizer error を別に写すこと、operation table owner を classifier success / classifier error / module fixture failure で必ず閉じること、split success 後の walker input / observation owner を collector-owned bundle に移譲して二重 free しないことだった。
+- 実装はこの指摘に合わせ、`with_operations_result` で operation table owner を閉じ、`from_split_events_result` で split error を `Stage0SourceRejected (NormalizerRejected e)` に写し、`from_operation_table_result` で fixture failure 時に operation table owner を閉じる形にした。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、classifier error と split normalizer error の写し分け、operation owner cleanup、split success 後の owner 移譲、source policy、actual Resource IR body traversal 未接続の明記を確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-operation-classified-bundle-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、operation descriptor fixture ではなく actual traversal 由来の accepted / escaping / observation / unsupported source または operation event を生成する。
+- actual traversal 由来の fresh witness table を生成し、operation-classified actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。

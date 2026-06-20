@@ -659,3 +659,39 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `MemoKey` / `MemoValue` aggregate proof と operation classifier / producer-owned private cache region proof の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
+## 2026-06-21 selfhost memo_call backend operation-classified traversal bundle stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、module-private operation descriptor を HIR-root request authority、operation classifier、unified event split、collector-owned bundle、既存 request-evidence bridge へ接続する operation-classified traversal bundle stage0 を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。accepted source と matching fresh witness は private operation descriptor fixture から作る。production HIR-root path は引き続き `ResourceIrTraversalUnavailable` source だけを emit し、actual traversal 未接続のまま accepted private cache storage や clone-out owned value を観測したように見せない。
+
+新 helper は `actual_walker_operation_classifier_events_from_hir_root_result -> actual_walker_event_split_result -> collector_owned_traversal_bundle_with_owners_result` の順に通る。operation table owner は classifier success / classifier error のどちらでも閉じる。classifier success 後の unified event table owner は split helper へ渡し、split success 後の walker input / observation table owner は collector-owned bundle helper へ渡す。split helper は owner pair を二重 free しない。classifier error は `Stage0SourceRejected e`、split error は `Stage0SourceRejected (NormalizerRejected e)` として区別する。
+
+module fixture 作成失敗時は、作成済み operation table owner を閉じてから `Stage0FixtureAllocFailed` へ写す。operation table builder そのものの失敗は accepted proof へ進めず `Stage0SourceRejected` に写す。
+
+public stage0 summary は accepted request/proof count と representative fail-closed `Result` payload だけを公開する。operation table、event table、split output、walker input、observation table、source table、fresh witness table、bundle、candidate、Resource proof table、request-evidence proof table は public API に出さない。GraphInput、direct proof push、request proof push、PrivateCache / PrivateState effect mask、sealed backend bytes、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。operation-classified helper が classifier / split / collector の順序を守ること、operation owner cleanup、classifier error と normalizer error の写し分け、accepted / escaping / observation / unsupported fixture path、public internals 禁止、lower gate bypass / accepted source fixture bypass / backend / effect / artifact 合成禁止を固定している。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-operation-classified-bundle-doctest-current.json`
+
+subagent review:
+
+- Wegener implementation review は `REVIEW_APPROVED`。classifier error と split normalizer error の写し分け、operation owner cleanup、split success 後の owner 移譲、source policy、actual Resource IR body traversal 未接続の明記について blocking issue は無い。
+
+残件:
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、accepted / escaping / observation / unsupported source または operation event を生成する boundary。
+- actual traversal 由来の fresh witness table を生成し、operation-classified actual traversal bundle として request-evidence bridge へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- operation table request/key bucket 化、event split index 化、proof lookup index 化、stage0 fixture 分割、initialized-state 探索削減。
