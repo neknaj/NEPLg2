@@ -2668,6 +2668,39 @@ Phase F5jy では、F5jo 以来 combined owner に閉じていた top-level `Cre
 - `git diff --check`
 - subagent implementation review で CreateWindow/MapWindow split owner、byte exactness、no writer/reply/registration integration、no fallback が承認される。
 
+## Phase F5jz: Native Linux X11 InternAtom reply packet AtomId owner boundary
+
+Phase F5jz では、X11 `InternAtom` の fixed 32 byte reply packet から nonzero Atom ID を取り出す pure parser と owner を追加する。これは F5jw / F5jx の request bytes と、後続の WM protocol registration を接続するための request-specific reply payload boundary である。ただし F5jz は current reader の generic reply handling を変更せず、request / reply correlation も行わない。
+
+実装:
+
+- `NativeWindowLinuxX11AtomId` は nonzero raw atom id を保持し、`raw` accessor だけを公開する。
+- Atom 0 は `only_if_exists = true` では仕様上あり得るため、F5jz の AtomId owner は nonzero Atom ID を要求する境界だと明記する。
+- `NativeWindowLinuxX11InternAtomReply` は sequence と `NativeWindowLinuxX11AtomId` を保持する。
+- `native_window_linux_x11_intern_atom_reply_from_packet` は fixed 32 byte packet を受け、response type、sequence、reply length units、atom id を little-endian で読む。
+- parser は response type が reply であること、InternAtom reply length units が `0` であること、atom id が nonzero であることを検査する。
+- source-policy は parser surface が reader mutation、raw fd write/read、accepted write progress、request / reply correlation、WM batch sequence assignment、`ChangeProperty`、`ClientMessage`、MapWindow scheduling、support gate、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- current reader の `ServerReplyReceived` / generic reply body drain behavior は変更しない。
+- WM protocol atom request batch の write、accepted write progress、sequence correlation、Atom kind mapping は含めない。
+- `ChangeProperty` による actual `WM_PROTOCOLS` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、MapWindow scheduling relocation は含めない。
+- keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は含めない。
+
+完了条件:
+
+- valid packet で sequence と nonzero Atom ID が保持される。
+- response type が reply でない packet は typed error になる。
+- nonzero reply length units は typed error になる。
+- Atom ID 0 は nonzero AtomId owner 境界として typed error になる。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_intern_atom_reply -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で nonzero AtomId owner、fixed 32 byte packet parser、no reader/correlation/registration integration、no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

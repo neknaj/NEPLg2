@@ -1,3 +1,41 @@
+# 2026-06-21 Agent2 GUI native F5jz Linux X11 InternAtom reply packet AtomId owner boundary
+
+## 目的
+
+- F5jw / F5jx の `InternAtom` request owner と後続の WM protocol registration を接続する前段として、fixed 32 byte reply packet の request-specific payload parser を追加する。
+- Atom ID は `NativeWindowLinuxX11AtomId` で nonzero owner 化し、zero は typed error として拒否する。
+- 現段階では current reader の generic reply body drain、request / reply correlation、accepted write progress、atom name meaning assignment、`ChangeProperty`、MapWindow scheduling relocation は扱わない。
+
+## subagent review
+
+- 実装前に Wegener と Popper へ F5jz 計画をレビューさせ、双方から実装開始可の判断を得た。
+- 指摘は、`only_if_exists = true` では Atom 0 が仕様上あり得るため、F5jz の `AtomId` は WM registration 用 nonzero owner boundary だと明示すること、reader / correlation / registration へ進めないことだった。
+- Wegener の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の境界 blocker は無く、note の verification が pending のままだった点だけが blocker とされた。
+- 指摘対応として、この欄と検証欄を実際の review / verification 結果へ更新した。
+- Wegener と Popper の re-review はどちらも `REVIEW_APPROVED`。残る concrete blocker は無い。
+
+## 実装内容
+
+- `NativeWindowLinuxX11AtomId`、`NativeWindowLinuxX11InternAtomReply`、`NativeWindowLinuxX11InternAtomReplyParseError` を追加した。
+- `native_window_linux_x11_intern_atom_reply_from_packet` は response type、length units `0`、offset 8 の atom id、sequence field を fixed packet から検査して owner に写す。
+- focused tests は successful parse、wrong response type、nonzero length units、zero atom id rejection を固定した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jz contract へ更新した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_intern_atom_reply -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+## 未接続
+
+- InternAtom batch write、accepted sequence による reply correlation、`WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、actual `ChangeProperty` registration、MapWindow scheduling relocation は未接続。
+- Linux runner / CLI dispatch、Wayland concrete event decoding、keyboard / IME は未接続。
+
 # 2026-06-21 Agent2 GUI native F5jy Linux X11 top-level CreateWindow/MapWindow split request owner boundary
 
 ## 目的

@@ -7340,6 +7340,8 @@ const NATIVE_WINDOW_LINUX_X11_SERVER_ERROR_MAJOR_OPCODE_OFFSET: usize = 10;
 const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_DATA_OFFSET: usize = 1;
 const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET: usize = 2;
 const NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET: usize = 4;
+const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_EXPECTED_LENGTH_UNITS: u32 = 0;
+const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET: usize = 8;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
@@ -7758,6 +7760,37 @@ pub enum NativeWindowLinuxX11WmProtocolAtomInternRequestBatchBuildError {
     BatchLengthOverflow {
         first_request_byte_len: usize,
         second_request_byte_len: usize,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11AtomId {
+    raw: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11AtomIdError {
+    Zero,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11InternAtomReply {
+    sequence: u16,
+    atom_id: NativeWindowLinuxX11AtomId,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11InternAtomReplyParseError {
+    InvalidResponseType {
+        response_type: u8,
+    },
+    UnexpectedLengthUnits {
+        length_units: u32,
+        expected_length_units: u32,
+    },
+    AtomIdInvalid {
+        raw: u32,
+        error: NativeWindowLinuxX11AtomIdError,
     },
 }
 
@@ -8935,6 +8968,70 @@ pub fn native_window_linux_x11_wm_protocol_atom_intern_request_batch() -> Result
         NATIVE_WINDOW_LINUX_X11_WM_PROTOCOLS_ATOM_NAME,
         NATIVE_WINDOW_LINUX_X11_WM_DELETE_WINDOW_ATOM_NAME,
     )
+}
+
+impl NativeWindowLinuxX11AtomId {
+    pub fn new(raw: u32) -> Result<Self, NativeWindowLinuxX11AtomIdError> {
+        if raw == 0 {
+            return Err(NativeWindowLinuxX11AtomIdError::Zero);
+        }
+        Ok(Self { raw })
+    }
+
+    pub fn raw(self) -> u32 {
+        self.raw
+    }
+}
+
+impl NativeWindowLinuxX11InternAtomReply {
+    pub fn sequence(&self) -> u16 {
+        self.sequence
+    }
+
+    pub fn atom_id(&self) -> NativeWindowLinuxX11AtomId {
+        self.atom_id
+    }
+}
+
+pub fn native_window_linux_x11_intern_atom_reply_from_packet(
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> Result<NativeWindowLinuxX11InternAtomReply, NativeWindowLinuxX11InternAtomReplyParseError> {
+    let response_type = native_window_linux_x11_response_type_raw(packet);
+    if response_type != NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY {
+        return Err(
+            NativeWindowLinuxX11InternAtomReplyParseError::InvalidResponseType { response_type },
+        );
+    }
+    let length_units = native_window_linux_x11_u32_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET,
+    );
+    if length_units != NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_EXPECTED_LENGTH_UNITS {
+        return Err(
+            NativeWindowLinuxX11InternAtomReplyParseError::UnexpectedLengthUnits {
+                length_units,
+                expected_length_units:
+                    NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_EXPECTED_LENGTH_UNITS,
+            },
+        );
+    }
+    let raw_atom_id = native_window_linux_x11_u32_le(
+        packet,
+        NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET,
+    );
+    let atom_id = NativeWindowLinuxX11AtomId::new(raw_atom_id).map_err(|error| {
+        NativeWindowLinuxX11InternAtomReplyParseError::AtomIdInvalid {
+            raw: raw_atom_id,
+            error,
+        }
+    })?;
+    Ok(NativeWindowLinuxX11InternAtomReply {
+        sequence: native_window_linux_x11_u16_le(
+            packet,
+            NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET,
+        ),
+        atom_id,
+    })
 }
 
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
@@ -19175,6 +19272,25 @@ mod tests {
         packet
     }
 
+    fn scripted_x11_intern_atom_reply_packet(
+        sequence: u16,
+        length_units: u32,
+        atom_id: u32,
+    ) -> [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] {
+        let mut packet = [0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY;
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_SEQUENCE_OFFSET + 2]
+            .copy_from_slice(&sequence.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_SERVER_REPLY_LENGTH_UNITS_OFFSET + 4]
+            .copy_from_slice(&length_units.to_le_bytes());
+        packet[NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET
+            ..NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET + 4]
+            .copy_from_slice(&atom_id.to_le_bytes());
+        packet
+    }
+
     fn scripted_x11_xauthority_record(
         family: NativeWindowLinuxX11XauthorityFamily,
         address: &[u8],
@@ -21683,6 +21799,64 @@ mod tests {
                 length_units: usize::from(u16::MAX) + 1,
                 max_length_units: usize::from(u16::MAX),
             }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_reply_packet_preserves_sequence_and_atom_id() {
+        let packet = scripted_x11_intern_atom_reply_packet(91, 0, 0x0012_3456);
+
+        let reply = native_window_linux_x11_intern_atom_reply_from_packet(&packet).unwrap();
+
+        assert_eq!(reply.sequence(), 91);
+        assert_eq!(reply.atom_id().raw(), 0x0012_3456);
+        assert_eq!(
+            NativeWindowLinuxX11AtomId::new(0x0012_3456).unwrap().raw(),
+            0x0012_3456
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_reply_packet_rejects_wrong_response_type() {
+        let mut packet = scripted_x11_intern_atom_reply_packet(91, 0, 0x0012_3456);
+        packet[0] = NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR;
+
+        assert_eq!(
+            native_window_linux_x11_intern_atom_reply_from_packet(&packet).unwrap_err(),
+            NativeWindowLinuxX11InternAtomReplyParseError::InvalidResponseType {
+                response_type: NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_ERROR,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_reply_packet_rejects_nonzero_length_units() {
+        let packet = scripted_x11_intern_atom_reply_packet(91, 1, 0x0012_3456);
+
+        assert_eq!(
+            native_window_linux_x11_intern_atom_reply_from_packet(&packet).unwrap_err(),
+            NativeWindowLinuxX11InternAtomReplyParseError::UnexpectedLengthUnits {
+                length_units: 1,
+                expected_length_units:
+                    NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_EXPECTED_LENGTH_UNITS,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_intern_atom_reply_packet_rejects_zero_atom_id() {
+        let packet = scripted_x11_intern_atom_reply_packet(91, 0, 0);
+
+        assert_eq!(
+            native_window_linux_x11_intern_atom_reply_from_packet(&packet).unwrap_err(),
+            NativeWindowLinuxX11InternAtomReplyParseError::AtomIdInvalid {
+                raw: 0,
+                error: NativeWindowLinuxX11AtomIdError::Zero,
+            }
+        );
+        assert_eq!(
+            NativeWindowLinuxX11AtomId::new(0).unwrap_err(),
+            NativeWindowLinuxX11AtomIdError::Zero
         );
     }
 
