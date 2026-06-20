@@ -1999,6 +1999,36 @@ Phase F5jd では、F5jc の authorization setup request owner に渡す credent
 - `git diff --check`
 - subagent implementation review で zero-copy parse、exact selector、typed selection、no fs/env / no fallback / no runner dispatch が承認される。
 
+## Phase F5je: Native Linux Xauthority selector criteria boundary
+
+Phase F5je では、F5jd の `NativeWindowLinuxX11XauthoritySelector` に渡す exact selector criteria を、local X11 display name と caller supplied local authority address から作る純粋境界を追加する。ここでは `.Xauthority` lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、hostname / gethostname / TCP identity lookup は扱わない。
+
+実装:
+
+- X11 display name parse error を `NativeWindowLinuxX11DisplayNameError` として fd acquisition error から分離する。
+- fd acquisition path は shared display parser の error を既存の `NativeWindowLinuxWindowEventSourceFdAcquisitionError` へ写像し、public behavior を変えない。
+- accepted display form は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` に限定する。
+- display number parse は allocation なしの checked decimal accumulation とし、overflow や malformed screen suffix は typed error にする。
+- selector criteria owner は criteria-owned display number bytes を fixed `[u8; 10]` に保持し、record selector はその owner を借りる。
+- criteria は caller supplied local authority address bytes と optional preferred protocol name をそのまま使い、address synthesis や hostname inference を行わない。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5je contract へ更新する。
+
+非目標:
+
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、path resolution、file lock handling は扱わない。
+- Hostname / `gethostname`、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。
+- `FamilyLocal` の broad match、`FamilyWild` fallback、no-auth fallback、silent no-op、synthetic readiness は作らない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding は扱わない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で pure display parser、criteria-owned display bytes、caller supplied address only、no fs/env / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

@@ -1299,6 +1299,12 @@ pub enum NativeWindowLinuxWindowEventSourceFdAcquisitionError {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11DisplayNameError {
+    UnsupportedDisplayForm,
+    InvalidDisplayNumber,
+}
+
 #[derive(Debug)]
 pub struct NativeWindowLinuxWindowEventSourceFdAcquisitionFailure<Api> {
     api: Api,
@@ -2006,48 +2012,67 @@ fn native_window_linux_wayland_socket_path(
 
 fn native_window_linux_x11_display_number(
     display: &str,
-) -> Result<u32, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
+) -> Result<u32, NativeWindowLinuxX11DisplayNameError> {
     let rest = if let Some(rest) = display.strip_prefix("unix/") {
         rest
     } else {
         display
     };
     let Some(after_colon) = rest.strip_prefix(':') else {
-        return Err(
-            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
-                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
-            },
-        );
+        return Err(NativeWindowLinuxX11DisplayNameError::UnsupportedDisplayForm);
     };
-    let mut number = String::new();
-    let mut chars = after_colon.chars();
-    for ch in chars.by_ref() {
-        if ch == '.' {
-            let screen: String = chars.collect();
-            if screen.is_empty() || !screen.chars().all(|screen_ch| screen_ch.is_ascii_digit()) {
-                return Err(
-                    NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber,
-                );
+    let mut display_number = 0_u32;
+    let mut saw_display_digit = false;
+    let mut bytes = after_colon.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'.' {
+            let mut saw_screen_digit = false;
+            for screen_byte in bytes {
+                if !screen_byte.is_ascii_digit() {
+                    return Err(NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber);
+                }
+                saw_screen_digit = true;
+            }
+            if !saw_screen_digit {
+                return Err(NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber);
             }
             break;
         }
-        if !ch.is_ascii_digit() {
-            return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber);
+        if !byte.is_ascii_digit() {
+            return Err(NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber);
         }
-        number.push(ch);
+        display_number = display_number
+            .checked_mul(10)
+            .and_then(|value| value.checked_add(u32::from(byte - b'0')))
+            .ok_or(NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber)?;
+        saw_display_digit = true;
     }
-    if number.is_empty() {
-        return Err(NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber);
+    if !saw_display_digit {
+        return Err(NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber);
     }
-    number
-        .parse::<u32>()
-        .map_err(|_| NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber)
+    Ok(display_number)
+}
+
+fn native_window_linux_x11_fd_acquisition_error_from_display_name(
+    error: NativeWindowLinuxX11DisplayNameError,
+) -> NativeWindowLinuxWindowEventSourceFdAcquisitionError {
+    match error {
+        NativeWindowLinuxX11DisplayNameError::UnsupportedDisplayForm => {
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::UnsupportedDisplayForm {
+                kind: NativeWindowLinuxWindowEventSourceFdAcquisitionKind::X11Display,
+            }
+        }
+        NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber => {
+            NativeWindowLinuxWindowEventSourceFdAcquisitionError::InvalidDisplayNumber
+        }
+    }
 }
 
 fn native_window_linux_x11_socket_path(
     display: &str,
 ) -> Result<String, NativeWindowLinuxWindowEventSourceFdAcquisitionError> {
-    let display_number = native_window_linux_x11_display_number(display)?;
+    let display_number = native_window_linux_x11_display_number(display)
+        .map_err(native_window_linux_x11_fd_acquisition_error_from_display_name)?;
     let path = format!("/tmp/.X11-unix/X{display_number}");
     native_window_linux_window_event_source_check_socket_path(&path)?;
     Ok(path)
@@ -7262,6 +7287,7 @@ pub const NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN: usize = 32;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_INTERNET: u16 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL: u16 = 256;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD: u16 = 65535;
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN: usize = 10;
 
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
@@ -7411,6 +7437,15 @@ pub struct NativeWindowLinuxX11XauthoritySelector<'a> {
     family: NativeWindowLinuxX11XauthorityFamily,
     address: &'a [u8],
     display_number: &'a [u8],
+    preferred_protocol_name: Option<&'a [u8]>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
+    family: NativeWindowLinuxX11XauthorityFamily,
+    address: &'a [u8],
+    display_number_bytes: [u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN],
+    display_number_byte_len: usize,
     preferred_protocol_name: Option<&'a [u8]>,
 }
 
@@ -7568,6 +7603,91 @@ impl<'a> NativeWindowLinuxX11XauthoritySelector<'a> {
             None => true,
         }
     }
+}
+
+impl<'a> NativeWindowLinuxX11XauthoritySelectorCriteria<'a> {
+    pub fn new(
+        family: NativeWindowLinuxX11XauthorityFamily,
+        address: &'a [u8],
+        display_number: u32,
+        preferred_protocol_name: Option<&'a [u8]>,
+    ) -> Self {
+        let (display_number_bytes, display_number_byte_len) =
+            native_window_linux_x11_xauthority_display_number_bytes(display_number);
+        Self {
+            family,
+            address,
+            display_number_bytes,
+            display_number_byte_len,
+            preferred_protocol_name,
+        }
+    }
+
+    pub fn family(&self) -> NativeWindowLinuxX11XauthorityFamily {
+        self.family
+    }
+
+    pub fn address(&self) -> &'a [u8] {
+        self.address
+    }
+
+    pub fn display_number(&self) -> &[u8] {
+        &self.display_number_bytes[..self.display_number_byte_len]
+    }
+
+    pub fn preferred_protocol_name(&self) -> Option<&'a [u8]> {
+        self.preferred_protocol_name
+    }
+
+    pub fn selector(&self) -> NativeWindowLinuxX11XauthoritySelector<'_> {
+        NativeWindowLinuxX11XauthoritySelector::new(
+            self.family,
+            self.address,
+            self.display_number(),
+            self.preferred_protocol_name,
+        )
+    }
+}
+
+fn native_window_linux_x11_xauthority_display_number_bytes(
+    display_number: u32,
+) -> (
+    [u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN],
+    usize,
+) {
+    let mut bytes = [0_u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN];
+    if display_number == 0 {
+        bytes[0] = b'0';
+        return (bytes, 1);
+    }
+
+    let mut reversed = [0_u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN];
+    let mut value = display_number;
+    let mut len = 0_usize;
+    while value > 0 {
+        reversed[len] = b'0' + (value % 10) as u8;
+        value /= 10;
+        len += 1;
+    }
+    for index in 0..len {
+        bytes[index] = reversed[len - 1 - index];
+    }
+    (bytes, len)
+}
+
+pub fn native_window_linux_x11_xauthority_local_selector_criteria_from_display<'a>(
+    display: &str,
+    local_authority_address: &'a [u8],
+    preferred_protocol_name: Option<&'a [u8]>,
+) -> Result<NativeWindowLinuxX11XauthoritySelectorCriteria<'a>, NativeWindowLinuxX11DisplayNameError>
+{
+    let display_number = native_window_linux_x11_display_number(display)?;
+    Ok(NativeWindowLinuxX11XauthoritySelectorCriteria::new(
+        NativeWindowLinuxX11XauthorityFamily::Local,
+        local_authority_address,
+        display_number,
+        preferred_protocol_name,
+    ))
 }
 
 fn native_window_linux_x11_xauthority_remaining_byte_count(bytes: &[u8], offset: usize) -> usize {
@@ -17338,6 +17458,109 @@ mod tests {
                 panic!("expected exact local xauthority record")
             }
         }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selector_criteria_owns_display_number_bytes() {
+        let cookie = [21_u8, 22, 23, 24, 25, 26, 27, 28];
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"12",
+            b"MIT-MAGIC-COOKIE-1",
+            &cookie,
+        );
+        let criteria = native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+            ":12.0",
+            b"host-a",
+            Some(b"MIT-MAGIC-COOKIE-1"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            criteria.family(),
+            NativeWindowLinuxX11XauthorityFamily::Local
+        );
+        assert_eq!(criteria.address(), b"host-a");
+        assert_eq!(criteria.display_number(), b"12");
+        let authority_base = bytes.as_ptr() as usize;
+        let authority_end = authority_base + bytes.len();
+        let display_ptr = criteria.display_number().as_ptr() as usize;
+        assert!(display_ptr < authority_base || display_ptr >= authority_end);
+
+        let selection =
+            native_window_linux_x11_xauthority_select_credential(&bytes, criteria.selector())
+                .unwrap();
+        match selection {
+            NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+                let name_ptr = credential.protocol_name().as_ptr() as usize;
+                let data_ptr = credential.protocol_data().as_ptr() as usize;
+                assert!(name_ptr >= authority_base && name_ptr < authority_end);
+                assert!(data_ptr >= authority_base && data_ptr < authority_end);
+                assert_eq!(credential.protocol_data(), &cookie);
+            }
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+                panic!("expected criteria-owned display number to select exact record")
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selector_criteria_uses_local_display_number() {
+        let bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"local-address",
+            b"0",
+            b"FIRST-AUTH",
+            b"first",
+        );
+        let criteria = native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+            "unix/:0.7",
+            b"local-address",
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(criteria.display_number(), b"0");
+        let selection =
+            native_window_linux_x11_xauthority_select_credential(&bytes, criteria.selector())
+                .unwrap();
+        match selection {
+            NativeWindowLinuxX11XauthoritySelection::Selected { credential } => {
+                assert_eq!(credential.protocol_name(), b"FIRST-AUTH");
+                assert_eq!(credential.protocol_data(), b"first");
+            }
+            NativeWindowLinuxX11XauthoritySelection::NoMatchingRecord => {
+                panic!("expected local display criteria to ignore screen suffix")
+            }
+        }
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_selector_criteria_rejects_host_and_malformed_display() {
+        assert_eq!(
+            native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+                "localhost:10.0",
+                b"host-a",
+                None,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11DisplayNameError::UnsupportedDisplayForm
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+                ":abc", b"host-a", None,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber
+        );
+        assert_eq!(
+            native_window_linux_x11_xauthority_local_selector_criteria_from_display(
+                ":1.", b"host-a", None,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11DisplayNameError::InvalidDisplayNumber
+        );
     }
 
     #[test]

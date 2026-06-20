@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5je Linux Xauthority selector criteria boundary
+
+## scope
+
+- local X11 display name と caller supplied local authority address から、F5jd selector に渡す exact criteria を作る。
+- display name parser は fd acquisition error から分離した `NativeWindowLinuxX11DisplayNameError` を返し、fd acquisition は既存 public error へ写像する。
+- accepted display form は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` に限定する。
+- display number は allocation なしで checked parse し、criteria owner が fixed decimal byte buffer を保持する。
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs、hostname / gethostname、TCP identity、SSH forwarding policy、window creation、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Required は display name error を純粋共有型にし、fd acquisition の public behavior は mapping で維持すること、criteria は accepted local form だけを扱い、display number encoding は bounded decimal writer にすることだった。
+- `preferred_protocol_name: None` は最初の exact family/address/display match、`Some` は protocol name も追加条件にする方針で承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11DisplayNameError` を追加し、X11 display parser を shared pure helper にした。
+- fd acquisition path は shared parser error を既存の `NativeWindowLinuxWindowEventSourceFdAcquisitionError` へ写像する。
+- `NativeWindowLinuxX11XauthoritySelectorCriteria` を追加し、display number bytes を `[u8; 10]` owner として保持する。
+- local selector criteria helper は caller supplied local authority address と optional preferred protocol name だけを使い、hostname 推測や address synthesis は行わない。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5je contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_fd_acquisition_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、display parsing は pure typed error、fd acquisition error mapping は既存 public behavior を維持、criteria-owned display-number bytes、exact selector matching、env / fs / VFS / runner / CLI / support-gate `Ok` / fallback / mutable escape path の非導入を満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
 # 2026-06-20 Agent2 GUI native F5jd Linux Xauthority record parser boundary
 
 ## scope

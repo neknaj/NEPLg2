@@ -1091,6 +1091,14 @@ Rust boundary 名としては、family を `NativeWindowLinuxX11XauthorityFamily
 
 F5jd でも `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、hostname / IP / SSH forwarding identity lookup、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding、Linux support gate の `Ok` 化、runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5je Native Linux Xauthority selector criteria boundary
+
+F5je では、local X11 display name と caller supplied local authority address から、F5jd selector に渡す criteria を作る境界を追加する。display name parser は `NativeWindowLinuxX11DisplayNameError` を返し、fd acquisition はそれを既存の fd acquisition error へ写像するため、socket acquisition の public behavior は変えない。
+
+accepted display form は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` に限る。`localhost:10.0` のような host form、数字でない display number、空 screen suffix、`u32` overflow は typed error になる。display number は parsed integer から decimal bytes に戻し、`NativeWindowLinuxX11XauthoritySelectorCriteria` が fixed `[u8; 10]` に保持する。これにより、`NativeWindowLinuxX11XauthoritySelector` は temporary string ではなく criteria owner を借りる。
+
+F5je の criteria は family を `Local` に固定し、address は caller supplied byte slice を exact match に使う。hostname / gethostname、Unix socket peer identity、TCP/IP address、SSH forwarding display policy、`FamilyWild` fallback、no-auth fallback は扱わない。`.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding、Linux support gate の `Ok` 化、runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
