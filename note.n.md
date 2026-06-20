@@ -1,3 +1,43 @@
+# 2026-06-20 Agent2 GUI native F5jr Linux X11 setup-backed top-level request owner boundary
+
+## 目的
+
+- F5jq の setup resource info と caller supplied serial から generated client window id を割り当てる。
+- setup success body 由来の first root window id を parent として CreateWindow / MapWindow request owner を作る。
+- caller supplied API は従来通り parent id high bits を拒否し、setup-backed API だけ root parent を zero-only validation で扱う。
+- reader からの自動生成接続、server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、F5jo の caller-supplied helper は parent high-bit rejection を維持し、F5jq の first root window id は server-owned id として zero-only validation に分けることだった。
+- implementation review は `REVIEW_APPROVED` だった。
+- setup-backed request owner boundary、no reader mutation、no runner / no fallback について required fix は無かった。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput` と `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError` を追加した。
+- request byte encoding は ID 検証済み helper に分離し、caller-supplied path と setup-backed path で共有する。
+- setup-backed builder は `native_window_linux_x11_resource_id_from_serial` で generated client id を作り、root parent id は zero-only validation で扱う。
+- focused tests は high-bit root parent の許容、allocation failure、geometry / event mask / zero root build failure を検査する。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jr contract へ更新中。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_backed -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は 300 秒 timeout 設定で通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 残作業
+
+- reader setup state から top-level request を自動生成する接続は未接続。
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5jq Linux X11 setup resource info allocation boundary
 
 ## 目的

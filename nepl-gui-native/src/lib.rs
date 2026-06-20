@@ -7560,6 +7560,19 @@ pub struct NativeWindowLinuxX11TopLevelWindowCreateInput {
     event_mask: u32,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput {
+    setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+    window_resource_serial: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    background_pixel: u32,
+    event_mask: u32,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11TopLevelWindowCreateRequest {
     window_id: u32,
@@ -7585,6 +7598,16 @@ pub enum NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError {
     RequestLengthOverflow {
         base_units: u16,
         value_count: u16,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError {
+    ResourceIdAllocationFailed {
+        error: NativeWindowLinuxX11ResourceIdAllocationError,
+    },
+    TopLevelWindowCreateRequestBuildFailed {
+        error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
     },
 }
 
@@ -8081,6 +8104,75 @@ impl NativeWindowLinuxX11TopLevelWindowCreateInput {
     }
 }
 
+impl NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput {
+    pub fn new(
+        setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+        window_resource_serial: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        background_pixel: u32,
+    ) -> Self {
+        Self::new_with_event_mask(
+            setup_resource_info,
+            window_resource_serial,
+            x,
+            y,
+            width,
+            height,
+            border_width,
+            background_pixel,
+            native_window_linux_x11_top_level_window_default_event_mask(),
+        )
+    }
+
+    pub fn new_with_event_mask(
+        setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+        window_resource_serial: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        background_pixel: u32,
+        event_mask: u32,
+    ) -> Self {
+        Self {
+            setup_resource_info,
+            window_resource_serial,
+            x,
+            y,
+            width,
+            height,
+            border_width,
+            background_pixel,
+            event_mask,
+        }
+    }
+
+    pub fn setup_resource_info(&self) -> NativeWindowLinuxX11SetupResourceInfo {
+        self.setup_resource_info
+    }
+
+    pub fn window_resource_serial(&self) -> u32 {
+        self.window_resource_serial
+    }
+
+    pub fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn event_mask(&self) -> u32 {
+        self.event_mask
+    }
+}
+
 impl NativeWindowLinuxX11TopLevelWindowCreateRequest {
     pub fn window_id(&self) -> u32 {
         self.window_id
@@ -8138,20 +8230,25 @@ fn native_window_linux_x11_top_level_window_validate_event_mask(
     Ok(())
 }
 
-pub fn native_window_linux_x11_top_level_window_create_request(
+fn native_window_linux_x11_top_level_window_validate_root_parent_resource_id(
+    value: u32,
+) -> Result<(), NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError> {
+    if value == 0 {
+        return Err(
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdZero {
+                kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
+            },
+        );
+    }
+    Ok(())
+}
+
+fn native_window_linux_x11_top_level_window_create_request_after_resource_id_validation(
     input: NativeWindowLinuxX11TopLevelWindowCreateInput,
 ) -> Result<
     NativeWindowLinuxX11TopLevelWindowCreateRequest,
     NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
 > {
-    native_window_linux_x11_top_level_window_validate_resource_id(
-        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
-        input.window_id,
-    )?;
-    native_window_linux_x11_top_level_window_validate_resource_id(
-        NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
-        input.parent_window_id,
-    )?;
     if input.width == 0 {
         return Err(NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::WidthZero);
     }
@@ -8204,6 +8301,75 @@ pub fn native_window_linux_x11_top_level_window_create_request(
         window_id: input.window_id,
         bytes,
     })
+}
+
+pub fn native_window_linux_x11_top_level_window_create_request(
+    input: NativeWindowLinuxX11TopLevelWindowCreateInput,
+) -> Result<
+    NativeWindowLinuxX11TopLevelWindowCreateRequest,
+    NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+> {
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+        input.window_id,
+    )?;
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
+        input.parent_window_id,
+    )?;
+    native_window_linux_x11_top_level_window_create_request_after_resource_id_validation(input)
+}
+
+pub fn native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+    input: NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput,
+) -> Result<
+    NativeWindowLinuxX11TopLevelWindowCreateRequest,
+    NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError,
+> {
+    let window_id = native_window_linux_x11_resource_id_from_serial(
+        input.setup_resource_info,
+        input.window_resource_serial,
+    )
+    .map_err(
+        |error| NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::ResourceIdAllocationFailed {
+            error,
+        },
+    )?;
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+        window_id,
+    )
+    .map_err(
+        |error| NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+            error,
+        },
+    )?;
+    let parent_window_id = input.setup_resource_info.first_root_window_id();
+    native_window_linux_x11_top_level_window_validate_root_parent_resource_id(parent_window_id)
+        .map_err(
+            |error| NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+                error,
+            },
+        )?;
+    let request_input = NativeWindowLinuxX11TopLevelWindowCreateInput::new_with_event_mask(
+        window_id,
+        parent_window_id,
+        input.x,
+        input.y,
+        input.width,
+        input.height,
+        input.border_width,
+        input.background_pixel,
+        input.event_mask,
+    );
+    native_window_linux_x11_top_level_window_create_request_after_resource_id_validation(
+        request_input,
+    )
+    .map_err(
+        |error| NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+            error,
+        },
+    )
 }
 
 impl<'a> NativeWindowLinuxX11XauthorityLookupInput<'a> {
@@ -20038,6 +20204,26 @@ mod tests {
                 unused_high_bits: 0xe000_0000,
             }
         );
+        assert_eq!(
+            native_window_linux_x11_top_level_window_create_request(
+                NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+                    0x0020_0001,
+                    0xe000_0123,
+                    0,
+                    0,
+                    640,
+                    480,
+                    0,
+                    0,
+                ),
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdHighBitsSet {
+                kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
+                value: 0xe000_0123,
+                unused_high_bits: 0xe000_0000,
+            }
+        );
     }
 
     #[test]
@@ -20095,6 +20281,156 @@ mod tests {
             NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::EventMaskHasUnusedBits {
                 event_mask: 0xfe00_0004,
                 unused_bits: 0xfe00_0000,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_top_level_window_create_request_uses_allocated_window_and_root_parent(
+    ) {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+        };
+        let input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
+            setup_resource_info,
+            1,
+            10,
+            20,
+            640,
+            480,
+            0,
+            0x0011_2233,
+        );
+
+        let request =
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(input)
+                .unwrap();
+
+        assert_eq!(request.window_id(), 0x0020_0001);
+        assert_eq!(request.len(), 48);
+        assert_eq!(&request.as_bytes()[4..8], &0x0020_0001_u32.to_le_bytes());
+        assert_eq!(&request.as_bytes()[8..12], &0xe000_0123_u32.to_le_bytes());
+        assert_eq!(&request.as_bytes()[44..48], &0x0020_0001_u32.to_le_bytes());
+        assert_eq!(input.setup_resource_info(), setup_resource_info);
+        assert_eq!(input.window_resource_serial(), 1);
+        assert_eq!(
+            input.event_mask(),
+            NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_top_level_window_create_request_preserves_allocation_failure(
+    ) {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+        };
+        let input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
+            setup_resource_info,
+            0,
+            0,
+            0,
+            640,
+            480,
+            0,
+            0,
+        );
+
+        assert_eq!(
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(input)
+                .unwrap_err(),
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::ResourceIdAllocationFailed {
+                error: NativeWindowLinuxX11ResourceIdAllocationError::SerialZero,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_top_level_window_create_request_preserves_build_failure(
+    ) {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+        };
+        let zero_width_input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
+            setup_resource_info,
+            1,
+            0,
+            0,
+            0,
+            480,
+            0,
+            0,
+        );
+
+        assert_eq!(
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+                zero_width_input,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+                error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::WidthZero,
+            }
+        );
+
+        let zero_root_setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0,
+        };
+        let zero_root_input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
+            zero_root_setup_resource_info,
+            1,
+            0,
+            0,
+            640,
+            480,
+            0,
+            0,
+        );
+
+        assert_eq!(
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+                zero_root_input,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+                error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdZero {
+                    kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
+                },
+            }
+        );
+
+        let invalid_event_input =
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new_with_event_mask(
+                setup_resource_info,
+                1,
+                0,
+                0,
+                640,
+                480,
+                0,
+                0,
+                0xfe00_0004,
+            );
+
+        assert_eq!(
+            native_window_linux_x11_top_level_window_create_request_from_setup_resource_info(
+                invalid_event_input,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError::TopLevelWindowCreateRequestBuildFailed {
+                error: NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::EventMaskHasUnusedBits {
+                    event_mask: 0xfe00_0004,
+                    unused_bits: 0xfe00_0000,
+                },
             }
         );
     }
