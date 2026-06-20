@@ -1,3 +1,44 @@
+# 2026-06-20 Agent2 GUI native F5jq Linux X11 setup resource info allocation boundary
+
+## 目的
+
+- X11 setup success body から resource-id-base、resource-id-mask、first screen root window id を読む。
+- sparse mask 対応の client resource id allocation helper を追加する。
+- reader は setup body を破棄せず、body 完了時に typed parser を呼んで resource info を保持する。
+- generated window id owner、root id を parent にした request construction、server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- 初回 plan review は `PLAN_CHANGES` だった。
+- 指摘は、X11 success setup body の fixed portion は prefix 後 32 byte であること、root window id は server-owned id なので client resource id validation を適用しないこと、byte order と sparse mask、typed allocation error、empty body の扱いを明確にすることだった。
+- 修正版では fixed body 32 byte、little-endian success body parser、root id zero-only validation、sparse mask allocation、empty body は historical scripted observation compatibility の `Ok(None)` のみ、として `PLAN_APPROVED` を得た。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupResourceInfo`、`NativeWindowLinuxX11SetupResourceInfoParseError`、`NativeWindowLinuxX11ResourceIdAllocationError` を追加した。
+- `native_window_linux_x11_setup_resource_info_from_little_endian_success_body` は fixed body、vendor padding、pixmap format list、first screen header を checked arithmetic で読む。
+- `native_window_linux_x11_resource_id_from_serial` は serial bit を resource-id-mask の set bit へ low-to-high に詰める。
+- `NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes と optional setup resource info を保持し、parse failure は `SetupResourceInfoParseFailed` で fail-closed にする。
+- focused tests は success body parse、invalid client id space、screen truncation、sparse mask allocation、partial setup body resume、parse failure fail-closed を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jq contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_resource -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_resource_id -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+- subagent implementation review は `REVIEW_APPROVED` だった。
+
+## 残作業
+
+- generated window id owner と root window id を parent にした actual top-level request construction は未接続。
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5jp Linux X11 top-level window request partial-write boundary
 
 ## scope

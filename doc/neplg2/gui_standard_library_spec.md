@@ -1201,6 +1201,20 @@ partial write は byte count を reader が保持し、would-block は `TopLevel
 
 F5jp は request write boundary だけを担当する。resource id allocation、setup response からの root window discovery、X11 server error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
 
+## F5jq Native Linux X11 setup resource info and resource id allocation boundary
+
+F5jq では、X11 setup success response body から client resource id space と first screen root window id を読み取る境界を追加する。Rust boundary 名としては、成功 body parser を `native_window_linux_x11_setup_resource_info_from_little_endian_success_body`、保持値を `NativeWindowLinuxX11SetupResourceInfo`、allocator を `native_window_linux_x11_resource_id_from_serial` とする。
+
+setup success body は prefix 後の 32 byte fixed body、vendor string と 4 byte padding、pixmap format list、screen list の順に読む。`resource-id-base` と `resource-id-mask` は little-endian u32 として読み、mask zero、base/mask overlap、client resource id space の unused high bits set を typed parse error で拒否する。first root window id は server-owned id なので client resource id mask/base では検査せず、zero だけを typed parse error で拒否する。
+
+parser は checked arithmetic で vendor padded length、pixmap format section、first screen header end を計算し、body truncation と offset overflow を enum branch として返す。empty body は historical scripted observation compatibility の `Ok(None)` とし、native GUI readiness、support gate `Ok`、synthetic root window discovery の根拠にはしない。
+
+resource id allocator は sparse mask に対応し、serial の bit を resource-id-mask の set bit へ low-to-high に詰める。serial zero、mask bit 数を超える serial、generated id zero、generated id が base/mask invariant を満たさない場合は `NativeWindowLinuxX11ResourceIdAllocationError` を返す。mask が連続していないことを fallback や unsupported success にしない。
+
+`NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes を setup completion まで保持し、body read 完了時に parser を呼ぶ。parse failure は `SetupResourceInfoParseFailed` として setup failed state へ遷移する。success した resource info は reader accessor から読めるが、F5jq ではまだ CreateWindow request owner の生成、window id serial owner、root window id の parent への接続は行わない。
+
+F5jq は setup resource info parse / allocation boundary だけを担当する。actual top-level request generation from setup info、server sequence / error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
