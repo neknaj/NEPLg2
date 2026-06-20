@@ -1333,6 +1333,18 @@ assignment state は `WM_PROTOCOLS` Atom ID と `WM_DELETE_WINDOW` Atom ID を�
 
 F5kc は meaning assignment boundary だけを担当する。actual `ChangeProperty` registration、`WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5kd Native Linux X11 WM protocol ChangeProperty registration boundary
+
+F5kd では、F5kc で揃った `WM_PROTOCOLS` property Atom と `WM_DELETE_WINDOW` protocol Atom を使い、top-level window に対する `ChangeProperty` request を reader-owned write path へ接続する。Rust boundary 名としては、request owner を `NativeWindowLinuxX11WmProtocolRegistrationRequest`、write state を `NativeWindowLinuxX11WmProtocolRegistrationWriteState`、sequence plan を `NativeWindowLinuxX11WmProtocolRegistrationSequencePlan` とする。
+
+registration request は X11 `ChangeProperty` の fixed header 24 byte と 32-bit Atom data item 1 個を合わせた 28 byte request である。opcode は `18`、mode は Replace、request length は 7 units、property は `WM_PROTOCOLS` Atom、type は predefined `ATOM` Atom ID `4`、format は `32`、data length は `1`、data item は `WM_DELETE_WINDOW` Atom とする。window id と Atom ID は validated owner からだけ取得し、zero/default Atom、synthetic id、fallback id は使わない。
+
+reader は setup-ready top-level path で `CreateWindow -> InternAtom batch -> InternAtom replies / Atom IDs -> ChangeProperty WM_PROTOCOLS -> MapWindow` の順に進める。`ChangeProperty` がまだ accepted write boundary を越えていない間は `MapWindow` を送らず、would-block では state を保持して次の poll に委ねる。hard write failure、zero write、overflow、request build failure は registration failed state として保持し、MapWindow へ進めない。
+
+registration request の normal request sequence は、accepted write progress が 28 byte request 全体を越えた時だけ割り当てる。X11 server error correlation は top-level CreateWindow / MapWindow の plan を優先し、それに一致しない場合だけ registration sequence plan と照合する。registration request が accepted されたことは WM protocol property mutation request を送ったことだけを表し、window manager が `WM_DELETE_WINDOW` `ClientMessage` を送ることや、その event を decode できることは表さない。
+
+F5kd は `ChangeProperty` registration write boundary だけを担当する。`WM_DELETE_WINDOW` `ClientMessage` decode、StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

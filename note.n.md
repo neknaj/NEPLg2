@@ -1,3 +1,44 @@
+# 2026-06-21 Agent2 GUI native F5kd Linux X11 WM protocol ChangeProperty registration boundary
+
+## 目的
+
+- F5kc で揃った `WM_PROTOCOLS` property Atom と `WM_DELETE_WINDOW` protocol Atom を使い、X11 `ChangeProperty` request を top-level window の MapWindow 前に送る。
+- registration request の accepted write progress だけを request sequence authority とし、write が完了するまで MapWindow を送らない。
+- `WM_DELETE_WINDOW` `ClientMessage` decode、runner / support gate 有効化、fallback / synthetic readiness は扱わない。
+
+## subagent review
+
+- 実装前 review で Bacon は `PLAN_APPROVED` を返し、fail closed registration、busy spin 回避、full request accepted 後だけの sequence advance、MapWindow 前 registration のテストを要求した。
+- Hegel は `CHANGES_REQUESTED` を返し、`ChangeProperty` request length を 24 byte / 6 units ではなく 28 byte / 7 units に修正する必要を指摘した。
+- 実装方針は Hegel の指摘に従い、24 byte fixed header と 32-bit Atom data item 1 個を合わせた 28 byte request として固定した。
+- 実装後 review で Bacon は `REVIEW_APPROVED` を返した。
+- Hegel は初回 implementation review で current implementation doc と source-policy の registration gate 検査不足を指摘したため、doc と policy を修正した。
+- 再 review では Hegel も `REVIEW_APPROVED`。残る F5kd blocker は無い。
+
+## 実装内容
+
+- `NativeWindowLinuxX11WmProtocolRegistrationRequest`、registration write state、registration sequence plan、registration error / observation error を追加した。
+- request encoding は opcode `18`、mode Replace、property `WM_PROTOCOLS`、type predefined `ATOM` id `4`、format `32`、data length `1`、data item `WM_DELETE_WINDOW` にした。
+- reader は `CreateWindow -> InternAtom batch -> InternAtom replies / Atom IDs -> ChangeProperty WM_PROTOCOLS -> MapWindow` の順で進み、registration request が accepted されるまで MapWindow を送らない。
+- would-block は retryable として state を保持し、write failure / zero write / overflow / request build failure は failed state にして MapWindow を block する。
+- server error correlation は top-level CreateWindow / MapWindow を優先し、それに一致しない sequence だけを registration sequence と照合する。
+- source-policy は F5kc assignment surface と F5kd registration surface を分け、registration surface が `ClientMessage` decode、runner dispatch、fallback、silent no-op を含まないことを検査する。
+
+## 検証
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: subagent implementation review by Bacon and Hegel
+
+## 未接続
+
+- `WM_DELETE_WINDOW` `ClientMessage` decode、StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-21 Agent2 GUI native F5kc Linux X11 WM protocol Atom meaning assignment boundary
 
 ## 目的
