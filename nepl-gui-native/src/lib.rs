@@ -7347,8 +7347,38 @@ pub trait NativeWindowLinuxX11EventSourceRawApi {
     fn error_code_is_would_block(&self, code: u32) -> bool;
 }
 
+pub struct NativeWindowLinuxX11AuthorizationCredential<'a> {
+    protocol_name: &'a [u8],
+    protocol_data: &'a [u8],
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11SetupRequestBuildError {
+    AuthorizationProtocolNameTooLong {
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    AuthorizationProtocolDataTooLong {
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    SetupRequestLengthOverflow {
+        base_byte_len: usize,
+        name_byte_len: usize,
+        name_padding_byte_len: usize,
+        data_byte_len: usize,
+        data_padding_byte_len: usize,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11SetupRequest {
+    bytes: Vec<u8>,
+}
+
 pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     api: Api,
+    setup_request: NativeWindowLinuxX11SetupRequest,
     setup_state: NativeWindowLinuxX11EventSourceSetupState,
     setup_request_written_len: usize,
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
@@ -7366,6 +7396,119 @@ pub struct NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Ap
 pub fn native_window_linux_x11_setup_request_bytes(
 ) -> [u8; NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN] {
     [b'l', 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+}
+
+impl<'a> NativeWindowLinuxX11AuthorizationCredential<'a> {
+    pub fn none() -> Self {
+        Self {
+            protocol_name: &[],
+            protocol_data: &[],
+        }
+    }
+
+    pub fn new(protocol_name: &'a [u8], protocol_data: &'a [u8]) -> Self {
+        Self {
+            protocol_name,
+            protocol_data,
+        }
+    }
+
+    pub fn protocol_name(&self) -> &'a [u8] {
+        self.protocol_name
+    }
+
+    pub fn protocol_data(&self) -> &'a [u8] {
+        self.protocol_data
+    }
+}
+
+impl NativeWindowLinuxX11SetupRequest {
+    fn no_authorization() -> Self {
+        Self {
+            bytes: native_window_linux_x11_setup_request_bytes().to_vec(),
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+fn native_window_linux_x11_pad4(byte_len: usize) -> usize {
+    (4 - (byte_len % 4)) % 4
+}
+
+fn native_window_linux_x11_checked_setup_request_total_len(
+    name_byte_len: usize,
+    name_padding_byte_len: usize,
+    data_byte_len: usize,
+    data_padding_byte_len: usize,
+) -> Result<usize, NativeWindowLinuxX11SetupRequestBuildError> {
+    NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN
+        .checked_add(name_byte_len)
+        .and_then(|len| len.checked_add(name_padding_byte_len))
+        .and_then(|len| len.checked_add(data_byte_len))
+        .and_then(|len| len.checked_add(data_padding_byte_len))
+        .ok_or(
+            NativeWindowLinuxX11SetupRequestBuildError::SetupRequestLengthOverflow {
+                base_byte_len: NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN,
+                name_byte_len,
+                name_padding_byte_len,
+                data_byte_len,
+                data_padding_byte_len,
+            },
+        )
+}
+
+pub fn native_window_linux_x11_setup_request_from_authorization(
+    credential: NativeWindowLinuxX11AuthorizationCredential<'_>,
+) -> Result<NativeWindowLinuxX11SetupRequest, NativeWindowLinuxX11SetupRequestBuildError> {
+    let name = credential.protocol_name();
+    let data = credential.protocol_data();
+    let max_byte_len = usize::from(u16::MAX);
+    let name_len = name.len();
+    if name_len > max_byte_len {
+        return Err(
+            NativeWindowLinuxX11SetupRequestBuildError::AuthorizationProtocolNameTooLong {
+                byte_len: name_len,
+                max_byte_len,
+            },
+        );
+    }
+    let data_len = data.len();
+    if data_len > max_byte_len {
+        return Err(
+            NativeWindowLinuxX11SetupRequestBuildError::AuthorizationProtocolDataTooLong {
+                byte_len: data_len,
+                max_byte_len,
+            },
+        );
+    }
+    let name_padding_len = native_window_linux_x11_pad4(name_len);
+    let data_padding_len = native_window_linux_x11_pad4(data_len);
+    let total_len = native_window_linux_x11_checked_setup_request_total_len(
+        name_len,
+        name_padding_len,
+        data_len,
+        data_padding_len,
+    )?;
+    let mut bytes = Vec::with_capacity(total_len);
+    bytes.push(b'l');
+    bytes.push(0);
+    bytes.extend_from_slice(&11_u16.to_le_bytes());
+    bytes.extend_from_slice(&0_u16.to_le_bytes());
+    bytes.extend_from_slice(&(name_len as u16).to_le_bytes());
+    bytes.extend_from_slice(&(data_len as u16).to_le_bytes());
+    bytes.extend_from_slice(&0_u16.to_le_bytes());
+    bytes.extend_from_slice(name);
+    bytes.resize(bytes.len() + name_padding_len, 0);
+    bytes.extend_from_slice(data);
+    bytes.resize(bytes.len() + data_padding_len, 0);
+    Ok(NativeWindowLinuxX11SetupRequest { bytes })
 }
 
 fn native_window_linux_x11_u16_le(bytes: &[u8], offset: usize) -> u16 {
@@ -7445,8 +7588,16 @@ fn native_window_linux_x11_event_packet_to_observation(
 
 impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
     pub fn new(api: Api) -> Self {
+        Self::new_with_setup_request(api, NativeWindowLinuxX11SetupRequest::no_authorization())
+    }
+
+    pub fn new_with_setup_request(
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+    ) -> Self {
         Self {
             api,
+            setup_request,
             setup_state: NativeWindowLinuxX11EventSourceSetupState::RequestPending,
             setup_request_written_len: 0,
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
@@ -7463,6 +7614,10 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
 
     pub fn api_mut(&mut self) -> &mut Api {
         &mut self.api
+    }
+
+    pub fn setup_request(&self) -> &NativeWindowLinuxX11SetupRequest {
+        &self.setup_request
     }
 
     pub fn setup_state(&self) -> NativeWindowLinuxX11EventSourceSetupState {
@@ -7486,12 +7641,14 @@ where
         &mut self,
         raw_fd: i32,
     ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
-        let request = native_window_linux_x11_setup_request_bytes();
-        while self.setup_request_written_len < request.len() {
-            let remaining = request.len() - self.setup_request_written_len;
-            let written = self
-                .api
-                .write_x11_bytes_raw(raw_fd, &request[self.setup_request_written_len..]);
+        let request_len = self.setup_request.len();
+        while self.setup_request_written_len < request_len {
+            let remaining = request_len - self.setup_request_written_len;
+            let written = {
+                let request = self.setup_request.as_bytes();
+                self.api
+                    .write_x11_bytes_raw(raw_fd, &request[self.setup_request_written_len..])
+            };
             if written < 0 {
                 let code = self.api.last_error_code();
                 if self.api.error_code_is_would_block(code) {
@@ -7508,14 +7665,17 @@ where
                     NativeWindowLinuxX11EventSourceObservationError::SetupWriteReturnedZero,
                 ));
             }
-            let written = usize::try_from(written).map_err(|_| {
-                self.fail_setup(
-                    NativeWindowLinuxX11EventSourceObservationError::SetupWriteOverflow {
-                        byte_count: usize::MAX,
-                        remaining_byte_count: remaining,
-                    },
-                )
-            })?;
+            let written = match usize::try_from(written) {
+                Ok(written) => written,
+                Err(_) => {
+                    return Err(self.fail_setup(
+                        NativeWindowLinuxX11EventSourceObservationError::SetupWriteOverflow {
+                            byte_count: usize::MAX,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
             if written > remaining {
                 return Err(self.fail_setup(
                     NativeWindowLinuxX11EventSourceObservationError::SetupWriteOverflow {
@@ -7754,9 +7914,24 @@ where
 
 impl<Provider, Api> NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
     pub fn new(provider: Provider, api: Api) -> Self {
+        Self::new_with_setup_request(
+            provider,
+            api,
+            NativeWindowLinuxX11SetupRequest::no_authorization(),
+        )
+    }
+
+    pub fn new_with_setup_request(
+        provider: Provider,
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+    ) -> Self {
         Self {
             provider,
-            reader: NativeWindowLinuxX11EventSourceObservationReader::new(api),
+            reader: NativeWindowLinuxX11EventSourceObservationReader::new_with_setup_request(
+                api,
+                setup_request,
+            ),
         }
     }
 
@@ -7774,6 +7949,21 @@ pub fn native_window_linux_x11_window_event_source_observation_provider<Provider
     api: Api,
 ) -> NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
     NativeWindowLinuxX11WindowEventSourceObservationProvider::new(provider, api)
+}
+
+pub fn native_window_linux_x11_window_event_source_observation_provider_with_setup_request<
+    Provider,
+    Api,
+>(
+    provider: Provider,
+    api: Api,
+    setup_request: NativeWindowLinuxX11SetupRequest,
+) -> NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
+    NativeWindowLinuxX11WindowEventSourceObservationProvider::new_with_setup_request(
+        provider,
+        api,
+        setup_request,
+    )
 }
 
 impl<Provider, Api> NativeWindowLinuxWindowEventSourceProvider
@@ -15673,8 +15863,16 @@ mod tests {
     }
 
     #[derive(Clone, Debug, PartialEq)]
+    enum ScriptedNativeWindowLinuxX11WriteStep {
+        Bytes(usize),
+        Error(u32),
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
     struct ScriptedNativeWindowLinuxX11EventSourceRawApi {
         writes: Vec<Vec<u8>>,
+        write_steps: Vec<ScriptedNativeWindowLinuxX11WriteStep>,
+        write_cursor: usize,
         read_steps: Vec<ScriptedNativeWindowLinuxX11ReadStep>,
         read_cursor: usize,
         read_step_offset: usize,
@@ -15685,19 +15883,42 @@ mod tests {
         fn new(read_steps: Vec<ScriptedNativeWindowLinuxX11ReadStep>) -> Self {
             Self {
                 writes: Vec::new(),
+                write_steps: Vec::new(),
+                write_cursor: 0,
                 read_steps,
                 read_cursor: 0,
                 read_step_offset: 0,
                 last_error_code: 0,
             }
         }
+
+        fn with_write_steps(
+            mut self,
+            write_steps: Vec<ScriptedNativeWindowLinuxX11WriteStep>,
+        ) -> Self {
+            self.write_steps = write_steps;
+            self
+        }
     }
 
     impl NativeWindowLinuxX11EventSourceRawApi for ScriptedNativeWindowLinuxX11EventSourceRawApi {
         fn write_x11_bytes_raw(&mut self, _raw_fd: i32, bytes: &[u8]) -> isize {
             self.writes.push(bytes.to_vec());
-            self.last_error_code = 0;
-            isize::try_from(bytes.len()).unwrap()
+            let Some(step) = self.write_steps.get(self.write_cursor).cloned() else {
+                self.last_error_code = 0;
+                return isize::try_from(bytes.len()).unwrap();
+            };
+            self.write_cursor += 1;
+            match step {
+                ScriptedNativeWindowLinuxX11WriteStep::Bytes(byte_len) => {
+                    self.last_error_code = 0;
+                    isize::try_from(byte_len).unwrap()
+                }
+                ScriptedNativeWindowLinuxX11WriteStep::Error(code) => {
+                    self.last_error_code = code;
+                    -1
+                }
+            }
         }
 
         fn read_x11_bytes_raw(&mut self, _raw_fd: i32, bytes: &mut [u8]) -> isize {
@@ -16757,6 +16978,125 @@ mod tests {
         assert_eq!(host.host().host().pump_count, 1);
         assert_eq!(host.host().host().present_frames, vec![(1, 1)]);
         assert_eq!(host.provider().event_cursor, 0);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_request_no_auth_matches_legacy_bytes() {
+        let request = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::none(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.as_bytes(),
+            native_window_linux_x11_setup_request_bytes()
+        );
+        assert_eq!(
+            request.len(),
+            NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_request_encodes_mit_magic_cookie_lengths_and_padding() {
+        let cookie = [
+            0x10_u8, 0x21, 0x32, 0x43, 0x54, 0x65, 0x76, 0x87, 0x98, 0xa9, 0xba, 0xcb, 0xdc, 0xed,
+            0xfe, 0x0f,
+        ];
+        let request = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::new(b"MIT-MAGIC-COOKIE-1", &cookie),
+        )
+        .unwrap();
+
+        assert_eq!(&request.as_bytes()[0..6], &[b'l', 0, 11, 0, 0, 0]);
+        assert_eq!(&request.as_bytes()[6..8], &18_u16.to_le_bytes());
+        assert_eq!(&request.as_bytes()[8..10], &16_u16.to_le_bytes());
+        assert_eq!(&request.as_bytes()[10..12], &[0, 0]);
+        assert_eq!(&request.as_bytes()[12..30], b"MIT-MAGIC-COOKIE-1");
+        assert_eq!(&request.as_bytes()[30..32], &[0, 0]);
+        assert_eq!(&request.as_bytes()[32..48], &cookie);
+        assert_eq!(request.len(), 48);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_request_rejects_too_long_auth_before_raw_api() {
+        let too_long = vec![b'a'; usize::from(u16::MAX) + 1];
+        let name_error = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::new(&too_long, &[]),
+        )
+        .unwrap_err();
+        let data_error = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::new(&[], &too_long),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            name_error,
+            NativeWindowLinuxX11SetupRequestBuildError::AuthorizationProtocolNameTooLong {
+                byte_len: usize::from(u16::MAX) + 1,
+                max_byte_len: usize::from(u16::MAX),
+            }
+        );
+        assert_eq!(
+            data_error,
+            NativeWindowLinuxX11SetupRequestBuildError::AuthorizationProtocolDataTooLong {
+                byte_len: usize::from(u16::MAX) + 1,
+                max_byte_len: usize::from(u16::MAX),
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_observation_provider_resumes_partial_auth_setup_write() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let cookie = [7_u8; 16];
+        let setup_request = native_window_linux_x11_setup_request_from_authorization(
+            NativeWindowLinuxX11AuthorizationCredential::new(b"MIT-MAGIC-COOKIE-1", &cookie),
+        )
+        .unwrap();
+        let request_bytes = setup_request.as_bytes().to_vec();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            235,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(4, 5)),
+        ])
+        .with_write_steps(vec![
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(10),
+            ScriptedNativeWindowLinuxX11WriteStep::Error(11),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(request_bytes.len() - 10),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::SetupWriteWouldBlock
+        );
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((4.0, 5.0)));
+        assert_eq!(provider.reader().api().writes[0], request_bytes);
+        assert_eq!(provider.reader().api().writes[1], request_bytes[10..]);
+        assert_eq!(provider.reader().api().writes[2], request_bytes[10..]);
+        assert_eq!(
+            provider.reader().setup_state(),
+            NativeWindowLinuxX11EventSourceSetupState::Ready
+        );
     }
 
     #[test]

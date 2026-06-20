@@ -1,3 +1,48 @@
+# 2026-06-20 Agent2 GUI native F5jc Linux X11 authorization setup request boundary
+
+## scope
+
+- F5jb の X11 setup request を、authorization protocol name / data を持てる encoded request owner へ拡張する。
+- credential は borrowed validation input としてだけ扱い、reader には保持しない。
+- setup request bytes は `NativeWindowLinuxX11SetupRequest` が所有し、reader は validated owner を受け取って partial write retry を続ける。
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、synthetic readiness、timer evidence は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- blocker は `new_with_authorization api credential -> Result ...` が credential build failure 時に raw API owner を消費して落とし得ることだった。
+- revised plan では setup request validation / ownership を raw API owner 消費より前に分離し、`NativeWindowLinuxX11SetupRequest` owner を `new_with_setup_request` へ渡す形に変更して `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxX11AuthorizationCredential`、`NativeWindowLinuxX11SetupRequest`、`NativeWindowLinuxX11SetupRequestBuildError` を追加した。
+- authorization name / data length、4 byte padding、total length は checked arithmetic で検査し、typed enum error で返す。
+- reader は setup request owner を保持し、no-auth constructor と validated setup request constructor を分けた。
+- MIT-MAGIC-COOKIE-1 encoding、no-auth 互換、too-long auth rejection、partial auth setup write retry の focused tests を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jc contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、request validation が raw API owner 消費より前に分離され、setup request owner が encoded bytes を保持し、partial write retry と no `.Xauthority` / env / fs / vfs / fallback / synthetic evidence policy が守られていることは確認された。
+- 指摘はこの欄が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit-ready と確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
 # 2026-06-20 Agent2 GUI native F5jb Linux X11 setup and event observation boundary
 
 ## scope

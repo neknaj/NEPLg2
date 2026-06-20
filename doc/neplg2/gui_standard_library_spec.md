@@ -1073,6 +1073,14 @@ reader は setup request write progress、setup prefix progress、setup body rem
 
 F5jb の concrete decode は X11 local Unix connection に限定する。`ConfigureNotify` は current size observation、`MotionNotify` / `ButtonPress` / `ButtonRelease` は pointer / mouse observation へ写す。Wayland、X11 authorization file lookup、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、runner / CLI dispatch、Linux support gate の `Ok` 化、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5jc Native Linux X11 authorization setup request boundary
+
+F5jc では、F5jb の X11 setup request を authorization credential 付き encoding に拡張する。`NativeWindowLinuxX11AuthorizationCredential` は borrowed authorization protocol name / data を validation input としてだけ扱い、`NativeWindowLinuxX11SetupRequest` が encoded bytes を所有する。reader は credential borrow を保持せず、validated setup request owner だけを受け取る。
+
+setup request builder は byte order `l`、protocol version 11.0、authorization name length、authorization data length、reserved bytes、name bytes、`pad(name)`、data bytes、`pad(data)` を生成する。name / data length は `u16` に収まる必要があり、padding と total length は checked arithmetic で検査する。失敗は `NativeWindowLinuxX11SetupRequestBuildError` の enum で返し、raw fd / raw API owner を消費しない。
+
+F5jc でも `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding、Linux support gate の `Ok` 化、runner / CLI dispatch、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

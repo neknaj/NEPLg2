@@ -1939,6 +1939,35 @@ Phase F5jb では、F5ja で保持した acquired fd owner を actual X11 decode
 - `git diff --check`
 - subagent implementation review で owner保持、typed error、partial byte retry、no fallback / no runner dispatch が承認される。
 
+## Phase F5jc: Native Linux X11 authorization setup request boundary
+
+Phase F5jc では、F5jb の X11 setup request を no-auth 固定から、authorization credential を持てる typed setup request builder へ進める。X11 protocol encoding は setup request に authorization protocol name / data の length、STRING8 payload、4 byte padding を持つため、この phase ではその byte encoding と validation を先に固定する。
+
+実装:
+
+- `NativeWindowLinuxX11AuthorizationCredential` は borrowed name / data slice を validation input としてだけ扱い、reader には保持しない。
+- `NativeWindowLinuxX11SetupRequest` は encoded request bytes を private owner として保持し、read-only accessor だけを公開する。
+- `native_window_linux_x11_setup_request_from_authorization` は name / data が `u16` length に収まること、4 byte padding、total length を checked arithmetic で検査してから owned request を返す。
+- build failure は `NativeWindowLinuxX11SetupRequestBuildError` の enum とし、raw API owner を消費する前に返す。
+- `NativeWindowLinuxX11EventSourceObservationReader` は validated setup request owner を受ける infallible constructor を持ち、partial setup write retry は reader-owned bytes に対して継続する。
+- 既存の `native_window_linux_x11_setup_request_bytes` は exact 12 byte no-auth helper として残し、checked no-auth request と同じ bytes であることを test する。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jc contract へ更新する。
+
+非目標:
+
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs access は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding は扱わない。
+- minifb fallback、ObservedInputOnly promotion、synthetic readiness、timer fired evidence、fallback snapshot、silent no-op は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で owner消費前 validation、typed error、request byte ownership、partial write retry、no fs/env / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
