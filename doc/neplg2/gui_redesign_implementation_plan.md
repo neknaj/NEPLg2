@@ -2919,3 +2919,41 @@ Phase F5kf では、X11 `StructureNotifyMask` と `ExposureMask` を top-level w
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で explicit event evidence、no inferred pointer motion、no silent no-op、no runner/support-gate scope creep が承認される。
+
+## Phase F5kg: Native Linux X11 raw keyboard event evidence boundary
+
+Phase F5kg では、X11 `KeyPressMask` と `KeyReleaseMask` を top-level window default event mask に追加し、購読した `KeyPress` / `KeyRelease` packet を raw keyboard event evidence として保持する。これは keyboard event evidence boundary であり、IME、text input、keysym / layout mapping、shortcut policy、Wayland keyboard decoding、Linux runner dispatch、support gate `Ok` 化ではない。
+
+実装:
+
+- `NativeWindowEventPumpEventKind` に `Keyboard` を追加し、keyboard event を pointer / resize / redraw と混同しない。
+- `NativeWindowKeyboardEventKind` と `NativeWindowKeyboardEvent` を追加し、`Pressed` / `Released` と raw X11 keycode を保持する。
+- `NativeWindowEventPumpSnapshot`、`NativeWindowBackendLoopStepOutcome::Unavailable`、`NativeWindowBackendLoopDrawableStep`、`NativeWindowHostAction` に optional keyboard event evidence を保持する。
+- 既存 compatibility builder は keyboard event を推論せず `None` とする。X11 concrete decode だけが explicit builder で `Some NativeWindowKeyboardEvent` を渡す。
+- X11 event decode は `KeyPress` を `Pressed`、`KeyRelease` を `Released` として返し、send-event bit は既存の `response_type & 0x7f` 正規化で扱う。
+- raw keycode `0` は typed error として拒否し、unknown / empty keyboard event として silent success にしない。
+- source-policy は KeyPress / KeyRelease mask、event type、raw key evidence propagation、zero keycode rejection、IME / keysym / shortcut / runner / fallback 非導入を検査する。
+
+非目標:
+
+- IME composition、text input、multi-scalar text は含めない。
+- keysym / layout / modifier mapping、shortcut policy は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback text、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- default event mask が `KeyPress | KeyRelease | ButtonPress | ButtonRelease | PointerMotion | Exposure | StructureNotify` を含む。
+- `KeyPress` / `KeyRelease` が raw keycode 付き `Keyboard` event evidence として observation / snapshot / backend outcome / host action に残る。
+- raw keycode `0` は typed observation error になる。
+- host-loop wait decision は keyboard event を scheduler readiness や timer fired evidence に変換しない。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で raw keyboard evidence、zero keycode typed error、no IME / keysym / runner / fallback scope creep が承認される。
