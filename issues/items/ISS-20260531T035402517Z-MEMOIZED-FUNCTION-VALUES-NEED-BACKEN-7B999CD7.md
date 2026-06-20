@@ -706,7 +706,7 @@ subagent review:
 
 production path は引き続き accepted private cache storage、clone-out owned value、fresh witness、GraphInput、Resource proof table、request-evidence proof table、backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key を合成しない。accepted source と matching witness は private fixture 専用のままであり、request identity だけから `PrivateCacheStoragePlace + CloneOutOwnedValueEdge` を作らない。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。adapter が future real-body input boundary を保持すること、stage0 は unavailable source helper だけへ委譲すること、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が unavailable source や resource place id を直接作らないことを固定している。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。adapter が future real-body input boundary を保持し、availability boundary を通ることを固定している。stage0 の producer 未接続だけは unavailable source helper へ委譲し、available input は単一 source record に潰さず owner を閉じて typed unsupported error にする。accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が unavailable source や resource place id を直接作らないことも固定している。
 
 この分離は今やっておくべき semantic boundary である。actual traversal body を接続した後に request collection と source generation が混ざっていると、探索範囲や owner cleanup の責務が不透明になり、cache に頼らないコンパイル高速化の計算量設計も曖昧になる。一方で、request-key bucket 化、event split index 化、proof lookup index 化、adapter 内 stage0 分岐の分割は後からできる最適化として残す。
 
@@ -789,3 +789,29 @@ subagent review:
 - production HIR-root adapter が real body input available のときだけ owner source table path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする分岐。
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body availability checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、production HIR-root adapter が real Resource IR body input を読む前段として、body input availability を typed `Result` と enum error に分ける boundary を追加した。
+
+`SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind` は module-private とし、`ProducerNotConnected` / `Missing` / `Unavailable` / `Unsupported` / `Malformed` を bool や unavailable source へ潰さない。`ProducerNotConnected` は stage0 の producer 未接続 fallback だけを表し、real body reader が返す `Unavailable` と混同しない。public stage0 用の bridge error には `ActualTraversalBodyInputMissing` / `ActualTraversalBodyInputUnavailable` / `ActualTraversalBodyInputUnsupported` / `ActualTraversalBodyInputMalformed` を追加し、doctest と source policy が enum / Result / match で拒否理由を検査できるようにした。
+
+`actual_traversal_body_adapter_input_availability_from_request_result` は production request path 上の availability 判定境界である。現段階では real body reader が未接続なので `ProducerNotConnected` を返す。`actual_traversal_body_adapter_sources_from_request_result` はこの判定を必ず通し、available の場合だけ split output から `walker_input` / `observations` owner を取り出して既存 input-owner adapter へ渡す。`ProducerNotConnected` だけは現 checkpoint の fail-closed fallback として unavailable source table へ写すが、`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は unavailable source に偽装せず typed bridge error として返す。
+
+public stage0 summary は従来の source count smoke に加えて、availability available / missing / unavailable / unsupported / malformed の代表結果を返す。private owner table、fresh witness、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。availability enum が module-private であること、producer 未接続 fallback と real unavailable を分けること、bridge error mapping が distinct であること、production request helper が availability 判定を通ること、available path だけが owner transfer を行うこと、proof / fresh witness / backend / effect / artifact を合成しないことを固定した。行数や doc comment 量を制限する検査は追加していない。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-availability-doctest.json`
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- actual body reader が available の場合に、real input owner を production path へ渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

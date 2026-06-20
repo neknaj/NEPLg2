@@ -2530,7 +2530,7 @@ subagent review:
 
 現 stage0 adapter は `ResourceIrTraversalUnavailable` source record だけを返す。`append_request_result` は request entry の再検査、proof key 生成、graph id 作成、adapter 呼び出し、source table push、error 時の source table owner cleanup に責務を限定した。これにより、production path は引き続き accepted private cache storage、clone-out owned value、fresh witness、GraphInput、Resource proof table、request-evidence proof table、backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key を合成しない。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。`actual_traversal_body_adapter_source_from_request_result` が future real-body input として module、request entry、root expr id、body module fingerprint、proof key、graph id を受け取ること、stage0 では unavailable source helper だけへ委譲すること、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないことを固定している。さらに `append_request_result` が `ResourceIrTraversalUnavailable` や resource place id を直接作らず adapter を経由することも検査している。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。`actual_traversal_body_adapter_source_from_request_result` が future real-body input として module、request entry、root expr id、body module fingerprint、proof key、graph id を受け取り、availability boundary を通ることを固定している。stage0 の producer 未接続だけは unavailable source helper へ委譲し、available input は単一 source record に潰さず owner を閉じて typed unsupported error にする。accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないことも固定している。さらに `append_request_result` が `ResourceIrTraversalUnavailable` や resource place id を直接作らず adapter を経由することも検査している。
 
 この boundary は今やっておかないと取り返しがつきにくい最適化・設計上の分離である。real traversal を接続する前に、request authority、proof key、owner cleanup、body traversal source generation の責務を分けておかないと、後続で accepted source 生成や fresh witness 生成が request collection に混ざり、cache に頼らない探索範囲削減の設計が不透明になる。一方で、request-key bucket 化、operation table index 化、proof lookup index 化、unavailable adapter の stage0 smoke 分割は後からできる最適化として残せる。
 
@@ -2617,6 +2617,36 @@ subagent review:
 - production HIR-root adapter が real body input available のときだけ `actual_traversal_body_adapter_sources_from_input_owners_result` 相当の path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
+## 2026-06-21 memo_call backend actual traversal body availability checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、production HIR-root adapter が actual Resource IR body input を読む前段として、body input availability を typed `Result` と enum error で表す境界を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer はまだ未接続である。今回固定したのは、producer 未接続 / available / missing / real unavailable / unsupported / malformed を同じ fallback に潰さず、available の場合だけ owner transfer path へ進める設計境界である。
+
+`SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind` は module-private enum とし、`ActualTraversalBodyInputProducerNotConnected`、`ActualTraversalBodyInputMissing`、`ActualTraversalBodyInputUnavailable`、`ActualTraversalBodyInputUnsupported`、`ActualTraversalBodyInputMalformed` を分ける。`ActualTraversalBodyInputProducerNotConnected` は stage0 の producer 未接続だけを表し、reader 接続後に返り得る real unavailable とは別である。public stage0 用には `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind` に対応する bridge error variant を追加した。これにより doctest と source policy は文字列や bool ではなく enum / Result / match で可用性の拒否理由を検査できる。
+
+`actual_traversal_body_adapter_input_availability_from_request_result` は production request path 上の availability 判定境界である。現段階では real body reader がないため `ProducerNotConnected` を返す。`actual_traversal_body_adapter_sources_from_request_result` はこの判定を必ず通し、`Ok ActualWalkerEventSplitOutput` の場合だけ `walker_input` と `observations` owner を取り出して既存 input-owner adapter へ渡す。`ProducerNotConnected` だけは現 checkpoint の stage0 fail-closed fallback として `ResourceIrTraversalUnavailable` source table へ明示的に写す。reader 接続後の `Missing` / real `Unavailable` / `Unsupported` / `Malformed` は unavailable source に偽装せず typed bridge error として返す。
+
+stage0 summary は、従来の unavailable fallback / accepted-shaped input / observation-shaped input / unsupported input / merged source / placeholder rejection に加えて、availability available / missing / real unavailable / unsupported / malformed の代表 path を公開する。summary は `Result` payload だけを公開し、private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は公開しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。availability error enum が module-private であること、producer 未接続 fallback と real unavailable を分けること、bridge error mapping が missing / unavailable / unsupported / malformed を collapse しないこと、production request helper が availability 判定を通ること、available path だけが split output owner を消費すること、availability helper が proof / fresh witness / backend / effect / artifact を合成しないことを固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は availability 判定自体が O(1)、available path は既存 body input adapter と同じ O(b + p + e + u + a)、unavailable fallback は source 1 件なので O(1) である。request-key bucket 化、graph/event index 化、proof lookup index 化、fixture 分割は後からできる最適化だが、available 以外を accepted source にしない fail-closed taxonomy は semantic boundary として維持する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-availability-doctest.json`
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- actual body reader が available の場合に、real input owner を production path へ渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
 
 ## 既存 issue との対応
 

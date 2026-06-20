@@ -76757,7 +76757,7 @@ MERGE_APPROVED
 
 - `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body adapter stage0 checkpoint を追加した。
 - `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
-- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、adapter が unavailable source helper だけを呼ぶこと、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が direct unavailable source を作らないことを source policy に固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、adapter が availability boundary を通ること、producer 未接続だけを unavailable source helper へ委譲すること、available input を単一 source record に潰さず owner cleanup 後に typed unsupported error にすること、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が direct unavailable source を作らないことを source policy に固定した。
 
 ### subagent review
 
@@ -76848,3 +76848,44 @@ MERGE_APPROVED
 - production HIR-root adapter が real body input available のときだけ `actual_traversal_body_adapter_sources_from_input_owners_result` 相当の path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body availability checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、production HIR-root adapter が real Resource IR body input を読む前段として、body input availability を typed `Result` と enum error で表す境界を追加した。
+- module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind` を追加し、stage0 の producer 未接続 fallback である `ProducerNotConnected` と、reader 接続後に返り得る `Missing` / real `Unavailable` / `Unsupported` / `Malformed` を別 variant として扱うようにした。
+- public stage0 用 bridge error には `ActualTraversalBodyInputMissing` / `ActualTraversalBodyInputUnavailable` / `ActualTraversalBodyInputUnsupported` / `ActualTraversalBodyInputMalformed` を追加した。
+- `actual_traversal_body_adapter_input_availability_from_request_result` は production request path 上で呼ばれ、現段階では real body reader 未接続を `ProducerNotConnected` として返す。
+- `actual_traversal_body_adapter_sources_from_request_result` は availability 判定を通し、available の場合だけ split output owner から `walker_input` / `observations` を取り出して既存 input-owner adapter へ渡す。現段階の `ProducerNotConnected` だけは fail-closed fallback として unavailable source table へ写すが、`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は unavailable source に偽装せず typed bridge error として返す。
+- public stage0 summary に availability available / missing / unavailable / unsupported / malformed の代表結果を追加した。private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body availability checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を request-local source table merge checkpoint / actual traversal body availability checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、availability error enum の module-private 境界、producer 未接続 fallback と real unavailable の分離、bridge error mapping、production request helper の availability 判定、available path の owner transfer、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、module-private availability enum と owner-free public bridge mapping、available path だけの owner transfer、partial owner cleanup、source policy による public exposure / accepted proof synthesis / line-comment limit 禁止の固定を推奨した。
+- Meitner の追加指摘として、stage0 の producer 未接続 fallback と real body reader が返す `Unavailable` を同じ variant として扱うと、reader 接続後に本当に unavailable な入力まで `ResourceIrTraversalUnavailable` source table へ落とす危険があると確認した。
+- 対応として `ActualTraversalBodyInputProducerNotConnected` を追加し、request helper ではこの variant だけを unavailable source table fallback に写し、`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は typed bridge error のまま fail-closed にした。doc / issue / source policy も同じ区別へ更新した。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required 指摘は無かった。optional improvement として、古い singular compatibility helper が future availability path の誤用点になり得るため、削除または availability 経由を source policy で固定するとよいと指摘された。
+- 対応として `actual_traversal_body_adapter_source_from_request_result` も availability boundary を通すようにした。`ProducerNotConnected` だけは singular fallback として unavailable source record を返し、available input が届いた場合は `walker_input` / `observations` owner を閉じて `ActualTraversalBodyInputUnsupported` typed error にする。`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は bridge error に写す。source policy もこの互換 helper が accepted real input を singular record path に入れないことを固定した。
+- Wegener follow-up review も `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。singular compatibility helper が availability boundary を必ず通ること、available path の owner cleanup、ProducerNotConnected だけの fallback、real unavailable などの bridge error 化、source policy の順序固定が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-availability-doctest-after-compat-helper.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- actual body reader が available の場合に、real input owner を production path へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
