@@ -2503,6 +2503,39 @@ Phase F5jt では、X11 observation reader が event packet と同じ 32 byte �
 - `git diff --check`
 - subagent implementation review で raw response type 先行分岐、typed server error / reply data、normal event mask 維持、no sequence correlation / no runner / no fallback が承認される。
 
+## Phase F5ju: Native Linux X11 request sequence correlation boundary
+
+Phase F5ju では、X11 observation reader が top-level CreateWindow / MapWindow request owner の accepted write progress から normal request sequence を追跡し、F5jt の server error packet を sequence によって request に結び付ける。X11 setup handshake は normal request sequence に含めない。sequence authority は reader が所有し、writer が受理した byte range が request boundary を越えた時だけ進める。
+
+実装:
+
+- `NativeWindowLinuxX11TopLevelWindowRequestSequencePlan` を追加し、window id、CreateWindow sequence、MapWindow sequence を保持する。
+- `NativeWindowLinuxX11ServerErrorCorrelation` を追加し、`Unmatched`、`TopLevelWindowCreate`、`TopLevelWindowMap` を enum として返す。
+- reader は first normal request sequence を `1` として保持し、accepted write range が CreateWindow byte length を越えた時だけ CreateWindow sequence を記録し、combined top-level byte length を越えた時だけ MapWindow sequence を記録する。
+- `ServerErrorReceived` は decoded packet と correlation を同時に返す。correlation は packet `sequence` だけで決め、major opcode は authority にしない。
+- source-policy は sequence plan、correlation enum、accepted range recording、`ServerErrorReceived` の correlation payload を検査する。
+
+非目標:
+
+- server reply body drain / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化、Wayland concrete decoding、fallback、synthetic readiness は作らない。
+- opcode だけで request を推測しない。bad value や major opcode は decoded evidence として残すだけで、correlation authority にしない。
+
+完了条件:
+
+- setup handshake だけでは `next_x11_request_sequence` が進まないことを focused test で検査する。
+- CreateWindow 境界より手前の partial write では top-level sequence が未記録であることを検査する。
+- CreateWindow 境界だけを越えた partial write では CreateWindow sequence だけが記録されることを検査する。
+- CreateWindow / MapWindow の両方を越えた accepted write では sequence が順に記録されることを検査する。
+- write failure / would-block before acceptance では sequence が進まないことを検査する。
+- major opcode と異なる request sequence でも packet sequence に従って correlation することを検査する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で accepted range sequence tracking、sequence-only correlation、no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

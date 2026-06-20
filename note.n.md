@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI native F5ju Linux X11 request sequence correlation boundary
+
+## 目的
+
+- X11 setup handshake を normal request sequence に含めず、top-level CreateWindow / MapWindow の accepted write progress だけから sequence を確定する。
+- server error packet の sequence を、reader が保持する CreateWindow / MapWindow sequence と照合する。
+- opcode、bad value、minor opcode は decoded evidence として保持し、correlation authority にはしない。
+- server reply body drain / reply correlation、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、correlation は opcode ではなく sequence-based にすること、request byte boundary を越えた accepted write だけで sequence を進めること、setup handshake は sequence に含めないことだった。
+- 実装方針はこの指摘に従い、CreateWindow 境界前、CreateWindow 境界、combined request 境界、write failure before acceptance を focused test で固定する。
+- implementation review は `REVIEW_APPROVED` だった。
+- setup が normal sequence を進めないこと、accepted write progress の境界でだけ CreateWindow / MapWindow sequence が確定すること、write failure before acceptance が sequence を進めないこと、server error correlation が opcode ではなく sequence に基づくことが確認された。
+
+## 実装
+
+- `NativeWindowLinuxX11TopLevelWindowRequestSequencePlan` と `NativeWindowLinuxX11ServerErrorCorrelation` を追加した。
+- reader は first normal request sequence を保持し、top-level request bytes の accepted range が request boundary を越えた時だけ CreateWindow / MapWindow sequence を記録する。
+- `ServerErrorReceived` は decoded server error packet と sequence-based correlation enum を返す。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5ju contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 448 件通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- server reply body drain / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5jt Linux X11 server error-reply header decode boundary
 
 ## 目的

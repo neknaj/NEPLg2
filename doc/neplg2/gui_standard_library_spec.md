@@ -1245,6 +1245,16 @@ F5jt では、X11 event stream から読み取った 32 byte packet の raw resp
 
 F5jt は server error / reply header の typed decode boundary だけを担当する。server sequence tracking、request / reply correlation、reply body drain、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。server error を top-level request write failure と推測せず、later sequence correlation phase が owner-bearing recovery を扱う。
 
+## F5ju Native Linux X11 request sequence correlation boundary
+
+F5ju では、F5jp/F5js が reader に保持する top-level `CreateWindow` / `MapWindow` request owner について、X11 normal request sequence を reader state として追跡する。X11 setup handshake は normal request ではないため sequence を進めない。最初の normal request sequence は `1` とし、future request に備えて 16 bit wrapping increment を使う。zero は wrap 後に到達しうる sequence として扱い、invalid sentinel にはしない。
+
+`NativeWindowLinuxX11TopLevelWindowRequestSequencePlan` は window id、CreateWindow sequence、MapWindow sequence を保持する。CreateWindow sequence は accepted byte range が CreateWindow request byte length の終端を越えた時だけ記録する。MapWindow sequence は accepted byte range が combined top-level request byte length の終端を越えた時だけ記録する。would-block / hard failure / zero write / overflow が byte acceptance より前に返った場合は sequence を進めない。partial write が CreateWindow 境界より手前で止まった場合は何も記録せず、CreateWindow 境界だけを越えた場合は CreateWindow だけを記録する。
+
+`NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived` は decoded `NativeWindowLinuxX11ServerErrorPacket` と `NativeWindowLinuxX11ServerErrorCorrelation` を返す。correlation は `Unmatched`、`TopLevelWindowCreate { window_id }`、`TopLevelWindowMap { window_id }` の enum とし、packet の `sequence` だけを authority にする。major opcode / minor opcode / bad value は decoded evidence として保持するが、request correlation の authority にはしない。
+
+F5ju は server error correlation boundary だけを担当する。server reply body drain / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
