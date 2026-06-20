@@ -1045,6 +1045,7 @@ pub enum NativeWindowEventPumpEventKind {
     WindowResized,
     PointerMotion,
     PointerButton,
+    Keyboard,
     WindowMapped,
     RedrawRequested,
 }
@@ -1063,8 +1064,21 @@ pub enum NativeWindowPointerSample {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowKeyboardEventKind {
+    Pressed,
+    Released,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowKeyboardEvent {
+    kind: NativeWindowKeyboardEventKind,
+    raw_keycode: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowEventPumpError {
     InvalidPointerSample,
+    InvalidKeyboardKeycode { raw_keycode: u8 },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1083,6 +1097,7 @@ pub struct NativeWindowEventPumpSnapshot {
     pub mouse_down: bool,
     pub mouse_left_transition: NativeWindowPointerButtonTransition,
     pub pointer_sample: NativeWindowPointerSample,
+    pub keyboard_event: Option<NativeWindowKeyboardEvent>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1121,6 +1136,7 @@ pub enum NativeWindowBackendLoopPointerAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowBackendLoopDrawableStep {
     pub event_kind: NativeWindowEventPumpEventKind,
+    pub keyboard_event: Option<NativeWindowKeyboardEvent>,
     pub window_size: NativeWindowSize,
     pub size_changed: bool,
     pub resize_redraw: Option<NativeWindowBackendLoopPresentation>,
@@ -1135,6 +1151,7 @@ pub enum NativeWindowBackendLoopStepOutcome {
     },
     Unavailable {
         event_kind: NativeWindowEventPumpEventKind,
+        keyboard_event: Option<NativeWindowKeyboardEvent>,
         window_size: NativeWindowSize,
         size_changed: bool,
     },
@@ -1154,11 +1171,13 @@ pub enum NativeWindowHostAction {
     },
     PumpEventsOnly {
         event_kind: NativeWindowEventPumpEventKind,
+        keyboard_event: Option<NativeWindowKeyboardEvent>,
         window_size: NativeWindowSize,
         size_changed: bool,
     },
     PresentFrame {
         event_kind: NativeWindowEventPumpEventKind,
+        keyboard_event: Option<NativeWindowKeyboardEvent>,
         presentation: NativeWindowBackendLoopPresentation,
         window_size: NativeWindowSize,
         size_changed: bool,
@@ -1541,6 +1560,7 @@ pub enum NativeWindowLinuxWindowEventSourceEventPumpRunLoopHostError<ProviderErr
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NativeWindowLinuxWindowEventSourceObservation {
     event_kind: NativeWindowEventPumpEventKind,
+    keyboard_event: Option<NativeWindowKeyboardEvent>,
     os_close_requested: bool,
     exit_shortcut_requested: bool,
     current_size: NativeWindowSize,
@@ -7185,8 +7205,29 @@ impl NativeWindowLinuxWindowEventSourceObservation {
         mouse_down: bool,
         pointer_raw: Option<(f32, f32)>,
     ) -> Self {
+        Self::new_with_event_kind_and_keyboard_event(
+            event_kind,
+            None,
+            os_close_requested,
+            exit_shortcut_requested,
+            current_size,
+            mouse_down,
+            pointer_raw,
+        )
+    }
+
+    pub fn new_with_event_kind_and_keyboard_event(
+        event_kind: NativeWindowEventPumpEventKind,
+        keyboard_event: Option<NativeWindowKeyboardEvent>,
+        os_close_requested: bool,
+        exit_shortcut_requested: bool,
+        current_size: NativeWindowSize,
+        mouse_down: bool,
+        pointer_raw: Option<(f32, f32)>,
+    ) -> Self {
         Self {
             event_kind,
+            keyboard_event,
             os_close_requested,
             exit_shortcut_requested,
             current_size,
@@ -7197,6 +7238,10 @@ impl NativeWindowLinuxWindowEventSourceObservation {
 
     pub fn event_kind(self) -> NativeWindowEventPumpEventKind {
         self.event_kind
+    }
+
+    pub fn keyboard_event(self) -> Option<NativeWindowKeyboardEvent> {
+        self.keyboard_event
     }
 
     pub fn os_close_requested(self) -> bool {
@@ -7235,15 +7280,18 @@ pub fn native_window_linux_window_event_source_snapshot_from_observation(
             observation.mouse_down(),
             observation.pointer_raw(),
         ),
-        event_kind => build_native_window_event_pump_snapshot_from_raw_with_event_kind(
-            input,
-            observation.os_close_requested(),
-            observation.exit_shortcut_requested(),
-            observation.current_size(),
-            observation.mouse_down(),
-            observation.pointer_raw(),
-            event_kind,
-        ),
+        event_kind => {
+            build_native_window_event_pump_snapshot_from_raw_with_event_kind_and_keyboard_event(
+                input,
+                observation.os_close_requested(),
+                observation.exit_shortcut_requested(),
+                observation.current_size(),
+                observation.mouse_down(),
+                observation.pointer_raw(),
+                event_kind,
+                observation.keyboard_event(),
+            )
+        }
     };
     result.map_err(|error| {
         NativeWindowLinuxWindowEventSourceObservationSnapshotError::SnapshotConstructionFailed {
@@ -7388,6 +7436,8 @@ pub const NATIVE_WINDOW_LINUX_X11_TOP_LEVEL_WINDOW_REQUEST_BYTE_LEN: usize =
 pub const NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE: u16 = 1;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_BACKGROUND_PIXEL: u32 = 0x0000_0002;
 pub const NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK: u32 = 0x0000_0800;
+pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_PRESS: u32 = 0x0000_0001;
+pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_RELEASE: u32 = 0x0000_0002;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS: u32 = 0x0000_0004;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE: u32 = 0x0000_0008;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION: u32 = 0x0000_0040;
@@ -7411,6 +7461,9 @@ const NATIVE_WINDOW_LINUX_X11_INTERN_ATOM_REPLY_ATOM_ID_OFFSET: usize = 8;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_AUTHENTICATE: u8 = 2;
+const NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET: usize = 1;
+const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS: u8 = 2;
+const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE: u8 = 3;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS: u8 = 4;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE: u8 = 5;
 const NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY: u8 = 6;
@@ -7667,6 +7720,9 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
     ClientMessageProtocolAtomMismatch {
         protocol_atom_raw: u32,
         expected_wm_delete_window_atom: NativeWindowLinuxX11AtomId,
+    },
+    KeyboardKeycodeInvalid {
+        raw_keycode: u8,
     },
     EventTypeUnsupported {
         response_type: u8,
@@ -8743,7 +8799,9 @@ impl NativeWindowLinuxX11TopLevelWindowCreateRequest {
 }
 
 pub fn native_window_linux_x11_top_level_window_default_event_mask() -> u32 {
-    NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
+    NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_PRESS
+        | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_RELEASE
+        | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
         | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
         | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
         | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
@@ -10597,6 +10655,19 @@ fn native_window_linux_x11_client_message_close_observation(
     )
 }
 
+fn native_window_linux_x11_keyboard_event(
+    kind: NativeWindowKeyboardEventKind,
+    packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+) -> Result<NativeWindowKeyboardEvent, NativeWindowLinuxX11EventSourceObservationError> {
+    let raw_keycode = packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET];
+    if raw_keycode == 0 {
+        return Err(
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid { raw_keycode },
+        );
+    }
+    Ok(NativeWindowKeyboardEvent { kind, raw_keycode })
+}
+
 fn native_window_linux_x11_event_packet_to_observation(
     input: NativeWindowEventPumpInput,
     packet: &[u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
@@ -10637,6 +10708,40 @@ fn native_window_linux_x11_event_packet_to_observation(
         _ => {}
     }
     match native_window_linux_x11_event_response_type(packet) {
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS => {
+            let keyboard_event = native_window_linux_x11_keyboard_event(
+                NativeWindowKeyboardEventKind::Pressed,
+                packet,
+            )?;
+            Ok(
+                NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind_and_keyboard_event(
+                    NativeWindowEventPumpEventKind::Keyboard,
+                    Some(keyboard_event),
+                    false,
+                    false,
+                    input.previous_size,
+                    input.previous_mouse_down,
+                    None,
+                ),
+            )
+        }
+        NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE => {
+            let keyboard_event = native_window_linux_x11_keyboard_event(
+                NativeWindowKeyboardEventKind::Released,
+                packet,
+            )?;
+            Ok(
+                NativeWindowLinuxWindowEventSourceObservation::new_with_event_kind_and_keyboard_event(
+                    NativeWindowEventPumpEventKind::Keyboard,
+                    Some(keyboard_event),
+                    false,
+                    false,
+                    input.previous_size,
+                    input.previous_mouse_down,
+                    None,
+                ),
+            )
+        }
         NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY => {
             let width = usize::from(native_window_linux_x11_u16_le(packet, 20));
             let height = usize::from(native_window_linux_x11_u16_le(packet, 22));
@@ -14758,6 +14863,26 @@ pub fn native_window_pointer_sample_from_raw(
     Ok(NativeWindowPointerSample::Available { x, y })
 }
 
+impl NativeWindowKeyboardEvent {
+    pub fn new(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+    ) -> Result<Self, NativeWindowEventPumpError> {
+        if raw_keycode == 0 {
+            return Err(NativeWindowEventPumpError::InvalidKeyboardKeycode { raw_keycode });
+        }
+        Ok(Self { kind, raw_keycode })
+    }
+
+    pub fn kind(self) -> NativeWindowKeyboardEventKind {
+        self.kind
+    }
+
+    pub fn raw_keycode(self) -> u8 {
+        self.raw_keycode
+    }
+}
+
 fn native_window_event_pump_infer_event_kind(
     close_state: NativeWindowEventPumpCloseState,
     size_changed: bool,
@@ -14824,6 +14949,28 @@ pub fn build_native_window_event_pump_snapshot_with_event_kind(
     pointer_sample: NativeWindowPointerSample,
     event_kind: NativeWindowEventPumpEventKind,
 ) -> NativeWindowEventPumpSnapshot {
+    build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
+        input,
+        os_close_requested,
+        exit_shortcut_requested,
+        current_size,
+        mouse_down,
+        pointer_sample,
+        event_kind,
+        None,
+    )
+}
+
+pub fn build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_sample: NativeWindowPointerSample,
+    event_kind: NativeWindowEventPumpEventKind,
+    keyboard_event: Option<NativeWindowKeyboardEvent>,
+) -> NativeWindowEventPumpSnapshot {
     let close_state = if os_close_requested {
         NativeWindowEventPumpCloseState::OsCloseRequested
     } else if exit_shortcut_requested {
@@ -14846,6 +14993,7 @@ pub fn build_native_window_event_pump_snapshot_with_event_kind(
         mouse_down,
         mouse_left_transition,
         pointer_sample,
+        keyboard_event,
     }
 }
 
@@ -14880,19 +15028,44 @@ pub fn build_native_window_event_pump_snapshot_from_raw_with_event_kind(
     pointer_raw: Option<(f32, f32)>,
     event_kind: NativeWindowEventPumpEventKind,
 ) -> Result<NativeWindowEventPumpSnapshot, NativeWindowEventPumpError> {
-    let pointer_sample = match pointer_raw {
-        Some((x, y)) => native_window_pointer_sample_from_raw(x, y)?,
-        None => NativeWindowPointerSample::Unavailable,
-    };
-    Ok(build_native_window_event_pump_snapshot_with_event_kind(
+    build_native_window_event_pump_snapshot_from_raw_with_event_kind_and_keyboard_event(
         input,
         os_close_requested,
         exit_shortcut_requested,
         current_size,
         mouse_down,
-        pointer_sample,
+        pointer_raw,
         event_kind,
-    ))
+        None,
+    )
+}
+
+pub fn build_native_window_event_pump_snapshot_from_raw_with_event_kind_and_keyboard_event(
+    input: NativeWindowEventPumpInput,
+    os_close_requested: bool,
+    exit_shortcut_requested: bool,
+    current_size: NativeWindowSize,
+    mouse_down: bool,
+    pointer_raw: Option<(f32, f32)>,
+    event_kind: NativeWindowEventPumpEventKind,
+    keyboard_event: Option<NativeWindowKeyboardEvent>,
+) -> Result<NativeWindowEventPumpSnapshot, NativeWindowEventPumpError> {
+    let pointer_sample = match pointer_raw {
+        Some((x, y)) => native_window_pointer_sample_from_raw(x, y)?,
+        None => NativeWindowPointerSample::Unavailable,
+    };
+    Ok(
+        build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
+            input,
+            os_close_requested,
+            exit_shortcut_requested,
+            current_size,
+            mouse_down,
+            pointer_sample,
+            event_kind,
+            keyboard_event,
+        ),
+    )
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
@@ -15151,6 +15324,7 @@ impl NativeWindowBackendLoop {
             self.state.previous_mouse_down = snapshot.mouse_down;
             return Ok(NativeWindowBackendLoopStepOutcome::Unavailable {
                 event_kind: snapshot.event_kind,
+                keyboard_event: snapshot.keyboard_event,
                 window_size: snapshot.window_size,
                 size_changed: snapshot.size_changed,
             });
@@ -15227,6 +15401,7 @@ impl NativeWindowBackendLoop {
         Ok(NativeWindowBackendLoopStepOutcome::Drawable(
             NativeWindowBackendLoopDrawableStep {
                 event_kind: snapshot.event_kind,
+                keyboard_event: snapshot.keyboard_event,
                 window_size: snapshot.window_size,
                 size_changed: snapshot.size_changed,
                 resize_redraw,
@@ -15353,16 +15528,19 @@ fn native_window_host_action_from_backend_loop_outcome(
         }
         NativeWindowBackendLoopStepOutcome::Unavailable {
             event_kind,
+            keyboard_event,
             window_size,
             size_changed,
         } => Ok(NativeWindowHostAction::PumpEventsOnly {
             event_kind,
+            keyboard_event,
             window_size,
             size_changed,
         }),
         NativeWindowBackendLoopStepOutcome::Drawable(drawable) => {
             Ok(NativeWindowHostAction::PresentFrame {
                 event_kind: drawable.event_kind,
+                keyboard_event: drawable.keyboard_event,
                 presentation: drawable.final_frame,
                 window_size: drawable.window_size,
                 size_changed: drawable.size_changed,
@@ -16476,6 +16654,7 @@ where
         }
         NativeWindowHostAction::PumpEventsOnly {
             event_kind: _,
+            keyboard_event: _,
             window_size,
             size_changed,
         } => {
@@ -16493,6 +16672,7 @@ where
         }
         NativeWindowHostAction::PresentFrame {
             event_kind: _,
+            keyboard_event: _,
             presentation,
             window_size,
             size_changed,
@@ -20644,6 +20824,27 @@ mod tests {
         packet
     }
 
+    fn scripted_x11_key_event(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+        send_event: bool,
+    ) -> Vec<u8> {
+        let event_type = match kind {
+            NativeWindowKeyboardEventKind::Pressed => NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS,
+            NativeWindowKeyboardEventKind::Released => {
+                NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE
+            }
+        };
+        let mut packet = vec![0_u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN];
+        packet[0] = if send_event {
+            event_type | 0x80
+        } else {
+            event_type
+        };
+        packet[NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET] = raw_keycode;
+        packet
+    }
+
     fn scripted_x11_send_event_motion_notify_event(x: i16, y: i16) -> Vec<u8> {
         let mut packet = scripted_x11_motion_notify_event(x, y);
         packet[0] |= 0x80;
@@ -22757,7 +22958,7 @@ mod tests {
             request.as_bytes(),
             &[
                 1, 0, 10, 0, 1, 0, 32, 0, 35, 1, 0, 0, 10, 0, 20, 0, 128, 2, 224, 1, 0, 0, 1, 0, 0,
-                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 128, 2, 0,
+                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 79, 128, 2, 0,
             ]
         );
     }
@@ -22832,13 +23033,15 @@ mod tests {
             request.as_bytes(),
             &[
                 1, 0, 10, 0, 1, 0, 32, 0, 35, 1, 0, 0, 10, 0, 20, 0, 128, 2, 224, 1, 0, 0, 1, 0, 0,
-                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 128, 2, 0, 8, 0, 2, 0, 1, 0, 32, 0,
+                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 79, 128, 2, 0, 8, 0, 2, 0, 1, 0, 32, 0,
             ]
         );
         assert_eq!(request.as_bytes(), recomposed_bytes.as_slice());
         assert_eq!(
             input.event_mask(),
-            NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
+            NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_PRESS
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_RELEASE
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
@@ -23018,7 +23221,9 @@ mod tests {
         assert_eq!(input.window_resource_serial(), 1);
         assert_eq!(
             input.event_mask(),
-            NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
+            NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_PRESS
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_KEY_RELEASE
+                | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION
                 | NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE
@@ -25404,6 +25609,80 @@ mod tests {
         assert_eq!(
             native_window_linux_x11_event_response_type(&expose),
             NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_decode_preserves_raw_key_evidence() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: true,
+        };
+        let press: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 38, true)
+                .try_into()
+                .unwrap();
+        let release: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Released, 38, false)
+                .try_into()
+                .unwrap();
+
+        let press_observation =
+            native_window_linux_x11_event_packet_to_observation(input, &press, None, None, None)
+                .unwrap();
+        let release_observation =
+            native_window_linux_x11_event_packet_to_observation(input, &release, None, None, None)
+                .unwrap();
+
+        assert_eq!(
+            press_observation.event_kind(),
+            NativeWindowEventPumpEventKind::Keyboard
+        );
+        assert_eq!(
+            press_observation.keyboard_event(),
+            Some(NativeWindowKeyboardEvent {
+                kind: NativeWindowKeyboardEventKind::Pressed,
+                raw_keycode: 38,
+            })
+        );
+        assert_eq!(press_observation.current_size(), input.previous_size);
+        assert!(press_observation.mouse_down());
+        assert_eq!(press_observation.pointer_raw(), None);
+        assert_eq!(native_window_linux_x11_response_type_raw(&press), 0x82);
+        assert_eq!(
+            native_window_linux_x11_event_response_type(&press),
+            NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS
+        );
+        assert_eq!(
+            release_observation.event_kind(),
+            NativeWindowEventPumpEventKind::Keyboard
+        );
+        assert_eq!(
+            release_observation.keyboard_event(),
+            Some(NativeWindowKeyboardEvent {
+                kind: NativeWindowKeyboardEventKind::Released,
+                raw_keycode: 38,
+            })
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_decode_rejects_zero_keycode() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(640, 360),
+            previous_mouse_down: false,
+        };
+        let packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN] =
+            scripted_x11_key_event(NativeWindowKeyboardEventKind::Pressed, 0, false)
+                .try_into()
+                .unwrap();
+
+        assert_eq!(
+            native_window_linux_x11_event_packet_to_observation(input, &packet, None, None, None)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid {
+                raw_keycode: 0,
+            }
         );
     }
 
@@ -37232,6 +37511,7 @@ mod tests {
             loop_state.step_host_action(snapshot).unwrap(),
             NativeWindowHostAction::PumpEventsOnly {
                 event_kind: NativeWindowEventPumpEventKind::WindowResized,
+                keyboard_event: None,
                 window_size: NativeWindowSize::new(0, 284),
                 size_changed: true,
             }
@@ -37257,6 +37537,7 @@ mod tests {
             loop_state.step_host_action(snapshot).unwrap(),
             NativeWindowHostAction::PresentFrame {
                 event_kind: NativeWindowEventPumpEventKind::WindowResized,
+                keyboard_event: None,
                 presentation: NativeWindowBackendLoopPresentation {
                     frame_id: 2,
                     width: 660,
@@ -37269,6 +37550,62 @@ mod tests {
         let present_frame = loop_state.current_present_frame_for_window().unwrap();
         assert_eq!(present_frame.width(), 660);
         assert_eq!(present_frame.height(), 426);
+    }
+
+    #[test]
+    fn native_window_backend_loop_host_action_preserves_keyboard_evidence() {
+        let mut unavailable_loop = native_window_backend_loop_counter();
+        let keyboard_event =
+            NativeWindowKeyboardEvent::new(NativeWindowKeyboardEventKind::Pressed, 38).unwrap();
+        let unavailable_snapshot =
+            build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
+                unavailable_loop.event_pump_input(),
+                false,
+                false,
+                NativeWindowSize::new(0, 284),
+                false,
+                NativeWindowPointerSample::Unavailable,
+                NativeWindowEventPumpEventKind::Keyboard,
+                Some(keyboard_event),
+            );
+        assert_eq!(
+            unavailable_loop
+                .step_host_action(unavailable_snapshot)
+                .unwrap(),
+            NativeWindowHostAction::PumpEventsOnly {
+                event_kind: NativeWindowEventPumpEventKind::Keyboard,
+                keyboard_event: Some(keyboard_event),
+                window_size: NativeWindowSize::new(0, 284),
+                size_changed: true,
+            }
+        );
+
+        let mut drawable_loop = native_window_backend_loop_counter();
+        let drawable_snapshot =
+            build_native_window_event_pump_snapshot_with_event_kind_and_keyboard_event(
+                drawable_loop.event_pump_input(),
+                false,
+                false,
+                NativeWindowSize::new(440, 284),
+                false,
+                NativeWindowPointerSample::Unavailable,
+                NativeWindowEventPumpEventKind::Keyboard,
+                Some(keyboard_event),
+            );
+        assert_eq!(
+            drawable_loop.step_host_action(drawable_snapshot).unwrap(),
+            NativeWindowHostAction::PresentFrame {
+                event_kind: NativeWindowEventPumpEventKind::Keyboard,
+                keyboard_event: Some(keyboard_event),
+                presentation: NativeWindowBackendLoopPresentation {
+                    frame_id: 1,
+                    width: 440,
+                    height: 284,
+                },
+                window_size: NativeWindowSize::new(440, 284),
+                size_changed: false,
+            }
+        );
     }
 
     #[test]
@@ -37292,6 +37629,7 @@ mod tests {
             loop_state.step(snapshot).unwrap(),
             NativeWindowBackendLoopStepOutcome::Unavailable {
                 event_kind: NativeWindowEventPumpEventKind::WindowResized,
+                keyboard_event: None,
                 window_size: NativeWindowSize::new(0, 284),
                 size_changed: true,
             }

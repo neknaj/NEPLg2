@@ -76583,3 +76583,34 @@ MERGE_APPROVED
 - actual traversal 由来の fresh witness table を生成し、bundle fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+
+## 2026-06-21 Agent2 GUI native F5kg Linux X11 raw keyboard event evidence boundary
+
+- F5kg では、X11 default event mask に `KeyPressMask` と `KeyReleaseMask` を追加し、`KeyPress` / `KeyRelease` を raw keyboard event evidence として扱う。
+- subagent 計画レビューは Nietzsche / Arendt ともに `PLAN_APPROVED`。必須条件は、legacy builder は keyboard を推論せず `None` を返すこと、X11 explicit decode だけが `Some NativeWindowKeyboardEvent` を作ること、unavailable / drawable の両方で snapshot から host action まで evidence を運ぶこと、wait decision を変更しないことだった。
+- 指摘条件に従い、`NativeWindowKeyboardEventKind` と `NativeWindowKeyboardEvent` を追加し、raw keycode `0` は typed X11 observation error として拒否する方針にした。
+- この checkpoint は IME / text input、keysym / layout / modifier mapping、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness を扱わない。
+- initial pass with existing warnings: `cargo check -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_create_window_request -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_backed_top_level_window_create_request_uses_allocated_window_and_root_parent -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Nietzsche / Arendt の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- レビュー待ちの間に、X11 keyboard helper から不要な generic error mapping と unreachable 分岐を取り除き、`raw_keycode == 0` だけを `KeyboardKeycodeInvalid` にする直接検証へ簡潔化した。
+- after simplification pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- after simplification pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- after simplification pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- after simplification pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- after simplification pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- after simplification pass with LF/CRLF warnings only: `git diff --check`
