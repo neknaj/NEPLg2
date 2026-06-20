@@ -2352,6 +2352,37 @@ Phase F5jo では、X11 local Unix connection 上で使う top-level window の 
 - `git diff --check`
 - subagent implementation review で pure request-owner boundary、default mask scope、exact request length、no raw IO / no runner / no fallback が承認される。
 
+## Phase F5jp: Native Linux X11 top-level window request partial-write boundary
+
+Phase F5jp では、F5jo の CreateWindow / MapWindow request owner を、既存の `NativeWindowLinuxX11EventSourceObservationReader` が setup completion 後に partial write できる境界へ接続する。これは reader-owned request write boundary であり、resource id allocation、root window discovery、server error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Linux runner / CLI dispatch、support gate `Ok` 化はまだ行わない。
+
+実装:
+
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` を追加し、`NotConfigured`、`RequestPending`、`Ready`、`Failed` を enum で表す。
+- `NativeWindowLinuxX11EventSourceObservationReader` は optional `NativeWindowLinuxX11TopLevelWindowCreateRequest`、request write state、written byte count を private field として保持する。
+- 既存 constructor は `NotConfigured` のままにし、既存 setup/event observation behavior を維持する。
+- 新 constructor は setup request と top-level request owner を同時に受け取り、setup ready 後、event read 前に CreateWindow / MapWindow request を `write_x11_bytes_raw` へ渡す。
+- partial write は written byte count を保持し、would-block は retryable error として返す。
+- hard failure、zero write、overflow は typed error にし、state を `Failed` にする。以後の poll は `TopLevelWindowRequestPreviouslyFailed` として fail-closed にする。
+- provider wrapper に同じ明示 constructor / helper を追加する。
+- Rust focused tests は setup write -> top-level request write -> event read の順序、partial write resume、hard failure 後の failed state、既存 no-request constructor の挙動を検査する。
+- source-policy は F5jp が Xauthority lookup、resource allocation、runner dispatch、WM_DELETE_WINDOW、keyboard / IME、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- resource id allocator、setup response からの root window discovery、X11 server error / reply decode、window manager protocol、keyboard / IME、Linux runner / CLI dispatch は含めない。
+- StructureNotify / Expose subscription は行わない。MapNotify / ConfigureNotify / Expose decode を追加する phase まで、それらを silent no-op にしない。
+- support gate `Ok` 化、fallback、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で setup-ready 後 request write boundary、partial write recovery、no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

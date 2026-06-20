@@ -1191,6 +1191,16 @@ CreateWindow request は opcode `1`、depth `CopyFromParent`、class `InputOutpu
 
 F5jo は request owner boundary だけを担当する。actual raw fd write / read、setup observation reader integration、resource id allocation、server reply / error handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
 
+## F5jp Native Linux X11 top-level window request partial-write boundary
+
+F5jp では、F5jo の `NativeWindowLinuxX11TopLevelWindowCreateRequest` を `NativeWindowLinuxX11EventSourceObservationReader` に optional owner として保持し、X11 setup が `Ready` になった後、event packet read より前に CreateWindow / MapWindow request bytes を `write_x11_bytes_raw` へ渡す境界を追加する。
+
+request write state は `NativeWindowLinuxX11TopLevelWindowRequestWriteState` とし、`NotConfigured`、`RequestPending`、`Ready`、`Failed` を持つ。既存 constructor は `NotConfigured` であり、window request を書かずに従来通り setup / event observation を行う。top-level request 付き constructor は setup request と request owner を同時に受け取り、`RequestPending` から開始する。
+
+partial write は byte count を reader が保持し、would-block は `TopLevelWindowRequestWriteWouldBlock` として retryable error にする。hard write failure、zero write、overflow は typed error にし、state を `Failed` へ遷移させる。failed state で再 poll された場合は `TopLevelWindowRequestPreviouslyFailed` を返し、request write を silent retry や fallback success にしない。
+
+F5jp は request write boundary だけを担当する。resource id allocation、setup response からの root window discovery、X11 server error / reply handling、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化は扱わない。fallback、silent no-op、synthetic readiness はこの境界で使わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
