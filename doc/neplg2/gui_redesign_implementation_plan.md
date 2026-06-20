@@ -2063,6 +2063,36 @@ Phase F5jf では、Xauthority bytes を読む前段として、caller supplied 
 - `git diff --check`
 - subagent implementation review で pure path plan、explicit source enum、no env/fs/VFS / no fallback / no runner dispatch が承認される。
 
+## Phase F5jg: Native Linux Xauthority file bytes acquisition boundary
+
+Phase F5jg では、F5jf の `NativeWindowLinuxX11XauthorityPathPlan` から Xauthority file bytes を取得する境界を追加する。ここでは実 filesystem / VFS adapter を実装せず、trait-injected reader へ exact plan path を渡し、返された bytes を size / nonempty validation 済み owner に閉じ込める。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityFileBytesReader` は `read_xauthority_file_bytes path` だけを持つ injected reader trait とする。
+- `NativeWindowLinuxX11XauthorityFileBytes` は private `Vec u8` owner とし、read-only `as_bytes` / `len` だけを公開する。success authority として raw `Vec u8` は返さない。
+- `NativeWindowLinuxX11XauthorityFileBytesReadError` は `EmptyFile`、`FileTooLarge`、`ReadFailed` を分け、source と path を保持する。
+- public helper は `plan.path` をそのまま reader に渡し、source reinterpretation、alternate path synthesis、home fallback、no-auth fallback を行わない。
+- nonempty / max byte length を検査してから owner を返す。max byte length は bounded resource policy として定数を持ち、test 用には explicit limit helper も用意する。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jg contract へ更新する。
+
+非目標:
+
+- `XAUTHORITY` / `HOME` の env acquisition、`std::env`、`std::fs`、`File`、`OpenOptions`、`read_to*`、metadata / exists / canonicalize、file locking、VFS adapter 実装は扱わない。
+- Xauthority record parse / credential selection / setup request integration は helper 内に入れない。test で owner bytes が F5jd parser 入力として使えることを確認するに留める。
+- Hostname / `gethostname`、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland decoding は扱わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で exact plan path use、typed nonempty / size-checked byte owner、no env/fs/VFS / no credential/setup coupling / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

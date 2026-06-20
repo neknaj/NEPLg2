@@ -7289,6 +7289,7 @@ pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_LOCAL: u16 = 256;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FAMILY_WILD: u16 = 65535;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_DISPLAY_NUMBER_MAX_BYTE_LEN: usize = 10;
 pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_HOME_DEFAULT_FILE_NAME: &str = ".Xauthority";
+pub const NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN: usize = 1024 * 1024;
 
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_FAILED: u8 = 0;
 const NATIVE_WINDOW_LINUX_X11_SETUP_STATUS_SUCCESS: u8 = 1;
@@ -7478,6 +7479,36 @@ pub enum NativeWindowLinuxX11XauthorityPathPlanError {
     PathLengthOverflow {
         base_byte_len: usize,
         suffix_byte_len: usize,
+    },
+}
+
+pub trait NativeWindowLinuxX11XauthorityFileBytesReader {
+    type Error;
+
+    fn read_xauthority_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityFileBytes {
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityFileBytesReadError<ReaderError> {
+    EmptyFile {
+        source: NativeWindowLinuxX11XauthorityPathSource,
+        path: String,
+    },
+    FileTooLarge {
+        source: NativeWindowLinuxX11XauthorityPathSource,
+        path: String,
+        byte_len: usize,
+        max_byte_len: usize,
+    },
+    ReadFailed {
+        source: NativeWindowLinuxX11XauthorityPathSource,
+        path: String,
+        error: ReaderError,
     },
 }
 
@@ -7708,6 +7739,20 @@ impl NativeWindowLinuxX11XauthorityPathPlan {
     }
 }
 
+impl NativeWindowLinuxX11XauthorityFileBytes {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
 fn native_window_linux_x11_xauthority_path_contains_nul(path: &str) -> bool {
     path.as_bytes().iter().any(|byte| *byte == 0)
 }
@@ -7770,6 +7815,64 @@ pub fn native_window_linux_x11_xauthority_path_plan(
         return native_window_linux_x11_xauthority_plan_home_default_path(home_directory_path);
     }
     Err(NativeWindowLinuxX11XauthorityPathPlanError::MissingAuthorityLocation)
+}
+
+pub fn native_window_linux_x11_xauthority_read_file_bytes_with_limit<Reader>(
+    plan: &NativeWindowLinuxX11XauthorityPathPlan,
+    reader: &mut Reader,
+    max_byte_len: usize,
+) -> Result<
+    NativeWindowLinuxX11XauthorityFileBytes,
+    NativeWindowLinuxX11XauthorityFileBytesReadError<Reader::Error>,
+>
+where
+    Reader: NativeWindowLinuxX11XauthorityFileBytesReader,
+{
+    let source = plan.source();
+    let path = plan.path();
+    let bytes = reader.read_xauthority_file_bytes(path).map_err(|error| {
+        NativeWindowLinuxX11XauthorityFileBytesReadError::ReadFailed {
+            source,
+            path: path.to_owned(),
+            error,
+        }
+    })?;
+    if bytes.is_empty() {
+        return Err(
+            NativeWindowLinuxX11XauthorityFileBytesReadError::EmptyFile {
+                source,
+                path: path.to_owned(),
+            },
+        );
+    }
+    if bytes.len() > max_byte_len {
+        return Err(
+            NativeWindowLinuxX11XauthorityFileBytesReadError::FileTooLarge {
+                source,
+                path: path.to_owned(),
+                byte_len: bytes.len(),
+                max_byte_len,
+            },
+        );
+    }
+    Ok(NativeWindowLinuxX11XauthorityFileBytes::new(bytes))
+}
+
+pub fn native_window_linux_x11_xauthority_read_file_bytes<Reader>(
+    plan: &NativeWindowLinuxX11XauthorityPathPlan,
+    reader: &mut Reader,
+) -> Result<
+    NativeWindowLinuxX11XauthorityFileBytes,
+    NativeWindowLinuxX11XauthorityFileBytesReadError<Reader::Error>,
+>
+where
+    Reader: NativeWindowLinuxX11XauthorityFileBytesReader,
+{
+    native_window_linux_x11_xauthority_read_file_bytes_with_limit(
+        plan,
+        reader,
+        NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN,
+    )
 }
 
 fn native_window_linux_x11_xauthority_display_number_bytes(
@@ -16551,6 +16654,46 @@ mod tests {
         bytes
     }
 
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    enum ScriptedXauthorityFileReadError {
+        PermissionDenied,
+    }
+
+    struct ScriptedXauthorityFileBytesReader {
+        expected_path: &'static str,
+        result: Option<Result<Vec<u8>, ScriptedXauthorityFileReadError>>,
+        seen_path: Option<String>,
+    }
+
+    impl ScriptedXauthorityFileBytesReader {
+        fn new(
+            expected_path: &'static str,
+            result: Result<Vec<u8>, ScriptedXauthorityFileReadError>,
+        ) -> Self {
+            Self {
+                expected_path,
+                result: Some(result),
+                seen_path: None,
+            }
+        }
+
+        fn seen_path(&self) -> Option<&str> {
+            self.seen_path.as_deref()
+        }
+    }
+
+    impl NativeWindowLinuxX11XauthorityFileBytesReader for ScriptedXauthorityFileBytesReader {
+        type Error = ScriptedXauthorityFileReadError;
+
+        fn read_xauthority_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error> {
+            assert_eq!(path, self.expected_path);
+            self.seen_path = Some(path.to_owned());
+            self.result
+                .take()
+                .expect("scripted xauthority file reader result should be available")
+        }
+    }
+
     impl NativeWindowLinuxWindowEventSourceProvider
         for ScriptedNativeWindowLinuxWindowEventSourceObservationRunLoopProvider
     {
@@ -17662,6 +17805,113 @@ mod tests {
             )
             .unwrap_err(),
             NativeWindowLinuxX11XauthorityPathPlanError::HomeDirectoryContainsNul
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_file_bytes_reads_explicit_plan_path() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(
+                Some("/run/user/1000/custom.auth"),
+                Some("/home/alice"),
+            ),
+        )
+        .unwrap();
+        let mut reader = ScriptedXauthorityFileBytesReader::new(
+            "/run/user/1000/custom.auth",
+            Ok(vec![1, 2, 3, 4]),
+        );
+
+        let bytes = native_window_linux_x11_xauthority_read_file_bytes(&plan, &mut reader).unwrap();
+
+        assert_eq!(reader.seen_path(), Some("/run/user/1000/custom.auth"));
+        assert_eq!(bytes.as_bytes(), &[1, 2, 3, 4]);
+        assert_eq!(bytes.len(), 4);
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_file_bytes_reads_home_default_plan_path_for_parser() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("/home/alice")),
+        )
+        .unwrap();
+        let authority_bytes = scripted_x11_xauthority_record(
+            NativeWindowLinuxX11XauthorityFamily::Local,
+            b"host-a",
+            b"0",
+            b"MIT-MAGIC-COOKIE-1",
+            &[9_u8; 16],
+        );
+        let mut reader =
+            ScriptedXauthorityFileBytesReader::new("/home/alice/.Xauthority", Ok(authority_bytes));
+
+        let bytes = native_window_linux_x11_xauthority_read_file_bytes(&plan, &mut reader).unwrap();
+        let (record, next_offset) =
+            native_window_linux_x11_xauthority_read_record_at(bytes.as_bytes(), 0).unwrap();
+
+        assert_eq!(reader.seen_path(), Some("/home/alice/.Xauthority"));
+        assert_eq!(next_offset, bytes.len());
+        assert_eq!(record.display_number(), b"0");
+        assert_eq!(record.protocol_name(), b"MIT-MAGIC-COOKIE-1");
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_file_bytes_rejects_empty_and_too_large_files() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(Some("/tmp/auth"), None),
+        )
+        .unwrap();
+        let mut empty_reader = ScriptedXauthorityFileBytesReader::new("/tmp/auth", Ok(Vec::new()));
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_read_file_bytes_with_limit(
+                &plan,
+                &mut empty_reader,
+                16,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityFileBytesReadError::EmptyFile {
+                source: NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile,
+                path: "/tmp/auth".to_owned(),
+            }
+        );
+
+        let mut large_reader =
+            ScriptedXauthorityFileBytesReader::new("/tmp/auth", Ok(vec![7_u8; 17]));
+        assert_eq!(
+            native_window_linux_x11_xauthority_read_file_bytes_with_limit(
+                &plan,
+                &mut large_reader,
+                16,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11XauthorityFileBytesReadError::FileTooLarge {
+                source: NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile,
+                path: "/tmp/auth".to_owned(),
+                byte_len: 17,
+                max_byte_len: 16,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_file_bytes_preserves_reader_failure_source_and_path() {
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(None, Some("/home/alice")),
+        )
+        .unwrap();
+        let mut reader = ScriptedXauthorityFileBytesReader::new(
+            "/home/alice/.Xauthority",
+            Err(ScriptedXauthorityFileReadError::PermissionDenied),
+        );
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_read_file_bytes(&plan, &mut reader).unwrap_err(),
+            NativeWindowLinuxX11XauthorityFileBytesReadError::ReadFailed {
+                source: NativeWindowLinuxX11XauthorityPathSource::HomeDirectoryDefault,
+                path: "/home/alice/.Xauthority".to_owned(),
+                error: ScriptedXauthorityFileReadError::PermissionDenied,
+            }
         );
     }
 

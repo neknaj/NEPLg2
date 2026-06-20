@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5jg Linux Xauthority file bytes acquisition boundary
+
+## scope
+
+- F5jf の `NativeWindowLinuxX11XauthorityPathPlan` から、trait-injected reader を通して Xauthority file bytes owner を作る。
+- reader には exact `plan.path` だけを渡し、source の再解釈、alternate path synthesis、home fallback、no-auth fallback は行わない。
+- success は raw `Vec u8` ではなく private bytes owner とし、public surface は read-only `as_bytes` / `len` に限定する。
+- empty file、max byte length 超過、reader failure は source / path 付き typed error にする。
+- `XAUTHORITY` / `HOME` の env acquisition、direct filesystem / VFS adapter、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Env acquisition は後続に残し、F5jg は validated path plan と injected reader の境界に限定してよいと確認された。
+- Required は success authority を separate owned wrapper にすること、`EmptyFile` / `FileTooLarge` / `ReadFailed` を分けること、reader が exact `plan.path` を受け取ることだった。
+- empty / failed read を no-auth や `NoMatchingRecord` に変換せず、credential parsing / setup request integration は helper 内に入れないことが条件だった。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFileBytesReader`、`NativeWindowLinuxX11XauthorityFileBytes`、`NativeWindowLinuxX11XauthorityFileBytesReadError` を追加した。
+- file bytes owner は private `Vec u8` を保持し、`as_bytes` / `len` だけを公開する。
+- read helper は exact `plan.path` を injected reader に渡し、reader failure、empty file、max byte length 超過を source / path 付き typed error に写す。
+- test 用 explicit limit helper と default max-byte helper を分けた。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jg contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、path plan input、exact `plan.path` reader call、private bytes owner、source / path 付き reader failure、empty / too-large typed error、no-auth / `NoMatchingRecord` fallback 非導入は満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `XAUTHORITY` / `HOME` acquisition boundary と actual filesystem / VFS adapter は未実装である。
+- credential selection / setup request integration、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
 # 2026-06-20 Agent2 GUI native F5jf Linux Xauthority lookup path request boundary
 
 ## scope

@@ -1107,6 +1107,14 @@ F5jf では、Xauthority bytes を読む前に、caller supplied environment-lik
 
 F5jf は path request boundary であり、`XAUTHORITY` / `HOME` の env acquisition、`std::env`、filesystem / VFS open / read、metadata / exists / canonicalize、file locking、Xauthority bytes parse、credential selection、setup request integration は扱わない。NUL を含む path は typed error とし、suffix append は checked length にする。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化、runner / CLI dispatch は後続にも混ぜない。
 
+## F5jg Native Linux Xauthority file bytes acquisition boundary
+
+F5jg では、F5jf の path plan を入力にして Xauthority file bytes を取得する trait-injected boundary を追加する。Rust boundary 名としては、reader trait を `NativeWindowLinuxX11XauthorityFileBytesReader`、success owner を `NativeWindowLinuxX11XauthorityFileBytes`、failure を `NativeWindowLinuxX11XauthorityFileBytesReadError` とする。
+
+reader trait は exact `plan.path` だけを受け取り、source を再解釈したり alternate path を合成したりしない。success は raw `Vec u8` ではなく private bytes owner として返し、public surface は read-only `as_bytes` / `len` に限定する。empty file、max byte length 超過、reader failure は typed error であり、source と path を保持する。
+
+F5jg は bytes acquisition boundary であり、`XAUTHORITY` / `HOME` の env acquisition、direct `std::fs` / `File` / `OpenOptions` / `read_to*`、metadata / exists / canonicalize、VFS adapter 実装、file locking、credential selection、setup request integration は扱わない。empty / failed read は no-auth fallback や `NoMatchingRecord` に変換しない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化、runner / CLI dispatch は後続にも混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
