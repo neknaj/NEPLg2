@@ -2648,6 +2648,34 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
 
+## 2026-06-21 memo_call backend actual traversal body reader output connector checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future real body reader が返す `ResourceWalkerInput` owner と `ObservationBanTable` owner を `ActualWalkerEventSplitOutput` として束ねる reader output connector を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real HIR lowering result / Resource IR body から input owner を作る producer はまだ未接続であり、production HIR-root path も引き続き `ProducerNotConnected` fallback のままである。今回固定したのは、reader が将来 `Ok` として返す owner pair の authority と cleanup である。
+
+`actual_traversal_body_reader_split_output_from_parts_result` は、input result と observation table result の両方が `Ok` の場合だけ `ActualWalkerEventSplitOutput` を返す。input だけが作られて observation table が失敗した場合は input owner を閉じる。input が scanner error で、observation table だけが作られていた場合は observation table owner を閉じる。input scanner error は `ActualTraversalBodyInputMalformed` bridge error へ写し、unavailable source や accepted source には変えない。
+
+`actual_traversal_body_reader_source_count_from_parts_result` は stage0 smoke として、この connector が作る `ActualWalkerEventSplitOutput` を既存 `actual_traversal_body_adapter_source_count_from_availability_result` へ渡す。これにより reader output connector は、独自の source table / proof table / fresh witness / backend bytes を作らず、既存 availability adapter と input-owner adapter の owner cleanup contract を再利用する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。reader connector helper が module-private であること、`Ok` path だけが owner pair を `ActualWalkerEventSplitOutput` へ載せること、partial owner failure で作成済み owner を閉じること、production availability helper が既存 unsupported producer bridge を real body reader として呼ばないこと、reader connector が proof / fresh witness / backend / effect / artifact を合成しないことを固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は connector 自体が O(1)、connector の `Ok` を source table count へ流す stage0 smoke は既存 body input adapter と同じ O(b + p + e + u + a) である。request-key bucket 化、graph/event index 化、fixture 分割は後からできる最適化だが、owner pair を `Ok` のみで運び、Err path を owner-free typed error にする契約は semantic boundary として維持する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-connector-doctest.json`
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- reader producer が available の場合だけ production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

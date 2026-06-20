@@ -770,12 +770,13 @@
 //:     let checks4 checks_push checks3 check_eq_i32 1 unwrap summary.unsupported_source_count
 //:     let checks5 checks_push checks4 check_eq_i32 2 unwrap summary.merged_source_count
 //:     let checks6 checks_push checks5 check_eq_i32 2 unwrap summary.availability_available_source_count
-//:     let checks7 checks_push checks6 check body_adapter_missing_result_eq summary.availability_missing_rejected expected_key
-//:     let checks8 checks_push checks7 check body_adapter_unavailable_result_eq summary.availability_unavailable_rejected expected_key
-//:     let checks9 checks_push checks8 check body_adapter_unsupported_result_eq summary.availability_unsupported_rejected expected_key
-//:     let checks10 checks_push checks9 check body_adapter_i32_result_is_err summary.availability_malformed_rejected
-//:     let checks11 checks_push checks10 check body_adapter_i32_result_is_err summary.placeholder_rejected
-//:     let shown checks_print_report checks11
+//:     let checks7 checks_push checks6 check_eq_i32 2 unwrap summary.reader_connector_available_source_count
+//:     let checks8 checks_push checks7 check body_adapter_missing_result_eq summary.availability_missing_rejected expected_key
+//:     let checks9 checks_push checks8 check body_adapter_unavailable_result_eq summary.availability_unavailable_rejected expected_key
+//:     let checks10 checks_push checks9 check body_adapter_unsupported_result_eq summary.availability_unsupported_rejected expected_key
+//:     let checks11 checks_push checks10 check body_adapter_i32_result_is_err summary.availability_malformed_rejected
+//:     let checks12 checks_push checks11 check body_adapter_i32_result_is_err summary.placeholder_rejected
+//:     let shown checks_print_report checks12
 //:     checks_exit_code shown
 //: ```
 
@@ -1815,7 +1816,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollect
 //: [契約/けいやく]:
 //: - summary は source count と typed `Result` payload だけを公開します。private walker input、observation table、source table、operation table、fresh witness table、proof table、backend bytes は公開しません。
 //: - accepted source count と merged source count は real body input の shape と source table owner merge を adapter が扱えることだけを表します。production HIR-root path が actual Resource IR traversal を読んだことや、fresh private region proof / effect mask / sealed backend representation が完了したことを意味しません。
-//: - availability fields は、real body reader が返すべき `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` の分岐を stage0 fixture で固定します。`availability_available_source_count` だけが owner 消費 path へ進み、それ以外は typed error として fail-closed になります。
+//: - availability fields は、real body reader が返すべき `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` の分岐を stage0 fixture で固定します。`availability_available_source_count` と `reader_connector_available_source_count` だけが owner 消費 path へ進み、それ以外は typed error として fail-closed になります。
 pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary:
     unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -1823,6 +1824,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputSta
     unsupported_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     availability_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -8285,6 +8287,46 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
             selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result: reader 部品 owner を split output へ[束/たば]ねる
+//:
+//: [目的/もくてき]:
+//: - future real body reader が作る `ResourceWalkerInput` owner と `ObservationBanTable` owner を、availability `Ok` payload と同じ `ActualWalkerEventSplitOutput` に載せます。
+//:
+//: [契約/けいやく]:
+//: - 両方が `Ok` の場合だけ owner pair を `ActualWalkerEventSplitOutput` として返します。
+//: - input が `Ok` で observation table が `Err` の場合は input owner を閉じます。
+//: - input が `Err` で observation table が `Ok` の場合は observation table owner を閉じます。
+//: - input scanner error は `ActualTraversalBodyInputMalformed` bridge error へ写し、unavailable source や accepted source に変えません。
+//: - この helper は production HIR-root request path を `Ok` 化しません。現段階の production path は `ProducerNotConnected` fallback のままです。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result %impure fn Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind impure fn Result SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \input_result\observations_result:
+    match input_result:
+        Result::Ok input:
+            match observations_result:
+                Result::Ok observations:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                    Result::Err e
+        Result::Err scanner_error:
+            match observations_result:
+                Result::Ok observations:
+                    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputMalformed scanner_error
+                Result::Err _observation_error:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputMalformed scanner_error
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result: reader 部品 owner から source 数を[数/かぞ]える
+//:
+//: [契約/けいやく]:
+//: - stage0 smoke 用です。`ActualWalkerEventSplitOutput` が作られた場合は既存 availability helper へ渡し、source table owner は count 読み取り後に閉じます。
+//: - bridge error はそのまま返し、proof table、fresh witness、backend bytes、effect mask、artifact record は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result %impure fn Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind impure fn Result SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \input_result\observations_result:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result input_result observations_result:
+        Result::Ok output:
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_availability_result Result::Ok output
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_availability_result: availability Result を source table owner へ[写/うつ]す
 //:
 //: [目的/もくてき]:
@@ -9047,12 +9089,13 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_in
     let unsupported_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result
     let merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_merged_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
     let availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
+    let reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result
     let availability_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_missing_source_count_result
     let availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_unavailable_source_count_result
     let availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_unsupported_source_count_result
     let availability_malformed_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_malformed_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
-    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count reader_connector_available_source_count availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_region_proof_fail_with_table: region proof table を閉じて error を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_region_proof_fail_with_table %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\error:

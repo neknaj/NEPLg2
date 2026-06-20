@@ -2589,6 +2589,11 @@ assertOrdered(
     ],
     "actual traversal body input availability boundary must exist on the production request path and use producer-not-connected fallback until the real Resource IR body reader is connected",
 );
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result")),
+    /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
+    "production body availability helper must not reuse the existing unsupported producer bridge as if it were the real Resource IR body reader",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record"),
     [
@@ -2668,6 +2673,40 @@ assertOrdered(
     "actual traversal body adapter must consume typed body input owners through the existing collector and close input/observation owners on success and failure",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result"),
+    [
+        "Result::Ok input:",
+        "Result::Ok observations:",
+        "Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "Result::Err e",
+        "Result::Err scanner_error:",
+        "Result::Ok observations:",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "ActualTraversalBodyInputMalformed scanner_error",
+        "Result::Err _observation_error:",
+        "ActualTraversalBodyInputMalformed scanner_error",
+    ],
+    "actual traversal body reader connector must put owners in Ok only and close partial owners on every fail-closed path",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result")),
+    /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
+    "actual traversal body reader connector must not call stage0 HIR-root unsupported producer bridges",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result input_result observations_result",
+        "Result::Ok output:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_availability_result Result::Ok output",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "actual traversal body reader connector smoke must route Ok split output through the existing availability adapter",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_availability_result"),
     [
         "Result::Ok output:",
@@ -2708,6 +2747,11 @@ assert.doesNotMatch(
     /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual traversal body availability helper must only route available owners into the body adapter and must not synthesize proof, fresh witness, backend, effect, or artifact records",
 );
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body reader split connector must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result"),
     [
@@ -2731,6 +2775,7 @@ assertOrdered(
         "unsupported_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -2754,6 +2799,8 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_merged_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "availability_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
+        "reader_connector_available_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "availability_missing_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_missing_source_count_result",
         "availability_unavailable_rejected",
@@ -2771,6 +2818,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_(?!input_stage0\b)/m,
     "actual traversal body adapter helpers must stay module-private; only the typed stage0 summary function may be public",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_/m,
+    "actual traversal body reader connector helpers must stay module-private until the real Resource IR body reader owns the public boundary",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result"),
