@@ -63820,3 +63820,39 @@ MERGE_APPROVED
 - fresh private cache region / non-escape proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
 - sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
 - Resource proof table lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した private type exposure ban / fail-closed status fold / HIR-root recheck contract を保てるため後続最適化として扱う。
+
+## 2026-06-20 selfhost memo_call backend Resource graph producer stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-20 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、typed Resource graph input を private-cache Resource observation へ畳む graph producer stage0 を追加した。
+- `SelfhostMemoCallBackendPrivateCacheResourceGraphInput`、body / place / edge record、graph id、place id、place kind、edge kind、fold summary は module-private にした。外部 module が forged graph input を public API に渡して accepted path を作る経路は公開していない。
+- preflight は body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate body、duplicate place、duplicate edge、missing body、non-closed graph event、edge endpoint missing を typed enum error として拒否する。
+- fold は `ClosedForPrivateCacheBoundary` だけを使う。private storage / entry / owned clone は `PrivateCacheNoEscapeProven`、reference return / public store / external handle は `PrivateCacheMayEscape`、unsupported place / unsupported call boundary は `PrivateCacheUnknown` に畳む。closed graph でも private-cache place が 1 つもない場合は `PrivateCacheUnknown` にする。
+- graph input は module-private Resource proof table へ変換し、その後で既存 Resource observation producer / request-evidence gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築して request entry を HIR payload と再照合する。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、graph input payload / owner / fold type が public signature に露出しないこと、GraphInput owner が Clone / Copy にならないこと、preflight が body / place / edge を検査すること、Missing / Unknown / MayEscape を accepted path に混ぜないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Carver review: 初回レビューで、actual Resource graph input から no-escape observation table へつなぐ slice、public accepted path を作らないこと、Missing / Unknown / MayEscape を fail-closed に保つこと、typed key / private writer authority、orphan / duplicate / endpoint missing preflight、graph fold の計算量説明、source policy 固定が required として指摘された。
+- 対応として、Resource graph input model、body / place / edge preflight、closed graph fold、empty graph unknown、module-private Resource proof table conversion、graph producer stage0 smoke、source policy regression を追加した。
+- Carver follow-up review: Zenn 方針上の blocker は無し。軽微な指摘として、actual Resource IR walker 未接続と typed graph input fold 接続済みの説明を分けること、invalid id と non-closed graph event の source policy を直接化することが挙がった。対応として module header の現状説明を更新し、place / edge validation の invalid id と non-closed graph event を policy assertion に追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-graph-producer.json`
+
+### residual
+
+- actual Resource IR graph walker から body / place / edge event を生成する境界は未実装である。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した closed graph 限定 / typed endpoint validation / private type exposure ban / fail-closed status fold を保てるため後続最適化として扱う。

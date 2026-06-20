@@ -147,6 +147,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheResource(?:GraphId|PlaceId|GraphCompleteness|PlaceKind|EdgeKind|GraphBodyRecord|GraphPlaceRecord|GraphEdgeRecord|GraphInput|GraphFoldSummary)\b/,
+    "Resource graph input ids, payload records, owner input, and fold summary must stay private until the real Resource graph walker owns their construction",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheResourceGraphId|SelfhostMemoCallBackendPrivateCacheResourcePlaceId|SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind|SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord|SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord|SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord|SelfhostMemoCallBackendPrivateCacheResourceGraphInput|SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary)\b/m,
+    "public functions must not expose private Resource graph input payload or owner types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -159,6 +169,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result\b/m,
     "Resource proof producer gate must stay module-private until the Resource graph walker owns the proof table input",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result\b/m,
+    "Resource graph producer gate must stay module-private until the actual Resource graph walker owns the graph input",
 );
 const tableArea = source.slice(
     source.indexOf("struct SelfhostMemoCallBackendPrivateCacheProofTable:"),
@@ -177,6 +192,15 @@ assert.doesNotMatch(
     resourceTableArea,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceProofTable/,
     "Resource proof table owner must not implement Clone or Copy",
+);
+const graphInputArea = source.slice(
+    source.indexOf("struct SelfhostMemoCallBackendPrivateCacheResourceGraphInput:"),
+    source.indexOf("pub enum SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind:"),
+);
+assert.doesNotMatch(
+    graphInputArea,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceGraphInput/,
+    "Resource graph input owner must not implement Clone or Copy",
 );
 assertOrdered(
     source,
@@ -345,6 +369,225 @@ assertOrdered(
         "RequestEvidenceGateRejected gate_error",
     ],
     "Resource proof producer gate must convert private Resource observations through the module-private request-evidence table and wrap the existing private gate rejection",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness"),
+    [
+        "ClosedForPrivateCacheBoundary",
+        "ResourceGraphMissing",
+        "TraversalUnsupported",
+    ],
+    "Resource graph completeness must distinguish closed, missing, and unsupported graph inputs explicitly",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind"),
+    [
+        "PrivateCacheStorage",
+        "PrivateCacheEntry",
+        "ReturnedOwnedClone",
+        "ReturnCacheReference",
+        "PublicStore",
+        "ExternalHandle",
+        "UnsupportedPlace",
+    ],
+    "Resource graph place kind must distinguish private cache storage, owned clone output, escaping references/stores, external handles, and unsupported places",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceEdgeKind"),
+    [
+        "Owns",
+        "BorrowView",
+        "CloneOutOwnedValue",
+        "ReturnCacheReference",
+        "StoreToPublic",
+        "CallBoundaryUnsupported",
+    ],
+    "Resource graph edge kind must distinguish private ownership/view/clone-out edges from escaping and unsupported edges",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind"),
+    [
+        "GraphBodyTableAllocFailed %StdErrorKind",
+        "GraphPlaceTableAllocFailed %StdErrorKind",
+        "GraphEdgeTableAllocFailed %StdErrorKind",
+        "GraphBodyPushFailed %StdErrorKind",
+        "GraphPlacePushFailed %StdErrorKind",
+        "GraphEdgePushFailed %StdErrorKind",
+        "GraphBodyReadFailed %i32",
+        "GraphPlaceReadFailed %i32",
+        "GraphEdgeReadFailed %i32",
+        "GraphBodyDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "GraphPlaceDuplicate %i32",
+        "GraphEdgeDuplicate %i32",
+        "BodyModuleFingerprintPlaceholder",
+        "GraphIdInvalid %i32",
+        "PlaceIdInvalid %i32",
+        "OperationOrdinalInvalid %i32",
+        "GraphBodyMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "GraphEventForNonClosedGraph %i32",
+        "EdgeEndpointMissing %i32",
+        "OutputResourceProofRejected %SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind",
+        "Stage0FixtureAllocFailed %StdErrorKind",
+    ],
+    "Resource graph producer error taxonomy must keep allocation, read, duplicate, invalid id, orphan, non-closed graph event, endpoint, lower producer, and fixture failures distinct",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_error_code"),
+    /_:/,
+    "Resource graph producer error code helper must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_validate_input_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_validate_all_bodies_loop input 0",
+        "selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop input 0",
+        "selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop input 0",
+    ],
+    "Resource graph input validation must preflight bodies, places, and edges before producing proof records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result"),
+    [
+        "GraphIdInvalid place.graph_id.index",
+        "OperationOrdinalInvalid place.operation_ordinal",
+        "PlaceIdInvalid place.place_id.index",
+    ],
+    "Resource graph place validation must directly reject invalid graph id, operation ordinal, and place id",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result"),
+    [
+        "GraphIdInvalid edge.graph_id.index",
+        "OperationOrdinalInvalid edge.operation_ordinal",
+        "PlaceIdInvalid edge.from_place.index",
+        "PlaceIdInvalid edge.to_place.index",
+    ],
+    "Resource graph edge validation must directly reject invalid graph id, operation ordinal, and endpoint place ids",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_result input place idx",
+        "GraphPlaceDuplicate place.place_id.index",
+        "selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_result input place",
+    ],
+    "Resource graph place validation must reject duplicate places and require a matching closed body",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_result input edge idx",
+        "GraphEdgeDuplicate edge.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_result input edge",
+        "selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_endpoints_result input edge",
+    ],
+    "Resource graph edge validation must reject duplicate edges, require a matching closed body, and verify both endpoints",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed body.completeness",
+        "Result::Ok unit",
+        "GraphEventForNonClosedGraph place.graph_id.index",
+    ],
+    "Resource graph place validation must reject events attached to a non-closed graph body",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed body.completeness",
+        "Result::Ok unit",
+        "GraphEventForNonClosedGraph edge.graph_id.index",
+    ],
+    "Resource graph edge validation must reject events attached to a non-closed graph body",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_closed_status_result"),
+    [
+        "PrivateCacheNoEscapeProven false",
+        "selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop input body 0 initial",
+        "place_summary.saw_place",
+        "selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop input body 0 place_summary",
+        "PrivateCacheUnknown",
+    ],
+    "closed Resource graph status fold must reject empty closed graphs by returning Unknown instead of no-escape proof",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_body_to_status_result"),
+    [
+        "ClosedForPrivateCacheBoundary:",
+        "selfhost_memo_call_backend_private_cache_resource_graph_closed_status_result input body",
+        "ResourceGraphMissing:",
+        "PrivateCacheMissing",
+        "TraversalUnsupported:",
+        "PrivateCacheUnknown",
+    ],
+    "Resource graph body status fold must keep missing and unsupported graph inputs out of no-escape proof",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_place_status"),
+    [
+        "PrivateCacheStorage:",
+        "PrivateCacheNoEscapeProven",
+        "PrivateCacheEntry:",
+        "PrivateCacheNoEscapeProven",
+        "ReturnedOwnedClone:",
+        "PrivateCacheNoEscapeProven",
+        "ReturnCacheReference:",
+        "PrivateCacheMayEscape",
+        "PublicStore:",
+        "PrivateCacheMayEscape",
+        "ExternalHandle:",
+        "PrivateCacheMayEscape",
+        "UnsupportedPlace:",
+        "PrivateCacheUnknown",
+    ],
+    "Resource graph place status fold must map escaping places to MayEscape and unsupported places to Unknown",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_edge_status"),
+    [
+        "Owns:",
+        "PrivateCacheNoEscapeProven",
+        "BorrowView:",
+        "PrivateCacheNoEscapeProven",
+        "CloneOutOwnedValue:",
+        "PrivateCacheNoEscapeProven",
+        "ReturnCacheReference:",
+        "PrivateCacheMayEscape",
+        "StoreToPublic:",
+        "PrivateCacheMayEscape",
+        "CallBoundaryUnsupported:",
+        "PrivateCacheUnknown",
+    ],
+    "Resource graph edge status fold must map escaping edges to MayEscape and unsupported call boundaries to Unknown",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_table_result graph",
+        "Result::Ok resource_proofs:",
+        "selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result module root fuel body_module_fingerprint &resource_proofs",
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_proofs",
+        "OutputResourceProofRejected e",
+    ],
+    "Resource graph producer gate must lower graph input through private Resource proof table before calling the existing Resource proof gate",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_producer_stage0"),
+    [
+        "PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue",
+        "may_escape_rejected",
+        "ReturnCacheReference",
+        "missing_rejected",
+        "ResourceGraphMissing",
+        "unknown_rejected",
+        "TraversalUnsupported",
+        "duplicate_rejected",
+        "endpoint_missing_rejected",
+        "PrivateCacheStorage 9 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::Owns",
+    ],
+    "Resource graph producer stage0 must cover accepted, may-escape, missing, unknown, duplicate, and endpoint-missing paths",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_proof_table_push"),

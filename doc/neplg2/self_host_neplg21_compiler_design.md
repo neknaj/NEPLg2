@@ -2083,6 +2083,20 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 この checkpoint 後も、actual Resource IR graph walker からこの Resource observation table を作る境界、private cache region の fresh / non-escape proof、cache hit / miss / size / clear / raw identity の observation ban、PrivateCache / PrivateState internal effect の surface fold、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。Resource proof table lookup の sorted index 化や root / fingerprint bucket 化は後からできる最適化であり、今回固定した private type exposure ban、fail-closed status fold、HIR-root recheck contract を保つ限り後続で置換できる。
 
+## 2026-06-20 memo_call backend Resource graph producer stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、Resource graph の body / place / edge input を受け取り、private-cache no-escape observation へ畳む graph producer stage0 を追加した。
+
+この checkpoint も actual Resource IR graph walker 本体ではない。ここで固定したのは、walker が将来返すべき typed graph input の形、closed graph だけを observation authority にする preflight、place / edge event の fail-closed fold、既存 module-private request-evidence gate への接続である。`SelfhostMemoCallBackendPrivateCacheResourceGraphInput`、body / place / edge record、fold summary、graph id、place id、place kind、edge kind、completeness は module-private であり、public API から forged graph input を accepted path へ渡す経路は作らない。
+
+graph preflight は、body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate body、duplicate place、duplicate edge、body missing、closed でない graph への place / edge event、edge endpoint missing を enum error として拒否する。`ResourceGraphMissing` と `TraversalUnsupported` の body は Resource observation としては使えるが、place / edge event を伴う場合は入力が矛盾しているため `GraphEventForNonClosedGraph` で止める。
+
+fold は `ClosedForPrivateCacheBoundary` の graph だけを走査する。private cache storage、private cache entry、owned clone value は `PrivateCacheNoEscapeProven` に寄与する。cache reference return、public store、external handle は `PrivateCacheMayEscape` に畳む。unsupported place / unsupported call boundary は `PrivateCacheUnknown` に畳み、Missing / Unknown を `RequestEvidenceProven` へ変換しない。closed graph でも place が 1 つもない場合は `PrivateCacheUnknown` とし、空 graph から no-escape proof を合成しない。
+
+graph producer は graph input を module-private Resource proof table へ変換し、その後で既存 Resource observation producer と request-evidence gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築し、request entry を HIR payload と再照合するため、Resource graph input は caller supplied request table の代替 authority にならない。source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新し、graph input payload / owner / fold type が public signature に露出しないこと、GraphInput owner が Clone / Copy にならないこと、preflight が body / place / edge をすべて検査すること、Missing / Unknown / MayEscape を accepted path に混ぜないこと、行数や doc comment 量の制限を追加しないことを固定した。
+
+この checkpoint 後も、actual Resource IR graph walker から body / place / edge event を生成する境界、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。現 stage0 の graph preflight は body 数を `b`、place 数を `q`、edge 数を `e` とすると O(b*b + q*(b+q) + e*(b+q+e)) である。graph id / place id / operation ordinal の sorted index 化は後からできる最適化として扱えるが、closed graph 限定、typed endpoint validation、empty graph unknown、private type exposure ban は semantic contract として維持する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

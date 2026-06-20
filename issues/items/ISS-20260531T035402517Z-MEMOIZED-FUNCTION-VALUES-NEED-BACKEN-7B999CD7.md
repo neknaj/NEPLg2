@@ -216,3 +216,30 @@ subagent review では、Resource proof producer が public key / public request
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - Resource proof table lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割。
+
+## 2026-06-20 selfhost memo_call backend Resource graph producer stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、memo_call backend 用の Resource graph producer stage0 を追加した。typed body / place / edge input を module-private graph input owner に閉じ、preflight で構造を検査したうえで private-cache Resource observation へ畳む。
+
+この checkpoint は actual Resource IR graph walker 本体ではない。目的は、walker が将来返す graph input contract を固定し、closed graph 以外の情報や endpoint が欠けた edge を no-escape proof に使わないことである。`SelfhostMemoCallBackendPrivateCacheResourceGraphInput`、body / place / edge record、graph id、place id、place kind、edge kind、fold summary は module-private であり、public function signature や public struct / enum に出さない。
+
+preflight は、body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate body、duplicate place、duplicate edge、missing body、non-closed graph event、edge endpoint missing を enum error として拒否する。fold は `ClosedForPrivateCacheBoundary` の graph だけを使い、private storage / entry / owned clone は `PrivateCacheNoEscapeProven`、reference return / public store / external handle は `PrivateCacheMayEscape`、unsupported place / unsupported call boundary は `PrivateCacheUnknown` に畳む。closed graph でも private-cache place が 1 つもない場合は `PrivateCacheUnknown` とし、空 graph から proof を合成しない。
+
+graph producer は graph input を module-private Resource proof table へ変換し、その後で既存 Resource observation producer / request-evidence gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築して request entry を HIR payload と再照合するため、Resource graph input は caller supplied request table の代替 authority にならない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。graph input payload / owner / fold type が public signature に露出しないこと、GraphInput owner が Clone / Copy にならないこと、preflight が body / place / edge を検査すること、closed empty graph を Unknown にすること、Missing / Unknown / MayEscape を accepted path に混ぜないこと、行数や doc comment 量の制限を追加しないことを固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-graph-producer.json`
+
+残件:
+
+- actual Resource IR graph walker から body / place / edge event を生成する境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- cache hit / miss / size / clear / raw identity observation ban。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。

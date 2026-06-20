@@ -19,13 +19,15 @@
 //:
 //: [現状/げんじょう]:
 //: - proof table は session-local owner table です。永続 `.neplproof` / `.neplobj` artifact ではありません。永続 artifact key へ投影するには、module source identity、typed public surface hash、policy hash、stable type argument identity を別 boundary で合成する必要があります。
-//: - PrivateCache / PrivateState internal effect の fold、Resource IR no-escape proof 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate だけを担当します。
+//: - PrivateCache / PrivateState internal effect の fold、actual Resource IR walker による graph input 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate だけを担当します。
 //: - Phase 1 では proof record / proof table / proof table writer / gate 本体は module-private です。後続の Resource proof producer が接続されるまでは、外部 module が arbitrary `RequestEvidenceProven` record を table に注入したり、その table を accepted gate に渡したりできないようにします。
 //: - Resource observation producer も同じ module-private proof table writer を使います。現 checkpoint では public accepted path を追加せず、stage0 smoke だけで Resource observation から request-evidence gate へ流す境界を確認します。
+//: - Resource graph producer は body / place / edge の typed graph input を module-private Resource observation table へ畳む境界まで接続済みです。現 checkpoint では actual Resource IR walker 本体ではなく、walker が返すべき graph input contract と typed graph input fold を固定します。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
 //: - proof lookup は現状、request ごとに proof table を線形走査するため proof record 数を `p` とすると O(m * p) 時間です。
+//: - graph producer は body 数を `b`、place 数を `q`、edge 数を `e` とすると、現状の preflight duplicate / orphan / endpoint 検査に O(b*b + q*(b+q) + e*(b+q+e)) 時間を使います。これは後続で index 化できますが、closed graph だけを proof authority にする fail-closed contract は維持します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -91,6 +93,44 @@
 //:         Result::Err _setup:
 //:             let checks0 checks_new
 //:             let checks1 checks_push checks0 Result::Err "memo_call private cache Resource proof producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_call_backend_private_cache_resource_graph_producer_stage0:
+//:         Result::Ok summary:
+//:             let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check_eq_i32 1 summary.accepted_request_count
+//:             let checks2 checks_push checks1 check_eq_i32 1 summary.accepted_proof_count
+//:             let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_resource_graph_refuted_result_eq summary.may_escape_rejected expected_key
+//:             let checks4 checks_push checks3 check selfhost_memo_call_backend_private_cache_resource_graph_missing_result_eq summary.missing_rejected expected_key
+//:             let checks5 checks_push checks4 check selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq summary.unknown_rejected expected_key
+//:             let checks6 checks_push checks5 check selfhost_memo_call_backend_private_cache_resource_graph_duplicate_result_eq summary.duplicate_rejected expected_key
+//:             let checks7 checks_push checks6 check selfhost_memo_call_backend_private_cache_resource_graph_endpoint_missing_result_eq summary.endpoint_missing_rejected 9
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "memo_call private cache Resource graph producer stage0 setup failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
@@ -266,6 +306,150 @@ pub struct SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary
     unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
     duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphId: memo_call private-cache Resource graph の session-local id
+//:
+//: [契約/けいやく]:
+//: - graph id は同じ request key の中で複数の traversal candidate を区別するための session-local id です。永続 artifact key ではありません。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphId:
+    index %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourcePlaceId: memo_call private-cache Resource graph 内の place id
+//:
+//: [契約/けいやく]:
+//: - place id は graph-local id です。別 graph や別 root の place と混ぜてはいけません。
+struct SelfhostMemoCallBackendPrivateCacheResourcePlaceId:
+    index %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness: Resource graph の閉包状態
+//:
+//: [目的/もくてき]:
+//: - graph が memo_call private-cache boundary について閉じている場合だけ、place / edge fold を no-escape observation に使います。
+enum SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness:
+    ClosedForPrivateCacheBoundary
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostMemoCallBackendPrivateCacheResourcePlaceKind: private-cache Resource graph place の分類
+//:
+//: [契約/けいやく]:
+//: - private storage / entry / owned clone value は外部観測可能な cache identity を露出しません。
+//: - return reference、public store、external handle は cache identity や cache storage を外へ出すため `MayEscape` に畳みます。
+//: - unsupported place は `Unknown` に畳み、pure accepted path へ進めません。
+enum SelfhostMemoCallBackendPrivateCacheResourcePlaceKind:
+    PrivateCacheStorage
+    PrivateCacheEntry
+    ReturnedOwnedClone
+    ReturnCacheReference
+    PublicStore
+    ExternalHandle
+    UnsupportedPlace
+
+//: SelfhostMemoCallBackendPrivateCacheResourceEdgeKind: private-cache Resource graph edge の分類
+//:
+//: [契約/けいやく]:
+//: - owned / borrow-view / clone-out edge は、対応する place が private のままなら no-escape fold を悪化させません。
+//: - cache reference return と public store edge は cache storage が外部へ到達するため `MayEscape` に畳みます。
+//: - unsupported call boundary は `Unknown` に畳みます。
+enum SelfhostMemoCallBackendPrivateCacheResourceEdgeKind:
+    Owns
+    BorrowView
+    CloneOutOwnedValue
+    ReturnCacheReference
+    StoreToPublic
+    CallBoundaryUnsupported
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord: memo_call request に対する Resource graph header
+//:
+//: [契約/けいやく]:
+//: - `key` は既存 request-evidence gate と同じ typed key です。memoized occurrence、root、module fingerprint、request kind、effect、type argument count を落としません。
+//: - `graph_id` は同じ key 内の graph-local id です。
+//: - `completeness` が `ClosedForPrivateCacheBoundary` でない場合、place / edge を no-escape proof へ使いません。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    completeness %SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord: memo_call Resource graph の place event
+//:
+//: [契約/けいやく]:
+//: - place は `key + graph_id + place_id` で識別します。source text や span は authority にしません。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheResourcePlaceKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord: memo_call Resource graph の edge event
+//:
+//: [契約/けいやく]:
+//: - edge endpoint は同じ graph-local place id を指します。この stage では endpoint の存在を検査し、欠落があれば fail-closed にします。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheResourceEdgeKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphInput: memo_call Resource graph input の owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private です。外部 caller が forged graph input を accepted gate へ直接渡せる public API は作りません。
+//: - body / place / edge record はこの owner table に閉じ、stage0 helper または将来の actual graph walker boundary が生成します。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphInput:
+    bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord
+    places %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord
+    edges %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary: graph fold 中の status と place 観測有無
+//:
+//: [契約/けいやく]:
+//: - closed graph でも private-cache place が 1 つも観測されない場合は `Unknown` に倒します。空 graph から `NoEscapeProven` を合成しません。
+struct SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary:
+    status %SelfhostMemoCallBackendPrivateCacheResourceProofStatus
+    saw_place %bool
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind: Resource graph producer の失敗分類
+//:
+//: [目的/もくてき]:
+//: - graph input table の構築、graph structure validation、private-cache no-escape fold、既存 Resource proof table 生成の失敗を enum として分けます。
+pub enum SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind:
+    GraphBodyTableAllocFailed %StdErrorKind
+    GraphPlaceTableAllocFailed %StdErrorKind
+    GraphEdgeTableAllocFailed %StdErrorKind
+    GraphBodyPushFailed %StdErrorKind
+    GraphPlacePushFailed %StdErrorKind
+    GraphEdgePushFailed %StdErrorKind
+    GraphBodyReadFailed %i32
+    GraphPlaceReadFailed %i32
+    GraphEdgeReadFailed %i32
+    GraphBodyDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    GraphPlaceDuplicate %i32
+    GraphEdgeDuplicate %i32
+    BodyModuleFingerprintPlaceholder
+    GraphIdInvalid %i32
+    PlaceIdInvalid %i32
+    OperationOrdinalInvalid %i32
+    GraphBodyMissing %SelfhostMemoCallBackendPrivateCacheProofKey
+    GraphEventForNonClosedGraph %i32
+    EdgeEndpointMissing %i32
+    OutputResourceProofRejected %SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary: Resource graph producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - closed private graph、escaping graph、missing graph、unsupported graph、duplicate body、endpoint missing を確認します。
+pub struct SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary:
+    accepted_request_count %i32
+    accepted_proof_count %i32
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    endpoint_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -426,6 +610,134 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summ
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphId: graph id を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - graph id は i32 wrapper であり、graph input owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphId:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphId SelfhostMemoCallBackendPrivateCacheResourceGraphId \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphId: graph id の Copy marker
+//:
+//: [契約/けいやく]:
+//: - session-local id の値 copy だけであり、Resource graph table owner は copy しません。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphId:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphId SelfhostMemoCallBackendPrivateCacheResourceGraphId \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourcePlaceId: place id を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - place id は i32 wrapper であり、place owner や cache storage owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourcePlaceId:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourcePlaceId SelfhostMemoCallBackendPrivateCacheResourcePlaceId \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourcePlaceId: place id の Copy marker
+//:
+//: [契約/けいやく]:
+//: - graph-local id の値 copy だけであり、cache entry や Resource place owner は copy しません。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourcePlaceId:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId SelfhostMemoCallBackendPrivateCacheResourcePlaceId \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness: graph completeness を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness: graph completeness の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourcePlaceKind: place kind を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourcePlaceKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourcePlaceKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourcePlaceKind: place kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourcePlaceKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourcePlaceKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceEdgeKind: edge kind を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceEdgeKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceEdgeKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceEdgeKind: edge kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceEdgeKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceEdgeKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord: graph body record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key、graph id、completeness だけを持ち、Resource graph owner や proof table owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord: graph body record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord: graph place record を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord: graph place record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord: graph edge record を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord: graph edge record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary: graph fold summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary: graph fold summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind: graph producer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ち、graph input owner や Resource proof table owner は含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind: graph producer error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary: graph producer smoke summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary: graph producer smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -580,6 +892,859 @@ fn selfhost_memo_call_backend_private_cache_resource_proof_table_push %impure fn
                 Result::Err e:
                     selfhost_memo_call_backend_private_cache_resource_proof_table_free table
                     Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_id_new: graph id を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_id_new %fn i32 SelfhostMemoCallBackendPrivateCacheResourceGraphId \index:
+    SelfhostMemoCallBackendPrivateCacheResourceGraphId index
+
+//: selfhost_memo_call_backend_private_cache_resource_place_id_new: place id を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_place_id_new %fn i32 SelfhostMemoCallBackendPrivateCacheResourcePlaceId \index:
+    SelfhostMemoCallBackendPrivateCacheResourcePlaceId index
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_record_new: graph body record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \key\graph_id\completeness:
+    SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord key graph_id completeness
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_record_new: graph place record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \key\graph_id\operation_ordinal\place_id\kind:
+    SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord key graph_id operation_ordinal place_id kind
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_record_new: graph edge record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \key\graph_id\operation_ordinal\from_place\to_place\kind:
+    SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_new: [空/から]の graph input owner を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \void:
+    let bodies_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord StdErrorKind v::new
+    match bodies_result:
+        Result::Ok bodies:
+            let places_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord StdErrorKind v::new
+            match places_result:
+                Result::Ok places:
+                    let edges_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Ok edges:
+                            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceGraphInput bodies places edges
+                        Result::Err e:
+                            v::free places
+                            v::free bodies
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed e
+                Result::Err e:
+                    v::free bodies
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_free: graph input owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput unit \input:
+    v::free field::get input "edges"
+    v::free field::get input "places"
+    v::free field::get input "bodies"
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_len: body record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_len %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput i32 \input:
+    let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get_ref input "bodies"
+    v::len bodies
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_len: place record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_len %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput i32 \input:
+    let places %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord field::get_ref input "places"
+    v::len places
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_len: edge record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_len %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput i32 \input:
+    let edges %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get_ref input "edges"
+    v::len edges
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_id_eq: graph id が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_id_eq %fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceGraphId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_memo_call_backend_private_cache_resource_place_id_eq: place id が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_place_id_eq %fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_key_eq: graph body key が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_key_eq %fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord bool \a\b:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq a.key b.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq a.graph_id b.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body: place が body graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body %fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord bool \place\body:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq place.key body.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id body.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_matches_body: edge が body graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_matches_body %fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord bool \edge\body:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq edge.key body.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq edge.graph_id body.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_body_result: body record の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_body_result %fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \body:
+    if:
+        eq body.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt body.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid body.graph_id.index
+                else:
+                    Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result: place record の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result %fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \place:
+    if:
+        eq place.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt place.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid place.graph_id.index
+                else:
+                    if:
+                        lt place.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid place.operation_ordinal
+                        else:
+                            if:
+                                lt place.place_id.index 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid place.place_id.index
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result: edge record の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result %fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \edge:
+    if:
+        eq edge.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt edge.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid edge.graph_id.index
+                else:
+                    if:
+                        lt edge.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid edge.operation_ordinal
+                        else:
+                            if:
+                                lt edge.from_place.index 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid edge.from_place.index
+                                else:
+                                    if:
+                                        lt edge.to_place.index 0
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid edge.to_place.index
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_contains_body_loop: body duplicate を[探/さが]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_contains_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok false
+        else:
+            let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get_ref input "bodies"
+            match v::get bodies idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_body_key_eq existing body
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_contains_body_loop input body add idx 1 n
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_contains_body_result: body duplicate を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_contains_body_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body:
+    selfhost_memo_call_backend_private_cache_resource_graph_contains_body_loop input body 0 selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_push_body: graph body を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_push_body %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body:
+    match selfhost_memo_call_backend_private_cache_resource_graph_validate_body_result body:
+        Result::Ok _valid:
+            match selfhost_memo_call_backend_private_cache_resource_graph_contains_body_result &input body:
+                Result::Ok exists:
+                    if:
+                        exists
+                        then:
+                            selfhost_memo_call_backend_private_cache_resource_graph_input_free input
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate body.key
+                        else:
+                            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get input "bodies"
+                            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord field::get input "places"
+                            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get input "edges"
+                            match v::push bodies body:
+                                Result::Ok next_bodies:
+                                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceGraphInput next_bodies places edges
+                                Result::Err e:
+                                    let error %StdErrorKind field::get e "error"
+                                    v::free v::vec_push_error_vec e
+                                    v::free places
+                                    v::free edges
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed error
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_free input
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_push_place: graph place を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_push_place %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\place:
+    match selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result place:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get input "edges"
+            match v::push places place:
+                Result::Ok next_places:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceGraphInput bodies next_places edges
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free bodies
+                    v::free v::vec_push_error_vec e
+                    v::free edges
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_push_edge: graph edge を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_push_edge %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge:
+    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result edge:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get input "edges"
+            match v::push edges edge:
+                Result::Ok next_edges:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceGraphInput bodies places next_edges
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free bodies
+                    v::free places
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_get_body: body record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_graph_get_body %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \input\idx:
+    let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord field::get_ref input "bodies"
+    v::get bodies idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_get_place: place record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_graph_get_place %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \input\idx:
+    let places %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord field::get_ref input "places"
+    v::get places idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_get_edge: edge record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_graph_get_edge %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \input\idx:
+    let edges %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get_ref input "edges"
+    v::get edges idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_identity_eq: place identity が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `operation_ordinal` は観測順序であり、place node の identity には使いません。同じ graph 内で同じ place id が再定義された場合は duplicate として拒否します。
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_identity_eq %fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord bool \a\b:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq a.key b.key
+        and:
+            selfhost_memo_call_backend_private_cache_resource_graph_id_eq a.graph_id b.graph_id
+            selfhost_memo_call_backend_private_cache_resource_place_id_eq a.place_id b.place_id
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_identity_eq: edge identity が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - operation ordinal は同じ graph 内の Resource event id として扱います。future walker が同じ ordinal を二重発行した場合は fail-closed にします。
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_identity_eq %fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord bool \a\b:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq a.key b.key
+        and:
+            selfhost_memo_call_backend_private_cache_resource_graph_id_eq a.graph_id b.graph_id
+            eq a.operation_ordinal b.operation_ordinal
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id_loop: body graph に指定 place があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn i32 bool \input\body\place_id\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body place body
+                            selfhost_memo_call_backend_private_cache_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id_loop input body place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id: body graph に指定 place があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId bool \input\body\place_id:
+    selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_id_loop input body place_id 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_loop: body graph に place があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body place body
+                        then:
+                            true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_loop input body add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_has_place: body graph に place があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_has_place %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord bool \input\body:
+    selfhost_memo_call_backend_private_cache_resource_graph_body_has_place_loop input body 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_has_body_loop: place に対応する body header があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_has_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn i32 bool \input\place\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body place body
+                        then:
+                            true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_place_has_body_loop input place add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_has_body: place に対応する body header があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_has_body %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord bool \input\place:
+    selfhost_memo_call_backend_private_cache_resource_graph_place_has_body_loop input place 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body_loop: edge に対応する body header があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn i32 bool \input\edge\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_edge_matches_body edge body
+                        then:
+                            true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body_loop input edge add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body: edge に対応する body header があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord bool \input\edge:
+    selfhost_memo_call_backend_private_cache_resource_graph_edge_has_body_loop input edge 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed: body graph が no-escape fold に使える閉包状態か[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness bool \completeness:
+    match completeness:
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary:
+            true
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ResourceGraphMissing:
+            false
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::TraversalUnsupported:
+            false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_loop: place に対応する closed body header があるか[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\place\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing place.key
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body place body
+                        then:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed body.completeness
+                                then:
+                                    Result::Ok unit
+                                else:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph place.graph_id.index
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_loop input place add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_result: place に対応する closed body header があるか[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\place:
+    selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_loop input place 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_loop: edge に対応する closed body header があるか[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing edge.key
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_edge_matches_body edge body
+                        then:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed body.completeness
+                                then:
+                                    Result::Ok unit
+                                else:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph edge.graph_id.index
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_loop input edge add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_result: edge に対応する closed body header があるか[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge:
+    selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_loop input edge 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id_loop: edge endpoint が同じ graph の place table にあるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn i32 bool \input\edge\place_id\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_memo_call_backend_private_cache_proof_key_eq edge.key place.key
+                            and:
+                                selfhost_memo_call_backend_private_cache_resource_graph_id_eq edge.graph_id place.graph_id
+                                selfhost_memo_call_backend_private_cache_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id_loop input edge place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id: edge endpoint が同じ graph の place table にあるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId bool \input\edge\place_id:
+    selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id_loop input edge place_id 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_loop: earlier place identity を[探/さが]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\place\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some existing:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result existing:
+                        Result::Ok _valid:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_place_identity_eq existing place
+                                then:
+                                    Result::Ok true
+                                else:
+                                    selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_loop input place limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_result: earlier place identity があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\place\limit:
+    selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_loop input place limit 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_loop: earlier edge identity を[探/さが]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_edge input idx:
+                Option::Some existing:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result existing:
+                        Result::Ok _valid:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_edge_identity_eq existing edge
+                                then:
+                                    Result::Ok true
+                                else:
+                                    selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_loop input edge limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_result: earlier edge identity があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge\limit:
+    selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_loop input edge limit 0
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_all_bodies_loop: graph body table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_all_bodies_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body input idx:
+                Option::Some body:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_body_result body:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_graph_contains_body_loop input body 0 idx:
+                                Result::Ok seen:
+                                    if:
+                                        seen
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate body.key
+                                        else:
+                                            selfhost_memo_call_backend_private_cache_resource_graph_validate_all_bodies_loop input add idx 1
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop: graph place table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_place_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result place:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_graph_seen_place_before_result input place idx:
+                                Result::Ok seen:
+                                    if:
+                                        seen
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate place.place_id.index
+                                        else:
+                                            match selfhost_memo_call_backend_private_cache_resource_graph_place_has_closed_body_result input place:
+                                                Result::Ok _closed:
+                                                    selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop input add idx 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_endpoints_result: edge endpoint が同じ graph の place table にあるか[確認/かくにん]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_endpoints_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\edge:
+    if:
+        selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id input edge edge.from_place
+        then:
+            if:
+                selfhost_memo_call_backend_private_cache_resource_graph_edge_has_place_id input edge edge.to_place
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing edge.to_place.index
+        else:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing edge.from_place.index
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop: graph edge table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_edge_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result edge:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_graph_seen_edge_before_result input edge idx:
+                                Result::Ok seen:
+                                    if:
+                                        seen
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate edge.operation_ordinal
+                                        else:
+                                            match selfhost_memo_call_backend_private_cache_resource_graph_edge_has_closed_body_result input edge:
+                                                Result::Ok _closed:
+                                                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_endpoints_result input edge:
+                                                        Result::Ok _endpoint:
+                                                            selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop input add idx 1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_validate_input_result: graph input table 全体を fail-closed に[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_validate_input_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput Result unit SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input:
+    match selfhost_memo_call_backend_private_cache_resource_graph_validate_all_bodies_loop input 0:
+        Result::Ok _bodies:
+            match selfhost_memo_call_backend_private_cache_resource_graph_validate_all_places_loop input 0:
+                Result::Ok _places:
+                    selfhost_memo_call_backend_private_cache_resource_graph_validate_all_edges_loop input 0
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_status_rank: Resource proof status の fail-closed 優先度を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_status_rank %fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus i32 \status:
+    match status:
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven:
+            0
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMissing:
+            1
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown:
+            2
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape:
+            3
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_status_combine: Resource proof status を fail-closed 優先度で[結合/けつごう]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_status_combine %fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceProofStatus \a\b:
+    if:
+        gt selfhost_memo_call_backend_private_cache_resource_graph_status_rank b selfhost_memo_call_backend_private_cache_resource_graph_status_rank a
+        then:
+            b
+        else:
+            a
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_place_status: place kind を Resource proof status へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_place_status %fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceProofStatus \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheEntry:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnedOwnedClone:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PublicStore:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ExternalHandle:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+        SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::UnsupportedPlace:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_edge_status: edge kind を Resource proof status へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_edge_status %fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceProofStatus \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::Owns:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::BorrowView:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::ReturnCacheReference:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::StoreToPublic:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+        SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CallBoundaryUnsupported:
+            SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_new: graph fold summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_new %fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus fn bool SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary \status\saw_place:
+    SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary status saw_place
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_place: place status を fold summary へ[足/た]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_place %fn SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary \summary\kind:
+    let status %SelfhostMemoCallBackendPrivateCacheResourceProofStatus selfhost_memo_call_backend_private_cache_resource_graph_status_combine summary.status selfhost_memo_call_backend_private_cache_resource_graph_place_status kind
+    selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_new status true
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_edge: edge status を fold summary へ[足/た]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_edge %fn SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary \summary\kind:
+    let status %SelfhostMemoCallBackendPrivateCacheResourceProofStatus selfhost_memo_call_backend_private_cache_resource_graph_status_combine summary.status selfhost_memo_call_backend_private_cache_resource_graph_edge_status kind
+    selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_new status summary.saw_place
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop: body graph の place を status へ[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary Result SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_place_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_place_result place:
+                        Result::Ok _valid:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_place_matches_body place body
+                                then:
+                                    let next %SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_place acc place.kind
+                                    selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop input body add idx 1 next
+                                else:
+                                    selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop: body graph の edge を status へ[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary Result SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_edge_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_result edge:
+                        Result::Ok _valid:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_edge_matches_body edge body
+                                then:
+                                    match selfhost_memo_call_backend_private_cache_resource_graph_validate_edge_endpoints_result input edge:
+                                        Result::Ok _endpoint:
+                                            let next %SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_with_edge acc edge.kind
+                                            selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop input body add idx 1 next
+                                        Result::Err e:
+                                            Result::Err e
+                                else:
+                                    selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_closed_status_result: closed graph を Resource proof status へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - `ClosedForPrivateCacheBoundary` でも place が 1 件もない graph は proof authority として不十分です。empty graph は `Unknown` に倒し、accepted path へ進めません。
+fn selfhost_memo_call_backend_private_cache_resource_graph_closed_status_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body:
+    let initial %SelfhostMemoCallBackendPrivateCacheResourceGraphFoldSummary selfhost_memo_call_backend_private_cache_resource_graph_fold_summary_new SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven false
+    match selfhost_memo_call_backend_private_cache_resource_graph_fold_places_loop input body 0 initial:
+        Result::Ok place_summary:
+            if:
+                place_summary.saw_place
+                then:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_fold_edges_loop input body 0 place_summary:
+                        Result::Ok edge_summary:
+                            Result::Ok edge_summary.status
+                        Result::Err e:
+                            Result::Err e
+                else:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_to_status_result: graph body を Resource proof status へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_to_status_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body:
+    match body.completeness:
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary:
+            selfhost_memo_call_backend_private_cache_resource_graph_closed_status_result input body
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ResourceGraphMissing:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMissing
+        SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::TraversalUnsupported:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_body_to_resource_record_result: graph body を Resource proof record へ[変換/へんかん]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_body_to_resource_record_result %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofRecord SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \input\body:
+    match selfhost_memo_call_backend_private_cache_resource_graph_body_to_status_result input body:
+        Result::Ok status:
+            Result::Ok selfhost_memo_call_backend_private_cache_resource_proof_record_new body.key status
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_fail_with_output: graph producer 失敗時に output Resource proof table を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_resource_graph_fail_with_output %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofTable impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \output\error:
+    selfhost_memo_call_backend_private_cache_resource_proof_table_free output
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_loop: graph input body を Resource proof table へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_loop %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofTable impure fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \output\graph\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_graph_body_len graph
+        then:
+            Result::Ok output
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_graph_get_body graph idx:
+                Option::Some body:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_body_to_resource_record_result graph body:
+                        Result::Ok resource_record:
+                            match selfhost_memo_call_backend_private_cache_resource_proof_table_push output resource_record:
+                                Result::Ok next_output:
+                                    selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_loop next_output graph add idx 1
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected e
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_graph_fail_with_output output e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_graph_fail_with_output output SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_table_result: graph input から Resource proof table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - input 全体の validation を先に行い、orphan place / orphan edge / duplicate / endpoint missing がある graph を partial proof として出力しません。
+//: - output Resource proof table はこの module の private type であり、public API の accepted authority にはしません。
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_table_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \graph:
+    match selfhost_memo_call_backend_private_cache_resource_graph_validate_input_result graph:
+        Result::Ok _valid:
+            match selfhost_memo_call_backend_private_cache_resource_proof_table_new:
+                Result::Ok output0:
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_loop output0 graph 0
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result: Resource graph input 由来の proof で既存 gate を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - graph input は borrowed owner table です。この関数は graph input を閉じません。
+//: - graph input はまず private Resource proof table に畳まれ、その後で既存 request-evidence gate に通されます。graph record を直接 request accepted proof として扱いません。
+fn selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \module\root\fuel\body_module_fingerprint\graph:
+    match selfhost_memo_call_backend_private_cache_resource_graph_input_to_resource_proof_table_result graph:
+        Result::Ok resource_proofs:
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result module root fuel body_module_fingerprint &resource_proofs
+            selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_proofs
+            match result:
+                Result::Ok summary:
+                    Result::Ok summary
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_proof_status_eq: proof status が同じ variant か[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_proof_status_eq %fn SelfhostMemoCallBackendPrivateCacheProofStatus fn SelfhostMemoCallBackendPrivateCacheProofStatus bool \a\b:
@@ -1274,6 +2439,317 @@ pub fn selfhost_memo_call_backend_private_cache_resource_proof_refuted_result_eq
                 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_resource_graph_error_code: Resource graph producer error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stage0 doctest と source policy が表示文字列ではなく enum 分類を比較できるようにします。
+fn selfhost_memo_call_backend_private_cache_resource_graph_error_code %fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+            2
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+            3
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+            4
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+            5
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+            6
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+            7
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+            8
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+            9
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate _key:
+            10
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+            11
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+            12
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            13
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+            14
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+            15
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+            16
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+            17
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+            18
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing _place_id:
+            19
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected _e:
+            20
+        SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+            21
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_error_kind_eq: Resource graph producer error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_resource_graph_error_code a selfhost_memo_call_backend_private_cache_resource_graph_error_code b
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_error_result_eq: Resource graph producer result が期待 error 分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_error_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_call_backend_private_cache_resource_graph_error_kind_eq actual expected
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_refuted_result_eq: graph MayEscape が gate の refuted error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_refuted_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_proof_refuted_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_missing_result_eq: graph Missing が producer missing error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_missing_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_proof_missing_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq: graph Unknown が producer unknown error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_proof_unknown_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_duplicate_result_eq: duplicate graph body error が expected key を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_duplicate_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_endpoint_missing_result_eq: endpoint missing error が expected place id を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_endpoint_missing_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind fn i32 bool \result\expected_place_id:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::EdgeEndpointMissing actual_place_id:
+                    eq actual_place_id expected_place_id
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlacePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgePushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphPlaceDuplicate _place_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEdgeDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::GraphEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::OutputResourceProofRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key: stage0 の期待 key を[返/かえ]す
 pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
     let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
@@ -1439,5 +2915,134 @@ pub fn selfhost_memo_call_backend_private_cache_resource_proof_producer_stage0 %
             let unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
             let duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_duplicate_result
             Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary accepted.request_count accepted.proven_request_count may_escape_rejected missing_rejected unknown_rejected duplicate_rejected
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record: stage0 用 graph body record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \completeness:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    selfhost_memo_call_backend_private_cache_resource_graph_body_record_new key graph_id completeness
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_place_record: stage0 用 graph place record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_place_record %fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+    selfhost_memo_call_backend_private_cache_resource_graph_place_record_new key graph_id 0 place_id kind
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_edge_record: stage0 用 graph edge record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_edge_record %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \to_place_index\kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+    let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new to_place_index
+    selfhost_memo_call_backend_private_cache_resource_graph_edge_record_new key graph_id 1 from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_input_result: body だけを持つ graph input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \completeness:
+    match selfhost_memo_call_backend_private_cache_resource_graph_input_new:
+        Result::Ok input0:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_push_body input0 selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record completeness
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_input_result: closed body と 1 place を持つ graph input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \place_kind:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_input_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary:
+        Result::Ok input1:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_push_place input1 selfhost_memo_call_backend_private_cache_resource_graph_stage0_place_record place_kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_edge_input_result: closed body / place / edge を持つ graph input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_edge_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \place_kind\to_place_index\edge_kind:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_input_result place_kind:
+        Result::Ok input2:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_push_edge input2 selfhost_memo_call_backend_private_cache_resource_graph_stage0_edge_record to_place_index edge_kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_with_input_result: graph input を閉じながら gate summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_with_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \graph:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result &module root 8 77 &graph
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+            selfhost_hir_module_free module
+            result
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_result: graph builder と gate を[接続/せつぞく]する
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \place_kind\to_place_index\edge_kind:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_closed_place_edge_input_result place_kind to_place_index edge_kind:
+        Result::Ok graph:
+            selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_with_input_result graph
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_i32_result: graph producer result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \place_kind\to_place_index\edge_kind:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_result place_kind to_place_index edge_kind:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_run_i32_result: body-only graph producer result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \completeness:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_input_result completeness:
+        Result::Ok graph:
+            match selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_with_input_result graph:
+                Result::Ok summary:
+                    Result::Ok summary.proven_request_count
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_stage0_duplicate_result: duplicate graph body を[拒否/きょひ]する smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_duplicate_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_graph_input_new:
+        Result::Ok input0:
+            let body %SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+            match selfhost_memo_call_backend_private_cache_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    match selfhost_memo_call_backend_private_cache_resource_graph_input_push_body input1 body:
+                        Result::Ok input2:
+                            let n %i32 selfhost_memo_call_backend_private_cache_resource_graph_body_len &input2
+                            selfhost_memo_call_backend_private_cache_resource_graph_input_free input2
+                            Result::Ok n
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_producer_stage0: Resource graph producer 境界の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - closed private graph は既存 request-evidence gate の non-executable accepted summary まで進むことを確認します。
+//: - escaping graph、missing graph、unsupported graph、duplicate body、endpoint missing は fail-closed に拒否されることを確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - stage0 fixture は定数サイズです。実運用の graph input では body 数を `b`、place 数を `p`、edge 数を `e` とすると、現状の preflight duplicate / orphan / endpoint 検査は O(b*b + p*(b+p) + e*(b+p+e)) 時間です。
+//: - proof table へ畳んだ後の既存 request-evidence gate は request 数を `m`、proof 数を `r` とすると O(m*r) 時間です。index 化は後続最適化であり、この checkpoint では fail-closed contract を優先します。
+pub fn selfhost_memo_call_backend_private_cache_resource_graph_producer_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_summary_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue:
+        Result::Ok accepted:
+            let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::BorrowView
+            let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ResourceGraphMissing
+            let unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_only_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::TraversalUnsupported
+            let duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_stage0_duplicate_result
+            let endpoint_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 9 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::Owns
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary accepted.request_count accepted.proven_request_count may_escape_rejected missing_rejected unknown_rejected duplicate_rejected endpoint_missing_rejected
         Result::Err e:
             Result::Err e
