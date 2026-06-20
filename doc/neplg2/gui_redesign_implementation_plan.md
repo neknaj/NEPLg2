@@ -2808,3 +2808,79 @@ Phase F5kc では、F5kb で相関済みになった `InternAtom` reply を、`W
 - slice policy は `YieldSlice` と timer schedule の契約を乱さず、FHD 60fps 目標に向けて bounded turn progress を表す必要がある。
 - headless app-loop は presentation fallback ではなく、virtual event / virtual timer / offscreen snapshot を組み合わせた test target として扱う必要がある。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。
+
+## Phase F5kd: Native Linux X11 WM protocol ChangeProperty registration boundary
+
+Phase F5kd では、F5kc の completed Atom owner を使い、X11 top-level window に対する `WM_PROTOCOLS` property mutation を `ChangeProperty` request として送る。これは actual registration request write boundary であり、`WM_DELETE_WINDOW` `ClientMessage` decode や Linux runner dispatch ではない。
+
+実装:
+
+- `NativeWindowLinuxX11WmProtocolRegistrationRequest` を追加し、window id、completed Atom owner、encoded request bytes を保持する。
+- request bytes は X11 `ChangeProperty` の fixed header 24 byte と 32-bit Atom data item 1 個を合わせた 28 byte / 7 units とする。
+- request encoding は opcode `18`、mode Replace、property `WM_PROTOCOLS`、type predefined `ATOM` id `4`、format `32`、data length `1`、data item `WM_DELETE_WINDOW` とする。
+- `NativeWindowLinuxX11WmProtocolRegistrationWriteState` と partial write offset を reader に追加し、WaitingForAtoms / RequestPending / Ready / Failed を明示する。
+- correlated `InternAtom` replies から completed Atom owner が返った時だけ registration request を構築する。
+- setup-ready write path は `CreateWindow -> InternAtom batch -> InternAtom replies / Atom IDs -> ChangeProperty WM_PROTOCOLS -> MapWindow` の順序にする。
+- registration request が accepted write boundary を越えるまで MapWindow を送らない。
+- would-block は retryable として state を保持し、write failure / zero write / overflow / request build failure は Failed にして MapWindow を block する。
+- registration request の accepted sequence を `NativeWindowLinuxX11WmProtocolRegistrationSequencePlan` に保持し、server error correlation に渡す。
+- source-policy は registration surface が `ClientMessage` decode、runner dispatch、support gate `Ok` 化、fallback、silent no-op、synthetic readiness を含まないことを検査する。
+
+非目標:
+
+- `WM_DELETE_WINDOW` `ClientMessage` decode は含めない。
+- StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- Atom ID fallback、default Atom、synthetic readiness、silent no-op は行わない。
+
+完了条件:
+
+- request owner は 28 byte / length 7 units の `ChangeProperty` request を protocol 通り encode する。
+- completed Atom owner が無い状態では registration request を作らない。
+- reader は registration accepted write 前に MapWindow を送らない。
+- registration write failure は failed state と typed error を残し、MapWindow を block する。
+- server error は top-level request correlation を優先し、registration sequence に一致する場合だけ registration error として扱う。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で 28 byte / 7 units encoding、no MapWindow before registration、fail-closed write state、no ClientMessage / no fallback が承認される。
+
+## Phase F5ke: Native Linux X11 WM_DELETE_WINDOW ClientMessage decode boundary
+
+Phase F5ke では、F5kd の `ChangeProperty` accepted boundary を越えた reader-owned registration context を使い、X11 `ClientMessage` event を `WM_DELETE_WINDOW` close request observation へ decode する。これは event packet decode boundary であり、runner dispatch や support gate `Ok` 化ではない。
+
+実装:
+
+- `NativeWindowLinuxX11RegisteredWmProtocolContext` を追加し、accepted registration に対応する window id と `WM_PROTOCOLS` / `WM_DELETE_WINDOW` Atom owner を保持する。
+- reader は `wm_protocol_registration_write_state == Ready` の場合だけ `registered_wm_protocol_context()` から context を返す。request owner が存在しても accepted write boundary 前なら context は返さない。
+- `ClientMessage` 判定は raw response byte ではなく `native_window_linux_x11_event_response_type(packet)` を使う。send-event bit 付き raw `33 | 0x80` も event type `33` として扱う。
+- decode helper は format `32`、window id、message type Atom `WM_PROTOCOLS`、data32[0] `WM_DELETE_WINDOW` を registration context と照合する。
+- mismatch は format / window / message type Atom / protocol Atom の typed error とする。
+- registration context が無い `ClientMessage` は `ClientMessageWmProtocolNotRegistered` として fail closed にし、generic unsupported event や silent ignore へ落とさない。
+- matching close は os close requested observation だけを返し、size と mouse state は previous input を保持する。
+- source-policy は ClientMessage decode が accepted registration context に依存し、fallback、silent no-op、synthetic readiness、runner dispatch を含まないことを検査する。
+
+非目標:
+
+- StructureNotify / Expose decode、keyboard / IME、Wayland concrete decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- Atom fallback、default Atom、synthetic readiness、silent no-op は行わない。
+
+完了条件:
+
+- raw `33` と send-event bit 付き raw `161` の `ClientMessage` が同じ close decode path を通る。
+- assigned atoms や registration request owner があっても、registration accepted context が無ければ close observation を返さない。
+- format、window id、message type Atom、protocol Atom の mismatch が typed error になる。
+- provider integration test で accepted registration 後の `WM_DELETE_WINDOW` `ClientMessage` が os close requested observation になる。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_client_message -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で send-event bit masking、accepted registration context requirement、typed mismatch errors、no fallback が承認される。
