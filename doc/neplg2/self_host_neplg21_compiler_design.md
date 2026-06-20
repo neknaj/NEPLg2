@@ -2281,6 +2281,36 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 memo_call backend actual walker traversal source collector stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 `SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` と `SelfhostMemoCallBackendPrivateCacheObservationBanTable` から module-private `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable` を作る collector stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、actual traversal 本体が接続される前でも、既に scanner / observation ban 側で typed event 化されている body / place / edge / unsupported / observation を、operation producer が読む source vocabulary へ lossless に近い形で運ぶ境界である。collector は borrowed input を読み、validation を通したうえで新しい source table owner を作るだけであり、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment、operation table は作らない。
+
+place source は `PrivateCacheStoragePlace`、`PrivateCacheEntryPlace`、`ReturnedOwnedClonePlace`、`ReturnCacheReferencePlace`、`PublicStorePlace`、`ExternalHandlePlace`、`UnsupportedPlace` へ明示的に写す。edge source は `OwnsEdge`、`BorrowViewEdge`、`CloneOutOwnedValueEdge`、`ReturnCacheReferenceEdge`、`PublicStoreEdge`、`CallBoundaryUnsupportedEdge` へ写す。`Owns` / `BorrowView` は `CloneOutOwnedValue` と意味が異なるため、clone-out として偽装しない。`ExternalHandle`、`UnsupportedPlace`、`CallBoundaryUnsupported` は actual traversal 未接続を表す `ResourceIrTraversalUnavailable` へ潰さない。
+
+observation source は cache state observation、function identity observation、raw identity observation、unsupported observation を分けて保持する。`NoObservationDetected` は source を生成しない。これは body 全体の無観測証明ではなく、その observation record で観測が報告されなかったという中立状態にすぎないためである。known unsupported traversal と known unsupported observation は `UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持し、`ResourceIrTraversalUnavailable` は HIR-root operation producer bridge が actual traversal 未接続を表す場合に限定する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。place / edge / observation source helper が wildcard fallback を使わないこと、`ExternalHandle` / `UnsupportedPlace` / `CallBoundaryUnsupported` / `UnsupportedObservation` を unavailable へ落とさないこと、`Owns` / `BorrowView` を clone-out に偽装しないこと、`NoObservationDetected` から source record を作らないこと、collector helper を public API にしないこと、collector が GraphInput / proof table / accepted proof / backend bytes / operation table を合成しないこと、line count / doc comment amount limiting checks を追加しないことを固定している。
+
+計算量として、collector は body 数 `b`、place 数 `p`、edge 数 `e`、unsupported 数 `u`、observation 数 `o` に対して validation と source append を線形に行う。ただし後段の source-to-operation projection と operation classifier は既存の O(s) / O(m * o) 境界に従う。source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は後続最適化として扱えるが、typed source vocabulary、known unsupported と unavailable の分離、borrowed input から owner source table だけを作る境界、proof / backend 合成禁止は semantic contract として維持する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-collector-selfhost-shard8of8.json`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed walker input または traversal source table を生成する境界。
+- actual traversal source と fresh private cache region proof の接続。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

@@ -402,6 +402,31 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
 
+## 2026-06-21 selfhost memo_call backend actual walker traversal source collector stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、既存 `SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` と `SelfhostMemoCallBackendPrivateCacheObservationBanTable` から module-private traversal source table owner を作る collector stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。collector は borrowed walker input / observation table を検査し、place / edge / unsupported / observation を traversal source vocabulary へ写すだけである。GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment、operation table は作らない。
+
+`ResourceIrTraversalUnavailable` は actual traversal 未接続専用に戻した。known unsupported traversal / observation は `UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持する。`ExternalHandle`、`UnsupportedPlace`、`CallBoundaryUnsupported` は unavailable に落とさず、`Owns` / `BorrowView` は `CloneOutOwnedValue` に偽装しない。`NoObservationDetected` は source record を生成しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。place / edge / observation helper の wildcard fallback 禁止、ExternalHandle / Unsupported / UnsupportedObservation の unavailable 化禁止、Owns / BorrowView の clone-out 偽装禁止、NoObservationDetected の source なし、collector helper 非公開、GraphInput / proof / backend / operation table 合成禁止、line count / doc comment amount limiting checks の禁止を固定した。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-collector-selfhost-shard8of8.json`
+
+残件:
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed walker input または traversal source table を生成する境界。
+- actual traversal source と fresh private cache region proof の接続。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+
 ## 2026-06-21 selfhost memo_call backend actual walker traversal source projection stage0 checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual walker traversal source vocabulary を accepted / escaping / observation / unavailable の typed source variant へ広げ、source-to-operation projection 経由で既存 operation classifier / unified event normalizer へ渡す projection stage0 を追加した。
