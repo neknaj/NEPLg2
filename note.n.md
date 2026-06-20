@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5jn Linux Xauthority process hostname address adapter boundary
+
+## scope
+
+- F5jm の `NativeWindowLinuxX11LocalAuthorityAddressReader` に接続する cfg Linux process hostname adapter を追加する。
+- `gethostname` 相当の side effect は raw API trait に隔離し、reader は NUL terminated hostname bytes だけを F5jm validation helper へ渡す。
+- NUL terminator が無い hostname buffer は typed process read error とし、empty hostname は F5jm `EmptyAddress` に委譲する。
+- selector criteria construction、credential selection、setup request integration、raw X11 fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、silent no-op、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- actual OS call は injected raw API の背後に保ち、deterministic tests は process hostname ではなく scripted raw API を使うことが required とされた。
+- reader は `MAX + 1` を確保し、raw API を exactly once 呼び、NUL terminator を必須にし、無い場合は typed `HostnameNotTerminated` を返すことが required とされた。
+- empty hostname は F5jm `EmptyAddress` に流し、localhost / wild / empty fallback を作らないことが required とされた。
+- source policy / tests は selector criteria、credential selection、setup request、env / fs / VFS / DISPLAY、X11 fd IO、window setup、runner / CLI / support-gate `Ok`、fallback、silent no-op、synthetic readiness が混入しないことを固定する必要がある。
+
+## implementation
+
+- `NativeWindowLinuxX11LocalAuthorityAddressRawApi`、`NativeWindowLinuxX11LocalAuthorityAddressProcessReadError`、`NativeWindowLinuxX11ProcessLocalAuthorityAddressReader` を追加した。
+- process reader は `NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1` の buffer を確保し、raw API を 1 回だけ呼び、最初の NUL byte までを hostname bytes として F5jm validation helper へ渡す。
+- cfg Linux `NativeWindowLinuxX11LocalAuthorityAddressSysApi` と `native_window_linux_x11_local_authority_address_from_process_hostname` を追加し、`libc::gethostname` を F5jm helper へ接続した。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jn contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target checks は既存 dead_code warning を報告したが、F5jn の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / docs / source-policy の content blocker は無く、この `implementation_review` 欄が `pending` のままで commit readiness を満たしていない点だけが指摘された。
+- 指摘対応として、この review 結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- selector criteria / credential setup request への full integration、X11 window setup、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jm Linux Xauthority local authority address owner boundary
 
 ## scope
