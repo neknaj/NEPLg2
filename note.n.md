@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5jj Linux Xauthority filesystem file bytes adapter boundary
+
+## scope
+
+- F5jg の injected file bytes reader に対する cfg Linux actual filesystem adapter を追加する。
+- adapter は F5jg から渡された exact `path` に対して `std::fs::read(path)` だけを行う。
+- read failure は exact requested path と original `std::io::Error` を保持する typed error とする。
+- empty file / file too large validation は F5jg helper に委譲し、adapter 内で重複実装しない。
+- VFS adapter、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- adapter は薄く保ち、`std::fs::read(path)` のみを許可する方針が承認された。
+- IO failure は exact requested path と original `std::io::Error` を保持し、empty / too-large validation は F5jg helper に残す方針が承認された。
+- source policy で F5jg injected surface と actual filesystem adapter surface を分けることが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFilesystemFileBytesReader` と `NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError` を追加した。
+- filesystem reader は `std::fs::read(path)` の error を typed `ReadFailed path error` に変換する。
+- `native_window_linux_x11_xauthority_read_file_bytes_from_filesystem` を追加し、F5jg helper への委譲だけを行う。
+- Rust cfg Linux tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jj contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5jj の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jj 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- VFS adapter、hostname / display identity policy、credential-selection-to-setup integration、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5ji Linux Xauthority process environment adapter boundary
 
 ## scope

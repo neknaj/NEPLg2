@@ -2155,6 +2155,38 @@ Phase F5ji では、F5jh の injected environment reader に対する cfg Linux 
 - `git diff --check`
 - subagent implementation review で actual env adapter が F5jh にだけ接続され、no fs/VFS / no file read / no credential selection / no fallback / no runner dispatch が承認される。
 
+## Phase F5jj: Native Linux Xauthority filesystem file bytes adapter boundary
+
+Phase F5jj では、F5jg の injected file bytes reader に対する cfg Linux actual filesystem adapter を追加する。これは exact path file bytes adapter contract であり、VFS、path normalization、credential selection、setup request integration、runner / CLI dispatch は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityFilesystemFileBytesReader` は `NativeWindowLinuxX11XauthorityFileBytesReader` を実装する cfg Linux reader とする。
+- adapter は F5jg から渡された exact `path` に対して `std::fs::read(path)` だけを行う。
+- read failure は exact requested path と original `std::io::Error` を保持する `NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError` にする。
+- empty file / file too large validation は F5jg `native_window_linux_x11_xauthority_read_file_bytes` に委譲し、adapter 内で重複実装しない。
+- convenience helper は filesystem reader を作り、F5jg `native_window_linux_x11_xauthority_read_file_bytes` を呼ぶだけにする。
+- source policy は F5jg injected surface と actual filesystem adapter surface を分け、actual adapter surface だけで `std::fs::read(path)` を許可する。
+
+非目標:
+
+- VFS adapter、`File`、`OpenOptions`、`read_to*`、metadata / exists / canonicalize、file locking は扱わない。
+- path normalization、home fallback、alternate path synthesis、no-auth fallback は扱わない。
+- record parse、credential selection、setup request integration は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- `git diff --check`
+- subagent implementation review で actual filesystem adapter が F5jg にだけ接続され、no VFS / no credential selection / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
