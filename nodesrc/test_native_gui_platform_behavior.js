@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 function readRepoFile(...parts) {
-    return fs.readFileSync(path.resolve(__dirname, "..", ...parts), "utf8");
+    return fs.readFileSync(path.resolve(__dirname, "..", ...parts), "utf8").replace(/\r\n/g, "\n");
 }
 
 function withoutComments(text) {
@@ -157,6 +157,32 @@ function runNativeGuiPlatformBehaviorRegression() {
         "impl<Provider> NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<Provider>",
         "pub fn native_window_linux_window_event_source_prepare_platform_wait_backend_config",
     );
+    const nativeWindowLinuxWindowEventSourceRunLoopTypes = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig",
+        "pub enum NativeWindowRunLoopPlatformWaitBackendFromConfigError",
+    );
+    const nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl = textSliceBetween(
+        libSource,
+        "impl<Provider> NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig<Provider>",
+        "pub fn validate_minifb_window_run_loop_wait_backend",
+    );
+    const nativeWindowLinuxWindowEventSourceRunLoopHostImpl = textSliceBetween(
+        libSource,
+        "impl<Host, BackendApi, ProducerApi, Provider>\n    NativeWindowLinuxWindowEventSourceRunLoopHost<Host, BackendApi, ProducerApi, Provider>",
+        "pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis",
+    );
+    const nativeWindowLinuxWindowEventSourceRunLoopHostHandoff = textSliceBetween(
+        libSource,
+        "pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis",
+        "impl<Api> NativeWindowHostLoopDeadlineTimerClock",
+    );
+    const nativeWindowLinuxWindowEventSourceRunLoopOwnershipSurface = [
+        nativeWindowLinuxWindowEventSourceRunLoopTypes,
+        nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl,
+        nativeWindowLinuxWindowEventSourceRunLoopHostImpl,
+        nativeWindowLinuxWindowEventSourceRunLoopHostHandoff,
+    ].join("\n");
     const nativeWindowPlatformWaitRunnerSupportGate = textSliceBetween(
         libSource,
         "pub fn validate_native_window_run_loop_platform_wait_runner_support_for_platform",
@@ -441,6 +467,20 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /pub enum NativeWindowLinuxWindowEventSourcePreparePlatformWaitConfigError<Provider, ProviderError>\s*\{[\s\S]*BackendSupportFailed\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*error: NativeWindowHostLoopPlatformWaitBackendSupportError[\s\S]*ProviderFailed\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*error: ProviderError[\s\S]*InvalidDescriptor\s*\{[\s\S]*provider: Provider,[\s\S]*selection: NativeWindowHostLoopPlatformWaitBackendSelection,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*error: NativeWindowHostLoopLinuxSelectorTimerFdBackendError/);
     assert.match(nativeWindowLinuxWindowEventSourcePrepareConfig, /validate_native_window_host_loop_platform_wait_backend_kind_for_platform\([\s\S]*NativeWindowHostLoopPlatformKind::Linux,[\s\S]*selection\.backend\(\)[\s\S]*provider\.window_event_source_descriptor\(\)[\s\S]*native_window_host_loop_linux_window_event_source_fd_from_raw\(descriptor\.raw_fd\(\)\)[\s\S]*NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_window_event_source_raw_fd\([\s\S]*selection,[\s\S]*descriptor\.raw_fd\(\)[\s\S]*NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig::new/);
     assert.doesNotMatch(nativeWindowLinuxWindowEventSourcePrepareConfig, /NativeWindowRunLoopConfig::|new_with_platform_wait_backend_config|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|poll\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopTypes, /pub struct NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig<Provider>\s*\{[\s\S]*config: NativeWindowRunLoopConfig,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*provider: Provider/);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopTypes, /pub struct NativeWindowLinuxWindowEventSourceRunLoopHost<[\s\S]*Host,[\s\S]*BackendApi,[\s\S]*ProducerApi,[\s\S]*Provider[\s\S]*>\s*where[\s\S]*host:\s*NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<[\s\S]*Host,[\s\S]*BackendApi,[\s\S]*ProducerApi[\s\S]*>[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*provider: Provider/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourceRunLoopTypes, /#\[derive\([^\]]*(Clone|Copy)[^\]]*\)\]\s*pub struct NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig|#\[derive\([^\]]*(Clone|Copy)[^\]]*\)\]\s*pub struct NativeWindowLinuxWindowEventSourceRunLoopHost/);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopTypes, /pub enum NativeWindowLinuxWindowEventSourceRunLoopHostFromPreparedConfigError<[\s\S]*HostBuildFailed\s*\{[\s\S]*provider: Provider,[\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*error: NativeWindowLinuxPlatformWaitRunLoopHostFromConfigBuildError<[\s\S]*Host,[\s\S]*BackendApi,[\s\S]*ProducerApi/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl, /pub fn new\s*\(|into_config|pub fn config\s*\(\s*self|NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig::new\([\s\S]*selection/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourceRunLoopOwnershipSurface, /pub fn into_config|pub fn into_host|pub fn config\s*\(\s*self\s*\)|pub fn host\s*\(\s*self\s*\)/);
+    assert.match(nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl, /pub fn config\(&self\)[\s\S]*&NativeWindowRunLoopConfig[\s\S]*pub fn into_parts\([\s\S]*NativeWindowRunLoopConfig,[\s\S]*NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*Provider/);
+    assert.match(nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl, /pub fn native_window_linux_window_event_source_prepare_run_loop_config<Provider>[\s\S]*prepared_platform_wait_config: NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig<[\s\S]*Provider[\s\S]*demo: GuiDemo,[\s\S]*counter_value: i32,[\s\S]*scale: usize,[\s\S]*target_fps: NativeWindowTargetFps,[\s\S]*host_loop_policy: NativeWindowHostLoopRunPolicy[\s\S]*prepared_platform_wait_config\.into_parts\(\)[\s\S]*NativeWindowRunLoopConfig::new_with_platform_wait_backend_config\([\s\S]*demo,[\s\S]*counter_value,[\s\S]*scale,[\s\S]*target_fps,[\s\S]*host_loop_policy,[\s\S]*platform_wait_config[\s\S]*NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig::new/);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourcePreparedRunLoopConfigImpl, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|poll\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopHostImpl, /pub fn host\([\s\S]*&self[\s\S]*NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost[\s\S]*pub fn into_parts\([\s\S]*NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost<[\s\S]*NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*Provider/);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopHostImpl, /impl<Host, BackendApi, ProducerApi, Provider> NativeWindowRunLoopHost[\s\S]*NativeWindowLinuxWindowEventSourceRunLoopHost<Host, BackendApi, ProducerApi, Provider>[\s\S]*fn poll_event_snapshot[\s\S]*self\.host\.poll_event_snapshot\(input\)[\s\S]*fn wait_after_budget_exhausted[\s\S]*self\.host\.wait_after_budget_exhausted\(instruction\)/);
+    assert.match(nativeWindowLinuxWindowEventSourceRunLoopHostHandoff, /pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis<[\s\S]*host: Host,[\s\S]*prepared_run_loop_config: NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig<Provider>,[\s\S]*backend_api: BackendApi,[\s\S]*producer_api: ProducerApi[\s\S]*prepared_run_loop_config\.into_parts\(\)[\s\S]*native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis\([\s\S]*host,[\s\S]*config,[\s\S]*backend_api,[\s\S]*producer_api[\s\S]*NativeWindowLinuxWindowEventSourceRunLoopHost::new\([\s\S]*host,[\s\S]*descriptor,[\s\S]*provider[\s\S]*HostBuildFailed\s*\{[\s\S]*provider,[\s\S]*descriptor,[\s\S]*error/);
+    assert.strictEqual((nativeWindowLinuxWindowEventSourceRunLoopHostHandoff.match(/native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis/g) || []).length, 1);
+    assert.doesNotMatch(nativeWindowLinuxWindowEventSourceRunLoopHostHandoff, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|poll\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(libSource, /pub type NativeWindowWindowsPlatformWaitHostLoopError[\s\S]*NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError[\s\S]*NativeWindowHostLoopPlatformWaitBackendError<[\s\S]*NativeWindowHostLoopWindowsWaitBackendError,[\s\S]*NativeWindowHostLoopMacosRunLoopTimerBackendError,[\s\S]*NativeWindowHostLoopLinuxSelectorTimerFdBackendError/);
     assert.match(libSource, /impl NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*pub fn authority_mode[\s\S]*MinifbInternalTargetFps[\s\S]*native_window_frame_interval_wait_authority_mode_minifb_internal_target_fps[\s\S]*HostOwnedDeadlineTimer[\s\S]*native_window_frame_interval_wait_authority_mode_host_owned_deadline_timer/);
     assert.match(libSource, /impl Default for NativeWindowRunLoopFrameIntervalWaitBackend[\s\S]*Self::MinifbInternalTargetFps/);

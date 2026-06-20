@@ -73978,3 +73978,59 @@ MERGE_APPROVED
 - 追加指摘として、source policy が prepared value の public constructor 禁止を固定していなかったことと、この `implementation_review` 欄が pending のままだったことも commit readiness blocker だった。
 - 指摘対応として、prepared value constructor を private にし、`nodesrc/test_native_gui_platform_behavior.js` に `pub fn new` 禁止を追加した。
 - final re-review は `REVIEW_APPROVED`。public constructor bypass が残っていないこと、provider ownership が success/error path で保持されること、invalid selection が provider call 前に拒否されること、fd validation が既存 typed Linux fd path を使うこと、full `NativeWindowRunLoopConfig` を helper が構築しないこと、source policy と docs/note/todo が F5iu scope と整合することが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iv Linux window event source provider-owned run-loop handoff boundary
+
+### scope
+
+- F5iv は F5iu の prepared platform config を、provider owner を落とさず full run-loop config と Linux owner-retaining run-loop host へ渡す checkpoint とする。
+- selection + provider だけから full `NativeWindowRunLoopConfig` を作らず、demo、counter、scale、target FPS、run policy は caller の明示引数として扱う。
+- actual X11 / Wayland fd acquisition、event decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fd read / drain / close、synthetic readiness はこの checkpoint では扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig Provider` を追加し、full `NativeWindowRunLoopConfig`、descriptor、provider owner を同時に保持する。
+- F5iu prepared platform config と explicit run-loop parameters から prepared run-loop config を作る helper を追加する。
+- `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を追加し、既存 Linux owner-retaining host、descriptor、provider owner を同時に保持する。
+- prepared run-loop config から既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ helper を追加し、success / failure のどちらでも provider owner と descriptor を失わない。
+- source policy は public constructor bypass、selection + provider だけによる暗黙 full config、runner / CLI dispatch、minifb fallback、fd read / drain / close、event decoding、synthetic readiness を禁止する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は 2 点だった。1 つ目は private constructor だけでは不十分で、new provider-owned value から config-only / host-only に抜ける `into_config`、`into_host`、consuming accessor、provider を返さない split も禁止する必要があること。2 つ目は host handoff helper の入力 shape と lower error recovery を明文化する必要があることだった。
+- 指摘対応として、prepared run-loop config と host wrapper は borrowed accessor と provider / descriptor を同時に返す `into_parts` だけを許し、config-only / host-only escape path を禁止する契約へ修正した。
+- host handoff helper は visual host、prepared run-loop config、backend api、producer api を入力にし、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ。failure では provider owner、descriptor、lower owner-bearing error を保持し、lower error 内の host / config / backend recovery を潰さない契約に修正した。
+- revised plan review は `PLAN_APPROVED`。実装 constraints は、private constructor、config-only / host-only escape path 禁止、borrowed accessor または provider / descriptor / config-host を同時に返す `into_parts` のみ許可、host handoff helper は visual host / prepared run-loop config / backend api / producer api を入力として既存 from-config helper を 1 回だけ呼ぶこと、provider / descriptor / lower owner-bearing error を失わないこと、Linux support gate fail-closed と runner / CLI / minifb / fallback / fd read-drain-close / event decoding / synthetic readiness 非導入を維持することだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig Provider` を追加し、F5iu prepared platform config から full `NativeWindowRunLoopConfig`、descriptor、provider owner を同時に保持する owner-bearing value を作れるようにした。
+- prepared run-loop config helper は demo、counter、scale、target FPS、run policy を caller 明示入力として受け、provider / selection だけから暗黙 default full config を作らない。
+- `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を追加し、既存 Linux owner-retaining host、descriptor、provider owner を同時に保持しながら `NativeWindowRunLoopHost` を委譲する。
+- host handoff helper は visual host、prepared run-loop config、backend api、producer api を受け、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ。success では provider owner と descriptor を host wrapper に保持し、failure では provider owner、descriptor、lower owner-bearing error を保持して返す。
+- prepared run-loop config / host wrapper は private constructor とし、config-only / host-only escape path を作らず、borrowed accessor と owner / descriptor を同時に返す `into_parts` だけを公開した。
+- Rust unit tests と source policy で、explicit config parameter preservation、success owner retention、failure recovery、public constructor bypass 禁止、selection + provider だけの暗黙 full config 禁止、support gate / runner / CLI / minifb / fallback / fd read-drain-close / event decoding / synthetic readiness 非導入を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+- post-merge fix: `nodesrc/test_native_gui_platform_behavior.js` の source policy input を LF 正規化し、Windows working tree の CRLF で F5iv slice marker が空になる問題を解消した。
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は、code / source policy / docs の blocker ではなく、この `implementation_review` 欄が pending のままで commit readiness を満たしていなかったことだけだった。
+- review では、public constructor bypass が無いこと、config-only / host-only escape path が無いこと、explicit run-loop parameters が必須であること、handoff helper が既存 from-config helper を 1 回だけ呼ぶこと、lower owner-bearing recovery が保持されることは approved plan と整合していると確認された。
+- 指摘対応として、この欄を実際の review 結果へ更新した。
+- final re-review は `REVIEW_APPROVED`。note-only blocker は解消され、code / source-policy / docs に新しい blocker は無く、`git diff --check` は LF/CRLF 警告のみであることが確認された。
+- post-merge source-policy fix review も `REVIEW_APPROVED`。`readRepoFile` で CRLF を LF に正規化する修正は、F5iv marker を弱める one-off workaround ではなく、source policy input boundary 全体の line-ending 依存を解消する root-cause fix と確認された。

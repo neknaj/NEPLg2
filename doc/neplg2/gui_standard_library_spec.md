@@ -1001,6 +1001,18 @@ selection validation は provider call より前に行う。Linux + `LinuxSelect
 
 prepared value は provider owner を落とさないための型であり、provider に対して Clone / Copy を提供しない。F5iu は provider-to-config ownership checkpoint であり、actual X11 / Wayland event decoding、event drain/read、Linux runner dispatch、CLI dispatch、minifb wait replacement、support gate `Ok` 化、synthetic readiness、timer evidence は追加しない。
 
+## F5iv Native Linux window event source provider-owned run-loop handoff boundary
+
+F5iv では、F5iu の prepared platform config を provider owner ごと full run-loop config と Linux owner-retaining run-loop host へ渡す。これは actual X11 / Wayland event decoding ではなく、provider owner を生かしたまま既存 Linux selector / timerfd owner host boundary へ接続する ownership handoff である。
+
+full `NativeWindowRunLoopConfig` は selection + provider から暗黙に作らない。demo、counter、scale、target FPS、run policy は caller の明示入力として受け、F5iu prepared platform config の platform-wait backend config と結合する。これにより default demo / scale / FPS を helper が勝手に選ぶ経路を作らない。
+
+prepared run-loop config と run-loop host wrapper は provider owner、descriptor、config または host を同時に保持する。constructor は private にし、F5iu prepared value を通らず任意 raw fd / descriptor / provider を組み合わせる public bypass を作らない。private constructor だけでは不十分なので、config-only / host-only escape path も禁止する。`into_config`、`into_host`、consuming `config self`、consuming `host self`、provider を返さない split は提供しない。許可するのは borrowed accessor と、config / host、descriptor、provider を同時に返す `into_parts` だけである。
+
+host handoff helper は visual `host`、prepared run-loop config、`backend_api`、`producer_api` を入力に取り、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ。success では lower Linux owner-retaining host、provider owner、descriptor を同じ wrapper に入れる。failure では provider owner、descriptor、lower owner-bearing error を保持し、lower error が持つ host / config / backend recovery を失わせない。
+
+F5iv でも Linux generic support gate は `Ok` にならない。runner dispatch、CLI dispatch、minifb wait replacement、fd read / drain / close、synthetic readiness、timer evidence、event decoding は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

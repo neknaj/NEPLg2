@@ -1654,6 +1654,32 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、provider から event object を drain する処理、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5iv: Native Linux window event source provider-owned run-loop handoff boundary
+
+目的:
+
+- F5iu の provider-owned platform-wait config を、provider owner を落とさず full `NativeWindowRunLoopConfig` と Linux owner-retaining run-loop host へ渡せる境界にする。
+- selection + provider だけから full config を作らない方針を維持し、demo、counter、scale、target FPS、run policy は caller の明示引数として受ける。
+- provider owner は descriptor fd の所有元または event decoder owner として prepared run-loop value / host wrapper が保持し続け、raw fd value だけを config / backend に残して provider を drop しない。
+
+実装:
+
+- `NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig Provider` を追加し、`NativeWindowRunLoopConfig`、descriptor、provider owner を同時に保持する。constructor は private にし、F5iu prepared platform config からだけ作る。config-only escape path は作らず、`into_config`、consuming `config self`、provider を返さない split は禁止する。許可するのは borrowed accessor と、config / descriptor / provider を同時に返す `into_parts` だけである。
+- `native_window_linux_window_event_source_prepare_run_loop_config` を追加する。F5iu prepared platform config と caller 明示の demo / counter / scale / target FPS / run policy を受け、`NativeWindowRunLoopConfig::new_with_platform_wait_backend_config` で full config を組み立て、provider owner と descriptor を保持する。
+- `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を追加し、既存の Linux owner-retaining run-loop host、descriptor、provider owner を同時に保持する。host-only escape path は作らず、`into_host`、consuming `host self`、provider を返さない split は禁止する。許可するのは borrowed accessor と、host / descriptor / provider を同時に返す `into_parts` だけである。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis` を追加する。入力は visual `host`、prepared run-loop config、`backend_api`、`producer_api` の 4 つとする。prepared run-loop config を consume し、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼び、success では host wrapper と provider owner を保持し、failure では provider owner、descriptor、lower owner-bearing error を返す。lower error に含まれる host / config / backend recovery は潰さない。
+
+検証:
+
+- Rust unit tests で explicit demo / counter / scale / target FPS / run policy が full config に反映され、provider owner と descriptor が prepared run-loop config に残ることを検査する。
+- Rust unit tests で host build success 後も provider owner が host wrapper に残り、window event source fd が existing Linux selector backend へ register されることを検査する。
+- Rust unit tests で backend build / registration / owner build failure が provider owner と descriptor と lower error を保持して返ることを検査する。
+- source policy で F5iv helper が selection + provider だけから full config を作らないこと、prepared config / host wrapper に public constructor bypass や config-only / host-only escape path を作らないこと、support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、event decoding、synthetic readiness を導入しないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland event parsing、provider event drain / read、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。
