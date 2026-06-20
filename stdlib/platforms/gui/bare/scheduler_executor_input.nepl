@@ -1,0 +1,60 @@
+//: # platforms/gui/bare/scheduler_executor_input
+//: Bare scheduler executor outcome input helper
+//:
+//: ### [目的/もくてき]
+//: - F5eg `ExecuteHostAction` action に対して、bare executor が[返/かえ]した outcome を F5ek real loop step input へ[包/つつ]みます。
+//: - これは backend-facing input boundary であり、not long-running scheduler backend です。
+//:
+//: ### [契約/けいやく]
+//: - general `LoopAction` は[受/う]け[取/と]らず、typed `ExecuteHostAction` payload だけを[入力/にゅうりょく] authority とします。
+//: - outcome は caller supplied `Result unit GuiError` をそのまま[保持/ほじ]し、この module では[成功/せいこう]や[失敗/しっぱい]を[合成/ごうせい]しません。
+//: - typed action と explicit outcome が[渡/わた]された[時点/じてん]で total packaging なので、この helper は does not return Result です。
+//: - unsupported path は[型/かた]で[除外/じょがい]されるため、この boundary には unsupported feature fallback が[存在/そんざい]しません。
+//: - F5ei executor complete、F5ek real loop step、action sink / driver、support validation は[呼/よ]びません。
+//: - `YieldToClock`、`AwaitTimerAdvance`、`Complete` は[対象/たいしょう][外/がい]です。`ClockDelta` や `CompleteAck` は[合成/ごうせい]しません。
+//: - queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/scheduler_executor_input" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+
+pub struct GuiBareSchedulerExecutorInputReady:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+fn gui_bare_scheduler_executor_input_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiBareSchedulerExecutorInputReady \action\input:
+    GuiBareSchedulerExecutorInputReady action input
+
+//: gui_bare_scheduler_executor_input: bare executor outcome を execute action 用 input へ[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - `ExecuteHostAction` typed payload と caller supplied outcome だけを[受/う]けます。
+//: - outcome は `RealLoopStepInput::ExecutorOutcome` として 1 [回/かい]だけ[包/つつ]み、値を[書/か]き[換/か]えません。
+//: - この helper は total packaging であり、backend 実行や loop step には[進/すす]みません。
+pub fn gui_bare_scheduler_executor_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn Result unit GuiError GuiBareSchedulerExecutorInputReady \action\outcome:
+    let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput::ExecutorOutcome outcome
+    gui_bare_scheduler_executor_input_ready_new action input
+
+pub fn gui_bare_scheduler_executor_input_ready_action %fn GuiBareSchedulerExecutorInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction \ready:
+    field::get ready "action"
+
+pub fn gui_bare_scheduler_executor_input_ready_input %fn GuiBareSchedulerExecutorInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \ready:
+    field::get ready "input"

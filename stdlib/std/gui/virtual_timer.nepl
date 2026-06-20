@@ -1,0 +1,212 @@
+//: # std/gui/virtual_timer
+//: headless/offscreen test 用 deterministic timer scheduler contract
+//:
+//: ### [目的/もくてき]
+//: - `TimerRequest` を実 OS / browser timer へ接続せず、caller が渡した virtual delta だけで `GuiEvent::Timer` を[生成/せいせい]します。
+//: - headless / offscreen test は Web / native / bare と同じ `GuiEvent` を application へ[渡/わた]せます。
+//:
+//: ### [契約/けいやく]
+//: - state は active timer を `Option TimerRequest` で[表/あらわ]し、sentinel event や raw string を[使/つか]いません。
+//: - public struct constructor で壊れた state が作られても、schedule / advance は state invariant を[再検査/さいけんさ]します。
+//: - repeating timer は 1 回の advance で最大 1 個の event だけを返します。余った elapsed time は捨てず、次の `advance state 0` で drain できます。
+//: - one-shot timer は event を返すときに state を先に空へ戻します。
+//: - DOM、Canvas、minifb、OS timer、stdout、queue、video memory、fallback、silent no-op は[含/ふく]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/virtual_timer" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/timer" as *
+#import "std/gui/window" as *
+
+//: GuiVirtualTimerState: deterministic timer の[状態/じょうたい]
+//:
+//: [契約/けいやく]:
+//: - `request == None` の場合、`elapsed_ms == 0` かつ `tick == 0` でなければなりません。
+//: - `request == Some` の場合、request は positive ids と positive interval を持ち、elapsed / tick は 0 以上でなければなりません。
+//:
+//: neplg2:test[skip]
+pub struct GuiVirtualTimerState:
+    request %Option TimerRequest
+    elapsed_ms %i32
+    tick %i32
+
+impl Clone for GuiVirtualTimerState:
+    fn clone %fn &GuiVirtualTimerState GuiVirtualTimerState \state:
+        *state
+
+impl Copy for GuiVirtualTimerState:
+    fn copy_mark %fn GuiVirtualTimerState GuiVirtualTimerState \state:
+        state
+
+//: GuiVirtualTimerAdvance: timer advance の[結果/けっか]
+//:
+//: [契約/けいやく]:
+//: - `event` は `Option GuiEvent` です。発火しない場合は `None`、発火した場合は `Some GuiEvent::Timer` です。
+//:
+//: neplg2:test[skip]
+pub struct GuiVirtualTimerAdvance:
+    state %GuiVirtualTimerState
+    event %Option GuiEvent
+
+impl Clone for GuiVirtualTimerAdvance:
+    fn clone %fn &GuiVirtualTimerAdvance GuiVirtualTimerAdvance \advance:
+        *advance
+
+impl Copy for GuiVirtualTimerAdvance:
+    fn copy_mark %fn GuiVirtualTimerAdvance GuiVirtualTimerAdvance \advance:
+        advance
+
+fn gui_virtual_timer_i32_max %fn void i32 \void:
+    2147483647
+
+fn gui_virtual_timer_state_new %fn Option TimerRequest fn i32 fn i32 GuiVirtualTimerState \request\elapsed_ms\tick:
+    GuiVirtualTimerState request elapsed_ms tick
+
+fn gui_virtual_timer_advance_new %fn GuiVirtualTimerState fn Option GuiEvent GuiVirtualTimerAdvance \state\event:
+    GuiVirtualTimerAdvance state event
+
+fn gui_virtual_timer_request_ids_are_valid %fn &TimerRequest bool \request:
+    let window %WindowId timer_request_window request
+    let timer %TimerId timer_request_timer request
+    let window_raw %i32 window_id_raw &window
+    let timer_raw %i32 timer_id_raw &timer
+    and gt window_raw 0 gt timer_raw 0
+
+fn gui_virtual_timer_request_is_schedulable %fn &TimerRequest bool \request:
+    let interval_ms %i32 timer_request_interval_ms request
+    and gui_virtual_timer_request_ids_are_valid request ge interval_ms 0
+
+fn gui_virtual_timer_request_is_active %fn &TimerRequest bool \request:
+    let interval_ms %i32 timer_request_interval_ms request
+    and gui_virtual_timer_request_ids_are_valid request gt interval_ms 0
+
+fn gui_virtual_timer_state_is_valid %fn &GuiVirtualTimerState bool \state:
+    let request %Option TimerRequest gui_virtual_timer_state_request state
+    let elapsed_ms %i32 gui_virtual_timer_state_elapsed_ms state
+    let tick %i32 gui_virtual_timer_state_tick state
+    match request:
+        Option::None:
+            and eq elapsed_ms 0 eq tick 0
+        Option::Some active:
+            and:
+                gui_virtual_timer_request_is_active &active
+                and ge elapsed_ms 0 ge tick 0
+
+fn gui_virtual_timer_event_for_request %fn &TimerRequest fn i32 GuiEvent \request\tick:
+    let timer %TimerId timer_request_timer request
+    let timer_raw %i32 timer_id_raw &timer
+    gui_event_timer timer_event_new timer_raw tick
+
+//: gui_virtual_timer_empty: active timer を[持/も]たない state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_empty %fn void GuiVirtualTimerState \void:
+    gui_virtual_timer_state_new none 0 0
+
+//: gui_virtual_timer_state_request: active request slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_state_request %fn &GuiVirtualTimerState Option TimerRequest \state:
+    *field::get_ref state "request"
+
+//: gui_virtual_timer_state_elapsed_ms: timer の accumulated elapsed time を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_state_elapsed_ms %fn &GuiVirtualTimerState i32 \state:
+    *field::get_ref state "elapsed_ms"
+
+//: gui_virtual_timer_state_tick: timer tick count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_state_tick %fn &GuiVirtualTimerState i32 \state:
+    *field::get_ref state "tick"
+
+//: gui_virtual_timer_advance_state: advance 後の state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_advance_state %fn &GuiVirtualTimerAdvance GuiVirtualTimerState \advance:
+    *field::get_ref advance "state"
+
+//: gui_virtual_timer_advance_event: advance で[発火/はっか]した event を Option で[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_advance_event %fn &GuiVirtualTimerAdvance Option GuiEvent \advance:
+    *field::get_ref advance "event"
+
+//: gui_virtual_timer_schedule: request を virtual timer state へ[登録/とうろく]する
+//:
+//: [契約/けいやく]:
+//: - incoming state を[再検査/さいけんさ]し、壊れている場合は `GuiError::InvalidCommand` です。
+//: - request の window id と timer id は 1 以上、interval は 0 以上でなければなりません。
+//: - `interval_ms == 0` は clear request であり、active timer を消します。
+//: - 成功時、新しい timer の elapsed と tick は 0 から始まります。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_schedule %fn GuiVirtualTimerState fn TimerRequest Result GuiVirtualTimerState GuiError \state\request:
+    if not gui_virtual_timer_state_is_valid &state:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if not gui_virtual_timer_request_is_schedulable &request:
+                then Result::Err GuiError::InvalidCommand
+                else:
+                    let interval_ms %i32 timer_request_interval_ms &request
+                    if eq interval_ms 0:
+                        then Result::Ok gui_virtual_timer_empty
+                        else Result::Ok gui_virtual_timer_state_new some request 0 0
+
+//: gui_virtual_timer_advance: virtual delta だけで timer を[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - incoming state を[再検査/さいけんさ]し、壊れている場合は `GuiError::InvalidCommand` です。
+//: - `delta_ms` は 0 以上でなければなりません。
+//: - elapsed 加算や tick 加算が i32 範囲を超える場合は wrap せず `GuiError::InvalidCommand` です。
+//: - repeating timer は発火後も余り elapsed を保持します。余りが interval 以上なら `advance state 0` で次の event を取り出せます。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_timer_advance %fn GuiVirtualTimerState fn i32 Result GuiVirtualTimerAdvance GuiError \state\delta_ms:
+    if not gui_virtual_timer_state_is_valid &state:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if lt delta_ms 0:
+                then Result::Err GuiError::InvalidCommand
+                else:
+                    let request %Option TimerRequest gui_virtual_timer_state_request &state
+                    match request:
+                        Option::None:
+                            Result::Ok gui_virtual_timer_advance_new state none
+                        Option::Some active:
+                            let elapsed_ms %i32 gui_virtual_timer_state_elapsed_ms &state
+                            let max_delta %i32 sub gui_virtual_timer_i32_max elapsed_ms
+                            if gt delta_ms max_delta:
+                                then Result::Err GuiError::InvalidCommand
+                                else:
+                                    let next_elapsed %i32 add elapsed_ms delta_ms
+                                    let interval_ms %i32 timer_request_interval_ms &active
+                                    if lt next_elapsed interval_ms:
+                                        then:
+                                            let next_state %GuiVirtualTimerState gui_virtual_timer_state_new some active next_elapsed gui_virtual_timer_state_tick &state
+                                            Result::Ok gui_virtual_timer_advance_new next_state none
+                                        else:
+                                            let tick %i32 gui_virtual_timer_state_tick &state
+                                            if ge tick gui_virtual_timer_i32_max:
+                                                then Result::Err GuiError::InvalidCommand
+                                                else:
+                                                    let next_tick %i32 add tick 1
+                                                    let event %GuiEvent gui_virtual_timer_event_for_request &active next_tick
+                                                    let repeating %bool timer_request_repeating &active
+                                                    if repeating:
+                                                        then:
+                                                            let remainder %i32 sub next_elapsed interval_ms
+                                                            let next_state %GuiVirtualTimerState gui_virtual_timer_state_new some active remainder next_tick
+                                                            Result::Ok gui_virtual_timer_advance_new next_state some event
+                                                        else Result::Ok gui_virtual_timer_advance_new gui_virtual_timer_empty some event

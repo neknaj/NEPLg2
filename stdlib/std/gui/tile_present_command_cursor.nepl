@@ -1,0 +1,239 @@
+//: # std/gui/tile_present_command_cursor
+//: RGBA8888 row tile RLE present-frame の typed command cursor
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRlePresentFrameOwner` を Web / native / headless presenter が[共通/きょうつう]で[消費/しょうひ]できる frame command stream に[変換/へんかん]します。
+//: - host import はまだ[呼/よ]ばず、BeginFrame、Run、EndFrame の typed command だけを[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - start は F5co の present run cursor を 1 [回/かい]だけ[開始/かいし]し、失敗時は original present owner を[保持/ほじ]します。
+//: - step は必ず 1 個の typed output を[返/かえ]します。output は Command または terminal Completed です。
+//: - lower run cursor failure は owner-bearing error に包み、cursor owner を[失/うしな]いません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は packet storage を[直接/ちょくせつ][読/よ]まず、F5co の run cursor だけを[消費/しょうひ]します。
+//: - host import、raw memory、video memory、Canvas / DOM / minifb には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_command_cursor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_run_cursor" as *
+
+pub enum GuiRgba8888RowTileRlePresentCommand:
+    BeginFrame %GuiRgba8888RowTileRlePresentDescriptor
+    Run %GuiRgba8888RowTileRleRun
+    EndFrame %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentCommand:
+    fn clone %fn &GuiRgba8888RowTileRlePresentCommand GuiRgba8888RowTileRlePresentCommand \command:
+        *command
+
+impl Copy for GuiRgba8888RowTileRlePresentCommand:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentCommand GuiRgba8888RowTileRlePresentCommand \command:
+        command
+
+pub enum GuiRgba8888RowTileRlePresentCommandCursorPhase:
+    BeginPending
+    RunPending
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentCommandCursorPhase:
+    fn clone %fn &GuiRgba8888RowTileRlePresentCommandCursorPhase GuiRgba8888RowTileRlePresentCommandCursorPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888RowTileRlePresentCommandCursorPhase:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentCommandCursorPhase GuiRgba8888RowTileRlePresentCommandCursorPhase \phase:
+        phase
+
+pub enum GuiRgba8888RowTileRlePresentCommandCursorStepResult:
+    Command %GuiRgba8888RowTileRlePresentCommand
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentCommandCursorStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentCommandCursorStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult \result:
+        result
+
+pub enum GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind:
+    RunCursorStartFailed %GuiRgba8888RowTileRlePresentRunCursorStartErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind:
+    RunCursorStepFailed %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind
+
+impl Clone for GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentCommandCursorOwner:
+    run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    phase %GuiRgba8888RowTileRlePresentCommandCursorPhase
+
+pub struct GuiRgba8888RowTileRlePresentCommandCursorStartError:
+    kind %GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind
+    category %Option GuiError
+    present %GuiRgba8888RowTileRlePresentFrameOwner
+
+pub struct GuiRgba8888RowTileRlePresentCommandCursorStep:
+    owner %GuiRgba8888RowTileRlePresentCommandCursorOwner
+    result %GuiRgba8888RowTileRlePresentCommandCursorStepResult
+
+pub struct GuiRgba8888RowTileRlePresentCommandCursorStepError:
+    kind %GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowTileRlePresentCommandCursorOwner
+
+fn gui_rgba8888_row_tile_rle_present_command_cursor_owner_new %fn GuiRgba8888RowTileRlePresentRunCursorOwner fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRlePresentCommandCursorPhase GuiRgba8888RowTileRlePresentCommandCursorOwner \run_cursor\descriptor\phase:
+    GuiRgba8888RowTileRlePresentCommandCursorOwner run_cursor descriptor phase
+
+fn gui_rgba8888_row_tile_rle_present_command_cursor_step_new %fn GuiRgba8888RowTileRlePresentCommandCursorOwner fn GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStep \owner\result:
+    GuiRgba8888RowTileRlePresentCommandCursorStep owner result
+
+fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error %fn GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentFrameOwner GuiRgba8888RowTileRlePresentCommandCursorStartError \kind\category\present:
+    GuiRgba8888RowTileRlePresentCommandCursorStartError kind category present
+
+fn gui_rgba8888_row_tile_rle_present_command_cursor_step_error %fn GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentCommandCursorOwner GuiRgba8888RowTileRlePresentCommandCursorStepError \kind\category\owner:
+    GuiRgba8888RowTileRlePresentCommandCursorStepError kind category owner
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor %fn &GuiRgba8888RowTileRlePresentCommandCursorOwner GuiRgba8888RowTileRlePresentDescriptor \owner:
+    *field::get_ref owner "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_owner_phase %fn &GuiRgba8888RowTileRlePresentCommandCursorOwner GuiRgba8888RowTileRlePresentCommandCursorPhase \owner:
+    *field::get_ref owner "phase"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error_kind %fn &GuiRgba8888RowTileRlePresentCommandCursorStartError GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error_category_value %fn &GuiRgba8888RowTileRlePresentCommandCursorStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error_finish_present %fn GuiRgba8888RowTileRlePresentCommandCursorStartError GuiRgba8888RowTileRlePresentFrameOwner \error:
+    field::get error "present"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_result %fn &GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentCommandCursorStepResult \step:
+    *field::get_ref step "result"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor %fn &GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentDescriptor \step:
+    let owner %&GuiRgba8888RowTileRlePresentCommandCursorOwner field::get_ref step "owner"
+    gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor owner
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_finish_owner %fn GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentCommandCursorOwner \step:
+    field::get step "owner"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_error_kind %fn &GuiRgba8888RowTileRlePresentCommandCursorStepError GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_error_category_value %fn &GuiRgba8888RowTileRlePresentCommandCursorStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_error_finish_owner %fn GuiRgba8888RowTileRlePresentCommandCursorStepError GuiRgba8888RowTileRlePresentCommandCursorOwner \error:
+    field::get error "owner"
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_finish_run_cursor %fn GuiRgba8888RowTileRlePresentCommandCursorOwner GuiRgba8888RowTileRlePresentRunCursorOwner \owner:
+    field::get owner "run_cursor"
+
+//: gui_rgba8888_row_tile_rle_present_command_cursor_start: present-frame owner を frame command cursor に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - descriptor は Copy metadata として cursor owner に[保持/ほじ]します。
+//: - lower start failure は original present owner を error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start %fn GuiRgba8888RowTileRlePresentFrameOwner Result GuiRgba8888RowTileRlePresentCommandCursorOwner GuiRgba8888RowTileRlePresentCommandCursorStartError \present:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor &present
+    match gui_rgba8888_row_tile_rle_present_run_cursor_start present:
+        Result::Err lower_error:
+            let lower_kind %GuiRgba8888RowTileRlePresentRunCursorStartErrorKind gui_rgba8888_row_tile_rle_present_run_cursor_start_error_kind &lower_error
+            let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_cursor_start_error_category_value &lower_error
+            let recovered_present %GuiRgba8888RowTileRlePresentFrameOwner gui_rgba8888_row_tile_rle_present_run_cursor_start_error_finish_present lower_error
+            let kind %GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind GuiRgba8888RowTileRlePresentCommandCursorStartErrorKind::RunCursorStartFailed lower_kind
+            Result::Err gui_rgba8888_row_tile_rle_present_command_cursor_start_error kind category recovered_present
+        Result::Ok run_cursor:
+            let owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_owner_new run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::BeginPending
+            Result::Ok owner
+
+//: gui_rgba8888_row_tile_rle_present_command_cursor_step: frame command cursor から 1 output を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - BeginPending は BeginFrame を 1 [回/かい]だけ[返/かえ]します。
+//: - RunPending は lower run cursor の RunReady を Run command に[変換/へんかん]します。
+//: - lower Completed は同じ public step で EndFrame を[返/かえ]し、次の step が terminal Completed になります。
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step %fn GuiRgba8888RowTileRlePresentCommandCursorOwner Result GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentCommandCursorStepError \owner:
+    let phase %GuiRgba8888RowTileRlePresentCommandCursorPhase gui_rgba8888_row_tile_rle_present_command_cursor_owner_phase &owner
+    match phase:
+        GuiRgba8888RowTileRlePresentCommandCursorPhase::BeginPending:
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor &owner
+            let run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner field::get owner "run_cursor"
+            let next_owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_owner_new run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::RunPending
+            let command %GuiRgba8888RowTileRlePresentCommand GuiRgba8888RowTileRlePresentCommand::BeginFrame descriptor
+            let result %GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult::Command command
+            Result::Ok gui_rgba8888_row_tile_rle_present_command_cursor_step_new next_owner result
+        GuiRgba8888RowTileRlePresentCommandCursorPhase::RunPending:
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor &owner
+            let run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner field::get owner "run_cursor"
+            match gui_rgba8888_row_tile_rle_present_run_cursor_step run_cursor:
+                Result::Err lower_error:
+                    let lower_kind %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind gui_rgba8888_row_tile_rle_present_run_cursor_step_error_kind &lower_error
+                    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category_value &lower_error
+                    let recovered_run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_error_finish_owner lower_error
+                    let recovered_owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_owner_new recovered_run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::RunPending
+                    let kind %GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind GuiRgba8888RowTileRlePresentCommandCursorStepErrorKind::RunCursorStepFailed lower_kind
+                    Result::Err gui_rgba8888_row_tile_rle_present_command_cursor_step_error kind category recovered_owner
+                Result::Ok lower_step:
+                    let lower_result %GuiRgba8888RowTileRlePresentRunCursorStepResult gui_rgba8888_row_tile_rle_present_run_cursor_step_result &lower_step
+                    match lower_result:
+                        GuiRgba8888RowTileRlePresentRunCursorStepResult::RunReady run:
+                            let next_run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_finish_owner lower_step
+                            let next_owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_owner_new next_run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::RunPending
+                            let command %GuiRgba8888RowTileRlePresentCommand GuiRgba8888RowTileRlePresentCommand::Run run
+                            let result %GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult::Command command
+                            Result::Ok gui_rgba8888_row_tile_rle_present_command_cursor_step_new next_owner result
+                        GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed:
+                            let completed_run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_finish_owner lower_step
+                            let next_owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_owner_new completed_run_cursor descriptor GuiRgba8888RowTileRlePresentCommandCursorPhase::Completed
+                            let command %GuiRgba8888RowTileRlePresentCommand GuiRgba8888RowTileRlePresentCommand::EndFrame descriptor
+                            let result %GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult::Command command
+                            Result::Ok gui_rgba8888_row_tile_rle_present_command_cursor_step_new next_owner result
+        GuiRgba8888RowTileRlePresentCommandCursorPhase::Completed:
+            let result %GuiRgba8888RowTileRlePresentCommandCursorStepResult GuiRgba8888RowTileRlePresentCommandCursorStepResult::Completed
+            Result::Ok gui_rgba8888_row_tile_rle_present_command_cursor_step_new owner result
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_owner_free %fn GuiRgba8888RowTileRlePresentCommandCursorOwner Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \owner:
+    let run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_finish_run_cursor owner
+    gui_rgba8888_row_tile_rle_present_run_cursor_owner_free run_cursor
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_start_error_free %fn GuiRgba8888RowTileRlePresentCommandCursorStartError Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    let present %GuiRgba8888RowTileRlePresentFrameOwner gui_rgba8888_row_tile_rle_present_command_cursor_start_error_finish_present error
+    gui_rgba8888_row_tile_rle_present_frame_owner_free present
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_free %fn GuiRgba8888RowTileRlePresentCommandCursorStep Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \step:
+    let owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_step_finish_owner step
+    gui_rgba8888_row_tile_rle_present_command_cursor_owner_free owner
+
+pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_error_free %fn GuiRgba8888RowTileRlePresentCommandCursorStepError Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    let owner %GuiRgba8888RowTileRlePresentCommandCursorOwner gui_rgba8888_row_tile_rle_present_command_cursor_step_error_finish_owner error
+    gui_rgba8888_row_tile_rle_present_command_cursor_owner_free owner

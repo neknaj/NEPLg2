@@ -17,6 +17,66 @@ NEPLg2 GUI は Web、native、bare、offscreen、headless で同じ application 
 - error value と error display は分離する。
 - 契約と現在の実装を文書で分ける。
 
+## F5el real loop driver checkpoint
+
+2026-06-18 の F5el では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop driver boundary を追加する。`RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek step policy、scheduler policy、timer policy、backend executor、clock、queue を重複保持しない。`start` は F5ef `loop_step` と F5eg `loop_action_from_result` を 1 回ずつ呼び、`after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match する。`StateReady` は `loop_resume` へ戻し、`remaining_count == 0` は budget-yield semantics に従って yield action へ進め、error / completion / `CompleteAck` / fallback / silent no-op へ変換しない。
+
+## F5em headless app-loop step checkpoint
+
+2026-06-18 の F5em では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary を追加する。`HeadlessAppLoopStepPolicy` は F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持し、F5ef loop policy、scheduler policy、timer policy、backend clock、executor backend、queue、platform API を直接保持しない。`start` は F5el `real_loop_driver_start` を 1 回だけ呼び、`advance` は previous `NeedInput` action と caller supplied F5ek input を受け、F5ek `real_loop_step` を 1 回、成功時だけ F5el `real_loop_driver_after_step` を 1 回呼ぶ。`Completed` は terminal output だけであり advance input ではない。`Complete` action は caller が `CompleteAck` を渡すまで `NeedInput` のまま保持し、F5em は ack を合成しない。`remaining_count == 0` は F5em で解釈せず、F5el / F5ec の budget-yield semantics に任せる。fallback と silent no-op は行わない。
+
+## F5en bounded headless app-loop runner checkpoint
+
+2026-06-18 の F5en では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded headless app-loop runner boundary を追加する。これは fixed-slot script を使う deterministic test boundary であり、not long-running real backend loop である。`HeadlessAppLoopRunnerPolicy` は F5em `HeadlessAppLoopStepPolicy` と `max_advance_count` だけを保持し、F5ek / F5el の内部 policy、backend clock、executor backend、queue、platform API を保持しない。`HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを保持し、slot hole、負 cursor、capacity 超過は `ScriptInvalid` として typed error にする。`InputMissing` は `NeedInput` に対する次 input が本当に存在しない場合だけ返し、`ClockDelta`、`ExecutorOutcome`、`CompleteAck` を合成しない。`BudgetExhausted` は `max_advance_count == 0` または bounded drain の budget を使い切った場合の terminal result であり、F5em `advance` を呼ばない。`Completed` は script を消費しない。fallback と silent no-op は行わない。
+
+## F5eo backend clock delta checkpoint
+
+2026-06-18 の F5eo では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler backend clock delta boundary を追加する。これは Web / native / bare / headless backend が取得した monotonic clock sample を、F5ek `RealLoopStepInput::ClockDelta` へ変換する pure std boundary である。`BackendClockPolicy` は `max_delta_ms` だけを保持し、`BackendClockSample` は caller supplied `monotonic_ms`、`BackendClockState` は previous `last_monotonic_ms` だけを保持する。sample / state は public value なので、`start` と `advance` は constructor を信用せず entry で再検査する。`start` は baseline state を返し delta を発行しない。`advance` は negative policy、negative sample、forged negative state、backward time、too-large delta を typed error として返し、error payload は policy / state / sample / previous / current / delta / max を回収可能な形で保持する。zero delta は no-op や error にせず `ClockDelta 0` として返す。delta が `max_delta_ms` を超えた場合は clamp せず `DeltaTooLarge` を返す。F5eo は actual clock source、sleep、timer backend、executor outcome、complete ack、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を実装しない。
+
+## F5ep Web monotonic clock source checkpoint
+
+2026-06-18 の F5ep では、Web formal monotonic clock source backend boundary を追加する。`platforms/gui/web/clock` は `nepl_gui_web.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を `performance.now` 由来の floored millisecond sample、-1 を unsupported、その他の負値を `BackendFailure` として扱う。Web worker は `performance.now` を呼んだ後、`Number.isFinite`、0 以上、`i32::MAX` 以下、integer 化後の妥当性を検査してから Wasm 境界へ返す。`i32::MAX` ms を超えた sample は wrap や clamp ではなく `BackendFailure` である。NEPL wrapper は negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor を呼ぶ。`Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、DOM、Canvas、fallback、silent no-op は clock source として使わない。native / bare / headless の actual clock source は後続 slice で実装する。
+
+## F5eq Headless scripted monotonic clock source checkpoint
+
+2026-06-18 の F5eq では、Headless scripted monotonic clock source backend boundary を追加する。`platforms/gui/headless/clock` は deterministic headless / offscreen test 用の actual clock input source であり、wall clock ではなく fixed-slot script から F5eo `BackendClockSample` を 1 件ずつ返す。script は `Option BackendClockSample` の 3 slot、`count`、`cursor` だけを保持し、`count` は 0 から 3、`cursor` は 0 から `count`、slot は count に一致する `Some` / `None` shape でなければならない。constructor は raw i32 sample を F5eo constructor で検査してから保持し、poll も public script を信用せず count / cursor / slot shape / sample を再検査する。`cursor == count` は `Option::None` を返し、zero sample や delta を合成しない。timer、queue、host import、platform API、wall clock、fallback、silent no-op は使わない。native / bare actual clock source と long-running backend loop は後続 slice で実装する。
+
+## F5er Native formal monotonic clock source checkpoint
+
+2026-06-18 の F5er では、Native formal monotonic clock source backend boundary を追加する。`platforms/gui/native/clock` は `nepl_gui_native.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を native `Instant` 由来の monotonic millisecond sample、-1 を unsupported、その他の負値を `BackendFailure` として扱う。Rust `nepl-gui-native` 側は elapsed millisecond を `i32::MAX` 以下で検査し、超過は wrap や clamp ではなく backend failure sentinel にする。NEPL wrapper は negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor を呼ぶ。timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op は clock source として使わない。bare actual clock source、native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
+
+## F5es Bare formal monotonic clock source checkpoint
+
+2026-06-18 の F5es では、Bare formal monotonic clock source backend boundary を追加する。`platforms/gui/bare/clock` は `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を embedding host が明示提供する monotonic millisecond sample、-1 を `Unsupported`、その他の負値を `BackendFailure` として扱う。Bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op を clock source として使わない。`nodesrc/run_test.js` の `nepl_gui_bare` 既定 import は doctest-only unsupported source であり hidden fallback や hidden mock ではない。native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
+
+## F5et Native and Bare scheduler clock one-tick helper boundary
+
+2026-06-18 の F5et では、Native and Bare scheduler clock one-tick helper boundary を追加する。これは not long-running scheduler backend であり、platform clock source が返した sample を F5eo `BackendClockPolicy` / `BackendClockState` と組み合わせ、F5eo `backend_clock_start` / `backend_clock_advance` へ渡す 1 tick 分の helper である。API は F5eo `BackendClockPolicy` そのものを受け、新しい scheduler policy、timer policy、loop policy を作らない。tick は `ClockDelta` を直接合成せず、F5eo が返す `BackendClockAdvance` を返す。start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持し、F5eo lower error は再分類せず lower error として保持する。timer、sleep、queue、while loop、present、minifb、Canvas、video memory、fallback、silent no-op は使わない。
+
+## F5eu Native and Bare scheduler clock action input helper boundary
+
+2026-06-18 の F5eu では、Native and Bare scheduler clock action input helper boundary を追加する。これは action input helper only であり、not long-running scheduler backend である。F5eg `YieldToClock` / `AwaitTimerAdvance` typed action payload と F5et `scheduler_clock_tick` を接続し、success payload は original action、新しい `BackendClockState`、F5eo 由来の F5ek `RealLoopStepInput` を保持する。error payload は original action、input clock state、lower platform scheduler clock error を保持する。general `LoopAction`、`ExecuteHostAction`、`Complete` は受け取らず、`ExecutorOutcome` や `CompleteAck` は合成しない。timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
+## F5ev Native and Bare scheduler executor outcome input helper boundary
+
+2026-06-18 の F5ev では、Native and Bare scheduler executor outcome input helper boundary を追加する。これは backend-facing input boundary であり、not long-running scheduler backend である。F5eg `ExecuteHostAction` typed payload と caller supplied `Result unit GuiError` outcome を受け、F5ek `RealLoopStepInput::ExecutorOutcome` へ total packaging し、original action と一緒に保持する。helper は does not return Result であり、typed action と explicit outcome が渡された時点で unsupported path は型で除外される。`YieldToClock`、`AwaitTimerAdvance`、`Complete` は対象外であり、`ClockDelta` や `CompleteAck` は合成しない。F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer、sleep、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
+## F5fg Native presenter operation identity input boundary
+
+2026-06-18 の F5fg では、Native presenter operation identity input boundary を追加する。これは presenter-facing input boundary であり、not long-running scheduler backend である。F5ev is the scheduler step input boundary; F5fg is the native presenter-facing identity input boundary. F5fg は typed `ExecuteHostAction` payload だけを受け、action owner を F5ev ready payload に移す前に borrowed accessor で pending span operation identity を読む。
+
+identity は `GuiRgba8888RowTileRlePresentHostSpanOperation` の `WindowBegin`、`WindowRunSpan`、`WindowEnd`、`OffscreenBegin`、`OffscreenRunSpan`、`OffscreenEnd`、`DeviceBegin`、`DeviceRunSpan`、`DeviceEnd` を保持する。scheduler completion payload は `gui_native_scheduler_executor_input` を再利用して作り、F5fg では `RealLoopStepInput::ExecutorOutcome` を再実装しない。backend execution、raw status mapping、scheduler step、queue、timer、window loop、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
+## F5ew Native and Bare scheduler executor one-step bridge boundary
+
+2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` として包み、packaged `RealLoopStepInput::ExecutorOutcome` input と一緒に F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返し、success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error は合成しない。action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は使わない。
+
+## F5ex Native and Bare scheduler host action executor backend bridge
+
+2026-06-18 の F5ex では、Native and Bare scheduler host action executor backend bridge を追加する。これは typed `ExecuteHostAction` から actual platform host import へ進む backend-facing boundary であり、not long-running scheduler backend である。`ExecuteHostAction` は general `LoopAction` に戻さず、borrowed accessor で `execute` と pending span operation を読む。platform bridge は pending operation の variant を wildcard なしで網羅し、begin / run / end のいずれかの host import を 1 回だけ呼ぶ。host status は `Result unit GuiError` に変換し、`Unsupported`、`InvalidCommand`、`ResourceExhausted`、`BackendFailure` などの typed error として返す。Bare embedding host が executor ABI を提供しない場合も fallback や silent no-op にはせず、`Unsupported` を `Result` として返す。
+
+F5ex の current implementation は、`platforms/gui/native/scheduler_host_executor` と `platforms/gui/bare/scheduler_host_executor` である。これらは operation 実行 outcome を F5ev `scheduler_executor_input` に包み、F5ew `scheduler_executor_step` へ渡す。F5fj 以降の native は `window_presenter_session_begin` / `window_presenter_session_run` / `window_presenter_session_end` を formal import 名とし、F5fk 以降の bare は `display_presenter_session_begin` / `display_presenter_session_run` / `display_presenter_session_end` を formal import 名とする。F5ex/F5fj/F5fk は F5ev/F5ew を再利用するため、scheduler completion の authority は F5ek/F5dt 側に残る。long-running scheduler loop、queue、while loop、timer wait、present loop、FHD 60fps 実測、2D compositor drain、minifb / DOM / Canvas / video memory 操作、old action sink / driver、fallback は後続 slice で扱うか、禁止された責務として保持する。
+
 ## 必須 contract
 
 ### Font identity
@@ -2780,6 +2840,4088 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection drain
+
+F5u は F5s の classified item stream を F5t の collection owner へ commit する境界である。これは path command、raster mask、render command、platform API ではない。F5s は `last_item` だけを summary に持ち、読んだ item 列そのものは返さないため、F5u は F5s に caller の `remaining_steps` を直接渡さない。
+
+F5u が F5s へ渡す step budget は 0 または 1 だけである。
+
+```text
+remaining_steps <= 0
+    F5s budget 0
+
+remaining_steps > 0
+    F5s budget 1
+```
+
+budget 0 は terminal / non-terminal の分類だけを F5s に委譲するために使う。terminal cursor なら `End`、non-terminal なら `StepBudgetExhausted` になる。budget 1 は最大 1 item だけを読み、読めた item を F5t push へ渡すために使う。
+
+F5u の success summary は collection owner を含む。owner なので `Clone` / `Copy` は実装しない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+```
+
+`items_read` は F5u 呼び出し内で collection へ commit できた item 数である。F5s の 1 step summary count ではない。push failure が起きた場合、読み取れたが commit できなかった item は `rejected_item` と `item_drain_result` に保持し、F5u の `cursor` と `items_read` は commit 済み位置のままにする。
+
+F5u の error は F5s failure、F5s success invariant failure、F5t push failure を分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    CollectionCursorMismatch
+    ItemDrainFailed
+    ItemDrainInvariantInvalid
+    CollectionPushFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind
+    item_drain_error Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError
+    item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain
+    push_error_kind Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    push_storage_error Option StdErrorKind
+    rejected_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+`CollectionCursorMismatch` は collection の commit 済み item 数と cursor の `next_point_index` が一致しない場合である。この precondition がないと、terminal cursor と空 collection のような不整合を成功値として返せてしまう。`ItemDrainFailed` は lower F5s error を `item_drain_error` に保持する。`ItemDrainInvariantInvalid` は F5s が 0 / 1 item 以外を返した、budget 0 なのに item を返した、または `items_read == 1` なのに `last_item == None` だった場合であり、lower F5s success value を `item_drain_result` に保持する。`CollectionPushFailed` は F5t push failure を `push_error_kind`、`push_storage_error`、`rejected_item` に保持し、push error owner は collection owner として回収する。
+
+push failure branch では次の順序を守る。
+
+```text
+1. push_error_kind を &push_error から読む
+2. push_storage_error を &push_error から読む
+3. rejected_item を &push_error から読む
+4. push_error を消費して collection owner を回収する
+```
+
+`gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget` は次の順序を守る。
+
+```text
+1. collection.item_count == cursor.next_point_index を検査する
+2. remaining_steps から step_budget 0 / 1 を作る
+3. F5s drain を step_budget で 1 回呼ぶ
+4. F5s Err は ItemDrainFailed として collection owner を保持して返す
+5. F5s Ok の summary.items_read が 0 / 1 以外なら ItemDrainInvariantInvalid
+6. summary.items_read == 0 なら collection owner を変更せず End / StepBudgetExhausted を返す
+7. summary.items_read == 1 なら last_item Some を要求する
+8. last_item を F5t collection push へ 1 回渡す
+9. push Err は CollectionPushFailed として owner と rejected item を保持して返す
+10. push Ok は collection owner、cursor、items_read、last_item、remaining_steps を更新する
+11. F5s result が End なら End、budget exhausted なら StepBudgetExhausted、まだ budget があれば次 iteration へ進む
+```
+
+F5u は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection contour span
+
+F5v は F5u/F5t の classified item collection owner から contour span を導出する境界である。これは byte-backed F4 contour span lookup への fallback ではない。collection に格納済みの item を authority とし、partial collection、forged item、endpoint topology mismatch を typed error として返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourSpan` を返す。
+
+```text
+GuiSfntSimpleGlyphContourSpan:
+    glyph GuiGlyphId
+    contour_index i32
+    start_point_index i32
+    end_point_index i32
+    point_count i32
+```
+
+F5v は collection を借用して読むだけなので、collection owner を消費しない。error は owner recovery payload ではないが、診断に必要な typed context を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    CollectionIncomplete
+    ContourIndexOutOfRange
+    ItemReadFailed
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    MissingContourEnd
+    ContourCountMismatch
+    FinalContourEndMismatch
+    ContourSpanInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    contour_index i32
+    item_index i32
+    observed_contour_count i32
+    last_endpoint_index i32
+    item_count i32
+    items_len i32
+    items_cap i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+F5v は次の順序を守る。
+
+```text
+1. capacity shape を検査する
+2. items.len == item_count を検査する
+3. items.cap == capacity.point_count を検査する
+4. item_count == capacity.point_count を検査する
+5. contour_index range を検査する
+6. index 0 から point_count - 1 まで全 item を collection_read_item で読む
+7. 各 item の glyph、point index、kind を再検査する
+8. EndOnCurve / EndOffCurve だけを contour endpoint として数える
+9. requested contour の start/end を記録しても scan は止めない
+10. scan 後に requested contour が見つかったことを検査する
+11. observed_contour_count == capacity.contour_count を検査する
+12. last_endpoint_index == capacity.point_count - 1 を検査する
+13. start/end から point_count を導出し、span invariant を検査してから success を返す
+```
+
+`observed_contour_count == capacity.contour_count` だけでは不十分である。例えば `contour_count = 2`、`point_count = 4`、endpoint が `[1, 2]` の forged collection は observed count が 2 でも point 3 がどの contour にも属さない。したがって F5v は最終 endpoint が必ず `point_count - 1` であることを `FinalContourEndMismatch` として検査する。
+
+F5v は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_glyf_read_contour_endpoint
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection contour point
+
+F5w は F5v の collection-backed contour span を authority として、contour-local point index から `GuiSfntSimpleGlyphContourPoint` を 1 点だけ取り出す境界である。F4 byte-backed contour point lookup へ戻らず、collection に格納済みの classified item を読む。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    contour_point_index i32
+    -> Result GuiSfntSimpleGlyphContourPoint GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourPoint` を返す。
+
+```text
+GuiSfntSimpleGlyphContourPoint:
+    span GuiSfntSimpleGlyphContourSpan
+    contour_point_index i32
+    point GuiSfntSimpleGlyphPoint
+```
+
+error は owner recovery payload ではない。collection は借用で読み、診断に必要な span failure、local index、absolute index、collection read failure、rejected item を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind:
+    ContourSpanFailed
+    ContourPointIndexOutOfRange
+    ItemReadFailed
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    ContourPointInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind
+    contour_index i32
+    contour_point_index i32
+    absolute_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5w は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5v contour span lookup を exactly once 呼ぶ
+3. F5v error は ContourSpanFailed として span_error に保持する
+4. F5v success span について glyph、contour_index、start/end/count、capacity range を再検査する
+5. span invariant failure は ContourPointInvariantInvalid とし、item は読まない
+6. contour_point_index range を collection read より前に検査する
+7. local range failure は ContourPointIndexOutOfRange とし、absolute_point_index は -1 にする
+8. absolute_point_index = span.start_point_index + contour_point_index を計算する
+9. absolute index が span/capacity range を外れるなら ContourPointInvariantInvalid とし、item は読まない
+10. collection_read_item を exactly once 呼び、absolute point の item を読む
+11. item の glyph、point index、kind を再検査する
+12. success は gui_sfnt_simple_glyph_contour_point span contour_point_index point を返す
+```
+
+span invariant の再検査は F5v の契約を疑うためではなく、後続境界が lower boundary bug を別の error に誤分類しないための visible invariant である。`span.point_count == span.end_point_index - span.start_point_index + 1`、`span.glyph == capacity.glyph`、`span.end_point_index < capacity.point_count` を F5w でも確認する。
+
+F5w は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection contour edge
+
+F5x は F5v の collection-backed contour span と F5w の collection-backed contour point を authority として、contour-local edge index から `GuiSfntSimpleGlyphContourEdge` を 1 本だけ取り出す境界である。F4 byte-backed contour edge lookup へ戻らず、collection に格納済みの point pair だけで topology edge を構成する。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourEdge` を返す。
+
+```text
+GuiSfntSimpleGlyphContourEdge:
+    start GuiSfntSimpleGlyphContourPoint
+    end GuiSfntSimpleGlyphContourPoint
+    edge_index i32
+    next_contour_point_index i32
+```
+
+error は owner recovery payload ではない。collection は借用で読み、診断に必要な span failure、start/end point failure、start/end point value、collection shape を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind:
+    ContourSpanFailed
+    EdgeIndexOutOfRange
+    StartPointFailed
+    EndPointFailed
+    ContourEdgeInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    start_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    end_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    start Option GuiSfntSimpleGlyphContourPoint
+    end Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5x は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5v contour span lookup を exactly once 呼ぶ
+3. F5v error は ContourSpanFailed として span_error に保持する
+4. F5v success span について glyph、contour_index、start/end/count、capacity range を再検査する
+5. span invariant failure は ContourEdgeInvariantInvalid とし、start/end point は読まない
+6. edge_index range を F5w point lookup より前に検査する
+7. edge range failure は EdgeIndexOutOfRange とし、next_contour_point_index は -1 にする
+8. next_contour_point_index を edge_index + 1 から計算し、contour end では 0 に wrap する
+9. F5w contour point lookup を start / end の順で exactly twice 呼ぶ
+10. lower point error は StartPointFailed / EndPointFailed として start_error / end_error に保持する
+11. start span と end span が F5v span と一致することを再検査する
+12. start local index == edge_index、end local index == next_contour_point_index を再検査する
+13. start absolute index == span.start_point_index + edge_index を再検査する
+14. end absolute index == span.start_point_index + next_contour_point_index を再検査する
+15. success は gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index を返す
+```
+
+1 point contour は valid topology として扱う。`span.point_count == 1` かつ `edge_index == 0` の場合、`next_contour_point_index == 0` となり、start / end は同じ absolute point を参照する。この self-wrap は implicit close ではなく contour topology 上の edge として保持する。
+
+F5x は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection curve segment
+
+F5y は F5x の collection-backed contour edge を authority として、1 本の edge から `GuiSfntSimpleGlyphCurveSegment` を分類する境界である。必要な lookahead point がある場合だけ F5w を呼び、F4 byte-backed curve segment helper や storage reader へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+success は既存 `GuiSfntSimpleGlyphCurveSegment` を返す。`NoSegment` は valid topology state であり、parse error ではない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:
+    ContourEdgeFailed
+    LookaheadPointFailed
+    CurveSegmentInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    lookahead_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    lookahead_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    edge Option GuiSfntSimpleGlyphContourEdge
+    lookahead Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5y は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5x contour edge lookup を exactly once 呼ぶ
+3. F5x error は ContourEdgeFailed として edge_error に保持する
+4. F5x success edge から start / end / span / next_contour_point_index を読む
+5. edge span の glyph、contour_index、start/end/count、capacity range を再検査する
+6. start / end span が edge span と一致することを再検査する
+7. start local index == edge_index を再検査する
+8. end local index == next_contour_point_index を再検査する
+9. start absolute index == span.start_point_index + edge_index を再検査する
+10. end absolute index == span.start_point_index + next_contour_point_index を再検査する
+11. recomputed next index が edge metadata と一致することを再検査する
+12. edge invariant failure は CurveSegmentInvariantInvalid とし、lookahead 判定へ進まない
+13. start on-curve かつ end off-curve の場合だけ lookahead index を計算する
+14. lookahead index は next_contour_point_index + 1 を使い、contour end では 0 に wrap する
+15. needed lookahead は F5w contour point lookup を exactly once 呼んで読む
+16. needed lookahead failure は LookaheadPointFailed として lookahead_error に保持する
+17. lookahead span / local index / absolute index を再検査する
+18. lookahead invariant failure は CurveSegmentInvariantInvalid とする
+19. needed lookahead success は gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead を返す
+20. lookahead 不要 path は F5w を呼ばず、gui_sfnt_classify_simple_glyph_curve_segment edge Option::None を返す
+```
+
+F5y は required lookahead を読めない場合に `Option::None` を渡して `MissingLookahead` を作ってはならない。`MissingLookahead` は lower pure classifier の防御的 state であり、collection-backed boundary では needed lookahead の失敗を `LookaheadPointFailed` として返す。一方で、1 point contour と off-curve start は valid `NoSegment` success として保持する。
+
+F5y は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path command pair
+
+F5z は F5y の collection-backed curve segment を、既存の pure path command pair projection へ渡す境界である。これは contour stream、path command list、sink trait、rasterizer、renderer ではない。1 edge について `MoveTo` 相当の command と draw command を O(1) pair value として返すだけである。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5z は新しい error enum を持たない。F5y が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5y が成功した場合、`gui_sfnt_simple_glyph_curve_segment_path_command_pair` で `GuiSfntSimpleGlyphPathCommandPair` へ写す。`NoSegment` は parse error ではなく、既存 F4o と同じく move / draw の両方で explicit `SkipNoSegment` command として保持される。
+
+F5z は次の順序を守る。
+
+```text
+1. F5y collection curve segment lookup を exactly once 呼ぶ
+2. F5y error は変更せず Result::Err として返す
+3. F5y success segment は gui_sfnt_simple_glyph_curve_segment_path_command_pair へ exactly once 渡す
+4. pair projection result を Result::Ok として返す
+```
+
+F5z は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink event pair
+
+F5aa は F5z の collection-backed path command pair を、既存の pure path sink event pair projection へ渡す境界である。これは sink trait、event consumer、contour traversal、path command list、rasterizer、renderer ではない。1 edge について first event と second event を O(1) pair value として返すだけである。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5aa は新しい error enum を持たない。F5z が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5z が成功した場合、`gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` で `GuiSfntSimpleGlyphPathSinkEventPair` へ写す。この projection は total なので、`Option::None` や silent no-op へ変換してはならない。
+
+F5aa は次の順序を守る。
+
+```text
+1. F5z collection path command pair lookup を exactly once 呼ぶ
+2. F5z error は変更せず Result::Err として返す
+3. F5z success pair は gui_sfnt_simple_glyph_path_command_pair_sink_event_pair へ exactly once 渡す
+4. event pair projection result を Result::Ok として返す
+```
+
+F5aa は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink event kind pair
+
+F5ab は F5aa の collection-backed path sink event pair を、既存の pure path sink event kind pair projection へ渡す境界である。これは sink trait、event consumer、contour traversal、path command list、rasterizer、renderer ではない。1 edge について first kind と second kind を O(1) pair value として返すだけである。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5ab は新しい error enum を持たない。F5aa が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5aa が成功した場合、`gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` で `GuiSfntSimpleGlyphPathSinkEventKindPair` へ写す。この projection は total なので、`Option::None` や silent no-op へ変換してはならない。
+
+F5ab は次の順序を守る。
+
+```text
+1. F5aa collection path sink event pair lookup を exactly once 呼ぶ
+2. F5aa error は変更せず Result::Err として返す
+3. F5aa success event pair は gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair へ exactly once 渡す
+4. kind pair projection result を Result::Ok として返す
+```
+
+F5ab は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink event kind at
+
+F5ac は F5ab の collection-backed path sink event kind pair を、既存の typed slot kind projection へ渡す境界である。これは sink trait、event consumer、contour traversal、path command list、rasterizer、renderer ではない。1 edge の first / second kind のうち、`GuiSfntSimpleGlyphPathSinkEventSlot` で指定された 1 kind だけを返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> Result GuiSfntSimpleGlyphPathSinkEventKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5ac は新しい error enum を持たない。F5ab が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5ab が成功した場合、`gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at` で typed slot に対応する `GuiSfntSimpleGlyphPathSinkEventKind` へ写す。この slot projection は total なので、`Option::None`、silent no-op、fallback へ変換してはならない。
+
+F5ac は次の順序を守る。
+
+```text
+1. F5ab collection path sink event kind pair lookup を exactly once 呼ぶ
+2. F5ab error は変更せず Result::Err として返す
+3. F5ab success kind pair は gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at へ exactly once 渡す
+4. typed slot projection result を Result::Ok として返す
+```
+
+F5ac は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink event at
+
+F5ad は F5aa の collection-backed path sink event pair を、既存の typed slot event projection へ渡す境界である。これは sink trait、event consumer、contour traversal、path command list、rasterizer、renderer ではない。1 edge の first / second event のうち、`GuiSfntSimpleGlyphPathSinkEventSlot` で指定された 1 event だけを返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5ad は新しい error enum を持たない。F5aa が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5aa が成功した場合、`gui_sfnt_simple_glyph_path_sink_event_pair_event_at` で typed slot に対応する `GuiSfntSimpleGlyphPathSinkEvent` へ写す。この slot projection は total なので、`Option::None`、silent no-op、fallback へ変換してはならない。
+
+F5ad は次の順序を守る。
+
+```text
+1. F5aa collection path sink event pair lookup を exactly once 呼ぶ
+2. F5aa error は変更せず Result::Err として返す
+3. F5aa success event pair は gui_sfnt_simple_glyph_path_sink_event_pair_event_at へ exactly once 渡す
+4. typed slot projection result を Result::Ok として返す
+```
+
+F5ad は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_path_sink_event_pair_kind_at
+gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path contour step
+
+F5ae は F5ad の collection-backed path sink event at boundary を使い、`GuiSfntSimpleGlyphPathContourCursor` の現在位置を `GuiSfntSimpleGlyphPathContourStep` に写す境界である。これは contour-wide traversal、sink mutation、event consumer、path command list allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    ContourSpanFailed
+    CursorGlyphMismatch
+    PathSinkEventFailed
+```
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    event_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    -> Result GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ae はまず collection contour span lookup を exactly once 呼ぶ。失敗した場合は `ContourSpanFailed` として返し、`span_error = Some error` / `event_error = None` にする。span が成功した場合、F5ae は cursor glyph と collection capacity glyph を比較する。cursor glyph と collection capacity glyph が一致しない場合は `CursorGlyphMismatch` として返し、下位 event lookup へ進まない。
+
+cursor glyph が一致した場合だけ、F5ae は F5ad `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を exactly once 呼ぶ。F5ad が失敗した場合は `PathSinkEventFailed` として返し、`span_error = None` / `event_error = Some error` にする。F5ad が成功した場合、F5ae は返された event から `gui_sfnt_simple_glyph_path_sink_event_kind` で kind を導く。F5ac は呼ばない。F5ac は kind だけを欲しい caller 用の sibling boundary であり、F5ae の authority ではない。
+
+成功 path は次の順序を守る。
+
+```text
+1. collection contour span lookup を exactly once 呼ぶ
+2. cursor glyph と collection capacity glyph を比較する
+3. F5ad collection path sink event at lookup を exactly once 呼ぶ
+4. returned event から kind を exactly once 導く
+5. private cursor next helper で next state を作る
+6. GuiSfntSimpleGlyphPathContourStep を作る
+```
+
+F5ae は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_lookup_simple_glyph_path_contour_step
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink step
+
+F5af は F5ae の collection-backed path contour step を authority として、`GuiSfntSimpleGlyphPathSinkPolicy` による policy decision を合成し、`GuiSfntSimpleGlyphPathSinkStep` を返す境界である。これは contour-wide traversal、action step traversal、sink consumer、path command list allocation、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5af は F5ae `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を exactly once 呼ぶ。F5ae が `Result::Err` を返した場合、F5af は error を wrap せず同じ error value として返す。F5af 自身は新しい fallible authority を持たないため、専用 error enum を追加しない。
+
+F5ae が `Result::Ok contour_step` を返した場合、F5af は pure helper `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` を exactly once 呼び、policy decision と tail close handling を既存の sink step contract に委譲する。policy reject は `Result::Err` ではなく、`GuiSfntSimpleGlyphPathSinkStep.primary_action = Reject` として成功 payload に残る。
+
+成功 path は次の順序を守る。
+
+```text
+1. F5ae collection-backed contour step lookup を exactly once 呼ぶ
+2. error は wrap せず Result::Err error として返す
+3. success contour_step を pure sink-step projection に渡す
+4. Result::Ok sink_step を返す
+```
+
+F5af は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_simple_glyph_path_sink_action
+gui_sfnt_simple_glyph_path_sink_action_step
+vec::
+push
+sink traversal / action APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action step
+
+F5ag は F5af の collection-backed sink step を authority として、`GuiSfntSimpleGlyphPathSinkActionCursor` から `GuiSfntSimpleGlyphPathSinkActionStep` を 1 つ返す境界である。これは action stream 全体の traversal、checked advance、sink consumer、path command list allocation、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ag は action cursor を `contour_cursor` と `action_slot` に分解する。`contour_cursor` は F5af `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` に渡し、`action_slot` は pure `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` に渡す。F5af が `Result::Err` を返した場合、F5ag は error を wrap せず同じ error value として返す。
+
+F5af が `Result::Ok sink_step` を返した場合、F5ag は pure helper `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` を exactly once 呼ぶ。この pure helper が action selection と action next を決める。`Primary` は同じ contour cursor の `Tail` へ進み、`Tail` は source step の next に従う。policy reject は `Result::Err` ではなく、action step の action payload に残る。
+
+成功 path は次の順序を守る。
+
+```text
+1. action cursor から contour cursor を読む
+2. action cursor から action slot を読む
+3. F5af collection-backed sink step lookup を exactly once 呼ぶ
+4. error は wrap せず Result::Err error として返す
+5. success sink_step を pure action-step projection に渡す
+6. Result::Ok action_step を返す
+```
+
+F5ag は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+gui_sfnt_simple_glyph_path_sink_action_step_advance
+gui_sfnt_simple_glyph_path_sink_action_step_item
+vec::
+push
+sink traversal / consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action step advance and item
+
+F5ah は F5ag の collection-backed action step lookup を authority として、action stream を 1 action 分だけ checked advance 可能な typed item にする境界である。これは contour-wide traversal、consumer、real sink、renderer、rasterizer、platform API ではない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+advance helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を exactly once 読み、その enum だけを `match` する。
+
+```text
+next = Continue cursor
+    -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection cursor policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+
+next = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour
+```
+
+`EndContour` は `Option::None` や `Result::Err` ではなく successful terminal state である。`Result::Err` は `Continue cursor` の下位 F5ag lookup から来た typed collection contour step error だけを伝播する。policy reject は action payload に残し、F5ah が `Reject` / `NoAction` / `CloseContour` を見て traversal を変えない。
+
+item helper は advance helper に exactly once 委譲する。`Result::Err` は wrap せず、`Result::Ok advance` なら現在 step を `*step` で明示 copy して `GuiSfntSimpleGlyphPathSinkActionStepItem` に束ねる。
+
+F5ah は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+vec::
+push
+sink traversal / consumer APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action item next and consumer item
+
+F5ai は F5ah の collection-backed action step item を authority として、checked advance を次 action item へ進め、同じ境界で current action payload と checked next state を future sink consumer 用 packet に束ねる段階である。これは byte-backed F4ab/F4ac を collection-backed item stream に写したものであり、byte buffer、font table metadata、sink traversal、real sink mutation、renderer、rasterizer、platform API へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+action item next helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を exactly once 読み、その enum だけを `match` する。
+
+```text
+advance = Continue next_step
+    -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &next_step policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
+
+advance = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+```
+
+`EndContour` は successful terminal state であり、`Option::None`、`Result::Err`、silent no-op、hidden fallback に変換しない。`Result::Err` は `Continue next_step` の下位 F5ah lookup から来た typed collection contour step error だけを伝播する。
+
+consumer item helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step item` を exactly once 読み、`gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step` で current action を exactly once value として copy する。next state は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next collection item policy` を exactly once 呼んで得る。`Result::Err` は wrap せず、`Result::Ok next` の場合だけ `GuiSfntSimpleGlyphPathSinkActionConsumerItem action next` を返す。
+
+F5ai は action payload を解釈しない。`EmitEvent`、`Reject`、`NoAction`、`CloseContour` は consumer item の `action` に保持され、後続の明示 consumer / apply phase が読む。F5ai は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+vec::
+push
+consumer apply / consume / traversal APIs
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action consumer next and consume once
+
+F5aj は F5ai の collection-backed action consumer item を authority として、consumer stream を 1 step 進める境界である。byte-backed F4ad/F4ah/F4ai と同じ責務分割を保つが、font bytes、table metadata、byte-backed lookup helper、lower collection helper、sink traversal、renderer、rasterizer、platform API へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+consumer item next helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item` を exactly once 読み、その saved next だけを `match` する。
+
+```text
+next = Continue next_item
+    -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
+
+next = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour
+```
+
+consumer apply advance helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step` を exactly once 読む。`Continue continue_step` の場合だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step` を exactly once 読み、その saved next を authority とする。
+
+```text
+terminal = Continue continue_step
+    saved_next = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step
+    saved_next = Continue next_item
+        -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy
+        -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item
+    saved_next = EndContour
+        -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+
+terminal = Rejected reason
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
+
+terminal = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+```
+
+この branch は original consumer item を要求せず、action payload を再読込・再解釈しない。policy reject は typed `Rejected reason` terminal として保持し、silent no-op や fallback へ変換しない。`EndContour` は successful terminal state であり、`Option::None` や `Result::Err` にしない。
+
+consume-once helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item` を exactly once 呼び、collection apply advance helper を exactly once 呼ぶ。`Result::Ok advance` の場合だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance` へ exactly once 渡し、apply step と advance を捨てず typed consume step に束ねる。
+
+F5aj は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+vec::
+push
+payload direct match / original item reinterpretation
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action start consumer
+
+F5ak は collection-backed action stream の contour start boundary である。F5aj が既存 consumer item から 1 step 進める境界であるのに対し、F5ak は collection が保持する glyph authority から first item、first consumer item、first consume step、first consume summary を作る。caller supplied glyph は受け取らない。collection-backed API で外部 glyph を受け取ると forged cursor を作れるため、glyph は必ず `collection_capacity -> capacity.glyph` から読む。authority sequence は `collection_capacity -> capacity.glyph -> start_cursor -> F5ag action step -> F5ah step item` である。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+start item helper は次の順序を守る。
+
+```text
+capacity = gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+glyph = gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+start_cursor = gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+start_step = gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection start_cursor policy
+item = gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &start_step policy
+```
+
+この helper だけが F5ag action step と F5ah action step item を直接呼ぶ。F5ag は cursor glyph と collection capacity glyph の一致を F5ae で検査するため、F5ak の start cursor は collection capacity glyph から作る必要がある。
+
+start consumer item helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item collection contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &item policy` を exactly once 呼ぶ。
+
+start consume-once helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item collection contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &consumer_item policy` を exactly once 呼ぶ。
+
+start consume summary helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once collection state contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を exactly once 呼ぶ。summary projection は失敗しないため、新しい error domain は追加しない。
+
+F5ak は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once
+caller supplied glyph
+lower F5 helper from higher F5ak helper
+summary advance / summary drain
+vec::
+push
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point stream item collection path sink action consume summary drain
+
+F5al は F5ak の collection-backed start consume summary と F5aj の consume-once をつなぎ、collection-backed action consumer を explicit budget 内で domain terminal まで進める boundary である。F4aq の byte-backed drain と同じ terminal contract を使うが、byte-backed glyph lookup へ戻らない。これは outline allocation、sink mutation、renderer、rasterizer、platform API を持たない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+advance-once helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` を 1 回だけ読み、続いて `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を 1 回だけ読む。`Continue item` の場合だけ F5aj `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy` を 1 回だけ呼ぶ。成功時だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を 1 回だけ呼び、新しい summary を `Continue` として返す。`Rejected` と `EndContour` は parse error ではなく `Result::Ok` の domain terminal として返す。
+
+drain helper は terminal-before-budget の順序を守り、budget 判定より先に `summary_terminal` を 1 回だけ読む。`Rejected reason` と `EndContour` は budget を消費せず、current summary と一緒に `Result::Ok` で返す。`Continue` かつ `remaining_steps <= 0` は `StepBudgetExhausted current_summary` を返す。`Continue` かつ `remaining_steps > 0` の場合だけ F5al advance-once を 1 回だけ呼び、`Result::Err error` はそのまま伝播する。advance-once が `Continue next_summary` を返した場合は `remaining_steps - 1` で同じ drain helper へ再帰する。advance-once が保守上 `Rejected` または `EndContour` を返した場合は、advance-once に渡した current summary を drain result に入れる。
+
+start drain helper は F5ak `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary collection state contour_index policy` を 1 回だけ呼び、成功時だけ F5al drain helper へ 1 回渡す。start drain helper は F5al advance-once、F5aj consume-once、F5ak の lower start helper、F4 byte-backed helper を直接呼ばない。
+
+F5al は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action*
+gui_sfnt_glyf_*_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event*
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item
+F5ak lower start helpers from start drain helper
+F5aj consume-once from start drain helper
+F5al advance-once from start drain helper
+action payload direct match
+vec::
+push
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action drain outcome
+
+F5am は F5al の collection-backed start drain result を、同じ collection の capacity と一緒に後続 outline / path owner 境界へ渡すための value-only boundary である。F5am は owner allocation、path command push、sink mutation、rasterizer、renderer、platform API、host text API、font fallback を持たない。
+
+F5am の public API は start drain から outcome までを同じ呼び出しで行う helper だけである。drain result と collection capacity を任意に組み合わせる public projection API は提供しない。private projection は、public start outcome helper が F5al start drain に成功した直後の drain value だけを capacity 付き outcome に写すための内部 helper である。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    summary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    rejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:
+    EndContour GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+public start outcome helper は F5al `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget collection state contour_index policy remaining_steps` を 1 回だけ呼ぶ。`Result::Err error` はそのまま返す。`Result::Ok drain` の場合だけ private projection を 1 回だけ呼び、private projection は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection` を 1 回だけ読んで、`EndContour`、`Rejected`、`StepBudgetExhausted` を capacity 付き outcome へ写す。
+
+`Rejected` は string や fallback state に変換しない。既存の `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected` を capacity と一緒に保持し、後続 boundary が enum `match` で拒否理由と停止 summary を扱えるようにする。`StepBudgetExhausted` も成功ではなく追加 work slice が必要な typed terminal として扱う。
+
+F5am は次を直接呼ばない。
+
+```text
+F5al advance-once
+F5al drain helper from private projection
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+path command owner allocation
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+public forged collection/drain pairing API
+```
+
+### SFNT simple glyph outline point stream item collection path sink action storage owner
+
+F5an は F5am の capacity 付き drain outcome を authority として、`EndContour` の場合だけ F5b outline storage allocation へ進む owner-taking boundary である。F5an は collection、drain result、byte-backed table、path sink、renderer、platform API を直接受け取らない。caller が別 collection と別 drain result を組み合わせて owner allocation へ進める public API は提供しない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    alloc_error GuiSfntSimpleGlyphOutlineStorageAllocError
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:
+    Allocated GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner:
+    outcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome
+    limit &GuiSfntSimpleGlyphOutlineStorageLimit
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError
+```
+
+`EndContour drain_summary` では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &drain_summary` を 1 回だけ呼び、得た capacity で `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` を 1 回だけ呼ぶ。allocation 成功時は `Allocated StorageOwner` を返し、allocation 失敗時だけ `StorageAllocError` を `Result::Err` で返す。
+
+`Rejected drain_rejected` と `StepBudgetExhausted drain_summary` は typed terminal であり、storage allocation failure ではない。そのため `Result::Ok StorageTerminal::Rejected drain_rejected` または `Result::Ok StorageTerminal::StepBudgetExhausted drain_summary` として caller へ返す。これらの branch では storage owner を作らず、F5b allocation も呼ばない。
+
+`StorageOwner` と `StorageTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`StorageAllocError` は owner を含まず、F5am drain summary と F5b allocation error を caller が診断や回復に使える typed payload として保持する。
+
+F5an は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+slot population
+path command owner fill
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint start
+
+F5ao は F5an の storage terminal を authority として、`Allocated StorageOwner` の場合だけ F5d contour endpoint region cursor start へ進む owner-recovery boundary である。F5ao は endpoint slot population、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+F5an の `StorageOwner` は public constructor を持つため、F5ao は forged owner を fail-closed に扱う。cursor start より前に summary capacity と owner 内 storage の trusted capacity を非消費で比較し、一致しない場合は original owner を保持した `ContourEndpointStartError` を返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity:
+    owner &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    -> GuiSfntSimpleGlyphOutlineStorageCapacity
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind
+    cursor_error Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:
+    Started GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError
+```
+
+`storage_owner_storage_capacity` は owner を消費しない。implementation は `field::get_ref owner "storage"` で borrowed storage を得て、既存の `gui_sfnt_simple_glyph_outline_storage_capacity storage` を呼ぶ。`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner` は consuming accessor なので、capacity mismatch や cursor start failure の前には呼ばない。
+
+`Allocated owner` branch では、summary capacity と borrowed storage capacity の glyph、contour count、point count、edge count、path command pair count、path command count が一致することを先に検査する。不一致なら `StorageSummaryCapacityMismatch` を `Result::Err` で返し、error payload が original owner を保持する。
+
+capacity が一致した後だけ、F5d `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint` を 1 回だけ呼ぶ。cursor start が失敗した場合は `CursorStartFailed` と cursor error を保持した `Result::Err` を返し、original owner を失わない。
+
+cursor start が成功した場合だけ、F5an の consuming storage accessor を 1 回だけ呼び、`previous_endpoint = none` を持つ `Started ContourEndpointStartOwner` を返す。`Rejected` と `StepBudgetExhausted` は typed terminal として `Result::Ok` で通過し、capacity match、storage capacity read、cursor start、storage consume を行わない。
+
+`ContourEndpointStartOwner`、`ContourEndpointStartError`、`ContourEndpointStartTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`ContourEndpointStartErrorKind` は owner を含まないため `Clone` / `Copy` を実装してよい。
+
+F5ao は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+endpoint push
+point / curve / path command population
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint push
+
+F5ap は F5ao の contour endpoint start terminal を authority として、`Started StartOwner` の場合だけ F5e typed contour endpoint push へ進む owner-recovery boundary である。F5ap は endpoint slot を 1 件だけ受け取り、iteration、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:
+    Pushed GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError
+```
+
+`Started owner` branch では、owner を消費する前に summary、cursor、previous endpoint を borrow-copy する。その後で `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage owner` を 1 回だけ呼び、F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を 1 回だけ呼ぶ。
+
+F5e push が成功した場合は、F5e の returned storage、returned cursor、returned previous endpoint を使う。previous endpoint は `some next_previous_endpoint_value` に包み、`Pushed ContourEndpointPushOwner` を返す。
+
+F5e push が失敗した場合は、lower metadata を storage 回収より前に読む。
+
+```text
+gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error
+```
+
+returned storage と保存済みの summary、cursor、previous endpoint から `ContourEndpointStartOwner` を復元し、endpoint と lower metadata を持つ `ContourEndpointPushError` を `Result::Err` で返す。
+
+`Rejected drain_rejected` と `StepBudgetExhausted drain_summary` は typed terminal であり、endpoint push failure ではない。そのため `Result::Ok ContourEndpointPushTerminal::Rejected drain_rejected` または `Result::Ok ContourEndpointPushTerminal::StepBudgetExhausted drain_summary` として caller へ返す。これらの branch では endpoint を読まず、F5e push、storage consume、owner/error construction を行わない。
+
+`ContourEndpointPushOwner`、`ContourEndpointPushError`、`ContourEndpointPushTerminal` は owner を含むため `Clone` / `Copy` を実装しない。
+
+F5ap は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+byte-backed endpoint read / read-push helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+point / curve / path command population
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint drain
+
+F5aq は F5ap の `ContourEndpointPushOwner` を authority として、collection-backed contour span から残りの contour endpoint slot を bounded drain し、全 contour endpoint 完了後だけ PointX region cursor start へ進む owner-recovery boundary である。F5aq は PointX value push、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+`ContourEndpointPushOwner` は public constructor を持つため、F5aq は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == ContourEndpoint
+    cursor matches summary capacity ContourEndpoint region
+    collection capacity == summary capacity
+```
+
+この順序より前に span lookup、PointX cursor start、storage consume、F5e push を行ってはいけない。各 authority failure は current `ContourEndpointPushOwner` を保持した typed error として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointSourceFailed
+    EndpointPushFailed
+    PointXCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind
+    contour_index i32
+    source_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    endpoint Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal:
+    PointXStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointX` で PointX cursor を開始する。成功した場合は storage を消費して `PointXStarted PointXStartOwner` を返す。失敗した場合は `PointXCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、span lookup も mutation も行わず `StepBudgetExhausted ContourEndpointPushOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、contour index は `next_index - start` である。endpoint source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` だけである。span failure は lower `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError` と current owner を保持した `EndpointSourceFailed` とする。span success は span の `end_point_index` から `GuiSfntSimpleGlyphContourEndpointSlot` を作る。
+
+F5e push は internal push helper だけが呼ぶ。helper は summary、cursor、previous endpoint を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を 1 回だけ呼ぶ。F5e failure では lower metadata を storage 回収より前に読み、returned storage と保存済み summary、cursor、previous endpoint から `ContourEndpointPushOwner` を復元し、`EndpointPushFailed` を返す。
+
+push success は F5e returned storage、returned cursor、returned previous endpoint だけから次の PushOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PointXStartOwner`、`ContourEndpointDrainError`、`ContourEndpointDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。
+
+F5aq は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed endpoint read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+PointX value push
+point / curve / path command population
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action PointX drain
+
+F5ar は F5aq の `PointXStartOwner` を authority として、collection-backed point stream item source から PointX region の scalar slot を bounded drain し、全 PointX slot 完了後だけ PointY region cursor start へ進む owner-recovery boundary である。F5ar は PointY value push、byte-backed coordinate reader、path sink traversal、renderer、platform API を直接呼ばない。
+
+`PointXStartOwner` は public constructor を持つため、F5ar は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == PointX
+    cursor matches summary capacity PointX region
+    collection capacity == summary capacity
+```
+
+この順序より前に collection item read、PointX push、PointY cursor start、storage consume を行ってはいけない。各 authority failure は current `PointXStartOwner` を保持した typed error として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PointSourceReadFailed
+    PointSourceGlyphMismatch
+    PointSourceIndexMismatch
+    PointSourceKindMismatch
+    PointXPushFailed
+    PointYCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainErrorKind
+    point_index i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    point Option GuiSfntSimpleGlyphPointXSlot
+    push_error_kind Option GuiSfntSimpleGlyphPointXPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainTerminal:
+    PointYStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_drain_to_point_y_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointY` で PointY cursor を開始する。成功した場合は storage を消費して `PointYStarted PointYStartOwner` を返す。失敗した場合は `PointYCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、collection read も mutation も行わず `StepBudgetExhausted PointXStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、logical point index は `next_index - start` である。PointX source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` だけである。read failure は lower `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` と current owner を保持した `PointSourceReadFailed` とする。
+
+read success 後は、item payload が forged でないことを caller 側で再検査する。item point の glyph raw id は summary capacity glyph raw id と一致しなければならない。item point index は `point_index` と一致しなければならない。`gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item` は true でなければならない。失敗した場合は `PointSourceGlyphMismatch`、`PointSourceIndexMismatch`、`PointSourceKindMismatch` として item を保持した typed error を返し、PointX push へ進まない。
+
+PointX push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_point_x storage cursor point` を 1 回だけ呼ぶ。PointX push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_point_x_push_error_kind &push_error
+read gui_sfnt_simple_glyph_point_x_push_error_point &push_error
+read gui_sfnt_simple_glyph_point_x_push_error_region_error_kind &push_error
+read gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_point_x_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `PointXStartOwner` を復元し、`PointXPushFailed` を返す。push success は F5g returned storage、returned cursor だけから次の PointXStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PointYStartOwner`、`PointXDrainError`、`PointXDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`PointXDrainErrorKind` は value enum なので `Clone` / `Copy` を実装してよい。
+
+F5ar は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX read / read-push helper
+byte-backed PointY read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+PointY value push
+point / curve / path command population
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action PointY drain
+
+F5as は F5ar の `PointYStartOwner` を authority として、collection-backed point stream item source から PointY region の scalar slot を bounded drain し、全 PointY slot 完了後だけ Edge region cursor start へ進む owner-recovery boundary である。F5as は edge value population、path command population、byte-backed coordinate reader、path sink traversal、renderer、platform API を直接呼ばない。
+
+`PointYStartOwner` は public constructor を持つため、F5as は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == PointY
+    cursor matches summary capacity PointY region
+    collection capacity == summary capacity
+```
+
+この順序より前に collection item read、PointY push、Edge cursor start、storage consume を行ってはいけない。各 authority failure は current `PointYStartOwner` を保持した typed error として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PointSourceReadFailed
+    PointSourceGlyphMismatch
+    PointSourceIndexMismatch
+    PointSourceKindMismatch
+    PointYPushFailed
+    EdgeCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainErrorKind
+    point_index i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    point Option GuiSfntSimpleGlyphPointYSlot
+    push_error_kind Option GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainTerminal:
+    EdgeStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_y_start_owner_drain_to_edge_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::Edge` で Edge cursor を開始する。成功した場合は storage を消費して `EdgeStarted EdgeStartOwner` を返す。失敗した場合は `EdgeCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、collection read も mutation も行わず `StepBudgetExhausted PointYStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、logical point index は `next_index - start` である。PointY source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` だけである。read failure は lower `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` と current owner を保持した `PointSourceReadFailed` とする。
+
+read success 後は、item payload が forged でないことを caller 側で再検査する。item point の glyph raw id は summary capacity glyph raw id と一致しなければならない。item point index は `point_index` と一致しなければならない。`gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item` は true でなければならない。失敗した場合は `PointSourceGlyphMismatch`、`PointSourceIndexMismatch`、`PointSourceKindMismatch` として item を保持した typed error を返し、PointY push へ進まない。
+
+PointY push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_point_y storage cursor point` を 1 回だけ呼ぶ。PointY push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_point_y_push_error_kind &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_point &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_region_error_kind &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_point_y_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `PointYStartOwner` を復元し、`PointYPushFailed` を返す。push success は F5i returned storage、returned cursor だけから次の PointYStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`EdgeStartOwner`、`PointYDrainError`、`PointYDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`PointYDrainErrorKind` は value enum なので `Clone` / `Copy` を実装してよい。
+
+F5as は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX read / read-push helper
+byte-backed PointY read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+PointX value push
+edge value population
+path command population
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action Edge drain
+
+F5at は F5as の `EdgeStartOwner` を authority として、owner storage の endpoint marker と collection-backed contour span / contour edge source から Edge region の scalar slot を bounded drain し、全 Edge slot 完了後だけ PathCommandTag region cursor start へ進む owner-recovery boundary である。F5at は curve segment classification、path command tag population、byte-backed lookup、path sink traversal、renderer、platform API を直接呼ばない。
+
+Edge region の slot contract は次である。
+
+```text
+slot index:
+    global_edge_index == absolute start point index
+
+stored scalar value:
+    contour_index
+
+derived local edge index:
+    global_edge_index - span.start_point_index
+```
+
+local edge index は scalar として保存しない。PathCommandTag phase は edge slot の `global_edge_index` と保存済み `contour_index` から collection-backed source を再び検査し、local edge index を導出する。これにより Edge region は contour ownership だけを保持し、curve segment / path command の分類 authority を次 phase に残す。
+
+`EdgeStartOwner` は public constructor を持つため、F5at は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == Edge
+    cursor matches summary capacity Edge region
+    collection capacity == summary capacity
+```
+
+この順序より前に endpoint marker read、collection contour span / contour edge source、Edge push、PathCommandTag cursor start、storage consume を行ってはいけない。`cursor matches summary capacity Edge region` は cursor の region / start / end が capacity と一致することを意味し、`next_index` を Edge region start に固定しない。`StepBudgetExhausted EdgeStartOwner` からの partial drain 再開を拒否してはいけない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot:
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    next_contour_point_index i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointMarkerReadFailed
+    EndpointMarkerGlyphMismatch
+    EndpointMarkerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    ContourEdgeSourceFailed
+    EdgeSourceContourMismatch
+    EdgeSourceIndexMismatch
+    EdgeSourceNextIndexMismatch
+    EdgePushFailed
+    PathCommandTagCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind
+    edge_index i32
+    endpoint_error Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    span Option GuiSfntSimpleGlyphContourSpan
+    edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    edge Option GuiSfntSimpleGlyphContourEdge
+    edge_slot Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
+    scalar_value Option i32
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal:
+    PathCommandTagStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag` で PathCommandTag cursor を開始する。成功した場合は storage を消費して `PathCommandTagStarted PathCommandTagStartOwner` を返す。失敗した場合は `PathCommandTagCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、endpoint marker read、collection source、mutation を行わず `StepBudgetExhausted EdgeStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、global edge index は `next_index - start` である。F5at は private helper で `field::get_ref owner "storage"` から storage を borrow し、`gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker storage edge_index` を呼ぶ。この helper は owner を消費しない。endpoint marker failure は lower `GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError` と current owner を保持した `EndpointMarkerReadFailed` とする。
+
+endpoint marker success 後は marker payload が forged でないことを再検査する。marker glyph raw id は summary capacity glyph raw id と一致しなければならない。marker index は `edge_index` と一致しなければならない。失敗した場合は `EndpointMarkerGlyphMismatch`、`EndpointMarkerIndexMismatch` として typed error を返し、collection source へ進まない。
+
+collection source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` と `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index contour_edge_index` だけである。curve segment source は F5at では呼ばない。
+
+span success 後は次を検査する。
+
+```text
+span glyph == capacity glyph
+span index == contour_index
+0 <= span.start_point_index
+span.start_point_index <= span.end_point_index
+span.end_point_index < capacity.point_count
+span.point_count == span.end_point_index - span.start_point_index + 1
+span.start_point_index <= global_edge_index <= span.end_point_index
+```
+
+これらが成り立つ場合だけ `contour_edge_index = global_edge_index - span.start_point_index` を導出する。contour edge success 後は edge source の contour、local edge index、absolute start point index、wrap 後 next local index を再検査し、成功した場合だけ `EdgeSlot` を作る。
+
+Edge push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value` を 1 回だけ呼ぶ。Edge push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_outline_region_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `EdgeStartOwner` を復元し、`EdgePushFailed` を返す。push success は F5d returned storage、returned cursor だけから次の EdgeStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PathCommandTagStartOwner`、`EdgeDrainError`、`EdgeDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`EdgeSlot` と `EdgeDrainErrorKind` は value-only なので `Clone` / `Copy` を実装してよい。
+
+F5at は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX read / read-push helper
+byte-backed PointY read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour step helpers
+path sink traversal / real sink mutation
+curve segment source
+path command tag population
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain
+
+F5au は F5at の `PathCommandTagStartOwner` を authority として、owner storage の Edge owner scalar と collection-backed path sink event kind source から PathCommandTag region の scalar slot を bounded drain し、全 PathCommandTag slot 完了後だけ complete owner へ進む owner-recovery boundary である。F5au は byte-backed lookup、古い path sink traversal、renderer、platform API、font fallback へ戻らない。
+
+PathCommandTag region の slot contract は次である。
+
+```text
+logical path command index:
+    cursor.next_index - cursor.start
+
+edge index:
+    logical path command index / 2
+
+event slot:
+    logical path command index % 2
+    0 => First
+    1 => Second
+
+stored scalar value:
+    MoveTo        1
+    LineTo        2
+    QuadraticTo   3
+    SkipNoSegment 4
+```
+
+`SkipNoSegment` の reason は scalar へ保存しない。後続の path command value / stream boundary は同じ collection-backed event kind source から reason を再導出する。これにより scalar region は描画 command の payload storage ではなく、command value construction の前段階で使う stable tag storage に留まる。
+
+`PathCommandTagStartOwner` は public constructor を持つため、F5au は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == PathCommandTag
+    cursor matches summary capacity PathCommandTag region
+    collection capacity == summary capacity
+```
+
+この順序より前に Edge owner scalar read、collection contour span / event kind source、PathCommandTag push、complete owner transition、storage consume を行ってはいけない。`cursor matches summary capacity PathCommandTag region` は cursor の region / start / end が capacity と一致することを意味し、`next_index` を PathCommandTag region start に固定しない。`StepBudgetExhausted PathCommandTagStartOwner` からの partial drain 再開を拒否してはいけない。
+
+```text
+GuiSfntSimpleGlyphPathCommandTag:
+    MoveTo
+    LineTo
+    QuadraticTo
+    SkipNoSegment
+
+GuiSfntSimpleGlyphOutlineEdgeOwnerMarker:
+    glyph GuiGlyphId
+    edge_index i32
+    contour_index i32
+
+GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    EdgeIndexOutOfRange
+    EdgeOwnerNotReady
+    EdgeOwnerSlotMissing
+    EdgeOwnerContourOutOfRange
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot GuiSfntSimpleGlyphPathSinkEventSlot
+    tag GuiSfntSimpleGlyphPathCommandTag
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PathCommandIndexInvalid
+    EventSlotOrdinalInvalid
+    EdgeOwnerReadFailed
+    EdgeOwnerGlyphMismatch
+    EdgeOwnerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    EventKindSourceFailed
+    TagPushFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:
+    PathCommandTagCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ storage を消費して `PathCommandTagCompleted PathCommandTagCompleteOwner` を返す。`next_index < end` かつ `remaining_steps <= 0` の場合は、Edge owner scalar read、collection source、mutation を行わず `StepBudgetExhausted PathCommandTagStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、logical path command index は `next_index - start` である。F5au は absolute cursor `next_index` を command index として使わない。logical index から `edge_index = div_s path_command_index 2` と `event_slot_ordinal = rem_s path_command_index 2` を導出し、ordinal は `0 => First`、`1 => Second` だけを許す。
+
+F5au は private helper で `field::get_ref owner "storage"` から storage を borrow し、`gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index` を呼ぶ。この helper は owner を消費しない。read helper は storage capacity、scalar slot count、scalar storage capacity、edge index range、Edge slot presence、stored contour index range を検査する。edge owner success 後も marker glyph raw id と edge index が summary capacity / requested edge と一致することを再検査する。
+
+collection source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` と `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at collection contour_index contour_edge_index event_slot` だけである。old sink traversal や byte-backed lookup は呼ばない。
+
+span success 後は次を検査する。
+
+```text
+span glyph == capacity glyph
+span index == contour_index
+0 <= span.start_point_index
+span.start_point_index <= span.end_point_index
+span.end_point_index < capacity.point_count
+span.point_count == span.end_point_index - span.start_point_index + 1
+span.start_point_index <= global edge_index <= span.end_point_index
+```
+
+これらが成り立つ場合だけ `contour_edge_index = edge_index - span.start_point_index` を導出し、event kind source へ進む。event kind success 後は `GuiSfntSimpleGlyphPathCommandTag` へ写し、`gui_sfnt_simple_glyph_path_command_tag_scalar_value` で stable scalar に変換する。
+
+PathCommandTag push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value` を 1 回だけ呼ぶ。Tag push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_outline_region_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `PathCommandTagStartOwner` を復元し、`TagPushFailed` を返す。push success は F5d returned storage、returned cursor だけから次の PathCommandTagStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PathCommandTagCompleteOwner`、`PathCommandTagDrainError`、`PathCommandTagDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`PathCommandTagSlot`、`PathCommandTagDrainErrorKind`、`GuiSfntSimpleGlyphPathCommandTag`、`GuiSfntSimpleGlyphOutlineEdgeOwnerMarker`、`GuiSfntSimpleGlyphOutlineEdgeOwnerReadError` は value-only なので `Clone` / `Copy` を実装してよい。
+
+F5au は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX / PointY read helper
+F5al / F5ak / F5aj traversal helper
+old path sink action consumer / traversal helper
+path command pair construction
+path command stream construction
+path sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command value lookup
+
+F5av は F5au の `PathCommandTagCompleteOwner` を authority として、PathCommandTag scalar と collection-backed path sink event source を照合し、1 logical path command index に対応する `GuiSfntSimpleGlyphPathCommand` payload を read-only に返す境界である。これは path command stream construction ではなく、raster / render / platform API へも進まない。
+
+F5av の最小 contract は次である。
+
+```text
+input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner
+    path_command_index i32
+
+output:
+    Result PathCommandValue PathCommandValueError
+```
+
+`PathCommandTagCompleteOwner` は storage owner を含むが、F5av public lookup は owner を borrow するだけである。成功時も失敗時も storage は消費されない。storage mutation、`Vec` allocation、sink mutation、full stream construction は行わない。
+
+authority check order は次である。
+
+```text
+authority check order:
+    summary capacity from complete owner
+    owner storage capacity without consuming complete owner
+    summary capacity == owner storage capacity
+    collection capacity == summary capacity
+    0 <= path_command_index < capacity.path_command_count
+```
+
+authority check が終わる前に PathCommandTag scalar、Edge owner scalar、collection span、source event を読んではいけない。
+
+logical mapping は F5au と同じである。
+
+```text
+edge_index = div_s path_command_index 2
+event_slot_ordinal = rem_s path_command_index 2
+0 => First
+1 => Second
+```
+
+storage-level PathCommandTag read helper は次の typed error を返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePathCommandTagReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PathCommandIndexOutOfRange
+    PathCommandTagNotReady
+    PathCommandTagSlotMissing
+    PathCommandTagScalarUnknown
+```
+
+unknown scalar は `MoveTo` などへ推測変換しない。`PathCommandTagScalarUnknown` と observed `Option i32` scalar を返す。
+
+F5av の value / error は次である。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot GuiSfntSimpleGlyphPathSinkEventSlot
+    stored_tag GuiSfntSimpleGlyphPathCommandTag
+    source_tag GuiSfntSimpleGlyphPathCommandTag
+    command GuiSfntSimpleGlyphPathCommand
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueErrorKind:
+    StorageSummaryCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PathCommandIndexInvalid
+    EventSlotOrdinalInvalid
+    PathCommandTagReadFailed
+    EdgeOwnerReadFailed
+    EdgeOwnerGlyphMismatch
+    EdgeOwnerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    EventSourceFailed
+    TagMismatch
+```
+
+`PathCommandValueError` は owner を含まない value-only error でよい。これは public lookup が owner を消費しないためである。error は storage tag read error、stored tag、Edge owner read error、Edge owner marker、span error、span、event error、source event、source tag を `Option` で保持し、fallback や string parsing なしに失敗地点を `match` できる形にする。
+
+payload 復元は次の順序で行う。
+
+```text
+read stored PathCommandTag scalar from complete owner storage
+read Edge owner scalar from complete owner storage
+validate edge owner glyph == capacity glyph
+validate edge owner index == edge_index
+read collection contour span for edge owner contour_index
+validate span glyph/index/range/count and edge containment
+contour_edge_index = edge_index - span.start_point_index
+read collection path sink event at contour_index contour_edge_index event_slot exactly once
+derive source tag from source event
+require stored tag == source tag
+return command payload from source event
+```
+
+`SkipNoSegment` reason は PathCommandTag scalar からは得られないため、必ず source event payload から再導出する。stored tag と source tag が一致しない場合は `TagMismatch` を返し、別の tag や no-op へ fallback してはいけない。
+
+F5av は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+path command stream construction
+storage mutation
+Vec allocation / push
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command stream cursor
+
+F5aw は F5av の `PathCommandValue` lookup を順序付きに読むための bounded cursor / stream preparation 境界である。これは full stream object construction ではなく、`Vec` に command を蓄積しない。raster / render / platform API にも進まない。
+
+F5aw の最小 contract は次である。
+
+```text
+cursor create input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    start_index i32
+
+cursor create output:
+    Result PathCommandStreamCursor PathCommandStreamCursorError
+
+step input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+
+step output:
+    Result PathCommandStreamStep PathCommandStreamStepError
+
+drain input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+    remaining_steps i32
+
+drain output:
+    Result PathCommandStreamDrainTerminal PathCommandStreamStepError
+```
+
+`PathCommandStreamCursor` は value-only であり、storage owner を含まない。
+
+```text
+PathCommandStreamCursor:
+    next_index i32
+    end_index i32
+```
+
+cursor create の authority check order は次である。
+
+```text
+summary capacity from complete owner
+owner storage capacity without consuming complete owner
+summary capacity == owner storage capacity
+collection capacity == summary capacity
+capacity shape is valid
+0 <= start_index <= capacity.path_command_count
+end_index = capacity.path_command_count
+```
+
+`start_index == path_command_count` は完了済み cursor として許可する。これは empty stream fallback ではなく、既に全 command を読んだ位置を表す。capacity shape 自体は既存 F5a contract に従い、`point_count <= 0` や `path_command_count != point_count * 2` は typed error にする。
+
+step は explicit enum を返す。
+
+```text
+PathCommandStreamStep:
+    Emitted PathCommandValue PathCommandStreamCursor
+    Completed PathCommandStreamCursor
+```
+
+`Completed` は dummy `PathCommandValue` を持たない。step の順序は次である。
+
+```text
+validate collection / owner / cursor authority
+if cursor.next_index >= cursor.end_index:
+    return Completed cursor
+else:
+    call F5av PathCommandValue lookup exactly once with cursor.next_index
+    return Emitted value advanced_cursor
+```
+
+bounded drain は explicit terminal を返す。
+
+```text
+PathCommandStreamDrainTerminal:
+    Completed PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamCursor emitted_count
+```
+
+drain は `remaining_steps <= 0` の場合、step helper も F5av lookup も呼ばず `StepBudgetExhausted cursor 0` を返す。budget がある場合は F5aw step helper だけを呼ぶ。drain から F5av lookup を直接呼んではいけない。
+
+F5aw は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+F5av lookup from drain function
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command stream prepare
+
+F5ax は F5aw の `PathCommandStreamStep` を authority として、path command stream を後続 command sink / raster mask / render2d command emission へ渡す前の prepare summary に畳む境界である。これは real sink ではなく、path object construction でもない。`Vec` に command を蓄積せず、raster / render / platform API にも進まない。
+
+F5ax の最小 contract は次である。
+
+```text
+prepare summary:
+    total_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+
+prepare step input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    summary PathCommandStreamPrepareSummary
+    cursor PathCommandStreamCursor
+
+prepare step output:
+    Result PathCommandStreamPrepareStep PathCommandStreamPrepareStepError
+
+prepare drain input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    summary PathCommandStreamPrepareSummary
+    cursor PathCommandStreamCursor
+    remaining_steps i32
+
+prepare drain output:
+    Result PathCommandStreamPrepareDrainTerminal PathCommandStreamPrepareStepError
+```
+
+`PathCommandStreamPrepareSummary` は value-only であり、storage owner や collection reference を含まない。initial summary はすべての count を `0`、`last_path_command_index` を `-1` とする。
+
+1 command を summary へ反映する action は explicit enum とする。
+
+```text
+PathCommandStreamPrepareAction:
+    CountedMoveTo
+    CountedLineTo
+    CountedQuadraticTo
+    CountedSkipNoSegment
+```
+
+summary update は `PathCommandValue` の command payload を 1 回だけ読み、`GuiSfntSimpleGlyphPathCommand` を `match` して、次のうち 1 つだけを increment する。
+
+```text
+MoveTo        -> move_to_count
+LineTo        -> line_to_count
+QuadraticTo   -> quadratic_to_count
+SkipNoSegment -> skip_no_segment_count
+```
+
+同時に `total_count` を 1 増やし、`last_path_command_index` を `PathCommandValue.path_command_index` に更新する。`PathCommandValue` の field を直接読む範囲を広げず、public accessor を通す。
+
+prepare step は explicit enum を返す。
+
+```text
+PathCommandStreamPrepareStep:
+    Prepared PathCommandStreamPrepareAction PathCommandStreamPrepareSummary PathCommandStreamCursor
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor
+```
+
+`Completed` は dummy `PathCommandValue` や dummy action を持たない。step の順序は次である。
+
+```text
+call F5aw PathCommandStreamStep exactly once
+if F5aw returns Err:
+    return PrepareStepError with current summary and cursor
+if F5aw returns Completed cursor:
+    return Completed summary cursor
+if F5aw returns Emitted value next_cursor:
+    update summary from value
+    return Prepared action updated_summary next_cursor
+```
+
+F5ax step は F5av lookup を直接呼ばない。command acquisition は必ず F5aw step helper だけを通す。
+
+bounded prepare drain は explicit terminal を返す。
+
+```text
+PathCommandStreamPrepareDrainTerminal:
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+```
+
+prepare drain は `remaining_steps <= 0` の場合、prepare step helper も F5aw step helper も呼ばず `StepBudgetExhausted summary cursor 0` を返す。budget がある場合は F5ax prepare step helper だけを呼ぶ。drain から F5aw step helper や F5av lookup を直接呼んではいけない。
+
+F5ax は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+F5av lookup
+F5aw step helper from prepare drain
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command stream sink plan
+
+F5ay は F5ax の completed prepare drain terminal を authority として、後続の explicit command sink / raster mask writer が必要とする容量だけを value-only plan として固定する境界である。これは real sink、path object construction、rasterization、render2d command emission ではない。
+
+F5ay の入力は `PathCommandStreamPrepareSummary` 単体ではない。`StepBudgetExhausted` の partial summary が completed summary と同じ count shape を持つことがあるため、summary 単体を受け取る API は final sink / raster capacity plan の authority にならない。F5ay は必ず F5ax の drain terminal を受け取る。
+
+```text
+path command stream sink plan input:
+    PathCommandStreamPrepareDrainTerminal
+
+success authority:
+    PrepareDrainTerminal.Completed summary cursor emitted_count
+
+rejected terminal:
+    PrepareDrainTerminal.StepBudgetExhausted summary cursor emitted_count
+```
+
+`StepBudgetExhausted` は `PrepareNotCompleted` error になる。silent no-op や partial plan へ変換してはいけない。
+
+F5ay の plan は次を保持する。
+
+```text
+PathCommandStreamSinkPlan:
+    total_count i32
+    emitted_count i32
+    draw_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+    last_path_command_index i32
+```
+
+capacity derivation:
+
+```text
+draw_count = line_to_count + quadratic_to_count
+path_segment_capacity = move_to_count + line_to_count + quadratic_to_count
+raster_edge_capacity = line_to_count + quadratic_to_count
+prepared_count = path_segment_capacity + skip_no_segment_count
+```
+
+`SkipNoSegment` は source command として count するが、actual path segment capacity と raster edge capacity には入れない。これは no segment command が後続 mask edge を生成しないためである。
+
+検査順は次である。
+
+```text
+1. terminal が Completed であることを確認する
+2. total_count / move_to_count / line_to_count / quadratic_to_count / skip_no_segment_count / emitted_count が非負であることを確認する
+3. total_count > 0 であることを確認する
+4. last_path_command_index >= 0 であることを確認する
+5. move + line、move + line + quadratic、line + quadratic、prepared_count を overflow guard 付きで計算する
+6. prepared_count == total_count を確認する
+7. emitted_count == total_count を確認する
+8. draw_count と raster_edge_capacity の一致を確認する
+```
+
+overflow guard は `2147483647 - left` を先に計算し、`right` が残余を超える場合は `CountOverflow` を返す。raw `i32` addition の wraparound に依存してはいけない。
+
+F5ay error は enum と typed context で表す。
+
+```text
+PathCommandStreamSinkPlanErrorKind:
+    PrepareNotCompleted
+    NegativeTotalCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativeEmittedCount
+    NoCommandsPrepared
+    LastPathCommandIndexInvalid
+    CountOverflow
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+```
+
+F5ay は次を直接呼ばない。
+
+```text
+F5ax prepare drain
+F5ax prepare step
+F5aw step helper
+F5av lookup
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command stream sink owner
+
+F5az は F5ay の completed path command stream sink plan を authority として、後続 explicit command sink writer と raster mask writer が使う scalar storage owner を確保する境界である。これは writer 本体、raster mask writer、rasterization、render2d command emission、platform present ではない。
+
+F5az の入力は `PathCommandStreamSinkPlan` である。ただし `SinkPlan` は public value なので、F5az はそれを trusted value としてそのまま使わない。全 count、capacity、derived invariant を再検査してから allocation へ進む。
+
+```text
+path command stream sink owner input:
+    PathCommandStreamSinkPlan
+
+success:
+    SinkOwner plan capacity path_sink_scalars raster_mask_scalars
+
+failure:
+    SinkOwnerAllocError kind plan capacity storage_error
+```
+
+F5az の capacity は次を保持する。
+
+```text
+PathCommandStreamSinkOwnerCapacity:
+    path_sink_scalar_capacity i32
+    raster_mask_scalar_capacity i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+```
+
+scalar capacity derivation:
+
+```text
+path_sink_scalar_capacity =
+    move_to_count * 3
+    + line_to_count * 3
+    + quadratic_to_count * 5
+
+raster_mask_scalar_capacity =
+    line_to_count * 5
+    + quadratic_to_count * 7
+```
+
+`SkipNoSegment` は source command として `total_count` / `prepared_count` に入るが、path sink scalar capacity と raster mask scalar capacity には入らない。`SkipNoSegment` だけで構成された completed plan は、`path_sink_scalar_capacity = 0` かつ `raster_mask_scalar_capacity = 0` の valid owner allocation として扱う。これを silent no-op や `NoCommandsPrepared` に変換してはいけない。
+
+検査順は次である。
+
+```text
+1. total_count / emitted_count / draw_count / move_to_count / line_to_count / quadratic_to_count / skip_no_segment_count / path_segment_capacity / raster_edge_capacity が非負であることを確認する
+2. total_count > 0 であることを確認する
+3. last_path_command_index >= 0 であることを確認する
+4. move + line + quadratic を checked add で計算し、path_segment_capacity と一致することを確認する
+5. path_segment_capacity + skip_no_segment_count を checked add で計算し、total_count と一致することを確認する
+6. emitted_count == total_count を確認する
+7. line + quadratic を checked add で計算し、raster_edge_capacity と一致することを確認する
+8. draw_count == raster_edge_capacity を確認する
+9. path sink scalar capacity と raster mask scalar capacity を checked multiply / checked add で計算する
+10. path sink scalar Vec を確保する
+11. raster mask scalar Vec を確保する
+```
+
+overflow guard は addition と multiplication の両方に必要である。
+
+```text
+checked add:
+    remaining = 2147483647 - left
+    if right > remaining:
+        CountOverflow
+
+checked multiply:
+    max_factor_count = 2147483647 / factor
+    if count > max_factor_count:
+        CountOverflow
+```
+
+F5az error は enum と typed context で表す。coarse `InvalidPlan` は使わない。
+
+```text
+PathCommandStreamSinkOwnerAllocErrorKind:
+    NegativeTotalCount
+    NegativeEmittedCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativePathSegmentCapacity
+    NegativeRasterEdgeCapacity
+    NegativeDrawCount
+    LastPathCommandIndexInvalid
+    NoCommandsPrepared
+    PathSegmentCapacityMismatch
+    RasterEdgeCapacityMismatch
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+    CountOverflow
+    PathSinkScalarStorageAllocFailed
+    RasterMaskScalarStorageAllocFailed
+```
+
+```text
+PathCommandStreamSinkOwnerAllocError:
+    kind PathCommandStreamSinkOwnerAllocErrorKind
+    plan PathCommandStreamSinkPlan
+    capacity Option PathCommandStreamSinkOwnerCapacity
+    storage_error Option StdErrorKind
+```
+
+validation / overflow failure では `capacity = None`、`storage_error = None` とする。Vec allocation failure では `capacity = Some derived_capacity`、`storage_error = Some lower_std_error` とする。
+
+raster mask scalar Vec の allocation に失敗した場合、すでに得た path sink scalar Vec owner を必ず 1 回だけ `vec::free` してから error を返す。path sink scalar Vec の allocation に失敗した場合は、まだ解放すべき owner が存在しないため `vec::free` を呼ばない。
+
+F5az は次を直接呼ばない。
+
+```text
+F5ax prepare drain / step
+F5aw path command stream step
+F5av path command value lookup
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+Vec push
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection path command stream sink writer
+
+F5ba は F5az の `SinkOwner` を authority とし、F5aw の `PathCommandValue` を path sink scalar Vec へ書き込む real writer 境界である。これは raster mask writer、path object materialization、rasterization、render2d command emission、platform present ではない。
+
+F5ba は `PathCommandValue` を入力にする。byte-backed lookup、F5av lookup、F5aw stream step、old path sink traversal へ戻って command を再取得しない。ただし `PathCommandValue` は public value なので、writer は push 前に内部整合を再検査する。
+
+```text
+writer start input:
+    SinkOwner
+
+writer start success:
+    WriterOwner owner progress
+
+writer push input:
+    WriterOwner
+    PathCommandValue
+
+writer push success:
+    WrittenMoveTo WriterOwner
+    WrittenLineTo WriterOwner
+    WrittenQuadraticTo WriterOwner
+    SkippedNoSegment WriterOwner
+```
+
+`WriterOwner` は F5az owner と進行状況を保持する。
+
+```text
+PathCommandStreamSinkWriterOwner:
+    owner SinkOwner
+    written_count i32
+    path_sink_scalar_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+```
+
+`WriterOwner` と writer step / error は Vec owner を含むため `Clone` / `Copy` を実装しない。
+
+writer start の検査順は次である。
+
+```text
+1. owner plan を読む
+2. capacity_from_plan で plan を再検査し derived capacity を得る
+3. stored capacity と derived capacity が一致することを確認する
+4. path sink Vec cap が path_sink_scalar_capacity と一致することを確認する
+5. raster mask Vec cap が raster_mask_scalar_capacity と一致することを確認する
+6. path sink Vec len が 0 であることを確認する
+7. raster mask Vec len が 0 であることを確認する
+8. progress を all zero、last_path_command_index = -1 として開始する
+```
+
+writer push 前の再検査は次である。
+
+```text
+1. F5az plan / capacity を再検査する
+2. stored capacity と derived capacity が一致することを確認する
+3. path / raster Vec cap が capacity と一致することを確認する
+4. path sink Vec len == path_sink_scalar_count を確認する
+5. raster mask Vec len == 0 を確認する
+6. progress count が非負で plan count 内にあることを確認する
+7. move_to_count + line_to_count + quadratic_to_count + skip_no_segment_count == written_count を確認する
+8. value.path_command_index == written_count を確認する
+9. value.path_command_index < plan.total_count を確認する
+10. value.stored_tag == value.source_tag を確認する
+11. command payload から導いた tag が stored_tag / source_tag と一致することを確認する
+12. command kind ごとの remaining count と path sink scalar remaining capacity を確認する
+```
+
+kind 別 progress count は、合計検査の前に個別に検査する。negative count や plan 上限超過は `MoveToProgressInvalid`、`LineToProgressInvalid`、`QuadraticToProgressInvalid`、`SkipNoSegmentProgressInvalid` の typed error として返す。
+
+path sink scalar format は F5au の stable tag scalar を使う。
+
+```text
+MoveTo:
+    tag = 1
+    x2
+    y2
+
+LineTo:
+    tag = 2
+    x2
+    y2
+
+QuadraticTo:
+    tag = 3
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+SkipNoSegment:
+    no scalar
+```
+
+`SkipNoSegment` は explicit step として `written_count`、`skip_no_segment_count`、`last_path_command_index` だけを進める。tag scalar も座標 scalar も書かない。
+
+push 成功時の progress 更新は固定である。
+
+```text
+written_count += 1
+path_sink_scalar_count += scalar_width
+matching_command_count += 1
+last_path_command_index = value.path_command_index
+```
+
+multi scalar command の途中で `vec::push` が失敗した場合、F5ba は Vec rollback を行わない。error payload は部分 append 済み Vec を含む writer owner を返す。ただし progress は進めない。この owner は cleanup / diagnostic only であり、通常の push continuation は `path_sink_scalars_len == path_sink_scalar_count` 再検査で拒否される。
+
+push failure では必ず lower error kind を先に読み、その後 Vec を回収する。
+
+```text
+vec::vec_push_error_kind &error
+vec::vec_push_error_vec error
+reconstruct SinkOwner
+reconstruct WriterOwner
+```
+
+F5ba は次を直接呼ばない。
+
+```text
+F5av path command value lookup
+F5aw stream step / drain
+byte-backed lookup helper
+old path sink action traversal
+raster mask writer
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection raster mask writer
+
+F5bb は F5ba の completed path command stream sink writer owner を authority とし、`LineTo` と `QuadraticTo` だけを raster mask scalar Vec へ書き込む内部 writer 境界である。これは glyph mask rasterization、path object materialization、render2d command emission、platform present ではない。
+
+F5bb の writer owner は transition-only の内部型であり、public に forge できる owner として公開しない。current point は raster edge start point の authority になるため、public constructor、`Clone`、`Copy` を持たせない。owner は start、push transition、push failure recovery だけが生成する。
+
+writer start の入力は F5ba writer owner である。F5bb は start 時に F5ba が完全に path sink scalar stream を書き終えていることを再検査する。
+
+```text
+start validation order:
+    1. inner F5az owner plan を読む
+    2. capacity_from_plan で plan を再検査する
+    3. stored capacity と derived capacity の一致を確認する
+    4. path sink Vec cap == path_sink_scalar_capacity
+    5. raster mask Vec cap == raster_mask_scalar_capacity
+    6. path sink Vec len == path_sink_scalar_capacity
+    7. raster mask Vec len == 0
+    8. F5ba written_count == plan.total_count
+    9. F5ba path_sink_scalar_count == path_sink_scalar_capacity
+    10. F5ba kind counts == plan kind counts
+    11. F5ba last_path_command_index == plan.last_path_command_index
+```
+
+writer push の入力は F5bb owner と F5aw `PathCommandValue` である。`PathCommandValue` は public value なので、stored tag、source tag、command payload tag は push ごとに再検査する。
+
+```text
+raster mask scalar format:
+
+LineTo:
+    tag = 2
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+QuadraticTo:
+    tag = 3
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+MoveTo:
+    no scalar
+    current point を更新する
+
+SkipNoSegment:
+    no scalar
+    current point を変更しない
+```
+
+`tag = 2` と `tag = 3` は F5au の stable path command tag scalar であり、writer は `gui_sfnt_simple_glyph_path_command_tag_scalar_value` を通して書く。独自の magic number や backend-specific tag を使わない。
+
+F5bb は progress count を kind ごとに保持し、合計検査の前に個別に非負 / plan 上限を検査する。
+
+```text
+RasterMaskWriterOwner:
+    inner F5ba WriterOwner
+    written_count
+    raster_mask_scalar_count
+    move_to_count
+    line_to_count
+    quadratic_to_count
+    skip_no_segment_count
+    last_path_command_index
+    has_current_point
+    current_x2
+    current_y2
+```
+
+`MoveTo` と `SkipNoSegment` はどちらも scalar を出さないが、同じ no-mask count にまとめてはいけない。forged progress が `MoveTo` 超過を `SkipNoSegment` 分で隠せるため、必ず separate count として扱う。
+
+`LineTo` と `QuadraticTo` は current point がない状態では `CurrentPointMissing` として失敗する。fallback の原点、直前 command 推測、silent skip は禁止する。
+
+multi scalar command の途中で `vec::push` が失敗した場合、F5bb は Vec rollback を行わない。error payload は部分 append 済み Vec を含む writer owner を返すが、raster progress は進めない。この owner は cleanup / diagnostic only であり、次の push は `raster_mask_scalars_len == raster_mask_scalar_count` 再検査で拒否される。
+
+F5bb は次を直接呼ばない。
+
+```text
+F5av path command value lookup
+F5aw stream step / drain
+byte-backed lookup helper
+old path sink action traversal
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph outline point stream item collection raster edge owner
+
+F5bc は F5bb の completed raster mask writer owner を authority として、raster mask scalar Vec を typed raster edge Vec へ変換する内部 owner 境界である。これは scan conversion、coverage mask construction、2D render command emission、platform present ではない。
+
+F5bc は `GuiSfntSimpleGlyphRasterLineEdge`、`GuiSfntSimpleGlyphRasterQuadraticEdge`、`GuiSfntSimpleGlyphRasterEdge` を value-only edge representation とする。これらは scalar だけを持つので `Clone` / `Copy` を許す。ただし `RasterEdgeDrainOwner` と completed `RasterEdgeOwner` は Vec owner と F5bb writer owner を保持するため、module-private struct とし、public constructor、`Clone`、`Copy` を持たせない。
+
+F5bc の start は次の順序で検査する。
+
+```text
+F5az capacity derivation
+stored capacity equality
+path sink scalar capacity equality
+raster mask scalar capacity equality
+path sink scalar len equality
+raster mask scalar len equality
+inner F5ba written_count equals plan.total_count
+inner F5ba path_sink_scalar_count equals capacity.path_sink_scalar_capacity
+inner F5ba kind counts equal plan kind counts
+inner F5ba last index equals plan.last_path_command_index
+outer F5bb written_count equals plan.total_count
+outer F5bb raster_mask_scalar_count equals capacity.raster_mask_scalar_capacity
+outer F5bb kind counts equal plan kind counts
+outer F5bb last index equals plan.last_path_command_index
+expected edge capacity equals line_to_count + quadratic_to_count
+typed edge Vec allocation with capacity.raster_edge_capacity
+```
+
+start error は original F5bb writer を必ず保持し、caller は `raster_edge_start_error_writer` で writer を回収して F5bb free へ渡せる。allocation failure は lower storage error を `Option StdErrorKind` として保持する。silent no-op や default empty owner は使わない。
+
+scalar read は F5bb writer を消費しない private helper とする。negative index、out of range、storage length mismatch、storage capacity mismatch、`vec::get` の `None` はすべて typed error で返す。`vec::get None` は `ScalarSlotMissing` であり、0 や前回値への fallback は禁止する。
+
+raster edge scalar record は次で固定する。
+
+```text
+Line edge:
+    tag = 2
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+Quadratic edge:
+    tag = 3
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+```
+
+tag 1 と tag 4 は raster edge record ではないため `UnexpectedNonRasterTag` とする。未知 tag は `MalformedRasterMaskTag` とする。line record が 5 scalar 未満、quadratic record が 7 scalar 未満なら、範囲外 read の前に `LineRecordTruncated` / `QuadraticRecordTruncated` を返す。
+
+budgeted drain は complete terminal を先に検査する。scalar stream が未完了で `remaining_steps <= 0` の場合は `StepBudgetExhausted` として drain owner を返す。1 step 成功後は hard progress guard を必ず通す。
+
+```text
+Line edge success:
+    scalar_index += 5
+    edge_count += 1
+    line_edge_count += 1
+
+Quadratic edge success:
+    scalar_index += 7
+    edge_count += 1
+    quadratic_edge_count += 1
+```
+
+`vec::push` failure では lower `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec owner を回収する。error は unchanged drain owner を保持し、caller は `raster_edge_drain_error_owner` で回収できる。
+
+F5bc は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+scan conversion
+coverage mask rasterization
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph raster coverage mask writer owner
+
+F5bd は F5bc の completed raster edge owner を authority として、scan conversion が後続 phase で書き込む coverage cell buffer を確保する内部 owner 境界である。ここでは edge を走査して pixel coverage を計算しない。2D render command、platform present、font fallback にも進まない。
+
+coverage mask の寸法は edge owner から推測しない。caller は `RasterCoverageConfig` を渡し、F5bd はその config を検査して `RasterCoverageShape` に固定する。topology bounds、font size、writing mode、subpixel policy から config を作る boundary は別 phase とする。これにより、F5bd は forged config を受け取った場合でも panic や fallback をせず、typed error と owner recovery で返せる。
+
+```text
+RasterCoverageConfig:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    max_cell_count
+
+RasterCoverageShape:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    coverage_max
+    cell_count
+```
+
+config validation は次の順序で行う。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+max_cell_count > 0
+sample_scale * sample_scale does not overflow i32
+width_px * height_px does not overflow i32
+cell_count <= max_cell_count
+completed edge owner count still matches its nested sink plan and capacity
+typed edge Vec len equals edge_count
+typed edge Vec cap equals capacity.raster_edge_capacity
+coverage cell Vec allocation with capacity = cell_count
+```
+
+`coverage_max` は `sample_scale * sample_scale` である。coverage cell は `0 <= coverage <= coverage_max` の整数値で、初期実装では scalar coverage として i32 Vec に保持する。anti-aliased mask の packed byte / bit representation は後続最適化であり、この phase では ABI に固定しない。
+
+F5bd owner は completed edge owner と coverage cell Vec を保持する module-private owner である。public constructor、`Clone`、`Copy` は持たせない。start error と push error は必ず owner を保持し、caller は recovery helper で owner を回収して free できる。
+
+F5bd は新しい allocation boundary なので、F5bc completion をそのまま信頼しない。completed edge owner の count と nested plan/capacity を照合した後、typed edge Vec の `len == edge_count` と `cap == capacity.raster_edge_capacity` も検査する。不一致は `EdgeStorageLenMismatch` / `EdgeStorageCapacityMismatch` として返し、coverage cell Vec allocation へ進まない。
+
+push は scan conversion ではない。後続 phase の scan converter が計算した 1 cell coverage を writer owner へ渡すための owner-preserving mutation boundary である。push は次を検査する。
+
+```text
+coverage cell Vec len == written_cell_count
+coverage cell Vec cap == shape.cell_count
+written_cell_count < shape.cell_count
+coverage value >= 0
+coverage value <= shape.coverage_max
+vec::push failure returns the unchanged owner and rejected coverage value
+```
+
+completed owner は `written_cell_count == shape.cell_count` の場合だけ生成する。未完了 owner から empty completed mask を作ること、足りない cell を 0 で埋めること、overflow 時に小さい mask へ縮退することは禁止する。
+
+F5bd は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+edge scan conversion
+coverage computation
+packed mask conversion
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph raster coverage scan converter
+
+F5be は F5bd の coverage mask writer owner を authority として、typed raster edge を even-odd rule で走査し、1 pixel cell ごとの coverage value を F5bd の `push_cell` boundary へ渡す内部 scan conversion 境界である。ここで初めて line / quadratic edge から coverage を計算する。ただし、この phase は packed mask conversion、color blend、2D render command、platform present、font fallback へ進まない。
+
+scan conversion は再開可能な owner として表す。
+
+```text
+RasterCoverageScanConfig:
+    quadratic_segment_count
+
+RasterCoverageScanOwner:
+    writer_owner
+    scan_config
+    cell_index
+```
+
+`quadratic_segment_count` は quadratic edge を deterministic line segment sequence として評価するための明示的な品質 policy である。値が 0 以下なら `InvalidQuadraticSegmentCount` を返す。quadratic edge を line edge として黙って扱うこと、未対応として 0 coverage にすること、platform text stack へ逃がすことは禁止する。
+
+F5be は F5bd の shape を再検査する。`RasterCoverageShape` は private writer に入っているが、scan conversion は `%`、`/`、sample loop、coverage range を使う新しい trust boundary なので、F5bd の検査結果をそのまま仮定しない。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+```
+
+不一致は `ShapeInvalid` 系の typed error として writer owner を保持したまま返す。shape invariant が通る前に cell coordinate math、edge scan、`push_cell` へ進んではならない。
+
+coverage は `shape.sample_scale * shape.sample_scale` 個の subpixel sample を数える。cell `cell_index` は `cell_x = cell_index % width_px`、`cell_y = cell_index / width_px` に分解する。sample coordinate は edge coordinate と同じ doubled-coordinate を `sample_scale` 倍した整数空間で扱う。
+
+```text
+sample_x = (origin_x2 + cell_x * 2) * sample_scale + (sample_x_index * 2 + 1)
+sample_y = (origin_y2 + cell_y * 2) * sample_scale + (sample_y_index * 2 + 1)
+edge_x = edge_x2 * sample_scale
+edge_y = edge_y2 * sample_scale
+```
+
+line crossing は `y0 > sample_y` と `y1 > sample_y` が異なる場合だけ評価する。交点比較は i64 の cross product で行い、除算や float を使わない。`dy > 0` の場合は左辺 `<` 右辺、`dy < 0` の場合は左辺 `>` 右辺で crossing とする。quadratic edge は `quadratic_segment_count` による t 分割で line segment に変換し、各 segment を同じ crossing helper へ渡す。
+
+```text
+if inside by odd crossing count:
+    coverage += 1
+else:
+    coverage unchanged
+```
+
+F5be は `cell_index == shape.cell_count` を complete 条件とする。complete 時は F5bd の writer completion を呼び、exactly full mask だけを `CoverageScanCompleted` として返す。`StepBudgetExhausted` は error ではなく「caller が今回与えた time slice を使い切った」typed terminal である。silent success、zero-fill completion、partial mask completion は禁止する。
+
+drain / step は complete 判定より前に `0 <= cell_index <= shape.cell_count` を検査する。`cell_index < 0` と `cell_index > shape.cell_count` は owner-bearing typed error であり、`StepBudgetExhausted` や completed mask へ変換しない。
+
+F5be は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+packed mask conversion
+render / platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph raster packed mask owner
+
+F5bf は F5be の completed coverage mask owner を authority として、raw coverage cell を normalized alpha cell へ変換する内部 owner 境界である。この phase は coverage cell を alpha cell に正規化するだけで、render2d command、pixel buffer、platform present、font fallback には進まない。
+
+packed mask config は value-only である。
+
+```text
+RasterPackedMaskConfig:
+    alpha_max
+```
+
+`alpha_max <= 0` は `InvalidAlphaMax` として拒否する。coverage owner の shape は新しい trust boundary として再検査する。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+coverage_max * alpha_max does not overflow i32
+```
+
+F5bf の transition owner は module-private で、completed coverage owner、alpha cell Vec、config、cell_index を保持する。completed packed mask owner は raw coverage cells を保持しない。completion 時に raw coverage cells を解放し、edge owner と shape と alpha cells だけを completed packed mask owner に移す。
+
+```text
+PackedMaskPackOwner:
+    coverage_owner
+    alpha_cells
+    config
+    cell_index
+
+PackedMaskOwner:
+    edge_owner
+    shape
+    alpha_cells
+    cell_count
+    alpha_max
+```
+
+drain / step / completion は、budget、raw cell read、alpha push、completion より前に pack owner invariant を検査する。
+
+```text
+cell_index >= 0
+shape invariant is valid
+cell_index <= shape.cell_count
+alpha_cells.len == cell_index
+alpha_cells.cap == shape.cell_count
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+```
+
+この検査により、`vec::push` 失敗時に Vec が部分的に進んだ場合でも、回収された owner をそのまま通常継続できるとは扱わない。回収 owner は cleanup / diagnostic のために返され、次に処理へ戻す場合も invariant を通過したときだけ進める。
+
+1 step は raw coverage cell を 1 個読み、range を検査して alpha に変換する。
+
+```text
+0 <= coverage <= shape.coverage_max
+coverage * alpha_max does not overflow i32
+alpha = coverage * alpha_max / shape.coverage_max
+push alpha
+cell_index += 1
+```
+
+`StepBudgetExhausted` は successful terminal だが completed mask ではない。`PackedMaskCompleted` は `cell_index == shape.cell_count` かつ alpha cell Vec が exact length/capacity のときだけ返す。partial completion、zero-fill、best-effort completion は禁止する。
+
+F5bf は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+render2d command
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+```
+
+### SFNT simple glyph render fill alpha mask boundary
+
+F5bg は F5bf の completed packed alpha mask owner を authority として、2D renderer に渡す直前の fill alpha mask owner へ所有権を移す境界である。この phase は `RenderCommand` を発行せず、pixel buffer を作らず、DrawTarget / RenderTarget / platform / host API に接続しない。目的は、normalized alpha cells を保持したまま、描画位置、fill paint、blend mode を 1 つの owner にまとめることである。
+
+F5bg は full `GuiGlyphPaint` を受け取らない。F5bf の alpha mask は glyph fill coverage であり、stroke、shadow、full paint をこの境界で受けると、それらを無視する危険がある。そのため F5bg の config は fill paint と blend mode だけを持つ。
+
+```text
+RenderFillAlphaMaskConfig:
+    origin
+    fill_paint
+    blend
+```
+
+config は value-only で `Clone` / `Copy` を許可する。owner は module-private で `Clone` / `Copy` を実装しない。
+
+```text
+RenderFillAlphaMaskOwner:
+    edge_owner
+    shape
+    alpha_cells
+    cell_count
+    alpha_max
+    origin
+    fill_paint
+    blend
+```
+
+start は packed owner を消費する前に必ず次を再検査する。
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+packed_owner.alpha_max > 0
+packed_owner.cell_count == shape.cell_count
+packed_owner.alpha_cells.len == shape.cell_count
+packed_owner.alpha_cells.cap == shape.cell_count
+```
+
+検査に失敗した場合は start error が original packed owner と config を保持する。caller は packed owner を回収して free するか、diagnostic に使える。success の場合は packed owner の edge owner、shape、alpha cell Vec、cell count、alpha max をそのまま移し、config の origin、fill paint、blend をそのまま completed owner に保持する。これは buffer copy でも command emission でもない。
+
+F5bg は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow binding
+```
+
+### SFNT simple glyph render glyph paint binding boundary
+
+F5bh は F5bg の fill alpha mask owner start を authority とし、full `GuiGlyphPaint` を受ける最初の境界である。ただし、この phase は stroke rasterization、shadow rasterization、2D compositor、`RenderCommand` emission へは進まない。現在の alpha mask は fill coverage だけを表すため、受理できる paint は `fill = Some paint`、`stroke = None`、`shadows = NoShadow` のみである。
+
+F5bh は unsupported paint を黙って fill-only として扱わない。validation precedence は次で固定する。
+
+```text
+1. stroke が Some なら UnsupportedStrokePaint
+2. shadows が SingleShadow または ShadowRun なら UnsupportedShadowPaint
+3. fill が None なら MissingFillPaint
+4. fill Some / stroke None / NoShadow の場合だけ F5bg fill alpha mask start へ委譲
+```
+
+この順序により、stroke-only paint や shadow-only paint は `MissingFillPaint` ではなく、対応外の描画モードとして明示される。複数の unsupported mode が同時にある場合は、stroke が shadow より先に報告される。これは診断の一貫性を保つための contract である。
+
+```text
+RenderGlyphPaintConfig:
+    origin
+    paint
+```
+
+start は次を返す。
+
+```text
+Result RenderFillAlphaMaskOwner RenderGlyphPaintStartError
+```
+
+error は owner-bearing であり、失敗した場合でも `GuiSfntSimpleGlyphRasterPackedMaskOwner` を回収できる。F5bg への委譲後に lower error が発生した場合は、lower error kind を `Option::Some` として保持し、packed owner を回収して `FillAlphaMaskStartFailed` へ包む。lower error kind は lower error を消費して owner を取り出す前に読み取る。
+
+F5bh は次を呼ばない。
+
+```text
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke rasterizer
+shadow rasterizer
+2D compositor
+```
+
+### SFNT simple glyph render fill alpha mask sample cursor boundary
+
+F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
+
+sample は次を持つ。
+
+```text
+RenderFillAlphaMaskSample:
+    position
+    alpha
+    alpha_max
+    fill_paint
+    blend
+```
+
+cursor は completed owner と cell index を所有する。cursor、start error、step error、terminal は owner-bearing であり、`Clone` / `Copy` を実装しない。sample 本体は value-only であり、`Clone` / `Copy` を実装できる。
+
+F5bi は cursor start 前と cursor step / read 前に completed owner invariant を再検査する。
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == sample_scale * sample_scale
+shape.cell_count == width_px * height_px
+owner.alpha_max > 0
+owner.cell_count == shape.cell_count
+owner.alpha_cells.len == shape.cell_count
+owner.alpha_cells.cap == shape.cell_count
+```
+
+cursor bounds は fail-closed に扱う。
+
+```text
+cell_index < 0          -> CellIndexNegative
+cell_index > cell_count -> CellIndexOutOfRange
+cell_index == cell_count -> Completed owner
+cell_index < cell_count -> read sample
+```
+
+特に `cell_index > cell_count` を completed として扱ってはいけない。これは壊れた cursor progress を隠すため、`CellIndexOutOfRange` として報告する。
+
+sample position は `origin + local_cell_position` から作る。ただし `gui_point_new` の前に x / y それぞれで i32 overflow を検査し、`PositionXOverflow` / `PositionYOverflow` を返す。unchecked `gui_point_add` は使わない。
+
+sample read は alpha slot を `vec::get` で読み、slot missing、negative alpha、`alpha > alpha_max` を typed error として返す。成功時は owner に保持された `fill_paint` と `blend` をそのまま sample へコピーする。
+
+F5bi は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow rasterizer
+2D compositor
+```
+
+### SFNT simple glyph render fill alpha mask sample command bridge boundary
+
+F5bj は F5bi の sample cursor を authority とし、1 sample を 1 typed `RenderCommand::FillRect` へ変換する境界である。これは高速 compositor が無い場合の fallback ではない。目的は、後続の 2D renderer / compositor へ進む前に、alpha scale、paint access、cursor recovery、command emission の最小契約を静的に固定することである。
+
+現行の `FillRectCommand` は blend mode を payload に持たない。そのため F5bj は `GuiBlendMode::SourceOver` だけを受理し、`Copy` / `Multiply` / `Screen` は `UnsupportedBlendMode` として fail closed に返す。`sample.blend` を黙って捨ててはいけない。
+
+alpha は次の式で scale する。
+
+```text
+command_alpha = sample.alpha * paint.alpha / sample.alpha_max
+```
+
+ただし `cast i32 u8` の前に次を検査する。
+
+```text
+sample.alpha_max <= 0 -> InvalidAlphaMax
+sample.alpha < 0 -> AlphaNegative
+sample.alpha > sample.alpha_max -> AlphaExceedsMax
+sample.alpha * paint.alpha overflow -> PaintAlphaMultiplyOverflow
+scaled alpha not in 0..255 -> ScaledAlphaOutOfRange
+```
+
+`sample.alpha == 0` または `paint.alpha == 0` は透明な `FillRect` command を返す。silent skip や no-op にしてはいけない。
+
+cursor command step は `cell_index == cell_count` を `read` より先に `Completed owner` として扱う。`cell_index > cell_count` は completion ではなく error である。`cell_index < cell_count` の場合は、F5bi cursor を参照で `read` し、command 変換が成功してから owner を取り出して next cursor を作る。command 変換に失敗した場合は元 cursor と rejected sample を error に保持し、cursor を進めない。
+
+F5bj は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow rasterizer
+2D compositor
+```
+
+### SFNT simple glyph alpha mask render command boundary
+
+F5bk は F5bj の per-sample `FillRect` correctness bridge を最終描画経路にしないため、core render command に `AlphaMaskRect` を追加する境界である。目的は、glyph の coverage mask を 1 pixel ごとの command stream へ展開せず、opaque resource handle と配置矩形と paint だけで renderer / host に渡せる no_alloc contract を作ることである。
+
+```text
+AlphaMaskId:
+    raw i32
+
+AlphaMaskRectCommand:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+`AlphaMaskRect` は SourceOver 専用 command である。mask alpha と `GuiPaint` alpha は renderer 側で SourceOver contract に従って合成する。RGB は `GuiPaint` に由来し、mask は coverage / opacity だけを表す。任意の blend mode はこの payload に入れないため、F5bj と同じく non-SourceOver glyph blend は command 構築前に typed error で拒否する。
+
+core は mask byte storage、mask dimensions、resource lifetime、texture upload、renderer backend を保持しない。`AlphaMaskId` が見つからない場合、target が alpha mask command を扱えない場合、または resource dimensions が command rect と矛盾する場合は renderer / host 層が `Result` / `GuiError` で返す。silent no-op と fallback rasterization は禁止する。
+
+F5bk が追加する public API は次である。
+
+```text
+alpha_mask_id_new
+alpha_mask_id_raw
+alpha_mask_rect_command_mask_id
+alpha_mask_rect_command_rect
+alpha_mask_rect_command_paint
+render_command_alpha_mask_rect
+RenderCommand::AlphaMaskRect
+```
+
+F5bk は次を呼ばない。
+
+```text
+Vec / String / allocator
+DrawTarget / RenderTarget implementation
+platform / host APIs
+Canvas / DOM / minifb
+font internals
+font fallback
+zero-fill fallback
+2D compositor drain
+```
+
+### SFNT simple glyph alpha mask resource reservation boundary
+
+F5bl は F5bg / F5bh の completed fill alpha mask owner を、F5bk の `AlphaMaskId` と安全に結びつける内部 reservation 境界である。この phase は resource table 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へは渡さず、mask storage が backend で解決可能であることも証明しない。
+
+F5bl が作る成功 value は owner-bearing であり、次の内部境界が table 登録を行うまで alpha storage owner を保持し続ける。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    mask_id AlphaMaskId
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+config は value-only で `Clone` / `Copy` を持つ。reservation owner と start error は alpha storage owner を保持するため `Clone` / `Copy` を持たない。
+
+validation は fail closed である。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+shape.width_px <= 0 -> ShapeInvalidWidth
+shape.height_px <= 0 -> ShapeInvalidHeight
+shape.sample_scale <= 0 -> ShapeInvalidSampleScale
+shape.coverage_max != sample_scale * sample_scale -> ShapeCoverageMaxMismatch
+shape.cell_count != width_px * height_px -> ShapeCellCountMismatch
+owner.alpha_max <= 0 -> InvalidAlphaMax
+owner.cell_count != shape.cell_count -> AlphaCellCountMismatch
+owner.alpha_cells.len != shape.cell_count -> AlphaStorageLenMismatch
+owner.alpha_cells.cap != shape.cell_count -> AlphaStorageCapacityMismatch
+owner.blend != SourceOver -> UnsupportedBlendMode
+```
+
+成功時の `rect` は owner の origin と size から作る。`paint` は owner の fill paint をそのまま保持する。F5bl は alpha Vec を copy しない。success owner の consuming recovery helper は元の `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を返せるようにし、次の table 登録境界は reservation owner を消費してから resource を登録し、その後で初めて `RenderCommand::AlphaMaskRect` を構築する。
+
+F5bl は次を呼ばない。
+
+```text
+render_command_alpha_mask_rect
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+alpha Vec copy
+2D compositor drain
+```
+
+### SFNT simple glyph alpha mask resource table boundary
+
+F5bm は F5bl の reservation owner を消費し、alpha mask id を metadata-only table に登録する内部 alloc/font 境界である。この phase は host-visible resource 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へ storage を渡さず、mask が presentation layer で解決可能であることも証明しない。
+
+table は `AlphaMaskId`、rect、paint、width、height、cell count、alpha max だけを持つ index である。alpha storage owner は table の `Vec` へ入れず、成功 owner が table owner と registered resource owner を同時に保持する。これにより、metadata だけが残り storage owner を失う partial registration を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    width_px i32
+    height_px i32
+    cell_count i32
+    alpha_max i32
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner:
+    records Vec ResourceRecord
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner:
+    reservation GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner
+    record ResourceRecord
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner:
+    table GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+```
+
+registration は push 前に次を検査する。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+reservation owner invariant mismatch -> corresponding invariant error
+reservation rect != owner origin/size -> RectMetadataMismatch
+reservation paint != owner fill paint -> PaintMetadataMismatch
+blend != SourceOver -> UnsupportedBlendMode
+table already contains mask_id -> DuplicateMaskId
+Vec push failure -> TablePushFailed
+```
+
+`lookup` は metadata record だけを返す。これは id が table 内で一意に登録されていることを示すだけで、storage の借用、host upload、texture availability、renderability を示さない。missing resource、unsupported backend、transport failure は後続 renderer / host layer が `Result` で返す。
+
+成功 owner は callback 型の continuation により updated table owner と registered resource owner を同時に次境界へ渡す。error recovery も table owner と reservation owner を同時に保持する rejected owner を経由し、table だけ、または reservation だけを消費回収する accessor は持たない。
+
+F5bm は次を呼ばない。
+
+```text
+render_command_alpha_mask_rect
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+sample cursor
+owner-bearing Vec payload
+alpha Vec copy
+2D compositor drain
+```
+
+### SFNT simple glyph alpha mask prepared command boundary
+
+F5bn は F5bm の registered resource owner を消費し、`RenderCommand::AlphaMaskRect` を作るための metadata を再検証したうえで、resource owner と command を同じ prepared owner に閉じ込める内部 alloc/font 境界である。この phase は command stream emission ではない。`RenderCommand` は Copy value なので、raw command を accessor や任意 callback で外へ出すと resource owner を失った dangling `AlphaMaskId` command を作れる。したがって F5bn は raw command escape を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+    command RenderCommand
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+```
+
+prepare は次の順で実行する。
+
+```text
+1. registered resource の stored record を読む
+2. AlphaMaskId.raw <= 0 を InvalidMaskId として拒否する
+3. internal reservation から expected record を再導出する
+4. reservation invariant / SourceOver / rect / paint metadata の不一致を typed error にする
+5. stored record と expected record の mask id、rect、paint、width、height、cell count、alpha max を比較する
+6. 一致した場合だけ render_command_alpha_mask_rect を呼ぶ
+7. 返った RenderCommand は prepared owner の内部に保存する
+```
+
+prepared owner は `RenderCommand` を返す accessor、borrow accessor、または arbitrary callback helper を持たない。command は後続の formal transport / drain owner が resource lifetime と command lifetime を同時に所有する境界でだけ消費する。error path も command を保持せず、registered resource owner を typed error から回収または free できる形にする。
+
+F5bn は次を呼ばない。
+
+```text
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+sample cursor
+resource table lookup
+owner-bearing Vec payload
+alpha Vec copy
+tile / bitmap transport
+2D compositor drain
+```
+
+### Software RGBA8888 surface owner boundary
+
+F5bo は F5bn の prepared command を直接消費する compositor phase ではなく、2D renderer と font rasterizer が共有する software pixel memory boundary である。初回 plan review では、RGBA8888 surface owner と SourceOver compositor drain を `alloc/gui/font/sfnt/glyf.nepl` に置く案が block された。pixel buffer は font glyf 固有ではなく render2d 全体の基盤なので、F5bo は `alloc/gui/render2d` に切り出す。
+
+この boundary の最小 contract は次である。
+
+```text
+GuiRgba8888SoftwareSurfaceOwner:
+    width i32
+    height i32
+    stride_bytes i32
+    byte_len i32
+    storage RegionToken u8
+```
+
+`storage` は owner が保持する。owner は `Clone` / `Copy` を持たない。raw pointer、raw `RegionToken` accessor、platform surface、DrawTarget、RenderTarget、RenderCommand、Canvas、DOM、minifb、font glyf API は public contract に出さない。
+
+作成時の検査は fail-closed である。
+
+```text
+width <= 0 or height <= 0
+    -> InvalidGeometry
+
+width * height overflow
+    -> PixelCountOverflow
+
+width * 4 overflow
+    -> StrideOverflow
+
+height * stride_bytes overflow
+    -> ByteLengthOverflow
+
+allocation failure
+    -> OutOfMemory
+```
+
+pixel write は owner-consuming API とする。
+
+```text
+write_pixel owner x y color
+    -> Ok updated_owner
+    -> Err owner_bearing_write_error
+```
+
+pixel read は borrow-only API とする。
+
+```text
+read_pixel &owner x y
+    -> Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind
+```
+
+範囲外 index、byte offset overflow、pointer projection failure、load / store failure は enum error kind として返す。unsupported や fallback を silent no-op にしない。
+
+SourceOver alpha-mask drain は次 phase の責務であり、F5bo では実装しない。F5bo はあくまで surface owner の lifetime、bounds、byte layout を固定する。
+
+### SourceOver alpha-mask software drain-start owner boundary
+
+F5bp は F5bn の prepared command owner と F5bo の RGBA8888 software surface owner を同時に消費し、後続の bounded drain step が使う cursor owner を作る境界である。この phase は completed drain ではない。pixel write、SourceOver 合成、dirty region 更新、tile / bitmap transport、host present は実行しない。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    cell_index i32
+```
+
+start は次の検査をすべて fail closed に行う。
+
+```text
+1. prepared owner 内部の registered resource を internal reservation から再検証する
+2. stored record と rederived record の mask id / rect / paint / dimensions / alpha metadata を比較する
+3. private command field は start validation helper 内だけで読む
+4. command が AlphaMaskRect であることを確認する
+5. command payload の mask id / rect / paint が rederived record と一致することを確認する
+6. rect origin が 0 以上で、rect size が正であることを確認する
+7. checked add で right / bottom を計算する
+8. surface width / height が rect を含むことを確認する
+9. 成功時だけ cell_index = 0 の drain owner を返す
+```
+
+error は prepared owner と surface owner を同時に保持する。片方だけを取り出す consuming accessor は作らない。回収は rejected owner と paired callback だけで行う。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+```
+
+F5bp は raw `RenderCommand` accessor、`&RenderCommand` accessor、command callback、prepared owner と surface owner の split accessor、`gui_rgba8888_software_surface_write_pixel`、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、fallback、zero-fill fallback を使わない。
+
+### SourceOver alpha-mask software drain-step boundary
+
+F5bq は F5bp の drain owner を消費し、bounded work slice として RGBA8888 software surface へ alpha-mask pixel を SourceOver 合成する境界である。この phase は Web / Native / bare / headless の backend へ present しない。dirty region completion metadata、tile / bitmap transport、FHD 60fps batching、stroke、shadow は後続 phase の責務である。
+
+SourceOver 算術は font/glyf 固有ではなく `alloc/gui/render2d/composite` の純粋 helper とする。
+
+```text
+gui_rgba8888_source_over_alpha_mask:
+    source Rgba8888
+    mask_alpha i32
+    mask_alpha_max i32
+    dest Rgba8888
+    -> Result Rgba8888 GuiRgba8888SourceOverAlphaMaskErrorKind
+```
+
+合成式は straight alpha とする。
+
+```text
+src_a = mask_alpha * source.a / mask_alpha_max
+inv = 255 - src_a
+out_alpha_num = src_a * 255 + dest.a * inv
+out_a = out_alpha_num / 255
+out_premul_num_c = source.c * src_a * 255 + dest.c * dest.a * inv
+out_c = if out_alpha_num == 0 then 0 else out_premul_num_c / out_alpha_num
+```
+
+割り算は非負整数の signed division による floor とする。`mask_alpha_max <= 0`、`mask_alpha < 0`、`mask_alpha > mask_alpha_max`、`mask_alpha * source.a` overflow、`src_a` が `0..255` の外に出る場合は typed error で返す。`out_a` と各 `out_c` は `u8` cast 前に `0..255` を満たすことを検査する。low alpha 同士の合成でも `out_alpha_num` を分母として保持するため、`source = rgba 255 255 255 1`、`dest = rgba 255 255 255 1` は RGB 255 を超えない。
+
+software surface の pixel write は 4 channel すべての `region_ptr_at` projection を store 前に検査する。projection failure の場合、1 channel も store してはいけない。正規 allocator 由来の `RegionToken` を保持する `GuiRgba8888SoftwareSurfaceOwner` の invariant の下では、projection 成功後の `store_u8` は失敗しない。
+
+drain terminal は completed と budget exhaustion を分ける。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
+    Completed GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+```
+
+`CompletedOwner` は prepared owner と surface owner を pair のまま保持する。surface だけを返す split accessor は作らない。surface が必要な場合は completed owner を消費し、prepared owner を free してから surface を返す explicit finish helper を使う。
+
+step failure は owner-bearing error とする。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+```
+
+drain は次の順で進む。
+
+```text
+1. prepared / surface / command / record / rect / bounds を再検証する
+2. cell_index < 0 または cell_index > cell_count を reject する
+3. cell_index == cell_count なら Completed を返す
+4. remaining_steps <= 0 なら InvalidBudget error を返す
+5. alpha cell を borrow-only vec::get で読む
+6. alpha が 0..alpha_max にあることを検査する
+7. rect origin と local cell offset から checked position を計算する
+8. surface から destination pixel を borrow read する
+9. render2d SourceOver helper で output pixel を作る
+10. software surface write が成功した後だけ cell_index を 1 つ進める
+11. positive budget を使い切って未完了なら StepBudgetExhausted を返す
+```
+
+read / composite failure は元の owner を unchanged で返す。write failure は lower error kind を読み、surface owner を回収し、同じ `cell_index` で drain owner を復元して返す。成功した write の前に `cell_index` を進めてはいけない。
+
+F5bq は F5bj の per-sample `FillRect` bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / backend API、font fallback、zero-fill fallback、silent no-op、alpha Vec clone / copy、byte-backed lookup、old traversal、unchecked rect extent helper を使わない。
+
+### SourceOver alpha-mask dirty-region completion boundary
+
+F5br は F5bq の completed authority に、present / tile transport へ進むための dirty metadata を追加する境界である。この phase でも Web / Native / bare / headless backend へ present しない。正式な tile / bitmap transport、複数 dirty region の集約、FHD 60fps batching、host present は後続 phase の責務である。
+
+completed owner は prepared owner、surface owner、dirty region を同時に保持する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
+```
+
+`dirty` は `DirtyRegion` の Copy metadata であるため、borrowed accessor で読むことを許す。一方で `prepared` と `surface` の split accessor は引き続き禁止する。surface が必要な場合は completed owner を消費し、prepared owner を free して surface owner を返す finish helper を使う。presentation に dirty region が必要な caller は、finish helper の前に dirty accessor で value を読む。
+
+dirty region は record rect から `dirty_region_rect_checked` で作る。F5bp/F5bq の start validation により rect / surface containment はすでに検査済みだが、dirty metadata の authority は `core/gui/dirty_region` の checked constructor である。`dirty_region_rect_checked` が失敗した場合、Full や Empty へ silent conversion せず、`DirtyRegionInvalid` の owner-bearing step error として元の drain owner を返す。
+
+completion branch の順序は次とする。
+
+```text
+1. prepared / surface / command / record / rect / bounds を再検証する
+2. cell_index == cell_count を確認する
+3. record rect から dirty_region_rect_checked で DirtyRegion を作る
+4. dirty 作成が成功した後だけ owner から prepared / surface を取り出す
+5. prepared + surface + dirty を completed owner に入れる
+```
+
+F5br は old FillRect bridge、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、tile / bitmap publish、font fallback、zero-fill fallback、silent no-op、unchecked dirty region fallback を使わない。
+
+### SourceOver dirty region set aggregation boundary
+
+F5bs は F5br の 1 glyph completed dirty metadata と、後続の formal tile / bitmap transport の間に置く pre-transport dirty aggregation contract である。この phase は render2d の generic `surface+dirty owner`、tile list、bitmap payload、host present、platform backend、FHD batching を実装しない。複数 glyph / widget draw が返す dirty を no_alloc の fixed-capacity `DirtyRegionSet` に取り込むための最小 API だけを `core/gui/dirty_region_set` に追加する。
+
+```text
+dirty_regions_push_region_checked:
+    regions DirtyRegionSet
+    region DirtyRegion
+    -> Result DirtyRegionSet GuiError
+```
+
+`DirtyRegion::Empty` は dirty なしという明示状態であり、既存 set をそのまま返す。これは fallback や silent no-op ではなく、合成単位が「dirty なし」を返したという contract である。
+
+`DirtyRegion::Full` は surface 全体 dirty を意味するため、既存 set の内容に関係なく `dirty_regions_full` を返す。
+
+`DirtyRegion::Rect rect` は必ず `dirty_regions_push_checked` に通す。`dirty_region_rect_unchecked` で作られた invalid rect が混入しても、width / height が負なら `GuiError::InvalidGeometry` として拒否する。`dirty_regions_push_unchecked` や `dirty_region_merge` は使わない。F5bs は bounding rect merge ではなく、fixed-capacity dirty rect set への checked aggregation boundary である。
+
+この phase は allocator、Vec、DOM、Canvas、minifb、DrawTarget、RenderTarget、platform API、present、publish、tile / bitmap transport、fallback を使わない。
+
+### Render2d surface + dirty owner boundary
+
+F5bt は F5bo の `GuiRgba8888SoftwareSurfaceOwner` と F5bs の `DirtyRegionSet` を、`alloc/gui/render2d` の共有 ownership boundary として束ねる phase である。これは formal tile / bitmap transport でも host present でもなく、描画済み surface と dirty metadata を同じ owner として次の transport 設計へ渡すための前段階である。
+
+```text
+GuiRgba8888SoftwareSurfaceDirtyOwner:
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegionSet
+```
+
+dirty region の追加 API は次の形にする。
+
+```text
+gui_rgba8888_software_surface_dirty_owner_push_region_checked:
+    owner GuiRgba8888SoftwareSurfaceDirtyOwner
+    region DirtyRegion
+    -> Result GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888SoftwareSurfaceDirtyPushError
+```
+
+`GuiRgba8888SoftwareSurfaceDirtyPushError` は `GuiError` と元の `GuiRgba8888SoftwareSurfaceDirtyOwner` を持つ owner-bearing error である。`dirty_regions_push_region_checked` が失敗した場合、surface を owner から取り出さず、元 owner をそのまま回収できるようにする。成功時だけ surface を move し、更新済み `DirtyRegionSet` と一緒に新しい owner を返す。
+
+公開 accessor は width / height / stride_bytes / byte_len / dirty の Copy metadata だけである。surface の raw accessor、mutable accessor、split accessor は公開しない。`finish_surface` は recovery / teardown 向けに dirty metadata を捨てて surface だけを返す API であり、dirty metadata が必要な caller は `finish_surface` の前に borrowed dirty accessor で読む。
+
+この phase は tile list、bitmap payload、row batch、host present、platform backend、font glyf との直接統合、pixel writing、fallback を実装しない。次の phase はこの owner を formal transport / scheduler / FHD 60fps batching に接続する。
+
+### Render2d validated bitmap frame owner boundary
+
+F5bu は F5bt の `GuiRgba8888SoftwareSurfaceDirtyOwner` を、formal tile / bitmap transport の前段で使う validated bitmap frame owner に変換する phase である。これは host present ではなく、platform API、video memory host import、Canvas / DOM / minifb、row byte copy、tile list はまだ使わない。
+
+```text
+GuiRgba8888SoftwareSurfaceDirtyOwner
+    + GuiRgba8888BitmapFrameConfig
+    -> Result GuiRgba8888BitmapFrameOwner GuiRgba8888BitmapFramePrepareError
+```
+
+`GuiRgba8888BitmapFrameConfig` は positive `frame_id` だけを持つ。`frame_id <= 0` は `FrameIdInvalid` として拒否する。`frame_id` は後続 transport が参照する host-facing metadata なので、0 を local sequence として許可しない。
+
+`prepare` は public struct constructor で forged された value を前提に防御的に検査する。順序は次で固定する。
+
+```text
+1. frame_id > 0 を検査する
+2. borrowed owner から width / height / stride_bytes / byte_len / dirty を読む
+3. gui_rgba8888_software_surface_shape width height で shape を再計算する
+4. expected stride_bytes / byte_len と owner metadata の完全一致を要求する
+5. DirtyRegionSet を Empty / Full / One / Two で match する
+6. Rect dirty は x/y >= 0、width/height >= 0、right/bottom overflow、surface bounds を検査する
+7. 全 validation 成功後だけ finish_surface で surface owner を move する
+```
+
+`GuiRgba8888BitmapFramePrepareErrorKind` は `FrameIdInvalid`、`SurfaceInvalidGeometry`、`SurfaceStrideMismatch`、`SurfaceByteLengthMismatch`、`DirtyRectInvalidOrigin`、`DirtyRectInvalidSize`、`DirtyRectRightOverflow`、`DirtyRectBottomOverflow`、`DirtyRectOutOfBounds` を持つ。prepare error は元 dirty owner を保持する owner-bearing error であり、失敗時に surface owner を失わない。
+
+`GuiRgba8888BitmapFrameOwner` は `frame_id`、width / height / stride_bytes / byte_len、`DirtyRegionSet`、`GuiRgba8888SoftwareSurfaceOwner` を保持する。raw pixel accessor、byte copy、tile list、host present、fallback / silent no-op は含めない。`finish_surface` は frame metadata を捨てて surface owner を返す recovery / teardown API である。
+
+### Render2d row batch plan owner boundary
+
+F5bv は F5bu の `GuiRgba8888BitmapFrameOwner` を、formal byte payload / host present の前段で row batch scheduler が読める row batch plan owner に変換する phase である。これは byte payload 作成、tile list 作成、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888BitmapFrameOwner
+    + GuiRgba8888RowBatchPlanConfig
+    -> Result GuiRgba8888RowBatchPlanOwner GuiRgba8888RowBatchPlanPrepareError
+```
+
+`GuiRgba8888RowBatchPlanConfig` は `max_rows_per_batch` だけを持ち、`max_rows_per_batch <= 0` は `MaxRowsPerBatchInvalid` として拒否する。row count と batch count は scheduler が time slice を決めるための metadata であり、この phase では row bytes や platform queue を作らない。
+
+`GuiRgba8888RowBatchPlanOwner` は元の `GuiRgba8888BitmapFrameOwner`、frame id、width / height / stride_bytes / byte_len、`DirtyRegionSet`、row_start、row_count、batch_count、max_rows_per_batch を保持する。通常の application code による owner aggregate 直 constructor は compiler が拒否するが、compiler memory boundary や trusted producer から forged frame owner が来てもよい前提にし、row planning 前に `frame_id > 0`、`gui_rgba8888_software_surface_shape` による width / height / stride / byte_len 再検証、dirty rect origin / size / right-bottom overflow / surface containment を再検査する。
+
+dirty state は `Empty` / `Full` / `One` / `Two` を明示 `match` で扱う。`Empty` は row_start 0、row_count 0、batch_count 0 の clean-frame plan であり、fallback や silent no-op ではない。`Full` は surface 全体を contiguous row span とする。`One` は checked rect の y..bottom を row span とし、`Two` は 2 個の checked rect を覆う contiguous row span として計画する。固定容量 dirty set の 2 rect を row span に畳むだけであり、tile 分割や byte transport policy は後続 phase に残す。
+
+`GuiRgba8888RowBatchPlanPrepareErrorKind` は `MaxRowsPerBatchInvalid`、`FrameIdInvalid`、`FrameInvalidGeometry`、`FrameStrideMismatch`、`FrameByteLengthMismatch`、`DirtyRectInvalidOrigin`、`DirtyRectInvalidSize`、`DirtyRectRightOverflow`、`DirtyRectBottomOverflow`、`DirtyRectOutOfBounds`、`RowSpanInvalid` を持つ。prepare error は元の bitmap frame owner を保持する owner-bearing error であり、失敗時に surface / frame owner を失わない。
+
+batch count は `row_count + max_rows_per_batch - 1` のような overflow しやすい式を使わず、signed quotient / remainder による ceil division で計算する。`finish_frame` は row plan metadata を捨てて bitmap frame owner を返す recovery / teardown API であり、`finish_surface` とは異なる境界である。この phase は host present、row byte copy、tile list、video memory、Canvas / DOM / minifb、fallback を実装しない。
+
+### Render2d row batch cursor owner boundary
+
+F5bw は F5bv の `GuiRgba8888RowBatchPlanOwner` を、scheduler が 1 batch ずつ進められる row batch cursor owner に変換する phase である。これは byte payload 作成、row copy、tile list、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchPlanOwner
+    -> gui_rgba8888_row_batch_cursor_start
+    -> GuiRgba8888RowBatchCursorOwner
+    -> gui_rgba8888_row_batch_cursor_status
+    -> gui_rgba8888_row_batch_cursor_next_batch
+    -> GuiRgba8888RowBatchCursorBatchOwner
+```
+
+`gui_rgba8888_row_batch_cursor_start` は、public owner aggregate や trusted producer から malformed plan owner が渡されてもよい前提で、`gui_rgba8888_row_batch_plan_validate_invariants` により full plan invariant を再検査する。失敗は `GuiRgba8888RowBatchCursorErrorKind::PlanInvariant` に lower `GuiRgba8888RowBatchPlanInvariantErrorKind` を payload として保持し、string や fallback へ潰さない。
+
+`GuiRgba8888RowBatchCursorStatus` は `Ready` / `Complete` の Copy enum である。`batch_index < 0` と `batch_index > batch_count` は typed error、`batch_index == batch_count` だけが `Complete` である。`Complete` の plan owner 回収は `gui_rgba8888_row_batch_cursor_finish_plan` が行い、owner-bearing complete terminal wrapper は作らない。
+
+`gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor だけを 1 batch 進める。返す `GuiRgba8888RowBatchDescriptor` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len の metadata だけを持つ。caller は descriptor を読んだあと、`gui_rgba8888_row_batch_cursor_batch_finish_cursor` で continuation cursor owner を取り出して次 batch へ進む。次 index は checked arithmetic で計算し、descriptor 範囲も plan row span と frame height の内側にあることを検査する。drain / budget は F5bw には含めず、後続 phase で `status` と `next_batch` を使って設計する。
+
+### Render2d row batch scheduler drain boundary
+
+F5bx は F5bw の `GuiRgba8888RowBatchCursorOwner` を、scheduler の time slice 内で bounded に進める progress-only boundary である。これは row byte payload 作成、row copy、tile / RLE 作成、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchCursorOwner
+    + remaining_steps
+    -> Result GuiRgba8888RowBatchDrainTerminal GuiRgba8888RowBatchDrainError
+```
+
+`GuiRgba8888RowBatchDrainTerminal` は owner-bearing struct であり、`GuiRgba8888RowBatchDrainStatus`、continuation cursor owner、emitted count を保持する。`GuiRgba8888RowBatchDrainStatus` は Copy enum の `Completed` / `StepBudgetExhausted` である。terminal 自体は cursor owner を保持するため Clone / Copy を実装しない。
+
+drain は status を budget より先に読む。すでに complete な cursor は、`remaining_steps` が 0 や負数でも `Completed` であり、budget exhaustion に隠れない。`Ready` cursor で `remaining_steps == 0` の場合は step を実行せず `StepBudgetExhausted` を返す。`Ready` cursor で `remaining_steps < 0` の場合は caller bug として `GuiRgba8888RowBatchDrainErrorKind::InvalidBudget` を返し、cursor owner を error に保持する。
+
+positive budget では `gui_rgba8888_row_batch_cursor_next_batch` を 1 回ずつ呼ぶ。成功後は Copy descriptor の batch index が step 前 cursor index と一致すること、continuation cursor index が checked arithmetic で `previous + 1` になることを検査し、破れた場合は `ProgressInvariantInvalid` を返す。`emitted_count` の加算も checked であり、overflow は `EmittedCountOverflow` で owner-bearing error になる。`emitted_count` はこの call で進めた batch descriptor 数であり、transport payload 数や row bytes 数ではない。
+
+### Render2d row batch range metadata boundary
+
+F5by は F5bw の `GuiRgba8888RowBatchCursorBatchOwner` を、byte storage / host present の前段で使う row batch range metadata owner へ変換する phase である。これは row byte copy、tile / RLE 作成、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchCursorBatchOwner
+    -> gui_rgba8888_row_batch_range_prepare
+    -> Result GuiRgba8888RowBatchRangeOwner GuiRgba8888RowBatchRangePrepareError
+```
+
+`GuiRgba8888RowBatchRangeOwner` は元の batch owner と Copy metadata の `GuiRgba8888RowBatchRange` を保持する。range metadata は `frame_id`、`batch_index`、`row_start`、`row_count`、width、height、stride_bytes、byte_len、`start_byte_offset`、`byte_count` を持つ。`start_byte_offset` は `row_start * stride_bytes`、`byte_count` は `row_count * stride_bytes` であり、どちらも checked arithmetic で計算する。`width * 4 == stride_bytes`、`height * stride_bytes == byte_len`、`row_start + row_count <= height`、`start_byte_offset + byte_count <= byte_len` を満たさない場合は typed error で止める。
+
+F5by は descriptor を単独の authority として信頼しない。`gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` が batch owner 内の continuation cursor と embedded plan を借用し、plan invariant を再検査してから正規 descriptor を再計算する。descriptor が embedded plan 由来の正規値と一致しない場合は `GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid` に lower `GuiRgba8888RowBatchCursorErrorKind` を保持し、元の batch owner を error から回収できる。
+
+後続の byte storage boundary は range owner を再検証する必要があるため、`gui_rgba8888_row_batch_range_owner_validate_authority` は owner を消費せずに descriptor authority と stored range metadata を再計算して照合する。stored range が正規 range と一致しない場合は `RangeMetadataMismatch` を返す。
+
+continuation cursor の検査も range prepare の責務である。descriptor の batch_index に checked `+ 1` を行い、embedded continuation cursor の index と一致することを確認する。index mismatch は `ContinuationIndexMismatch`、cursor status 自体が invalid な場合は `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` として lower error を保持する。`gui_rgba8888_row_batch_range_prepare` は検査中に `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼ばず、success owner の `finish_cursor` / `free` だけが batch owner を消費する。
+
+### Render2d row byte storage boundary
+
+F5bz は F5by の `GuiRgba8888RowBatchRangeOwner` を、formal tile / RLE / host present の前段で使う row byte storage owner へ変換する phase である。これは copied row bytes を作る境界であり、no tile / RLE / host present のまま止める。Canvas / DOM / minifb、video memory host call、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowBatchRangeOwner
+    -> gui_rgba8888_row_byte_storage_prepare
+    -> Result GuiRgba8888RowByteStorageOwner GuiRgba8888RowByteStoragePrepareError
+```
+
+`GuiRgba8888RowByteStorageOwner` は continuation cursor、Copy metadata の `GuiRgba8888RowBatchRange`、exact `byte_count` で確保した copied byte storage を所有する。source surface storage は private sealed copy helper だけが借用し、public API は source `RegionToken` や `MemPtr` を返さない。prepare は最初に `gui_rgba8888_row_batch_range_owner_validate_authority` を呼び、range owner の descriptor authority、stored range metadata、continuation cursor status を再検証する。再検証が失敗した場合は `RangeAuthorityInvalid %GuiRgba8888RowBatchRangePrepareErrorKind` を返し、元の range owner を owner-bearing error に保持する。
+
+copy は `start_byte_offset + index` と destination index を checked arithmetic で検査し、source projection、source load、destination projection、destination store の失敗を `GuiRgba8888RowByteStorageCopyErrorKind` へ分ける。copy が完全に成功するまでは `gui_rgba8888_row_batch_range_owner_finish_cursor` を呼ばない。copy 失敗後は scratch storage を dealloc し、dealloc 自体が失敗した場合は `ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind` として original copy failure と区別する。
+
+### Render2d row tile plan boundary
+
+F5ca は `GuiRgba8888RowByteStorageOwner` を、formal tile payload / RLE / host present の前段となる row tile plan metadata へ変換する phase である。success type は `GuiRgba8888RowTilePlanOwner` であり、exact copied storage owner と Copy metadata の `GuiRgba8888RowTilePlan` を同じ owner に束ねる。ここでは no RLE / host present とし、byte payload 分割、RLE encode、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowByteStorageOwner
+    -> gui_rgba8888_row_byte_storage_validate_authority
+    -> gui_rgba8888_row_tile_plan_prepare
+    -> Result GuiRgba8888RowTilePlanOwner GuiRgba8888RowTilePlanPrepareError
+```
+
+`gui_rgba8888_row_byte_storage_validate_authority` は copied storage owner を消費せず、continuation cursor の `batch_index - 1` から expected row range を再計算する。stored `GuiRgba8888RowBatchRange` が frame_id / batch_index / row_start / row_count / width / height / stride_bytes / byte_count のいずれかで一致しない場合は `RangeMetadataMismatch` を返す。byte reader や raw storage access は使わない。
+
+`GuiRgba8888RowTilePlan` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_count、tile_rows、tile_count を持つ。`tile_count` は `row_count / tile_rows` の quotient / remainder から checked ceil として計算し、`row_count + tile_rows - 1` のような overflow しやすい式を使わない。`descriptor_at` は `&GuiRgba8888RowTilePlanOwner` を借用し、まず `gui_rgba8888_row_tile_plan_validate_invariants` を通す。
+
+`GuiRgba8888RowTileDescriptor` の `row_start` は frame-absolute row であり、`byte_offset` は copied row byte storage 先頭からの storage-relative byte offset である。式は `local_row_start = tile_index * tile_rows`、`row_start = plan.row_start + local_row_start`、`byte_offset = local_row_start * stride_bytes`、`byte_count = descriptor.row_count * stride_bytes` とし、`byte_offset + byte_count <= plan.byte_count` を checked に検査する。この descriptor は payload ではなく、後続 phase が payload / RLE / host present へ進むための authority metadata である。
+
+### Render2d row tile payload view boundary
+
+F5cb は `GuiRgba8888RowTilePlanOwner` と tile index から `GuiRgba8888RowTilePayloadOwner` を作る phase である。これは owned payload buffer ではなく、existing copied row storage 上に `GuiRgba8888RowTileDescriptor` を重ねた tile-scoped byte payload view である。追加 allocation、追加 copy、RLE encode、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowTilePlanOwner
+    -> gui_rgba8888_row_tile_plan_descriptor_at
+    -> gui_rgba8888_row_tile_payload_prepare
+    -> Result GuiRgba8888RowTilePayloadOwner GuiRgba8888RowTilePayloadPrepareError
+```
+
+`prepare` は descriptor lookup の borrowed validation を必ず通す。descriptor invalid は `DescriptorInvalid %GuiRgba8888RowTilePlanDescriptorErrorKind` とし、失敗時は tile plan owner を owner-bearing error で返す。これにより forged plan metadata や out-of-range tile index を panic や silent no-op へ落とさない。
+
+byte read は `gui_rgba8888_row_tile_payload_byte_at owner index` として公開する。`index` は tile-relative byte index であり、まず `0 <= index < descriptor.byte_count` を検査する。その後 `descriptor.byte_offset + index` を checked add し、storage-relative index として `gui_rgba8888_row_byte_storage_byte_at` に渡す。lower storage read failure は `StorageReadFailed %GuiRgba8888RowByteStorageReadErrorKind` に包む。
+
+`gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず、`&GuiRgba8888RowByteStorageOwner` という typed borrowed authority だけを返す。payload view はこの authority を使うが、source surface storage や copied storage の raw pointer を public API に出してはならない。
+
+### Render2d row tile RLE cursor boundary
+
+F5cc は `GuiRgba8888RowTilePayloadOwner` を `GuiRgba8888RowTileRleCursorOwner` へ変換し、tile 内の RGBA8888 pixel run を streaming で 1 件ずつ返す phase である。これは encoded RLE buffer、transport payload、video memory host call、Canvas / DOM / minifb、platform surface、fallback ではない。
+
+```text
+GuiRgba8888RowTilePayloadOwner
+    -> gui_rgba8888_row_tile_rle_cursor_start
+    -> Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStartError
+
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_cursor_next_run
+    -> Result GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleStepError
+```
+
+`GuiRgba8888RowTileRleRun` は `pixel_offset`、`pixel_count`、`Rgba8888 color` を持つ Copy metadata である。`GuiRgba8888RowTileRleCursorOwner` は payload owner、pixel_count、next_pixel_index を持つ owner-bearing cursor なので Clone / Copy を実装しない。`GuiRgba8888RowTileRleStep` は continuation cursor owner と Copy run を束ねる owner-bearing value である。
+
+`start` は payload byte count が正で、4 byte RGBA8888 pixel に整列していることを検査する。失敗は `PayloadByteCountInvalid` または `PayloadByteCountNotRgbaAligned` であり、payload owner を start error に保持する。`status` は `Ready` / `Complete` の Copy enum を返し、`next_pixel_index < 0` と `next_pixel_index > pixel_count` は typed error として止める。
+
+`next_run` は complete cursor に対して silent no-op を返さず、`CursorComplete` を `GuiRgba8888RowTileRleStepError` に入れて cursor owner を保持する。pixel read は `pixel_index * 4`、`base + 1`、`base + 2`、`base + 3` をすべて checked arithmetic で検査し、payload read failure は `PayloadReadFailed %GuiRgba8888RowTilePayloadReadErrorKind` として包む。
+
+### Render2d row tile RLE drain boundary
+
+F5cd は `GuiRgba8888RowTileRleCursorOwner` を scheduler の bounded step として進める row tile RLE drain である。この phase は encoded RLE transport ではなく、cursor progress と emitted run count だけを返す。
+
+```text
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_drain_budget remaining_steps
+    -> Result GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleDrainError
+```
+
+`GuiRgba8888RowTileRleDrainTerminal` は `status`、continuation `cursor`、`emitted_run_count` を持つ owner-bearing terminal であり、Clone / Copy を実装しない。`status` は Copy enum の `Completed` または `StepBudgetExhausted` である。`GuiRgba8888RowTileRleDrainError` も owner-bearing error であり、`InvalidBudget`、`CursorStepFailed %GuiRgba8888RowTileRleStepErrorKind`、`ProgressInvariantInvalid`、`EmittedCountOverflow` を typed kind として保持する。
+
+drain は complete status を budget より先に判定する。complete cursor は `remaining_steps < 0` でも `Completed` として返り、Ready cursor だけが負 budget で `InvalidBudget` になる。`remaining_steps == 0` は step を実行せず `StepBudgetExhausted` を返す。
+
+positive budget では `gui_rgba8888_row_tile_rle_cursor_next_run` を 1 run ずつ呼び、discard する `GuiRgba8888RowTileRleRun` の `pixel_offset == previous_next_pixel_index`、`pixel_count > 0`、`previous_next_pixel_index + pixel_count == continuation.next_pixel_index`、`continuation.next_pixel_index <= pixel_count` を検査する。`emitted_run_count` はこの call で消費した run metadata の数であり、encoded byte count ではない。
+
+この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。formal encoded RLE payload と host presentation は後続 phase で別 owner boundary として設計する。
+
+### Render2d row tile RLE count boundary
+
+F5ce は F5cd の `GuiRgba8888RowTileRleDrainTerminal` が返す slice-local `emitted_run_count` を、future encoded RLE transport の exact capacity 前段として累積する row tile RLE count boundary である。これは encoded RLE buffer ではなく、`GuiRgba8888RowTileRleCursorOwner` と `accumulated_run_count` を同じ `GuiRgba8888RowTileRleCountOwner` に束ねる scheduler-facing owner である。
+
+```text
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_count_start
+    -> GuiRgba8888RowTileRleCountOwner
+
+GuiRgba8888RowTileRleCountOwner
+    + remaining_steps
+    -> gui_rgba8888_row_tile_rle_count_step_budget
+    -> GuiRgba8888RowTileRleCountStep
+```
+
+`GuiRgba8888RowTileRleCountStepStatus` は `Pending` / `Completed` の Copy enum であり、step 自体は count owner を保持する owner-bearing value なので Clone / Copy を実装しない。`Pending` は lower drain の `StepBudgetExhausted`、`Completed` は lower drain の `Completed` からだけ作る。count step は RLE run を再走査せず、常に `gui_rgba8888_row_tile_rle_drain_budget` に委譲する。
+
+`count_start` は Ready cursor だけを受け入れる。Complete cursor には過去に消費した run 数の evidence が無いため、`InitialCursorComplete` を `GuiRgba8888RowTileRleCountErrorKind` として返す。cursor status 自体が invalid な場合は `InitialCursorInvalid %GuiRgba8888RowTileRleStepErrorKind` で lower kind を保持する。
+
+`count_step_budget` は lower drain terminal から `emitted_run_count` を読み、`accumulated_run_count + emitted_run_count` を checked add する。overflow は `AccumulatedRunCountOverflow` であり、cursor は drain 済み位置まで進んでいる可能性があるため、continuation count owner を偽造してはならない。error は recoverable cursor と prior `accumulated_run_count` を保持し、caller は free または restart を選ぶ。
+
+この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal encoded RLE transport は、この count owner が produced した total run count を capacity evidence として別 phase で消費する。
+
+### Render2d row tile RLE completed count boundary
+
+F5cf は F5ce の `GuiRgba8888RowTileRleCountOwner` を、formal encoded RLE transport へ渡せる completed count evidence へ昇格する boundary である。`GuiRgba8888RowTileRleCountCompletedOwner` は元の count owner と `total_run_count` を保持し、cursor が `Complete` で total run count が正の場合だけ作られる。
+
+```text
+GuiRgba8888RowTileRleCountOwner
+    -> gui_rgba8888_row_tile_rle_count_completed_prepare
+    -> Result GuiRgba8888RowTileRleCountCompletedOwner GuiRgba8888RowTileRleCountCompletedError
+```
+
+`prepare` は cursor status を先に検査する。cursor status の検査に失敗した場合は `CursorInvalid %GuiRgba8888RowTileRleStepErrorKind`、cursor が `Ready` の場合は `CountNotCompleted` を返す。cursor が `Complete` の場合だけ `accumulated_run_count` を total run count として読み、0 以下なら `TotalRunCountInvalid` を返す。
+
+error は元の count owner を保持する owner-bearing error であり、caller は `error_finish_count_owner` または `error_free` によって明示的に回収する。silent no-op と fallback は行わない。
+
+この layer は encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。completed count は後続 transport allocation の exact capacity evidence であり、transport storage そのものではない。
+
+### Render2d row tile RLE encode seed boundary
+
+F5cg は `GuiRgba8888RowTileRleCountCompletedOwner` を、formal encoded RLE transport へ直接渡す前の payload seed に変換する boundary である。`GuiRgba8888RowTileRleEncodeSeedOwner` は underlying `GuiRgba8888RowTilePayloadOwner` と `total_run_count` だけを保持する。これは encoded storage ではなく、次 phase が cursor restart や encoded writer を始めるための所有 seed である。
+
+```text
+GuiRgba8888RowTileRleCountCompletedOwner
+    -> gui_rgba8888_row_tile_rle_encode_seed_prepare
+    -> Result GuiRgba8888RowTileRleEncodeSeedOwner GuiRgba8888RowTileRleEncodeSeedError
+```
+
+`prepare` は completed owner の `total_run_count` を再検査する。F5cf の public constructor path では正の値だけが到達するが、internal misuse や将来の constructor 変更を silent no-op にしないため、0 以下なら `TotalRunCountInvalid` として original completed owner を保持した error を返す。成功時は completed owner を count owner、cursor owner、payload owner の順に閉じ、payload seed owner を返す。
+
+この layer は cursor restart、RLE run drain、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。cursor restart の start error、exact encoded buffer allocation、row tile transport ABI は後続 phase の owner boundary として定義する。
+
+### Render2d row tile RLE encode cursor boundary
+
+F5ch は `GuiRgba8888RowTileRleEncodeSeedOwner` を、formal encoded RLE writer が使う ready cursor boundary へ変換する phase である。`GuiRgba8888RowTileRleEncodeCursorOwner` は `GuiRgba8888RowTileRleCursorOwner` と exact `total_run_count` を保持する。これは encoded storage ではなく、payload seed を再度 cursor 化し、後続 writer が run count evidence を失わないようにするための owner boundary である。
+
+```text
+GuiRgba8888RowTileRleEncodeSeedOwner
+    -> gui_rgba8888_row_tile_rle_encode_cursor_start
+    -> Result GuiRgba8888RowTileRleEncodeCursorOwner GuiRgba8888RowTileRleEncodeCursorError
+```
+
+`gui_rgba8888_row_tile_rle_encode_cursor_start` は seed owner の `total_run_count` を読んでから payload owner を取り出し、`gui_rgba8888_row_tile_rle_cursor_start` を 1 回だけ呼ぶ。F5cg で seed の `total_run_count` は正値として検査済みであり、direct constructor は public application surface ではないため、この boundary では invalid count branch を追加しない。start failure は `CursorStartFailed %GuiRgba8888RowTileRleStartErrorKind` とし、`GuiRgba8888RowTileRleStartError` と `total_run_count` を owner-bearing error に保持する。caller は lower start error を finish / free して payload owner を明示的に回収できる。
+
+この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。`cursor_start` は正で RGBA8888 に整列した payload を `next_pixel_index = 0` かつ正の `pixel_count` の cursor として返すため、成功結果を ready cursor として扱う。
+
+### Render2d row tile RLE writer plan boundary
+
+F5ci は `GuiRgba8888RowTileRleEncodeCursorOwner` を、formal encoded RLE writer が使う byte capacity plan へ変換する phase である。`GuiRgba8888RowTileRleWriterPlanOwner` は `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count` を保持する。これは encoded storage ではなく、future writer が確保前に capacity を検査できるようにする owner boundary である。
+
+```text
+GuiRgba8888RowTileRleEncodeCursorOwner
+    -> gui_rgba8888_row_tile_rle_writer_plan_prepare
+    -> Result GuiRgba8888RowTileRleWriterPlanOwner GuiRgba8888RowTileRleWriterPlanError
+```
+
+RLE transport の 1 run は固定 12 bytes である。
+
+```text
+pixel_offset i32
+pixel_count  i32
+rgba8888      4 bytes
+```
+
+`gui_rgba8888_row_tile_rle_writer_plan_prepare` は formal capacity boundary として `total_run_count > 0` を再検査する。F5cg で通常 path は正値になるが、future writer boundary では forged owner や internal misuse を fail-closed にする必要があるため、0 以下は `TotalRunCountInvalid` として original ready cursor owner を保持した error を返す。`total_run_count * 12` は checked multiplication で検査し、overflow は `EncodedByteCountOverflow` として同じく original ready cursor owner を保持する。
+
+成功時だけ ready cursor owner を閉じて underlying cursor owner を writer plan owner に移す。error path では cursor owner を再構成しない。caller は error から original ready cursor owner を finish / free して明示的に回収できる。
+
+この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer allocation、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual writer、encoded storage owner、tile transport ABI は後続 phase の owner boundary として定義する。
+
+### Render2d row tile RLE encoded storage boundary
+
+F5cj は `GuiRgba8888RowTileRleWriterPlanOwner` を、formal encoded RLE writer が後続 phase で使う encoded byte storage owner へ変換する phase である。`GuiRgba8888RowTileRleStorageOwner` は `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count`、`RegionToken u8` storage を保持する。これは allocation / reservation only boundary であり、RLE run writer ではない。
+
+```text
+GuiRgba8888RowTileRleWriterPlanOwner
+    -> gui_rgba8888_row_tile_rle_storage_prepare
+    -> Result GuiRgba8888RowTileRleStorageOwner GuiRgba8888RowTileRleStoragePrepareError
+```
+
+`GuiRgba8888RowTileRleStoragePrepareErrorKind` は少なくとも次を持つ。
+
+```text
+EncodedByteCountInvalid
+TotalRunCountInvalid
+EncodedByteCountOverflow
+EncodedByteCountMismatch
+AllocationFailed
+```
+
+prepare は stored `encoded_byte_count > 0`、stored `total_run_count > 0`、checked `total_run_count * 12`、stored byte count との一致をこの順に検査する。`EncodedByteCountMismatch` は forged / stale plan metadata を拒否するための fail-closed error であり、正常系では発生しない。allocation は exact `encoded_byte_count` bytes だけを確保する。failure path は allocation failure を含めて original writer plan owner を error に保持し、caller が finish / free して明示的に回収できる。
+
+成功時だけ writer plan owner を閉じて underlying cursor owner を storage owner へ移す。`GuiRgba8888RowTileRleStorageOwner` は encoded storage を所有するが、この phase では storage byte の public reader / writer を提供しない。storage の byte 内容は後続 writer が初期化するまでは読めない。
+
+この layer は RLE run drain、`cursor_next_run`、payload byte read、encoded byte write、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual run writer、write cursor、tile transport ABI は後続 phase の owner boundary として定義する。
+
+### Render2d row tile RLE run writer cursor boundary
+
+F5ck は `GuiRgba8888RowTileRleStorageOwner` を、encoded byte storage へ 1 run ずつ書く `GuiRgba8888RowTileRleWriteCursorOwner` へ変換する phase である。writer cursor owner は underlying RLE cursor、exact `total_run_count`、exact `encoded_byte_count`、private `RegionToken u8` storage、`written_run_count`、`written_byte_count` を保持する。
+
+```text
+GuiRgba8888RowTileRleStorageOwner
+    -> gui_rgba8888_row_tile_rle_write_cursor_start
+    -> GuiRgba8888RowTileRleWriteCursorOwner
+
+GuiRgba8888RowTileRleWriteCursorOwner
+    -> gui_rgba8888_row_tile_rle_write_cursor_step_one
+    -> WroteRun GuiRgba8888RowTileRleWriteCursorOwner
+    -> Completed GuiRgba8888RowTileRleWriteCursorOwner
+```
+
+write record layout は固定 12 bytes である。
+
+```text
+byte 0..3    pixel_offset i32 little-endian
+byte 4..7    pixel_count i32 little-endian
+byte 8       r
+byte 9       g
+byte 10      b
+byte 11      a
+```
+
+F5ck は consuming `cursor_next_run` を writer step の前半で呼ばない。`row_tile_rle` 下層に borrowed `gui_rgba8888_row_tile_rle_cursor_peek_run` と consuming `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を分けて定義し、writer は `peek_run` で run metadata を得て 12 byte write を完了してからだけ `advance_by_run` を呼ぶ。これにより projection / store failure では original cursor と unchanged written counts を owner-bearing error で返せる。
+
+`written_run_count == total_run_count` では lower cursor status を検査し、`Complete` なら `Completed` を返す。lower cursor がまだ `Ready` なら `RunCountExhaustedBeforeCursorComplete` であり、silent no-op や fallback completion にしない。逆に expected run が残っているのに lower cursor が `CursorComplete` を返す場合は `CursorCompleteBeforeExpectedRun` とする。
+
+store / projection failure では `written_run_count` と `written_byte_count` を進めない。storage の対象 12 byte slot に一部 byte が書かれている可能性はあるが、その slot は uncommitted であり、この phase では public reader を提供しない。caller が retry する場合は同じ 12 byte を全て上書きする。
+
+この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。tile transport ABI と host-visible publish は後続 phase の owner boundary として定義する。
+
+### Render2d row tile RLE sealed encoded owner boundary
+
+F5cl は F5ck の `GuiRgba8888RowTileRleWriteCursorOwner` を、formal tile / bitmap transport の前段で使う row tile RLE sealed encoded owner に昇格する phase である。`GuiRgba8888RowTileRleEncodedOwner` は lower `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count`、private `RegionToken u8` storage を保持する。
+
+この phase は writer cursor が部分的に書いた storage を host-visible payload として扱わないための gate である。`gui_rgba8888_row_tile_rle_encoded_seal` は、encoded byte count が正、total run count が正、`total_run_count * 12 == encoded_byte_count`、`written_run_count` と `written_byte_count` が範囲内、`written_run_count * 12 == written_byte_count`、`written_run_count == total_run_count`、`written_byte_count == encoded_byte_count` の順に検査する。otherwise valid な count が completion に届いていない場合は `WriterNotComplete` であり、silent completion や fallback completion にしない。
+
+count invariant が通った後でだけ lower cursor status を検査する。lower cursor status error は `CursorStatusInvalid %GuiRgba8888RowTileRleStepErrorKind`、lower cursor が `Ready` なら `CursorNotComplete` である。`Complete` の場合だけ cursor と storage を sealed owner へ move する。すべての seal failure は original `GuiRgba8888RowTileRleWriteCursorOwner` を owner-bearing `GuiRgba8888RowTileRleEncodedSealError` に保持し、fake owner を作らない。
+
+sealed owner は encoded byte reader、storage pointer accessor、raw byte accessor を提供しない。metadata accessor は total run count、encoded byte count、cursor next pixel index、cursor pixel count に限定する。storage teardown は `gui_rgba8888_row_tile_rle_encoded_finish_cursor` と `gui_rgba8888_row_tile_rle_encoded_owner_free` に限り、dealloc storage の後で lower cursor を返すか free する。
+
+この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal tile transport ABI、host present ABI、dirty tile aggregation、FHD 60fps scheduler policy は後続 phase の責務である。
+
+### Render2d row tile RLE packet owner boundary
+
+F5cm は F5cl の `GuiRgba8888RowTileRleEncodedOwner` を、formal tile / bitmap transport の直前で使う row tile RLE packet owner に昇格する phase である。`GuiRgba8888RowTileRlePacketOwner` は sealed encoded owner と `GuiRgba8888RowTileRlePacketDescriptor` を保持するが、encoded byte reader、storage pointer、host present command は持たない。
+
+packet descriptor は frame id、batch index、tile index、plan row range、tile frame-absolute row range、surface width / height、stride bytes、tile rows、tile count、cursor pixel count、total run count、encoded byte count を持つ Copy metadata である。これは host ABI へ渡す data shape を固定するための metadata authority であり、Web / native / headless / bare のどれかに依存した transport object ではない。`plan_row_count` は std layer row tile RLE present-frame owner が tile count を再導出する authority であり、tile 自身の `row_count` と混ぜない。
+
+`gui_rgba8888_row_tile_rle_packet_prepare` は次の順で検査する。
+
+```text
+encoded_byte_count > 0
+total_run_count > 0
+total_run_count * 12 == encoded_byte_count
+cursor pixel count > 0
+cursor next pixel index == cursor pixel count
+payload descriptor is recomputed from its plan
+descriptor byte count == cursor pixel count * 4
+width > 0
+height > 0
+width * 4 == stride_bytes
+descriptor row count * stride_bytes == descriptor byte count
+descriptor row_start + row_count <= height
+tile index is in derived tile count
+derived tile count == stored plan tile count
+```
+
+payload descriptor authority failure is `PayloadDescriptorInvalid %GuiRgba8888RowTilePayloadAuthorityErrorKind` で表す。prepare failure は original sealed encoded owner を owner-bearing `GuiRgba8888RowTileRlePacketPrepareError` に保持し、fake packet owner を作らない。success path だけが sealed owner を packet owner へ move する。
+
+この layer は formal tile / bitmap transport の descriptor sealing までで止まる。byte reader、raw storage、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual host ABI、queueing、scheduler、Web/native/headless presenter は後続 phase の責務である。
+
+### std row tile RLE present-frame owner boundary
+
+F5cn は F5cm の packet owner と `SurfaceId` / `FrameId` を束ね、host import 直前の std layer row tile RLE present-frame owner に昇格する phase である。`GuiRgba8888RowTileRlePresentFrameOwner` は packet owner を保持し、`GuiRgba8888RowTileRlePresentDescriptor` は surface id、frame id、packet descriptor copy を保持する。descriptor は Copy metadata だが、actual packet owner は linear resource なので success owner と error は Clone / Copy を実装しない。
+
+prepare は次を順に検査する。
+
+```text
+surface_id_raw > 0
+frame_id_raw > 0
+packet.frame_id == frame_id_raw
+width / height / plan_row_count / row_count / stride / tile rows / tile count / pixel count / run count / encoded bytes are positive
+plan row extent is inside height
+tile row extent is inside height and plan row extent
+width * 4 == stride_bytes
+derived tile count from plan_row_count and tile_rows == tile_count
+tile_index < tile_count
+row_count * width == pixel_count
+total_run_count * 12 == encoded_byte_count
+```
+
+すべての加算と乗算は checked arithmetic を使う。failure は `GuiRgba8888RowTileRlePresentFramePrepareError` に original packet owner を保持し、success path だけが packet owner を `GuiRgba8888RowTileRlePresentFrameOwner` へ move する。
+
+F5cn は `GuiSurfacePresentCommand` を拡張しない。`PresentPixelFrame` や `GuiPixelBufferDescriptor` は既存 pixel-frame boundary であり、row tile RLE host import ではない。actual Web/native/headless presenter は F5cn owner を後続 phase で消費する。host import、byte reader、raw storage、video memory host call、platform API、fallback、silent no-op は F5cn には入れない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
@@ -2867,6 +7009,104 @@ GuiShadowRunId:
 
 `core/gui` の F1 実装は `NoShadow` と `SingleShadow` を O(1) value として扱う。複数 shadow は `alloc/gui/render2d` が owns する `Vec GuiShadow` を `GuiShadowRunId` で参照する。したがって high-level design の `shadows Vec Shadow` と no_alloc core の `GuiShadowRef` は矛盾しない。
 
+## Current GUI transport checkpoint
+
+Font renderer と 2D renderer の出力は、最終的に Web / native / bare / headless の共通 presentation contract へ流れる必要がある。現 checkpoint の row tile RLE packet typed record reader は、この接続点の最小 typed read boundary である。
+
+`alloc/gui/render2d/row_tile_rle_packet_record` は `GuiRgba8888RowTileRlePacketRecordReadErrorKind` を返す quarantined typed record reader とし、12 byte RLE record だけを `GuiRgba8888RowTileRleRun` に戻す。raw storage、raw pointer、byte slice は public API に出さない。`std/gui/tile_present_run_cursor` は `GuiRgba8888RowTileRlePresentRunCursorOwner` を持ち、`RunReady` と `Completed` を enum で明示する。font glyph mask や text fill / stroke / shadow の tile 出力は、将来この typed cursor と同じ Result / enum contract へ接続する。
+
+`std/gui/tile_present_command_cursor` は std layer row tile RLE present command cursor であり、`GuiRgba8888RowTileRlePresentCommandCursorOwner` が F5co の lower run cursor owner、descriptor copy、phase を保持する。command stream は `GuiRgba8888RowTileRlePresentCommand::BeginFrame`、`Run`、`GuiRgba8888RowTileRlePresentCommand::EndFrame` からなり、one typed output per public step を contract とする。lower run cursor が `Completed` を返した step は silent transition にせず、同じ public step で EndFrame を返して terminal phase に進む。この layer does not bypass F5co。raw packet storage、byte reader、host import、platform API、fallback は後続 presenter にも持ち込まない。
+
+`std/gui/tile_present_host_command` は std layer row tile RLE present host-command record であり、F5cp の public step descriptor accessor と step result accessor だけから `GuiRgba8888RowTileRlePresentHostCommandRecord` を作る。`GuiRgba8888RowTileRlePresentHostCommandStepResult` は `Record` と `Completed` を enum で分け、record 側は `BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` のみを持つ。`run_record` は descriptor と `GuiRgba8888RowTileRleRun` の両方を保持する。この shape は does not flatten to kind plus optional run。不正な Run-without-run や run payload 付き EndFrame を表現できない形にするためである。この layer does not bypass F5cp。packet record reader、raw storage、host import、platform API、fallback は使わず、actual Web / native / bare / headless presenter ABI は後続 phase に置く。
+
+`std/gui/tile_present_run_span` は std layer row tile RLE present run-span boundary であり、F5cq の `GuiRgba8888RowTileRlePresentHostCommandRunRecord` に含まれる tile-local linear pixel offset を 1 行以内の `GuiRgba8888RowTileRlePresentRunRowSpan` stream へ分解する。run-span は platform rect ではなく x、y、width、color を持つ専用 value で、高さは常に 1 として accessor から読む。start は descriptor の width / height / row_start / row_count / tile_rows / pixel_count と run offset / count / end を Result enum で検査し、invalid cursor を作らない。step は `local_row = offset / width`、`x = offset % width`、`y = row_start + local_row` を使い、row crossing run を行単位に分割する。remaining が 0 の場合は explicit Completed を返し、empty span、silent no-op、fallback は返さない。この boundary は does not call platform import。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record reader、raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback は使わない。
+
+`std/gui/tile_present_host_import` は std layer row tile RLE present host import request であり、F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` を `GuiRgba8888RowTileRlePresentHostImportRequest` に包む。target は `GuiRgba8888RowTileRlePresentHostImportTarget` の `Window WindowId`、`Offscreen`、`Device` だけである。Headless is not a presentation target。headless / text grid は host-command record を test drain で検査する対象であり、presentation request construction では `GuiError::Unsupported` を返す。RGBA8888 row tile RLE 専用 request なので `GuiCapabilities.color_format` が `ColorFormat::FormatRgba8888` でない場合も `GuiError::Unsupported` とする。Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を同時に要求し、unsupported host から Offscreen / Device へ fallback しない。
+
+`std/gui/tile_present_virtual_drain` は std layer row tile RLE present virtual drain であり、headless / test が F5cq host-command record を deterministic に検査するための target-free drain である。`GuiRgba8888RowTileRlePresentVirtualDrain` は phase、surface / frame の `Option`、expected / seen run count、expected / seen pixel count を保持する。これは presentation request ではなく、does not consume F5cr。Begin は expected run / pixel count を std layer descriptor accessor から読み、Run は `run_pixel_offset == seen_pixel_count`、positive run pixel count、checked run end、expected bounds を検査する。End は seen run count と seen pixel count が expected に一致した場合だけ `Ended` へ進む。順序違反、descriptor mismatch、gap / overlap / reorder、incomplete count は `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` と直前 drain state を持つ error で返す。
+
+`std/gui/tile_present_schedule` は std layer row tile RLE present schedule boundary であり、F5cq host-command record stream を platform host へ渡す前に deterministic な slice budget で区切る。`GuiRgba8888RowTileRlePresentScheduleState` は F5cs virtual drain state と slice-local command / pixel counters だけを保持する。Begin / Run / End の順序、descriptor consistency、`run_pixel_offset == seen_pixel_count` は F5cs virtual drain の single authority に委譲し、schedule layer は重複 validation を持たない。`Yield means exact slice budget` であり、valid record を消費した後に command budget または pixel budget へちょうど到達したことだけを表す。over-budget is a typed error であり、budget を超えた record、または single RunRecord の pixel count が `max_pixels_per_slice` を超える場合は `GuiRgba8888RowTileRlePresentScheduleStepErrorKind` と previous schedule state を返す。timer、queue、host import、F5cr request、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op はこの boundary に入れない。
+
+`std/gui/tile_present_dispatch` は std layer row tile RLE present scheduled dispatch boundary であり、F5ct schedule decision と F5cr host import request construction を host import execution の手前で接続する。`GuiRgba8888RowTileRlePresentDispatchState` は `GuiRgba8888RowTileRlePresentScheduleState` だけを wrap し、queue、timer、platform handle、video memory、raw packet storage を持たない。step は F5ct before F5cr の順序を守り、まず `gui_rgba8888_row_tile_rle_present_schedule_step_record` で record stream validation と budget decision を確定する。次に F5cr request constructor を呼び、success path では `RequestReady request plus post phase` を返す。post phase は `Continue` / `Yield` / `Completed` の enum であり、exact-budget record の request と Yield、EndFrame の request と Completed を同時に保持する。F5ct / F5cr のどちらで失敗しても previous dispatch state を返し、F5cr failure では更新済み schedule state を採用しない。host import call、platform presenter、DOM / Canvas / minifb、video memory、fallback、silent no-op はこの boundary に入れない。
+
+`std/gui/tile_present_dispatch_loop` は std layer row tile RLE present dispatch loop outcome boundary であり、F5cu の scheduled request と platform executor の host outcome を one-shot pending value で接続する。`GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` は previous state、next state、`GuiRgba8888RowTileRlePresentHostImportRequest`、post phase を保持するが、Clone / Copy を持たない。`complete_request consumes pending` ため、executor outcome は一回だけ loop state へ反映される。Err outcome は previous state を持つ `HostImportExecutionFailed` error に戻り、Ok outcome は post phase に従って Continue / Yield / Completed の completion に next state を入れる。この boundary は actual host import execution ではなく、Web / native / bare / offscreen presenter が従う std contract である。F5ct / F5cr / F5cs direct call、raw packet storage、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op はここへ入れない。
+
+`std/gui/tile_present_host_execution` は std layer row tile RLE present host execution action boundary であり、F5cr の `GuiRgba8888RowTileRlePresentHostImportRequest` を executor-facing action に写す。`GuiRgba8888RowTileRlePresentHostExecutionAction` は flat target x record action で、WindowBegin、WindowRun、WindowEnd、OffscreenBegin、OffscreenRun、OffscreenEnd、DeviceBegin、DeviceRun、DeviceEnd を持つ。Window variant は `WindowId` と descriptor / run record を payload struct に保持する。Offscreen / Device variant は target が variant 名に含まれるので descriptor または run record を直接保持する。F5cw は F5cr request accessor と F5cq record shape だけを authority とし、does not execute host imports。actual executor の outcome は引き続き `Result unit GuiError` として F5cv `complete_request` へ渡す。F5cv / F5cu / F5ct / F5cs direct call、queue、timer、scheduler、raw packet storage、host execution API、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op はここへ入れない。
+
+`std/gui/tile_present_host_span_operation` は std layer row tile RLE present host span operation boundary であり、F5cw action を target-qualified operation stream に写す。`GuiRgba8888RowTileRlePresentHostSpanOperationCursor` は `SinglePending operation`、`RunPending target run_span_cursor`、`Completed` の phase だけを持つ。Begin / End は SinglePending operation として 1 step で OperationReady になり、次の step は Completed になる。Run は start で F5df run-span cursor を作り、public step では F5df `run_span_step` を最大 1 回だけ呼ぶ。SpanReady は WindowRunSpan / OffscreenRunSpan / DeviceRunSpan に target を保持したまま写し、F5df start / step error は action または cursor context を保持した Result error に包む。この boundary は actual host import execution、F5da-F5de action driver、F5cs virtual drain、F5cp / F5co lower cursor、raw storage、platform API、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、queue、scheduler、fallback、silent no-op へ進まない。
+
+`std/gui/tile_present_scheduled_span_operation` は std layer row tile RLE present scheduled span operation boundary であり、F5dg operation stream を deterministic slice budget で区切る。これは F5ct record scheduler の fallback や再利用ではない。F5ct は F5cq record stream を authority とし、F5dh は F5dg / F5df で検査済みの operation stream を authority とする。`GuiRgba8888RowTileRlePresentScheduledSpanOperationState` は F5dg cursor、slice operation count、slice pixel count を保持する。`OperationReady` は operation、post phase、next state を同時に保持し、exact budget 到達で `Yield` になった operation も caller が必ず実行できる。Begin / End は pixel cost 0、RunSpan は `span.width * span.height` を checked arithmetic で計算する。single span が pixel budget を超える場合、counter overflow、policy invalid、lower F5dg step failure は typed error として返す。`resume_slice` は cursor を保持し、counter だけ reset する。この boundary は host import、platform API、DOM / Canvas / minifb、video memory、queue、timer、record scheduler、fallback、silent no-op を持たない。
+
+`std/gui/tile_present_host_span_operation_attempt` は std layer row tile RLE present host span operation attempt boundary であり、F5dh の `OperationReady` と actual Web / native / bare / headless presenter が返した caller supplied outcome を同じ typed value に対応づける。`GuiRgba8888RowTileRlePresentHostSpanOperationAttempt` は attempted operation と `Result unit GuiError` を保持し、std layer では success / failure outcome を作らない。`attempt_step` は support before equality の順序を守り、F5cy support enum を target support set としてだけ使う。F5cy action validation、F5cw action equality、F5da-F5de action driver へは戻らない。operation equality は 9 variants すべてで variant と target を比較し、Window variants は `window_id_raw`、Begin / End は descriptor、RunSpan は x / y / width / height / RGBA channel を比較する。unsupported と mismatch は fallback や silent no-op にせず、scheduled ready と attempt を保持する typed error として返す。Yield phase is data only であり、この boundary は resume、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback を呼ばない。
+
+`std/gui/tile_present_host_span_operation_completion` は std layer row tile RLE present host span operation completion boundary であり、F5di の検査済み `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` を AttemptStep only の入力として受ける。`GuiRgba8888RowTileRlePresentHostSpanOperationCompletion` は successful host outcome を ready phase に従って `Continue state` または `Yield state` に写す。F5dh の `Completed` は operation を持たない terminal なので、per-operation completion does not create Completed。host outcome failure does not publish state であり、`Err host_error` は `GuiRgba8888RowTileRlePresentHostSpanOperationCompletionHostFailed` に host error、ready、attempt、category `Some host_error` を保持する。この boundary は F5di association validation、F5dh step / start / resume、F5cs / F5ct / F5cu、F5cy action validation、F5cw action equality、F5da-F5de action driver、resume、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_step` は std layer row tile RLE present host span operation presenter step boundary であり、actual presenter loop の直下に置く F5dk checkpoint である。入力は support set、F5dh ready、presenter supplied attempt だけであり、F5di before F5dj の順序で attempt association と completion mapping を 1 回ずつ合成する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep` は F5dj completion step を保持する。F5di lower error は `AttemptRejected` として support、ready、attempt、lower、category を保持し、F5dj lower error は `CompletionRejected` として attempt step、lower、category を保持する。F5dk does not execute host imports し、host outcome を合成せず、Completed、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_loop` は std layer row tile RLE present host span operation presenter loop boundary であり、actual Web / native / bare / headless presenter loop が F5dh step と F5dk presenter step を直接呼ばないための F5dl checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState` は LoopState として support、policy、scheduled state を保持する。`start` は F5dh start を 1 回だけ呼んで LoopState を作る。`request` は F5dh step を 1 回だけ呼び、`OperationReady` を request、F5dh `Completed` を loop `Completed` へ写す。`complete` は F5dk presenter step を 1 回だけ呼び、success branch で F5dj completion step から Continue / Yield を取り出し、support / policy / scheduled state を保持した次の LoopState へ再包装する。F5dl does not execute host imports し、F5dh `resume_slice`、F5di / F5dj direct call、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_outcome` は std layer row tile RLE present host span operation presenter outcome boundary であり、actual presenter が F5dl request から operation を読み、caller supplied outcome を F5di attempt constructor へ渡して F5dl complete へ戻すための F5dm checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` と `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt` は non-Copy bridge であり、request / outcome binding の replay を避ける。`outcome_request` は F5dl request ready と F5dh ready operation accessor だけを読み、`outcome_attempt` は F5di attempt constructor を 1 回だけ呼び、`outcome_complete` は F5dl complete を 1 回だけ呼ぶ。F5dm does not execute host imports し、F5di validation、F5dk presenter step、F5dj completion step、F5dh start / step / resume、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、loop `Completed` creation を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_driver` は std layer row tile RLE present host span operation presenter driver boundary であり、actual presenter loop が F5dl start / request と F5dm outcome request / attempt / complete を安全な順序で使うための F5dn checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState`、DriverRequestResult、DriverCompletion は non-Copy value であり、同じ state や request の replay を避ける。`start` は F5dl start を 1 回だけ呼び、`request` は DriverState を value として消費して F5dl request を 1 回だけ呼ぶ。F5dm outcome request は F5dl `Request` branch でだけ作られ、F5dl terminal `Completed` と F5dl request error では作られない。`complete` は F5dm outcome attempt と F5dm outcome complete だけを呼び、F5dl Continue / Yield を次の DriverState へ再包装する。F5dn does not execute host imports し、F5dl complete direct call、F5di direct constructor / validation、F5dh direct start / step / resume、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` creation を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor` は std layer row tile RLE present host span operation presenter executor boundary であり、actual Web / native / bare / headless presenter executor が F5dn OutcomeRequest から executor request を作り、executor supplied attempt を F5dn complete へ戻す前の F5do checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest` は OutcomeRequest、OutcomeRequest に保持された F5dl request 由来の support、expected span operation を保持する non-Copy value である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt` は executor が実行した span operation と caller supplied outcome を保持する。request creation は support を caller 引数から受けず、OutcomeRequest から読む。unsupported operation は合成 `Err Unsupported` を F5dn complete へ渡さず、request owner を保持した typed error として返す。complete は support を通過した request と attempt の span operation payload identity を比較し、一致した場合だけ F5dn complete を 1 回だけ呼ぶ。F5do does not execute host imports し、F5dl complete direct call、F5dm outcome attempt / complete direct call、F5di constructor / validation direct call、F5cw action mapping、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_loop` は std layer row tile RLE present host span operation presenter executor loop boundary であり、actual presenter loop が F5dn request と F5do executor request / complete を手動で interleave しないための F5dp checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState` は F5dn DriverState を保持する non-Copy loop state である。`start` は F5dn start を 1 回だけ呼び、`request` は LoopState を value として消費して F5dn request を 1 回だけ呼ぶ。F5dn `Completed` branch では F5do を呼ばず、F5dn `Operation` branch でだけ F5do executor request を作る。`complete` は F5do executor complete を 1 回だけ呼び、F5dn DriverCompletion を Continue / Yield の LoopCompletion へ再包装する。F5dp is not actual Web / native / bare / headless execution であり、F5dn complete direct call、F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、F5cw action mapping、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver` は std layer row tile RLE present host span operation presenter executor attempt driver boundary であり、actual Web / native / bare / headless presenter executor が返した executor supplied attempt を F5dp executor loop completion へ戻す F5dq checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep` は completion-only の success value とし、F5dp complete に value として消費された request / attempt を保持し直さない。failure は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverCompleteRejected` が category と lower F5dp error だけを保持し、lower F5dp error を recovery authority とする。F5dq は F5dp complete wrapper であり、executor supplied attempt から新しい outcome を作らない。F5do direct complete / request、F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old action path、virtual executor、virtual drain、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation を呼ばない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session` は std layer row tile RLE present host span operation presenter executor session boundary であり、actual Web / native / bare / headless presenter loop が ready state、executor pending request、completion result を sentinel / null なしで保持するための F5dr checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` は `Ready` または `Completed` であり、`Completed` state への request は terminal `Completed` result を返す明示 terminal behavior である。`Ready` state だけが F5dp request を 1 回だけ呼び、operation request は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending` に移される。`session_complete` は pending request と executor attempt を value として消費し、F5dq attempt driver step だけを 1 回呼ぶ。Continue / Yield は Ready session state へ写す。F5dr は actual execution や real scheduler policy ではなく、F5dp complete / F5do / F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old action path、virtual executor、virtual drain、platform API、DOM / Canvas / minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation を呼ばない。
+
+`std/gui/tile_present_host_execution_report` は std layer row tile RLE present host execution report boundary であり、F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と executor outcome を action context and executor outcome を失わない report に束ねる。`GuiRgba8888RowTileRlePresentHostExecutionReport` は action と `GuiRgba8888RowTileRlePresentHostExecutionReportKind` を持ち、kind は `Succeeded` または `Failed GuiError` である。F5cx は not actual execution and not pending completion であり、actual Web / native / bare executor、F5cv pending completion、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。caller は `report_outcome` で元の `Result unit GuiError` を取り出し、F5cv `complete_request` へ渡せる。
+
+`std/gui/tile_present_host_executor` は std layer row tile RLE present host executor boundary であり、actual Web / native / bare executor の手前で support contract と report/action association を検査する。`GuiRgba8888RowTileRlePresentHostExecutorSupport` は Window、Offscreen、Device とその非空の組み合わせだけを表す enum であり、supports-nothing state を表現しない。`GuiRgba8888RowTileRlePresentHostExecutorError` は `UnsupportedAction` または `ReportActionMismatch` と、category、expected action、reported action option を持つ typed error である。`validate_report_for_action` はまず support を検査し、次に report が保持する action と expected action の full action identity を比較する。full action identity は variant だけでなく window、surface、frame、packet metadata、run offset、run count、RGBA channel を含む。matching action の failed report は valid association として通し、execution outcome の解釈は F5cx `report_outcome` と F5cv completion に残す。この boundary は actual host import execution、F5cv pending completion、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_report_loop_bridge` は std layer row tile RLE present host report loop bridge boundary であり、F5cv pending request、F5cw action decoding、F5cx report outcome、F5cy executor validation を loop completion の手前で束ねる。`GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` は validation failure または loop completion failure を enum payload として保持し、category と loop state を同時に返す。contract は validation before completion である。まず pending request accessor から request を読み、F5cw action を作り、F5cy `validate_report_for_action` で support と full action identity を検査する。validation failure では F5cv `complete_request` を呼ばず、pending の previous state を保持した error を返す。validation success の場合だけ F5cx `report_outcome` で `Result unit GuiError` を取り出し、F5cv `complete_request` に pending value を消費させる。matching action の failed report は F5cv の `HostImportExecutionFailed` へ進み、wrong action report は completion 前に `ExecutorValidationFailed` で止まる。この boundary も actual host import execution、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_execution_driver` は std layer row tile RLE present host execution driver boundary であり、F5cv の one-shot pending request を actual Web / native / bare / headless executor が読む action と completion 用 pending value の組に束ねる。`GuiRgba8888RowTileRlePresentHostExecutionDriverPending` は `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` と `GuiRgba8888RowTileRlePresentHostExecutionAction` を保持し、pending を所有するため Clone / Copy を持たない。`prepare` は pending request accessor から request を読み、F5cw action を 1 回だけ導出して original pending value と一緒に保持する。executor は `pending_action` で action を読み、実行結果は `Result unit GuiError` として `complete_outcome` に返す。`complete_outcome` は stored action と outcome から F5cx report を作り、F5cz bridge に validation before completion と loop completion を委譲する。F5da は F5cv `complete_request`、F5cy validation、F5cr request construction を直接呼ばず、actual platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、F5cu / F5ct / F5cs / F5cp / F5co、raw storage、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_virtual_executor` は std layer row tile RLE present virtual host executor boundary であり、F5da の one-shot driver pending を deterministic headless / test executor で消費する。`GuiRgba8888RowTileRlePresentVirtualExecutor` は F5cy support と F5cs virtual drain を保持し、F5cw action を F5cq host-command record へ total mapping して virtual drain に流す。support preflight は drain mutation より前に行うため、`SupportRejected` では recovery executor が unchanged のまま返る。`DrainFailed` でも F5da `complete_outcome` に Err outcome を渡して pending を one-shot cleanup し、recovery executor は失敗前の original executor とする。driver completion が想定と矛盾して Ok を返す場合は `InconsistentCompletion` として typed error にする。F5db は actual Web / native / bare presenter ではなく fallback でもない。F5cv direct completion、F5cz direct bridge、F5cr request construction、actual platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、F5cu / F5ct / F5cp / F5co、raw storage、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_action_sink` は std layer row tile RLE present host action sink boundary であり、actual Web / native / bare presenter が返した executor-supplied outcome を `GuiRgba8888RowTileRlePresentHostActionSinkStep` に包む。F5dc は F5cy `require_supported` を step construction より前に呼び、unsupported target は `UnsupportedAction` として返す。F5dc does not manufacture success。`Result::Ok unit` や fallback success は作らず、caller から渡された `Result unit GuiError` を保持するだけである。この boundary は actual platform execution、F5da driver pending ownership、F5da completion、F5cx report construction、F5cz bridge、F5cr request construction、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_action_sink_driver` は std layer row tile RLE present host action sink driver boundary であり、F5dc の support preflight / executor-supplied outcome packaging と F5da の one-shot driver completion を接続する。`GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` は F5dc sink step と dispatch loop completion を保持する。F5dd はまず F5da driver pending から action を借用で読み、F5dc `gui_rgba8888_row_tile_rle_present_host_action_sink_step` に caller-supplied outcome を渡す。F5dc が `SinkRejected` になる場合は F5da completion を呼ばず、original driver pending を owner-bearing error に入れて返す。F5dc が成功した場合だけ、同じ outcome で F5da `complete_outcome` を呼ぶ。F5dd does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、actual executor が返した `Result unit GuiError` だけを渡す。この boundary は F5cv direct completion、F5cz bridge direct call、F5cx report construction、F5cr request construction、F5db virtual executor、F5cu / F5ct / F5cs / F5cp / F5co、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_action_attempt_driver` は std layer row tile RLE present host action attempt driver boundary であり、actual executor の action attempt と F5da driver pending の action identity を F5dd の前で固定する。`GuiRgba8888RowTileRlePresentHostActionAttempt` は attempted action と executor-supplied outcome を保持する。F5de は driver pending から expected action を借用で読み、attempted action と F5cy full action equality で比較する。mismatch では F5dd を呼ばず、`AttemptActionMismatch` owner-bearing error に expected action、attempted action、`GuiError::InvalidCommand` category、original driver pending を保持する。match した場合だけ、attempt outcome を F5dd action sink driver に委譲する。F5de does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、attempt が持つ `Result unit GuiError` だけを渡す。この boundary は F5dc direct call、F5cv direct completion、F5cz bridge direct call、F5cx report construction、F5cr request construction、F5db virtual executor、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn` は std layer row tile RLE present host span operation presenter executor session turn boundary であり、actual Web / native / bare / headless scheduler の手前で F5dr session state と pending executor request のどちらを所有しているかを 1 turn 分の typed state として表す F5ds checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState` は `Session` または `Pending` だけを持ち、no separate Completed turn state とする。terminal completion の authority は F5dr `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` と F5dr session request に残す。`turn_poll` は `Pending` を value として消費して executor へ渡し、`Session` の場合だけ F5dr session request を 1 回だけ呼ぶ。`turn_complete` は F5dr session complete だけを 1 回呼び、Continue / Yield を `Session` turn state へ戻す。F5ds は real scheduler policy、queue、timer、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step` は std layer row tile RLE present host span operation presenter executor session turn step boundary であり、F5ds poll / complete の戻り値を future Web / native / bare / headless driver が同じ shape で扱えるようにする F5dt checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult` は `Execute`、`Continue`、`Yield`、`Completed` を持つ。`Completed` は transient Completed result であり、persistent state ではない。start is setup authority なので `turn_step_start` は F5ds `turn_start` を 1 回だけ呼び、step result ではなく F5ds turn state をそのまま返す。`turn_step_poll` は F5ds `turn_poll` だけを 1 回呼び、`Execute` / `Completed` を step result へ写す。`turn_step_complete` は F5ds `turn_complete` だけを 1 回呼び、`Continue` / `Yield` を step result へ写す。F5dt は lower F5dr / F5dp / F5dq、old action path、raw storage、platform API、DOM / Canvas / minifb、video memory、queue、timer、real scheduler、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver` は std layer row tile RLE present host span operation presenter executor session turn driver boundary であり、F5dt `Execute` result を actual executor が扱える owner-bearing pending value に包む F5du checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending` は F5dr session pending request を所有する。executor は caller supplied outcome だけを返し、operation identity は `turn_driver_pending_operation` が F5ds borrowed request accessor と F5do `executor_request_operation` から読む borrowed expected operation によって決まる。`turn_driver_complete` は borrowed expected operation と caller supplied outcome から F5do `executor_attempt` を 1 回だけ作り、F5dt `turn_step_complete` を 1 回だけ呼ぶ。これにより prevents operation mismatch がこの boundary の契約になる。F5du は F5do complete / request、F5dr / F5dp / F5dq direct completion、old action path、raw storage、platform API、DOM / Canvas / minifb、video memory、queue、timer、real scheduler、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler` は std layer row tile RLE present host span operation presenter executor session turn scheduler decision boundary であり、F5du driver step result を target-neutral scheduler decision に写す F5dv checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision` は `Execute`、`ContinueNow`、`ScheduleOneShot`、`Completed` を持つ。`ScheduleOneShot` は timer registration ではなく、validated delay と turn state を持つ scheduled state である。policy constructor と `scheduler_decide` はどちらも `yield_delay_ms >= 0` を検査する。decide 時に invalid policy が見つかった場合は owner-bearing policy error として original step owner、`PolicyInvalid` kind、`GuiError::InvalidCommand` category を保持する。F5dv は F5du start / poll / complete / pending operation helper、timer API、queue、real scheduler backend、platform API、DOM / Canvas / minifb、video memory、raw storage、DrawTarget / RenderTarget、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer` は std layer row tile RLE present host span operation presenter executor session turn timer request boundary であり、F5dv scheduler decision を target-neutral timer request value に写す F5dw checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerReady` は `Execute`、`ContinueNow`、`ScheduleTimer`、`Completed` を持つ。`ScheduleTimer` は owner-bearing timer pending を持ち、pending は F5dv scheduled state と std `TimerRequest` を所有する。timer policy は `WindowId` と `TimerId` を持ち、policy constructor と interpret はどちらも `timer_id_raw > 0` を検査する。`TimerRequest` は policy と scheduled delay の検査後にだけ作り、one-shot contract として `repeating false` を固定する。invalid policy と invalid scheduled delay は original scheduler decision を保持する owner-bearing interpret error になる。timer completion は pending request timer id、incoming `TimerEvent` timer id、tick を検査し、成功時だけ scheduled turn state を回収して F5dv `ContinueNow` decision を返す。F5dw は timer backend registration、queue、real scheduler backend、platform API、DOM / Canvas / minifb、video memory、raw storage、DrawTarget / RenderTarget、fallback、silent no-op、synthetic `Result::Ok unit`、synthetic `Result::Err GuiError::` を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer` は std layer row tile RLE present host span operation presenter executor session turn virtual timer bridge であり、F5dw timer pending と F5dy virtual timer を deterministic headless / offscreen test 用に接続する F5dz checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending` は F5dw pending と `GuiVirtualTimerState` を所有する。schedule は F5dw pending から `TimerRequest` を borrowed で読み、`gui_virtual_timer_schedule` を 1 回だけ呼ぶ。advance は `gui_virtual_timer_advance` を 1 回だけ呼び、`Option::None` なら next pending を返し、`GuiEvent::Timer` なら F5dw `turn_timer_complete` を 1 回だけ呼ぶ。schedule failure は original pending と original virtual state、advance failure は original combined pending、unexpected event は pending と advance-after virtual timer state と event、timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。F5dz は scheduler loop、actual timer backend、queue、platform API、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op、loop drain を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler state boundary であり、F5ea checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState` は `Turn`、`WaitingTimer`、`Execute`、`Completed` を持つ。`GuiVirtualTimerState` は policy に入れず、`Turn`、`Execute`、`Completed` の phase payload または F5dz `WaitingTimer` pending に dynamic state として保持する。`ContinueNow` は reusable scheduler decision へ戻さず、次に driver poll できる `Turn` phase へ写す。`ScheduleTimer` だけが F5dz schedule を呼ぶ。timer advance で F5dz `Ready` decision が返った場合、F5dw / F5dy / F5dz の one-shot contract により timer は完了済みなので、F5ea は `gui_virtual_timer_empty` を明示的な dynamic state として decision boundary へ戻す。F5ea は actual scheduler loop、timeslice policy、event queue、drain、platform timer backend、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary であり、F5eb checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。Turn path は F5du driver poll、F5dv scheduler decision、F5ea timer decision をこの順序で 1 回ずつ呼ぶ。poll failure と scheduler decision failure は current `GuiVirtualTimerState` と lower error を保持する。F5ea timer decision failure は F5ea owner-bearing lower error をそのまま保持する。`WaitingTimer`、`Execute`、`Completed` phase は scheduler loop 側の外部 authority を必要とするため、成功でも no-progress `Ok same state` にはせず `BlockedWaitingTimer`、`BlockedExecute`、`Completed` として明示的に返す。F5eb は loop drain、timeslice policy、event queue、timer backend、platform API、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary であり、F5ec checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy` は F5eb step policy と `max_advance_count` だけを保持し、dynamic `GuiVirtualTimerState`、backend handle、queue state を保持しない。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` は `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。`max_advance_count < 0` は policy construction と drain entry の両方で `PolicyInvalid` になり、`max_advance_count == 0` は F5eb step を呼ばず `BudgetExhausted` として original state と `remaining_count` を返す。F5eb `Advanced` だけが budget を 1 消費して再帰的に継続し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は budget を消費せず typed terminal として返る。F5eb step failure は lower error だけを `StepFailed` に保持し、original scheduler state を重複保持しない。F5ec は timer advance、executor completion、real scheduler loop、platform timer backend、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary であり、F5ed checkpoint である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。F5ed は F5ec `BudgetExhausted` を `YieldSlice`、`BlockedWaitingTimer` を `AwaitTimer`、`BlockedExecute` を `ExecuteHostAction`、`Completed` を `Done` へ写す。Transition payload は F5ec drain payload struct を保持せず、state / pending / execute / completed と `remaining_count` を transition-owned payload として保持する。`remaining_count` は F5ec terminal から読んだ値を正規化、減算、再計算せず保持する。F5ed は timer advance、executor completion、F5ec drain 再実行、F5eb step、real scheduler loop、platform timer backend、queue、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler slice boundary であり、F5ee checkpoint である。F5ee は F5ec bounded drain と F5ed transition を 1 work slice として接続する。Policy は F5ec drain policy と `yield_delay_ms` だけを保持し、`yield_delay_ms` は policy construction と slice entry の両方で 0 以上に検査する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSliceResult` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。`YieldSlice` は state、`remaining_count`、`yield_delay_ms` を保持し、`AwaitTimer`、`ExecuteHostAction`、`Done` はそれぞれ pending / execute / completed authority と `remaining_count` を保持する。F5ee public entry は F5ec drain を 1 回だけ呼び、成功時だけ F5ed transition mapping を 1 回だけ呼ぶ。Slice payload は F5ec / F5ed payload struct を保持せず、slice-owned payload として詰め替える。Drain failure は lower F5ec error だけを保持する。F5ee は F5eb step 直接呼び出し、timer advance、executor completion、real scheduler loop、platform timer backend、queue、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop boundary であり、F5ef checkpoint である。F5ef は F5ee `virtual_scheduler_slice` の result を real scheduler loop / headless app-loop が扱える loop-owned result へ詰め替える。Policy は F5ee slice policy だけを保持する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` は `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。`Yield` は state、`remaining_count`、`yield_delay_ms` を保持し、`AwaitTimer`、`ExecuteHostAction`、`Done` は pending / execute / completed authority と `remaining_count` を保持する。F5ef public step は F5ee `virtual_scheduler_slice` を 1 回だけ呼び、F5ee payload struct を loop payload として保持しない。Failure は lower-only slice error として F5ee slice error だけを保持する。F5ef は F5ec / F5ed / F5eb / F5ea を直接呼ばず、timer advance、executor completion、actual while loop、platform timer backend、queue、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop action boundary であり、F5eg checkpoint である。F5eg は F5ef `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` を `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` へ total mapping で写す。`loop_action_from_result` は `Yield` を `YieldToClock`、`AwaitTimer` を `AwaitTimerAdvance`、`ExecuteHostAction` を `ExecuteHostAction`、`Done` を `Complete` へ explicit match で詰め替える。F5eg action payload は F5ef payload struct を保持せず、state / pending / execute / completed authority、`remaining_count`、`yield_delay_ms` を action-owned payload として保持する。F5eg は timer advance、executor completion、real scheduler loop、native / bare / headless real backend、queue、fallback、silent no-op を提供しない。次の slice はこの action を consumed authority として扱い、timer / executor の実処理では `Result` を返す。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop timer advance boundary であり、F5eh checkpoint である。F5eh は F5eg `AwaitTimerAdvance` payload を consumed authority として受け、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。`loop_timer_advance` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance`、`TurnTimerPolicy`、`delta_ms` だけを受け取り、general `LoopAction` や `loop_action_from_result` を扱わない。`remaining_count` は pending owner を消費する前に保持され、成功時は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceCompleted` として次 state と original `remaining_count` を返す。失敗時は lower F5ea `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerAdvanceError` と original `remaining_count` を `AdvanceFailed` に保持する。F5eh は executor completion、yield-to-clock handling、real scheduler loop、native / bare / headless backend、queue、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop executor complete boundary であり、F5ei checkpoint である。F5ei は F5eg `ExecuteHostAction` payload を consumed authority として受け、caller supplied `Result unit GuiError` を F5du `turn_driver_complete` へ 1 回だけ戻す。driver complete が成功した場合だけ F5dv `scheduler_decide` を 1 回呼び、その decision を F5ea `virtual_scheduler_decide` へ 1 回だけ渡す。`loop_executor_complete` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompletePolicy`、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction`、caller supplied outcome だけを受け取る。policy は scheduler policy と timer policy だけを保持する。`remaining_count` と `timer_state` は pending owner を消費する前に保持され、成功時は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteCompleted` として次 state と original `remaining_count` を返す。失敗時は lower F5du / F5dv / F5ea error と original `remaining_count` を保持し、F5du / F5dv 由来の失敗では `category` と `timer_state` も保持する。F5ei は executor outcome を合成せず、yield-to-clock handling、complete handling、real scheduler loop、native / bare / headless backend、queue、fallback、silent no-op を提供しない。
+
+`std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete` は std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop yield complete boundary であり、F5ej checkpoint である。F5ej は F5eg `YieldToClock` payload と caller supplied `delta_ms` を受ける deterministic clock-delta authority であり、actual real scheduler loop、timer backend、executor backend、headless app-loop integration ではない。`loop_yield_complete_yield_advance` は `remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、`delta_ms < 0` を `DeltaInvalid`、`yield_delay_ms < 0` を `YieldDelayInvalid` として `Option::Some GuiError::InvalidCommand` category を持つ owner-bearing error にする。`0 <= delta_ms < yield_delay_ms` の場合だけ remaining delay を計算し、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult` の `YieldPending` として reduced `YieldToClock` payload を返す。十分に clock delta が経過した場合は `YieldReady` として state owner と original `remaining_count` を返す。`loop_yield_complete_complete_ack` は F5eg `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload へ変換する。F5ej は timer advance、executor completion、scheduler decision、queue drain、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op を提供しない。
+
+`platforms/gui/web/timer` は Web formal one-shot timer request backend boundary の F5dx checkpoint である。F5dx は F5dw が作る `repeating false` の `TimerRequest` を Web platform backend で受け、`nepl_gui_web.request_timer` の scalar status を typed `Result unit GuiError` へ写す。`window_id` と `timer_id` は positive integer、`interval_ms < 0` は invalid、`interval_ms == 0` は same window / timer id の clear request である。`repeating true` は `setInterval`、`repeating false` は `setTimeout` へ接続し、one-shot timer は clear-before-enqueue として `GuiEvent::Timer` を input queue へ enqueue する前に active timer entry を clear する。idempotent registration は interval と repeating mode の両方を比較する。F5dx は Web platform boundary だけを実装し、std / core / alloc へ DOM、Canvas、browser handle、stdout fallback、polling fallback、scheduler loop、native / bare / headless backend を入れない。
+
 ## Error contract
 
 F1/F2 は既存の `GuiError` を返すが、font-specific error category を public enum として同時に定義する。
@@ -2907,3 +7147,10 @@ Formal font renderer は `core/gui/font` と `std/gui/font_resource` を通る�
 - OS font fallback を暗黙使用すること。
 - Headless で fixed-cell fallback に暗黙切替すること。
 - Missing glyph を別 glyph や tofu に暗黙置換すること。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は、F5eg `LoopAction` と caller supplied explicit input を照合し、F5ej / F5eh / F5ei の typed authority へ 1 段だけ進める std layer boundary である。GUI font rendering と 2D renderer は、この scheduler boundary の外側に backend queue や platform API を持ち込まない。
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持する。`LoopExecutorCompletePolicy` は保持しない。Execute branch は F5ei の `loop_executor_complete_with_policy_refs` を使い、timer branch と同じ timer policy authority を借用する。
+
+`RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を明示する。`YieldToClock` と `AwaitTimerAdvance` は `ClockDelta`、`ExecuteHostAction` は caller supplied `ExecutorOutcome`、`Complete` は `CompleteAck` だけを受ける。入力種別不一致は action owner と input owner を保持する mismatch error で返し、fallback と silent no-op は行わない。

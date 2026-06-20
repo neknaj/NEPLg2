@@ -1,0 +1,83 @@
+//: # platforms/gui/native/presenter_input
+//: Native presenter operation identity input boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fg Native presenter input boundary として、typed `ExecuteHostAction` から pending span operation identity を[取/と]り[出/だ]し、scheduler completion input と[同/おな]じ value に[保持/ほじ]します。
+//: - F5ev は scheduler step input boundary であり、この module は native presenter-facing input boundary です。
+//:
+//: ### [契約/けいやく]
+//: - general `LoopAction` は[受/う]け[取/と]らず、typed `ExecuteHostAction` payload だけを[入力/にゅうりょく] authority とします。
+//: - action を F5ev ready payload に[移/うつ]す[前/まえ]に、borrowed accessor で pending operation を[読/よ]みます。
+//: - operation identity は `WindowBegin` / `WindowRunSpan` / `WindowEnd` / `OffscreenBegin` / `OffscreenRunSpan` / `OffscreenEnd` / `DeviceBegin` / `DeviceRunSpan` / `DeviceEnd` を[保/たも]つ typed value として[保持/ほじ]します。
+//: - scheduler completion wrapping は F5ev `gui_native_scheduler_executor_input` を[再利用/さいりよう]し、`RealLoopStepInput::ExecutorOutcome` をこの module で[再実装/さいじっそう]しません。
+//: - backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/presenter_input" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/native/scheduler_executor_input" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+
+pub struct GuiNativePresenterInputOperationIdentity:
+    operation %GuiRgba8888RowTileRlePresentHostSpanOperation
+
+impl Clone for GuiNativePresenterInputOperationIdentity:
+    fn clone %fn &GuiNativePresenterInputOperationIdentity GuiNativePresenterInputOperationIdentity \identity:
+        *identity
+
+impl Copy for GuiNativePresenterInputOperationIdentity:
+    fn copy_mark %fn GuiNativePresenterInputOperationIdentity GuiNativePresenterInputOperationIdentity \identity:
+        identity
+
+pub struct GuiNativePresenterInputReady:
+    operation_identity %GuiNativePresenterInputOperationIdentity
+    scheduler_ready %GuiNativeSchedulerExecutorInputReady
+
+fn gui_native_presenter_input_operation_identity_new %fn GuiRgba8888RowTileRlePresentHostSpanOperation GuiNativePresenterInputOperationIdentity \operation:
+    GuiNativePresenterInputOperationIdentity operation
+
+fn gui_native_presenter_input_ready_new %fn GuiNativePresenterInputOperationIdentity fn GuiNativeSchedulerExecutorInputReady GuiNativePresenterInputReady \operation_identity\scheduler_ready:
+    GuiNativePresenterInputReady operation_identity scheduler_ready
+
+//: gui_native_presenter_input: native presenter-facing input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ExecuteHostAction` typed payload と caller supplied outcome だけを[受/う]けます。
+//: - original action owner を F5ev へ[渡/わた]す[前/まえ]に、borrowed accessor で pending operation identity を[読/よ]みます。
+//: - scheduler completion input は F5ev で 1 [回/かい]だけ[作/つく]ります。
+pub fn gui_native_presenter_input %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction fn Result unit GuiError GuiNativePresenterInputReady \action\outcome:
+    let execute %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action_execute_host_action_execute_ref &action
+    let pending %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_execute_pending_ref execute
+    let operation %GuiRgba8888RowTileRlePresentHostSpanOperation gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_pending_operation pending
+    let operation_identity %GuiNativePresenterInputOperationIdentity gui_native_presenter_input_operation_identity_new operation
+    let scheduler_ready %GuiNativeSchedulerExecutorInputReady gui_native_scheduler_executor_input action outcome
+    gui_native_presenter_input_ready_new operation_identity scheduler_ready
+
+pub fn gui_native_presenter_input_operation_identity_operation %fn &GuiNativePresenterInputOperationIdentity GuiRgba8888RowTileRlePresentHostSpanOperation \identity:
+    *field::get_ref identity "operation"
+
+pub fn gui_native_presenter_input_ready_operation_identity %fn &GuiNativePresenterInputReady GuiNativePresenterInputOperationIdentity \ready:
+    *field::get_ref ready "operation_identity"
+
+pub fn gui_native_presenter_input_ready_scheduler_ready %fn GuiNativePresenterInputReady GuiNativeSchedulerExecutorInputReady \ready:
+    field::get ready "scheduler_ready"

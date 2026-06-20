@@ -1,0 +1,101 @@
+//: # std/gui/tile_present_host_import_scheduler_start
+//: RGBA8888 row tile RLE present host import request を scheduler initial state へ[接続/せつぞく]する std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5gc の formal std/gui present host import connection boundary として、F5cr request を F5cw action、F5du turn start、F5ea virtual scheduler state へ[接続/せつぞく]します。
+//: - actual Web / native / bare backend は、この初期 state を F5el real-loop driver または deterministic headless path へ[渡/わた]します。
+//:
+//: ### [契約/けいやく]
+//: - public authority は support、span policy、dynamic timer state、F5cr request だけです。
+//: - F5cw action conversion、F5du `turn_start`、F5ea `virtual_scheduler_turn` をこの[順序/じゅんじょ]で 1 [回/かい]ずつ[呼/よ]びます。
+//: - `start_with_empty_timer` は active timer を[持/も]たない[明示/めいじ] initial `GuiVirtualTimerState` を[作/つく]る helper であり、unsupported timer fallback や silent no-op ではありません。
+//: - error は original request/action、lower F5du error、category を[保持/ほじ]します。support と span policy は Copy policy input であり、error recovery authority として[保持/ほじ]しません。
+//: - scheduler step、virtual scheduler loop / drain / slice、real loop driver、loop action mapping、turn driver complete、host import execution、timer backend、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_import_scheduler_start" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_import" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+#import "std/gui/virtual_timer" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady:
+    request %GuiRgba8888RowTileRlePresentHostImportRequest
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState
+
+pub struct GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed:
+    category %Option GuiError
+    request %GuiRgba8888RowTileRlePresentHostImportRequest
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError
+
+pub enum GuiRgba8888RowTileRlePresentHostImportSchedulerStartError:
+    TurnStartFailed %GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed
+
+fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_new %fn GuiRgba8888RowTileRlePresentHostImportRequest fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady \request\action\state:
+    GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady request action state
+
+fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_new %fn GuiRgba8888RowTileRlePresentHostImportRequest fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed \request\action\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed category request action lower
+
+//: gui_rgba8888_row_tile_rle_present_host_import_scheduler_start: request から scheduler initial state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5cr request accessor ではなく F5cw action conversion を authority とします。
+//: - F5du turn start が[成功/せいこう]した[場合/ばあい]だけ、F5ea turn wrapper へ[渡/わた]します。
+//: - timer state は dynamic state として[受/う]け[取/と]り、policy には[保持/ほじ]しません。
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiVirtualTimerState fn GuiRgba8888RowTileRlePresentHostImportRequest Result GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady GuiRgba8888RowTileRlePresentHostImportSchedulerStartError \support\span_policy\timer_state\request:
+    let action %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_execution_action &request
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start support span_policy action:
+        Result::Err lower:
+            let failed %GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_new request action lower
+            Result::Err GuiRgba8888RowTileRlePresentHostImportSchedulerStartError::TurnStartFailed failed
+        Result::Ok turn_state:
+            let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn timer_state turn_state
+            let ready %GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_new request action state
+            Result::Ok ready
+
+//: gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_with_empty_timer: active timer なしの initial state で[開始/かいし]する
+//:
+//: [契約/けいやく]:
+//: - `gui_virtual_timer_empty` で active timer を[持/も]たない[明示/めいじ] state を[作/つく]ります。
+//: - timer backend が[無/な]い platform の fallback ではありません。
+//: - host execution や scheduler step は[行/おこな]いません。
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_with_empty_timer %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostImportRequest Result GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady GuiRgba8888RowTileRlePresentHostImportSchedulerStartError \support\span_policy\request:
+    let timer_state %GuiVirtualTimerState gui_virtual_timer_empty
+    gui_rgba8888_row_tile_rle_present_host_import_scheduler_start support span_policy timer_state request
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_request %fn &GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady GuiRgba8888RowTileRlePresentHostImportRequest \ready:
+    *field::get_ref ready "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_action %fn &GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady GuiRgba8888RowTileRlePresentHostExecutionAction \ready:
+    *field::get_ref ready "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_ready_state %fn GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \ready:
+    field::get ready "state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_category_value %fn &GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed Option GuiError \failed:
+    *field::get_ref failed "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_request %fn &GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed GuiRgba8888RowTileRlePresentHostImportRequest \failed:
+    *field::get_ref failed "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_action %fn &GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed GuiRgba8888RowTileRlePresentHostExecutionAction \failed:
+    *field::get_ref failed "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_scheduler_start_failed_lower %fn GuiRgba8888RowTileRlePresentHostImportSchedulerStartFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError \failed:
+    field::get failed "lower"

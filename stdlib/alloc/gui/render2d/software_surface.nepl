@@ -1,0 +1,355 @@
+//: # alloc/gui/render2d/software_surface
+//: RGBA8888 software surface owner
+//:
+//: ### [目的/もくてき]
+//: - 2D renderer と font rasterizer が共有する、owned RGBA8888 pixel memory を定義します。
+//: - `RegionToken u8` を surface owner に閉じ込め、raw pointer や platform surface を public API に出さないようにします。
+//:
+//: ### [実装/じっそう]
+//: - pixel は row-major の RGBA8888 とし、`stride_bytes = width * 4`、`byte_len = height * stride_bytes` とします。
+//: - 作成時に geometry と byte length の overflow を先に検査し、その後 `alloc_region_bytes<u8>` で storage を確保します。
+//: - 読み取りは借用だけで行い、書き込みは owner を消費して成功時は更新済み owner、失敗時は owner-bearing error を返します。
+//: - pixel 書き込みは 4 channel すべての pointer projection を store 前に検査し、projection failure では 1 channel も変更しません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は `core/mem` の safe facade だけを使います。
+//: - raw address accessor、Canvas、DOM、minifb、DrawTarget、RenderTarget、font glyf 実装には依存しません。
+//: - `RegionToken` 由来の pointer projection が成功した後の `store_u8` は、この owner が正規 allocator から得た storage を保持する限り失敗しない契約です。
+//: - SourceOver 合成や alpha-mask drain は、この surface owner を消費する上位 API として追加します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/software_surface" as *
+//: ```
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub struct GuiRgba8888SoftwareSurfaceShape:
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+
+impl Clone for GuiRgba8888SoftwareSurfaceShape:
+    fn clone %fn &GuiRgba8888SoftwareSurfaceShape GuiRgba8888SoftwareSurfaceShape \shape:
+        *shape
+
+impl Copy for GuiRgba8888SoftwareSurfaceShape:
+    fn copy_mark %fn GuiRgba8888SoftwareSurfaceShape GuiRgba8888SoftwareSurfaceShape \shape:
+        shape
+
+pub struct GuiRgba8888SoftwareSurfaceOwner:
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+    storage %RegionToken u8
+
+pub enum GuiRgba8888SoftwareSurfaceErrorKind:
+    InvalidGeometry
+    PixelCountOverflow
+    StrideOverflow
+    ByteLengthOverflow
+    OutOfMemory
+    IndexOutOfBounds
+    ByteOffsetOverflow
+    PointerProjectionFailed
+    LoadFailed
+    StoreFailed
+    FreeFailed
+
+impl Clone for GuiRgba8888SoftwareSurfaceErrorKind:
+    fn clone %fn &GuiRgba8888SoftwareSurfaceErrorKind GuiRgba8888SoftwareSurfaceErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888SoftwareSurfaceErrorKind:
+    fn copy_mark %fn GuiRgba8888SoftwareSurfaceErrorKind GuiRgba8888SoftwareSurfaceErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888SoftwareSurfaceCreateError:
+    kind %GuiRgba8888SoftwareSurfaceErrorKind
+
+impl Clone for GuiRgba8888SoftwareSurfaceCreateError:
+    fn clone %fn &GuiRgba8888SoftwareSurfaceCreateError GuiRgba8888SoftwareSurfaceCreateError \error:
+        *error
+
+impl Copy for GuiRgba8888SoftwareSurfaceCreateError:
+    fn copy_mark %fn GuiRgba8888SoftwareSurfaceCreateError GuiRgba8888SoftwareSurfaceCreateError \error:
+        error
+
+pub struct GuiRgba8888SoftwareSurfaceWriteError:
+    kind %GuiRgba8888SoftwareSurfaceErrorKind
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+pub fn gui_rgba8888_software_surface_shape_width %fn &GuiRgba8888SoftwareSurfaceShape i32 \shape:
+    *field::get_ref shape "width"
+
+pub fn gui_rgba8888_software_surface_shape_height %fn &GuiRgba8888SoftwareSurfaceShape i32 \shape:
+    *field::get_ref shape "height"
+
+pub fn gui_rgba8888_software_surface_shape_stride_bytes %fn &GuiRgba8888SoftwareSurfaceShape i32 \shape:
+    *field::get_ref shape "stride_bytes"
+
+pub fn gui_rgba8888_software_surface_shape_byte_len %fn &GuiRgba8888SoftwareSurfaceShape i32 \shape:
+    *field::get_ref shape "byte_len"
+
+pub fn gui_rgba8888_software_surface_width %fn &GuiRgba8888SoftwareSurfaceOwner i32 \surface:
+    *field::get_ref surface "width"
+
+pub fn gui_rgba8888_software_surface_height %fn &GuiRgba8888SoftwareSurfaceOwner i32 \surface:
+    *field::get_ref surface "height"
+
+pub fn gui_rgba8888_software_surface_stride_bytes %fn &GuiRgba8888SoftwareSurfaceOwner i32 \surface:
+    *field::get_ref surface "stride_bytes"
+
+pub fn gui_rgba8888_software_surface_byte_len %fn &GuiRgba8888SoftwareSurfaceOwner i32 \surface:
+    *field::get_ref surface "byte_len"
+
+pub fn gui_rgba8888_software_surface_create_error_kind %fn &GuiRgba8888SoftwareSurfaceCreateError GuiRgba8888SoftwareSurfaceErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_software_surface_write_error_kind %fn &GuiRgba8888SoftwareSurfaceWriteError GuiRgba8888SoftwareSurfaceErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_software_surface_write_error_surface %fn GuiRgba8888SoftwareSurfaceWriteError GuiRgba8888SoftwareSurfaceOwner \error:
+    field::get error "surface"
+
+pub fn gui_rgba8888_software_surface_write_error_free %fn GuiRgba8888SoftwareSurfaceWriteError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_write_error_surface error
+    gui_rgba8888_software_surface_free surface
+
+fn gui_rgba8888_software_surface_create_error %fn GuiRgba8888SoftwareSurfaceErrorKind GuiRgba8888SoftwareSurfaceCreateError \kind:
+    GuiRgba8888SoftwareSurfaceCreateError kind
+
+fn gui_rgba8888_software_surface_write_error %fn GuiRgba8888SoftwareSurfaceErrorKind fn GuiRgba8888SoftwareSurfaceOwner GuiRgba8888SoftwareSurfaceWriteError \kind\surface:
+    GuiRgba8888SoftwareSurfaceWriteError kind surface
+
+fn gui_rgba8888_software_surface_shape_new %fn i32 fn i32 fn i32 fn i32 GuiRgba8888SoftwareSurfaceShape \width\height\stride_bytes\byte_len:
+    GuiRgba8888SoftwareSurfaceShape width height stride_bytes byte_len
+
+pub fn gui_rgba8888_software_surface_shape %fn i32 fn i32 Result GuiRgba8888SoftwareSurfaceShape GuiRgba8888SoftwareSurfaceErrorKind \width\height:
+    if:
+        or le width 0 le height 0
+        then:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::InvalidGeometry
+        else:
+            let max_i32 %i32 2147483647
+            if:
+                gt width div_s max_i32 height
+                then:
+                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::PixelCountOverflow
+                else:
+                    if:
+                        gt width div_s max_i32 4
+                        then:
+                            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::StrideOverflow
+                        else:
+                            let stride_bytes %i32 mul width 4
+                            if:
+                                gt height div_s max_i32 stride_bytes
+                                then:
+                                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::ByteLengthOverflow
+                                else:
+                                    let byte_len %i32 mul height stride_bytes
+                                    Result::Ok gui_rgba8888_software_surface_shape_new width height stride_bytes byte_len
+
+fn gui_rgba8888_software_surface_store_channel %fn &RegionToken u8 fn i32 fn i32 Result unit GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset\value:
+    match region_ptr_at<u8,u8> storage byte_offset:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match store_u8 ptr value:
+                Result::Err _e:
+                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::StoreFailed
+                Result::Ok _:
+                    Result::Ok unit
+
+fn gui_rgba8888_software_surface_project_channel %fn &RegionToken u8 fn i32 Result MemPtr u8 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
+    match region_ptr_at<u8,u8> storage byte_offset:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            Result::Ok ptr
+
+fn gui_rgba8888_software_surface_store_projected_channel %fn MemPtr u8 fn i32 Result unit GuiRgba8888SoftwareSurfaceErrorKind \ptr\value:
+    match store_u8 ptr value:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::StoreFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_rgba8888_software_surface_load_channel %fn &RegionToken u8 fn i32 Result i32 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
+    match region_ptr_at<u8,u8> storage byte_offset:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::LoadFailed
+                Option::Some value:
+                    Result::Ok value
+
+fn gui_rgba8888_software_surface_zero_region %fn &RegionToken u8 fn i32 Result unit GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_len:
+    let mut byte_offset %i32 0
+    let mut done %bool false
+    let mut output %Result unit GuiRgba8888SoftwareSurfaceErrorKind Result::Ok unit
+    while not done:
+        do:
+            if ge byte_offset byte_len:
+                then:
+                    set done true
+                else:
+                    match gui_rgba8888_software_surface_store_channel storage byte_offset 0:
+                        Result::Err kind:
+                            set output Result::Err kind
+                            set done true
+                        Result::Ok _:
+                            set byte_offset add byte_offset 1
+    output
+
+pub fn gui_rgba8888_software_surface_create %fn i32 fn i32 Result GuiRgba8888SoftwareSurfaceOwner GuiRgba8888SoftwareSurfaceCreateError \width\height:
+    match gui_rgba8888_software_surface_shape width height:
+        Result::Err kind:
+            Result::Err gui_rgba8888_software_surface_create_error kind
+        Result::Ok shape:
+            let byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+            match alloc_region_bytes<u8> byte_len:
+                Result::Err _e:
+                    Result::Err gui_rgba8888_software_surface_create_error GuiRgba8888SoftwareSurfaceErrorKind::OutOfMemory
+                Result::Ok storage:
+                    match gui_rgba8888_software_surface_zero_region &storage byte_len:
+                        Result::Err kind:
+                            match dealloc_region<u8> storage:
+                                Result::Err _drop:
+                                    Result::Err gui_rgba8888_software_surface_create_error kind
+                                Result::Ok _:
+                                    Result::Err gui_rgba8888_software_surface_create_error kind
+                        Result::Ok _:
+                            let stride_bytes %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+                            Result::Ok GuiRgba8888SoftwareSurfaceOwner width height stride_bytes byte_len storage
+
+fn gui_rgba8888_software_surface_pixel_offset %fn &GuiRgba8888SoftwareSurfaceOwner fn i32 fn i32 Result i32 GuiRgba8888SoftwareSurfaceErrorKind \surface\x\y:
+    if:
+        or lt x 0 lt y 0
+        then:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::IndexOutOfBounds
+        else:
+            let width %i32 gui_rgba8888_software_surface_width surface
+            let height %i32 gui_rgba8888_software_surface_height surface
+            if:
+                or ge x width ge y height
+                then:
+                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::IndexOutOfBounds
+                else:
+                    let stride_bytes %i32 gui_rgba8888_software_surface_stride_bytes surface
+                    let row_offset %i32 mul y stride_bytes
+                    if:
+                        lt row_offset 0
+                        then:
+                            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::ByteOffsetOverflow
+                        else:
+                            let pixel_offset %i32 mul x 4
+                            let byte_offset %i32 add row_offset pixel_offset
+                            let byte_len %i32 gui_rgba8888_software_surface_byte_len surface
+                            let end_offset %i32 add byte_offset 4
+                            if:
+                                or lt pixel_offset 0 or lt byte_offset row_offset or lt end_offset byte_offset gt end_offset byte_len
+                                then:
+                                    Result::Err GuiRgba8888SoftwareSurfaceErrorKind::ByteOffsetOverflow
+                                else:
+                                    Result::Ok byte_offset
+
+fn gui_rgba8888_software_surface_write_color %fn &RegionToken u8 fn i32 fn Rgba8888 Result unit GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset\color:
+    let r %i32 cast rgba8888_r &color
+    let g %i32 cast rgba8888_g &color
+    let b %i32 cast rgba8888_b &color
+    let a %i32 cast rgba8888_a &color
+    match gui_rgba8888_software_surface_project_channel storage byte_offset:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok r_ptr:
+            match gui_rgba8888_software_surface_project_channel storage add byte_offset 1:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok g_ptr:
+                    match gui_rgba8888_software_surface_project_channel storage add byte_offset 2:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok b_ptr:
+                            match gui_rgba8888_software_surface_project_channel storage add byte_offset 3:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok a_ptr:
+                                    match gui_rgba8888_software_surface_store_projected_channel r_ptr r:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok _r_written:
+                                            match gui_rgba8888_software_surface_store_projected_channel g_ptr g:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok _g_written:
+                                                    match gui_rgba8888_software_surface_store_projected_channel b_ptr b:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok _b_written:
+                                                            gui_rgba8888_software_surface_store_projected_channel a_ptr a
+
+fn gui_rgba8888_software_surface_read_color %fn &RegionToken u8 fn i32 Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
+    match gui_rgba8888_software_surface_load_channel storage byte_offset:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok r:
+            match gui_rgba8888_software_surface_load_channel storage add byte_offset 1:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok g:
+                    match gui_rgba8888_software_surface_load_channel storage add byte_offset 2:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok b:
+                            match gui_rgba8888_software_surface_load_channel storage add byte_offset 3:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok a:
+                                    let rr %u8 cast r
+                                    let gg %u8 cast g
+                                    let bb %u8 cast b
+                                    let aa %u8 cast a
+                                    Result::Ok rgba8888_new rr gg bb aa
+
+pub fn gui_rgba8888_software_surface_write_pixel %fn GuiRgba8888SoftwareSurfaceOwner fn i32 fn i32 fn Rgba8888 Result GuiRgba8888SoftwareSurfaceOwner GuiRgba8888SoftwareSurfaceWriteError \surface\x\y\color:
+    match gui_rgba8888_software_surface_pixel_offset &surface x y:
+        Result::Err kind:
+            Result::Err gui_rgba8888_software_surface_write_error kind surface
+        Result::Ok byte_offset:
+            let storage %&RegionToken u8 field::get_ref &surface "storage"
+            match gui_rgba8888_software_surface_write_color storage byte_offset color:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_software_surface_write_error kind surface
+                Result::Ok _:
+                    Result::Ok surface
+
+pub fn gui_rgba8888_software_surface_read_pixel %fn &GuiRgba8888SoftwareSurfaceOwner fn i32 fn i32 Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind \surface\x\y:
+    match gui_rgba8888_software_surface_pixel_offset surface x y:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok byte_offset:
+            let storage %&RegionToken u8 field::get_ref surface "storage"
+            gui_rgba8888_software_surface_read_color storage byte_offset
+
+pub fn gui_rgba8888_software_surface_free %fn GuiRgba8888SoftwareSurfaceOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \surface:
+    let storage %RegionToken u8 field::get surface "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::FreeFailed
+        Result::Ok _:
+            Result::Ok unit

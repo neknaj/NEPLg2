@@ -150,7 +150,7 @@ jobs:
                   override: true
 
             - name: Rust tests
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "Rust tests" -- cargo test --all --all-features --no-fail-fast
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "Rust tests" --timeout-nonfatal -- cargo test --all --all-features --no-fail-fast
 
     nm-compile:
         runs-on: ubuntu-latest

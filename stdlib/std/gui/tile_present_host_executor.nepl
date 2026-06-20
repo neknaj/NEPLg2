@@ -1,0 +1,393 @@
+//: # std/gui/tile_present_host_executor
+//: RGBA8888 row tile RLE present host executor の validation boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cw の executor action と F5cx の execution report を、actual platform executor の[手前/てまえ]で[検証/けんしょう]します。
+//: - Web、native、bare、headless executor が「対応していない target を[実行/じっこう]したことにする」ことや「別 action の report を[返/かえ]す」ことを typed error として[検出/けんしゅつ]します。
+//:
+//: ### [契約/けいやく]
+//: - support は空集合を[表現/ひょうげん]できない enum です。
+//: - unsupported target は bool ではなく `Result` の Err として[返/かえ]します。
+//: - report validation は action variant だけでなく、window、surface、frame、packet metadata、run offset、run count、RGBA channel まで[比較/ひかく]します。
+//: - report の success / failure はこの boundary では[解釈/かいしゃく]せず、matching action の report は failure report でも[有効/ゆうこう]です。
+//: - actual host import、dispatch loop completion、queue、timer、scheduler、platform API、DOM、Canvas、minifb、video memory、代替 no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_executor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_execution_report" as *
+#import "std/gui/window" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostExecutorSupport:
+    Window
+    Offscreen
+    Device
+    WindowOffscreen
+    WindowDevice
+    OffscreenDevice
+    All
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutorSupport:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutorSupport GuiRgba8888RowTileRlePresentHostExecutorSupport \support:
+        *support
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutorSupport:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutorSupport GuiRgba8888RowTileRlePresentHostExecutorSupport \support:
+        support
+
+pub enum GuiRgba8888RowTileRlePresentHostExecutorActionKind:
+    WindowBegin
+    WindowRun
+    WindowEnd
+    OffscreenBegin
+    OffscreenRun
+    OffscreenEnd
+    DeviceBegin
+    DeviceRun
+    DeviceEnd
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutorActionKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutorActionKind GuiRgba8888RowTileRlePresentHostExecutorActionKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutorActionKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutorActionKind GuiRgba8888RowTileRlePresentHostExecutorActionKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentHostExecutorErrorKind:
+    UnsupportedAction
+    ReportActionMismatch
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutorErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutorErrorKind GuiRgba8888RowTileRlePresentHostExecutorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutorErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutorErrorKind GuiRgba8888RowTileRlePresentHostExecutorErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostExecutorError:
+    kind %GuiRgba8888RowTileRlePresentHostExecutorErrorKind
+    category %Option GuiError
+    expected %GuiRgba8888RowTileRlePresentHostExecutionAction
+    reported %Option GuiRgba8888RowTileRlePresentHostExecutionAction
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutorError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutorError GuiRgba8888RowTileRlePresentHostExecutorError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutorError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutorError GuiRgba8888RowTileRlePresentHostExecutorError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_error_new %fn GuiRgba8888RowTileRlePresentHostExecutorErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentHostExecutionAction fn Option GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutorError \kind\category\expected\reported:
+    GuiRgba8888RowTileRlePresentHostExecutorError kind category expected reported
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error %fn GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutorError \expected:
+    let category %Option GuiError Option::Some GuiError::Unsupported
+    gui_rgba8888_row_tile_rle_present_host_executor_error_new GuiRgba8888RowTileRlePresentHostExecutorErrorKind::UnsupportedAction category expected Option::None
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_mismatch_error %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutorError \expected\reported:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    let reported_value %Option GuiRgba8888RowTileRlePresentHostExecutionAction Option::Some reported
+    gui_rgba8888_row_tile_rle_present_host_executor_error_new GuiRgba8888RowTileRlePresentHostExecutorErrorKind::ReportActionMismatch category expected reported_value
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_supports_window %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_supports_offscreen %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_supports_device %fn GuiRgba8888RowTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::Device:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowOffscreen:
+            false
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888RowTileRlePresentHostExecutorSupport::All:
+            true
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_action_kind %fn &GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutorActionKind \action:
+    match *action:
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin _payload:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowBegin
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun _payload:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowRun
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd _payload:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowEnd
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenBegin
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun _record:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenRun
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenEnd
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceBegin
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun _record:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceRun
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceEnd
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_require_supported %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostExecutionAction Result unit GuiRgba8888RowTileRlePresentHostExecutorError \support\action:
+    match action:
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin _payload:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun _payload:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd _payload:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun _record:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun _record:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            if gui_rgba8888_row_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_unsupported_error action
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_color_same %fn &Rgba8888 fn &Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r left rgba8888_r right
+        and:
+            eq rgba8888_g left rgba8888_g right
+            and:
+                eq rgba8888_b left rgba8888_b right
+                eq rgba8888_a left rgba8888_a right
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_run_same %fn &GuiRgba8888RowTileRleRun fn &GuiRgba8888RowTileRleRun bool \left\right:
+    let left_color %Rgba8888 gui_rgba8888_row_tile_rle_run_color left
+    let right_color %Rgba8888 gui_rgba8888_row_tile_rle_run_color right
+    and:
+        eq gui_rgba8888_row_tile_rle_run_pixel_offset left gui_rgba8888_row_tile_rle_run_pixel_offset right
+        and:
+            eq gui_rgba8888_row_tile_rle_run_pixel_count left gui_rgba8888_row_tile_rle_run_pixel_count right
+            gui_rgba8888_row_tile_rle_present_host_executor_color_same &left_color &right_color
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_packet_descriptor_same %fn &GuiRgba8888RowTileRlePacketDescriptor fn &GuiRgba8888RowTileRlePacketDescriptor bool \left\right:
+    and:
+        eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id left gui_rgba8888_row_tile_rle_packet_descriptor_frame_id right
+        and:
+            eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index left gui_rgba8888_row_tile_rle_packet_descriptor_batch_index right
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index left gui_rgba8888_row_tile_rle_packet_descriptor_tile_index right
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start right
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count right
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start left gui_rgba8888_row_tile_rle_packet_descriptor_row_start right
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count left gui_rgba8888_row_tile_rle_packet_descriptor_row_count right
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_width left gui_rgba8888_row_tile_rle_packet_descriptor_width right
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_height left gui_rgba8888_row_tile_rle_packet_descriptor_height right
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes left gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes right
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows left gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows right
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count left gui_rgba8888_row_tile_rle_packet_descriptor_tile_count right
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count left gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count right
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count left gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count right
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count left gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count right
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count right
+                and:
+                    eq gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count left gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count right
+                    gui_rgba8888_row_tile_rle_present_host_executor_packet_descriptor_same &left_packet &right_packet
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_run_record_same %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord bool \left\right:
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor right
+    let left_run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_host_command_run_record_run left
+    let right_run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_host_command_run_record_run right
+    and gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor gui_rgba8888_row_tile_rle_present_host_executor_run_same &left_run &right_run
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_window_begin_same %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowBegin fn &GuiRgba8888RowTileRlePresentHostExecutionWindowBegin bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_begin_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_begin_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_begin_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_begin_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_window_run_same %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowRun fn &GuiRgba8888RowTileRlePresentHostExecutionWindowRun bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_run_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_run_window right
+    let left_record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_host_execution_window_run_record left
+    let right_record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_host_execution_window_run_record right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_executor_run_record_same &left_record &right_record
+
+fn gui_rgba8888_row_tile_rle_present_host_executor_window_end_same %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowEnd fn &GuiRgba8888RowTileRlePresentHostExecutionWindowEnd bool \left\right:
+    let left_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_end_window left
+    let right_window %WindowId gui_rgba8888_row_tile_rle_present_host_execution_window_end_window right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_end_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_host_execution_window_end_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_action_same %fn &GuiRgba8888RowTileRlePresentHostExecutionAction fn &GuiRgba8888RowTileRlePresentHostExecutionAction bool \left\right:
+    match *left:
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_executor_window_begin_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_executor_window_run_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd left_payload:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd right_payload:
+                    gui_rgba8888_row_tile_rle_present_host_executor_window_end_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun left_record:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun right_record:
+                    gui_rgba8888_row_tile_rle_present_host_executor_run_record_same &left_record &right_record
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun left_record:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun right_record:
+                    gui_rgba8888_row_tile_rle_present_host_executor_run_record_same &left_record &right_record
+                _:
+                    false
+        GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd left_descriptor:
+            match *right:
+                GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd right_descriptor:
+                    gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutionReport Result GuiRgba8888RowTileRlePresentHostExecutionReport GuiRgba8888RowTileRlePresentHostExecutorError \support\expected\report:
+    match gui_rgba8888_row_tile_rle_present_host_executor_require_supported support expected:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _unit:
+            let reported %GuiRgba8888RowTileRlePresentHostExecutionAction gui_rgba8888_row_tile_rle_present_host_execution_report_action &report
+            if gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &reported:
+                then Result::Ok report
+                else Result::Err gui_rgba8888_row_tile_rle_present_host_executor_mismatch_error expected reported
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_error_kind %fn &GuiRgba8888RowTileRlePresentHostExecutorError GuiRgba8888RowTileRlePresentHostExecutorErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_error_category_value %fn &GuiRgba8888RowTileRlePresentHostExecutorError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_error_expected %fn &GuiRgba8888RowTileRlePresentHostExecutorError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "expected"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_executor_error_reported %fn &GuiRgba8888RowTileRlePresentHostExecutorError Option GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "reported"

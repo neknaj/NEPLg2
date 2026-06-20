@@ -1,0 +1,327 @@
+//: # platforms/gui/bare/display_memory_owner
+//: Bare raw display memory ownership boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fq の byte echo verification を、bare display が[所有/しょゆう]する raw RGBA8888 byte memory へ[接続/せつぞく]します。
+//: - public verification value は Copy として[偽造/ぎぞう]できるため、owner が[保持/ほじ]する canonical driver state から F5fq を[再実行/さいじっこう]します。
+//: - 1 byte echo は 1 byte だけの[証拠/しょうこ]として[扱/あつか]い、span 全体や frame 全体の ready 状態へ[拡大/かくだい][解釈/かいしゃく]しません。
+//:
+//: ### [契約/けいやく]
+//: - `RegionToken u8` は owner 内部に[閉/と]じ、raw pointer や storage accessor を public API に[出/だ]しません。
+//: - write は F5fq verification、byte bounds、store、readback match の[順/じゅん]で[検査/けんさ]し、成功後にだけ driver state を[進/すす]めます。
+//: - write 失敗時は input owner を error payload で[回収/かいしゅう]できます。
+//: - actual hardware driver、host import、scheduler loop、timer、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op、bulk readback は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_memory_owner" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_driver_byte_echo" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/framebuffer" as *
+
+pub struct GuiBareDisplayMemoryOwner:
+    driver_state %GuiBareDisplayDriverState
+    surface_byte_count %i32
+    storage %RegionToken u8
+    verified_byte_count %i32
+    packet_verified_byte_count %i32
+    last_verified %Option GuiBareDisplayDriverByteEchoVerified
+
+pub enum GuiBareDisplayMemoryOwnerCreateErrorKind:
+    DriverInitFailed %GuiBareDisplayDriverErrorKind
+    AllocationFailed
+
+impl Clone for GuiBareDisplayMemoryOwnerCreateErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryOwnerCreateErrorKind GuiBareDisplayMemoryOwnerCreateErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryOwnerCreateErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerCreateErrorKind GuiBareDisplayMemoryOwnerCreateErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayMemoryOwnerCreateError:
+    kind %GuiBareDisplayMemoryOwnerCreateErrorKind
+    category %Option GuiError
+    config %GuiBareFramebufferConfig
+
+impl Clone for GuiBareDisplayMemoryOwnerCreateError:
+    fn clone %fn &GuiBareDisplayMemoryOwnerCreateError GuiBareDisplayMemoryOwnerCreateError \error:
+        *error
+
+impl Copy for GuiBareDisplayMemoryOwnerCreateError:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerCreateError GuiBareDisplayMemoryOwnerCreateError \error:
+        error
+
+pub enum GuiBareDisplayMemoryOwnerWriteErrorKind:
+    EchoVerificationFailed %GuiBareDisplayDriverByteEchoErrorKind
+    ByteIndexOutOfBounds
+    VerifiedByteCountOverflow
+    PointerProjectionFailed
+    StoreFailed
+    LoadFailed
+    ReadbackMismatch
+
+impl Clone for GuiBareDisplayMemoryOwnerWriteErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryOwnerWriteErrorKind GuiBareDisplayMemoryOwnerWriteErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryOwnerWriteErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerWriteErrorKind GuiBareDisplayMemoryOwnerWriteErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayMemoryOwnerWriteError:
+    kind %GuiBareDisplayMemoryOwnerWriteErrorKind
+    category %Option GuiError
+    owner %GuiBareDisplayMemoryOwner
+    memory_step %GuiBareDisplayMemoryStepApplied
+    outcome %GuiBareDisplayDriverOutcome
+    echo %GuiBareDisplayDriverByteEcho
+
+pub enum GuiBareDisplayMemoryOwnerReadErrorKind:
+    ByteIndexOutOfBounds
+    PointerProjectionFailed
+    LoadFailed
+
+impl Clone for GuiBareDisplayMemoryOwnerReadErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryOwnerReadErrorKind GuiBareDisplayMemoryOwnerReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryOwnerReadErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerReadErrorKind GuiBareDisplayMemoryOwnerReadErrorKind \kind:
+        kind
+
+pub enum GuiBareDisplayMemoryOwnerFreeErrorKind:
+    FreeFailed
+
+impl Clone for GuiBareDisplayMemoryOwnerFreeErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryOwnerFreeErrorKind GuiBareDisplayMemoryOwnerFreeErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryOwnerFreeErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryOwnerFreeErrorKind GuiBareDisplayMemoryOwnerFreeErrorKind \kind:
+        kind
+
+fn gui_bare_display_memory_owner_new %fn GuiBareDisplayDriverState fn i32 fn RegionToken u8 fn i32 fn i32 fn Option GuiBareDisplayDriverByteEchoVerified GuiBareDisplayMemoryOwner \driver_state\surface_byte_count\storage\verified_byte_count\packet_verified_byte_count\last_verified:
+    GuiBareDisplayMemoryOwner driver_state surface_byte_count storage verified_byte_count packet_verified_byte_count last_verified
+
+fn gui_bare_display_memory_owner_create_error_category %fn GuiBareDisplayMemoryOwnerCreateErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayMemoryOwnerCreateErrorKind::DriverInitFailed lower:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryOwnerCreateErrorKind::AllocationFailed:
+            Option::Some GuiError::ResourceExhausted
+
+fn gui_bare_display_memory_owner_write_error_category %fn GuiBareDisplayMemoryOwnerWriteErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayMemoryOwnerWriteErrorKind::EchoVerificationFailed lower:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryOwnerWriteErrorKind::ByteIndexOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayMemoryOwnerWriteErrorKind::VerifiedByteCountOverflow:
+            Option::Some GuiError::ResourceExhausted
+        GuiBareDisplayMemoryOwnerWriteErrorKind::PointerProjectionFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerWriteErrorKind::StoreFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerWriteErrorKind::LoadFailed:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayMemoryOwnerWriteErrorKind::ReadbackMismatch:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_memory_owner_create_error %fn GuiBareDisplayMemoryOwnerCreateErrorKind fn GuiBareFramebufferConfig GuiBareDisplayMemoryOwnerCreateError \kind\config:
+    let category %Option GuiError gui_bare_display_memory_owner_create_error_category kind
+    GuiBareDisplayMemoryOwnerCreateError kind category config
+
+fn gui_bare_display_memory_owner_write_error %fn GuiBareDisplayMemoryOwnerWriteErrorKind fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho GuiBareDisplayMemoryOwnerWriteError \kind\owner\memory_step\outcome\echo:
+    let category %Option GuiError gui_bare_display_memory_owner_write_error_category kind
+    GuiBareDisplayMemoryOwnerWriteError kind category owner memory_step outcome echo
+
+fn gui_bare_display_memory_owner_write_error_from_echo %fn GuiBareDisplayDriverByteEchoError fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho GuiBareDisplayMemoryOwnerWriteError \echo_error\owner\memory_step\outcome\echo:
+    let lower %GuiBareDisplayDriverByteEchoErrorKind gui_bare_display_driver_byte_echo_error_kind &echo_error
+    let kind %GuiBareDisplayMemoryOwnerWriteErrorKind GuiBareDisplayMemoryOwnerWriteErrorKind::EchoVerificationFailed lower
+    let category %Option GuiError gui_bare_display_driver_byte_echo_error_category_value &echo_error
+    GuiBareDisplayMemoryOwnerWriteError kind category owner memory_step outcome echo
+
+pub fn gui_bare_display_memory_owner_driver_state %fn &GuiBareDisplayMemoryOwner GuiBareDisplayDriverState \owner:
+    *field::get_ref owner "driver_state"
+
+pub fn gui_bare_display_memory_owner_surface_byte_count %fn &GuiBareDisplayMemoryOwner i32 \owner:
+    *field::get_ref owner "surface_byte_count"
+
+pub fn gui_bare_display_memory_owner_verified_byte_count %fn &GuiBareDisplayMemoryOwner i32 \owner:
+    *field::get_ref owner "verified_byte_count"
+
+pub fn gui_bare_display_memory_owner_packet_verified_byte_count %fn &GuiBareDisplayMemoryOwner i32 \owner:
+    *field::get_ref owner "packet_verified_byte_count"
+
+pub fn gui_bare_display_memory_owner_last_verified %fn &GuiBareDisplayMemoryOwner Option GuiBareDisplayDriverByteEchoVerified \owner:
+    *field::get_ref owner "last_verified"
+
+pub fn gui_bare_display_memory_owner_create_error_kind %fn &GuiBareDisplayMemoryOwnerCreateError GuiBareDisplayMemoryOwnerCreateErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_memory_owner_create_error_category_value %fn &GuiBareDisplayMemoryOwnerCreateError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_memory_owner_write_error_kind %fn &GuiBareDisplayMemoryOwnerWriteError GuiBareDisplayMemoryOwnerWriteErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_memory_owner_write_error_category_value %fn &GuiBareDisplayMemoryOwnerWriteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_memory_owner_write_error_owner %fn GuiBareDisplayMemoryOwnerWriteError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+fn gui_bare_display_memory_owner_checked_byte_index %fn i32 fn i32 Result unit GuiBareDisplayMemoryOwnerWriteErrorKind \byte_index\surface_byte_count:
+    if or lt byte_index 0 ge byte_index surface_byte_count:
+        then Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::ByteIndexOutOfBounds
+        else Result::Ok unit
+
+fn gui_bare_display_memory_owner_checked_read_index %fn i32 fn i32 Result unit GuiBareDisplayMemoryOwnerReadErrorKind \byte_index\surface_byte_count:
+    if or lt byte_index 0 ge byte_index surface_byte_count:
+        then Result::Err GuiBareDisplayMemoryOwnerReadErrorKind::ByteIndexOutOfBounds
+        else Result::Ok unit
+
+fn gui_bare_display_memory_owner_checked_verified_count %fn i32 Result i32 GuiBareDisplayMemoryOwnerWriteErrorKind \count:
+    let max_i32 %i32 2147483647
+    if ge count max_i32:
+        then Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::VerifiedByteCountOverflow
+        else Result::Ok add count 1
+
+fn gui_bare_display_memory_owner_store_byte %fn &RegionToken u8 fn i32 fn i32 Result unit GuiBareDisplayMemoryOwnerWriteErrorKind \storage\byte_index\value:
+    match region_ptr_at<u8,u8> storage byte_index:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match store_u8 ptr value:
+                Result::Err _:
+                    Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::StoreFailed
+                Result::Ok _:
+                    Result::Ok unit
+
+fn gui_bare_display_memory_owner_load_written_byte %fn &RegionToken u8 fn i32 Result i32 GuiBareDisplayMemoryOwnerWriteErrorKind \storage\byte_index:
+    match region_ptr_at<u8,u8> storage byte_index:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::LoadFailed
+                Option::Some value:
+                    Result::Ok value
+
+fn gui_bare_display_memory_owner_load_byte %fn &RegionToken u8 fn i32 Result i32 GuiBareDisplayMemoryOwnerReadErrorKind \storage\byte_index:
+    match region_ptr_at<u8,u8> storage byte_index:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerReadErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            match load_u8 ptr:
+                Option::None:
+                    Result::Err GuiBareDisplayMemoryOwnerReadErrorKind::LoadFailed
+                Option::Some value:
+                    Result::Ok value
+
+fn gui_bare_display_memory_owner_write_verified_byte %fn &GuiBareDisplayMemoryOwner fn GuiBareDisplayDriverByteEchoVerified Result unit GuiBareDisplayMemoryOwnerWriteErrorKind \owner\verified:
+    let echo %GuiBareDisplayDriverByteEcho gui_bare_display_driver_byte_echo_verified_echo &verified
+    let byte_index %i32 gui_bare_display_driver_byte_echo_byte_index &echo
+    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count owner
+    match gui_bare_display_memory_owner_checked_byte_index byte_index surface_byte_count:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            let expected %i32 gui_bare_display_driver_byte_echo_verified_expected_value &verified
+            let storage %&RegionToken u8 field::get_ref owner "storage"
+            match gui_bare_display_memory_owner_store_byte storage byte_index expected:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_bare_display_memory_owner_load_written_byte storage byte_index:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok actual:
+                            if ne actual expected:
+                                then Result::Err GuiBareDisplayMemoryOwnerWriteErrorKind::ReadbackMismatch
+                                else Result::Ok unit
+
+pub fn gui_bare_display_memory_owner_create %fn GuiBareFramebufferConfig Result GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwnerCreateError \config:
+    match gui_bare_display_driver_state_initial config:
+        Result::Err driver_kind:
+            Result::Err gui_bare_display_memory_owner_create_error GuiBareDisplayMemoryOwnerCreateErrorKind::DriverInitFailed driver_kind config
+        Result::Ok driver_state:
+            let memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state &driver_state
+            let surface_byte_count %i32 gui_bare_display_memory_state_total_byte_count &memory_state
+            match alloc_region_bytes<u8> surface_byte_count:
+                Result::Err _:
+                    Result::Err gui_bare_display_memory_owner_create_error GuiBareDisplayMemoryOwnerCreateErrorKind::AllocationFailed config
+                Result::Ok storage:
+                    Result::Ok gui_bare_display_memory_owner_new driver_state surface_byte_count storage 0 0 Option::None
+
+//: gui_bare_display_memory_owner_write_echo: verified echo 1 byte を raw memory owner へ[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - caller supplied verified value は[信用/しんよう]せず、owner の canonical driver state から F5fq verification を[実行/じっこう]します。
+//: - store と readback が[成功/せいこう]するまで owner state は[進/すす]めません。
+//: - 1 回の成功は exact echoed byte 1 個だけを[検証/けんしょう]したことを[表/あらわ]します。
+pub fn gui_bare_display_memory_owner_write_echo %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho Result GuiBareDisplayMemoryOwner GuiBareDisplayMemoryOwnerWriteError \owner\memory_step\outcome\echo:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state &owner
+    match gui_bare_display_driver_byte_echo_verify driver_state memory_step outcome echo:
+        Result::Err echo_error:
+            Result::Err gui_bare_display_memory_owner_write_error_from_echo echo_error owner memory_step outcome echo
+        Result::Ok verified:
+            match gui_bare_display_memory_owner_write_verified_byte &owner verified:
+                Result::Err kind:
+                    Result::Err gui_bare_display_memory_owner_write_error kind owner memory_step outcome echo
+                Result::Ok _:
+                    let step %GuiBareDisplayDriverStepApplied gui_bare_display_driver_byte_echo_verified_step &verified
+                    let next_driver_state %GuiBareDisplayDriverState gui_bare_display_driver_step_applied_state &step
+                    let count %i32 gui_bare_display_memory_owner_verified_byte_count &owner
+                    match gui_bare_display_memory_owner_checked_verified_count count:
+                        Result::Err kind:
+                            Result::Err gui_bare_display_memory_owner_write_error kind owner memory_step outcome echo
+                        Result::Ok next_count:
+                            let packet_count %i32 gui_bare_display_memory_owner_packet_verified_byte_count &owner
+                            match gui_bare_display_memory_owner_checked_verified_count packet_count:
+                                Result::Err packet_kind:
+                                    Result::Err gui_bare_display_memory_owner_write_error packet_kind owner memory_step outcome echo
+                                Result::Ok next_packet_count:
+                                    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+                                    let storage %RegionToken u8 field::get owner "storage"
+                                    Result::Ok gui_bare_display_memory_owner_new next_driver_state surface_byte_count storage next_count next_packet_count Option::Some verified
+
+pub fn gui_bare_display_memory_owner_read_byte %fn &GuiBareDisplayMemoryOwner fn i32 Result i32 GuiBareDisplayMemoryOwnerReadErrorKind \owner\byte_index:
+    let surface_byte_count %i32 gui_bare_display_memory_owner_surface_byte_count owner
+    match gui_bare_display_memory_owner_checked_read_index byte_index surface_byte_count:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            let storage %&RegionToken u8 field::get_ref owner "storage"
+            gui_bare_display_memory_owner_load_byte storage byte_index
+
+pub fn gui_bare_display_memory_owner_free %fn GuiBareDisplayMemoryOwner Result unit GuiBareDisplayMemoryOwnerFreeErrorKind \owner:
+    let storage %RegionToken u8 field::get owner "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _:
+            Result::Err GuiBareDisplayMemoryOwnerFreeErrorKind::FreeFailed
+        Result::Ok _:
+            Result::Ok unit

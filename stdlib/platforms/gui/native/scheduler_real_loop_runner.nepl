@@ -1,0 +1,232 @@
+//: # platforms/gui/native/scheduler_real_loop_runner
+//: Native scheduler bounded real-loop runner boundary
+//:
+//: ### [目的/もくてき]
+//: - F5gb Native scheduler bounded real-loop runner boundary として、F5el start から F5fz 1 action step を bounded に[繰/く]り[返/かえ]します。
+//: - `max_step_count` により[停止/ていし]できる real backend loop checkpoint を[作/つく]り、test / native host integration が terminal state と budget exhaustion を[区別/くべつ]できるようにします。
+//:
+//: ### [契約/けいやく]
+//: - policy は native F5fz real-loop step policy と `max_step_count` だけを[保持/ほじ]します。
+//: - F5el driver policy は F5fz policy accessor から[借用/しゃくよう]し、runner policy へ[重複/ちょうふく]して[保持/ほじ]しません。
+//: - `max_step_count < 0` は typed `PolicyInvalid` であり、start も step も[呼/よ]びません。
+//: - `max_step_count == 0` でも F5el start は 1 [回/かい]だけ[呼/よ]びます。start が `NeedInput` を[返/かえ]した[場合/ばあい]は step を[呼/よ]ばず `BudgetExhausted` を[返/かえ]します。
+//: - step failure は current clock state と lower F5fz error を[保持/ほじ]し、clock-input failure でも runner level で clock state を[失/うしな]いません。
+//: - queue、sleep、timer wait、DOM、Canvas、minifb、video memory、fallback、silent no-op、explicit input の[捏造/ねつぞう]は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/scheduler_real_loop_runner" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/native/scheduler_real_loop_step" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver" as *
+
+pub struct GuiNativeSchedulerRealLoopRunnerPolicy:
+    step_policy %GuiNativeSchedulerRealLoopStepPolicy
+    max_step_count %i32
+
+pub enum GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:
+    MaxStepCountInvalid
+
+impl Clone for GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:
+    fn clone %fn &GuiNativeSchedulerRealLoopRunnerPolicyErrorKind GuiNativeSchedulerRealLoopRunnerPolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiNativeSchedulerRealLoopRunnerPolicyErrorKind:
+    fn copy_mark %fn GuiNativeSchedulerRealLoopRunnerPolicyErrorKind GuiNativeSchedulerRealLoopRunnerPolicyErrorKind \kind:
+        kind
+
+pub struct GuiNativeSchedulerRealLoopRunnerBudgetExhausted:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    need %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput
+    step_count %i32
+
+pub struct GuiNativeSchedulerRealLoopRunnerCompleted:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted
+    step_count %i32
+
+pub enum GuiNativeSchedulerRealLoopRunnerResult:
+    BudgetExhausted %GuiNativeSchedulerRealLoopRunnerBudgetExhausted
+    Completed %GuiNativeSchedulerRealLoopRunnerCompleted
+
+pub struct GuiNativeSchedulerRealLoopRunnerPolicyInvalid:
+    kind %GuiNativeSchedulerRealLoopRunnerPolicyErrorKind
+    category %Option GuiError
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState
+
+pub struct GuiNativeSchedulerRealLoopRunnerStartFailed:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError
+
+pub struct GuiNativeSchedulerRealLoopRunnerStepFailed:
+    clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiNativeSchedulerRealLoopStepError
+
+pub enum GuiNativeSchedulerRealLoopRunnerError:
+    PolicyInvalid %GuiNativeSchedulerRealLoopRunnerPolicyInvalid
+    StartFailed %GuiNativeSchedulerRealLoopRunnerStartFailed
+    StepFailed %GuiNativeSchedulerRealLoopRunnerStepFailed
+
+fn gui_native_scheduler_real_loop_runner_policy_new %fn GuiNativeSchedulerRealLoopStepPolicy fn i32 GuiNativeSchedulerRealLoopRunnerPolicy \step_policy\max_step_count:
+    GuiNativeSchedulerRealLoopRunnerPolicy step_policy max_step_count
+
+fn gui_native_scheduler_real_loop_runner_validate_max_step_count %fn i32 Result i32 GuiNativeSchedulerRealLoopRunnerPolicyErrorKind \max_step_count:
+    if lt max_step_count 0:
+        then Result::Err GuiNativeSchedulerRealLoopRunnerPolicyErrorKind::MaxStepCountInvalid
+        else Result::Ok max_step_count
+
+fn gui_native_scheduler_real_loop_runner_policy_error_kind_category %fn GuiNativeSchedulerRealLoopRunnerPolicyErrorKind Option GuiError \kind:
+    match kind:
+        GuiNativeSchedulerRealLoopRunnerPolicyErrorKind::MaxStepCountInvalid:
+            Option::Some GuiError::InvalidCommand
+
+pub fn gui_native_scheduler_real_loop_runner_policy %fn GuiNativeSchedulerRealLoopStepPolicy fn i32 Result GuiNativeSchedulerRealLoopRunnerPolicy GuiNativeSchedulerRealLoopRunnerPolicyErrorKind \step_policy\max_step_count:
+    match gui_native_scheduler_real_loop_runner_validate_max_step_count max_step_count:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok count:
+            Result::Ok gui_native_scheduler_real_loop_runner_policy_new step_policy count
+
+pub fn gui_native_scheduler_real_loop_runner_policy_step_policy_ref %fn &GuiNativeSchedulerRealLoopRunnerPolicy &GuiNativeSchedulerRealLoopStepPolicy \policy:
+    field::get_ref policy "step_policy"
+
+pub fn gui_native_scheduler_real_loop_runner_policy_max_step_count %fn &GuiNativeSchedulerRealLoopRunnerPolicy i32 \policy:
+    *field::get_ref policy "max_step_count"
+
+fn gui_native_scheduler_real_loop_runner_budget_exhausted_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput fn i32 GuiNativeSchedulerRealLoopRunnerBudgetExhausted \clock_state\need\step_count:
+    GuiNativeSchedulerRealLoopRunnerBudgetExhausted clock_state need step_count
+
+fn gui_native_scheduler_real_loop_runner_completed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted fn i32 GuiNativeSchedulerRealLoopRunnerCompleted \clock_state\completed\step_count:
+    GuiNativeSchedulerRealLoopRunnerCompleted clock_state completed step_count
+
+fn gui_native_scheduler_real_loop_runner_policy_invalid_new %fn GuiNativeSchedulerRealLoopRunnerPolicyErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState GuiNativeSchedulerRealLoopRunnerPolicyInvalid \kind\clock_state\state:
+    let category %Option GuiError gui_native_scheduler_real_loop_runner_policy_error_kind_category kind
+    GuiNativeSchedulerRealLoopRunnerPolicyInvalid kind category clock_state state
+
+fn gui_native_scheduler_real_loop_runner_start_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError GuiNativeSchedulerRealLoopRunnerStartFailed \clock_state\lower:
+    GuiNativeSchedulerRealLoopRunnerStartFailed clock_state lower
+
+fn gui_native_scheduler_real_loop_runner_step_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiNativeSchedulerRealLoopStepError GuiNativeSchedulerRealLoopRunnerStepFailed \clock_state\lower:
+    GuiNativeSchedulerRealLoopRunnerStepFailed clock_state lower
+
+fn gui_native_scheduler_real_loop_runner_policy_invalid_result %fn GuiNativeSchedulerRealLoopRunnerPolicyErrorKind fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \kind\clock_state\state:
+    let failed %GuiNativeSchedulerRealLoopRunnerPolicyInvalid gui_native_scheduler_real_loop_runner_policy_invalid_new kind clock_state state
+    Result::Err GuiNativeSchedulerRealLoopRunnerError::PolicyInvalid failed
+
+fn gui_native_scheduler_real_loop_runner_start_failed_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \clock_state\lower:
+    let failed %GuiNativeSchedulerRealLoopRunnerStartFailed gui_native_scheduler_real_loop_runner_start_failed_new clock_state lower
+    Result::Err GuiNativeSchedulerRealLoopRunnerError::StartFailed failed
+
+fn gui_native_scheduler_real_loop_runner_step_failed_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiNativeSchedulerRealLoopStepError Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \clock_state\lower:
+    let failed %GuiNativeSchedulerRealLoopRunnerStepFailed gui_native_scheduler_real_loop_runner_step_failed_new clock_state lower
+    Result::Err GuiNativeSchedulerRealLoopRunnerError::StepFailed failed
+
+fn gui_native_scheduler_real_loop_runner_from_completed %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted fn i32 Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \clock_state\completed\step_count:
+    let payload %GuiNativeSchedulerRealLoopRunnerCompleted gui_native_scheduler_real_loop_runner_completed_new clock_state completed step_count
+    Result::Ok GuiNativeSchedulerRealLoopRunnerResult::Completed payload
+
+fn gui_native_scheduler_real_loop_runner_budget_exhausted_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput fn i32 Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \clock_state\need\step_count:
+    let payload %GuiNativeSchedulerRealLoopRunnerBudgetExhausted gui_native_scheduler_real_loop_runner_budget_exhausted_new clock_state need step_count
+    Result::Ok GuiNativeSchedulerRealLoopRunnerResult::BudgetExhausted payload
+
+fn gui_native_scheduler_real_loop_runner_drain_remaining %impure fn &GuiNativeSchedulerRealLoopRunnerPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult impure fn i32 impure fn i32 Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \policy\clock_state\driver_result\remaining_count\step_count:
+    match driver_result:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult::Completed completed:
+            gui_native_scheduler_real_loop_runner_from_completed clock_state completed step_count
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult::NeedInput need:
+            if le remaining_count 0:
+                then gui_native_scheduler_real_loop_runner_budget_exhausted_result clock_state need step_count
+                else:
+                    let step_policy %&GuiNativeSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_runner_policy_step_policy_ref policy
+                    match gui_native_scheduler_real_loop_step step_policy clock_state need:
+                        Result::Err lower:
+                            gui_native_scheduler_real_loop_runner_step_failed_result clock_state lower
+                        Result::Ok ready:
+                            let next_clock_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState gui_native_scheduler_real_loop_step_ready_clock_state &ready
+                            let next_driver_result %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverResult gui_native_scheduler_real_loop_step_ready_driver_result ready
+                            let next_remaining_count %i32 sub remaining_count 1
+                            let next_step_count %i32 add step_count 1
+                            gui_native_scheduler_real_loop_runner_drain_remaining policy next_clock_state next_driver_result next_remaining_count next_step_count
+
+//: gui_native_scheduler_real_loop_runner_run: native real-loop を bounded に[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - policy は F5el start の[前/まえ]に[再検査/さいけんさ]します。
+//: - F5el start は valid policy で 1 [回/かい]だけ[呼/よ]びます。
+//: - F5fz step は `NeedInput` かつ remaining budget が positive の[場合/ばあい]だけ[呼/よ]びます。
+pub fn gui_native_scheduler_real_loop_runner_run %impure fn &GuiNativeSchedulerRealLoopRunnerPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiNativeSchedulerRealLoopRunnerResult GuiNativeSchedulerRealLoopRunnerError \policy\clock_state\state:
+    let max_step_count %i32 gui_native_scheduler_real_loop_runner_policy_max_step_count policy
+    match gui_native_scheduler_real_loop_runner_validate_max_step_count max_step_count:
+        Result::Err kind:
+            gui_native_scheduler_real_loop_runner_policy_invalid_result kind clock_state state
+        Result::Ok count:
+            let step_policy %&GuiNativeSchedulerRealLoopStepPolicy gui_native_scheduler_real_loop_runner_policy_step_policy_ref policy
+            let driver_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverPolicy gui_native_scheduler_real_loop_step_policy_driver_policy_ref step_policy
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver_start driver_policy state:
+                Result::Err lower:
+                    gui_native_scheduler_real_loop_runner_start_failed_result clock_state lower
+                Result::Ok driver_result:
+                    gui_native_scheduler_real_loop_runner_drain_remaining policy clock_state driver_result count 0
+
+pub fn gui_native_scheduler_real_loop_runner_budget_exhausted_clock_state %fn &GuiNativeSchedulerRealLoopRunnerBudgetExhausted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \exhausted:
+    *field::get_ref exhausted "clock_state"
+
+pub fn gui_native_scheduler_real_loop_runner_budget_exhausted_need %fn GuiNativeSchedulerRealLoopRunnerBudgetExhausted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverNeedInput \exhausted:
+    field::get exhausted "need"
+
+pub fn gui_native_scheduler_real_loop_runner_budget_exhausted_step_count %fn &GuiNativeSchedulerRealLoopRunnerBudgetExhausted i32 \exhausted:
+    *field::get_ref exhausted "step_count"
+
+pub fn gui_native_scheduler_real_loop_runner_completed_clock_state %fn &GuiNativeSchedulerRealLoopRunnerCompleted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \completed:
+    *field::get_ref completed "clock_state"
+
+pub fn gui_native_scheduler_real_loop_runner_completed_completed %fn GuiNativeSchedulerRealLoopRunnerCompleted GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverCompleted \completed:
+    field::get completed "completed"
+
+pub fn gui_native_scheduler_real_loop_runner_completed_step_count %fn &GuiNativeSchedulerRealLoopRunnerCompleted i32 \completed:
+    *field::get_ref completed "step_count"
+
+pub fn gui_native_scheduler_real_loop_runner_policy_invalid_kind %fn &GuiNativeSchedulerRealLoopRunnerPolicyInvalid GuiNativeSchedulerRealLoopRunnerPolicyErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_native_scheduler_real_loop_runner_policy_invalid_category_value %fn &GuiNativeSchedulerRealLoopRunnerPolicyInvalid Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_native_scheduler_real_loop_runner_policy_invalid_clock_state %fn &GuiNativeSchedulerRealLoopRunnerPolicyInvalid GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_native_scheduler_real_loop_runner_policy_invalid_state %fn GuiNativeSchedulerRealLoopRunnerPolicyInvalid GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState \error:
+    field::get error "state"
+
+pub fn gui_native_scheduler_real_loop_runner_start_failed_clock_state %fn &GuiNativeSchedulerRealLoopRunnerStartFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_native_scheduler_real_loop_runner_start_failed_lower %fn GuiNativeSchedulerRealLoopRunnerStartFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopDriverError \error:
+    field::get error "lower"
+
+pub fn gui_native_scheduler_real_loop_runner_step_failed_clock_state %fn &GuiNativeSchedulerRealLoopRunnerStepFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \error:
+    *field::get_ref error "clock_state"
+
+pub fn gui_native_scheduler_real_loop_runner_step_failed_lower %fn GuiNativeSchedulerRealLoopRunnerStepFailed GuiNativeSchedulerRealLoopStepError \error:
+    field::get error "lower"

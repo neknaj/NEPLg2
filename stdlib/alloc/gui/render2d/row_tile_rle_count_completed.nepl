@@ -1,0 +1,125 @@
+//: # alloc/gui/render2d/row_tile_rle_count_completed
+//: RGBA8888 row tile RLE completed count evidence boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRleCountOwner` を formal encoded RLE transport の exact capacity evidence に[昇格/しょうかく]します。
+//: - cursor が complete で、total run count が[正/ただ]しい場合だけ completed owner を[作/つく]ります。
+//:
+//: ### [契約/けいやく]
+//: - pending cursor は `CountNotCompleted` として owner-bearing error で[返/かえ]します。
+//: - cursor status の lower error は `CursorInvalid lower_kind` に[包/つつ]みます。
+//: - total run count が 0 以下なら `TotalRunCountInvalid` として拒否します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は encoded buffer、Vec、raw storage、video memory host call、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - RLE run を[再走査/さいそうさ]せず、F5ce count owner が[保持/ほじ]する status と count だけを[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_count_completed" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_count" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleCountCompletedErrorKind:
+    CursorInvalid %GuiRgba8888RowTileRleStepErrorKind
+    CountNotCompleted
+    TotalRunCountInvalid
+
+impl Clone for GuiRgba8888RowTileRleCountCompletedErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleCountCompletedErrorKind GuiRgba8888RowTileRleCountCompletedErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleCountCompletedErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleCountCompletedErrorKind GuiRgba8888RowTileRleCountCompletedErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleCountCompletedOwner:
+    count %GuiRgba8888RowTileRleCountOwner
+    total_run_count %i32
+
+pub struct GuiRgba8888RowTileRleCountCompletedError:
+    kind %GuiRgba8888RowTileRleCountCompletedErrorKind
+    category %Option GuiError
+    count %GuiRgba8888RowTileRleCountOwner
+
+fn gui_rgba8888_row_tile_rle_count_completed_owner_new %fn GuiRgba8888RowTileRleCountOwner fn i32 GuiRgba8888RowTileRleCountCompletedOwner \count\total_run_count:
+    GuiRgba8888RowTileRleCountCompletedOwner count total_run_count
+
+fn gui_rgba8888_row_tile_rle_count_completed_error_category %fn GuiRgba8888RowTileRleCountCompletedErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleCountCompletedErrorKind::CursorInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleCountCompletedErrorKind::CountNotCompleted:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleCountCompletedErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_count_completed_error %fn GuiRgba8888RowTileRleCountCompletedErrorKind fn GuiRgba8888RowTileRleCountOwner GuiRgba8888RowTileRleCountCompletedError \kind\count:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_count_completed_error_category kind
+    GuiRgba8888RowTileRleCountCompletedError kind category count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_owner_total_run_count %fn &GuiRgba8888RowTileRleCountCompletedOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCountCompletedOwner i32 \owner:
+    let count %&GuiRgba8888RowTileRleCountOwner field::get_ref owner "count"
+    gui_rgba8888_row_tile_rle_count_owner_cursor_next_pixel_index count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_owner_finish_count_owner %fn GuiRgba8888RowTileRleCountCompletedOwner GuiRgba8888RowTileRleCountOwner \owner:
+    field::get owner "count"
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_kind %fn &GuiRgba8888RowTileRleCountCompletedError GuiRgba8888RowTileRleCountCompletedErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_category_value %fn &GuiRgba8888RowTileRleCountCompletedError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_total_run_count %fn &GuiRgba8888RowTileRleCountCompletedError i32 \error:
+    let count %&GuiRgba8888RowTileRleCountOwner field::get_ref error "count"
+    gui_rgba8888_row_tile_rle_count_owner_accumulated_run_count count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCountCompletedError i32 \error:
+    let count %&GuiRgba8888RowTileRleCountOwner field::get_ref error "count"
+    gui_rgba8888_row_tile_rle_count_owner_cursor_next_pixel_index count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_finish_count_owner %fn GuiRgba8888RowTileRleCountCompletedError GuiRgba8888RowTileRleCountOwner \error:
+    field::get error "count"
+
+//: gui_rgba8888_row_tile_rle_count_completed_prepare: completed count owner を exact capacity evidence に[昇格/しょうかく]する
+//:
+//: [契約/けいやく]:
+//: - cursor status を先に[検査/けんさ]し、Ready cursor は `CountNotCompleted` として拒否します。
+//: - Complete cursor の場合だけ total run count を[検査/けんさ]します。
+//: - 成功した completed owner は後続 transport の capacity evidence であり、encoded storage そのものではありません。
+pub fn gui_rgba8888_row_tile_rle_count_completed_prepare %fn GuiRgba8888RowTileRleCountOwner Result GuiRgba8888RowTileRleCountCompletedOwner GuiRgba8888RowTileRleCountCompletedError \count:
+    match gui_rgba8888_row_tile_rle_count_owner_cursor_status &count:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_count_completed_error GuiRgba8888RowTileRleCountCompletedErrorKind::CursorInvalid kind count
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    Result::Err gui_rgba8888_row_tile_rle_count_completed_error GuiRgba8888RowTileRleCountCompletedErrorKind::CountNotCompleted count
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    let total_run_count %i32 gui_rgba8888_row_tile_rle_count_owner_accumulated_run_count &count
+                    if le total_run_count 0:
+                        then Result::Err gui_rgba8888_row_tile_rle_count_completed_error GuiRgba8888RowTileRleCountCompletedErrorKind::TotalRunCountInvalid count
+                        else Result::Ok gui_rgba8888_row_tile_rle_count_completed_owner_new count total_run_count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_owner_free %fn GuiRgba8888RowTileRleCountCompletedOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_completed_owner_finish_count_owner owner
+    gui_rgba8888_row_tile_rle_count_owner_free count
+
+pub fn gui_rgba8888_row_tile_rle_count_completed_error_free %fn GuiRgba8888RowTileRleCountCompletedError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_completed_error_finish_count_owner error
+    gui_rgba8888_row_tile_rle_count_owner_free count

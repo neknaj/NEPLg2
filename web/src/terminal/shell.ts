@@ -118,11 +118,14 @@ type InterruptOptions = {
     report?: boolean;
 };
 
+type GuiRuntimeTimerHandle = ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>;
+
 type GuiRuntimeTimerState = {
-    handle: ReturnType<typeof setInterval>;
+    handle: GuiRuntimeTimerHandle;
     windowId: number;
     timerId: number;
     intervalMs: number;
+    repeating: boolean;
     tick: number;
 };
 
@@ -794,6 +797,7 @@ export class Shell {
             || request.timerId <= 0
             || !Number.isInteger(request.intervalMs)
             || request.intervalMs < 0
+            || typeof request.repeating !== 'boolean'
         ) {
             return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
         }
@@ -806,25 +810,24 @@ export class Shell {
             this.clearGuiRuntimeTimer(key);
             return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
         }
-        if (!request.repeating) {
-            this.clearGuiRuntimeTimer(key);
-            return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
-        }
         if (request.intervalMs === 0) {
             this.clearGuiRuntimeTimer(key);
             return GUI_TIMER_HOST_STATUS_OK;
         }
         const existing = this.guiRuntimeTimers.get(key);
-        if (existing && existing.intervalMs === request.intervalMs) {
+        if (existing && existing.intervalMs === request.intervalMs && existing.repeating === request.repeating) {
             return GUI_TIMER_HOST_STATUS_OK;
         }
         this.clearGuiRuntimeTimer(key);
-        const handle = setInterval(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs);
+        const handle = request.repeating
+            ? setInterval(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs)
+            : setTimeout(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs);
         this.guiRuntimeTimers.set(key, {
             handle,
             windowId: request.windowId,
             timerId: request.timerId,
             intervalMs: request.intervalMs,
+            repeating: request.repeating,
             tick: 0,
         });
         return GUI_TIMER_HOST_STATUS_OK;
@@ -839,13 +842,19 @@ export class Shell {
             this.clearGuiRuntimeTimer(key);
             return;
         }
-        timer.tick = timer.tick >= GUI_RUNTIME_TIMER_MAX_TICK ? 0 : timer.tick + 1;
-        this.handleGuiInputEvent({
+        const nextTick = timer.tick >= GUI_RUNTIME_TIMER_MAX_TICK ? 0 : timer.tick + 1;
+        const event: GuiWebInputEvent = {
             kind: 'timer',
             windowId: timer.windowId,
             timerId: timer.timerId,
-            tick: timer.tick,
-        });
+            tick: nextTick,
+        };
+        if (timer.repeating) {
+            timer.tick = nextTick;
+        } else {
+            this.clearGuiRuntimeTimer(key);
+        }
+        this.handleGuiInputEvent(event);
     }
 
     private clearGuiRuntimeTimer(key: string) {
@@ -853,7 +862,11 @@ export class Shell {
         if (!timer) {
             return;
         }
-        clearInterval(timer.handle);
+        if (timer.repeating) {
+            clearInterval(timer.handle);
+        } else {
+            clearTimeout(timer.handle);
+        }
         this.guiRuntimeTimers.delete(key);
     }
 

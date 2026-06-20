@@ -1,0 +1,197 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_loop
+//: RGBA8888 row tile RLE present host span operation presenter executor loop の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter loop が F5dn と F5do を[手動/しゅどう]で interleave せず、start / request / complete の loop contract だけを[扱/あつか]えるようにします。
+//: - request は driver state から executor request を[取/と]り[出/だ]し、complete は executor attempt を次の loop state へ[戻/もど]します。
+//:
+//: ### [契約/けいやく]
+//: - LoopState、RequestResult、LoopCompletion、owner-bearing error は Clone / Copy にしません。
+//: - request は LoopState を value として[消費/しょうひ]し、F5dn request を 1 [回/かい]だけ[呼/よ]びます。
+//: - F5do executor request は F5dn `Operation` branch でだけ[呼/よ]び、F5dn `Completed` branch では[呼/よ]びません。
+//: - complete は F5do executor complete だけを 1 [回/かい]だけ[呼/よ]び、F5dn complete や F5dm/F5di/F5dl を[直接/ちょくせつ][呼/よ]びません。
+//: - host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_loop" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState:
+    driver_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult:
+    Operation %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest
+    Completed
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion:
+    Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState
+    Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverStartError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError:
+    DriverRequestRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError
+    ExecutorRequestRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError:
+    ExecutorCompleteRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState \driver_state:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState driver_state
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError \support\policy\action\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError support policy action category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_request_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_executor_request_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_payload_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_completion_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion \completion:
+    match completion:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompletion::Continue driver_state:
+            let loop_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_new driver_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Continue loop_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverCompletion::Yield driver_state:
+            let loop_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_new driver_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Yield loop_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start: action から executor loop state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5dn driver start を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path だけが DriverState を LoopState へ[包/つつ]みます。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError \support\policy\action:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_start support policy action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_new support policy action lower
+        Result::Ok driver_state:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_new driver_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request: loop state から executor request を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - LoopState を value として[消費/しょうひ]します。
+//: - F5dn driver request を 1 [回/かい]だけ[呼/よ]びます。
+//: - F5dn `Operation` branch でだけ F5do executor request を[作/つく]ります。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError \loop_state:
+    let driver_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_driver_state loop_state
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_request driver_state:
+        Result::Err lower:
+            let error %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_new lower
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError::DriverRequestRejected error
+        Result::Ok driver_result:
+            match driver_result:
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestResult::Completed:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Completed
+                GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestResult::Operation outcome_request:
+                    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_request outcome_request:
+                        Result::Err lower:
+                            let error %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_executor_request_error_new lower
+                            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError::ExecutorRequestRejected error
+                        Result::Ok executor_request:
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Operation executor_request
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete: executor attempt を next loop state へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - F5do executor complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path だけが F5dn DriverCompletion を LoopCompletion へ[再包装/さいほうそう]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError \request\attempt:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_complete request attempt:
+        Result::Err lower:
+            let error %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_payload_new lower
+            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError::ExecutorCompleteRejected error
+        Result::Ok completion:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_completion_new completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_driver_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState \loop_state:
+    field::get loop_state "driver_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError GuiRgba8888RowTileRlePresentHostExecutorSupport \error:
+    *field::get_ref error "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_policy %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \error:
+    *field::get_ref error "policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_action %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverStartError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError Option GuiError \error:
+    match *error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError::DriverRequestRejected driver_error:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_category_value &driver_error
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError::ExecutorRequestRejected executor_error:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_executor_request_error_category_value &executor_error
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError Option GuiError \error:
+    match *error:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteError::ExecutorCompleteRejected payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_payload_category_value &payload
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState \error:
+    let lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestError field::get error "lower"
+    let driver_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_driver_request_error_state lower
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_state_new driver_state
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_driver_request_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopDriverRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverRequestError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_executor_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_executor_request_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopExecutorRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequestError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_payload_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete_error_payload_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompleteErrorPayload GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorCompleteError \error:
+    field::get error "lower"

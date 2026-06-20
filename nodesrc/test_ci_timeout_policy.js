@@ -71,6 +71,7 @@ for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/t
 for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/ci_timeout.js") && !l.includes("node nodesrc/tests.js"))) {
     const wrapped = splitWrappedCommand(line);
     const runsSelfhostStructuredReporter = wrapped.commandArgs.includes("node nodesrc/run_selfhost_doctest_check.js");
+    const runsRustTests = wrapped.commandArgs.includes("cargo test --all --all-features --no-fail-fast");
     if (runsSelfhostStructuredReporter) {
         assert.match(
             wrapped.wrapperArgs,
@@ -86,6 +87,17 @@ for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/c
             workflow,
             /node nodesrc\/complete_selfhost_doctest_artifact\.js --marker "\$\{timeout_marker\}" --json "\$\{\{ matrix\.output \}\}"/,
             "selfhost timeout marker must be converted into the published doctest JSON artifact",
+        );
+    } else if (runsRustTests) {
+        assert.match(
+            wrapped.wrapperArgs,
+            /--timeout-nonfatal/,
+            "Rust test timeouts must be detected without failing CI because this suite can exceed the wrapper budget",
+        );
+        assert.match(
+            wrapped.commandArgs,
+            /cargo test --all --all-features --no-fail-fast/,
+            "Rust test timeout policy must still run the full cargo test suite",
         );
     } else {
         assert.doesNotMatch(

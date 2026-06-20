@@ -1,0 +1,140 @@
+//: # std/gui/tile_present_host_span_operation_presenter_step
+//: RGBA8888 row tile RLE present host span operation presenter step の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter が[試行/しこう]した 1 span operation の[結果/けっか]を、F5di の[対応/たいおう][検査/けんさ]と F5dj の completion [変換/へんかん]へ[順番/じゅんばん]に[通/とお]します。
+//: - presenter wrapper が同じ success / failure contract を[使/つか]えるようにし、platform [実行/じっこう]そのものはこの module に[含/ふく]めません。
+//:
+//: ### [契約/けいやく]
+//: - 入力は support set、F5dh ready、presenter supplied attempt だけです。
+//: - F5di attempt step を[先/さき]に 1 [回/かい]だけ[呼/よ]び、F5di が `Ok` の[場合/ばあい]だけ F5dj completion step を 1 [回/かい]だけ[呼/よ]びます。
+//: - F5di rejection は support、ready、attempt、lower error、lower category を[保持/ほじ]する typed error へ[写/うつ]します。
+//: - F5dj rejection は attempt step、lower error、lower category を[保持/ほじ]する typed error へ[写/うつ]します。
+//: - Completed、host import、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_step" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_attempt" as *
+#import "std/gui/tile_present_host_span_operation_completion" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep:
+    completion_step %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep \step:
+        step
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    category %Option GuiError
+    ready %GuiRgba8888RowTileRlePresentScheduledSpanOperationReady
+    attempt %GuiRgba8888RowTileRlePresentHostSpanOperationAttempt
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected:
+    category %Option GuiError
+    attempt_step %GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected \rejection:
+        *rejection
+
+impl Copy for GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected \rejection:
+        rejection
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError:
+    AttemptRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected
+    CompletionRejected %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep \completion_step:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep completion_step
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_error_category %fn &GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError Option GuiError \lower:
+    match *lower:
+        GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError::UnsupportedOperation payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_unsupported_category_value &payload
+        GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError::AttemptOperationMismatch payload:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_mismatch_category_value &payload
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_error_category %fn &GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError Option GuiError \lower:
+    match *lower:
+        GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError::HostOutcomeFailed failure:
+            gui_rgba8888_row_tile_rle_present_host_span_operation_completion_host_failed_category_value &failure
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected \support\ready\attempt\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_error_category &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected support category ready attempt lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_error %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError \support\ready\attempt\lower:
+    let rejection %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_new support ready attempt lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError::AttemptRejected rejection
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected \attempt_step\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_error_category &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected category attempt_step lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_error %fn GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep fn GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError \attempt_step\lower:
+    let rejection %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_new attempt_step lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError::CompletionRejected rejection
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step: presenter supplied attempt を F5di と F5dj へ[順番/じゅんばん]に[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - F5di attempt step を[先/さき]に[呼/よ]び、失敗時は F5dj へ[進/すす]みません。
+//: - F5di が[成功/せいこう]した attempt step だけを F5dj completion step へ[渡/わた]します。
+//: - この function は host outcome を[作/つく]らず、attempt に[含/ふく]まれる caller supplied outcome だけを[使/つか]います。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationReady fn GuiRgba8888RowTileRlePresentHostSpanOperationAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStepError \support\ready\attempt:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_attempt_step support ready attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_error support ready attempt lower
+        Result::Ok attempt_step:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_completion_step attempt_step:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_error attempt_step lower
+                Result::Ok completion_step:
+                    Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step_new completion_step
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_step_completion_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep GuiRgba8888RowTileRlePresentHostSpanOperationCompletionStep \step:
+    *field::get_ref step "completion_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected GuiRgba8888RowTileRlePresentHostExecutorSupport \rejection:
+    *field::get_ref rejection "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected Option GuiError \rejection:
+    *field::get_ref rejection "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_ready %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected GuiRgba8888RowTileRlePresentScheduledSpanOperationReady \rejection:
+    *field::get_ref rejection "ready"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_attempt %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected GuiRgba8888RowTileRlePresentHostSpanOperationAttempt \rejection:
+    *field::get_ref rejection "attempt"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_attempt_rejected_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterAttemptRejected GuiRgba8888RowTileRlePresentHostSpanOperationAttemptError \rejection:
+    field::get rejection "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected Option GuiError \rejection:
+    *field::get_ref rejection "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_attempt_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep \rejection:
+    *field::get_ref rejection "attempt_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_completion_rejected_lower %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterCompletionRejected GuiRgba8888RowTileRlePresentHostSpanOperationCompletionError \rejection:
+    *field::get_ref rejection "lower"

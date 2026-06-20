@@ -1,0 +1,225 @@
+//: # alloc/gui/render2d/row_batch_drain
+//: RGBA8888 row batch scheduler progress boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowBatchCursorOwner` を、scheduler の time slice 内で bounded に[進/すす]めます。
+//: - この phase の[成果物/せいかぶつ]は cursor progress と emitted batch count だけです。row byte payload、tile、RLE、host present は[作/つく]りません。
+//:
+//: ### [契約/けいやく]
+//: - 完了判定は budget 判定より[前/まえ]に[行/おこな]います。complete cursor は負 budget でも `Completed` です。
+//: - `remaining_steps == 0` は有効な scheduler slice exhaustion として `StepBudgetExhausted` を[返/かえ]します。
+//: - `remaining_steps < 0` は caller bug として owner-bearing `InvalidBudget` error を[返/かえ]します。
+//: - `next_batch` 成功後、descriptor index と continuation cursor index が 1 step の[進捗/しんちょく]を[示/しめ]すことを[検査/けんさ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - descriptor は Copy metadata であり、この module では payload transport authority として[扱/あつか]いません。
+//: - `Vec`、byte storage、row copy、tile list、video memory host call、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_batch_drain" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowBatchDrainErrorKind:
+    CursorStepFailed %GuiRgba8888RowBatchCursorErrorKind
+    InvalidBudget
+    ProgressInvariantInvalid
+    EmittedCountOverflow
+
+impl Clone for GuiRgba8888RowBatchDrainErrorKind:
+    fn clone %fn &GuiRgba8888RowBatchDrainErrorKind GuiRgba8888RowBatchDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowBatchDrainErrorKind:
+    fn copy_mark %fn GuiRgba8888RowBatchDrainErrorKind GuiRgba8888RowBatchDrainErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowBatchDrainStatus:
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiRgba8888RowBatchDrainStatus:
+    fn clone %fn &GuiRgba8888RowBatchDrainStatus GuiRgba8888RowBatchDrainStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowBatchDrainStatus:
+    fn copy_mark %fn GuiRgba8888RowBatchDrainStatus GuiRgba8888RowBatchDrainStatus \status:
+        status
+
+pub struct GuiRgba8888RowBatchDrainTerminal:
+    status %GuiRgba8888RowBatchDrainStatus
+    cursor %GuiRgba8888RowBatchCursorOwner
+    emitted_count %i32
+
+pub struct GuiRgba8888RowBatchDrainError:
+    kind %GuiRgba8888RowBatchDrainErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowBatchCursorOwner
+
+fn gui_rgba8888_row_batch_drain_terminal %fn GuiRgba8888RowBatchDrainStatus fn GuiRgba8888RowBatchCursorOwner fn i32 GuiRgba8888RowBatchDrainTerminal \status\cursor\emitted_count:
+    GuiRgba8888RowBatchDrainTerminal status cursor emitted_count
+
+fn gui_rgba8888_row_batch_drain_error_category %fn GuiRgba8888RowBatchDrainErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowBatchDrainErrorKind::CursorStepFailed _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchDrainErrorKind::InvalidBudget:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchDrainErrorKind::EmittedCountOverflow:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_batch_drain_error %fn GuiRgba8888RowBatchDrainErrorKind fn GuiRgba8888RowBatchCursorOwner GuiRgba8888RowBatchDrainError \kind\cursor:
+    let category %Option GuiError gui_rgba8888_row_batch_drain_error_category kind
+    GuiRgba8888RowBatchDrainError kind category cursor
+
+fn gui_rgba8888_row_batch_drain_error_from_cursor_step %fn GuiRgba8888RowBatchCursorStepError GuiRgba8888RowBatchDrainError \error:
+    let cursor_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_step_error_kind &error
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_step_error_cursor error
+    gui_rgba8888_row_batch_drain_error GuiRgba8888RowBatchDrainErrorKind::CursorStepFailed cursor_kind cursor
+
+pub fn gui_rgba8888_row_batch_drain_error_kind %fn &GuiRgba8888RowBatchDrainError GuiRgba8888RowBatchDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_batch_drain_error_category_value %fn &GuiRgba8888RowBatchDrainError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_batch_drain_error_cursor %fn GuiRgba8888RowBatchDrainError GuiRgba8888RowBatchCursorOwner \error:
+    field::get error "cursor"
+
+pub fn gui_rgba8888_row_batch_drain_terminal_status %fn &GuiRgba8888RowBatchDrainTerminal GuiRgba8888RowBatchDrainStatus \terminal:
+    *field::get_ref terminal "status"
+
+pub fn gui_rgba8888_row_batch_drain_terminal_emitted_count %fn &GuiRgba8888RowBatchDrainTerminal i32 \terminal:
+    *field::get_ref terminal "emitted_count"
+
+pub fn gui_rgba8888_row_batch_drain_terminal_finish_cursor %fn GuiRgba8888RowBatchDrainTerminal GuiRgba8888RowBatchCursorOwner \terminal:
+    field::get terminal "cursor"
+
+fn gui_rgba8888_row_batch_drain_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowBatchDrainErrorKind Result i32 GuiRgba8888RowBatchDrainErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+//: gui_rgba8888_row_batch_drain_budget: row batch cursor を scheduler budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - status は budget より[先/さき]に[読/よ]み、complete cursor を budget exhaustion と[混同/こんどう]しません。
+//: - `remaining_steps == 0` は step を[実行/じっこう]せず `StepBudgetExhausted` を[返/かえ]します。
+//: - `remaining_steps < 0` は `InvalidBudget` error を[返/かえ]し、cursor owner を[保持/ほじ]します。
+//: - `emitted_count` はこの call で[進/すす]めた batch descriptor 数であり、row payload 数ではありません。
+pub fn gui_rgba8888_row_batch_drain_budget %fn GuiRgba8888RowBatchCursorOwner fn i32 Result GuiRgba8888RowBatchDrainTerminal GuiRgba8888RowBatchDrainError \cursor\remaining_steps:
+    let mut current_cursor %GuiRgba8888RowBatchCursorOwner cursor
+    let mut current_remaining_steps %i32 remaining_steps
+    let mut emitted_count %i32 0
+    let mut done %bool false
+    let mut final_is_error %bool false
+    let mut final_is_complete %bool false
+    let mut final_error_kind %GuiRgba8888RowBatchDrainErrorKind GuiRgba8888RowBatchDrainErrorKind::InvalidBudget
+    while not done:
+        do:
+            match gui_rgba8888_row_batch_cursor_status &current_cursor:
+                Result::Err cursor_kind:
+                    set final_is_error true
+                    set final_error_kind GuiRgba8888RowBatchDrainErrorKind::CursorStepFailed cursor_kind
+                    set done true
+                Result::Ok status:
+                    match status:
+                        GuiRgba8888RowBatchCursorStatus::Complete:
+                            set final_is_error false
+                            set final_is_complete true
+                            set done true
+                        GuiRgba8888RowBatchCursorStatus::Ready:
+                            if lt current_remaining_steps 0:
+                                then:
+                                    set final_is_error true
+                                    set final_error_kind GuiRgba8888RowBatchDrainErrorKind::InvalidBudget
+                                    set done true
+                                else:
+                                    if eq current_remaining_steps 0:
+                                        then:
+                                            set final_is_error false
+                                            set final_is_complete false
+                                            set done true
+                                        else:
+                                            let previous_batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index &current_cursor
+                                            match gui_rgba8888_row_batch_cursor_next_batch current_cursor:
+                                                Result::Err step_error:
+                                                    let cursor_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_step_error_kind &step_error
+                                                    let recovered_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_step_error_cursor step_error
+                                                    set current_cursor recovered_cursor
+                                                    set final_is_error true
+                                                    set final_error_kind GuiRgba8888RowBatchDrainErrorKind::CursorStepFailed cursor_kind
+                                                    set done true
+                                                Result::Ok batch:
+                                                    let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor &batch
+                                                    let descriptor_batch_index %i32 gui_rgba8888_row_batch_descriptor_batch_index &descriptor
+                                                    let next_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_finish_cursor batch
+                                                    if ne descriptor_batch_index previous_batch_index:
+                                                        then:
+                                                            set current_cursor next_cursor
+                                                            set final_is_error true
+                                                            set final_error_kind GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid
+                                                            set done true
+                                                        else:
+                                                            match gui_rgba8888_row_batch_drain_checked_add_nonnegative_delta previous_batch_index 1 GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid:
+                                                                Result::Err kind:
+                                                                    set current_cursor next_cursor
+                                                                    set final_is_error true
+                                                                    set final_error_kind kind
+                                                                    set done true
+                                                                Result::Ok expected_next_batch_index:
+                                                                    let actual_next_batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index &next_cursor
+                                                                    if ne actual_next_batch_index expected_next_batch_index:
+                                                                        then:
+                                                                            set current_cursor next_cursor
+                                                                            set final_is_error true
+                                                                            set final_error_kind GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid
+                                                                            set done true
+                                                                        else:
+                                                                            match gui_rgba8888_row_batch_drain_checked_add_nonnegative_delta emitted_count 1 GuiRgba8888RowBatchDrainErrorKind::EmittedCountOverflow:
+                                                                                Result::Err kind:
+                                                                                    set current_cursor next_cursor
+                                                                                    set final_is_error true
+                                                                                    set final_error_kind kind
+                                                                                    set done true
+                                                                                Result::Ok next_emitted_count:
+                                                                                    set current_cursor next_cursor
+                                                                                    set emitted_count next_emitted_count
+                                                                                    set current_remaining_steps sub current_remaining_steps 1
+                                                                                    set done false
+    if final_is_error:
+        then Result::Err gui_rgba8888_row_batch_drain_error final_error_kind current_cursor
+        else:
+            if final_is_complete:
+                then:
+                    let terminal %GuiRgba8888RowBatchDrainTerminal gui_rgba8888_row_batch_drain_terminal GuiRgba8888RowBatchDrainStatus::Completed current_cursor emitted_count
+                    Result::Ok terminal
+                else:
+                    let terminal %GuiRgba8888RowBatchDrainTerminal gui_rgba8888_row_batch_drain_terminal GuiRgba8888RowBatchDrainStatus::StepBudgetExhausted current_cursor emitted_count
+                    Result::Ok terminal
+
+pub fn gui_rgba8888_row_batch_drain_terminal_free %fn GuiRgba8888RowBatchDrainTerminal Result unit GuiRgba8888SoftwareSurfaceErrorKind \terminal:
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_terminal_finish_cursor terminal
+    gui_rgba8888_row_batch_cursor_free cursor
+
+pub fn gui_rgba8888_row_batch_drain_error_free %fn GuiRgba8888RowBatchDrainError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_error_cursor error
+    gui_rgba8888_row_batch_cursor_free cursor

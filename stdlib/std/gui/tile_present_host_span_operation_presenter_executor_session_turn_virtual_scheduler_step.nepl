@@ -1,0 +1,144 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary
+//:
+//: ### [目的/もくてき]
+//: - F5ea virtual scheduler state の `Turn` phase だけを、driver poll、scheduler decision、timer decision の[順/じゅん]に 1 [段/だん]だけ[進/すす]めます。
+//: - `WaitingTimer`、`Execute`、`Completed` は no-progress success にせず、typed blocked / completed result として[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - policy は scheduler policy と timer policy だけを[保持/ほじ]し、dynamic `GuiVirtualTimerState` を[保持/ほじ]しません。
+//: - lower scheduler / timer boundary が policy を[再検査/さいけんさ]する authority です。
+//: - `Turn` path は driver poll、scheduler decide、F5ea virtual scheduler decide をそれぞれ 1 [回/かい]だけ[呼/よ]びます。
+//: - `WaitingTimer`、`Execute`、`Completed` path は lower poll / decide / schedule / advance / complete を[呼/よ]びません。
+//: - loop、timeslice、backend、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/virtual_timer" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy:
+    scheduler_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy
+    timer_policy %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult:
+    Advanced %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState
+    BlockedWaitingTimer %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending
+    BlockedExecute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerExecute
+    Completed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerCompleted
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed:
+    category %Option GuiError
+    timer_state %GuiVirtualTimerState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed:
+    category %Option GuiError
+    timer_state %GuiVirtualTimerState
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed:
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDecisionError
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepError:
+    TurnPollFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed
+    SchedulerDecisionFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed
+    TimerDecisionFailed %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy \scheduler_policy\timer_policy:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy scheduler_policy timer_policy
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_poll_failed_new %fn GuiVirtualTimerState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed \timer_state\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed category timer_state lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_scheduler_decision_failed_new %fn GuiVirtualTimerState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed \timer_state\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decision_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed category timer_state lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_timer_decision_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDecisionError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed \lower:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed lower
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy: single step policy を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - dynamic timer state は[保持/ほじ]しません。
+//: - scheduler policy と timer policy の[再検査/さいけんさ]は、step 内で[呼/よ]ぶ lower decision boundary が[担当/たんとう]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy \scheduler_policy\timer_policy:
+    gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_new scheduler_policy timer_policy
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_scheduler_policy_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy \policy:
+    field::get_ref policy "scheduler_policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_timer_policy_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy \policy:
+    field::get_ref policy "timer_policy"
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step: virtual scheduler state を 1 [段/だん]だけ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - `Turn` phase だけが driver poll、scheduler decide、timer decide へ[進/すす]みます。
+//: - blocked phase は[所有/しょゆう] value を[保/たも]った result variant として[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepPolicy fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepError \policy\state:
+    match state:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState::Turn turn:
+            let timer_state %GuiVirtualTimerState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn_timer_state &turn
+            let turn_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_turn_turn_state turn
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_driver_poll turn_state:
+                Result::Err lower:
+                    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_poll_failed_new timer_state lower
+                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepError::TurnPollFailed payload
+                Result::Ok driver_step:
+                    let scheduler_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_scheduler_policy_ref policy
+                    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_scheduler_decide scheduler_policy driver_step:
+                        Result::Err lower:
+                            let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_scheduler_decision_failed_new timer_state lower
+                            Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepError::SchedulerDecisionFailed payload
+                        Result::Ok decision:
+                            let timer_policy %&GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPolicy gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_policy_timer_policy_ref policy
+                            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_decide timer_policy timer_state decision:
+                                Result::Err lower:
+                                    let payload %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_timer_decision_failed_new lower
+                                    Result::Err GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepError::TimerDecisionFailed payload
+                                Result::Ok next_state:
+                                    Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult::Advanced next_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState::WaitingTimer pending:
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult::BlockedWaitingTimer pending
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState::Execute execute:
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult::BlockedExecute execute
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState::Completed completed:
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult::Completed completed
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_poll_failed_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_poll_failed_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed GuiVirtualTimerState \error:
+    *field::get_ref error "timer_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_turn_poll_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTurnPollFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPollError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_scheduler_decision_failed_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_scheduler_decision_failed_timer_state %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed GuiVirtualTimerState \error:
+    *field::get_ref error "timer_state"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_scheduler_decision_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepSchedulerDecisionFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecisionError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step_timer_decision_failed_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepTimerDecisionFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDecisionError \error:
+    field::get error "lower"

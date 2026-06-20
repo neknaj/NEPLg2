@@ -1,9 +1,18 @@
 use std::env;
 use std::process::ExitCode;
 
-#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-use nepl_gui_native::map_native_window_point_to_image;
+#[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
+use nepl_gui_native::run_windows_platform_wait_window_loop;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+use nepl_gui_native::{
+    native_window_host_loop_default_platform_wait_backend_selection, run_minifb_window_loop,
+    validate_native_window_run_loop_platform_wait_runner_support, NativeWindowHostLoopRunPolicy,
+    NativeWindowRunLoopConfig,
+};
+use nepl_gui_native::{
+    NativeWindowTargetFps, NativeWindowTargetFpsError, NativeWindowTargetFpsInvalidReason,
+};
 
 fn main() -> ExitCode {
     let options = match NativeGuiOptions::parse(env::args().skip(1)) {
@@ -16,6 +25,11 @@ fn main() -> ExitCode {
     };
 
     if options.headless {
+        if let Err(error) = validate_headless_options(&options) {
+            eprintln!("{error}");
+            print_usage();
+            return ExitCode::from(2);
+        }
         print_headless_frame(options.demo, options.counter_value, options.scale);
         return ExitCode::SUCCESS;
     }
@@ -30,10 +44,30 @@ fn main() -> ExitCode {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NativeGuiWindowWaitBackend {
+    Minifb,
+    Platform,
+}
+
+impl NativeGuiWindowWaitBackend {
+    fn parse(raw: &str) -> Result<Self, String> {
+        match raw {
+            "minifb" => Ok(Self::Minifb),
+            "platform" => Ok(Self::Platform),
+            other => Err(format!(
+                "--wait-backend must be minifb or platform, got {other}"
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct NativeGuiOptions {
     demo: GuiDemo,
     scale: usize,
     counter_value: i32,
+    target_fps: NativeWindowTargetFps,
+    wait_backend: Option<NativeGuiWindowWaitBackend>,
     headless: bool,
 }
 
@@ -43,6 +77,8 @@ impl NativeGuiOptions {
             demo: GuiDemo::Mandelbrot,
             scale: 4,
             counter_value: 0,
+            target_fps: NativeWindowTargetFps::default(),
+            wait_backend: None,
             headless: false,
         };
 
@@ -54,10 +90,13 @@ impl NativeGuiOptions {
                     let Some(raw) = iter.next() else {
                         return Err("--scale requires a value".to_string());
                     };
-                    options.scale = raw
+                    let scale = raw
                         .parse::<usize>()
-                        .map_err(|_| "--scale must be a positive integer".to_string())?
-                        .max(1);
+                        .map_err(|_| "--scale must be a positive integer".to_string())?;
+                    if scale == 0 {
+                        return Err("--scale must be a positive integer".to_string());
+                    }
+                    options.scale = scale;
                 }
                 "--counter" => {
                     let Some(raw) = iter.next() else {
@@ -66,6 +105,25 @@ impl NativeGuiOptions {
                     options.counter_value = raw
                         .parse::<i32>()
                         .map_err(|_| "--counter must be an integer".to_string())?;
+                }
+                "--fps" => {
+                    let Some(raw) = iter.next() else {
+                        return Err("--fps requires a value".to_string());
+                    };
+                    let target_fps = raw
+                        .parse::<usize>()
+                        .map_err(|_| "--fps must be a positive integer".to_string())?;
+                    options.target_fps = NativeWindowTargetFps::new(target_fps)
+                        .map_err(native_window_target_fps_cli_error)?;
+                }
+                "--wait-backend" => {
+                    if options.wait_backend.is_some() {
+                        return Err("--wait-backend can be provided only once".to_string());
+                    }
+                    let Some(raw) = iter.next() else {
+                        return Err("--wait-backend requires a value".to_string());
+                    };
+                    options.wait_backend = Some(NativeGuiWindowWaitBackend::parse(&raw)?);
                 }
                 "mandelbrot" | "life" | "counter" => {
                     options.demo = arg.parse::<GuiDemo>()?;
@@ -80,6 +138,18 @@ impl NativeGuiOptions {
 
         Ok(options)
     }
+
+    fn window_wait_backend(&self) -> NativeGuiWindowWaitBackend {
+        self.wait_backend
+            .unwrap_or(NativeGuiWindowWaitBackend::Minifb)
+    }
+}
+
+fn validate_headless_options(options: &NativeGuiOptions) -> Result<(), String> {
+    if options.wait_backend.is_some() {
+        return Err("--wait-backend requires window mode".to_string());
+    }
+    Ok(())
 }
 
 fn print_headless_frame(demo: GuiDemo, counter_value: i32, scale: usize) {
@@ -110,91 +180,164 @@ fn print_headless_frame(demo: GuiDemo, counter_value: i32, scale: usize) {
 
 fn print_usage() {
     eprintln!(
-        "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N]"
+        "usage: nepl-gui-native [mandelbrot|life|counter] [--headless] [--scale N] [--counter N] [--fps N] [--wait-backend minifb|platform]"
     );
+    eprintln!("--fps is used by window mode only and must be in the supported target FPS range");
+    eprintln!("--wait-backend platform uses the native platform wait runner when supported");
     eprintln!("window mode requires: cargo run -p nepl-gui-native --features window -- <demo>");
 }
 
-#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
-    use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
-
-    let mut frame = render_demo_frame(options.demo, options.counter_value);
-    let mut image = rasterize_frame(&frame, options.scale);
-    let mut window = Window::new(
-        "NEPLg2 GUI native preview",
-        image.width,
-        image.height,
-        WindowOptions {
-            resize: true,
-            scale_mode: ScaleMode::AspectRatioStretch,
-            ..WindowOptions::default()
-        },
-    )
-    .map_err(|error| error.to_string())?;
-    window.set_target_fps(60);
-    window.set_background_color(9, 13, 18);
-    let mut previous_size = window.get_size();
-    update_window_title(&mut window, options.demo, previous_size);
-    let mut previous_mouse_down = false;
-
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        let current_size = window.get_size();
-        if current_size != previous_size {
-            previous_size = current_size;
-            update_window_title(&mut window, options.demo, current_size);
+fn native_window_target_fps_cli_error(error: NativeWindowTargetFpsError) -> String {
+    match error.reason {
+        NativeWindowTargetFpsInvalidReason::Zero => "--fps must be greater than zero".to_string(),
+        NativeWindowTargetFpsInvalidReason::TooHigh { max } => {
+            format!("--fps must be less than or equal to {max}")
         }
-
-        if options.demo == GuiDemo::Counter {
-            let mouse_down = window.get_mouse_down(MouseButton::Left);
-            if mouse_down && !previous_mouse_down {
-                if let Some((mouse_x, mouse_y)) = window.get_unscaled_mouse_pos(MouseMode::Discard)
-                {
-                    if let Some((image_x, image_y)) = map_native_window_point_to_image(
-                        current_size.0,
-                        current_size.1,
-                        image.width,
-                        image.height,
-                        mouse_x,
-                        mouse_y,
-                    ) {
-                        let scene_x = image_x / options.scale.max(1);
-                        let scene_y = image_y / options.scale.max(1);
-                        if nepl_gui_native::counter_hit(&frame, scene_x, scene_y) {
-                            options.counter_value += 1;
-                            frame = render_demo_frame(options.demo, options.counter_value);
-                            image = rasterize_frame(&frame, options.scale);
-                        }
-                    }
-                }
-            }
-            previous_mouse_down = mouse_down;
-        }
-        window
-            .update_with_buffer(&image.pixels, image.width, image.height)
-            .map_err(|error| error.to_string())?;
     }
-
-    Ok(())
 }
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
-fn update_window_title(window: &mut minifb::Window, demo: GuiDemo, size: (usize, usize)) {
-    let title = if size.0 == 0 || size.1 == 0 {
-        format!(
-            "NEPLg2 GUI native preview - {:?} - surface unavailable",
-            demo
-        )
-    } else {
-        format!(
-            "NEPLg2 GUI native preview - {:?} - {}x{}",
-            demo, size.0, size.1
-        )
-    };
-    window.set_title(&title);
+fn run_window(options: NativeGuiOptions) -> Result<(), String> {
+    match options.window_wait_backend() {
+        NativeGuiWindowWaitBackend::Minifb => run_minifb_wait_window(options),
+        NativeGuiWindowWaitBackend::Platform => run_platform_wait_window(options),
+    }
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn run_minifb_wait_window(options: NativeGuiOptions) -> Result<(), String> {
+    let config = NativeWindowRunLoopConfig::new_with_target_fps(
+        options.demo,
+        options.counter_value,
+        options.scale,
+        options.target_fps,
+    );
+    run_minifb_window_loop(config)
+        .map(|_| ())
+        .map_err(|error| format!("native window run loop failed: {error:?}"))
+}
+
+#[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
+fn run_platform_wait_window(options: NativeGuiOptions) -> Result<(), String> {
+    let config = platform_wait_window_run_loop_config(options)?;
+    let config = validate_platform_wait_window_runner_support(config)?;
+    run_windows_platform_wait_window_loop(config)
+        .map(|_| ())
+        .map_err(|error| format!("native platform wait window run loop failed: {error:?}"))
+}
+
+#[cfg(all(
+    feature = "window",
+    not(target_os = "windows"),
+    not(target_arch = "wasm32")
+))]
+fn run_platform_wait_window(options: NativeGuiOptions) -> Result<(), String> {
+    let config = platform_wait_window_run_loop_config(options)?;
+    let _config = validate_platform_wait_window_runner_support(config)?;
+    Err("native platform wait runner dispatch is unavailable for this target after support validation".to_string())
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn platform_wait_window_run_loop_config(
+    options: NativeGuiOptions,
+) -> Result<NativeWindowRunLoopConfig, String> {
+    let selection = native_window_host_loop_default_platform_wait_backend_selection()
+        .map_err(|error| format!("native platform wait backend selection failed: {error:?}"))?;
+    Ok(
+        NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            options.demo,
+            options.counter_value,
+            options.scale,
+            options.target_fps,
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        ),
+    )
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn validate_platform_wait_window_runner_support(
+    config: NativeWindowRunLoopConfig,
+) -> Result<NativeWindowRunLoopConfig, String> {
+    validate_native_window_run_loop_platform_wait_runner_support(config)
+        .map(|_| config)
+        .map_err(|error| format!("native platform wait runner unsupported: {error:?}"))
 }
 
 #[cfg(any(not(feature = "window"), target_arch = "wasm32"))]
 fn run_window(_options: NativeGuiOptions) -> Result<(), String> {
     Err("native window mode requires the non-wasm window feature; use --headless or run with --features window".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_options(args: &[&str]) -> Result<NativeGuiOptions, String> {
+        NativeGuiOptions::parse(args.iter().map(|arg| (*arg).to_string()))
+    }
+
+    #[test]
+    fn window_wait_backend_defaults_to_minifb_for_window_mode() {
+        let options = parse_options(&["life"]).unwrap();
+        assert_eq!(
+            options.window_wait_backend(),
+            NativeGuiWindowWaitBackend::Minifb
+        );
+    }
+
+    #[test]
+    fn parse_wait_backend_platform_records_explicit_window_backend() {
+        let options = parse_options(&["counter", "--wait-backend", "platform"]).unwrap();
+        assert_eq!(
+            options.wait_backend,
+            Some(NativeGuiWindowWaitBackend::Platform)
+        );
+    }
+
+    #[test]
+    fn parse_rejects_duplicate_wait_backend() {
+        let error =
+            parse_options(&["--wait-backend", "minifb", "--wait-backend", "platform"]).unwrap_err();
+        assert_eq!(error, "--wait-backend can be provided only once");
+    }
+
+    #[test]
+    fn parse_rejects_unknown_wait_backend() {
+        let error = parse_options(&["--wait-backend", "thread"]).unwrap_err();
+        assert_eq!(
+            error,
+            "--wait-backend must be minifb or platform, got thread"
+        );
+    }
+
+    #[test]
+    fn headless_rejects_explicit_wait_backend() {
+        let options = parse_options(&["--headless", "--wait-backend", "minifb"]).unwrap();
+        assert_eq!(
+            validate_headless_options(&options).unwrap_err(),
+            "--wait-backend requires window mode"
+        );
+    }
+
+    #[test]
+    fn headless_allows_unspecified_wait_backend() {
+        let options = parse_options(&["--headless"]).unwrap();
+        validate_headless_options(&options).unwrap();
+    }
+
+    #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+    #[test]
+    fn platform_wait_config_builder_uses_platform_wait_backend() {
+        let options = parse_options(&["counter", "--wait-backend", "platform"]).unwrap();
+        let config = platform_wait_window_run_loop_config(options).unwrap();
+
+        assert_eq!(config.demo, GuiDemo::Counter);
+        assert_eq!(config.counter_value, 0);
+        assert_eq!(config.scale, 4);
+        assert!(matches!(
+            config.wait_backend,
+            nepl_gui_native::NativeWindowRunLoopWaitBackend::PlatformWait(_)
+        ));
+    }
 }

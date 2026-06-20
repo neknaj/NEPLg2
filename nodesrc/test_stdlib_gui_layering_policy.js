@@ -111,6 +111,9 @@ assertNoMatch(
     "core/gui must not publish terminal-specific default TextCellStyle",
 );
 
+const stdGuiFacade = read("stdlib/std/gui.nepl");
+const stdHostImportSchedulerStart = read("stdlib/std/gui/tile_present_host_import_scheduler_start.nepl");
+const stdHostImportSchedulerStartImpl = withoutComments(stdHostImportSchedulerStart);
 const stdGuiRoot = path.join(repoRoot, "stdlib", "std", "gui");
 for (const filePath of [
     path.join(repoRoot, "stdlib", "std", "gui.nepl"),
@@ -130,6 +133,21 @@ for (const filePath of [
         `${relPath} must not expose concrete platform names in std/gui`,
     );
 }
+assertMatch(
+    stdGuiFacade,
+    /#import\s+"\.\/gui\/tile_present_host_import_scheduler_start"\s+as\s+\*/,
+    "std/gui facade must expose the F5gc host import scheduler-start boundary",
+);
+assertMatch(
+    stdHostImportSchedulerStartImpl,
+    /host_execution_action\s+&request[\s\S]*executor_session_turn_start\s+support\s+span_policy\s+action[\s\S]*Result::Err\s+lower:[\s\S]*scheduler_start_failed_new\s+request\s+action\s+lower[\s\S]*Result::Ok\s+turn_state:[\s\S]*virtual_scheduler_turn\s+timer_state\s+turn_state/,
+    "std/gui F5gc host import scheduler-start must connect request/action/turn/scheduler state without platform authority",
+);
+assertNoMatch(
+    stdHostImportSchedulerStartImpl,
+    /\b(?:virtual_scheduler_step|virtual_scheduler_drain|virtual_scheduler_slice|virtual_scheduler_loop|real_loop_driver|loop_action|turn_driver_complete|executor_session_turn_driver_complete|schedule_timer|setTimeout|setInterval|GuiHost|std\/gui\/host|queue|platforms\/gui|platform|DOM|Canvas|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/i,
+    "std/gui F5gc host import scheduler-start must not depend on later scheduler loops, platform APIs, queues, or fallback",
+);
 
 const stdSurface = read("stdlib/std/gui/surface.nepl");
 const stdSurfaceImpl = withoutComments(stdSurface);

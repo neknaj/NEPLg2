@@ -2,6 +2,38 @@
 
 作成日: 2026-06-13
 
+## F5el real loop driver checkpoint
+
+2026-06-18 の F5el では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop driver boundary を追加する。`RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek step policy、scheduler policy、timer policy、backend executor、clock、queue を重複保持しない。`start` は F5ef `loop_step` と F5eg `loop_action_from_result` を 1 回ずつ呼び、`after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match する。`StateReady` は `loop_resume` へ戻し、`remaining_count == 0` は budget-yield semantics に従って yield action へ進め、error / completion / `CompleteAck` / fallback / silent no-op へ変換しない。
+
+## F5em headless app-loop step checkpoint
+
+2026-06-18 の F5em では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler headless app-loop step boundary を追加する。`HeadlessAppLoopStepPolicy` は F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持し、F5ef loop policy、scheduler policy、timer policy、backend clock、executor backend、queue、platform API を直接保持しない。`start` は F5el `real_loop_driver_start` を 1 回だけ呼び、`advance` は previous `NeedInput` action と caller supplied F5ek input を受け、F5ek `real_loop_step` を 1 回、成功時だけ F5el `real_loop_driver_after_step` を 1 回呼ぶ。`Completed` は terminal output だけであり advance input ではない。`Complete` action は caller が `CompleteAck` を渡すまで `NeedInput` のまま保持し、F5em は ack を合成しない。`remaining_count == 0` は F5em で解釈せず、F5el / F5ec の budget-yield semantics に任せる。fallback と silent no-op は行わない。
+
+## F5en bounded headless app-loop runner checkpoint
+
+2026-06-18 の F5en では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded headless app-loop runner boundary を追加する。これは fixed-slot script を使う deterministic test boundary であり、not long-running real backend loop である。`HeadlessAppLoopRunnerPolicy` は F5em `HeadlessAppLoopStepPolicy` と `max_advance_count` だけを保持し、F5ek / F5el の内部 policy、backend clock、executor backend、queue、platform API を保持しない。`HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを保持し、slot hole、負 cursor、capacity 超過は `ScriptInvalid` として typed error にする。`InputMissing` は `NeedInput` に対する次 input が本当に存在しない場合だけ返し、`ClockDelta`、`ExecutorOutcome`、`CompleteAck` を合成しない。`BudgetExhausted` は `max_advance_count == 0` または bounded drain の budget を使い切った場合の terminal result であり、F5em `advance` を呼ばない。`Completed` は script を消費しない。fallback と silent no-op は行わない。
+
+## F5eo backend clock delta checkpoint
+
+2026-06-18 の F5eo では、std layer row tile RLE present host span operation presenter executor session turn virtual scheduler backend clock delta boundary を追加する。これは Web / native / bare / headless backend が取得した monotonic clock sample を、F5ek `RealLoopStepInput::ClockDelta` へ変換する pure std boundary である。`BackendClockPolicy` は `max_delta_ms` だけを保持し、`BackendClockSample` は caller supplied `monotonic_ms`、`BackendClockState` は previous `last_monotonic_ms` だけを保持する。sample / state は public value なので、`start` と `advance` は constructor を信用せず entry で再検査する。`start` は baseline state を返し delta を発行しない。`advance` は negative policy、negative sample、forged negative state、backward time、too-large delta を typed error として返し、error payload は policy / state / sample / previous / current / delta / max を回収可能な形で保持する。zero delta は no-op や error にせず `ClockDelta 0` として返す。delta が `max_delta_ms` を超えた場合は clamp せず `DeltaTooLarge` を返す。F5eo は actual clock source、sleep、timer backend、executor outcome、complete ack、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を実装しない。
+
+## F5ep Web monotonic clock source checkpoint
+
+2026-06-18 の F5ep では、Web formal monotonic clock source backend boundary を追加する。`platforms/gui/web/clock` は `nepl_gui_web.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を `performance.now` 由来の floored millisecond sample、-1 を unsupported、その他の負値を `BackendFailure` として扱う。Web worker は `performance.now` を呼んだ後、`Number.isFinite`、0 以上、`i32::MAX` 以下、integer 化後の妥当性を検査してから Wasm 境界へ返す。`i32::MAX` ms を超えた sample は wrap や clamp ではなく `BackendFailure` である。NEPL wrapper は negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor を呼ぶ。`Date.now`、`setTimeout`、`setInterval`、stdout protocol、polling loop、queue、DOM、Canvas、fallback、silent no-op は clock source として使わない。native / bare / headless の actual clock source は後続 slice で実装する。
+
+## F5eq Headless scripted monotonic clock source checkpoint
+
+2026-06-18 の F5eq では、Headless scripted monotonic clock source backend boundary を追加する。`platforms/gui/headless/clock` は deterministic headless / offscreen test 用の actual clock input source であり、wall clock ではなく fixed-slot script から F5eo `BackendClockSample` を 1 件ずつ返す。script は `Option BackendClockSample` の 3 slot、`count`、`cursor` だけを保持し、`count` は 0 から 3、`cursor` は 0 から `count`、slot は count に一致する `Some` / `None` shape でなければならない。constructor は raw i32 sample を F5eo constructor で検査してから保持し、poll も public script を信用せず count / cursor / slot shape / sample を再検査する。`cursor == count` は `Option::None` を返し、zero sample や delta を合成しない。timer、queue、host import、platform API、wall clock、fallback、silent no-op は使わない。native / bare actual clock source と long-running backend loop は後続 slice で実装する。
+
+## F5er Native formal monotonic clock source checkpoint
+
+2026-06-18 の F5er では、Native formal monotonic clock source backend boundary を追加する。`platforms/gui/native/clock` は `nepl_gui_native.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を native `Instant` 由来の monotonic millisecond sample、-1 を unsupported、その他の負値を `BackendFailure` として扱う。Rust `nepl-gui-native` 側は elapsed millisecond を `i32::MAX` 以下で検査し、超過は wrap や clamp ではなく backend failure sentinel にする。NEPL wrapper は negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor を呼ぶ。timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op は clock source として使わない。bare actual clock source、native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
+
+## F5es Bare formal monotonic clock source checkpoint
+
+2026-06-18 の F5es では、Bare formal monotonic clock source backend boundary を追加する。`platforms/gui/bare/clock` は `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` return ABI を受け、0 以上を embedding host が明示提供する monotonic millisecond sample、-1 を `Unsupported`、その他の負値を `BackendFailure` として扱う。Bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、wall clock、timer、sleep、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol、fallback、silent no-op を clock source として使わない。`nodesrc/run_test.js` の `nepl_gui_bare` 既定 import は doctest-only unsupported source であり hidden fallback や hidden mock ではない。native / bare scheduler backend、long-running real backend loop は後続 slice で実装する。
+
 ## 目的
 
 この文書は `doc/neplg2/gui_redesign_spec.md` の詳細設計である。主に pixel buffer、video memory surface、Web bitmap presenter、offscreen / headless backend、virtual event source の内部 contract を固定する。
@@ -188,7 +220,99 @@ Virtual clock:
 - `gui_virtual_clock_advance clock delta_ms` は negative delta を `GuiError::InvalidCommand` として拒否する。
 - `now_ms + delta_ms` または `tick + 1` が i32 positive range を超える場合は wrap せず `GuiError::InvalidCommand` とする。
 - advance は OS clock を読まない。caller が渡した delta だけで deterministic に進む。
-- timer event は `GuiEvent::Timer` として script に入れる。virtual timer scheduler は後続 slice で追加する。
+- timer event は `GuiEvent::Timer` として script に入れる。virtual timer scheduler は `TimerRequest` から同じ event shape を生成する。
+
+Virtual timer scheduler:
+
+```text
+GuiVirtualTimerState:
+    request Option TimerRequest
+    elapsed_ms i32
+    tick i32
+
+GuiVirtualTimerAdvance:
+    state GuiVirtualTimerState
+    event Option GuiEvent
+```
+
+`GuiVirtualTimerState` は deterministic timer の現在状態である。`request` が `Option::None` の場合、`elapsed_ms` と `tick` は 0 でなければならない。`request` が `Option::Some TimerRequest` の場合、window id と timer id は 1 以上、interval は 1 以上、elapsed と tick は 0 以上でなければならない。public struct constructor で壊れた state を作れるため、schedule と advance は毎回この invariant を再検査する。
+
+`gui_virtual_timer_schedule state request` は incoming state と request を検査する。`interval_ms == 0` は clear request として active timer を消す。`interval_ms > 0` は active request を保持し、elapsed と tick を 0 へ戻す。invalid state、invalid ids、negative interval は `GuiError::InvalidCommand` である。
+
+`gui_virtual_timer_advance state delta_ms` は real clock を読まない。negative delta、elapsed overflow、tick overflow、malformed state は `GuiError::InvalidCommand` である。発火しない場合は `Option::None`、発火する場合は `Option::Some GuiEvent::Timer` を返す。
+
+Repeating timer は 1 回の advance で最大 1 event だけを返す。catch-up で extra elapsed があっても捨てず、`sub next_elapsed interval_ms` を remainder として state に保持する。remainder がまだ interval 以上なら、caller は `advance state 0` により queue を使わず 1 event ずつ drain できる。One-shot timer は 1 event を返すときに state を `None` へ戻し、残り elapsed を保持しない。これは Web one-shot timer が enqueue 前に active entry を clear する挙動と対応する。
+
+Virtual timer scheduler は std layer の deterministic test contract であり、DOM、Canvas、minifb、OS timer、browser timer、stdout protocol、event queue、video memory、presentation fallback を持たない。
+
+Virtual timer turn bridge:
+
+```text
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending:
+    pending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnTimerPending
+    timer_state GuiVirtualTimerState
+
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerAdvance:
+    Pending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending
+    Ready GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnSchedulerDecision
+```
+
+F5dz の std layer row tile RLE present host span operation presenter executor session turn virtual timer bridge は、F5dw の target-neutral timer pending と F5dy の deterministic virtual timer state を結びつける。`gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_schedule pending timer_state` は F5dw pending から borrowed `TimerRequest` を読み、`gui_virtual_timer_schedule` を 1 回だけ呼ぶ。schedule failure は original pending、original virtual timer state、lower `GuiError` を保持する。
+
+`gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_timer_advance pending delta_ms` は `gui_virtual_timer_advance` を 1 回だけ呼ぶ。event がなければ next pending を返す。`GuiEvent::Timer` が出た場合だけ F5dw `turn_timer_complete` を 1 回だけ呼び、成功時は scheduler decision を返す。unexpected event は F5dw pending、advance-after virtual timer state、event を保持する owner-bearing error にする。timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。ここでは real scheduler loop、actual timer backend、queue、DOM、Canvas、minifb、video memory、presentation fallback、silent no-op、loop drain を持たない。
+
+Virtual scheduler state boundary:
+
+```text
+GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState:
+    Turn TurnPayload
+    WaitingTimer VirtualTimerPending
+    Execute ExecutePayload
+    Completed CompletedPayload
+
+TurnPayload:
+    timer_state GuiVirtualTimerState
+    turn_state TurnState
+
+ExecutePayload:
+    timer_state GuiVirtualTimerState
+    pending TurnDriverPending
+
+CompletedPayload:
+    timer_state GuiVirtualTimerState
+```
+
+F5ea の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler state boundary は、F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic state として接続する。`GuiVirtualTimerState` は policy ではなく dynamic state なので、`Turn`、`Execute`、`Completed` の payload または F5dz `WaitingTimer` pending に保持する。`ContinueNow` は reusable decision に戻すと no-progress state になり得るため、次に driver poll できる `Turn` phase として保持する。
+
+Decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼ぶ。`ScheduleTimer` だけが F5dz schedule を呼び、success は `WaitingTimer` になる。Timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼ぶ。`Ready` decision が返った場合、F5dw request は one-shot で F5dy / F5dz は completion 前に virtual timer を clear しているため、F5ea は `gui_virtual_timer_empty` を明示的な next dynamic state として decision boundary へ戻す。F5ea は loop drain、timeslice budget、actual backend timer、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5eb の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler single step boundary は、F5ea state を 1 回だけ進める境界である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。Turn path は F5du driver poll、F5dv scheduler decide、F5ea timer decide の順序を固定し、それぞれを 1 回だけ呼ぶ。
+
+`WaitingTimer`、`Execute`、`Completed` は F5eb 内で queue、backend、executor、platform API へ進まない。`WaitingTimer` は `BlockedWaitingTimer`、`Execute` は `BlockedExecute` として返し、real scheduler loop / timeslice policy / headless app-loop integration が次の authority として処理する。poll failure と scheduler decision failure は current `GuiVirtualTimerState` を失わず、timer decision failure は F5ea lower owner-bearing error を保持する。F5eb は loop drain、timeslice budget、event queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ec の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler bounded drain boundary は、F5eb step を `max_advance_count` で bounded に消費する境界である。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainPolicy` は F5eb step policy と `max_advance_count` だけを保持し、dynamic timer state、backend handle、queue owner を持たない。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` は `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+
+`max_advance_count` は construction と drain entry の両方で 0 以上に検査する。0 は step を呼ばない `BudgetExhausted` であり、test / headless runtime が no-progress を明示的に扱うための terminal である。`Advanced` だけが budget を 1 消費し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は budget を消費せずに外側 authority へ返る。`StepFailed` は F5eb lower error だけを保持し、original state を重複保持しない。F5ec は timer advance、executor completion、real scheduler loop、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ed の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler transition boundary は、F5ec drain terminal を後続 loop が扱う action boundary へ写す。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。`YieldSlice` は `BudgetExhausted` の state、`AwaitTimer` は `BlockedWaitingTimer` の pending timer、`ExecuteHostAction` は `BlockedExecute` の execute authority、`Done` は `Completed` の completed payload を保持する。
+
+F5ed は F5ec payload struct を transition payload として保持しない。各 branch は F5ec accessor で `remaining_count` を先に読み、owner-bearing payload から state / pending / execute / completed を取り出して transition-owned payload に詰め替える。`remaining_count` は正規化、減算、再計算をしない。F5ed は F5ec drain 再実行、F5eb step、timer advance、executor completion、real scheduler loop、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ee の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler slice boundary は、F5ec bounded drain と F5ed transition を 1 work slice の public boundary として接続する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerSliceResult` は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。Policy は F5ec drain policy と `yield_delay_ms` だけを保持し、dynamic timer state、backend handle、queue owner を保持しない。
+
+F5ee は policy construction と slice entry の両方で `yield_delay_ms >= 0` を検査する。public slice entry は F5ec drain を 1 回だけ呼び、成功時だけ F5ed transition mapping を 1 回だけ呼ぶ。F5ec / F5ed payload struct は slice payload として保持せず、state / pending / execute / completed と `remaining_count` を slice-owned payload に詰め替える。`YieldSlice` は state、`remaining_count`、`yield_delay_ms` を保持する。Drain failure は lower F5ec error だけを保持し、original scheduler state を重複保持しない。F5ee は F5eb step 直接呼び出し、timer advance、executor completion、real scheduler loop、queue、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ef の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop boundary は、F5ee `virtual_scheduler_slice` の結果を real scheduler loop / headless app-loop が扱う loop-owned result に変換する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopResult` は `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。Policy は F5ee slice policy だけを保持し、dynamic timer state、backend handle、queue owner を保持しない。
+
+F5ef public step は F5ee `virtual_scheduler_slice` を 1 回だけ呼ぶ。F5ee payload struct は loop payload として保持せず、state / pending / execute / completed と `remaining_count` を loop-owned payload に詰め替える。`Yield` は state、`remaining_count`、`yield_delay_ms` を保持する。Failure は lower-only slice error として lower F5ee slice error だけを保持する。F5ef は F5ec drain、F5ed transition、F5eb step、F5ea state helper を直接呼ばず、timer advance、executor completion、actual while loop、queue drain、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5eg の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop action boundary は、F5ef loop result を outer real scheduler loop / headless app-loop authority が消費する action value に変換する。`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopAction` は `YieldToClock`、`AwaitTimerAdvance`、`ExecuteHostAction`、`Complete` を持つ。`loop_action_from_result` は F5ef result の `Yield`、`AwaitTimer`、`ExecuteHostAction`、`Done` を explicit match で action へ写す total mapping である。F5eg は F5ef `loop_step` を呼ばず、F5ef payload struct を action payload として保持しない。Payload は state / pending / execute / completed authority、`remaining_count`、`yield_delay_ms` を action-owned value として保持する。F5eg は timer advance、executor completion、real scheduler loop、queue drain、native / bare / headless real backend、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5eh の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop timer advance boundary は、F5eg `AwaitTimerAdvance` payload を consumed authority として受け、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。`loop_timer_advance` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance`、`TurnTimerPolicy`、`delta_ms` だけを入力にし、general `LoopAction` や F5eg `loop_action_from_result` は扱わない。`remaining_count` は pending owner を消費する前に読み、成功時は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopTimerAdvanceCompleted` として次 state と original `remaining_count` を返す。失敗時は lower F5ea `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerAdvanceError` と original `remaining_count` を保持する。F5eh は executor completion、yield-to-clock handling、real scheduler loop、queue drain、native / bare / headless real backend、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ei の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop executor complete boundary は、F5eg `ExecuteHostAction` payload を consumed authority として受け、caller supplied `Result unit GuiError` を F5du `turn_driver_complete` へ 1 回だけ戻す。F5ei の `loop_executor_complete` は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompletePolicy`、`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionExecuteHostAction`、caller supplied outcome だけを入力にする。policy は scheduler policy と timer policy だけを保持し、timer state、queue、backend handle、host handle は保持しない。`remaining_count`、`execute`、`timer_state`、`pending` の順に取り出し、pending owner を消費した後、F5du `turn_driver_complete`、F5dv `scheduler_decide`、F5ea `virtual_scheduler_decide` をそれぞれ 1 回だけ呼ぶ。成功時は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopExecutorCompleteCompleted` として次 state と original `remaining_count` を返す。失敗時は lower F5du / F5dv / F5ea error と original `remaining_count` を保持し、F5du / F5dv 由来の失敗では `category` と `timer_state` も保持する。F5ei は outcome 合成、yield-to-clock handling、complete handling、real scheduler loop、queue drain、native / bare / headless real backend、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
+
+F5ej の std layer row tile RLE present host span operation presenter executor session turn virtual scheduler loop yield complete boundary は、F5eg `YieldToClock` / `Complete` payload を typed action authority として受ける。F5ej の `loop_yield_complete_yield_advance` は later actual real scheduler loop が clock delta を適用するときに呼ぶ deterministic clock-delta authority であり、`YieldToClock` payload と caller supplied `delta_ms` だけを入力にする。`remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、`delta_ms < 0` を `DeltaInvalid`、`yield_delay_ms < 0` を `YieldDelayInvalid` として owner-bearing error にする。pending branch では `0 <= delta_ms < yield_delay_ms` が成り立つ場合に限って `sub yield_delay_ms delta_ms` を実行し、same state / same `remaining_count` / reduced delay の `YieldPending` を `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopYieldCompleteYieldAdvanceResult` として返す。ready branch では state owner と original `remaining_count` を `YieldReady` として返す。`loop_yield_complete_complete_ack` は `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload に変換する。F5ej は timer advance、executor completion、scheduler decision、actual real scheduler loop、headless app-loop integration、native / bare real backend、queue drain、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op を持たない。
 
 Pixel hash:
 
@@ -374,7 +498,7 @@ Negative status は Web platform module 内で `Result` と `GuiError` へ写す
 -6 StaleFrame
 ```
 
-`request_timer` は formal event loop の timer 登録 request である。`window_id` は既に `present_surface` に成功して Shell が active window として保持している window だけを受ける。未提示 window への timer request は `InvalidArgument` とし、別 window 作成、stdout `NEPLG2_GUI_ANIMATE_MS`、polling loop へ fallback しない。`interval_ms == 0` は同じ window / timer id の timer clear request である。初期 checkpoint では `repeating == 1` の repeating timer だけを受け、one-shot timer は `InvalidArgument` とする。one-shot timer、timeslice budget、virtual scheduler と real scheduler の統合は後続 slice で定義する。
+`request_timer` は formal event loop の timer 登録 request である。`window_id` は既に `present_surface` に成功して Shell が active window として保持している window だけを受ける。未提示 window への timer request は `InvalidArgument` とし、別 window 作成、stdout `NEPLG2_GUI_ANIMATE_MS`、polling loop へ fallback しない。`interval_ms == 0` は同じ window / timer id の timer clear request である。`repeating == 1` は repeating timer、`repeating == 0` は one-shot timer として受ける。Web host は repeating timer を `setInterval`、one-shot timer を `setTimeout` へ接続し、one-shot timer は `GuiEvent::Timer` を input queue へ入れる前に active timer entry を消す。timeslice budget、virtual scheduler と real scheduler の統合、native / bare / headless scheduler backend は後続 slice で定義する。
 
 `discard_write_slot` は未公開 write frame の `Writing -> Free` 状態遷移だけを行う。描画途中の error や application 側の中断で publish しない frame は、surface close ではなくこの import で明示的に破棄する。成功時は dirty metadata を消し、published epoch と presented epoch は進めない。frame が存在しない、既に publish / discard 済み、resize generation が古い場合は typed negative status を返し、stdout protocol や別 surface へ fallback しない。
 
@@ -552,7 +676,7 @@ VirtualClock:
 Contract:
 
 - replay order は deterministic。
-- timer は virtual clock の advance によってだけ発火する。
+- timer は virtual clock / virtual timer の advance によってだけ発火する。
 - pointer / keyboard / text input / resize / close request は platform event と同じ typed shape を使う。
 - invalid event script は `GuiError::InvalidCommand` とする。
 
@@ -638,3 +762,10 @@ GuiVideoMemoryError:
 - Web command DTO に DOM / Canvas 型がない。
 - `core/gui` / `alloc/gui` / `std/gui` に Web / native concrete type name がない。
 - stdout GUI presentation を正式 path として参照しない。
+## F5ek std layer row tile RLE present host span operation presenter executor session turn virtual scheduler real loop step boundary
+
+F5ek は actual real scheduler loop / headless app-loop のために、F5eg `LoopAction` と explicit input の dispatch を std layer で固定する境界である。ここでは loop 本体、queue drain、sleep、backend executor、platform API は扱わない。
+
+`GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを持つ。`LoopExecutorCompletePolicy` を保持すると timer policy が二重化するため、Execute branch は F5ei の `loop_executor_complete_with_policy_refs` を呼んで同じ timer policy authority を借用する。
+
+`RealLoopStepInput` は `ClockDelta`、caller supplied `ExecutorOutcome`、explicit `CompleteAck` である。action/input の組み合わせは wildcard なしで match し、不一致は action owner と input owner を持つ mismatch error として返す。fallback、silent no-op、executor outcome の合成は禁止する。

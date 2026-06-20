@@ -1,0 +1,131 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step
+//: RGBA8888 row tile RLE present host span operation presenter executor session turn step の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5ds の turn poll result と turn complete result を、outer driver が[同/おな]じ enum として[扱/あつか]えるようにします。
+//: - actual scheduler / queue / timer / platform backend へ[進/すす]む[前/まえ]に、executor work、Continue、Yield、Completed を typed result として[正規化/せいきか]します。
+//:
+//: ### [契約/けいやく]
+//: - start は setup authority なので step result を[作/つく]らず、F5ds `turn_start` の turn state をそのまま[返/かえ]します。
+//: - `TurnStepResult::Completed` は transient result であり、永続 state ではありません。
+//: - poll は F5ds `turn_poll` だけを 1 [回/かい]だけ[呼/よ]び、Execute / Completed を step result へ[写/うつ]します。
+//: - complete は F5ds `turn_complete` だけを 1 [回/かい]だけ[呼/よ]び、Continue / Yield を step result へ[写/うつ]します。
+//: - lower F5dr / F5dp / F5dq、old action path、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult:
+    Execute %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending
+    Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState
+    Completed
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_poll_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_complete_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_from_poll_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult \poll_result:
+    match poll_result:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollResult::Execute pending:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Execute pending
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollResult::Completed:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Completed
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_from_complete_result %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult \complete_result:
+    match complete_result:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteResult::Continue turn_state:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Continue turn_state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteResult::Yield turn_state:
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult::Yield turn_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start: action から turn state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5ds turn start を 1 [回/かい]だけ[呼/よ]びます。
+//: - start は tick outcome ではないため、step result ではなく turn state を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError \support\policy\action:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_start support policy action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start_error_new lower
+        Result::Ok turn_state:
+            Result::Ok turn_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll: turn state を step result へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5ds turn poll を 1 [回/かい]だけ[呼/よ]びます。
+//: - pending request は `Execute` として executor へ[渡/わた]す value のまま[保持/ほじ]します。
+//: - terminal completion は transient `Completed` result としてだけ[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError \turn_state:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_poll turn_state:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll_error_new lower
+        Result::Ok poll_result:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_from_poll_result poll_result
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete: executor attempt を step result へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - pending request と attempt を value として[消費/しょうひ]します。
+//: - F5ds turn complete を 1 [回/かい]だけ[呼/よ]びます。
+//: - Continue / Yield は turn state を[保持/ほじ]した step result として[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError \pending\attempt:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_complete pending attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete_error_new lower
+        Result::Ok complete_result:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_from_complete_result complete_result
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_start_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStartError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_poll_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepPollError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnPollError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_step_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnCompleteError \error:
+    field::get error "lower"

@@ -1,0 +1,267 @@
+//: # platforms/gui/bare/display_present_readiness
+//: Bare presented packet readiness evidence boundary
+//:
+//: ### [目的/もくてき]
+//: - F5ft の actual display driver adapter completion を、row-tile RLE packet [単位/たんい]の presented readiness evidence へ[昇格/しょうかく]します。
+//: - adapter completion は owner を[含/ふく]む value として[消費/しょうひ]し、copyable step / outcome / evidence [単体/たんたい]を public authority にはしません。
+//: - owner 内の packet-local verified byte count と last present evidence を[照合/しょうごう]し、current packet の RGBA byte readback と host present accepted が[揃/そろ]った場合だけ[成功/せいこう]します。
+//:
+//: ### [契約/けいやく]
+//: - これは row-tile RLE packet readiness であり、whole surface ready、hardware flush completion、scheduler loop completion ではありません。
+//: - packet RGBA byte count は `pixel_count * 4` であり、RLE encoded byte count ではありません。
+//: - mismatch、overflow、wrong adapter step、last present mismatch は enum error と owner-bearing `Result` で fail-closed に[返/かえ]します。
+//: - raw storage accessor、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_present_readiness" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_driver_adapter" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareDisplayPresentedPacketReadyEvidence:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    frame %FrameId
+    run_count %i32
+    pixel_count %i32
+    packet_rgba_byte_count %i32
+    surface_byte_count %i32
+    packet_verified_byte_count %i32
+    total_verified_byte_count %i32
+
+impl Clone for GuiBareDisplayPresentedPacketReadyEvidence:
+    fn clone %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiBareDisplayPresentedPacketReadyEvidence \evidence:
+        *evidence
+
+impl Copy for GuiBareDisplayPresentedPacketReadyEvidence:
+    fn copy_mark %fn GuiBareDisplayPresentedPacketReadyEvidence GuiBareDisplayPresentedPacketReadyEvidence \evidence:
+        evidence
+
+pub struct GuiBareDisplayPresentedPacketReady:
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayPresentedPacketReadyEvidence
+
+pub enum GuiBareDisplayPresentReadinessErrorKind:
+    AdapterStepNotPresent
+    AdapterOutcomeNotPresent
+    DriverPhaseMismatch
+    LastPresentMissing
+    LastPresentMismatch
+    SurfaceByteCountMismatch
+    PacketPixelCountInvalid
+    PacketRgbaByteCountOverflow
+    PacketRgbaByteCountOutOfBounds
+    PacketVerifiedByteCountMismatch
+
+impl Clone for GuiBareDisplayPresentReadinessErrorKind:
+    fn clone %fn &GuiBareDisplayPresentReadinessErrorKind GuiBareDisplayPresentReadinessErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayPresentReadinessErrorKind:
+    fn copy_mark %fn GuiBareDisplayPresentReadinessErrorKind GuiBareDisplayPresentReadinessErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayPresentReadinessError:
+    kind %GuiBareDisplayPresentReadinessErrorKind
+    category %Option GuiError
+    owner %GuiBareDisplayMemoryOwner
+    adapter_evidence %GuiBareDisplayDriverAdapterStepEvidence
+
+fn gui_bare_display_presented_packet_ready_evidence_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn FrameId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiBareDisplayPresentedPacketReadyEvidence \target\descriptor\frame\run_count\pixel_count\packet_rgba_byte_count\surface_byte_count\packet_verified_byte_count\total_verified_byte_count:
+    GuiBareDisplayPresentedPacketReadyEvidence target descriptor frame run_count pixel_count packet_rgba_byte_count surface_byte_count packet_verified_byte_count total_verified_byte_count
+
+fn gui_bare_display_presented_packet_ready_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayPresentedPacketReadyEvidence GuiBareDisplayPresentedPacketReady \owner\evidence:
+    GuiBareDisplayPresentedPacketReady owner evidence
+
+fn gui_bare_display_present_readiness_error_category %fn GuiBareDisplayPresentReadinessErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayPresentReadinessErrorKind::AdapterStepNotPresent:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayPresentReadinessErrorKind::AdapterOutcomeNotPresent:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayPresentReadinessErrorKind::DriverPhaseMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayPresentReadinessErrorKind::LastPresentMissing:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayPresentReadinessErrorKind::LastPresentMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayPresentReadinessErrorKind::SurfaceByteCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayPresentReadinessErrorKind::PacketPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayPresentReadinessErrorKind::PacketRgbaByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayPresentReadinessErrorKind::PacketRgbaByteCountOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayPresentReadinessErrorKind::PacketVerifiedByteCountMismatch:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_present_readiness_error_new %fn GuiBareDisplayPresentReadinessErrorKind fn GuiBareDisplayMemoryOwner fn GuiBareDisplayDriverAdapterStepEvidence GuiBareDisplayPresentReadinessError \kind\owner\adapter_evidence:
+    let category %Option GuiError gui_bare_display_present_readiness_error_category kind
+    GuiBareDisplayPresentReadinessError kind category owner adapter_evidence
+
+pub fn gui_bare_display_presented_packet_ready_owner %fn GuiBareDisplayPresentedPacketReady GuiBareDisplayMemoryOwner \ready:
+    field::get ready "owner"
+
+pub fn gui_bare_display_presented_packet_ready_evidence %fn &GuiBareDisplayPresentedPacketReady GuiBareDisplayPresentedPacketReadyEvidence \ready:
+    *field::get_ref ready "evidence"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_target %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiRgba8888RowTileRlePresentHostSpanOperationTarget \evidence:
+    *field::get_ref evidence "target"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_descriptor %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiRgba8888RowTileRlePresentDescriptor \evidence:
+    *field::get_ref evidence "descriptor"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_frame %fn &GuiBareDisplayPresentedPacketReadyEvidence FrameId \evidence:
+    *field::get_ref evidence "frame"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_run_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "run_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_pixel_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "pixel_count"
+
+pub fn gui_bare_display_present_readiness_error_kind %fn &GuiBareDisplayPresentReadinessError GuiBareDisplayPresentReadinessErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_present_readiness_error_category_value %fn &GuiBareDisplayPresentReadinessError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_present_readiness_error_owner %fn GuiBareDisplayPresentReadinessError GuiBareDisplayMemoryOwner \error:
+    field::get error "owner"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_packet_rgba_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "packet_rgba_byte_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_surface_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "surface_byte_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_packet_verified_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "packet_verified_byte_count"
+
+pub fn gui_bare_display_presented_packet_ready_evidence_total_verified_byte_count %fn &GuiBareDisplayPresentedPacketReadyEvidence i32 \evidence:
+    *field::get_ref evidence "total_verified_byte_count"
+
+fn gui_bare_display_present_readiness_present_equal %fn &GuiBareDisplayDriverFramePresentAccepted fn &GuiBareDisplayDriverFramePresentAccepted bool \left\right:
+    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_driver_frame_present_accepted_target left
+    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_driver_frame_present_accepted_target right
+    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_driver_frame_present_accepted_descriptor left
+    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_driver_frame_present_accepted_descriptor right
+    let left_frame %FrameId gui_bare_display_driver_frame_present_accepted_frame left
+    let right_frame %FrameId gui_bare_display_driver_frame_present_accepted_frame right
+    and:
+        gui_bare_display_memory_target_equal left_target right_target
+        and:
+            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+            and:
+                eq frame_id_raw &left_frame frame_id_raw &right_frame
+                and:
+                    eq gui_bare_display_driver_frame_present_accepted_run_count left gui_bare_display_driver_frame_present_accepted_run_count right
+                    and:
+                        eq gui_bare_display_driver_frame_present_accepted_pixel_count left gui_bare_display_driver_frame_present_accepted_pixel_count right
+                        eq gui_bare_display_driver_frame_present_accepted_surface_byte_count left gui_bare_display_driver_frame_present_accepted_surface_byte_count right
+
+fn gui_bare_display_present_readiness_packet_rgba_byte_count %fn &GuiBareDisplayDriverFramePresentAccepted Result i32 GuiBareDisplayPresentReadinessErrorKind \present:
+    let pixel_count %i32 gui_bare_display_driver_frame_present_accepted_pixel_count present
+    if le pixel_count 0:
+        then Result::Err GuiBareDisplayPresentReadinessErrorKind::PacketPixelCountInvalid
+        else:
+            let max_i32 %i32 2147483647
+            let max_pixel_count %i32 div_s max_i32 4
+            if gt pixel_count max_pixel_count:
+                then Result::Err GuiBareDisplayPresentReadinessErrorKind::PacketRgbaByteCountOverflow
+                else Result::Ok mul pixel_count 4
+
+fn gui_bare_display_present_readiness_validate_last_present %fn &GuiBareDisplayMemoryOwner fn &GuiBareDisplayDriverFramePresentAccepted Result unit GuiBareDisplayPresentReadinessErrorKind \owner\present:
+    let driver_state %GuiBareDisplayDriverState gui_bare_display_memory_owner_driver_state owner
+    match gui_bare_display_driver_state_phase &driver_state:
+        GuiBareDisplayDriverPhase::Active active:
+            Result::Err GuiBareDisplayPresentReadinessErrorKind::DriverPhaseMismatch
+        GuiBareDisplayDriverPhase::Idle:
+            match gui_bare_display_driver_state_last_present &driver_state:
+                Option::None:
+                    Result::Err GuiBareDisplayPresentReadinessErrorKind::LastPresentMissing
+                Option::Some last_present:
+                    if gui_bare_display_present_readiness_present_equal &last_present present:
+                        then Result::Ok unit
+                        else Result::Err GuiBareDisplayPresentReadinessErrorKind::LastPresentMismatch
+
+fn gui_bare_display_present_readiness_build %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayDriverAdapterStepEvidence fn GuiBareDisplayDriverFramePresentAccepted Result GuiBareDisplayPresentedPacketReady GuiBareDisplayPresentReadinessError \owner\adapter_evidence\present:
+    match gui_bare_display_present_readiness_validate_last_present &owner &present:
+        Result::Err kind:
+            Result::Err gui_bare_display_present_readiness_error_new kind owner adapter_evidence
+        Result::Ok _:
+            let owner_surface %i32 gui_bare_display_memory_owner_surface_byte_count &owner
+            let present_surface %i32 gui_bare_display_driver_frame_present_accepted_surface_byte_count &present
+            if ne owner_surface present_surface:
+                then Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::SurfaceByteCountMismatch owner adapter_evidence
+                else:
+                    match gui_bare_display_present_readiness_packet_rgba_byte_count &present:
+                        Result::Err packet_kind:
+                            Result::Err gui_bare_display_present_readiness_error_new packet_kind owner adapter_evidence
+                        Result::Ok packet_rgba_byte_count:
+                            if gt packet_rgba_byte_count owner_surface:
+                                then Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::PacketRgbaByteCountOutOfBounds owner adapter_evidence
+                                else:
+                                    let packet_verified_byte_count %i32 gui_bare_display_memory_owner_packet_verified_byte_count &owner
+                                    if ne packet_verified_byte_count packet_rgba_byte_count:
+                                        then Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::PacketVerifiedByteCountMismatch owner adapter_evidence
+                                        else:
+                                            let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_driver_frame_present_accepted_target &present
+                                            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_driver_frame_present_accepted_descriptor &present
+                                            let frame %FrameId gui_bare_display_driver_frame_present_accepted_frame &present
+                                            let run_count %i32 gui_bare_display_driver_frame_present_accepted_run_count &present
+                                            let pixel_count %i32 gui_bare_display_driver_frame_present_accepted_pixel_count &present
+                                            let total_verified_byte_count %i32 gui_bare_display_memory_owner_verified_byte_count &owner
+                                            let evidence %GuiBareDisplayPresentedPacketReadyEvidence gui_bare_display_presented_packet_ready_evidence_new target descriptor frame run_count pixel_count packet_rgba_byte_count owner_surface packet_verified_byte_count total_verified_byte_count
+                                            Result::Ok gui_bare_display_presented_packet_ready_new owner evidence
+
+//: gui_bare_display_present_readiness_from_adapter_completed: adapter completion を packet readiness へ[昇格/しょうかく]する
+//:
+//: [契約/けいやく]:
+//: - `completed` を value として[消費/しょうひ]し、owner 内 canonical driver state と adapter evidence を[照合/しょうごう]します。
+//: - `FramePresentHostAccepted` / `FramePresentAccepted` 以外は fail-closed に[拒否/きょひ]します。
+//: - packet-local verified byte count が present pixel count 由来の RGBA byte count と[一致/いっち]する場合だけ[成功/せいこう]します。
+pub fn gui_bare_display_present_readiness_from_adapter_completed %fn GuiBareDisplayDriverAdapterCompleted Result GuiBareDisplayPresentedPacketReady GuiBareDisplayPresentReadinessError \completed:
+    let adapter_evidence %GuiBareDisplayDriverAdapterStepEvidence gui_bare_display_driver_adapter_completed_evidence &completed
+    let owner %GuiBareDisplayMemoryOwner gui_bare_display_driver_adapter_completed_owner completed
+    match gui_bare_display_driver_adapter_evidence_kind &adapter_evidence:
+        GuiBareDisplayDriverAdapterStepKind::FramePresentHostAccepted:
+            let step %GuiBareDisplayDriverStepApplied gui_bare_display_driver_adapter_evidence_step &adapter_evidence
+            match gui_bare_display_driver_step_applied_outcome &step:
+                GuiBareDisplayDriverOutcome::FramePresentAccepted present:
+                    gui_bare_display_present_readiness_build owner adapter_evidence present
+                GuiBareDisplayDriverOutcome::BeginAccepted begin:
+                    Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::AdapterOutcomeNotPresent owner adapter_evidence
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted span:
+                    Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::AdapterOutcomeNotPresent owner adapter_evidence
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::AdapterOutcomeNotPresent owner adapter_evidence
+        GuiBareDisplayDriverAdapterStepKind::BeginHostAccepted:
+            Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::AdapterStepNotPresent owner adapter_evidence
+        GuiBareDisplayDriverAdapterStepKind::SpanHostAcceptedAndReadback:
+            Result::Err gui_bare_display_present_readiness_error_new GuiBareDisplayPresentReadinessErrorKind::AdapterStepNotPresent owner adapter_evidence

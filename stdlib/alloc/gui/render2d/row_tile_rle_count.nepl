@@ -1,0 +1,196 @@
+//: # alloc/gui/render2d/row_tile_rle_count
+//: RGBA8888 row tile RLE run count boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRleCursorOwner` を drain boundary に[渡/わた]しながら、scheduler slice ごとの run 数を[累積/るいせき]します。
+//: - future encoded RLE transport が exact capacity を[決/き]めるための count owner を[作/つく]ります。
+//:
+//: ### [契約/けいやく]
+//: - count start は Ready cursor だけを[受/う]け[入/い]れます。Complete cursor から[始/はじ]めると、既に[走査/そうさ]された run 数を[復元/ふくげん]できないため typed error にします。
+//: - step は F5cd の `gui_rgba8888_row_tile_rle_drain_budget` にだけ[委譲/いじょう]し、run を[再走査/さいそうさ]しません。
+//: - `StepBudgetExhausted` は `Pending`、`Completed` は `Completed` に[写/うつ]し、どちらも `emitted_run_count` を checked add で[累積/るいせき]します。
+//:
+//: ### [注意/ちゅうい]
+//: - overflow error では cursor が既に[進/すす]んでいるため、continuation count owner は[返/かえ]しません。cursor と prior count を[返/かえ]し、caller が free または restart を[選/えら]びます。
+//: - encoded buffer、Vec、raw storage、video memory host call、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_count" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_drain" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleCountErrorKind:
+    InitialCursorInvalid %GuiRgba8888RowTileRleStepErrorKind
+    InitialCursorComplete
+    DrainFailed %GuiRgba8888RowTileRleDrainErrorKind
+    AccumulatedRunCountOverflow
+
+impl Clone for GuiRgba8888RowTileRleCountErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleCountErrorKind GuiRgba8888RowTileRleCountErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleCountErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleCountErrorKind GuiRgba8888RowTileRleCountErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleCountStepStatus:
+    Pending
+    Completed
+
+impl Clone for GuiRgba8888RowTileRleCountStepStatus:
+    fn clone %fn &GuiRgba8888RowTileRleCountStepStatus GuiRgba8888RowTileRleCountStepStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowTileRleCountStepStatus:
+    fn copy_mark %fn GuiRgba8888RowTileRleCountStepStatus GuiRgba8888RowTileRleCountStepStatus \status:
+        status
+
+pub struct GuiRgba8888RowTileRleCountOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    accumulated_run_count %i32
+
+pub struct GuiRgba8888RowTileRleCountStep:
+    status %GuiRgba8888RowTileRleCountStepStatus
+    owner %GuiRgba8888RowTileRleCountOwner
+
+pub struct GuiRgba8888RowTileRleCountError:
+    kind %GuiRgba8888RowTileRleCountErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    accumulated_run_count %i32
+
+fn gui_rgba8888_row_tile_rle_count_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 GuiRgba8888RowTileRleCountOwner \cursor\accumulated_run_count:
+    GuiRgba8888RowTileRleCountOwner cursor accumulated_run_count
+
+fn gui_rgba8888_row_tile_rle_count_step_new %fn GuiRgba8888RowTileRleCountStepStatus fn GuiRgba8888RowTileRleCountOwner GuiRgba8888RowTileRleCountStep \status\owner:
+    GuiRgba8888RowTileRleCountStep status owner
+
+fn gui_rgba8888_row_tile_rle_count_error_category %fn GuiRgba8888RowTileRleCountErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleCountErrorKind::InitialCursorInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleCountErrorKind::InitialCursorComplete:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleCountErrorKind::DrainFailed _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleCountErrorKind::AccumulatedRunCountOverflow:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_count_error %fn GuiRgba8888RowTileRleCountErrorKind fn GuiRgba8888RowTileRleCursorOwner fn i32 GuiRgba8888RowTileRleCountError \kind\cursor\accumulated_run_count:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_count_error_category kind
+    GuiRgba8888RowTileRleCountError kind category cursor accumulated_run_count
+
+fn gui_rgba8888_row_tile_rle_count_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowTileRleCountErrorKind Result i32 GuiRgba8888RowTileRleCountErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+pub fn gui_rgba8888_row_tile_rle_count_owner_accumulated_run_count %fn &GuiRgba8888RowTileRleCountOwner i32 \owner:
+    *field::get_ref owner "accumulated_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_count_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCountOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_count_owner_cursor_status %fn &GuiRgba8888RowTileRleCountOwner Result GuiRgba8888RowTileRleCursorStatus GuiRgba8888RowTileRleStepErrorKind \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_status cursor
+
+pub fn gui_rgba8888_row_tile_rle_count_owner_finish_cursor %fn GuiRgba8888RowTileRleCountOwner GuiRgba8888RowTileRleCursorOwner \owner:
+    field::get owner "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_count_step_status %fn &GuiRgba8888RowTileRleCountStep GuiRgba8888RowTileRleCountStepStatus \step:
+    *field::get_ref step "status"
+
+pub fn gui_rgba8888_row_tile_rle_count_step_finish_owner %fn GuiRgba8888RowTileRleCountStep GuiRgba8888RowTileRleCountOwner \step:
+    field::get step "owner"
+
+pub fn gui_rgba8888_row_tile_rle_count_error_kind %fn &GuiRgba8888RowTileRleCountError GuiRgba8888RowTileRleCountErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_count_error_category_value %fn &GuiRgba8888RowTileRleCountError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_count_error_accumulated_run_count %fn &GuiRgba8888RowTileRleCountError i32 \error:
+    *field::get_ref error "accumulated_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_count_error_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCountError i32 \error:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref error "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_count_error_finish_cursor %fn GuiRgba8888RowTileRleCountError GuiRgba8888RowTileRleCursorOwner \error:
+    field::get error "cursor"
+
+//: gui_rgba8888_row_tile_rle_count_start: Ready cursor から run count owner を[始/はじ]める
+//:
+//: [契約/けいやく]:
+//: - cursor status を[読/よ]み、Ready だけを initial count state として[許可/きょか]します。
+//: - Complete cursor は「既に[消費/しょうひ]された run count を[持/も]たない cursor」として拒否します。
+pub fn gui_rgba8888_row_tile_rle_count_start %fn GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileRleCountOwner GuiRgba8888RowTileRleCountError \cursor:
+    match gui_rgba8888_row_tile_rle_cursor_status &cursor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_count_error GuiRgba8888RowTileRleCountErrorKind::InitialCursorInvalid kind cursor 0
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    Result::Ok gui_rgba8888_row_tile_rle_count_owner_new cursor 0
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Err gui_rgba8888_row_tile_rle_count_error GuiRgba8888RowTileRleCountErrorKind::InitialCursorComplete cursor 0
+
+//: gui_rgba8888_row_tile_rle_count_step_budget: drain slice の emitted run count を[累積/るいせき]する
+//:
+//: [契約/けいやく]:
+//: - 実際の RLE step は `gui_rgba8888_row_tile_rle_drain_budget` へ[委譲/いじょう]します。
+//: - drain error は lower error kind を[保持/ほじ]したまま `DrainFailed` に[包/つつ]みます。
+//: - overflow では continuation owner を[作/つく]らず、advanced cursor と prior count を error に[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_count_step_budget %fn GuiRgba8888RowTileRleCountOwner fn i32 Result GuiRgba8888RowTileRleCountStep GuiRgba8888RowTileRleCountError \owner\remaining_steps:
+    let accumulated_run_count %i32 gui_rgba8888_row_tile_rle_count_owner_accumulated_run_count &owner
+    let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+    match gui_rgba8888_row_tile_rle_drain_budget cursor remaining_steps:
+        Result::Err drain_error:
+            let drain_kind %GuiRgba8888RowTileRleDrainErrorKind gui_rgba8888_row_tile_rle_drain_error_kind &drain_error
+            let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_drain_error_cursor drain_error
+            Result::Err gui_rgba8888_row_tile_rle_count_error GuiRgba8888RowTileRleCountErrorKind::DrainFailed drain_kind recovered_cursor accumulated_run_count
+        Result::Ok terminal:
+            let drain_status %GuiRgba8888RowTileRleDrainStatus gui_rgba8888_row_tile_rle_drain_terminal_status &terminal
+            let emitted_run_count %i32 gui_rgba8888_row_tile_rle_drain_terminal_emitted_run_count &terminal
+            let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_drain_terminal_finish_cursor terminal
+            match gui_rgba8888_row_tile_rle_count_checked_add_nonnegative_delta accumulated_run_count emitted_run_count GuiRgba8888RowTileRleCountErrorKind::AccumulatedRunCountOverflow:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_row_tile_rle_count_error kind recovered_cursor accumulated_run_count
+                Result::Ok next_accumulated_run_count:
+                    let next_owner %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_owner_new recovered_cursor next_accumulated_run_count
+                    match drain_status:
+                        GuiRgba8888RowTileRleDrainStatus::Completed:
+                            Result::Ok gui_rgba8888_row_tile_rle_count_step_new GuiRgba8888RowTileRleCountStepStatus::Completed next_owner
+                        GuiRgba8888RowTileRleDrainStatus::StepBudgetExhausted:
+                            Result::Ok gui_rgba8888_row_tile_rle_count_step_new GuiRgba8888RowTileRleCountStepStatus::Pending next_owner
+
+pub fn gui_rgba8888_row_tile_rle_count_owner_free %fn GuiRgba8888RowTileRleCountOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_count_owner_finish_cursor owner
+    gui_rgba8888_row_tile_rle_cursor_free cursor
+
+pub fn gui_rgba8888_row_tile_rle_count_step_free %fn GuiRgba8888RowTileRleCountStep Result unit GuiRgba8888RowByteStorageFinishErrorKind \step:
+    let owner %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_step_finish_owner step
+    gui_rgba8888_row_tile_rle_count_owner_free owner
+
+pub fn gui_rgba8888_row_tile_rle_count_error_free %fn GuiRgba8888RowTileRleCountError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_count_error_finish_cursor error
+    gui_rgba8888_row_tile_rle_cursor_free cursor

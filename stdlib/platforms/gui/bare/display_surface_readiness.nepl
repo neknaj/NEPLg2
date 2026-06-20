@@ -1,0 +1,729 @@
+//: # platforms/gui/bare/display_surface_readiness
+//: Bare whole-surface packet-readiness aggregation boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fu の row-tile RLE packet readiness を、full-height surface の ordered packet readiness evidence へ[集約/しゅうやく]します。
+//: - packet readiness は owner-bearing value として[消費/しょうひ]し、copyable evidence [単体/たんたい]を aggregation authority にしません。
+//: - tile index、row range、pixel count を cursor の `next_tile_index` から[再計算/さいけいさん]し、duplicate、reorder、gap、partial plan を fail-closed にします。
+//:
+//: ### [契約/けいやく]
+//: - これは F5fu packet readiness の ordered aggregation であり、hardware flush completion、scheduler loop completion、actual display backend completion ではありません。
+//: - full-height plan は `plan_row_start == 0` かつ `plan_row_count == height` の場合だけです。
+//: - `Continue` は non-Copy cursor と owner を[保持/ほじ]し、`continue_take` で同じ handoff value に[移/うつ]します。
+//: - raw storage accessor、driver accepted value authority、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_surface_readiness" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_memory_owner" as *
+#import "platforms/gui/bare/display_present_readiness" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessEvidence:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    surface %SurfaceId
+    frame %FrameId
+    frame_id %i32
+    batch_index %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    tile_rows %i32
+    tile_count %i32
+    expected_pixel_count %i32
+    ready_pixel_count %i32
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayWholeSurfacePacketReadinessEvidence:
+    fn clone %fn &GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessEvidence \evidence:
+        *evidence
+
+impl Copy for GuiBareDisplayWholeSurfacePacketReadinessEvidence:
+    fn copy_mark %fn GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessEvidence \evidence:
+        evidence
+
+struct GuiBareDisplayWholeSurfacePacketReadinessCursorSeal:
+    next_tile_index %i32
+    ready_pixel_count %i32
+
+struct GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal:
+    frame_id %i32
+    ready_pixel_count %i32
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessCursor:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    surface %SurfaceId
+    frame %FrameId
+    frame_id %i32
+    batch_index %i32
+    plan_row_start %i32
+    plan_row_count %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    tile_rows %i32
+    tile_count %i32
+    next_tile_index %i32
+    expected_pixel_count %i32
+    ready_pixel_count %i32
+    surface_byte_count %i32
+    seal %GuiBareDisplayWholeSurfacePacketReadinessCursorSeal
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessContinue:
+    cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor
+    owner %GuiBareDisplayMemoryOwner
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessHandoff:
+    cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor
+    owner %GuiBareDisplayMemoryOwner
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessCompleted:
+    owner %GuiBareDisplayMemoryOwner
+    evidence %GuiBareDisplayWholeSurfacePacketReadinessEvidence
+    seal %GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal
+
+pub enum GuiBareDisplayWholeSurfacePacketReadinessResult:
+    Continue %GuiBareDisplayWholeSurfacePacketReadinessContinue
+    Completed %GuiBareDisplayWholeSurfacePacketReadinessCompleted
+
+pub enum GuiBareDisplayWholeSurfacePacketReadinessErrorKind:
+    WidthInvalid
+    HeightInvalid
+    PlanRowStartNotZero
+    PlanRowCountMismatch
+    TileRowsInvalid
+    TileCountInvalid
+    TileCountMismatch
+    StrideOverflow
+    StrideMismatch
+    ExpectedPixelCountOverflow
+    ExpectedPixelCountMismatch
+    SurfaceByteCountMismatch
+    TileIndexBeforeExpected
+    DuplicateOrReorderedTile
+    TileGap
+    TileIndexAfterEnd
+    TileRowStartOverflow
+    TileRowStartMismatch
+    TileRowCountInvalid
+    TileRowCountMismatch
+    TilePixelCountOverflow
+    TilePixelCountMismatch
+    ReadyPixelCountOverflow
+    ReadyPixelCountOutOfBounds
+    CompletionTileCountMismatch
+    CompletionPixelCountMismatch
+    TargetMismatch
+    SurfaceMismatch
+    FrameMismatch
+    FrameIdMismatch
+    BatchIndexMismatch
+    PlanRowRangeMismatch
+    WidthMismatch
+    HeightMismatch
+    StrideValueMismatch
+    TileRowsMismatch
+    TileCountValueMismatch
+
+impl Clone for GuiBareDisplayWholeSurfacePacketReadinessErrorKind:
+    fn clone %fn &GuiBareDisplayWholeSurfacePacketReadinessErrorKind GuiBareDisplayWholeSurfacePacketReadinessErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayWholeSurfacePacketReadinessErrorKind:
+    fn copy_mark %fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind GuiBareDisplayWholeSurfacePacketReadinessErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessStartError:
+    kind %GuiBareDisplayWholeSurfacePacketReadinessErrorKind
+    category %Option GuiError
+    ready %GuiBareDisplayPresentedPacketReady
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessAdvanceError:
+    kind %GuiBareDisplayWholeSurfacePacketReadinessErrorKind
+    category %Option GuiError
+    cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor
+    ready %GuiBareDisplayPresentedPacketReady
+
+pub struct GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery:
+    cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor
+    ready %GuiBareDisplayPresentedPacketReady
+
+fn gui_bare_display_whole_surface_packet_readiness_evidence_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn SurfaceId fn FrameId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessEvidence \target\surface\frame\frame_id\batch_index\width\height\stride_bytes\tile_rows\tile_count\expected_pixel_count\ready_pixel_count\surface_byte_count:
+    GuiBareDisplayWholeSurfacePacketReadinessEvidence target surface frame frame_id batch_index width height stride_bytes tile_rows tile_count expected_pixel_count ready_pixel_count surface_byte_count
+
+fn gui_bare_display_whole_surface_packet_readiness_cursor_seal %fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessCursorSeal \next_tile_index\ready_pixel_count:
+    GuiBareDisplayWholeSurfacePacketReadinessCursorSeal next_tile_index ready_pixel_count
+
+fn gui_bare_display_whole_surface_packet_readiness_completed_seal %fn &GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal \evidence:
+    let frame_id %i32 *field::get_ref evidence "frame_id"
+    let ready_pixel_count %i32 *field::get_ref evidence "ready_pixel_count"
+    GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal frame_id ready_pixel_count
+
+fn gui_bare_display_whole_surface_packet_readiness_cursor_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn SurfaceId fn FrameId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessCursor \target\surface\frame\frame_id\batch_index\plan_row_start\plan_row_count\width\height\stride_bytes\tile_rows\tile_count\next_tile_index\expected_pixel_count\ready_pixel_count\surface_byte_count:
+    let seal %GuiBareDisplayWholeSurfacePacketReadinessCursorSeal gui_bare_display_whole_surface_packet_readiness_cursor_seal next_tile_index ready_pixel_count
+    GuiBareDisplayWholeSurfacePacketReadinessCursor target surface frame frame_id batch_index plan_row_start plan_row_count width height stride_bytes tile_rows tile_count next_tile_index expected_pixel_count ready_pixel_count surface_byte_count seal
+
+fn gui_bare_display_whole_surface_packet_readiness_continue_new %fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayMemoryOwner GuiBareDisplayWholeSurfacePacketReadinessContinue \cursor\owner:
+    GuiBareDisplayWholeSurfacePacketReadinessContinue cursor owner
+
+fn gui_bare_display_whole_surface_packet_readiness_handoff_new %fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayMemoryOwner GuiBareDisplayWholeSurfacePacketReadinessHandoff \cursor\owner:
+    GuiBareDisplayWholeSurfacePacketReadinessHandoff cursor owner
+
+fn gui_bare_display_whole_surface_packet_readiness_completed_new %fn GuiBareDisplayMemoryOwner fn GuiBareDisplayWholeSurfacePacketReadinessEvidence GuiBareDisplayWholeSurfacePacketReadinessCompleted \owner\evidence:
+    let seal %GuiBareDisplayWholeSurfacePacketReadinessCompletedSeal gui_bare_display_whole_surface_packet_readiness_completed_seal &evidence
+    GuiBareDisplayWholeSurfacePacketReadinessCompleted owner evidence seal
+
+fn gui_bare_display_whole_surface_packet_readiness_error_category %fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TargetMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::SurfaceMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::FrameMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::FrameIdMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::BatchIndexMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowRangeMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::WidthMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::HeightMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideValueMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowsMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountValueMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::DuplicateOrReorderedTile:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileGap:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::WidthInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::HeightInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowStartNotZero:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowsInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ExpectedPixelCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ExpectedPixelCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::SurfaceByteCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileIndexBeforeExpected:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileIndexAfterEnd:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TilePixelCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TilePixelCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::CompletionTileCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayWholeSurfacePacketReadinessErrorKind::CompletionPixelCountMismatch:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_bare_display_whole_surface_packet_readiness_start_error %fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind fn GuiBareDisplayPresentedPacketReady GuiBareDisplayWholeSurfacePacketReadinessStartError \kind\ready:
+    let category %Option GuiError gui_bare_display_whole_surface_packet_readiness_error_category kind
+    GuiBareDisplayWholeSurfacePacketReadinessStartError kind category ready
+
+fn gui_bare_display_whole_surface_packet_readiness_advance_error %fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayPresentedPacketReady GuiBareDisplayWholeSurfacePacketReadinessAdvanceError \kind\cursor\ready:
+    let category %Option GuiError gui_bare_display_whole_surface_packet_readiness_error_category kind
+    GuiBareDisplayWholeSurfacePacketReadinessAdvanceError kind category cursor ready
+
+fn gui_bare_display_whole_surface_packet_readiness_advance_error_recovery_new %fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayPresentedPacketReady GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery \cursor\ready:
+    GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery cursor ready
+
+pub fn gui_bare_display_whole_surface_packet_readiness_continue_take %fn GuiBareDisplayWholeSurfacePacketReadinessContinue GuiBareDisplayWholeSurfacePacketReadinessHandoff \continue:
+    let cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor field::get continue "cursor"
+    let owner %GuiBareDisplayMemoryOwner field::get continue "owner"
+    gui_bare_display_whole_surface_packet_readiness_handoff_new cursor owner
+
+pub fn gui_bare_display_whole_surface_packet_readiness_handoff_cursor %fn GuiBareDisplayWholeSurfacePacketReadinessHandoff GuiBareDisplayWholeSurfacePacketReadinessCursor \handoff:
+    field::get handoff "cursor"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_handoff_owner %fn GuiBareDisplayWholeSurfacePacketReadinessHandoff GuiBareDisplayMemoryOwner \handoff:
+    field::get handoff "owner"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_completed_owner %fn GuiBareDisplayWholeSurfacePacketReadinessCompleted GuiBareDisplayMemoryOwner \completed:
+    field::get completed "owner"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_completed_evidence %fn &GuiBareDisplayWholeSurfacePacketReadinessCompleted GuiBareDisplayWholeSurfacePacketReadinessEvidence \completed:
+    *field::get_ref completed "evidence"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_start_error_kind %fn &GuiBareDisplayWholeSurfacePacketReadinessStartError GuiBareDisplayWholeSurfacePacketReadinessErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_start_error_category_value %fn &GuiBareDisplayWholeSurfacePacketReadinessStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_start_error_ready %fn GuiBareDisplayWholeSurfacePacketReadinessStartError GuiBareDisplayPresentedPacketReady \error:
+    field::get error "ready"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_kind %fn &GuiBareDisplayWholeSurfacePacketReadinessAdvanceError GuiBareDisplayWholeSurfacePacketReadinessErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_category_value %fn &GuiBareDisplayWholeSurfacePacketReadinessAdvanceError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_cursor %fn GuiBareDisplayWholeSurfacePacketReadinessAdvanceError GuiBareDisplayWholeSurfacePacketReadinessCursor \error:
+    field::get error "cursor"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_ready %fn GuiBareDisplayWholeSurfacePacketReadinessAdvanceError GuiBareDisplayPresentedPacketReady \error:
+    field::get error "ready"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_take %fn GuiBareDisplayWholeSurfacePacketReadinessAdvanceError GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery \error:
+    let cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor field::get error "cursor"
+    let ready %GuiBareDisplayPresentedPacketReady field::get error "ready"
+    gui_bare_display_whole_surface_packet_readiness_advance_error_recovery_new cursor ready
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_recovery_cursor %fn GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery GuiBareDisplayWholeSurfacePacketReadinessCursor \recovery:
+    field::get recovery "cursor"
+
+pub fn gui_bare_display_whole_surface_packet_readiness_advance_error_recovery_ready %fn GuiBareDisplayWholeSurfacePacketReadinessAdvanceErrorRecovery GuiBareDisplayPresentedPacketReady \recovery:
+    field::get recovery "ready"
+
+fn gui_bare_display_whole_surface_packet_readiness_checked_add %fn i32 fn i32 fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_bare_display_whole_surface_packet_readiness_checked_mul %fn i32 fn i32 fn GuiBareDisplayWholeSurfacePacketReadinessErrorKind Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_bare_display_whole_surface_packet_readiness_tile_count_checked %fn i32 fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \plan_row_count\tile_rows:
+    if le plan_row_count 0:
+        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowCountMismatch
+        else:
+            if le tile_rows 0:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowsInvalid
+                else:
+                    let quotient %i32 div_s plan_row_count tile_rows
+                    let remainder %i32 rem_s plan_row_count tile_rows
+                    let tile_count %i32 if eq remainder 0 quotient add quotient 1
+                    if le tile_count 0:
+                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountInvalid
+                        else Result::Ok tile_count
+
+fn gui_bare_display_whole_surface_packet_readiness_expected_pixel_count %fn i32 fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \width\height:
+    gui_bare_display_whole_surface_packet_readiness_checked_mul width height GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ExpectedPixelCountOverflow
+
+fn gui_bare_display_whole_surface_packet_readiness_expected_stride %fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \width:
+    gui_bare_display_whole_surface_packet_readiness_checked_mul width 4 GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideOverflow
+
+fn gui_bare_display_whole_surface_packet_readiness_packet %fn &GuiBareDisplayPresentedPacketReadyEvidence GuiRgba8888RowTileRlePacketDescriptor \evidence:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_presented_packet_ready_evidence_descriptor evidence
+    gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+
+fn gui_bare_display_whole_surface_packet_readiness_expected_row_count %fn &GuiRgba8888RowTileRlePacketDescriptor fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \packet\expected_tile_index:
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count packet
+    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count packet
+    match gui_bare_display_whole_surface_packet_readiness_checked_mul expected_tile_index tile_rows GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok row_offset:
+            if ge row_offset plan_row_count:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileIndexAfterEnd
+                else:
+                    let remaining %i32 sub plan_row_count row_offset
+                    if le remaining 0:
+                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountInvalid
+                        else:
+                            let final_tile_index %i32 sub tile_count 1
+                            if eq expected_tile_index final_tile_index:
+                                then:
+                                    if gt remaining tile_rows:
+                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountMismatch
+                                        else Result::Ok remaining
+                                else:
+                                    if lt remaining tile_rows:
+                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountMismatch
+                                        else Result::Ok tile_rows
+
+fn gui_bare_display_whole_surface_packet_readiness_expected_row_start %fn &GuiRgba8888RowTileRlePacketDescriptor fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \packet\expected_tile_index:
+    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start packet
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+    match gui_bare_display_whole_surface_packet_readiness_checked_mul expected_tile_index tile_rows GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok row_offset:
+            gui_bare_display_whole_surface_packet_readiness_checked_add plan_row_start row_offset GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartOverflow
+
+fn gui_bare_display_whole_surface_packet_readiness_check_full_plan %fn &GuiRgba8888RowTileRlePacketDescriptor Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \packet:
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width packet
+    if le width 0:
+        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::WidthInvalid
+        else:
+            let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height packet
+            if le height 0:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::HeightInvalid
+                else:
+                    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start packet
+                    if ne plan_row_start 0:
+                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowStartNotZero
+                        else:
+                            let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count packet
+                            if ne plan_row_count height:
+                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowCountMismatch
+                                else:
+                                    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+                                    match gui_bare_display_whole_surface_packet_readiness_tile_count_checked plan_row_count tile_rows:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_tile_count:
+                                            let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count packet
+                                            if ne expected_tile_count tile_count:
+                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountMismatch
+                                                else:
+                                                    match gui_bare_display_whole_surface_packet_readiness_expected_stride width:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok expected_stride:
+                                                            let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes packet
+                                                            if ne expected_stride stride_bytes:
+                                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideMismatch
+                                                                else gui_bare_display_whole_surface_packet_readiness_expected_pixel_count width height
+
+fn gui_bare_display_whole_surface_packet_readiness_check_tile_index %fn i32 fn i32 Result unit GuiBareDisplayWholeSurfacePacketReadinessErrorKind \tile_index\expected_tile_index:
+    if lt tile_index expected_tile_index:
+        then:
+            if lt tile_index 0:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileIndexBeforeExpected
+                else Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::DuplicateOrReorderedTile
+        else:
+            if gt tile_index expected_tile_index:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileGap
+                else Result::Ok unit
+
+fn gui_bare_display_whole_surface_packet_readiness_check_tile %fn &GuiBareDisplayPresentedPacketReadyEvidence fn i32 Result i32 GuiBareDisplayWholeSurfacePacketReadinessErrorKind \evidence\expected_tile_index:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_bare_display_whole_surface_packet_readiness_packet evidence
+    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+    if ge expected_tile_index tile_count:
+        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileIndexAfterEnd
+        else:
+            let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &packet
+            match gui_bare_display_whole_surface_packet_readiness_check_tile_index tile_index expected_tile_index:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_bare_display_whole_surface_packet_readiness_expected_row_start &packet expected_tile_index:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_row_start:
+                            let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+                            if ne row_start expected_row_start:
+                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowStartMismatch
+                                else:
+                                    match gui_bare_display_whole_surface_packet_readiness_expected_row_count &packet expected_tile_index:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_row_count:
+                                            let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+                                            if ne row_count expected_row_count:
+                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowCountMismatch
+                                                else:
+                                                    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+                                                    match gui_bare_display_whole_surface_packet_readiness_checked_mul row_count width GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TilePixelCountOverflow:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok expected_pixel_count:
+                                                            let packet_pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+                                                            if ne packet_pixel_count expected_pixel_count:
+                                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TilePixelCountMismatch
+                                                                else:
+                                                                    let ready_pixel_count %i32 gui_bare_display_presented_packet_ready_evidence_pixel_count evidence
+                                                                    if ne ready_pixel_count expected_pixel_count:
+                                                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TilePixelCountMismatch
+                                                                        else Result::Ok ready_pixel_count
+
+fn gui_bare_display_whole_surface_packet_readiness_cursor_from_first %fn &GuiBareDisplayPresentedPacketReadyEvidence fn i32 fn i32 GuiBareDisplayWholeSurfacePacketReadinessCursor \evidence\next_tile_index\ready_pixel_count:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_presented_packet_ready_evidence_target evidence
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_presented_packet_ready_evidence_descriptor evidence
+    let surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface &descriptor
+    let frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+    let frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &packet
+    let plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &packet
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+    let expected_pixel_count %i32 mul width height
+    let surface_byte_count %i32 gui_bare_display_presented_packet_ready_evidence_surface_byte_count evidence
+    gui_bare_display_whole_surface_packet_readiness_cursor_new target surface frame frame_id batch_index plan_row_start plan_row_count width height stride_bytes tile_rows tile_count next_tile_index expected_pixel_count ready_pixel_count surface_byte_count
+
+fn gui_bare_display_whole_surface_packet_readiness_evidence_from_cursor %fn &GuiBareDisplayWholeSurfacePacketReadinessCursor GuiBareDisplayWholeSurfacePacketReadinessEvidence \cursor:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref cursor "target"
+    let surface %SurfaceId *field::get_ref cursor "surface"
+    let frame %FrameId *field::get_ref cursor "frame"
+    let frame_id %i32 *field::get_ref cursor "frame_id"
+    let batch_index %i32 *field::get_ref cursor "batch_index"
+    let width %i32 *field::get_ref cursor "width"
+    let height %i32 *field::get_ref cursor "height"
+    let stride_bytes %i32 *field::get_ref cursor "stride_bytes"
+    let tile_rows %i32 *field::get_ref cursor "tile_rows"
+    let tile_count %i32 *field::get_ref cursor "tile_count"
+    let expected_pixel_count %i32 *field::get_ref cursor "expected_pixel_count"
+    let ready_pixel_count %i32 *field::get_ref cursor "ready_pixel_count"
+    let surface_byte_count %i32 *field::get_ref cursor "surface_byte_count"
+    gui_bare_display_whole_surface_packet_readiness_evidence_new target surface frame frame_id batch_index width height stride_bytes tile_rows tile_count expected_pixel_count ready_pixel_count surface_byte_count
+
+fn gui_bare_display_whole_surface_packet_readiness_complete_from_cursor %fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayMemoryOwner GuiBareDisplayWholeSurfacePacketReadinessCompleted \cursor\owner:
+    let evidence %GuiBareDisplayWholeSurfacePacketReadinessEvidence gui_bare_display_whole_surface_packet_readiness_evidence_from_cursor &cursor
+    gui_bare_display_whole_surface_packet_readiness_completed_new owner evidence
+
+fn gui_bare_display_whole_surface_packet_readiness_compare_fixed %fn &GuiBareDisplayWholeSurfacePacketReadinessCursor fn &GuiBareDisplayPresentedPacketReadyEvidence Result unit GuiBareDisplayWholeSurfacePacketReadinessErrorKind \cursor\evidence:
+    let cursor_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref cursor "target"
+    let ready_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_presented_packet_ready_evidence_target evidence
+    if not gui_bare_display_memory_target_equal cursor_target ready_target:
+        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TargetMismatch
+        else:
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_presented_packet_ready_evidence_descriptor evidence
+            let ready_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface &descriptor
+            let cursor_surface %SurfaceId *field::get_ref cursor "surface"
+            if ne surface_id_raw &ready_surface surface_id_raw &cursor_surface:
+                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::SurfaceMismatch
+                else:
+                    let ready_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &descriptor
+                    let cursor_frame %FrameId *field::get_ref cursor "frame"
+                    if ne frame_id_raw &ready_frame frame_id_raw &cursor_frame:
+                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::FrameMismatch
+                        else:
+                            let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+                            let ready_frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &packet
+                            let cursor_frame_id %i32 *field::get_ref cursor "frame_id"
+                            if ne ready_frame_id cursor_frame_id:
+                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::FrameIdMismatch
+                                else:
+                                    let ready_batch_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &packet
+                                    let cursor_batch_index %i32 *field::get_ref cursor "batch_index"
+                                    if ne ready_batch_index cursor_batch_index:
+                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::BatchIndexMismatch
+                                        else:
+                                            let ready_plan_row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &packet
+                                            let ready_plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &packet
+                                            let cursor_plan_row_start %i32 *field::get_ref cursor "plan_row_start"
+                                            let cursor_plan_row_count %i32 *field::get_ref cursor "plan_row_count"
+                                            if or ne ready_plan_row_start cursor_plan_row_start ne ready_plan_row_count cursor_plan_row_count:
+                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::PlanRowRangeMismatch
+                                                else:
+                                                    let ready_width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+                                                    let cursor_width %i32 *field::get_ref cursor "width"
+                                                    if ne ready_width cursor_width:
+                                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::WidthMismatch
+                                                        else:
+                                                            let ready_height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+                                                            let cursor_height %i32 *field::get_ref cursor "height"
+                                                            if ne ready_height cursor_height:
+                                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::HeightMismatch
+                                                                else:
+                                                                    let ready_stride_bytes %i32 gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+                                                                    let cursor_stride_bytes %i32 *field::get_ref cursor "stride_bytes"
+                                                                    if ne ready_stride_bytes cursor_stride_bytes:
+                                                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::StrideValueMismatch
+                                                                        else:
+                                                                            let ready_tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &packet
+                                                                            let cursor_tile_rows %i32 *field::get_ref cursor "tile_rows"
+                                                                            if ne ready_tile_rows cursor_tile_rows:
+                                                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileRowsMismatch
+                                                                                else:
+                                                                                    let ready_tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+                                                                                    let cursor_tile_count %i32 *field::get_ref cursor "tile_count"
+                                                                                    if ne ready_tile_count cursor_tile_count:
+                                                                                        then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::TileCountValueMismatch
+                                                                                        else:
+                                                                                            let ready_surface_byte_count %i32 gui_bare_display_presented_packet_ready_evidence_surface_byte_count evidence
+                                                                                            let cursor_surface_byte_count %i32 *field::get_ref cursor "surface_byte_count"
+                                                                                            if ne ready_surface_byte_count cursor_surface_byte_count:
+                                                                                                then Result::Err GuiBareDisplayWholeSurfacePacketReadinessErrorKind::SurfaceByteCountMismatch
+                                                                                                else Result::Ok unit
+
+//: gui_bare_display_whole_surface_packet_readiness_start: first packet readiness から aggregation を[開始/かいし]する
+//:
+//: [契約/けいやく]:
+//: - `ready` を value として[消費/しょうひ]し、tile 0 の full-height plan coverage を[検査/けんさ]します。
+//: - single-tile surface の場合だけ `Completed` を[返/かえ]します。
+//: - multi-tile surface の場合は non-Copy cursor と owner を `Continue` に[保持/ほじ]します。
+pub fn gui_bare_display_whole_surface_packet_readiness_start %fn GuiBareDisplayPresentedPacketReady Result GuiBareDisplayWholeSurfacePacketReadinessResult GuiBareDisplayWholeSurfacePacketReadinessStartError \ready:
+    let evidence %GuiBareDisplayPresentedPacketReadyEvidence gui_bare_display_presented_packet_ready_evidence &ready
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_bare_display_whole_surface_packet_readiness_packet &evidence
+    match gui_bare_display_whole_surface_packet_readiness_check_full_plan &packet:
+        Result::Err kind:
+            Result::Err gui_bare_display_whole_surface_packet_readiness_start_error kind ready
+        Result::Ok expected_pixel_count:
+            match gui_bare_display_whole_surface_packet_readiness_check_tile &evidence 0:
+                Result::Err kind:
+                    Result::Err gui_bare_display_whole_surface_packet_readiness_start_error kind ready
+                Result::Ok first_pixel_count:
+                    match gui_bare_display_whole_surface_packet_readiness_checked_add 0 first_pixel_count GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_bare_display_whole_surface_packet_readiness_start_error kind ready
+                        Result::Ok ready_pixel_count:
+                            if gt ready_pixel_count expected_pixel_count:
+                                then Result::Err gui_bare_display_whole_surface_packet_readiness_start_error GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOutOfBounds ready
+                                else:
+                                    let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+                                    let next_tile_index %i32 1
+                                    if eq tile_count 1:
+                                        then:
+                                            if ne ready_pixel_count expected_pixel_count:
+                                                then Result::Err gui_bare_display_whole_surface_packet_readiness_start_error GuiBareDisplayWholeSurfacePacketReadinessErrorKind::CompletionPixelCountMismatch ready
+                                                else:
+                                                    let owner %GuiBareDisplayMemoryOwner gui_bare_display_presented_packet_ready_owner ready
+                                                    let cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor gui_bare_display_whole_surface_packet_readiness_cursor_from_first &evidence next_tile_index ready_pixel_count
+                                                    let completed %GuiBareDisplayWholeSurfacePacketReadinessCompleted gui_bare_display_whole_surface_packet_readiness_complete_from_cursor cursor owner
+                                                    Result::Ok GuiBareDisplayWholeSurfacePacketReadinessResult::Completed completed
+                                        else:
+                                            let owner %GuiBareDisplayMemoryOwner gui_bare_display_presented_packet_ready_owner ready
+                                            let cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor gui_bare_display_whole_surface_packet_readiness_cursor_from_first &evidence next_tile_index ready_pixel_count
+                                            let continue_value %GuiBareDisplayWholeSurfacePacketReadinessContinue gui_bare_display_whole_surface_packet_readiness_continue_new cursor owner
+                                            Result::Ok GuiBareDisplayWholeSurfacePacketReadinessResult::Continue continue_value
+
+//: gui_bare_display_whole_surface_packet_readiness_advance: 次 packet readiness を aggregation cursor に[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - non-Copy cursor と次の owner-bearing `ready` を[両方/りょうほう][消費/しょうひ]します。
+//: - fixed metadata は cursor と[一致/いっち]する必要があります。
+//: - tile-local metadata は `next_tile_index` から[再計算/さいけいさん]し、duplicate / reorder / gap を fail-closed にします。
+pub fn gui_bare_display_whole_surface_packet_readiness_advance %fn GuiBareDisplayWholeSurfacePacketReadinessCursor fn GuiBareDisplayPresentedPacketReady Result GuiBareDisplayWholeSurfacePacketReadinessResult GuiBareDisplayWholeSurfacePacketReadinessAdvanceError \cursor\ready:
+    let evidence %GuiBareDisplayPresentedPacketReadyEvidence gui_bare_display_presented_packet_ready_evidence &ready
+    match gui_bare_display_whole_surface_packet_readiness_compare_fixed &cursor &evidence:
+        Result::Err kind:
+            Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error kind cursor ready
+        Result::Ok _:
+            let next_tile_index %i32 *field::get_ref &cursor "next_tile_index"
+            match gui_bare_display_whole_surface_packet_readiness_check_tile &evidence next_tile_index:
+                Result::Err kind:
+                    Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error kind cursor ready
+                Result::Ok packet_pixel_count:
+                    let current_ready_pixel_count %i32 *field::get_ref &cursor "ready_pixel_count"
+                    match gui_bare_display_whole_surface_packet_readiness_checked_add current_ready_pixel_count packet_pixel_count GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error kind cursor ready
+                        Result::Ok next_ready_pixel_count:
+                            let expected_pixel_count %i32 *field::get_ref &cursor "expected_pixel_count"
+                            if gt next_ready_pixel_count expected_pixel_count:
+                                then Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOutOfBounds cursor ready
+                                else:
+                                    match gui_bare_display_whole_surface_packet_readiness_checked_add next_tile_index 1 GuiBareDisplayWholeSurfacePacketReadinessErrorKind::ReadyPixelCountOverflow:
+                                        Result::Err kind:
+                                            Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error kind cursor ready
+                                        Result::Ok advanced_tile_index:
+                                            let tile_count %i32 *field::get_ref &cursor "tile_count"
+                                            if eq advanced_tile_index tile_count:
+                                                then:
+                                                    if ne next_ready_pixel_count expected_pixel_count:
+                                                        then Result::Err gui_bare_display_whole_surface_packet_readiness_advance_error GuiBareDisplayWholeSurfacePacketReadinessErrorKind::CompletionPixelCountMismatch cursor ready
+                                                        else:
+                                                            let owner %GuiBareDisplayMemoryOwner gui_bare_display_presented_packet_ready_owner ready
+                                                            let next_cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor:
+                                                                gui_bare_display_whole_surface_packet_readiness_cursor_new:
+                                                                    *field::get_ref &cursor "target"
+                                                                    *field::get_ref &cursor "surface"
+                                                                    *field::get_ref &cursor "frame"
+                                                                    *field::get_ref &cursor "frame_id"
+                                                                    *field::get_ref &cursor "batch_index"
+                                                                    *field::get_ref &cursor "plan_row_start"
+                                                                    *field::get_ref &cursor "plan_row_count"
+                                                                    *field::get_ref &cursor "width"
+                                                                    *field::get_ref &cursor "height"
+                                                                    *field::get_ref &cursor "stride_bytes"
+                                                                    *field::get_ref &cursor "tile_rows"
+                                                                    tile_count
+                                                                    advanced_tile_index
+                                                                    expected_pixel_count
+                                                                    next_ready_pixel_count
+                                                                    *field::get_ref &cursor "surface_byte_count"
+                                                            let completed %GuiBareDisplayWholeSurfacePacketReadinessCompleted gui_bare_display_whole_surface_packet_readiness_complete_from_cursor next_cursor owner
+                                                            Result::Ok GuiBareDisplayWholeSurfacePacketReadinessResult::Completed completed
+                                                else:
+                                                    let owner %GuiBareDisplayMemoryOwner gui_bare_display_presented_packet_ready_owner ready
+                                                    let next_cursor %GuiBareDisplayWholeSurfacePacketReadinessCursor:
+                                                        gui_bare_display_whole_surface_packet_readiness_cursor_new:
+                                                            *field::get_ref &cursor "target"
+                                                            *field::get_ref &cursor "surface"
+                                                            *field::get_ref &cursor "frame"
+                                                            *field::get_ref &cursor "frame_id"
+                                                            *field::get_ref &cursor "batch_index"
+                                                            *field::get_ref &cursor "plan_row_start"
+                                                            *field::get_ref &cursor "plan_row_count"
+                                                            *field::get_ref &cursor "width"
+                                                            *field::get_ref &cursor "height"
+                                                            *field::get_ref &cursor "stride_bytes"
+                                                            *field::get_ref &cursor "tile_rows"
+                                                            tile_count
+                                                            advanced_tile_index
+                                                            expected_pixel_count
+                                                            next_ready_pixel_count
+                                                            *field::get_ref &cursor "surface_byte_count"
+                                                    let continue_value %GuiBareDisplayWholeSurfacePacketReadinessContinue gui_bare_display_whole_surface_packet_readiness_continue_new next_cursor owner
+                                                    Result::Ok GuiBareDisplayWholeSurfacePacketReadinessResult::Continue continue_value

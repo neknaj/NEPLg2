@@ -1,0 +1,452 @@
+//: # std/gui/tile_present_run_span
+//: RGBA8888 row tile RLE run を 1 行 span に[分解/ぶんかい]する std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cq の host-command run record が[持/も]つ tile-local linear run を、Web / native / bare / headless presenter が[同/おな]じ[意味/いみ]で[消費/しょうひ]できる row span stream に[変換/へんかん]します。
+//: - platform import、video memory、DrawTarget / RenderTarget には[触/ふ]れず、実 presenter の[直前/ちょくぜん]に[必要/ひつよう]な[座標/ざひょう][分解/ぶんかい]だけを[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - start は descriptor と run の[幾何/きか]を[検査/けんさ]し、不正な run から cursor を[作/つく]りません。
+//: - run offset は tile-local linear pixel offset として[扱/あつか]い、`local_row = offset / width`、`x = offset % width`、`y = row_start + local_row` で span を[作/つく]ります。
+//: - step は 1 回に 1 行以内の span または explicit Completed を[返/かえ]します。空 span や silent no-op は[返/かえ]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は F5cq record と F5cn descriptor metadata のみを[読/よ]みます。packet owner、packet record reader、raw storage、host import、platform API、queue、scheduler、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_run_span" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_command" as *
+
+pub struct GuiRgba8888RowTileRlePresentRunRowSpan:
+    x %i32
+    y %i32
+    width %i32
+    color %Rgba8888
+
+impl Clone for GuiRgba8888RowTileRlePresentRunRowSpan:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunRowSpan GuiRgba8888RowTileRlePresentRunRowSpan \span:
+        *span
+
+impl Copy for GuiRgba8888RowTileRlePresentRunRowSpan:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunRowSpan GuiRgba8888RowTileRlePresentRunRowSpan \span:
+        span
+
+pub struct GuiRgba8888RowTileRlePresentRunSpanCursor:
+    record %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    next_pixel_offset %i32
+    remaining_pixel_count %i32
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanCursor:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentRunSpanCursor \cursor:
+        *cursor
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanCursor:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentRunSpanCursor \cursor:
+        cursor
+
+pub struct GuiRgba8888RowTileRlePresentRunSpanReady:
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+    cursor %GuiRgba8888RowTileRlePresentRunSpanCursor
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanReady:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanReady GuiRgba8888RowTileRlePresentRunSpanReady \ready:
+        *ready
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanReady:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanReady GuiRgba8888RowTileRlePresentRunSpanReady \ready:
+        ready
+
+pub enum GuiRgba8888RowTileRlePresentRunSpanStepResult:
+    SpanReady %GuiRgba8888RowTileRlePresentRunSpanReady
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanStepResult GuiRgba8888RowTileRlePresentRunSpanStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanStepResult GuiRgba8888RowTileRlePresentRunSpanStepResult \result:
+        result
+
+pub enum GuiRgba8888RowTileRlePresentRunSpanStartErrorKind:
+    WidthInvalid
+    HeightInvalid
+    RowStartInvalid
+    RowCountInvalid
+    RowExtentOverflow
+    RowExtentOutOfBounds
+    RowCountExceedsTileRows
+    PixelCountOverflow
+    PixelCountMismatch
+    RunOffsetInvalid
+    RunCountInvalid
+    RunEndOverflow
+    RunEndOutOfBounds
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanStartErrorKind GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanStartErrorKind GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRlePresentRunSpanStepErrorKind:
+    DescriptorInvalid %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind
+    CursorOffsetInvalid
+    CursorRemainingInvalid
+    CursorOffsetBeforeRun
+    CursorExtentOverflow
+    CursorExtentMismatch
+    LocalRowOutOfBounds
+    RowYOverflow
+    SpanAdvanceOverflow
+    SpanWidthInvalid
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanStepErrorKind GuiRgba8888RowTileRlePresentRunSpanStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanStepErrorKind GuiRgba8888RowTileRlePresentRunSpanStepErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentRunSpanStartError:
+    kind %GuiRgba8888RowTileRlePresentRunSpanStartErrorKind
+    category %Option GuiError
+    record %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanStartError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanStartError GuiRgba8888RowTileRlePresentRunSpanStartError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanStartError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanStartError GuiRgba8888RowTileRlePresentRunSpanStartError \error:
+        error
+
+pub struct GuiRgba8888RowTileRlePresentRunSpanStepError:
+    kind %GuiRgba8888RowTileRlePresentRunSpanStepErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowTileRlePresentRunSpanCursor
+
+impl Clone for GuiRgba8888RowTileRlePresentRunSpanStepError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentRunSpanStepError GuiRgba8888RowTileRlePresentRunSpanStepError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentRunSpanStepError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentRunSpanStepError GuiRgba8888RowTileRlePresentRunSpanStepError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_run_row_span_new %fn i32 fn i32 fn i32 fn Rgba8888 GuiRgba8888RowTileRlePresentRunRowSpan \x\y\width\color:
+    GuiRgba8888RowTileRlePresentRunRowSpan x y width color
+
+fn gui_rgba8888_row_tile_rle_present_run_span_cursor_new %fn GuiRgba8888RowTileRlePresentHostCommandRunRecord fn i32 fn i32 GuiRgba8888RowTileRlePresentRunSpanCursor \record\next_pixel_offset\remaining_pixel_count:
+    GuiRgba8888RowTileRlePresentRunSpanCursor record next_pixel_offset remaining_pixel_count
+
+fn gui_rgba8888_row_tile_rle_present_run_span_ready_new %fn GuiRgba8888RowTileRlePresentRunRowSpan fn GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentRunSpanReady \span\cursor:
+    GuiRgba8888RowTileRlePresentRunSpanReady span cursor
+
+fn gui_rgba8888_row_tile_rle_present_run_span_start_error_category %fn GuiRgba8888RowTileRlePresentRunSpanStartErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunOffsetInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunEndOverflow:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunEndOutOfBounds:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_rle_present_run_span_step_error_category %fn GuiRgba8888RowTileRlePresentRunSpanStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::DescriptorInvalid lower:
+            gui_rgba8888_row_tile_rle_present_run_span_start_error_category lower
+        GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorOffsetInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorRemainingInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorOffsetBeforeRun:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorExtentMismatch:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_rle_present_run_span_start_error %fn GuiRgba8888RowTileRlePresentRunSpanStartErrorKind fn GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentRunSpanStartError \kind\record:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_span_start_error_category kind
+    GuiRgba8888RowTileRlePresentRunSpanStartError kind category record
+
+fn gui_rgba8888_row_tile_rle_present_run_span_step_error %fn GuiRgba8888RowTileRlePresentRunSpanStepErrorKind fn GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentRunSpanStepError \kind\cursor:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_span_step_error_category kind
+    GuiRgba8888RowTileRlePresentRunSpanStepError kind category cursor
+
+fn gui_rgba8888_row_tile_rle_present_run_span_checked_add_start %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentRunSpanStartErrorKind Result i32 GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_present_run_span_checked_mul_start %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentRunSpanStartErrorKind Result i32 GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_present_run_span_checked_add_step %fn i32 fn i32 fn GuiRgba8888RowTileRlePresentRunSpanStepErrorKind Result i32 GuiRgba8888RowTileRlePresentRunSpanStepErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_present_run_span_record_descriptor %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentDescriptor \record:
+    gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor record
+
+fn gui_rgba8888_row_tile_rle_present_run_span_record_packet %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePacketDescriptor \record:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_run_span_record_descriptor record
+    gui_rgba8888_row_tile_rle_present_descriptor_packet &descriptor
+
+fn gui_rgba8888_row_tile_rle_present_run_span_record_run %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRleRun \record:
+    gui_rgba8888_row_tile_rle_present_host_command_run_record_run record
+
+fn gui_rgba8888_row_tile_rle_present_run_span_validate_row_extent %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \packet:
+    let height %i32 gui_rgba8888_row_tile_rle_packet_descriptor_height packet
+    if le height 0:
+        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::HeightInvalid
+        else:
+            let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start packet
+            if lt row_start 0:
+                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RowStartInvalid
+                else:
+                    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count packet
+                    if le row_count 0:
+                        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RowCountInvalid
+                        else:
+                            match gui_rgba8888_row_tile_rle_present_run_span_checked_add_start row_start row_count GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RowExtentOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok row_bottom:
+                                    if gt row_bottom height:
+                                        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RowExtentOutOfBounds
+                                        else:
+                                            let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows packet
+                                            if gt row_count tile_rows:
+                                                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RowCountExceedsTileRows
+                                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_present_run_span_validate_pixel_count %fn &GuiRgba8888RowTileRlePacketDescriptor Result unit GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \packet:
+    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width packet
+    if le width 0:
+        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::WidthInvalid
+        else:
+            let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count packet
+            match gui_rgba8888_row_tile_rle_present_run_span_checked_mul_start row_count width GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::PixelCountOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok expected_pixel_count:
+                    let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count packet
+                    if ne pixel_count expected_pixel_count:
+                        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::PixelCountMismatch
+                        else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_present_run_span_validate_run %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord Result unit GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \record:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_run_span_record_packet record
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+    let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_run_span_record_run record
+    let run_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+    if lt run_offset 0:
+        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunOffsetInvalid
+        else:
+            let run_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+            if le run_count 0:
+                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_present_run_span_checked_add_start run_offset run_count GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunEndOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok run_end:
+                            if gt run_end pixel_count:
+                                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStartErrorKind::RunEndOutOfBounds
+                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_present_run_span_validate_record %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord Result unit GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \record:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_run_span_record_packet record
+    match gui_rgba8888_row_tile_rle_present_run_span_validate_row_extent &packet:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _unit:
+            match gui_rgba8888_row_tile_rle_present_run_span_validate_pixel_count &packet:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _unit2:
+                    gui_rgba8888_row_tile_rle_present_run_span_validate_run record
+
+fn gui_rgba8888_row_tile_rle_present_run_span_validate_cursor %fn &GuiRgba8888RowTileRlePresentRunSpanCursor Result unit GuiRgba8888RowTileRlePresentRunSpanStepErrorKind \cursor:
+    let record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_run_span_cursor_record cursor
+    match gui_rgba8888_row_tile_rle_present_run_span_validate_record &record:
+        Result::Err kind:
+            Result::Err GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::DescriptorInvalid kind
+        Result::Ok _unit:
+            let next_pixel_offset %i32 gui_rgba8888_row_tile_rle_present_run_span_cursor_next_pixel_offset cursor
+            if lt next_pixel_offset 0:
+                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorOffsetInvalid
+                else:
+                    let remaining_pixel_count %i32 gui_rgba8888_row_tile_rle_present_run_span_cursor_remaining_pixel_count cursor
+                    if lt remaining_pixel_count 0:
+                        then Result::Err GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorRemainingInvalid
+                        else:
+                            let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_run_span_record_run &record
+                            let run_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+                            if lt next_pixel_offset run_offset:
+                                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorOffsetBeforeRun
+                                else:
+                                    let run_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+                                    let run_end %i32 add run_offset run_count
+                                    match gui_rgba8888_row_tile_rle_present_run_span_checked_add_step next_pixel_offset remaining_pixel_count GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorExtentOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok cursor_end:
+                                            if ne cursor_end run_end:
+                                                then Result::Err GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::CursorExtentMismatch
+                                                else Result::Ok unit
+
+pub fn gui_rgba8888_row_tile_rle_present_run_row_span_x %fn &GuiRgba8888RowTileRlePresentRunRowSpan i32 \span:
+    *field::get_ref span "x"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_row_span_y %fn &GuiRgba8888RowTileRlePresentRunRowSpan i32 \span:
+    *field::get_ref span "y"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_row_span_width %fn &GuiRgba8888RowTileRlePresentRunRowSpan i32 \span:
+    *field::get_ref span "width"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_row_span_height %fn &GuiRgba8888RowTileRlePresentRunRowSpan i32 \span:
+    1
+
+pub fn gui_rgba8888_row_tile_rle_present_run_row_span_color %fn &GuiRgba8888RowTileRlePresentRunRowSpan Rgba8888 \span:
+    *field::get_ref span "color"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_cursor_record %fn &GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentHostCommandRunRecord \cursor:
+    *field::get_ref cursor "record"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_cursor_next_pixel_offset %fn &GuiRgba8888RowTileRlePresentRunSpanCursor i32 \cursor:
+    *field::get_ref cursor "next_pixel_offset"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_cursor_remaining_pixel_count %fn &GuiRgba8888RowTileRlePresentRunSpanCursor i32 \cursor:
+    *field::get_ref cursor "remaining_pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_ready_span %fn &GuiRgba8888RowTileRlePresentRunSpanReady GuiRgba8888RowTileRlePresentRunRowSpan \ready:
+    *field::get_ref ready "span"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_ready_cursor %fn &GuiRgba8888RowTileRlePresentRunSpanReady GuiRgba8888RowTileRlePresentRunSpanCursor \ready:
+    *field::get_ref ready "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_start_error_kind %fn &GuiRgba8888RowTileRlePresentRunSpanStartError GuiRgba8888RowTileRlePresentRunSpanStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_start_error_category_value %fn &GuiRgba8888RowTileRlePresentRunSpanStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_start_error_record %fn &GuiRgba8888RowTileRlePresentRunSpanStartError GuiRgba8888RowTileRlePresentHostCommandRunRecord \error:
+    *field::get_ref error "record"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_step_error_kind %fn &GuiRgba8888RowTileRlePresentRunSpanStepError GuiRgba8888RowTileRlePresentRunSpanStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_step_error_category_value %fn &GuiRgba8888RowTileRlePresentRunSpanStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_run_span_step_error_cursor %fn &GuiRgba8888RowTileRlePresentRunSpanStepError GuiRgba8888RowTileRlePresentRunSpanCursor \error:
+    *field::get_ref error "cursor"
+
+//: gui_rgba8888_row_tile_rle_present_run_span_start: run record から row span cursor を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - descriptor の width / row range / pixel count と run の offset / count を start で[検査/けんさ]します。
+//: - success cursor は run の[開始/かいし] offset と remaining count を[持/も]ち、step ごとに row boundary で[区切/くぎ]ります。
+pub fn gui_rgba8888_row_tile_rle_present_run_span_start %fn GuiRgba8888RowTileRlePresentHostCommandRunRecord Result GuiRgba8888RowTileRlePresentRunSpanCursor GuiRgba8888RowTileRlePresentRunSpanStartError \record:
+    match gui_rgba8888_row_tile_rle_present_run_span_validate_record &record:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_present_run_span_start_error kind record
+        Result::Ok _unit:
+            let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_run_span_record_run &record
+            let run_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+            let run_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+            Result::Ok gui_rgba8888_row_tile_rle_present_run_span_cursor_new record run_offset run_count
+
+//: gui_rgba8888_row_tile_rle_present_run_span_step: cursor を 1 行 span だけ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - remaining が 0 の cursor は `Completed` を[返/かえ]します。
+//: - span width は `min remaining width - x` で、必ず 1 以上かつ 1 行以内です。
+//: - returned cursor は success path だけで[進/すす]みます。
+pub fn gui_rgba8888_row_tile_rle_present_run_span_step %fn GuiRgba8888RowTileRlePresentRunSpanCursor Result GuiRgba8888RowTileRlePresentRunSpanStepResult GuiRgba8888RowTileRlePresentRunSpanStepError \cursor:
+    match gui_rgba8888_row_tile_rle_present_run_span_validate_cursor &cursor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_present_run_span_step_error kind cursor
+        Result::Ok _unit:
+            let remaining_pixel_count %i32 gui_rgba8888_row_tile_rle_present_run_span_cursor_remaining_pixel_count &cursor
+            if eq remaining_pixel_count 0:
+                then Result::Ok GuiRgba8888RowTileRlePresentRunSpanStepResult::Completed
+                else:
+                    let record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_run_span_cursor_record &cursor
+                    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_run_span_record_packet &record
+                    let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+                    let row_start %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+                    let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+                    let next_pixel_offset %i32 gui_rgba8888_row_tile_rle_present_run_span_cursor_next_pixel_offset &cursor
+                    let local_row %i32 div_s next_pixel_offset width
+                    if ge local_row row_count:
+                        then Result::Err gui_rgba8888_row_tile_rle_present_run_span_step_error GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::LocalRowOutOfBounds cursor
+                        else:
+                            let x %i32 rem_s next_pixel_offset width
+                            let row_remaining %i32 sub width x
+                            let span_width %i32 if lt remaining_pixel_count row_remaining remaining_pixel_count row_remaining
+                            if le span_width 0:
+                                then Result::Err gui_rgba8888_row_tile_rle_present_run_span_step_error GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::SpanWidthInvalid cursor
+                                else:
+                                    match gui_rgba8888_row_tile_rle_present_run_span_checked_add_step row_start local_row GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::RowYOverflow:
+                                        Result::Err kind:
+                                            Result::Err gui_rgba8888_row_tile_rle_present_run_span_step_error kind cursor
+                                        Result::Ok y:
+                                            match gui_rgba8888_row_tile_rle_present_run_span_checked_add_step next_pixel_offset span_width GuiRgba8888RowTileRlePresentRunSpanStepErrorKind::SpanAdvanceOverflow:
+                                                Result::Err kind:
+                                                    Result::Err gui_rgba8888_row_tile_rle_present_run_span_step_error kind cursor
+                                                Result::Ok next_offset:
+                                                    let next_remaining %i32 sub remaining_pixel_count span_width
+                                                    let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_present_run_span_record_run &record
+                                                    let color %Rgba8888 gui_rgba8888_row_tile_rle_run_color &run
+                                                    let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_rgba8888_row_tile_rle_present_run_row_span_new x y span_width color
+                                                    let next_cursor %GuiRgba8888RowTileRlePresentRunSpanCursor gui_rgba8888_row_tile_rle_present_run_span_cursor_new record next_offset next_remaining
+                                                    let ready %GuiRgba8888RowTileRlePresentRunSpanReady gui_rgba8888_row_tile_rle_present_run_span_ready_new span next_cursor
+                                                    Result::Ok GuiRgba8888RowTileRlePresentRunSpanStepResult::SpanReady ready

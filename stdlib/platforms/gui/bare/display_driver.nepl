@@ -1,0 +1,663 @@
+//: # platforms/gui/bare/display_driver
+//: Bare display driver outcome ledger boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fn の checked byte write plan を、actual bare display driver が[返/かえ]した typed outcome と[照合/しょうごう]します。
+//: - memory step は public value なのでそのまま[信用/しんよう]せず、driver state が[持/も]つ canonical memory state から[再適用/さいてきよう]します。
+//: - driver outcome が action evidence と[完全/かんぜん]に[一致/いっち]した場合だけ driver state を[進/すす]めます。
+//:
+//: ### [契約/けいやく]
+//: - この module は pure ledger boundary であり、host import、raw byte buffer write、scheduler loop、timer、queue は[持/も]ちません。
+//: - actual hardware driver、native window、DOM、Canvas、minifb、video memory surface は後続 backend の[責務/せきむ]です。
+//: - rejected outcome、forged memory step、stale memory state、action mismatch、driver evidence mismatch は enum error と `Result` で fail-closed に[返/かえ]します。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_driver" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_memory" as *
+#import "platforms/gui/bare/display_storage" as *
+#import "platforms/gui/bare/framebuffer" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareDisplayDriverActiveFrame:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    accepted_run_count %i32
+    accepted_pixel_count %i32
+
+impl Clone for GuiBareDisplayDriverActiveFrame:
+    fn clone %fn &GuiBareDisplayDriverActiveFrame GuiBareDisplayDriverActiveFrame \active:
+        *active
+
+impl Copy for GuiBareDisplayDriverActiveFrame:
+    fn copy_mark %fn GuiBareDisplayDriverActiveFrame GuiBareDisplayDriverActiveFrame \active:
+        active
+
+pub enum GuiBareDisplayDriverPhase:
+    Idle
+    Active %GuiBareDisplayDriverActiveFrame
+
+impl Clone for GuiBareDisplayDriverPhase:
+    fn clone %fn &GuiBareDisplayDriverPhase GuiBareDisplayDriverPhase \phase:
+        *phase
+
+impl Copy for GuiBareDisplayDriverPhase:
+    fn copy_mark %fn GuiBareDisplayDriverPhase GuiBareDisplayDriverPhase \phase:
+        phase
+
+pub struct GuiBareDisplayDriverBeginAccepted:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayDriverBeginAccepted:
+    fn clone %fn &GuiBareDisplayDriverBeginAccepted GuiBareDisplayDriverBeginAccepted \accepted:
+        *accepted
+
+impl Copy for GuiBareDisplayDriverBeginAccepted:
+    fn copy_mark %fn GuiBareDisplayDriverBeginAccepted GuiBareDisplayDriverBeginAccepted \accepted:
+        accepted
+
+pub struct GuiBareDisplayDriverSpanWriteAccepted:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+    run_index %i32
+    pixel_start %i32
+    pixel_end %i32
+    row_byte_start %i32
+    x_byte_offset %i32
+    byte_start %i32
+    byte_len %i32
+    byte_end %i32
+    surface_byte_count %i32
+    color %Rgba8888
+
+impl Clone for GuiBareDisplayDriverSpanWriteAccepted:
+    fn clone %fn &GuiBareDisplayDriverSpanWriteAccepted GuiBareDisplayDriverSpanWriteAccepted \accepted:
+        *accepted
+
+impl Copy for GuiBareDisplayDriverSpanWriteAccepted:
+    fn copy_mark %fn GuiBareDisplayDriverSpanWriteAccepted GuiBareDisplayDriverSpanWriteAccepted \accepted:
+        accepted
+
+pub struct GuiBareDisplayDriverFramePresentAccepted:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    frame %FrameId
+    run_count %i32
+    pixel_count %i32
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayDriverFramePresentAccepted:
+    fn clone %fn &GuiBareDisplayDriverFramePresentAccepted GuiBareDisplayDriverFramePresentAccepted \accepted:
+        *accepted
+
+impl Copy for GuiBareDisplayDriverFramePresentAccepted:
+    fn copy_mark %fn GuiBareDisplayDriverFramePresentAccepted GuiBareDisplayDriverFramePresentAccepted \accepted:
+        accepted
+
+pub enum GuiBareDisplayDriverOutcome:
+    BeginAccepted %GuiBareDisplayDriverBeginAccepted
+    SpanWriteAccepted %GuiBareDisplayDriverSpanWriteAccepted
+    FramePresentAccepted %GuiBareDisplayDriverFramePresentAccepted
+    DriverRejected %GuiError
+
+impl Clone for GuiBareDisplayDriverOutcome:
+    fn clone %fn &GuiBareDisplayDriverOutcome GuiBareDisplayDriverOutcome \outcome:
+        *outcome
+
+impl Copy for GuiBareDisplayDriverOutcome:
+    fn copy_mark %fn GuiBareDisplayDriverOutcome GuiBareDisplayDriverOutcome \outcome:
+        outcome
+
+pub struct GuiBareDisplayDriverState:
+    memory_state %GuiBareDisplayMemoryState
+    phase %GuiBareDisplayDriverPhase
+    last_write %Option GuiBareDisplayDriverSpanWriteAccepted
+    last_present %Option GuiBareDisplayDriverFramePresentAccepted
+
+impl Clone for GuiBareDisplayDriverState:
+    fn clone %fn &GuiBareDisplayDriverState GuiBareDisplayDriverState \state:
+        *state
+
+impl Copy for GuiBareDisplayDriverState:
+    fn copy_mark %fn GuiBareDisplayDriverState GuiBareDisplayDriverState \state:
+        state
+
+pub enum GuiBareDisplayDriverErrorKind:
+    MemoryInitFailed %GuiBareDisplayMemoryErrorKind
+    MemoryApplyFailed %GuiBareDisplayMemoryErrorKind
+    MemoryStepStateMismatch
+    MemoryStepActionMismatch
+    DriverPhaseMismatch
+    LastWriteOutOfBounds
+    OutcomeActionMismatch
+    DriverRejected %GuiError
+    BeginTargetMismatch
+    BeginDescriptorMismatch
+    BeginSurfaceByteCountMismatch
+    SpanTargetMismatch
+    SpanRunSpanMismatch
+    SpanRunIndexMismatch
+    SpanPixelStartMismatch
+    SpanPixelEndMismatch
+    SpanRowByteStartMismatch
+    SpanXByteOffsetMismatch
+    SpanByteStartMismatch
+    SpanByteLenMismatch
+    SpanByteEndMismatch
+    SpanSurfaceByteCountMismatch
+    SpanColorMismatch
+    PresentTargetMismatch
+    PresentDescriptorMismatch
+    PresentFrameMismatch
+    PresentRunCountMismatch
+    PresentPixelCountMismatch
+    PresentSurfaceByteCountMismatch
+
+impl Clone for GuiBareDisplayDriverErrorKind:
+    fn clone %fn &GuiBareDisplayDriverErrorKind GuiBareDisplayDriverErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayDriverErrorKind:
+    fn copy_mark %fn GuiBareDisplayDriverErrorKind GuiBareDisplayDriverErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayDriverStepApplied:
+    state %GuiBareDisplayDriverState
+    action %GuiBareDisplayMemoryAction
+    outcome %GuiBareDisplayDriverOutcome
+    memory_step %GuiBareDisplayMemoryStepApplied
+
+impl Clone for GuiBareDisplayDriverStepApplied:
+    fn clone %fn &GuiBareDisplayDriverStepApplied GuiBareDisplayDriverStepApplied \applied:
+        *applied
+
+impl Copy for GuiBareDisplayDriverStepApplied:
+    fn copy_mark %fn GuiBareDisplayDriverStepApplied GuiBareDisplayDriverStepApplied \applied:
+        applied
+
+pub struct GuiBareDisplayDriverStepError:
+    kind %GuiBareDisplayDriverErrorKind
+    category %Option GuiError
+    state %GuiBareDisplayDriverState
+    memory_step %GuiBareDisplayMemoryStepApplied
+    outcome %GuiBareDisplayDriverOutcome
+
+impl Clone for GuiBareDisplayDriverStepError:
+    fn clone %fn &GuiBareDisplayDriverStepError GuiBareDisplayDriverStepError \error:
+        *error
+
+impl Copy for GuiBareDisplayDriverStepError:
+    fn copy_mark %fn GuiBareDisplayDriverStepError GuiBareDisplayDriverStepError \error:
+        error
+
+fn gui_bare_display_driver_active_frame_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 fn i32 GuiBareDisplayDriverActiveFrame \target\descriptor\accepted_run_count\accepted_pixel_count:
+    GuiBareDisplayDriverActiveFrame target descriptor accepted_run_count accepted_pixel_count
+
+fn gui_bare_display_driver_state_new %fn GuiBareDisplayMemoryState fn GuiBareDisplayDriverPhase fn Option GuiBareDisplayDriverSpanWriteAccepted fn Option GuiBareDisplayDriverFramePresentAccepted GuiBareDisplayDriverState \memory_state\phase\last_write\last_present:
+    GuiBareDisplayDriverState memory_state phase last_write last_present
+
+fn gui_bare_display_driver_begin_accepted_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 GuiBareDisplayDriverBeginAccepted \target\descriptor\surface_byte_count:
+    GuiBareDisplayDriverBeginAccepted target descriptor surface_byte_count
+
+fn gui_bare_display_driver_span_write_accepted_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn Rgba8888 GuiBareDisplayDriverSpanWriteAccepted \target\span\run_index\pixel_start\pixel_end\row_byte_start\x_byte_offset\byte_start\byte_len\byte_end\surface_byte_count\color:
+    GuiBareDisplayDriverSpanWriteAccepted target span run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count color
+
+fn gui_bare_display_driver_present_accepted_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn FrameId fn i32 fn i32 fn i32 GuiBareDisplayDriverFramePresentAccepted \target\descriptor\frame\run_count\pixel_count\surface_byte_count:
+    GuiBareDisplayDriverFramePresentAccepted target descriptor frame run_count pixel_count surface_byte_count
+
+fn gui_bare_display_driver_step_applied_new %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryAction fn GuiBareDisplayDriverOutcome fn GuiBareDisplayMemoryStepApplied GuiBareDisplayDriverStepApplied \state\action\outcome\memory_step:
+    GuiBareDisplayDriverStepApplied state action outcome memory_step
+
+fn gui_bare_display_driver_error_category %fn GuiBareDisplayDriverErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayDriverErrorKind::DriverRejected lower:
+            Option::Some lower
+        GuiBareDisplayDriverErrorKind::MemoryInitFailed lower_init:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::MemoryApplyFailed lower_apply:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::MemoryStepStateMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::MemoryStepActionMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::DriverPhaseMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::LastWriteOutOfBounds:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverErrorKind::OutcomeActionMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::BeginTargetMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::BeginDescriptorMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::BeginSurfaceByteCountMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanTargetMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanRunSpanMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanRunIndexMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanPixelStartMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanPixelEndMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanRowByteStartMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanXByteOffsetMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanByteStartMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanByteLenMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanByteEndMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanSurfaceByteCountMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::SpanColorMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentTargetMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentDescriptorMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentFrameMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentRunCountMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentPixelCountMismatch:
+            Option::Some GuiError::BackendFailure
+        GuiBareDisplayDriverErrorKind::PresentSurfaceByteCountMismatch:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_driver_step_error %fn GuiBareDisplayDriverErrorKind fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome GuiBareDisplayDriverStepError \kind\state\memory_step\outcome:
+    let category %Option GuiError gui_bare_display_driver_error_category kind
+    GuiBareDisplayDriverStepError kind category state memory_step outcome
+
+pub fn gui_bare_display_driver_state_memory_state %fn &GuiBareDisplayDriverState GuiBareDisplayMemoryState \state:
+    *field::get_ref state "memory_state"
+
+pub fn gui_bare_display_driver_state_phase %fn &GuiBareDisplayDriverState GuiBareDisplayDriverPhase \state:
+    *field::get_ref state "phase"
+
+pub fn gui_bare_display_driver_state_last_write %fn &GuiBareDisplayDriverState Option GuiBareDisplayDriverSpanWriteAccepted \state:
+    *field::get_ref state "last_write"
+
+pub fn gui_bare_display_driver_state_last_present %fn &GuiBareDisplayDriverState Option GuiBareDisplayDriverFramePresentAccepted \state:
+    *field::get_ref state "last_present"
+
+pub fn gui_bare_display_driver_span_write_accepted_target %fn &GuiBareDisplayDriverSpanWriteAccepted GuiRgba8888RowTileRlePresentHostSpanOperationTarget \accepted:
+    *field::get_ref accepted "target"
+
+pub fn gui_bare_display_driver_span_write_accepted_span %fn &GuiBareDisplayDriverSpanWriteAccepted GuiRgba8888RowTileRlePresentRunRowSpan \accepted:
+    *field::get_ref accepted "span"
+
+pub fn gui_bare_display_driver_span_write_accepted_run_index %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "run_index"
+
+pub fn gui_bare_display_driver_span_write_accepted_pixel_start %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "pixel_start"
+
+pub fn gui_bare_display_driver_span_write_accepted_pixel_end %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "pixel_end"
+
+pub fn gui_bare_display_driver_span_write_accepted_row_byte_start %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "row_byte_start"
+
+pub fn gui_bare_display_driver_span_write_accepted_x_byte_offset %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "x_byte_offset"
+
+pub fn gui_bare_display_driver_span_write_accepted_byte_start %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "byte_start"
+
+pub fn gui_bare_display_driver_span_write_accepted_byte_len %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "byte_len"
+
+pub fn gui_bare_display_driver_span_write_accepted_byte_end %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "byte_end"
+
+pub fn gui_bare_display_driver_span_write_accepted_surface_byte_count %fn &GuiBareDisplayDriverSpanWriteAccepted i32 \accepted:
+    *field::get_ref accepted "surface_byte_count"
+
+pub fn gui_bare_display_driver_span_write_accepted_color %fn &GuiBareDisplayDriverSpanWriteAccepted Rgba8888 \accepted:
+    *field::get_ref accepted "color"
+
+pub fn gui_bare_display_driver_frame_present_accepted_target %fn &GuiBareDisplayDriverFramePresentAccepted GuiRgba8888RowTileRlePresentHostSpanOperationTarget \accepted:
+    *field::get_ref accepted "target"
+
+pub fn gui_bare_display_driver_frame_present_accepted_descriptor %fn &GuiBareDisplayDriverFramePresentAccepted GuiRgba8888RowTileRlePresentDescriptor \accepted:
+    *field::get_ref accepted "descriptor"
+
+pub fn gui_bare_display_driver_frame_present_accepted_frame %fn &GuiBareDisplayDriverFramePresentAccepted FrameId \accepted:
+    *field::get_ref accepted "frame"
+
+pub fn gui_bare_display_driver_frame_present_accepted_run_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "run_count"
+
+pub fn gui_bare_display_driver_frame_present_accepted_pixel_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "pixel_count"
+
+pub fn gui_bare_display_driver_frame_present_accepted_surface_byte_count %fn &GuiBareDisplayDriverFramePresentAccepted i32 \accepted:
+    *field::get_ref accepted "surface_byte_count"
+
+pub fn gui_bare_display_driver_step_applied_state %fn &GuiBareDisplayDriverStepApplied GuiBareDisplayDriverState \applied:
+    *field::get_ref applied "state"
+
+pub fn gui_bare_display_driver_step_applied_action %fn &GuiBareDisplayDriverStepApplied GuiBareDisplayMemoryAction \applied:
+    *field::get_ref applied "action"
+
+pub fn gui_bare_display_driver_step_applied_outcome %fn &GuiBareDisplayDriverStepApplied GuiBareDisplayDriverOutcome \applied:
+    *field::get_ref applied "outcome"
+
+pub fn gui_bare_display_driver_step_error_kind %fn &GuiBareDisplayDriverStepError GuiBareDisplayDriverErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_driver_step_error_category_value %fn &GuiBareDisplayDriverStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_driver_begin_outcome_from_plan %fn GuiBareDisplayMemoryFrameBeginPlan GuiBareDisplayDriverOutcome \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &plan
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &plan
+    let surface_byte_count %i32 gui_bare_display_memory_begin_plan_surface_byte_count &plan
+    GuiBareDisplayDriverOutcome::BeginAccepted gui_bare_display_driver_begin_accepted_new target descriptor surface_byte_count
+
+pub fn gui_bare_display_driver_span_write_outcome_from_plan %fn GuiBareDisplayMemorySpanWritePlan GuiBareDisplayDriverOutcome \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target &plan
+    let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span &plan
+    let run_index %i32 gui_bare_display_memory_span_write_plan_run_index &plan
+    let pixel_start %i32 gui_bare_display_memory_span_write_plan_pixel_start &plan
+    let pixel_end %i32 gui_bare_display_memory_span_write_plan_pixel_end &plan
+    let row_byte_start %i32 gui_bare_display_memory_span_write_plan_row_byte_start &plan
+    let x_byte_offset %i32 gui_bare_display_memory_span_write_plan_x_byte_offset &plan
+    let byte_start %i32 gui_bare_display_memory_span_write_plan_byte_start &plan
+    let byte_len %i32 gui_bare_display_memory_span_write_plan_byte_len &plan
+    let byte_end %i32 gui_bare_display_memory_span_write_plan_byte_end &plan
+    let surface_byte_count %i32 gui_bare_display_memory_span_write_plan_surface_byte_count &plan
+    let color %Rgba8888 gui_bare_display_memory_span_write_plan_color &plan
+    GuiBareDisplayDriverOutcome::SpanWriteAccepted gui_bare_display_driver_span_write_accepted_new target span run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count color
+
+pub fn gui_bare_display_driver_present_outcome_from_plan %fn GuiBareDisplayMemoryFramePresentPlan GuiBareDisplayDriverOutcome \plan:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &plan
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &plan
+    let frame %FrameId gui_bare_display_memory_present_plan_frame &plan
+    let run_count %i32 gui_bare_display_memory_present_plan_run_count &plan
+    let pixel_count %i32 gui_bare_display_memory_present_plan_pixel_count &plan
+    let surface_byte_count %i32 gui_bare_display_memory_present_plan_surface_byte_count &plan
+    GuiBareDisplayDriverOutcome::FramePresentAccepted gui_bare_display_driver_present_accepted_new target descriptor frame run_count pixel_count surface_byte_count
+
+fn gui_bare_display_driver_memory_active_to_driver %fn &GuiBareDisplayMemoryActiveFrame GuiBareDisplayDriverActiveFrame \active:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target active
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor active
+    let run_count %i32 gui_bare_display_memory_active_frame_accepted_run_count active
+    let pixel_count %i32 gui_bare_display_memory_active_frame_accepted_pixel_count active
+    gui_bare_display_driver_active_frame_new target descriptor run_count pixel_count
+
+fn gui_bare_display_driver_phase_from_memory_state %fn &GuiBareDisplayMemoryState GuiBareDisplayDriverPhase \memory_state:
+    match gui_bare_display_memory_state_phase memory_state:
+        GuiBareDisplayMemoryPhase::Idle:
+            GuiBareDisplayDriverPhase::Idle
+        GuiBareDisplayMemoryPhase::Active active:
+            GuiBareDisplayDriverPhase::Active gui_bare_display_driver_memory_active_to_driver &active
+
+fn gui_bare_display_driver_active_matches_memory %fn &GuiBareDisplayDriverActiveFrame fn &GuiBareDisplayMemoryActiveFrame bool \driver_active\memory_active:
+    let driver_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref driver_active "target"
+    let memory_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target memory_active
+    let driver_descriptor %GuiRgba8888RowTileRlePresentDescriptor *field::get_ref driver_active "descriptor"
+    let memory_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor memory_active
+    and:
+        gui_bare_display_memory_target_equal driver_target memory_target
+        and:
+            gui_bare_display_memory_descriptor_equal &driver_descriptor &memory_descriptor
+            and:
+                eq *field::get_ref driver_active "accepted_run_count" gui_bare_display_memory_active_frame_accepted_run_count memory_active
+                eq *field::get_ref driver_active "accepted_pixel_count" gui_bare_display_memory_active_frame_accepted_pixel_count memory_active
+
+fn gui_bare_display_driver_phase_matches_memory %fn &GuiBareDisplayDriverState Result unit GuiBareDisplayDriverErrorKind \state:
+    let memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state state
+    match gui_bare_display_memory_state_phase &memory_state:
+        GuiBareDisplayMemoryPhase::Idle:
+            match gui_bare_display_driver_state_phase state:
+                GuiBareDisplayDriverPhase::Idle:
+                    Result::Ok unit
+                GuiBareDisplayDriverPhase::Active driver_active:
+                    Result::Err GuiBareDisplayDriverErrorKind::DriverPhaseMismatch
+        GuiBareDisplayMemoryPhase::Active memory_active:
+            match gui_bare_display_driver_state_phase state:
+                GuiBareDisplayDriverPhase::Idle:
+                    Result::Err GuiBareDisplayDriverErrorKind::DriverPhaseMismatch
+                GuiBareDisplayDriverPhase::Active driver_active:
+                    if gui_bare_display_driver_active_matches_memory &driver_active &memory_active:
+                        then Result::Ok unit
+                        else Result::Err GuiBareDisplayDriverErrorKind::DriverPhaseMismatch
+
+fn gui_bare_display_driver_last_write_in_bounds %fn i32 fn GuiBareDisplayDriverSpanWriteAccepted Result unit GuiBareDisplayDriverErrorKind \total_byte_count\accepted:
+    let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start &accepted
+    let byte_len %i32 gui_bare_display_driver_span_write_accepted_byte_len &accepted
+    let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end &accepted
+    if or lt byte_start 0 le byte_len 0:
+        then Result::Err GuiBareDisplayDriverErrorKind::LastWriteOutOfBounds
+        else:
+            if or lt byte_end byte_start gt byte_end total_byte_count:
+                then Result::Err GuiBareDisplayDriverErrorKind::LastWriteOutOfBounds
+                else Result::Ok unit
+
+fn gui_bare_display_driver_state_invariant %fn &GuiBareDisplayDriverState Result unit GuiBareDisplayDriverErrorKind \state:
+    let memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state state
+    let total_byte_count %i32 gui_bare_display_memory_state_total_byte_count &memory_state
+    match gui_bare_display_driver_phase_matches_memory state:
+        Result::Err phase_kind:
+            Result::Err phase_kind
+        Result::Ok phase_ok:
+            match gui_bare_display_driver_state_last_write state:
+                Option::None:
+                    Result::Ok unit
+                Option::Some accepted:
+                    gui_bare_display_driver_last_write_in_bounds total_byte_count accepted
+
+pub fn gui_bare_display_driver_state_initial %fn GuiBareFramebufferConfig Result GuiBareDisplayDriverState GuiBareDisplayDriverErrorKind \config:
+    match gui_bare_display_memory_state_initial config:
+        Result::Err memory_kind:
+            Result::Err GuiBareDisplayDriverErrorKind::MemoryInitFailed memory_kind
+        Result::Ok memory_state:
+            Result::Ok gui_bare_display_driver_state_new memory_state GuiBareDisplayDriverPhase::Idle Option::None Option::None
+
+fn gui_bare_display_driver_begin_matches %fn &GuiBareDisplayMemoryFrameBeginPlan fn &GuiBareDisplayDriverBeginAccepted Result unit GuiBareDisplayDriverErrorKind \plan\accepted:
+    let plan_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target plan
+    let accepted_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref accepted "target"
+    if not gui_bare_display_memory_target_equal plan_target accepted_target:
+        then Result::Err GuiBareDisplayDriverErrorKind::BeginTargetMismatch
+        else:
+            let plan_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor plan
+            let accepted_descriptor %GuiRgba8888RowTileRlePresentDescriptor *field::get_ref accepted "descriptor"
+            if not gui_bare_display_memory_descriptor_equal &plan_descriptor &accepted_descriptor:
+                then Result::Err GuiBareDisplayDriverErrorKind::BeginDescriptorMismatch
+                else:
+                    if ne gui_bare_display_memory_begin_plan_surface_byte_count plan *field::get_ref accepted "surface_byte_count":
+                        then Result::Err GuiBareDisplayDriverErrorKind::BeginSurfaceByteCountMismatch
+                        else Result::Ok unit
+
+fn gui_bare_display_driver_span_matches %fn &GuiBareDisplayMemorySpanWritePlan fn &GuiBareDisplayDriverSpanWriteAccepted Result unit GuiBareDisplayDriverErrorKind \plan\accepted:
+    let plan_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target plan
+    let accepted_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref accepted "target"
+    if not gui_bare_display_memory_target_equal plan_target accepted_target:
+        then Result::Err GuiBareDisplayDriverErrorKind::SpanTargetMismatch
+        else:
+            let plan_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span plan
+            let accepted_span %GuiRgba8888RowTileRlePresentRunRowSpan *field::get_ref accepted "span"
+            if not gui_bare_display_memory_span_equal &plan_span &accepted_span:
+                then Result::Err GuiBareDisplayDriverErrorKind::SpanRunSpanMismatch
+                else:
+                    if ne gui_bare_display_memory_span_write_plan_run_index plan *field::get_ref accepted "run_index":
+                        then Result::Err GuiBareDisplayDriverErrorKind::SpanRunIndexMismatch
+                        else:
+                            if ne gui_bare_display_memory_span_write_plan_pixel_start plan *field::get_ref accepted "pixel_start":
+                                then Result::Err GuiBareDisplayDriverErrorKind::SpanPixelStartMismatch
+                                else:
+                                    if ne gui_bare_display_memory_span_write_plan_pixel_end plan *field::get_ref accepted "pixel_end":
+                                        then Result::Err GuiBareDisplayDriverErrorKind::SpanPixelEndMismatch
+                                        else:
+                                            if ne gui_bare_display_memory_span_write_plan_row_byte_start plan *field::get_ref accepted "row_byte_start":
+                                                then Result::Err GuiBareDisplayDriverErrorKind::SpanRowByteStartMismatch
+                                                else:
+                                                    if ne gui_bare_display_memory_span_write_plan_x_byte_offset plan *field::get_ref accepted "x_byte_offset":
+                                                        then Result::Err GuiBareDisplayDriverErrorKind::SpanXByteOffsetMismatch
+                                                        else:
+                                                            if ne gui_bare_display_memory_span_write_plan_byte_start plan *field::get_ref accepted "byte_start":
+                                                                then Result::Err GuiBareDisplayDriverErrorKind::SpanByteStartMismatch
+                                                                else:
+                                                                    if ne gui_bare_display_memory_span_write_plan_byte_len plan *field::get_ref accepted "byte_len":
+                                                                        then Result::Err GuiBareDisplayDriverErrorKind::SpanByteLenMismatch
+                                                                        else:
+                                                                            if ne gui_bare_display_memory_span_write_plan_byte_end plan *field::get_ref accepted "byte_end":
+                                                                                then Result::Err GuiBareDisplayDriverErrorKind::SpanByteEndMismatch
+                                                                                else:
+                                                                                    if ne gui_bare_display_memory_span_write_plan_surface_byte_count plan *field::get_ref accepted "surface_byte_count":
+                                                                                        then Result::Err GuiBareDisplayDriverErrorKind::SpanSurfaceByteCountMismatch
+                                                                                        else:
+                                                                                            let plan_color %Rgba8888 gui_bare_display_memory_span_write_plan_color plan
+                                                                                            let accepted_color %Rgba8888 *field::get_ref accepted "color"
+                                                                                            if not gui_bare_display_memory_color_equal plan_color accepted_color:
+                                                                                                then Result::Err GuiBareDisplayDriverErrorKind::SpanColorMismatch
+                                                                                                else Result::Ok unit
+
+fn gui_bare_display_driver_present_matches %fn &GuiBareDisplayMemoryFramePresentPlan fn &GuiBareDisplayDriverFramePresentAccepted Result unit GuiBareDisplayDriverErrorKind \plan\accepted:
+    let plan_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target plan
+    let accepted_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget *field::get_ref accepted "target"
+    if not gui_bare_display_memory_target_equal plan_target accepted_target:
+        then Result::Err GuiBareDisplayDriverErrorKind::PresentTargetMismatch
+        else:
+            let plan_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor plan
+            let accepted_descriptor %GuiRgba8888RowTileRlePresentDescriptor *field::get_ref accepted "descriptor"
+            if not gui_bare_display_memory_descriptor_equal &plan_descriptor &accepted_descriptor:
+                then Result::Err GuiBareDisplayDriverErrorKind::PresentDescriptorMismatch
+                else:
+                    let plan_frame %FrameId gui_bare_display_memory_present_plan_frame plan
+                    let accepted_frame %FrameId *field::get_ref accepted "frame"
+                    if ne frame_id_raw &plan_frame frame_id_raw &accepted_frame:
+                        then Result::Err GuiBareDisplayDriverErrorKind::PresentFrameMismatch
+                        else:
+                            if ne gui_bare_display_memory_present_plan_run_count plan *field::get_ref accepted "run_count":
+                                then Result::Err GuiBareDisplayDriverErrorKind::PresentRunCountMismatch
+                                else:
+                                    if ne gui_bare_display_memory_present_plan_pixel_count plan *field::get_ref accepted "pixel_count":
+                                        then Result::Err GuiBareDisplayDriverErrorKind::PresentPixelCountMismatch
+                                        else:
+                                            if ne gui_bare_display_memory_present_plan_surface_byte_count plan *field::get_ref accepted "surface_byte_count":
+                                                then Result::Err GuiBareDisplayDriverErrorKind::PresentSurfaceByteCountMismatch
+                                                else Result::Ok unit
+
+fn gui_bare_display_driver_outcome_matches_action %fn GuiBareDisplayMemoryAction fn GuiBareDisplayDriverOutcome Result unit GuiBareDisplayDriverErrorKind \action\outcome:
+    match outcome:
+        GuiBareDisplayDriverOutcome::DriverRejected lower:
+            Result::Err GuiBareDisplayDriverErrorKind::DriverRejected lower
+        GuiBareDisplayDriverOutcome::BeginAccepted accepted:
+            match action:
+                GuiBareDisplayMemoryAction::FrameBegin plan:
+                    gui_bare_display_driver_begin_matches &plan &accepted
+                GuiBareDisplayMemoryAction::SpanWrite span:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+                GuiBareDisplayMemoryAction::FramePresent present:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+        GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted:
+            match action:
+                GuiBareDisplayMemoryAction::FrameBegin begin:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+                GuiBareDisplayMemoryAction::SpanWrite plan:
+                    gui_bare_display_driver_span_matches &plan &accepted
+                GuiBareDisplayMemoryAction::FramePresent present:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+        GuiBareDisplayDriverOutcome::FramePresentAccepted accepted:
+            match action:
+                GuiBareDisplayMemoryAction::FrameBegin begin2:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+                GuiBareDisplayMemoryAction::SpanWrite span2:
+                    Result::Err GuiBareDisplayDriverErrorKind::OutcomeActionMismatch
+                GuiBareDisplayMemoryAction::FramePresent plan:
+                    gui_bare_display_driver_present_matches &plan &accepted
+
+fn gui_bare_display_driver_last_write_after_outcome %fn Option GuiBareDisplayDriverSpanWriteAccepted fn GuiBareDisplayDriverOutcome Option GuiBareDisplayDriverSpanWriteAccepted \last_write\outcome:
+    match outcome:
+        GuiBareDisplayDriverOutcome::BeginAccepted accepted_begin:
+            Option::None
+        GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted_span:
+            Option::Some accepted_span
+        GuiBareDisplayDriverOutcome::FramePresentAccepted accepted_present:
+            last_write
+        GuiBareDisplayDriverOutcome::DriverRejected lower:
+            last_write
+
+fn gui_bare_display_driver_last_present_after_outcome %fn Option GuiBareDisplayDriverFramePresentAccepted fn GuiBareDisplayDriverOutcome Option GuiBareDisplayDriverFramePresentAccepted \last_present\outcome:
+    match outcome:
+        GuiBareDisplayDriverOutcome::BeginAccepted accepted_begin:
+            last_present
+        GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted_span:
+            last_present
+        GuiBareDisplayDriverOutcome::FramePresentAccepted accepted_present:
+            Option::Some accepted_present
+        GuiBareDisplayDriverOutcome::DriverRejected lower:
+            last_present
+
+//: gui_bare_display_driver_apply: memory action と driver outcome を[照合/しょうごう]して state を[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - supplied memory step は canonical memory state から[再適用/さいてきよう]し、state / action が[一致/いっち]しない場合は[拒否/きょひ]します。
+//: - driver outcome は selected memory action の evidence と[完全/かんぜん]に[一致/いっち]する必要があります。
+//: - driver rejected outcome や mismatch outcome では state を[進/すす]めません。
+pub fn gui_bare_display_driver_apply %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome Result GuiBareDisplayDriverStepApplied GuiBareDisplayDriverStepError \state\memory_step\outcome:
+    match gui_bare_display_driver_state_invariant &state:
+        Result::Err invariant_kind:
+            Result::Err gui_bare_display_driver_step_error invariant_kind state memory_step outcome
+        Result::Ok invariant_ok:
+            let storage_step %GuiBareDisplayStorageStepApplied gui_bare_display_memory_step_applied_storage_step &memory_step
+            let current_memory_state %GuiBareDisplayMemoryState gui_bare_display_driver_state_memory_state &state
+            match gui_bare_display_memory_apply current_memory_state storage_step:
+                Result::Err memory_error:
+                    let memory_kind %GuiBareDisplayMemoryErrorKind gui_bare_display_memory_step_error_kind &memory_error
+                    let driver_kind %GuiBareDisplayDriverErrorKind GuiBareDisplayDriverErrorKind::MemoryApplyFailed memory_kind
+                    Result::Err gui_bare_display_driver_step_error driver_kind state memory_step outcome
+                Result::Ok expected_memory_step:
+                    let expected_memory_state %GuiBareDisplayMemoryState gui_bare_display_memory_step_applied_state &expected_memory_step
+                    let supplied_memory_state %GuiBareDisplayMemoryState gui_bare_display_memory_step_applied_state &memory_step
+                    if not gui_bare_display_memory_state_equal &expected_memory_state &supplied_memory_state:
+                        then Result::Err gui_bare_display_driver_step_error GuiBareDisplayDriverErrorKind::MemoryStepStateMismatch state memory_step outcome
+                        else:
+                            let expected_action %GuiBareDisplayMemoryAction gui_bare_display_memory_step_applied_action &expected_memory_step
+                            let supplied_action %GuiBareDisplayMemoryAction gui_bare_display_memory_step_applied_action &memory_step
+                            if not gui_bare_display_memory_action_equal expected_action supplied_action:
+                                then Result::Err gui_bare_display_driver_step_error GuiBareDisplayDriverErrorKind::MemoryStepActionMismatch state memory_step outcome
+                                else:
+                                    match gui_bare_display_driver_outcome_matches_action expected_action outcome:
+                                        Result::Err outcome_kind:
+                                            Result::Err gui_bare_display_driver_step_error outcome_kind state memory_step outcome
+                                        Result::Ok outcome_ok:
+                                            let next_phase %GuiBareDisplayDriverPhase gui_bare_display_driver_phase_from_memory_state &expected_memory_state
+                                            let last_write %Option GuiBareDisplayDriverSpanWriteAccepted gui_bare_display_driver_state_last_write &state
+                                            let last_present %Option GuiBareDisplayDriverFramePresentAccepted gui_bare_display_driver_state_last_present &state
+                                            let next_write %Option GuiBareDisplayDriverSpanWriteAccepted gui_bare_display_driver_last_write_after_outcome last_write outcome
+                                            let next_present %Option GuiBareDisplayDriverFramePresentAccepted gui_bare_display_driver_last_present_after_outcome last_present outcome
+                                            let next_state %GuiBareDisplayDriverState gui_bare_display_driver_state_new expected_memory_state next_phase next_write next_present
+                                            Result::Ok gui_bare_display_driver_step_applied_new next_state expected_action outcome expected_memory_step

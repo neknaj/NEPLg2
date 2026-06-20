@@ -1,0 +1,169 @@
+//: # std/gui/tile_present_host_span_operation_presenter_executor_session
+//: RGBA8888 row tile RLE present host span operation presenter executor session の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless presenter loop が、ready state、executor pending request、completion result を null や sentinel なしで[保持/ほじ]できるようにします。
+//: - F5dp executor loop と F5dq attempt driver を[一貫/いっかん]した session contract に[包/つつ]みます。
+//:
+//: ### [契約/けいやく]
+//: - `Ready` state だけが F5dp request を[呼/よ]びます。
+//: - `Completed` state への request は terminal `Completed` result を[返/かえ]し、F5dp request を[呼/よ]びません。
+//: - pending request は completion 時に value として[消費/しょうひ]され、request / attempt を[複製/ふくせい]しません。
+//: - completion は F5dq attempt driver だけを authority とし、F5dp / F5do / F5dn へ[直接/ちょくせつ][戻/もど]りません。
+//: - platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_span_operation_presenter_executor_session" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_loop" as *
+#import "std/gui/tile_present_scheduled_span_operation" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState:
+    Ready %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState
+    Completed
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending:
+    request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult:
+    Operation %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending
+    Completed
+
+pub enum GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion:
+    Continue %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState
+    Yield %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError:
+    support %GuiRgba8888RowTileRlePresentHostExecutorSupport
+    policy %GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError
+
+pub struct GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError:
+    category %Option GuiError
+    lower %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState \loop_state:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Ready loop_state
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending \request:
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending request
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_new %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError \support\policy\action\lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError support policy action category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete_error_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError \lower:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_error_category_value &lower
+    GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError category lower
+
+fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_completion_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion \completion:
+    match completion:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Continue loop_state:
+            let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion::Continue state
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion::Yield loop_state:
+            let state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state
+            GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion::Yield state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start: action から session state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5dp loop start を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path だけが Ready session state を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy fn GuiRgba8888RowTileRlePresentHostExecutionAction Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError \support\policy\action:
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_start support policy action:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_new support policy action lower
+        Result::Ok loop_state:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_ready_state loop_state
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request: session state から executor request を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - Ready state だけが F5dp loop request を 1 [回/かい]だけ[呼/よ]びます。
+//: - Completed state は terminal Completed result を[返/かえ]し、lower loop を[呼/よ]びません。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError \state:
+    match state:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Completed:
+            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Completed
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState::Ready loop_state:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_request loop_state:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request_error_new lower
+                Result::Ok request_result:
+                    match request_result:
+                        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Completed:
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Completed
+                        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestResult::Operation request:
+                            let pending %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_new request
+                            Result::Ok GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestResult::Operation pending
+
+//: gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete: pending request と executor attempt を session completion へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - pending request と attempt を value として[消費/しょうひ]します。
+//: - F5dq attempt driver step を 1 [回/かい]だけ[呼/よ]びます。
+//: - Continue / Yield は Ready session state へ[写/うつ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompletion GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError \pending\attempt:
+    let request %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request pending
+    match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step request attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete_error_new lower
+        Result::Ok step:
+            let completion %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopCompletion gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_attempt_driver_step_completion step
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_completion_new completion
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \pending:
+    field::get pending "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_pending_request_ref %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest \pending:
+    field::get_ref pending "request"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_support %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError GuiRgba8888RowTileRlePresentHostExecutorSupport \error:
+    *field::get_ref error "support"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_policy %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError GuiRgba8888RowTileRlePresentScheduledSpanOperationPolicy \error:
+    *field::get_ref error "policy"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_action %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_start_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionStartError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopStartError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_request_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionRequestError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopRequestError \error:
+    field::get error "lower"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete_error_category_value %fn &GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_complete_error_lower %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionCompleteError GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverError \error:
+    field::get error "lower"

@@ -1,0 +1,142 @@
+//: # platforms/gui/native/scheduler_clock_input
+//: Native scheduler clock action input helper
+//:
+//: ### [目的/もくてき]
+//: - F5eg `YieldToClock` / `AwaitTimerAdvance` action に対して、native clock one-tick helper から F5ek real loop step input を[作/つく]ります。
+//: - これは action input helper only であり、not long-running scheduler backend です。
+//:
+//: ### [契約/けいやく]
+//: - general `LoopAction` は[受/う]け[取/と]らず、typed payload だけを[入力/にゅうりょく] authority とします。
+//: - `gui_native_scheduler_clock_tick` を entry ごとに 1 [回/かい]だけ[呼/よ]び、platform raw clock sample や F5eo `advance` を[直接/ちょくせつ][呼/よ]びません。
+//: - success payload は original action、新しい backend clock state、F5eo 由来の `RealLoopStepInput` を[保持/ほじ]します。
+//: - error payload は original action、input clock state、lower `GuiNativeSchedulerClockError` を[保持/ほじ]します。
+//: - `ExecuteHostAction` と `Complete` は[対象/たいしょう][外/がい]です。`ExecutorOutcome` や `CompleteAck` は[合成/ごうせい]しません。
+//: - queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/native/scheduler_clock_input" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/result" as *
+#import "platforms/gui/native/scheduler_clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step" as *
+
+pub struct GuiNativeSchedulerClockYieldInputReady:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiNativeSchedulerClockTimerInputReady:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput
+
+pub struct GuiNativeSchedulerClockYieldInputTickFailed:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiNativeSchedulerClockError
+
+pub struct GuiNativeSchedulerClockTimerInputTickFailed:
+    action %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance
+    state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState
+    lower %GuiNativeSchedulerClockError
+
+pub enum GuiNativeSchedulerClockInputError:
+    YieldTickFailed %GuiNativeSchedulerClockYieldInputTickFailed
+    TimerTickFailed %GuiNativeSchedulerClockTimerInputTickFailed
+
+fn gui_native_scheduler_clock_yield_input_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiNativeSchedulerClockYieldInputReady \action\state\input:
+    GuiNativeSchedulerClockYieldInputReady action state input
+
+fn gui_native_scheduler_clock_timer_input_ready_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput GuiNativeSchedulerClockTimerInputReady \action\state\input:
+    GuiNativeSchedulerClockTimerInputReady action state input
+
+fn gui_native_scheduler_clock_yield_input_tick_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiNativeSchedulerClockError GuiNativeSchedulerClockYieldInputTickFailed \action\state\lower:
+    GuiNativeSchedulerClockYieldInputTickFailed action state lower
+
+fn gui_native_scheduler_clock_timer_input_tick_failed_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState fn GuiNativeSchedulerClockError GuiNativeSchedulerClockTimerInputTickFailed \action\state\lower:
+    GuiNativeSchedulerClockTimerInputTickFailed action state lower
+
+//: gui_native_scheduler_clock_yield_input: native clock tick を yield action 用 input へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `gui_native_scheduler_clock_tick` を 1 [回/かい]だけ[呼/よ]びます。
+//: - success は F5eo が[作/つく]った state と input をそのまま[保持/ほじ]します。
+//: - failure は original action と input clock state を lower error と[一緒/いっしょ]に[返/かえ]します。
+pub fn gui_native_scheduler_clock_yield_input %impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock Result GuiNativeSchedulerClockYieldInputReady GuiNativeSchedulerClockInputError \policy\state\action:
+    match gui_native_scheduler_clock_tick policy state:
+        Result::Err lower:
+            let payload %GuiNativeSchedulerClockYieldInputTickFailed gui_native_scheduler_clock_yield_input_tick_failed_new action state lower
+            Result::Err GuiNativeSchedulerClockInputError::YieldTickFailed payload
+        Result::Ok advance:
+            let next_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState field::get advance "state"
+            let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput field::get advance "input"
+            let ready %GuiNativeSchedulerClockYieldInputReady gui_native_scheduler_clock_yield_input_ready_new action next_state input
+            Result::Ok ready
+
+//: gui_native_scheduler_clock_timer_input: native clock tick を timer action 用 input へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `gui_native_scheduler_clock_tick` を 1 [回/かい]だけ[呼/よ]びます。
+//: - `AwaitTimerAdvance` action だけを[受/う]け、executor outcome や complete ack は[作/つく]りません。
+pub fn gui_native_scheduler_clock_timer_input %impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockPolicy impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState impure fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance Result GuiNativeSchedulerClockTimerInputReady GuiNativeSchedulerClockInputError \policy\state\action:
+    match gui_native_scheduler_clock_tick policy state:
+        Result::Err lower:
+            let payload %GuiNativeSchedulerClockTimerInputTickFailed gui_native_scheduler_clock_timer_input_tick_failed_new action state lower
+            Result::Err GuiNativeSchedulerClockInputError::TimerTickFailed payload
+        Result::Ok advance:
+            let next_state %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState field::get advance "state"
+            let input %GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput field::get advance "input"
+            let ready %GuiNativeSchedulerClockTimerInputReady gui_native_scheduler_clock_timer_input_ready_new action next_state input
+            Result::Ok ready
+
+pub fn gui_native_scheduler_clock_yield_input_ready_action %fn GuiNativeSchedulerClockYieldInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock \ready:
+    field::get ready "action"
+
+pub fn gui_native_scheduler_clock_yield_input_ready_state %fn &GuiNativeSchedulerClockYieldInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \ready:
+    *field::get_ref ready "state"
+
+pub fn gui_native_scheduler_clock_yield_input_ready_input %fn GuiNativeSchedulerClockYieldInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \ready:
+    field::get ready "input"
+
+pub fn gui_native_scheduler_clock_timer_input_ready_action %fn GuiNativeSchedulerClockTimerInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance \ready:
+    field::get ready "action"
+
+pub fn gui_native_scheduler_clock_timer_input_ready_state %fn &GuiNativeSchedulerClockTimerInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \ready:
+    *field::get_ref ready "state"
+
+pub fn gui_native_scheduler_clock_timer_input_ready_input %fn GuiNativeSchedulerClockTimerInputReady GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerRealLoopStepInput \ready:
+    field::get ready "input"
+
+pub fn gui_native_scheduler_clock_yield_input_tick_failed_action %fn GuiNativeSchedulerClockYieldInputTickFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionYieldToClock \failure:
+    field::get failure "action"
+
+pub fn gui_native_scheduler_clock_yield_input_tick_failed_state %fn &GuiNativeSchedulerClockYieldInputTickFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \failure:
+    *field::get_ref failure "state"
+
+pub fn gui_native_scheduler_clock_yield_input_tick_failed_lower %fn GuiNativeSchedulerClockYieldInputTickFailed GuiNativeSchedulerClockError \failure:
+    field::get failure "lower"
+
+pub fn gui_native_scheduler_clock_timer_input_tick_failed_action %fn GuiNativeSchedulerClockTimerInputTickFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerLoopActionAwaitTimerAdvance \failure:
+    field::get failure "action"
+
+pub fn gui_native_scheduler_clock_timer_input_tick_failed_state %fn &GuiNativeSchedulerClockTimerInputTickFailed GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockState \failure:
+    *field::get_ref failure "state"
+
+pub fn gui_native_scheduler_clock_timer_input_tick_failed_lower %fn GuiNativeSchedulerClockTimerInputTickFailed GuiNativeSchedulerClockError \failure:
+    field::get failure "lower"

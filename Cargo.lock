@@ -520,7 +520,9 @@ dependencies = [
 name = "nepl-gui-native"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "minifb",
+ "windows-sys",
 ]
 
 [[package]]

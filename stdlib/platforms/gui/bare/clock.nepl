@@ -1,0 +1,59 @@
+//: # platforms/gui/bare/clock
+//: Bare backend の formal monotonic clock host boundary
+//:
+//: ### [目的/もくてき]
+//: - embedding host が[明示/めいじ][提供/ていきょう]する monotonic clock sample を `nepl_gui_bare` host import から[受/う]け[取/と]ります。
+//: - raw sentinel はこの module で `Result BackendClockSample GuiError` へ[写/うつ]し、application code へ漏らしません。
+//:
+//: ### [契約/けいやく]
+//: - host import は 0 以上の i32 millisecond sample を[返/かえ]します。
+//: - raw value が -1 なら clock unsupported として `GuiError::Unsupported` です。
+//: - raw value がその他の負値なら clock backend failure として `GuiError::BackendFailure` です。
+//: - bare stdlib は wall clock、timer、sleep、scheduler、queue、platform API、fallback を[使/つか]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/bare/clock" as *
+//: ```
+
+#indent 4
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock" as *
+
+#extern "nepl_gui_bare" "monotonic_clock_ms" fn gui_bare_monotonic_clock_ms_raw %impure fn void i32
+
+fn gui_bare_monotonic_clock_status_error %fn i32 GuiError \raw:
+    if eq raw -1:
+        then GuiError::Unsupported
+        else GuiError::BackendFailure
+
+fn gui_bare_backend_clock_sample_error %fn GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSampleErrorKind::MonotonicMsInvalid:
+            GuiError::InvalidCommand
+
+//: gui_bare_backend_clock_sample: bare host から monotonic clock sample を[取得/しゅとく]する
+//:
+//: [目的/もくてき]:
+//: - embedding host が[明示/めいじ][提供/ていきょう]する sample を F5eo backend clock sample constructor へ[渡/わた]します。
+//:
+//: [契約/けいやく]:
+//: - raw sentinel は public API へ漏らさず `GuiError` へ[写/うつ]します。
+//: - 成功時も F5eo の sample constructor を[通/とお]し、platform module で sample value を直接[組/く]み[立/た]てません。
+//: - host が clock を[提供/ていきょう]しない場合は `Unsupported` を[返/かえ]し、別 source を[探索/たんさく]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_bare_backend_clock_sample %impure fn void Result GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerBackendClockSample GuiError \void:
+    let raw %i32 gui_bare_monotonic_clock_ms_raw
+    if lt raw 0:
+        then Result::Err gui_bare_monotonic_clock_status_error raw
+        else:
+            match gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw:
+                Result::Ok sample:
+                    Result::Ok sample
+                Result::Err kind:
+                    Result::Err gui_bare_backend_clock_sample_error kind

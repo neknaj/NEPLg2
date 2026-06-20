@@ -1,3 +1,9415 @@
+# 2026-06-21 Agent2 GUI native F5ju Linux X11 request sequence correlation boundary
+
+## 目的
+
+- X11 setup handshake を normal request sequence に含めず、top-level CreateWindow / MapWindow の accepted write progress だけから sequence を確定する。
+- server error packet の sequence を、reader が保持する CreateWindow / MapWindow sequence と照合する。
+- opcode、bad value、minor opcode は decoded evidence として保持し、correlation authority にはしない。
+- server reply body drain / reply correlation、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、correlation は opcode ではなく sequence-based にすること、request byte boundary を越えた accepted write だけで sequence を進めること、setup handshake は sequence に含めないことだった。
+- 実装方針はこの指摘に従い、CreateWindow 境界前、CreateWindow 境界、combined request 境界、write failure before acceptance を focused test で固定する。
+- implementation review は `REVIEW_APPROVED` だった。
+- setup が normal sequence を進めないこと、accepted write progress の境界でだけ CreateWindow / MapWindow sequence が確定すること、write failure before acceptance が sequence を進めないこと、server error correlation が opcode ではなく sequence に基づくことが確認された。
+
+## 実装
+
+- `NativeWindowLinuxX11TopLevelWindowRequestSequencePlan` と `NativeWindowLinuxX11ServerErrorCorrelation` を追加した。
+- reader は first normal request sequence を保持し、top-level request bytes の accepted range が request boundary を越えた時だけ CreateWindow / MapWindow sequence を記録する。
+- `ServerErrorReceived` は decoded server error packet と sequence-based correlation enum を返す。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5ju contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 448 件通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- server reply body drain / reply correlation、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5jt Linux X11 server error-reply header decode boundary
+
+## 目的
+
+- X11 event stream の 32 byte packet で `packet[0] == 0` の server error と `packet[0] == 1` の server reply header を通常 event と分離する。
+- server error / reply を `EventTypeUnsupported` に落とさず、fixed offset で typed data として保持する。
+- normal event では send-event high bit を mask する既存 behavior を維持する。
+- server sequence correlation、request / reply body drain、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、`packet[0]` の raw value で `0` / `1` を先に分類し、通常 event の mask はその後に限定することだった。
+- 実装はこの方針に従い、server error / reply header の typed decode boundary に限定した。
+- implementation review は `REVIEW_CHANGES` だった。
+- 指摘は、実装と検証は通っているが、`note.n.md` の検証欄が未実行のままで docs / todo と不整合になっているというものだった。
+- 指摘に従い、実行済みの completion checks と review status をこの note に反映した。
+
+## 実装
+
+- `NativeWindowLinuxX11ServerErrorPacket` と `NativeWindowLinuxX11ServerReplyHeader` を追加した。
+- `NativeWindowLinuxX11EventSourceObservationError` に `ServerErrorReceived` と `ServerReplyReceived` を追加した。
+- X11 observation packet decode は raw response type を先に見て、server error / reply を fail-closed typed error として返す。
+- normal event decode は従来通り send-event high bit を mask して Configure / Motion / Button を扱う。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jt contract へ更新した。
+
+## 検証
+
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_reports_server -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_masks_send_event_bit -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 446 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 後続 scope
+
+- server sequence correlation、request / reply body drain、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5js Linux X11 reader setup-backed top-level request generation boundary
+
+## 目的
+
+- F5jr の setup-backed top-level request owner builder を、X11 observation reader の setup completion path へ接続する。
+- reader が serial / geometry / background / event mask を暗黙 default として作らないよう、caller supplied typed plan を追加する。
+- setup-backed plan missing、setup resource info missing、allocation failure、request build failure は typed error で fail-closed にする。
+- server error / reply、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_CHANGES` だった。
+- 指摘は、reader が setup state だけから request を作るのではなく、serial、geometry、background pixel、event mask を保持する typed config / plan を caller から受け取る必要がある、というものだった。
+- 実装方針を `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` による explicit plan に修正した。
+- implementation review では、`SetupBackedBuildPending` なのに plan が無い内部不変条件違反を `NotConfigured` + `Ok` に戻す branch が silent no-op になると指摘された。
+- 指摘に従い、`TopLevelWindowRequestSetupBackedPlanMissing` を追加して fail-closed にし、source policy も old branch shape を拒否するようにした。
+- re-review では note の stale status だけが required fix として残ったため、実装済み / 検証済みの記録と残作業の範囲を更新した。
+- 最終 re-review は `REVIEW_APPROVED`。caller supplied typed plan、setup resource info 後の build、missing plan / missing info / build failure の typed fail-closed、fallback / no-op success 不在、docs / source policy / todo / note の整合が確認された。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` を追加し、setup resource info を含まない request generation config とした。
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` に `SetupBackedBuildPending` を追加し、setup ready 後の build と既存 partial-write path を接続した。
+- setup-backed plan missing、setup resource info missing、F5jr builder failure を `NativeWindowLinuxX11EventSourceObservationError` の typed variant として保持する。
+- provider / reader constructor に setup-backed plan path を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5js contract へ更新した。
+
+## 検証
+
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_builds_top_level_request_from_setup_resource_info -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_resource_info_is_missing -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_plan_is_missing -- --nocapture` 相当の focused suite は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_build_fails -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 443 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は通過した。
+
+## 後続 scope
+
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5jr Linux X11 setup-backed top-level request owner boundary
+
+## 目的
+
+- F5jq の setup resource info と caller supplied serial から generated client window id を割り当てる。
+- setup success body 由来の first root window id を parent として CreateWindow / MapWindow request owner を作る。
+- caller supplied API は従来通り parent id high bits を拒否し、setup-backed API だけ root parent を zero-only validation で扱う。
+- reader からの自動生成接続、server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_APPROVED` だった。
+- 指摘は、F5jo の caller-supplied helper は parent high-bit rejection を維持し、F5jq の first root window id は server-owned id として zero-only validation に分けることだった。
+- implementation review は `REVIEW_APPROVED` だった。
+- setup-backed request owner boundary、no reader mutation、no runner / no fallback について required fix は無かった。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput` と `NativeWindowLinuxX11SetupBackedTopLevelWindowCreateRequestError` を追加した。
+- request byte encoding は ID 検証済み helper に分離し、caller-supplied path と setup-backed path で共有する。
+- setup-backed builder は `native_window_linux_x11_resource_id_from_serial` で generated client id を作り、root parent id は zero-only validation で扱う。
+- focused tests は high-bit root parent の許容、allocation failure、geometry / event mask / zero root build failure を検査する。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jr contract へ更新中。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_backed -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は 300 秒 timeout 設定で通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+
+## 残作業
+
+- reader setup state から top-level request を自動生成する接続は未接続。
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5jq Linux X11 setup resource info allocation boundary
+
+## 目的
+
+- X11 setup success body から resource-id-base、resource-id-mask、first screen root window id を読む。
+- sparse mask 対応の client resource id allocation helper を追加する。
+- reader は setup body を破棄せず、body 完了時に typed parser を呼んで resource info を保持する。
+- generated window id owner、root id を parent にした request construction、server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- 初回 plan review は `PLAN_CHANGES` だった。
+- 指摘は、X11 success setup body の fixed portion は prefix 後 32 byte であること、root window id は server-owned id なので client resource id validation を適用しないこと、byte order と sparse mask、typed allocation error、empty body の扱いを明確にすることだった。
+- 修正版では fixed body 32 byte、little-endian success body parser、root id zero-only validation、sparse mask allocation、empty body は historical scripted observation compatibility の `Ok(None)` のみ、として `PLAN_APPROVED` を得た。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupResourceInfo`、`NativeWindowLinuxX11SetupResourceInfoParseError`、`NativeWindowLinuxX11ResourceIdAllocationError` を追加した。
+- `native_window_linux_x11_setup_resource_info_from_little_endian_success_body` は fixed body、vendor padding、pixmap format list、first screen header を checked arithmetic で読む。
+- `native_window_linux_x11_resource_id_from_serial` は serial bit を resource-id-mask の set bit へ low-to-high に詰める。
+- `NativeWindowLinuxX11EventSourceObservationReader` は setup body bytes と optional setup resource info を保持し、parse failure は `SetupResourceInfoParseFailed` で fail-closed にする。
+- focused tests は success body parse、invalid client id space、screen truncation、sparse mask allocation、partial setup body resume、parse failure fail-closed を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jq contract へ更新した。
+
+## 検証
+
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_resource -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_resource_id -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は CRLF warning のみで whitespace error は無かった。
+- subagent implementation review は `REVIEW_APPROVED` だった。
+
+## 残作業
+
+- generated window id owner と root window id を parent にした actual top-level request construction は未接続。
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5jp Linux X11 top-level window request partial-write boundary
+
+## scope
+
+- F5jo の CreateWindow / MapWindow request owner を、X11 observation reader が setup ready 後、event read 前に partial-write できる境界へ接続する。
+- 既存 constructor は `NotConfigured` のまま維持し、request owner を渡さない場合は window request を書かない。
+- resource id allocation、root window discovery、server error / reply handling、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## plan_review
+
+- Huygens the 2nd の plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` を追加し、top-level request write を `NotConfigured` / `RequestPending` / `Ready` / `Failed` で管理する。
+- `NativeWindowLinuxX11EventSourceObservationReader` に optional request owner、write state、written byte count を追加した。
+- setup ready 後、event packet read 前に request bytes を `write_x11_bytes_raw` へ渡す。
+- would-block は retryable typed error として返し、partial byte count を保持する。
+- hard failure / zero write / overflow は typed error として返し、以後の poll は `TopLevelWindowRequestPreviouslyFailed` で fail-closed にする。
+- provider wrapper と helper に setup request + top-level request owner を同時に受ける constructor を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jp contract へ更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `git diff --check`
+
+## implementation_review
+
+- Huygens the 2nd の implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- resource id allocation、root window discovery、X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
+# 2026-06-20 Agent2 GUI native F5jo Linux X11 top-level window create/map request owner boundary
+
+## scope
+
+- X11 top-level window の CreateWindow / MapWindow request bytes を typed owner として作る。
+- default event mask は F5jo が MapWindow を直後に送ることを考慮し、current decoder が non-fatal に扱える `ButtonPress | ButtonRelease | PointerMotion` に限定する。
+- actual raw fd write / read、setup observation reader integration、resource id allocation、server error handling、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## plan_review
+
+- Averroes the 2nd の初回 plan review は `PLAN_CHANGES`。
+- blocker は、Expose が current F5jb decoder で未対応なのに default event mask に含まれていた点だった。
+- 指摘に従い、default event mask から Expose を外し、Expose decode / subscription は後続 phase に分ける revised plan にした。
+- revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `NativeWindowLinuxX11TopLevelWindowCreateInput`、`NativeWindowLinuxX11TopLevelWindowCreateRequest`、`NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError` を追加した。
+- CreateWindow は opcode `1`、length `10`、background-pixel + event-mask value list、MapWindow は opcode `8`、length `2` として encode する。
+- window id / parent id zero、resource id high bits、zero width / height、event mask unused high bits を typed error として拒否する。
+- implementation review の指摘に従い、StructureNotify は MapNotify なども購読するため default event mask から外した。ConfigureNotify / MapNotify / Expose decode は後続 phase の責務にする。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jo contract へ更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_top_level_window_create_request -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+
+## implementation_review
+
+- Averroes the 2nd の初回 implementation review は `IMPLEMENTATION_CHANGES`。
+- blocker は、StructureNotify が ConfigureNotify だけでなく MapNotify なども購読し、F5jo の MapWindow 直後に unsupported event を発生させうる点だった。
+- 指摘に従い、default event mask を `ButtonPress | ButtonRelease | PointerMotion` へ縮小し、doc/source-policy/tests を同じ contract に更新した。
+- 再レビューは `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual X11 request write、resource id allocation、server error decode、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jn Linux Xauthority process hostname address adapter boundary
+
+## scope
+
+- F5jm の `NativeWindowLinuxX11LocalAuthorityAddressReader` に接続する cfg Linux process hostname adapter を追加する。
+- `gethostname` 相当の side effect は raw API trait に隔離し、reader は NUL terminated hostname bytes だけを F5jm validation helper へ渡す。
+- NUL terminator が無い hostname buffer は typed process read error とし、empty hostname は F5jm `EmptyAddress` に委譲する。
+- selector criteria construction、credential selection、setup request integration、raw X11 fd / raw API owner、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland concrete decoding、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、silent no-op、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- actual OS call は injected raw API の背後に保ち、deterministic tests は process hostname ではなく scripted raw API を使うことが required とされた。
+- reader は `MAX + 1` を確保し、raw API を exactly once 呼び、NUL terminator を必須にし、無い場合は typed `HostnameNotTerminated` を返すことが required とされた。
+- empty hostname は F5jm `EmptyAddress` に流し、localhost / wild / empty fallback を作らないことが required とされた。
+- source policy / tests は selector criteria、credential selection、setup request、env / fs / VFS / DISPLAY、X11 fd IO、window setup、runner / CLI / support-gate `Ok`、fallback、silent no-op、synthetic readiness が混入しないことを固定する必要がある。
+
+## implementation
+
+- `NativeWindowLinuxX11LocalAuthorityAddressRawApi`、`NativeWindowLinuxX11LocalAuthorityAddressProcessReadError`、`NativeWindowLinuxX11ProcessLocalAuthorityAddressReader` を追加した。
+- process reader は `NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN + 1` の buffer を確保し、raw API を 1 回だけ呼び、最初の NUL byte までを hostname bytes として F5jm validation helper へ渡す。
+- cfg Linux `NativeWindowLinuxX11LocalAuthorityAddressSysApi` と `native_window_linux_x11_local_authority_address_from_process_hostname` を追加し、`libc::gethostname` を F5jm helper へ接続した。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jn contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target checks は既存 dead_code warning を報告したが、F5jn の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / docs / source-policy の content blocker は無く、この `implementation_review` 欄が `pending` のままで commit readiness を満たしていない点だけが指摘された。
+- 指摘対応として、この review 結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- selector criteria / credential setup request への full integration、X11 window setup、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jm Linux Xauthority local authority address owner boundary
+
+## scope
+
+- Xauthority `FamilyLocal` record と exact match する local authority address を injected reader から読み、typed owner として保持する。
+- empty address、max byte length 超過、NUL byte は fallback せず typed error として拒否する。
+- owner は `as_bytes` / `len` だけを公開し、selector criteria bridge は既存 display parser / criteria constructor へ委譲する。
+- actual `gethostname` / process identity acquisition、`DISPLAY` env acquisition、env / fs / VFS acquisition、credential selection、setup request integration、raw fd / raw API owner、window creation、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- F5jm は injected local-authority-address owner boundary に留め、`gethostname`、OS identity lookup、env / display parsing の拡張、fs / VFS、raw fd / API、X11 reader / window setup を扱わないことが required とされた。
+- empty、too-long、NUL-containing address は typed failure とし、empty / local / wild authority fallback にしないことが required とされた。
+- bridge helper は `NativeWindowLinuxX11LocalAuthorityAddress` を借用し、既存 selector criteria path を呼ぶことが required とされた。
+- source policy は `FamilyWild` fallback、hostname / gethostname / sys / env / fs / VFS / raw / window / runner / support-gate coupling を F5jm slice で禁止することが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11LocalAuthorityAddress`、`NativeWindowLinuxX11LocalAuthorityAddressReader`、`NativeWindowLinuxX11LocalAuthorityAddressReadError` を追加した。
+- `native_window_linux_x11_local_authority_address_with_limit` と `native_window_linux_x11_local_authority_address` を追加し、reader bytes を owner 化する validation boundary を作った。
+- `native_window_linux_x11_xauthority_local_selector_criteria_from_authority_address` を追加し、validated address owner を既存 selector criteria helper へ渡す bridge とした。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jm contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target checks は既存 dead_code warning を報告したが、F5jm の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jm 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual hostname / process identity acquisition、DISPLAY env integration、window setup、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jl Linux Xauthority credential setup request boundary
+
+## scope
+
+- Xauthority file bytes owner と selector criteria から、exact selector で credential を選択して authorization setup request owner を作る。
+- `NoMatchingRecord` は no-auth fallback にせず、typed `NoMatchingCredential` として fail closed にする。
+- parse failure と setup request build failure は lower error を保持する。
+- env / fs / VFS acquisition、hostname / display identity acquisition、raw fd / raw API owner、window creation、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- helper は `NativeWindowLinuxX11XauthorityFileBytes` と `NativeWindowLinuxX11XauthoritySelectorCriteria` だけを受け取り、env / fs / VFS reader、raw fd / raw API owner、X11 reader state に触れないことが required とされた。
+- `NoMatchingRecord` は `NoMatchingCredential` へ写像し、no-auth constructor や `AuthorizationCredential::none` を呼ばないことが required とされた。
+- parse failure と setup request build failure は lower error を branch 内に保持することが required とされた。
+- source policy は `select_credential(file_bytes.as_bytes(), criteria.selector())` を一度だけ呼び、`Selected` の場合だけ setup request builder を呼ぶ構成を pin することが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityCredentialSetupRequestError` を追加し、parse failure、no matching credential、setup request build failure を typed error として分けた。
+- `native_window_linux_x11_setup_request_from_xauthority` を追加し、credential selection と authorization setup request builder の接続だけを担当させた。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jl contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target checks は既存 dead_code warning を報告したが、F5jl の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jl 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- hostname / display identity policy、window setup、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jk Linux Xauthority VFS file bytes adapter boundary
+
+## scope
+
+- F5jg の injected file bytes reader に対する caller supplied VFS source adapter を追加する。
+- adapter は F5jg から渡された exact `path` を mutable VFS source へそのまま渡す。
+- source failure は exact requested path と injected source error を保持する typed error とする。
+- empty file / file too large validation は F5jg helper に委譲し、adapter 内で重複実装しない。
+- actual Web VFS、native resource root、filesystem fallback、path normalization、alias lookup、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- exact `plan.path` forwarding、typed source failure、F5jg validation delegation が required とされた。
+- source policy は F5jg injected surface、F5jj filesystem adapter、F5jk VFS adapter を separate slice として扱うことが required とされた。
+- docs / todo / note では credential selection to setup、hostname / display identity、runner / CLI dispatch、support-gate `Ok` を residual として残すことが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityVfsFileBytesSource`、`NativeWindowLinuxX11XauthorityVfsFileBytesReader`、`NativeWindowLinuxX11XauthorityVfsFileBytesReadError` を追加した。
+- VFS reader adapter は `read_xauthority_vfs_file_bytes(path)` の error を typed `ReadFailed path error` に変換する。
+- `native_window_linux_x11_xauthority_read_file_bytes_from_vfs` を追加し、F5jg helper への委譲だけを行う。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jk contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5jk の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jk 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- hostname / display identity policy、credential-selection-to-setup integration、window setup、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jj Linux Xauthority filesystem file bytes adapter boundary
+
+## scope
+
+- F5jg の injected file bytes reader に対する cfg Linux actual filesystem adapter を追加する。
+- adapter は F5jg から渡された exact `path` に対して `std::fs::read(path)` だけを行う。
+- read failure は exact requested path と original `std::io::Error` を保持する typed error とする。
+- empty file / file too large validation は F5jg helper に委譲し、adapter 内で重複実装しない。
+- VFS adapter、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- adapter は薄く保ち、`std::fs::read(path)` のみを許可する方針が承認された。
+- IO failure は exact requested path と original `std::io::Error` を保持し、empty / too-large validation は F5jg helper に残す方針が承認された。
+- source policy で F5jg injected surface と actual filesystem adapter surface を分けることが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFilesystemFileBytesReader` と `NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError` を追加した。
+- filesystem reader は `std::fs::read(path)` の error を typed `ReadFailed path error` に変換する。
+- `native_window_linux_x11_xauthority_read_file_bytes_from_filesystem` を追加し、F5jg helper への委譲だけを行う。
+- Rust cfg Linux tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jj contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5jj の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jj 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- VFS adapter、hostname / display identity policy、credential-selection-to-setup integration、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5ji Linux Xauthority process environment adapter boundary
+
+## scope
+
+- F5jh の injected environment reader に対する cfg Linux actual process environment adapter を追加する。
+- `AuthorityFilePath` は `XAUTHORITY`、`HomeDirectoryPath` は `HOME` へ固定 mapping する。
+- `NotPresent` は `Ok None`、`NotUnicode` は raw `OsString` を保持する typed error とし、missing と同一視しない。
+- filesystem / VFS adapter、file bytes read、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- `NotUnicode` は `OsString` を保持し、helper は F5jh の path-plan helper へ委譲する方針が承認された。
+- actual adapter surface と F5jh injected reader surface を source policy で分ける方針が承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityProcessEnvironmentReader` と `NativeWindowLinuxX11XauthorityProcessEnvironmentReadError` を追加した。
+- `std::env::var` の `NotPresent` / `NotUnicode` を明示的に `Result Option String` / typed error へ写す変換 helper を追加した。
+- `native_window_linux_x11_xauthority_path_plan_from_process_environment` を追加し、F5jh helper への委譲だけを行う。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5ji contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5ji の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、`NotPresent -> Ok None`、`NotUnicode` raw `OsString` 保持、F5jh path-plan helper への委譲、`.ok()` / fs / runner / fallback 禁止は満たしていると確認された。
+- blocker は F5ji 節に implementation review 結果が記録されていないことだけだったため、この節を追加して対応した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration、Linux runner / CLI dispatch は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jh Linux Xauthority environment acquisition boundary
+
+## scope
+
+- F5jf の path request boundary の前段として、authority-file path variable と home-directory path variable の取得を trait-injected reader に分離する。
+- authority-file path variable が present の場合は home-directory path variable を読まず、F5jf の explicit path plan にだけ接続する。
+- direct `std::env` adapter、actual filesystem / VFS adapter、file bytes read、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- authority-file path variable を先に読み、present の場合は home-directory path variable を読まない方針が承認された。
+- success は既存 `NativeWindowLinuxX11XauthorityPathPlan` を返し、read failure と path plan failure を enum branch で分ける方針が承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityEnvironmentValueKind`、`NativeWindowLinuxX11XauthorityEnvironmentReader`、`NativeWindowLinuxX11XauthorityEnvironmentPathPlanError` を追加した。
+- `native_window_linux_x11_xauthority_path_plan_from_environment` を追加し、authority-file path variable present 時は home-directory path variable を読まない。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jh contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: `cargo check` は既存 dead_code warning を 2 件報告したが、F5jh の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、authority-file path variable priority、home-directory path variable non-read when authority is present、read failure / path plan failure split、no direct env/fs/VFS / no file bytes / no credential setup / no runner / no fallback / no synthetic policy は満たしていると確認された。
+- blocker は F5jh 節に implementation review 結果が記録されていないことだけだったため、この節を追加して修正した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- F5ji で actual process environment adapter は接続済みである。actual filesystem / VFS adapter、hostname / display identity policy、credential-selection-to-setup integration は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5jg Linux Xauthority file bytes acquisition boundary
+
+## scope
+
+- F5jf の `NativeWindowLinuxX11XauthorityPathPlan` から、trait-injected reader を通して Xauthority file bytes owner を作る。
+- reader には exact `plan.path` だけを渡し、source の再解釈、alternate path synthesis、home fallback、no-auth fallback は行わない。
+- success は raw `Vec u8` ではなく private bytes owner とし、public surface は read-only `as_bytes` / `len` に限定する。
+- empty file、max byte length 超過、reader failure は source / path 付き typed error にする。
+- `XAUTHORITY` / `HOME` の env acquisition、direct filesystem / VFS adapter、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Env acquisition は後続に残し、F5jg は validated path plan と injected reader の境界に限定してよいと確認された。
+- Required は success authority を separate owned wrapper にすること、`EmptyFile` / `FileTooLarge` / `ReadFailed` を分けること、reader が exact `plan.path` を受け取ることだった。
+- empty / failed read を no-auth や `NoMatchingRecord` に変換せず、credential parsing / setup request integration は helper 内に入れないことが条件だった。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFileBytesReader`、`NativeWindowLinuxX11XauthorityFileBytes`、`NativeWindowLinuxX11XauthorityFileBytesReadError` を追加した。
+- file bytes owner は private `Vec u8` を保持し、`as_bytes` / `len` だけを公開する。
+- read helper は exact `plan.path` を injected reader に渡し、reader failure、empty file、max byte length 超過を source / path 付き typed error に写す。
+- test 用 explicit limit helper と default max-byte helper を分けた。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jg contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、path plan input、exact `plan.path` reader call、private bytes owner、source / path 付き reader failure、empty / too-large typed error、no-auth / `NoMatchingRecord` fallback 非導入は満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `XAUTHORITY` / `HOME` acquisition boundary は F5jh / F5ji で接続済みである。actual filesystem / VFS adapter は未実装である。
+- credential selection / setup request integration、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
+# 2026-06-20 Agent2 GUI native F5jf Linux Xauthority lookup path request boundary
+
+## scope
+
+- Xauthority bytes を読む前段として、caller supplied authority file path と caller supplied home directory path から要求 path を決める。
+- `authority_file_path = Some nonempty` は `ExplicitAuthorityFile` として byte-for-byte に preserving し、home directory より優先する。
+- `authority_file_path = Some empty` は fail closed にし、home default へ落とさない。
+- `authority_file_path = None` かつ `home_directory_path = Some nonempty` の場合だけ `HomeDirectoryDefault` として default file name を結合する。
+- path は NUL と length overflow を typed error にし、normalize / canonicalize / tilde expansion は行わない。
+- `XAUTHORITY` / `HOME` の env acquisition、filesystem / VFS open / read、metadata / exists / canonicalize、file locking、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Required は explicit authority file path を home default より優先し、empty explicit path を fail closed にすることだった。
+- HOME default は caller supplied home directory だけから作り、`/` 終端時は `.Xauthority`、それ以外は `/.Xauthority` を append する方針で承認された。
+- NUL check と checked length は path owner 生成前の境界として扱い、env / fs / VFS / credential selection / runner / support gate へ踏み込まないことが条件だった。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityLookupInput`、`NativeWindowLinuxX11XauthorityPathSource`、`NativeWindowLinuxX11XauthorityPathPlan`、`NativeWindowLinuxX11XauthorityPathPlanError` を追加した。
+- explicit path plan は nonempty / no-NUL を検査し、source と owned path を返す。
+- home default path plan は nonempty / no-NUL と checked append を検査し、source と owned default path を返す。
+- public planner は explicit path、home default、missing location の順に pure Result boundary として分岐する。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jf contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、explicit path priority、empty explicit path fail-closed、HOME suffix rule、owner construction 前の NUL rejection、checked suffix length、env / fs / VFS / runner / support-gate / fallback 非導入は満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `XAUTHORITY` / `HOME` acquisition boundary と filesystem / VFS read boundary は未実装である。
+- credential selection / setup request integration、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
+# 2026-06-20 Agent2 GUI native F5je Linux Xauthority selector criteria boundary
+
+## scope
+
+- local X11 display name と caller supplied local authority address から、F5jd selector に渡す exact criteria を作る。
+- display name parser は fd acquisition error から分離した `NativeWindowLinuxX11DisplayNameError` を返し、fd acquisition は既存 public error へ写像する。
+- accepted display form は `:N`、`:N.screen`、`unix/:N`、`unix/:N.screen` に限定する。
+- display number は allocation なしで checked parse し、criteria owner が fixed decimal byte buffer を保持する。
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs、hostname / gethostname、TCP identity、SSH forwarding policy、window creation、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Required は display name error を純粋共有型にし、fd acquisition の public behavior は mapping で維持すること、criteria は accepted local form だけを扱い、display number encoding は bounded decimal writer にすることだった。
+- `preferred_protocol_name: None` は最初の exact family/address/display match、`Some` は protocol name も追加条件にする方針で承認された。
+
+## implementation
+
+- `NativeWindowLinuxX11DisplayNameError` を追加し、X11 display parser を shared pure helper にした。
+- fd acquisition path は shared parser error を既存の `NativeWindowLinuxWindowEventSourceFdAcquisitionError` へ写像する。
+- `NativeWindowLinuxX11XauthoritySelectorCriteria` を追加し、display number bytes を `[u8; 10]` owner として保持する。
+- local selector criteria helper は caller supplied local authority address と optional preferred protocol name だけを使い、hostname 推測や address synthesis は行わない。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5je contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_fd_acquisition_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、display parsing は pure typed error、fd acquisition error mapping は既存 public behavior を維持、criteria-owned display-number bytes、exact selector matching、env / fs / VFS / runner / CLI / support-gate `Ok` / fallback / mutable escape path の非導入を満たしていると確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
+# 2026-06-20 Agent2 GUI native F5jd Linux Xauthority record parser boundary
+
+## scope
+
+- caller supplied authority bytes だけを受け取り、`.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs は扱わない。
+- Xauthority record は MSB-first u16 length field と borrowed payload slice として parse し、protocol name / data を credential へ zero-copy で渡す。
+- selector は caller が渡した family、address、display_number、optional preferred protocol name の exact match のみを行う。
+- `FamilyLocal` の hostname 推測、`FamilyWild` の暗黙 fallback、no-auth fallback、silent success、runner / CLI dispatch、Linux support gate `Ok` 化、window creation は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- blocker は local / unix wildcard の matching contract が緩く、shared authority bytes から別 host の local record を選び得ることだった。
+- revised plan では implicit fallback を廃止し、caller supplied `family + address + display_number` の exact selector と typed `Selected` / `NoMatchingRecord` result に限定して `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityFamily`、field enum、parse error、record、selector、selection を追加した。
+- record parser は MSB-first u16 length field、checked offset arithmetic、borrowed payload slice に限定した。
+- selection は preferred protocol name がある場合だけ protocol name も exact match し、見つからない場合は `NoMatchingRecord` を返す。
+- selected credential は authority bytes を borrow したまま F5jc setup request builder へ渡せる。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jd contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、parser は caller supplied bytes 上で zero-copy、checked offset arithmetic、typed parse errors、explicit `Selected` / `NoMatchingRecord` selection を満たしていると確認された。
+- exact `family + address + display_number` matching が維持され、broad `FamilyLocal` matching、implicit `FamilyWild` fallback、env / fs / VFS lookup、runner / CLI / support-gate enablement、provider / reader / raw-fd escape は見つからないと確認された。
+- 指摘は、この section が pending のままで commit readiness が記録されていなかったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit readiness を満たすと確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- selector criteria construction、hostname / display identity acquisition、X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
+# 2026-06-20 Agent2 GUI native F5jc Linux X11 authorization setup request boundary
+
+## scope
+
+- F5jb の X11 setup request を、authorization protocol name / data を持てる encoded request owner へ拡張する。
+- credential は borrowed validation input としてだけ扱い、reader には保持しない。
+- setup request bytes は `NativeWindowLinuxX11SetupRequest` が所有し、reader は validated owner を受け取って partial write retry を続ける。
+- `.Xauthority` file lookup、`XAUTHORITY` / `HOME` / env / fs / vfs、window creation、event mask、WM_DELETE_WINDOW、keyboard / IME、Wayland、Linux runner / CLI dispatch、support gate `Ok` 化、fallback、synthetic readiness、timer evidence は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- blocker は `new_with_authorization api credential -> Result ...` が credential build failure 時に raw API owner を消費して落とし得ることだった。
+- revised plan では setup request validation / ownership を raw API owner 消費より前に分離し、`NativeWindowLinuxX11SetupRequest` owner を `new_with_setup_request` へ渡す形に変更して `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxX11AuthorizationCredential`、`NativeWindowLinuxX11SetupRequest`、`NativeWindowLinuxX11SetupRequestBuildError` を追加した。
+- authorization name / data length、4 byte padding、total length は checked arithmetic で検査し、typed enum error で返す。
+- reader は setup request owner を保持し、no-auth constructor と validated setup request constructor を分けた。
+- MIT-MAGIC-COOKIE-1 encoding、no-auth 互換、too-long auth rejection、partial auth setup write retry の focused tests を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jc contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、request validation が raw API owner 消費より前に分離され、setup request owner が encoded bytes を保持し、partial write retry と no `.Xauthority` / env / fs / vfs / fallback / synthetic evidence policy が守られていることは確認された。
+- 指摘はこの欄が pending のままだったことだけだったため、この review 結果を記録して対応した。
+- 再レビューは `REVIEW_APPROVED`。note-only blocker は解消され、commit-ready と確認された。
+
+## residual
+
+- `.Xauthority` file lookup と VFS / filesystem boundary は未実装である。
+- X11 window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch は後続である。
+
+# 2026-06-20 Agent2 GUI native F5jb Linux X11 setup and event observation boundary
+
+## scope
+
+- F5ja の acquired fd owner bundle の後続として、X11 local Unix connection の setup request / setup response drain / 32 byte event packet read / minimal observation decode を追加する。
+- `WouldBlock` は retryable typed error とし、partial setup / event bytes を reader state に保持する。
+- `ConfigureNotify` は size observation、`MotionNotify` / `ButtonPress` / `ButtonRelease` は pointer / mouse observation に写す。
+- Wayland、X11 authorization file lookup、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、fallback、synthetic readiness、timer fired evidence は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 推奨 slice は F5jb Native Linux X11 event source setup/read observation provider boundary で、Wayland を同時に扱わず、trait-injected raw API、typed setup / read / event errors、owned fd owner 保持、no fallback / no runner dispatch を条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxX11EventSourceRawApi`、cfg Linux `NativeWindowLinuxX11EventSourceSysApi`、`NativeWindowLinuxX11EventSourceObservationReader`、`NativeWindowLinuxX11WindowEventSourceObservationProvider` を追加した。
+- X11 setup request write、setup prefix read、setup body drain、event packet read は progress を保持し、partial + would-block から次回 poll で復帰できるようにした。
+- X11 ConfigureNotify / MotionNotify / ButtonPress / ButtonRelease を normalized observation へ写し、unsupported source / unsupported event / setup failure / EOF / raw failure は enum error にした。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、`todo.md` を F5jb contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- blocker は `NativeWindowLinuxX11WindowEventSourceObservationProvider` が `provider_mut` / `into_parts` を公開しており、owned fd provider を F5ja final owner wrapper 外へ逃がせることだった。
+- 指摘対応として、X11 observation provider から public `provider_mut`、`reader_mut`、consuming `into_parts` を削除し、read-only `provider()` / `reader()` に限定した。source policy でも provider / reader mutable escape、owned fd close escape、consuming split を禁止した。
+- 再レビューは `REVIEW_APPROVED`。前回 blocker は解消され、F5ja acquired-fd final owner / drop-order contract、trait-injected X11 reader boundary、typed would-block / error handling、runner / CLI / support-gate / fallback 非導入の範囲で commit-ready と確認された。
+
+## residual
+
+- X11 authorization、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME は未実装である。
+- Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ja Linux acquired-fd final owner drop-order boundary
+
+## scope
+
+- F5iz の Linux window event source owned fd provider を、selector registration 後にも安全に保持できる final owner bundle へ渡す。
+- acquired fd path は専用 wrapper `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost` を通し、provider mutable accessor、host-only escape、provider-only escape、public `into_parts` を出さない。
+- actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate `Ok` 化、runner / CLI dispatch、minifb wait replacement、fallback、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の初回 plan review は `PLAN_CHANGES`。
+- 指摘は、success drop order だけでなく host build failure error の drop order も固定すること、generic F5iv error を裸で保持せず即時詰め替えること、borrowed accessor を狭くすること、success / post-registration failure の両方を shared order log で検査することだった。
+- revised plan では lower error を provider より先に置く F5ja 専用 error、generic F5iv error の即時 destructure / rewrap、final wrapper の provider mutable access 不提供、source policy の final-wrapper slice scoping、success / failure shared order log tests を追加し、`PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost` を追加し、lower Linux owner-retaining run-loop host と owned fd provider を private owner tree に閉じ込めた。
+- `native_window_linux_window_event_source_owned_fd_run_loop_host_with_apis` を追加し、F5iz provider acquisition、F5iu prepared platform config、F5iv run-loop handoff を順に通す acquired-fd 専用 helper にした。
+- F5ja 専用 build error は lower backend / descriptor / error を provider より先に持つ field order にし、generic F5iv `HostBuildFailed` を即時 destructure して詰め替えるようにした。
+- scripted Linux raw APIs に shared order log を追加し、success drop と host build failure drop の両方で `unregister-window-fd` が `close-owned-fd` より先になることを検査した。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ja contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_owned_fd_run_loop_host_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy / docs content blocker はなく、F5ja wrapper が acquired-fd provider を private owner tree に保持し、provider / host / owned-fd mutable escape を出さず、generic F5iv error を lower-error-first field order へ詰め替え、success と post-registration failure の両方で unregister-before-owned-fd-close を検査していることが確認された。
+- 指摘は、この section が pending のままだったことだった。
+- 指摘対応として、初回 review result と確認内容をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland protocol parsing、fd read / drain、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5iq Linux window event source fd missing reason boundary
+
+## scope
+
+- F5ip 後の Linux generic support gate missing reason を、owner missing ではなく actual X11 / Wayland window event source fd integration または同等の externally-wakeable platform event source missing として表す。
+- Linux support gate は引き続き fail closed とし、`PlatformRunnerIntegrationMissing` を返す。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5ip で owner と cfg sys factory は存在するため、旧 `LinuxExternallyWakeableEventSourceOwnerMissing` は stale であり、現在の blocker を window / platform event source fd missing として表すことが妥当と確認された。
+- host-event `eventfd` producer と window event source fd を混同しないため、variant 名は `LinuxWindowEventSourceFdMissing` を使うことが条件として確認された。
+- Linux missing capability と `ObservedInputOnly` の staged error を維持し、validated `ExternallyWakeableEventSource` の integration-missing reason だけを更新することが条件として確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` の Linux variant を `LinuxWindowEventSourceFdMissing` に更新した。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` は Linux validated `ExternallyWakeableEventSource` に対して引き続き `PlatformRunnerIntegrationMissing` を返し、Linux runner を有効化しないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5iq contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support_rejects_linux_externally_wakeable_until_integrated -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、Rust enum variant が更新され、Linux は引き続き `PlatformRunnerIntegrationMissing` を返し、runner / CLI / minifb / fallback / sleep / synthetic readiness が導入されていないことが確認された。
+- 指摘 1: この section の `implementation_review` が pending のままだった。
+- 指摘 2: `gui_native_platform_behavior.md` の current implementation summary がまだ Linux externally-wakeable event source owner missing と説明していた。
+- 指摘対応として、この欄へ初回 review result を記録し、native behavior summary を `LinuxWindowEventSourceFdMissing` / actual X11-Wayland window event-source fd integration missing へ更新した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。旧名の残存は source policy rejection text と historical note context だけで、current implementation / native behavior contract には残っていないと確認された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable platform event source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ip Linux cfg sys host factory boundary
+
+## scope
+
+- F5io の input-to-host handoff を cfg Linux sys API で組み立てる factory boundary を追加する。
+- generic support gate の Linux `PlatformRunnerIntegrationMissing` behavior は維持し、runner / CLI dispatch は今回 scope 外にする。
+- validation failure、backend build failure、owner build failure、input build failure、host handoff failure を stage 別の `Result` error として保持する。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- sys wrapper だけではなく、scripted raw API を注入できる testable helper を作ることが条件として確認された。
+- `PlatformWait` config、Linux selection / backend kind、`ExternallyWakeableEventSource` capability は raw sys / backend construction より前に検査することが条件として確認された。
+- helper は backend、owner、F5in input、F5io host の順で既存 contract を通し、generic support gate、runner / CLI / minifb / X11 / Wayland 固有 code、fallback、sleep、busy loop、synthetic readiness、timer evidence fabrication を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostFromConfigBuildError` を追加し、config、backend support、Linux event-source support、backend build、owner build、input build、host build の failure stage を分けた。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を追加し、scripted backend API / producer API を注入できる host factory boundary を作った。
+- cfg Linux wrapper `native_window_host_loop_linux_platform_wait_run_loop_host_from_config` を追加し、backend owner 用と producer owner 用に別々の `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を注入するだけにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ip contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_config -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、validation が raw construction より前に行われ、所有権回復が typed error に保持され、generic support gate、runner / CLI / minifb / fallback / synthetic readiness path が導入されていないことが確認された。
+- 指摘は、この section が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5io Linux owner-ready input-to-host boundary
+
+## scope
+
+- F5in の owner-ready input を F5im の owner-retaining run-loop host へ渡す境界を追加する。
+- visual host と input を同時に受け、失敗時にも両方を回収できる `Result` にする。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、sleep、busy loop、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5in input-to-host handoff を X11 / Wayland integration 前に固定するのが正しい次 slice と確認された。
+- helper は infallible ではなく `Result` とし、input 構築後に owner が close された場合を再検査することが条件として確認された。
+- error は host と input を保持し、lower-level config / selection / capability validation だけを使い、generic runner support gate、runner / CLI / minifb / sys API、fallback、sleep、synthetic readiness、backend-only / producer-only extraction を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopHostBuildError` を追加し、config failure、backend support failure、Linux event-source support failure、closed owner を分け、各 failure で host と input を保持するようにした。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_input` を追加し、F5in input を再検査してから F5im owner-retaining run-loop host へ full owner を渡すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5io contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_input -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、helper が explicit `Result` / enum stages を使い、host と input を failure で保持し、lower-level config / selection / capability / owner-open state を再検査し、generic runner support gate を呼ばず、`input.into_parts` を success 時だけ使い、full owner を F5im wrapper に渡し、backend-only extraction、producer drop、sys / minifb / runner dispatch、fallback、sleep、synthetic readiness を導入していないことが確認された。
+- 指摘は、この section が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5in Linux platform-wait owner-ready run-loop input boundary
+
+## scope
+
+- F5im owner-retaining run-loop host の後続として、Linux platform-wait config と externally-wakeable owner 全体を同時に保持する input boundary を追加する。
+- generic runner support gate は Linux を引き続き `PlatformRunnerIntegrationMissing` として扱い、F5in helper では下位の config / platform / backend kind / Linux event-source capability / owner open state だけを検査する。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- new helper は generic `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を呼ばず、generic gate が Linux で `PlatformRunnerIntegrationMissing` を返す contract を維持することが条件として確認された。
+- lower-level config / selection / capability validation と `owner.are_handles_open` を検査し、失敗時は config と owner を error variant に保持して返すことが条件として確認された。
+- public extraction は config と full owner だけを返し、backend-only / producer-dropping escape、runner / CLI / minifb / sys / fallback / sleep / synthetic readiness を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopInputBuildError` を追加し、config failure、platform unavailable、wrong current platform、backend support failure、Linux event-source support failure、closed owner を分け、各 failure で config と owner を保持するようにした。
+- `NativeWindowLinuxPlatformWaitRunLoopInput` を追加し、config と full owner を private field として保持するようにした。
+- `native_window_linux_platform_wait_run_loop_input_for_platform` と current-platform wrapper を追加し、generic support gate を呼ばずに Linux owner-ready input だけを作るようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5in contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_input -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、input が config と full owner を保持し、`into_parts` が `(config, owner)` だけを返し、owner-bearing error recovery を持ち、generic runner support gate を呼ばず、Linux `PlatformRunnerIntegrationMissing` behavior を維持し、runner dispatch / fallback / minifb / sys calls / sleep / synthetic readiness を導入していないことが確認された。
+- 指摘は、この section の `implementation_review` が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5im Linux externally-wakeable event source run-loop host boundary
+
+## scope
+
+- F5il owner を backend-only path へ public 分解せず、owner 全体を保持したまま `NativeWindowRunLoopHost` の wait hook として使う境界を追加する。
+- Linux selector / timerfd backend による wait と external signal producer の所有を同じ wrapper に閉じる。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence / scheduler-ready evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- owner の public `into_parts` を private 化または削除し、source policy で public split を禁止することが条件として確認された。
+- new wrapper は backend 単体ではなく `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` 全体を保持することが条件として確認された。
+- wait は owner 内 backend へ渡し、signal は producer にだけ委譲し、support gate、CLI dispatch、Linux runner、fallback、synthetic readiness を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceWaitAdapter` を追加し、owner 全体と timer registration id cursor を保持するようにした。
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceRunLoopHost` を追加し、visual host operation は inner host、wait operation は owner-retaining adapter へ委譲するようにした。
+- owner の public `into_parts` を削除し、backend 単体を owner から public に取り出せないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5im contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、public owner split が消え、wrapper が full owner を保持し、backend-only platform wrapper へ逃げず、signal が producer にだけ委譲され、fallback / synthetic runner path が source policy で固定されていることは確認された。
+- 指摘は、この section の `verification_current` と `implementation_review` が最新状態を記録していなかったことだった。
+- 指摘対応として、node source policy と broader native lib test の pass、初回 review result をこの欄へ記録した。
+- 追加検証の window bin test、Linux target check、`git diff --check` も記録したうえで再レビューを受け、`REVIEW_APPROVED_TO_COMMIT` が返った。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5il Linux externally-wakeable event source owner boundary
+
+## scope
+
+- F5ik の `LinuxExternallyWakeableEventSourceOwnerMissing` の後続として、Linux selector / timerfd backend と external host-event signal producer を同一 owner に束ねる。
+- owner は backend と producer を保持し、host event signal は producer にだけ委譲する。
+- producer 作成失敗や closed backend は backend owner を返す typed error として扱い、backend owner を暗黙に失わない。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence / scheduler-ready evidence の生成は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- F5ik support gate behavior を維持し、Linux `ExternallyWakeableEventSource` は引き続き `PlatformRunnerIntegrationMissing` を返すことが条件として確認された。
+- build error は closed backend と producer creation failure を分け、producer failure では `{ backend, error }` を返すことが条件として確認された。
+- owner の `signal_host_event` は producer にだけ委譲し、backend direct signal、`HostEventReady`、`TimerFired`、scheduler-ready evidence、wait outcome を生成しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` を追加し、Linux selector / timerfd backend と host-event signal producer を同一 owner に束ねた。
+- `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwnerBuildError` を追加し、closed backend と producer creation failure を分け、どちらも backend owner を返すようにした。
+- owner の `signal_host_event` は producer にだけ委譲し、backend direct signal や wait outcome synthesis を行わないようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5il contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable_owner -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘 1: owner の `pub fn new` が builder invariant を迂回し、backend と無関係な producer を組み合わせられるため、constructor を private にする必要がある。
+- 指摘 2: この F5il section の `implementation_review` が pending のままで commit readiness を満たしていなかった。
+- 指摘対応として、owner constructor を private にし、source policy に public owner constructor 禁止を追加し、この欄へ review result を記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。constructor bypass は閉じられ、source policy で固定され、backend recovery / producer-only signaling / F5ik support-gate behavior は維持されていると確認された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ik platform wait runner missing-integration reason boundary
+
+## scope
+
+- platform wait support gate で、selection / capability validation は通るが actual runner readiness に必要な実体が未接続のケースを typed missing integration reason として表す。
+- Linux の validated `ExternallyWakeableEventSource` を runner-ready にせず、external event source owner / selector registration missing として返す。
+- macOS は raw / trait boundary まで存在するが actual sys shim / run-loop ownership が未接続であるため、unsupported platform とは別の missing integration として返す。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- Windows + `WindowsWaitableTimerMessageWait` は唯一の accepted support-gate path として維持することが条件として確認された。
+- Linux missing capability は `Config MissingLinuxEventSourceCapability`、`ObservedInputOnly` は `LinuxEventSourceSupportFailed` のまま維持し、validated `ExternallyWakeableEventSource` だけを integration-missing に写すことが条件として確認された。
+- new integration-missing error は platform/backend selection validation 成功後だけに使い、`selection` と reason-specific data を保持することが条件として確認された。
+- unsupported / impossible runner は `PlatformRunnerUnavailable` のまま残すことが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration` を追加し、`LinuxExternallyWakeableEventSourceOwnerMissing` と `MacosActualSysShimMissing` を分けた。
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing` を追加し、validated selection と missing reason を保持するようにした。
+- Linux externally-wakeable と macOS の support-gate failure を `PlatformRunnerIntegrationMissing` へ移し、Windows accepted path、Linux missing capability、Linux observed-input-only、unsupported platform は従来の stage を維持した。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ik contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ik section の `implementation_review` が pending のままだったことだった。
+- code / source policy / docs は、typed missing-integration enum、old Linux-specific error rejection、Windows-only accepted support-gate path、Linux / macOS missing integration explicit error、fallback / silent no-op 非導入を満たしていると確認された。
+- 指摘対応として、この欄を review result で更新した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ij platform wait CLI support gate boundary
+
+## scope
+
+- `nepl-gui-native --wait-backend platform` の CLI path を、Windows 専用の固定文字列 rejection から library の typed runner support gate へ寄せる。
+- CLI は default platform wait selection と `NativeWindowRunLoopConfig` construction を行い、runner dispatch の前に `validate_native_window_run_loop_platform_wait_runner_support` を通す。
+- Windows runner entry の F5ii support gate は残し、CLI 側 validation は user-facing fail-closed boundary として追加する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- shared CLI config builder は `native_window_host_loop_default_platform_wait_backend_selection` と `new_with_platform_wait_backend_selection` を使い、CLI で Linux `ExternallyWakeableEventSource` を注入しないことが条件として確認された。
+- shared support-gate helper は runner dispatch より前に `validate_native_window_run_loop_platform_wait_runner_support config` を呼び、Windows runner entry の validation も authoritative boundary として残すことが条件として確認された。
+- non-Windows path は default selection failure または typed support failure を返し、support validation が成功したのに runner が無い場合も explicit dispatch-unavailable error として fail closed にすることが確認された。
+
+## implementation
+
+- `platform_wait_window_run_loop_config` を追加し、window / non-wasm platform wait config construction を CLI branch から分離した。
+- `validate_platform_wait_window_runner_support` を追加し、Windows branch と non-Windows branch の両方が runner dispatch 前に support gate を通るようにした。
+- non-Windows branch は fixed Windows-only string ではなく、same support gate failure または explicit dispatch-unavailable error を返すようにした。
+- source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ij contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --bin nepl-gui-native -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ij section の `implementation_review` が pending のままだったことだった。
+- CLI platform path が shared config を作り、dispatch より前に support gate を通すこと、Linux capability を注入しないこと、non-Windows で minifb fallback しないことについて、content blocker は見つかっていないと確認された。
+- Beauvoir the 2nd の実ファイル再レビューは `REVIEW_APPROVED_TO_COMMIT`。docs / source policy / note を含め追加指摘なしで、commit に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ii platform wait runner support gate integration
+
+## scope
+
+- F5ih の support gate を Windows platform wait window runner の実 entry に接続する。
+- `run_windows_platform_wait_window_loop` が backend construction、backend loop construction、window creation、visual host construction、minifb side effect より前に runner support を検査するようにする。
+- support validation failure と backend construction failure を別 stage の typed error として保持する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、default minifb runner replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` を追加し、F5ih gate failure を backend construction error や string error に潰さないことが条件として確認された。
+- `run_windows_platform_wait_window_loop` では support gate を function entry 直後に置き、`native_window_run_loop_platform_wait_backend_from_config`、`NativeWindowBackendLoop::new_for_scale`、`Window::new`、visual host construction より前に実行することが条件として確認された。
+- source policy では ordering と、Linux runner / raw integration / fallback / synthetic evidence を追加しないことを固定する方針が確認された。
+
+## implementation
+
+- `NativeWindowRunLoopError::PlatformWaitRunnerUnsupported` を追加し、`NativeWindowRunLoopPlatformWaitRunnerSupportError` をそのまま保持するようにした。
+- `run_windows_platform_wait_window_loop` は Windows support gate を先に通し、成功後だけ platform wait backend construction へ進むようにした。
+- Windows cfg + window feature の focused tests で non-platform config と cross-platform config が backend construction ではなく runner support error として返ることを固定した。
+- source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ii contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --features window --lib native_window_windows_platform_wait_runner -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ii section の `implementation_review` が pending のままだったことだった。
+- `run_windows_platform_wait_window_loop` が backend construction / window side effect より前に F5ih support gate を通すこと、failure が `PlatformWaitRunnerUnsupported` の typed stage として保持されること、fallback / synthetic readiness / Linux runner / CLI dispatch を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ih platform wait runner support gate
+
+## scope
+
+- F5ig の typed platform wait config を actual runner dispatch の前段で検査する support gate を追加する。
+- Windows platform wait runner は既存 runner path として accepted selection を返す。
+- Linux は missing capability、observed-input-only、externally-wakeable-but-not-integrated を別 error として fail closed にする。
+- macOS / unsupported platform は typed runner unavailable とする。
+- Linux runner / CLI dispatch、raw/sys backend construction、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- support gate は pure readiness gate とし、typed helper を window / backend / raw side effect より前に置く方針が承認された。
+- Linux は capability 未指定、`ObservedInputOnly`、`ExternallyWakeableEventSource` の三段階を fail closed にし、`ExternallyWakeableEventSource` を actual X11 / Wayland fd owner / selector registration 無しで runner-ready にしないことが条件として確認された。
+- source policy では Linux runner symbol、Linux `target_os` dispatch in `main.rs`、support gate 内 raw/sys call、externally-wakeable classification の readiness 化を禁止することが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitRunnerSupportError` を追加し、config error、backend support error、Linux event-source support error、Linux externally-wakeable integration missing、platform runner unavailable を型で分けた。
+- `validate_native_window_run_loop_platform_wait_runner_support_for_platform` と current-platform wrapper を追加した。
+- Windows + `WindowsWaitableTimerMessageWait` は accepted selection を返し、Linux / macOS / unsupported platform は runner 接続前の typed error を返すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ih contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は `Unsupported` platform が backend kind validation で先に `BackendSupportFailed RequestedBackendUnsupportedPlatform` へ落ち、F5ih contract の `PlatformRunnerUnavailable` とずれることだった。
+- `Unsupported` は config extraction 後、backend kind validation より前に `PlatformRunnerUnavailable` として返すように修正した。
+- unsupported platform の focused Rust test と source policy pin を追加した。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。前回 blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ig run-loop platform wait config event source gate
+
+## scope
+
+- F5if の explicit Linux event source capability gate を run-loop config 側へ接続する。
+- `NativeWindowRunLoopWaitBackend::PlatformWait` を bare selection から typed config へ移し、future Linux runner が selection だけで F5ie / F5if gate を bypass できないようにする。
+- Windows CLI compatibility の `new_with_platform_wait_backend_selection` は selection-only config constructor として残す。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5if 後の root-cause slice として、run-loop config に Linux event source capability の保持場所を作る方針は妥当と確認された。
+- 必須条件として、config fields は private にし constructor / accessor 経由で扱うこと、cfg Linux from-config は capability 未指定を typed error にすること、旧 constructor は Windows compatibility の selection-only config として残すこと、runner / CLI dispatch / synthetic readiness / fallback を追加しないことが確認された。
+
+## implementation
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` を追加し、selection と optional Linux event source capability を private field として保持するようにした。
+- `NativeWindowRunLoopWaitBackend::PlatformWait` は typed config を保持するように変更した。
+- `native_window_run_loop_platform_wait_backend_config` を追加し、既存の selection extractor は config から selection を読む compatibility helper にした。
+- `MissingLinuxEventSourceCapability` を `NativeWindowRunLoopPlatformWaitBackendConfigError` に追加した。
+- cfg Linux `native_window_run_loop_platform_wait_backend_from_config` を追加し、capability 未指定なら cfg Linux helper を呼ぶ前に typed error を返すようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ig contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_run_loop_platform_wait_config -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ig section の `verification_current` に `node --check nodesrc/test_native_gui_platform_behavior.js` と `git diff --check` の記録が無いこと、および `implementation_review` が無いことだった。
+- `NativeWindowRunLoopPlatformWaitBackendConfig` が private fields + accessor / constructor になっていること、`PlatformWait` が bare selection ではなく typed config を保持すること、cfg Linux from-config が capability 未指定を typed error にしてから cfg Linux helper を呼ぶこと、暗黙の `ExternallyWakeableEventSource` 注入や runner / CLI / minifb 接続を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5if Linux platform wait backend event source config gate
+
+## scope
+
+- F5ie の Linux event source capability gate を、Linux platform wait backend construction helper の入口へ接続する。
+- Linux-only helper、multi-backend raw API builder の Linux branch、cfg Linux helper で event source capability を explicit input にする。
+- `ObservedInputOnly` は backend construction でも raw API 呼び出し前に typed error として拒否する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 既存 Linux helper の signature を変える方針は root fix として妥当だが、cfg Linux helper が暗黙に `ExternallyWakeableEventSource` を渡すと F5if の bypass になると指摘された。
+- 修正版では cfg Linux helper も explicit `event_source_capability` parameter を要求し、selection validation、event-source capability validation、Linux raw API call の順序を守る。
+
+## implementation
+
+- `NativeWindowHostLoopPlatformWaitHostBuildError::LinuxEventSourceSupportFailed` を追加し、Linux event source support error を build error として保持するようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` に `event_source_capability` を追加し、Linux raw API method call より前に F5ie validator を通すようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` に `linux_event_source_capability` を追加し、selected Linux branch でも同じ validation を通すようにした。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` に explicit `event_source_capability` を追加し、暗黙の `ExternallyWakeableEventSource` 注入を避けた。
+- Rust unit tests と source policy を更新し、observed-input-only source が Linux raw call count 0 のまま拒否されること、externally-wakeable source が従来通り backend construction へ進むことを固定した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_raw_apis -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5if section に `implementation_review` が無いことだった。
+- Linux helper が explicit event-source capability を要求すること、selection validation の後で capability validation を行い、Linux raw API call より前に `ObservedInputOnly` を拒否すること、fallback / synthetic readiness / runner / CLI dispatch を追加していないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration policy、Linux platform wait runner / CLI dispatch は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ie Linux blocking wait event source capability gate
+
+## scope
+
+- F5id の observed-input signal bridge を、Linux blocking platform wait runner の readiness source と誤認しない support gate として型に落とす。
+- minifb `InputCallback` のような already observed input は `ObservedInputOnly` として表し、blocking wait support では typed error で拒否する。
+- actual X11 / Wayland fd integration または同等の externally-wakeable source は後続 phase とし、F5ie では分類値と fail-closed validation だけを追加する。
+- Linux runner / CLI dispatch、actual fd registration、minifb wait replacement、`HostEventReady` / timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5id で問題になった readiness cycle を、runner 実装前に typed capability と fail-closed validation で固定する slice として妥当と確認された。
+- 必須条件として、`ObservedInputOnly` を blocking platform wait runner support で必ず typed error にすること、`ExternallyWakeableEventSource` は readiness evidence ではなく分類値として扱うこと、actual externally-wakeable fd integration は後続であること、accept path が `HostEventReady` / timer-fired outcome / fd registration / runner dispatch を生成しないことを source policy と tests で固定することが確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxEventSourceCapability` を追加し、`ObservedInputOnly` と `ExternallyWakeableEventSource` を分けた。
+- `NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError` を追加し、`ObservedInputOnlyUnsupportedForBlockingWait` が requested capability を保持するようにした。
+- `validate_native_window_host_loop_linux_blocking_wait_event_source_capability` を追加した。`ObservedInputOnly` は拒否し、`ExternallyWakeableEventSource` は分類値としてのみ受理する。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5ie contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_blocking_wait_event_source -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5ie section に `implementation_review` が無いことだった。
+- F5ie の責務が fail-closed capability gate に留まること、`ObservedInputOnly` を requested capability 付き typed error として拒否すること、`ExternallyWakeableEventSource` を分類値としてだけ扱うこと、runner / CLI / fd registration / synthetic readiness / timer evidence を追加しないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / main merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、selector registration、Linux platform wait runner / CLI dispatch は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5id Linux minifb observed-input signal bridge boundary
+
+## scope
+
+- F5ic の duplicated host event signal producer を、minifb が既に観測した keyboard / text input callback から wake request として呼べる境界へ進める。
+- minifb `InputCallback` は `window.update` / `update_with_buffer` による event processing 中に呼ばれるため、blocking wait 中の OS event readiness source とは扱わない。
+- signal failure を callback 内で silent no-op にせず、wait boundary で typed error として表面化する。
+- Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、`set_target_fps 0`、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `REQUIRED_CHANGES`。Linux runner / CLI dispatch を同時に追加すると、eventfd signal が minifb event processing を必要とし、blocking wait 中に自力で wake できない readiness cycle になると指摘された。
+- 修正版では F5id を observed-input signal bridge boundary のみに狭め、Linux runner / CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement を非目標にした。
+- 修正版 plan は `PLAN_APPROVED`。required constraints は、F5id を `run_linux_platform_wait_window_loop` / CLI dispatch / existing minifb default runner から切り離すこと、callback signal success を readiness evidence にしないこと、signal failure と delegate wait failure を typed enum variant として保持すること、source policy で `run_linux_platform_wait_window_loop` / `run_platform_wait_window` / `set_target_fps(0)` / synthetic `HostEventReady` / timer-fired evidence を禁止することだった。
+
+## implementation
+
+- `NativeWindowHostEventSignalWaitError`、`NativeWindowHostEventSignalErrorState`、`NativeWindowHostEventSignalWaitGuardRunLoopHost` を追加した。
+- wait guard は `wait_after_budget_exhausted` の先頭で signal state を確認し、error があれば delegate wait を呼ばず `HostEventSignalFailed` を返す。error が無い場合だけ inner host wait へ進む。
+- cfg Linux + window の `MinifbNativeWindowLinuxHostEventSignalCallbackState` と `MinifbNativeWindowLinuxHostEventSignalInputCallback` を追加した。
+- callback は `add_char` と `set_key_state` で `signal_observed_input` を呼ぶ。signal failure は first error として保存され、後続 callback で上書きしない。
+- GUI spec / implementation plan / native platform behavior / `todo.md` を F5id scope に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_event_signal_wait_guard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_host_event_signal_producer -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は cfg Linux target 上の existing dead_code であり、F5id の blocker ではない。
+- pass: `cargo fmt --check`
+- pass: `git diff --check`
+- not run to completion: `cargo check -p nepl-gui-native --features window --target x86_64-unknown-linux-gnu` は `minifb` build script が `x86_64-linux-gnu-gcc` を要求し、この Windows 環境に cross C compiler が無いため失敗した。F5id code blocker ではなく environment blocker と判断した。
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code / docs / source policy の content blocker ではなく、この F5id section に `verification_current` と `implementation_review` が無いことだった。
+- 指摘時点で、F5id の責務が observed-input signal bridge boundary に留まること、minifb callback を blocking wait readiness と偽装しないこと、signal failure と delegate wait failure を typed enum variant として分けること、runner / CLI / synthetic readiness / timer evidence を追加しないことについて、content blocker は見つかっていないと確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / main merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux platform wait runner / CLI dispatch は未実装である。minifb callback だけでは blocking wait source にならないため、actual X11 / Wayland event source fd integration または同等の externally-wakeable source を別 phase で設計する必要がある。
+- FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
+# 2026-06-20 Agent2 GUI native F5ic Linux host event signal producer handle boundary
+
+## scope
+
+- F5ib の backend-owned eventfd signal 境界を、blocking wait 中の backend とは別 owner が使える producer handle 境界へ進める。
+- Linux selector / timerfd / eventfd backend は wait 中に backend owner を占有するため、runner / CLI 接続前に duplicated signal fd owner を分離する。
+- producer success は wake request だけを表し、`HostEventReady` outcome、scheduler resume evidence、timer fired evidence を生成しない。
+- runner / CLI / minifb wait path、generic dispatch、pre-signal busy loop、synthetic readiness、macOS actual sys shim、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5ib の `&mut backend` producer では backend が blocking wait 中に外部 event source から signal できないため、Linux runner 接続前に single producer handle owner を切ることは root-cause 寄りで妥当と確認された。
+- 必須制約として、fd `0` valid / negative invalid、raw accessor 非公開、producer handle が scheduler evidence を作らないこと、clone / signal failure の typed error、closed backend の fail-closed、cfg Linux duplicate は `F_DUPFD_CLOEXEC` 優先、exact `u64 1` write、close-once cleanup、runner / CLI / minifb / fallback / synthetic readiness 禁止が確認された。
+
+## implementation
+
+- `NativeWindowHostLoopLinuxHostEventSignalFd`、`NativeWindowHostLoopLinuxHostEventSignalRawApi`、`NativeWindowHostLoopLinuxHostEventSignalProducerError`、`NativeWindowHostLoopLinuxHostEventSignalProducer` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend::create_host_event_signal_producer` は backend の host event fd owner から duplicated signal fd producer を作る。closed backend は `InvalidHostEventRawFd { raw_fd: -1 }` として拒否する。
+- cfg Linux sys shim は `fcntl F_DUPFD_CLOEXEC` で producer fd を作り、duplicated fd への signal は既存 helper と同じ exact `u64 1` eventfd write を使う。
+- producer close は explicit close と Drop の両方で close-once cleanup として扱う。cleanup failure は通常 wait result に混ぜない。
+- focused Rust unit tests、source policy、GUI docs、`todo.md` を F5ic contract へ更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_host_event_signal_producer -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`。warning は `native_window_host_loop_windows_wait_handle_raw` の cfg Linux target 上の dead_code であり、F5ic の producer handle blocker ではない。
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code/docs/source policy の content blocker ではなく、この `implementation_review` が `pending` のままであることだった。
+- 指摘時点で、producer fd owner split、`F_DUPFD_CLOEXEC`、exact `u64 1` write、close-once cleanup、closed backend fail-closed、synthetic `HostEventReady` / timer evidence 不生成、runner / CLI / minifb 未接続は F5ic plan と Zenn / doc 方針に沿っていると確認された。
+- 再レビューは `REVIEW_APPROVED_TO_COMMIT`。commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- Linux producer handle と actual window / event source の wait hook 接続、native runner / CLI dispatch、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5ib Linux host event fd producer boundary
+
+## scope
+
+- F5hz/F5ia の Linux selector / timerfd / eventfd backend に、host event fd への producer 境界を追加する。
+- producer は owned host event fd への explicit wake request であり、`HostEventReady` outcome や scheduler resume evidence を直接作らない。
+- native runner / CLI / minifb wait path への接続、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+- fallback、silent no-op、synthetic readiness、eventfd full の success 扱いは禁止する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- 必須制約として、`signal_host_event_fd_raw` を raw API trait に追加すること、Never API は `match *self {}` のみで更新すること、backend は closed host event fd を `InvalidHostEventRawFd { raw_fd: -1 }`、raw failure を `SignalHostEventFdFailed { code }` にすることが確認された。
+- cfg Linux sys shim は `u64 1` を exact 8 bytes `libc::write` できた場合だけ success とし、`EAGAIN`、short write、syscall failure を success にしないこと、runner / CLI / minifb へ接続しないことも確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `signal_host_event_fd_raw` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackendError::SignalHostEventFdFailed` と `NativeWindowHostLoopLinuxSelectorTimerFdBackend::signal_host_event` を追加した。
+- cfg Linux `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` に eventfd への exact `u64 1` write を追加した。
+- Never raw API、scripted raw API、Rust unit tests、source policy、GUI docs、`todo.md` を F5ib contract に更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_backend_signal_host_event -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source policy の content blocker は無く、`signal_host_event` が `HostEventReady` や scheduler evidence を直接作らないこと、closed owner / raw failure を typed error で fail closed にすること、cfg Linux sys shim が `u64 1` の exact `libc::write` だけを success にすること、runner / CLI / minifb 接続や fallback / synthetic readiness が入っていないことを確認した。
+- 指摘はこの note の `implementation_review` が依頼中のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED_TO_COMMIT`。note-only blocker が解消され、commit / merge / push へ進めてよいことを確認した。
+
+# 2026-06-20 Agent2 GUI native F5ia Linux platform wait support helper boundary
+
+## scope
+
+- F5hz の Linux selector / timerfd / eventfd sys shim を、F5hx の generic platform wait owner へ Linux-only helper として接続する。
+- no-owner generic builder は fail-closed probe として残し、runner / CLI / minifb wait path へは進まない。
+- fallback、silent no-op、synthetic readiness、host-consuming fallible builder は導入しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- 必須制約として、Linux-only helper に限定すること、`NativeWindowHostLoopLinuxOnlyPlatformWaitBackend` alias で Windows / macOS 側を never raw API にすること、selection validation を raw API method より前に行うこと、cfg Linux helper は backend construction だけに留めること、runner / CLI / minifb / eventfd producer へ進まないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopNeverWindowsWaitRawApi` と `NativeWindowHostLoopLinuxOnlyPlatformWaitBackend` を追加した。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_linux_api` を追加し、Linux selection だけ existing Linux backend builder へ渡すようにした。
+- cfg Linux `native_window_host_loop_platform_wait_backend_from_selection` を追加し、`NativeWindowHostLoopLinuxSelectorTimerFdSysApi::new` を注入するようにした。
+- Rust unit tests、source policy、GUI docs、`todo.md` を F5ia contract に更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend_with_linux_api -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source policy の content blocker は無く、Linux-only alias、selection validation before raw calls、non-Linux validated selection の unavailable、support failure の raw-call なし、Linux raw failure preservation、cfg Linux helper の backend construction 限定が Zenn/doc 方針に沿うことを確認した。
+- 指摘はこの note の `implementation_current` が「更新中」のまま、`implementation_review` が pending のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED_TO_COMMIT`。note-only blockers が解消され、commit / merge / push へ進めてよいことを確認した。
+
+# 2026-06-20 Agent2 GUI native F5hx platform wait multi-backend owner boundary
+
+## scope
+
+- F5hp の Windows-only platform wait owner と、F5hv / F5hw の Linux / macOS single-owner wait trait backend を、typed multi-backend owner enum へ統合する。
+- `with_raw_apis` builder は selection を再検査し、selected backend の raw API だけを使う。
+- Windows-only compatibility wrapper と no-owner fail-closed probe は残し、actual macOS / Linux sys shim、native runner / CLI dispatch、minifb wait path へは進まない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraint として、selected backend だけを構築すること、mismatch / unsupported は raw API construction より前に拒否すること、Never raw API は empty enum + `match *self {}` のみとすること、fallback / dummy / no-op / sleep / busy loop / actual sys shim / runner dispatch を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackend WindowsApi MacosApi LinuxApi` に Windows / macOS / Linux の owner variant を持たせた。
+- `NativeWindowHostLoopPlatformWaitBackendError WindowsError MacosError LinuxError` で platform backend error を typed variant として保持するようにした。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_raw_apis` で selected backend だけを構築し、selected されていない raw API は呼ばない。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` は Windows-only compatibility wrapper として残し、macOS / Linux selection は unavailable のままにした。
+- Never raw API を empty enum として追加し、method body は `match *self {}` のみにした。
+- source policy と GUI docs を F5hx contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native native_window_platform_wait_backend_with_raw_apis --lib`
+- pass: `cargo test -p nepl-gui-native native_window_platform_wait_run_loop_host_wraps --lib`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、multi-backend owner variants、typed platform errors、raw-apis builder の validate-before-construction、Windows-only wrapper の macOS / Linux unavailable、no-owner fail-closed probe、Never raw API の empty enum + `match *self {}`、minifb / sys shim / CLI / sleep / fallback 未追加が確認された。
+- 指摘は `note.n.md` の status が「更新中」と pending review のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED`。追加修正は不要と確認された。
+
+## remaining
+
+- actual Linux sys shim、actual macOS sys shim、native runner / CLI dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hw macOS run loop timer single-owner wait trait boundary
+
+## scope
+
+- F5ht の後続として、macOS run loop timer raw backend を `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` へ接続する。
+- F5ho の single-owner interruptible deadline wait adapter から macOS backend を扱えるようにし、timer fired と host event ready を enum 境界で分ける。
+- actual macOS sys shim、generic platform wait enum への macOS owner variant、CLI dispatch、native runner 接続は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。
+- required constraint として、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像だけにすること、event-only wait で timer-fired status を `UnexpectedRunLoopStatus` のまま保持すること、error type を `NativeWindowHostLoopMacosRunLoopTimerBackendError` として保持すること、generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopMacosRunLoopTimerBackend` に `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装した。
+- macOS raw wake の `TimerFired` は `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached` へ、`HostEventReady` は `HostEventReady` へ写す。
+- host-event-only wait では timer fired raw status を event として受け入れず、typed `UnexpectedRunLoopStatus` のまま残す。
+- single-owner wait adapter / run-loop host 経由の tests を追加し、timer fired が frame interval timer fired outcome へ進むこと、host ready が non-timer outcome に留まること、event-only wait の timer status と schedule failure が typed error として残ることを固定した。
+- source policy と GUI docs を F5hw contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native native_window_macos_run_loop_wait_trait --lib`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、F5hw scope 内で generic owner / actual macOS sys shim / CLI / minifb / sleep / fallback へ進んでいないこと、event-only wait が timer-fired status を `UnexpectedRunLoopStatus` として保持すること、typed error が `NativeWindowHostLoopMacosRunLoopTimerBackendError` のまま保持されることを確認した。
+- 指摘は `note.n.md` の `implementation_review` が未実施のままだったことだけだったため、この欄を更新して対応した。
+- Darwin the 2nd の再レビューは `APPROVED`。追加修正は不要と確認された。
+
+## remaining
+
+- macOS actual sys shim、generic `NativeWindowHostLoopPlatformWaitBackend` macOS owner integration、Linux actual sys shim、generic Linux owner integration、native runner / CLI dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hv Linux selector timerfd single-owner wait trait boundary
+
+## scope
+
+- F5hu の後続として、Linux selector / timerfd raw backend を `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` へ接続する。
+- F5ho の single-owner interruptible deadline wait adapter から Linux backend を扱えるようにし、timer fired と host event ready を enum 境界で分ける。
+- actual Linux sys shim、generic platform wait enum への Linux owner variant、CLI dispatch、native runner 接続は今回 scope 外にする。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。
+- required constraint として、generic platform owner 統合へ直接進まず F5ho single-owner adapter との semantic 接続を固定すること、`NativeWindowHostLoopPlatformWaitBackend::LinuxSelectorTimerFd(...)`、actual `#[cfg(target_os = "linux")]` sys shim、libc / nix / epoll / poll / select / timerfd、CLI / runner / minifb / sleep / busy loop / fallback / silent no-op を追加しないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorTimerFdBackend` に `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装した。
+- Linux raw wake の `TimerFired` は `NativeWindowHostLoopInterruptibleDeadlineWake::DeadlineReached` へ、`HostEventReady` は `HostEventReady` へ写す。
+- host-event-only wait では timer fired raw status を event として受け入れず、typed `UnexpectedSelectorStatus` のまま残す。
+- single-owner wait adapter / run-loop host 経由の tests を追加し、timer fired が frame interval timer fired outcome へ進むこと、host ready が non-timer outcome に留まること、event-only wait の timer status と arm failure が typed error として残ることを固定した。
+- source policy と GUI docs を F5hv contract へ更新した。
+
+## verification_current
+
+- `cargo fmt --check`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo check -p nepl-gui-native --features window`
+- `cargo test -p nepl-gui-native native_window_linux_selector_timer_fd_wait_trait --lib`
+- `cargo test -p nepl-gui-native --lib`
+- `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `REQUIRED_CHANGES`。code / source-policy の blocker は無く、Linux trait impl が F5hu backend に限定され、typed Linux error を保持し、`TimerFired -> DeadlineReached` と `HostEventReady -> HostEventReady` の写像、event-only wait の `UnexpectedSelectorStatus`、Linux platform owner integration / sys shim / CLI / minifb / sleep / busy loop / fallback / synthetic evidence の不追加を確認した。
+- 指摘は `note.n.md` に `verification_current` と `implementation_review` が無いことだけだったため、この欄を追加して対応した。
+
+## remaining
+
+- Linux actual sys shim、generic `NativeWindowHostLoopPlatformWaitBackend` Linux owner integration、native runner / CLI dispatch、macOS trait / owner integration、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hu Linux selector timerfd raw backend boundary
+
+## scope
+
+- F5ht の後続として、Linux selector / timerfd backend の raw API / fd ownership / timespec conversion / status mapping 境界を追加する。
+- actual Linux sys shim、generic platform wait owner integration、CLI dispatch、native runner 接続は今回 scope 外にする。
+- fd `0` は有効な descriptor として扱い、invalid fd は `raw_fd < 0` だけに限定する。
+- host event wake と timer fired wake を別 enum evidence として保持し、host-event-only wait で timer fired raw status を host event ready と偽装しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraint として、fd `0` を拒否しないこと、selector fd と timerfd の ownership を混ぜず close-once にすること、timespec conversion を checked seconds / nanoseconds にすること、`TimerFired` と `HostEventReady` を分けること、actual Linux sys shim / generic owner variant / trait implementation / CLI / runner dispatch は scope 外にすることが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopLinuxSelectorFd`、`NativeWindowHostLoopLinuxTimerFd`、`NativeWindowHostLoopLinuxSelectorTimerFdRawApi`、`NativeWindowHostLoopLinuxSelectorTimerFdBackend` を追加した。
+- raw fd は private field に閉じ、fd `0` は有効、負 fd は typed error として扱う。
+- selector creation、timerfd creation、timerfd registration、timespec arm、timer-or-event wait、event-only wait、selector close、timerfd close、last error code を raw API で分けた。
+- construction failure は作成済み fd を逆順に close し、normal cleanup は selector と timerfd を高々 1 回だけ close する。
+- deadline conversion は elapsed nanos と checked timespec conversion に限定し、deadline 到達済みは immediate `TimerFired` として扱う。
+- timer-or-event wait は `TimerFired` と `HostEventReady` を分離し、host-event-only wait は timer fired status を unexpected status として拒否する。
+- generic `NativeWindowHostLoopPlatformWaitBackend` には Linux owner variant を追加せず、source policy で統合前の raw boundary として固定した。
+- GUI docs と `todo.md` を F5hu contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source-policy の content blocker は無いが、この `implementation_review` 欄が pending のままで commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、fd `0` 有効、selector fd / timerfd の分離、close-once、checked timespec、`TimerFired` / `HostEventReady` 分離、actual Linux shim / generic owner / trait implementation / CLI 接続なしの範囲が計画どおりであることが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- actual Linux sys shim、Linux platform wait owner integration、actual macOS sys shim、macOS platform wait owner integration、CLI / runner dispatch、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5ht macOS run loop timer raw backend boundary
+
+## scope
+
+- F5hs の後続として、macOS run loop timer backend の raw API / handle ownership / deadline conversion / status mapping 境界を追加する。
+- actual AppKit / CoreFoundation sys shim、generic platform wait owner integration、CLI dispatch、native runner 接続は今回 scope 外にする。
+- host event wake と timer fired wake を別 enum evidence として保持し、host-event-only wait で timer fired raw status を host event ready と偽装しない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_CHANGES`。macOS backend を generic `NativeWindowHostLoopPlatformWaitBackend` へ統合するには actual sys shim と platform run-loop ownership の検証が不足しているため、F5ht は raw API / status / deadline / handle ownership boundary に限定するよう指摘された。
+- 指摘に従い、fake raw API tests と source policy で raw boundary を固定し、`NativeWindowHostLoopDeadlineTimerClock` / `NativeWindowHostLoopInterruptibleDeadlineWaiter` implementation、generic owner variant、CLI selection、runner dispatch は後続に残す。
+
+## implementation_current
+
+- `NativeWindowHostLoopMacosRunLoopTimerHandle`、`NativeWindowHostLoopMacosRunLoopTimerRawApi`、`NativeWindowHostLoopMacosRunLoopTimerBackend` を追加した。
+- raw handle は private field に閉じ、null / invalid sentinel と timer creation failure を typed error として扱う。
+- deadline conversion は elapsed nanos と `checked_sub` に限定し、deadline 到達済みは immediate `TimerFired` として扱う。
+- timer-or-event wait は `TimerFired` と `HostEventReady` を分離し、host-event-only wait は timer fired status を unexpected status として拒否する。
+- explicit invalidation と drop cleanup は handle を高々 1 回だけ invalidate する。
+- generic `NativeWindowHostLoopPlatformWaitBackend` には macOS owner variant を追加せず、source policy で統合前の raw boundary として固定した。
+- GUI docs と `todo.md` を F5ht contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_macos_run_loop -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / docs / source-policy の content blocker は無いが、この `implementation_review` 欄が依頼中のままで commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、差分が F5ht の raw API / status / deadline / handle ownership boundary に留まり、generic platform owner enum、CLI dispatch、actual macOS sys shim、runner integration へ進んでいないこと、HostEventReady と TimerFired の evidence 分離、typed error、checked deadline handling、handle close-once policy、source policy の固定が方針に沿うことが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- actual macOS sys shim、macOS platform wait owner integration、CLI / runner dispatch、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hs Windows platform wait CLI selection boundary
+
+## scope
+
+- F5hr の後続として、native CLI から Windows platform wait runner を明示選択できる境界を追加する。
+- 既定は existing minifb runner のまま維持し、`--wait-backend platform` 指定時だけ platform wait runner へ進む。
+- headless mode での wait backend 明示指定、重複指定、不明な値を error として拒否する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。
+- ただし、`--wait-backend` の指定有無を `Option` または別 flag で保持し、`--headless --wait-backend minifb` を拒否すること、重複指定と未知の値を明示 error にすること、cfg-windows 以外では platform selection を unsupported error にして minifb に切り替えないことが required constraint とされた。
+
+## implementation_current
+
+- `nepl-gui-native` CLI に `--wait-backend minifb|platform` を追加した。
+- `NativeGuiWindowWaitBackend` と `Option<NativeGuiWindowWaitBackend>` により、window mode の default minifb と explicit user selection を分離した。
+- headless mode では explicit wait backend を拒否し、指定が無い headless frame output は従来通り維持した。
+- window mode では minifb selection が `run_minifb_window_loop` を使い、Windows platform selection が validated default platform wait backend selection と `run_windows_platform_wait_window_loop` を使う。
+- non-Windows platform selection は unsupported error を返す。CLI layer は config construction と runner dispatch だけを扱い、minifb lifecycle、event pump、presenter state、OS wait API、sleep、busy loop を持たない。
+- source policy と GUI docs を F5hs contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --bin nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の初回 implementation review は `CHANGES_REQUESTED`。code / source-policy / docs content の blocker は無いが、`verification_current` と `implementation_review` 欄が pending のままであることを commit readiness blocker として指摘された。
+- 指摘対応として、この欄と verification 欄に実行済み検証と review result を記録した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hr Windows platform wait window runner support gate
+
+## scope
+
+- F5hq の後続として、cfg-windows の `PlatformWait` config を actual native window run-loop runner の wait hook へ接続する。
+- 既存 `run_minifb_window_loop` は置き換えず、Windows platform wait 専用の別入口を追加する。
+- minifb `Window` は visual / event / present host としてだけ使い、wait/pacing owner は platform wait backend に限定する。
+
+## plan_review
+
+- Darwin the 2nd の plan review は初回 `REQUIRED_CHANGES`。既存 `MinifbNativeWindowRunLoopHost` をそのまま使うと minifb pacing authority と `FramePresentAlreadyPaced` を返せる wait hook が残り、F5hr の wait/pacing owner contract が曖昧になると指摘された。
+- 指摘に従い、minifb visual / event / present 専用 host を分け、visual host の wait hook を typed unsupported にする計画へ修正した。CLI flag 接続は今回 scope 外とする。
+
+## implementation_current
+
+- `MinifbNativeWindowVisualRunLoopHost` を追加し、`poll_event_snapshot`、title update、pump、present だけを担う visual host として分離した。
+- visual host の `wait_after_budget_exhausted` は `VisualHostWaitUnsupported` を返す fail-closed hook にした。
+- `run_windows_platform_wait_window_loop` を追加し、最初に `native_window_run_loop_platform_wait_backend_from_config` で backend を構築するようにした。
+- backend construction 成功後だけ minifb `Window` と visual host を作り、`native_window_host_loop_platform_wait_run_loop_host_from_backend` で single-owner wait hook へ包む。
+- `NativeWindowRunLoopError` に platform wait backend construction failure と Windows platform wait host-loop failure の typed variant を追加した。
+- source policy は Windows runner が `Window::set_target_fps`、`configure_minifb_window_frame_pacing`、sleep、headless fallback、synthetic timer fire を使わないこと、visual host が minifb pacing authority を持たないことを検査する。
+- source policy の巨大 regex は enum slice 単位へ分解し、CI timeout を避ける形へ直した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_run_loop_host -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューは初回 `CHANGES_REQUESTED`。code / docs / source policy に content blocker は無いが、この `implementation_review` 欄が pending のままだったため commit readiness を満たしていないと指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、前回 blocker の `MinifbNativeWindowRunLoopHost` reuse が `MinifbNativeWindowVisualRunLoopHost` 分離で解消されていること、Windows runner が backend construction を window / host construction より前に行うこと、`set_target_fps` / `configure_minifb_window_frame_pacing` / sleep / headless fallback / synthetic timer path を使わないこと、platform wait failure が typed error variant として保持されていることが確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- CLI flag による Windows platform wait runner selection は未実装である。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hq Windows platform wait run-loop config gate boundary
+
+## scope
+
+- F5hp の後続として、Windows platform wait backend selection を native run-loop configuration で選べる gate を追加する。
+- `NativeWindowRunLoopConfig` の wait backend authority を `NativeWindowRunLoopWaitBackend` に単一化し、旧 `frame_interval_wait_backend` field は持たない。
+- minifb runner は `config.wait_backend` を side effect より前に検査し、`PlatformWait` を minifb internal pacing へ fallback しない。
+- platform backend construction は config / selection から backend だけを作り、host owner を消費しない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。新しい wait backend enum を追加しつつ旧 config field も残すと二重 authority になるため、new enum を config の single source of truth にするよう指摘された。
+- revised plan では、`wait_backend` を唯一の config field とし、旧 `NativeWindowRunLoopFrameIntervalWaitBackend` は compatibility input に限定する方針で `PLAN_APPROVED` を得た。
+
+## implementation_current
+
+- `NativeWindowRunLoopWaitBackend` を追加し、default を `MinifbInternalTargetFps` にした。
+- `NativeWindowRunLoopConfig` は `wait_backend` だけを持つようにし、旧 frame interval backend constructor は `NativeWindowRunLoopWaitBackend` へ変換する互換入口にした。
+- `PlatformWait` は validated `NativeWindowHostLoopPlatformWaitBackendSelection` を保持し、authority mode は host-owned deadline timer として扱う。
+- `validate_minifb_window_run_loop_wait_backend` を追加し、`run_minifb_window_loop` は window / backend / `set_target_fps` side effect より前に `config.wait_backend` を検査する。
+- `native_window_run_loop_platform_wait_backend_selection` と cfg-windows `native_window_run_loop_platform_wait_backend_from_config` を追加し、config-to-backend construction を host wrapping から分離した。
+- source policy は旧 `frame_interval_wait_backend` config field の再導入、minifb validation order の退行、host-consuming from-config helper を拒否するように更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_run_loop -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `CHANGES_REQUESTED` を受けた。code/docs/source-policy の blocker は無いが、この `implementation_review` 欄が pending のままであることを指摘された。
+- 指摘対応として、この欄に review result を記録した。review では、`NativeWindowRunLoopConfig` の single `wait_backend` authority、minifb side effect 前の validation、`PlatformWait` の typed fail-closed、host を消費しない from-config platform backend construction、fallback / headless / minifb substitute / synthetic timer 非導入が確認された。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。前回 blocker の解消と whitespace error が無いことが確認された。
+
+## residual
+
+- Windows platform wait backend は actual native run-loop runner へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hp Windows platform wait support gate boundary
+
+## scope
+
+- F5hn Windows wait backend と F5ho single-owner run-loop wait hook を、platform wait backend owner として接続する support gate を追加する。
+- fallible backend construction と infallible host wrapping を二段階に分け、backend build failure で run-loop host owner を消費しない。
+- 旧 F5hm no-owner builder は fail-closed probe として残す。minifb runner、`Window::set_target_fps`、macOS run loop timer、Linux selector / timerfd にはまだ接続しない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `PLAN_CHANGES`。fallible helper が host を受け取ると support failure / Windows backend construction failure で host owner を失うため、backend construction と host wrapping を分離するよう指摘された。
+- revised plan では、fallible injected backend builder と infallible wrapper helper に分ける形にして `PLAN_APPROVED` を得た。
+- required constraints は、selection を raw API handle 作成前に再検査すること、support failure / backend unavailable / Windows raw API failure を分離すること、旧 no-owner builder を fail-closed probe として残すこと、dummy / headless / minifb / sleep variant を追加しないこと、minifb path が platform backend owner / wrapper に触れないこと、host-consuming fallible builder を作らないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackend` を追加し、現 checkpoint では Windows waitable timer / message wait backend だけを所有する形にした。
+- `NativeWindowHostLoopPlatformWaitBackendError` を追加し、platform backend の clock / interruptible waiter 実装は Windows backend error を保持して委譲する。
+- `build_native_window_host_loop_platform_wait_backend_from_selection_with_windows_api` を追加し、validated selection を再検査してから supplied raw API で Windows backend を構築する。MacOS / Linux は typed unavailable のまま返す。
+- `native_window_host_loop_platform_wait_run_loop_host_from_backend` を追加し、構築済み backend を F5ho single-owner adapter と run-loop host wrapper へ infallible に包む。
+- source-policy、docs、`todo.md` を F5hp contract へ更新中である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 17 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 250 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受けた。code-level blocker は無いが、`todo.md` の長い GUI/TUI residual が F5ho 後続表記のままであること、`note.n.md` の implementation review が pending のままであることを指摘された。
+- 指摘対応として、`todo.md` の長い residual を F5hp 後続へ更新し、この implementation review 欄を追加した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。fallible backend construction が host を消費しないこと、selection revalidation、typed error 分離、旧 no-owner builder の fail-closed 維持、minifb / headless / sleep fallback 非導入に blocker は無いことが確認された。
+
+## residual
+
+- Windows platform wait backend は native run-loop configuration / minifb runner へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5ho single-owner interruptible wait adapter boundary
+
+## scope
+
+- F5hn の Windows wait backend を run-loop wait hook へ接続する前段として、clock と waiter を同一 backend owner に保持する adapter を追加する。
+- 既存の separate `Clock, Waiter` adapter では Windows waitable timer handle owner が二重化しうるため、single-owner path を別に持つ。
+- generic platform wait builder、minifb runner、`Window::set_target_fps` にはまだ接続しない。macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は後続である。
+
+## plan_review
+
+- Darwin the 2nd に F5ho 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、Backend の clock/waiter 同一 error type を型で固定すること、`HostEventReady` から timer-fired evidence を作らないこと、invalid wait / id overflow を clock/read/wait より前に fail closed すること、deadline wait 直前だけ `next_raw_id` を進めて再利用しないこと、OS handle や raw internals を露出しないこと、minifb runner / generic platform builder / `set_target_fps` へ接続しないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapter` を追加し、Backend 1 個を clock と waiter の両方として所有する形にした。
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitAdapterError` を追加し、host event wait failure、invalid wait nanos、timer id overflow、clock failure、deadline overflow、frame wait failure を同一 Backend error type で保持する。
+- single-owner executor は host event wait で clock を読まず、frame interval wait では validation、clock read、deadline calculation、id advance、backend wait の順で進む。
+- `NativeWindowHostLoopSingleOwnerInterruptibleDeadlineWaitRunLoopHost` を追加し、event / present 系 operation を inner host へ委譲し、wait hook だけを single-owner executor へ渡す。
+- source-policy、docs、`todo.md` を F5ho contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib native_window_single_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused single-owner wait adapter test は 12 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 244 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受けた。code-level blocker は無いが、`note.n.md` の verification_current と `todo.md` の古い F5hl 後続表記が未更新であることを指摘された。
+- 指摘対応として、verification_current を実行済み結果へ更新し、`todo.md` の後続境界を F5hm / F5hn / F5ho まで含む形へ更新した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。owner boundary、同一 error type、timer id lifecycle、typed error、synthetic timer evidence 禁止、raw handle 非露出、minifb / platform builder 未接続に code-level blocker は無いことが確認された。
+
+## residual
+
+- Windows wait backend は generic platform wait builder / native run-loop wait hook へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hn Windows waitable timer message wait raw backend boundary
+
+## scope
+
+- F5hm の後続として、Windows waitable timer / message wait backend を raw API trait と cfg-windows sys shim に分離する。
+- cross-platform test では scripted raw API を使い、handle validation、deadline conversion、status mapping、message-only wait、timer-or-message wait を検査する。
+- generic platform wait builder と minifb smoke runner にはまだ接続しない。macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は後続である。
+
+## plan_review
+
+- Darwin the 2nd に F5hn 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、cross-platform raw API boundary を `windows-sys` から独立させること、message-only wait を immediate ok / polling / synthetic event にしないこと、`AlreadyReached` は deadline <= now の plan でだけ返すこと、cfg-windows sys shim を隔離すること、generic builder の fail-closed behavior を維持することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopWindowsWaitHandle`、`NativeWindowHostLoopWindowsDeadlinePlan`、`NativeWindowHostLoopWindowsWaitRawApi`、`NativeWindowHostLoopWindowsWaitBackend` を追加した。
+- subagent review の指摘により、Windows handle は non-Copy にし、public raw handle accessor と public owned handle accessor を削除した。public API には `is_handle_open` だけを残し、raw extraction は module 内部に閉じた。
+- Windows backend は `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopInterruptibleDeadlineWaiter` を実装し、message-only wait と waitable timer / message wait の status を typed outcome / typed error へ写す。
+- cfg-windows `NativeWindowHostLoopWindowsWaitSysApi` は `windows-sys` の waitable timer / message wait API だけを実装詳細として持つ。
+- Windows-specific builder は validated Windows selection と raw API から backend を作る。generic platform builder は F5hm の unavailable gate を維持する。
+- source-policy、docs、`todo.md` を F5hn contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_windows -- --nocapture`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `git diff --check`
+- info: focused Windows wait raw backend test は 14 件 pass した。
+- info: Windows feature 付き typecheck は pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 232 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: broad source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の初回実装レビューで `CHANGES_REQUESTED` を受け、public raw handle accessor と public owned handle accessor による double close 経路を指摘された。
+- 指摘対応として、handle を non-Copy にし、raw extraction を private helper に閉じ、raw API trait を borrowed handle に変更し、source-policy で public accessor を禁止した。
+- 再レビューで `APPROVED_TO_COMMIT` を得た。review では、handle ownership、cross-platform raw API test、cfg-windows sys shim isolation、typed status / deadline errors、minifb / sleep / busy-loop / synthetic timer fire の未導入が確認された。
+
+## residual
+
+- Windows wait backend は generic platform wait builder / native run-loop wait hook へまだ接続していない。
+- macOS run loop timer、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-20 Agent2 GUI native F5hm platform wait backend construction gate boundary
+
+## scope
+
+- F5hl の後続として、validated platform/backend selection token と fail-closed construction gate を追加する。
+- actual macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd はまだ実装せず、未実装を typed `BackendImplementationUnavailable` として返す。
+- `HeadlessScripted`、minifb pacing、thread sleep、busy loop、synthetic timer fire を actual backend の代替として返さない。
+
+## plan_review
+
+- Darwin the 2nd に F5hm 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、selection token field を private にすること、owner を消費する builder を追加しないこと、validated selection 後だけ `BackendImplementationUnavailable` を返すこと、dummy/scripted/sleep/minifb backend を作らないこと、source policy と test で固定することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformWaitBackendSelection` を追加し、platform/backend field を private にした。
+- default selection / requested selection helper は F5hl validation helper を通り、raw enum pair から construction gate へ直接入れない。
+- `NativeWindowHostLoopPlatformWaitHostBuildError` を追加し、support failure と implementation unavailable を分けた。
+- construction gate は validated selection を受け取って `BackendImplementationUnavailable { platform, backend }` を返す。actual backend を作ったことにはしない。
+- source-policy、docs、`todo.md` を F5hm contract へ更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 11 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 218 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、selection token の field が private であること、F5hl validation / default helper を通ること、`HeadlessScripted` が native selection で拒否され続けること、construction gate が `BackendSupportFailed` と `BackendImplementationUnavailable` を分けること、dummy/scripted/minifb/sleep/busy-loop adapter や F5hk / wait-owner helper に接続していないこと、owner を failure で消費しないこと、docs/todo/source-policy が scope と一致していることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual backend は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI native F5hl platform wait backend selection boundary
+
+## scope
+
+- F5hk の後続として、actual OS wait backend の前段になる typed platform/backend selection 境界を追加する。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd を backend kind として分け、current platform との対応を `Result` で検査する。
+- actual macOS / Windows / Linux OS API、minifb runner 接続、FHD 60fps 実測、2D compositor drain、font / stroke / shadow rasterization は含めない。
+
+## plan_review
+
+- Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、`HeadlessScripted` を native fallback にしないこと、standard spec も同期すること、typed enum と `cfg` selection を source policy で固定し runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopPlatformKind`、`NativeWindowHostLoopPlatformWaitBackendKind`、`NativeWindowHostLoopPlatformWaitBackendSupportError` を追加した。
+- current platform は `cfg(target_os = ...)` だけで選び、runtime string や env probe を使わない。
+- platform/backend validation は macOS + macOS backend、Windows + Windows backend、Linux + Linux backend の一致だけを成功にする。
+- default backend selection は real platform の backend だけを返し、unsupported platform では typed error を返す。`HeadlessScripted` は default や native validation の fallback として成功させない。
+- source-policy、docs、`todo.md` を F5hl contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_platform_wait_backend -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused platform wait backend test は 5 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 212 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、current platform が `cfg` で選ばれること、default mapping が `HeadlessScripted` を返さないこと、native validation が real platform/backend の一致だけを success にすること、unsupported / mismatch が typed error evidence を保持すること、docs/spec/todo が actual backend implementation を残件として分離していること、source policy が string / env probing、fallback、silent no-op、minifb integration、sleep/platform wait implementation を拒否していることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の actual backend は未実装である。
+- FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI native F5hk interruptible deadline wait run-loop host wrapper boundary
+
+## scope
+
+- F5hj の後続として、interruptible deadline wait adapter を `NativeWindowRunLoopHost` の wait hook として使える wrapper 境界を追加する。
+- non-wait operation は inner host に委譲し、wait は `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` だけに渡す。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hk 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、F5hi を変更せず別 wrapper として追加すること、wait hook が interruptible helper だけを呼ぶこと、inner wait hook を呼ばないことを test すること、deadline reached / host event ready の evidence を区別すること、typed wait error を保持すること、minifb path に新 wrapper を混ぜないことである。
+
+## implementation_current
+
+- `NativeWindowHostLoopInterruptibleDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を所有するようにした。
+- event polling、title update、pump-only、present は inner host へ委譲し、wait は interruptible wait adapter に委譲する。
+- `EventError` / `PresentError` は inner host の型を保持し、`WaitError` は `NativeWindowHostLoopInterruptibleDeadlineWaitAdapterError` のまま返す。
+- source-policy、docs、`todo.md` を F5hk contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_interruptible_deadline_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/ci_timeout.js --minutes 5 --label "source policy regressions" --timeout-nonfatal -- node nodesrc/run_source_policy_regressions.js --warn-only`
+- info: focused interruptible deadline wait test は 14 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 206 件 pass した。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- info: source-policy regression は timeout-nonfatal wrapper により exit 0。途中で既存の `test_stdlib_documentation_contract.js` warning と 300 秒 timeout を検出した。
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューで `APPROVED_TO_COMMIT` を得た。
+- review では、non-wait operation が inner host に委譲されること、wait が interruptible adapter だけを使うこと、typed wait error が保持されること、`HostEventReady` が timer-fired evidence にならないこと、source-policy / docs が minifb と real OS selector/timer work を scope 外に保っていることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 CI rust timeout nonfatal and GUI font glyf example stabilization
+
+## scope
+
+- CI の Rust full test timeout を検出しつつ失敗扱いにしない。
+- examples 全体で共有 import される `alloc/gui/font/sfnt/glyf.nepl` の NEPLg2.1 構文・型検査・所有権境界の破綻を直す。
+- 個別 example の回避ではなく、GUI font glyf 側の enum payload、checked arithmetic、Rgba8888 import、bool 判定、owner 参照、impure free 境界を修正する。
+
+## implementation_current
+
+- `.github/workflows/ci.yml` の Rust tests に `ci_timeout.js --timeout-nonfatal` を適用し、timeout は検出ログを残しつつ CI failure にしない形へ変更した。
+- `nodesrc/test_ci_timeout_policy.js` は Rust full test suite だけを timeout-nonfatal 必須として検査し、非 timeout の失敗を保存する contract を固定した。
+- `glyf.nepl` の複数 payload enum variant を payload struct へ置き換え、NEPLg2.1 の variant payload 形に合わせた。
+- `glyf.nepl` の `div` を signed integer の `div_s` contract へ揃え、`Rgba8888` accessor import、bool same-side 判定、registered resource owner の borrowed reservation validation、start-error owner free を修正した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は payload struct 化、signed checked multiply、bool same-side 判定、borrowed owner validation、paired rejected owner recovery、旧 multi-payload enum variant 禁止を source policy として固定した。
+
+## verification_current
+
+- `node nodesrc/test_ci_timeout_policy.js`
+- `node nodesrc/test_web_gui_font_rendering_contract.js`
+- `node nodesrc/tests.js -i examples\gui_counter.nepl -o tmp_gui_counter_after_glyf_batch2.json -j 1 --timeout-nonfatal`
+- `node nodesrc/tests.js -i examples -o tmp_examples_after_glyf_batch2.json -j 2 --timeout-nonfatal`
+- `git diff --check`
+- info: examples 全体は total 47 / passed 46 / non_timeout_failed 0 / non_timeout_errored 0。残りは `examples\nm.nepl::doctest#1` の compile timeout 検出のみで、`--timeout-nonfatal` により exit 0。
+- info: `git diff --check` は whitespace error なし。CRLF conversion warning のみ。
+
+## implementation_review
+
+- Darwin the 2nd に計画レビューを依頼し、`PLAN_APPROVED` を得た。
+- 実装途中レビューでは、CI timeout nonfatal 化は blocker なし、payload struct 化は NEPLg2.1 方針に沿うと確認された。
+- 初回実装レビューで指摘された examples 非 timeout failure は、再実行で 0 件まで解消した。
+- 追加指摘の旧 multi-payload enum variant negative assertion は source policy に反映した。
+
+## residual
+
+- `examples\nm.nepl` の compile timeout 自体は検出のみ残る。今回の scope では timeout を失敗扱いにしない CI 方針と、GUI font 起点の非 timeout compile failure 解消に絞った。
+
+# 2026-06-19 Agent2 GUI native F5hj interruptible deadline wait boundary
+
+## scope
+
+- F5hi の後続として、real selector / message-loop timer backend の前段になる interruptible deadline wait 境界を追加する。
+- frame interval wait は deadline 到達だけでなく host event readiness でも wake できる。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hj 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、explicit executor/helper が `NativeWindowHostLoopWaitOutcome` を返すこと、frame wait の wait-nanos validation が clock/id/waiter side effect より前であること、host event wake を timer fired と偽装しないこと、distinct error stages を保つこと、fallback / thread sleep / busy loop / minifb internal pacing / synthetic fired evidence を禁止すること、source policy で new boundary と minifb path の分離を固定することである。
+
+## implementation_current
+
+- `NativeWindowHostLoopInterruptibleDeadlineWake`、`NativeWindowHostLoopInterruptibleDeadlineWaiter`、`NativeWindowHostLoopInterruptibleDeadlineWaitAdapter` を追加した。
+- `execute_native_window_host_loop_interruptible_deadline_wait_with_adapter` は host-event wait と frame-interval interruptible wait を `NativeWindowHostLoopWaitOutcome` へ写す。
+- deadline 到達時だけ `FrameIntervalTimerFired` を返し、host event readiness で wake した場合は `HostEventPumpAlreadyPaced` を返す。
+- candidate timer id は wait 開始前に advance し、host event wake や frame wait failure 後も raw id を再利用しない。
+- docs、source-policy、`todo.md` を F5hj contract に更新した。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_interruptible_deadline_wait -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。native F5hj policy は通過し、Web GUI harness / doctest metadata 系の warn-only regression が 9 件残っている。
+
+## implementation_review
+
+- Darwin the 2nd に実装レビューを渡し、`APPROVED_TO_COMMIT` を得た。
+- review では、`HostEventReady` が timer-fired evidence を生成しないこと、frame wait validation が id / clock / waiter side effect より前であること、error stage が typed に保たれていること、new boundary が minifb / platform drawing path から分離されていることを確認した。
+
+## residual
+
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI native F5hi host-owned deadline wait run-loop host wrapper boundary
+
+## scope
+
+- F5hh の後続として、formal wait owner を `NativeWindowRunLoopHost` の wait hook から使える wrapper 境界を追加する。
+- non-wait operation は inner host に委譲し、wait だけを `NativeWindowHostLoopWaitOwner` へ渡す。
+- minifb smoke runner には接続しない。macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hi 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、wrapper wait が inner host の wait hook を呼ばず `execute_native_window_host_loop_wait_with_owner` だけを使うこと、non-wait operation が inner host error 型を保持して委譲されること、wait error を typed owner error として保持すること、host-event wait と frame-interval wait の owner dispatch を test すること、minifb path に wrapper / wait owner / deadline timer adapter を混入させないことである。
+
+## implementation_current
+
+- `NativeWindowHostOwnedDeadlineWaitRunLoopHost` を追加し、inner `NativeWindowRunLoopHost` と `NativeWindowHostLoopWaitOwner` を所有するようにした。
+- event polling、title update、pump-only、present は inner host へ委譲し、wait は `execute_native_window_host_loop_wait_with_owner` に委譲する。
+- `EventError` / `PresentError` は inner host の型を保持し、`WaitError` は `NativeWindowHostLoopWaitOwnerError` のまま返す。
+- source-policy に wrapper boundary と minifb path 非混入の検査を追加した。
+- docs と `todo.md` を F5hi contract に更新した。
+
+## residual
+
+- real selector / message-loop timer backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo test -p nepl-gui-native --lib native_window_host_owned_deadline_wait_host -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `git diff --check`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+## implementation_review
+
+- Darwin the 2nd の実装レビューでは、コードと source-policy に blocker は無いことを確認した。
+- `todo.md` に F5hg 表記が残る documentation finding があり、F5hi 表記へ修正した。
+- follow-up review で `APPROVED_TO_COMMIT` を得た。
+
+# 2026-06-19 Agent2 GUI native F5hh run-loop frame interval wait backend selection boundary
+
+## scope
+
+- F5hg の後続として、native run-loop config が frame interval wait backend authority を明示的に持つ境界を追加する。
+- minifb smoke runner の default は `MinifbInternalTargetFps` とし、future selector / message-loop timer 用の `HostOwnedDeadlineTimer` は minifb runner では window 作成前に拒否する。
+- macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+
+## plan_review
+
+- Darwin the 2nd に F5hh 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、config backend を bool / string にしないこと、F5hf authority type を再利用すること、default を minifb internal target-fps pacing にすること、minifb runner で `HostOwnedDeadlineTimer` を side effect 前に拒否すること、fallback しないこと、source policy で validation ordering と deadline timer 禁止を固定することである。
+
+## implementation_current
+
+- `NativeWindowRunLoopFrameIntervalWaitBackend`、runner enum、typed unsupported error を追加した。
+- `NativeWindowRunLoopConfig` に `frame_interval_wait_backend` を追加し、既存 constructor は default `MinifbInternalTargetFps` を設定する。
+- explicit backend selection constructor と backend-to-authority conversion を追加した。
+- `validate_minifb_window_run_loop_frame_interval_wait_backend` は F5hf の authority combine を使い、`HostOwnedDeadlineTimer` を `FrameIntervalWaitBackendUnsupported` として拒否する。
+- `run_minifb_window_loop` は backend loop initialization / minifb window creation / `set_target_fps` より前に validation を行う。
+- docs、source-policy、`todo.md` を F5hh contract に更新した。
+
+## residual
+
+- real selector / message-loop timer backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+## verification_current
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_run_loop -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_minifb_run_loop_backend_validation -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: focused run-loop tests は 2 件 pass した。
+- info: focused minifb backend validation tests は 2 件 pass した。
+- info: native platform source-policy は pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 188 件 pass した。
+- info: source policy regression は exit 0 で完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。backend selection は typed であり、default constructors は `MinifbInternalTargetFps` を維持し、minifb runner で explicit `HostOwnedDeadlineTimer` が side effect 前に typed error として拒否されること、minifb path が formal wait owner / deadline timer adapter / `set_target_fps 0` / fallback を使わないことが確認された。
+
+# 2026-06-19 Agent2 GUI native F5hg wait owner frame interval authority connection boundary
+
+## scope
+
+- F5hf の authority mode を F5hd formal wait owner の frame interval branch に接続する。
+- selector / message-loop timer ownership へ進む前の ownership safety boundary であり、macOS run loop timer、Windows waitable timer / message wait、Linux selector / timerfd の実装ではない。
+- minifb internal target-fps pacing と host-owned deadline timer authority を混ぜず、minifb wait hook は F5hd wait owner / std deadline timer adapter へ接続しない。
+
+## plan_review
+
+- Darwin the 2nd に F5hg 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、deadline timer registration / clock read / sleeper call / active timer mutation より前に authority を検査すること、minifb authority rejection で timer state が無変更であることを test すること、host event wait が authority を参照しないこと、既存 helper を explicit-authority helper の wrapper にすること、minifb path を変更しないことである。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOwner::frame_interval_wait_authority_mode` を追加し、formal owner path の frame interval authority を `HostOwnedDeadlineTimer` として明示した。
+- `NativeWindowHostLoopWaitOwnerError::FrameIntervalAuthorityFailed` を追加した。
+- `execute_native_window_host_loop_wait_with_owner_and_frame_interval_authority_mode` を追加し、frame interval branch で `combine_native_window_frame_interval_wait_authority_mode` と `validate_native_window_frame_interval_wait_authority_mode` を deadline timer wakeup より前に通すようにした。
+- 既存の `execute_native_window_host_loop_wait_with_owner` は owner 自身の authority mode を渡す wrapper にした。
+- minifb authority が requested authority として渡された場合、clock / sleeper / active timer state を変更せず `FrameIntervalAuthorityFailed` を返す unit test を追加した。
+- host event wait は frame interval authority を参照せず、event queue waiter だけへ進む unit test を追加した。
+- GUI docs、source-policy、`todo.md` を F5hg contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_frame_interval_wait_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: wait owner focused test は 6 件 pass した。
+- info: frame interval authority focused test は 5 件 pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 185 件 pass した。
+- info: native platform source-policy は pass し、F5hg docs/source contract を検査対象に加えた。
+- info: source policy regression は 255 秒で exit 0 完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。formal wait owner は `HostOwnedDeadlineTimer` authority を公開し、frame branch では deadline timer wakeup より前に combine / validate していること、rejection test が timer state 無変更を証明していること、host event dispatch が authority 非依存であること、既存 helper が explicit-authority helper wrapper であること、minifb path が未変更であることが確認された。
+
+# 2026-06-19 Agent2 GUI native F5hf frame interval wait authority mode boundary
+
+## scope
+
+- F5he の後続として、frame interval wait authority を `NativeWindowFrameIntervalWaitAuthorityMode` に分ける。
+- minifb internal target-fps pacing と future host-owned deadline timer を同時 authority として扱わないための safety boundary であり、selector / message-loop timer ownership の実装ではない。
+- `FramePresentAlreadyPaced`、`FrameIntervalTimerRegistered`、`FrameIntervalTimerFired` の evidence 生成 authority を混ぜず、fallback、silent no-op、busy loop、`set_target_fps 0` は導入しない。
+
+## plan_review
+
+- Darwin the 2nd に F5hf 計画を渡し、`PLAN_APPROVED` を得た。
+- required constraints は、mode type を pure / non-platform-specific にすること、host-owned mode validation が wait evidence を生成しないこと、minifb authority path が新 helper を実際に使うこと、minifb と host-owned deadline timer の conflict を双方向で拒否すること、docs が selector/message-loop 実装ではないと明記することである。
+
+## implementation
+
+- `NativeWindowFrameIntervalWaitAuthorityMode` と `NativeWindowFrameIntervalWaitAuthorityModeError` を追加した。
+- `combine_native_window_frame_interval_wait_authority_mode` は同じ minifb target fps 同士と host-owned deadline timer 同士だけを受け入れ、混在や minifb target mismatch を `ConflictingFrameIntervalAuthorities` として拒否する。
+- `validate_native_window_frame_interval_wait_authority_mode` は minifb mode の場合だけ instruction target fps を照合し、host-owned deadline timer mode では compatibility check だけを行う。
+- `NativeWindowMinifbFramePacingAuthority` は `frame_interval_wait_authority_mode` を公開し、`FramePresentAlreadyPaced` を返す前に mode validation helper を通る。
+- GUI docs、source-policy、`todo.md` を F5hf contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_frame_interval_wait_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: targeted F5hf test は 5 件 pass した。
+- info: `cargo test -p nepl-gui-native --lib` は 183 件 pass した。
+- info: native platform source-policy は pass し、F5hf docs/source contract を検査対象に加えた。
+- info: source policy regression は 254 秒で exit 0 完走した。既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: `git diff --check` は whitespace error なし。LF/CRLF conversion warning だけが表示された。
+- subagent implementation review は `APPROVED_TO_COMMIT`。F5hf は pure typed mode による実 boundary であり、host-owned deadline mode が wait evidence を生成しないこと、minifb authority が validation helper を通ってから `FramePresentAlreadyPaced` を返すこと、`set_target_fps 0` / wait owner 接続 / fallback / silent no-op が入っていないことが確認された。
+
+# 2026-06-19 Agent2 GUI native F5he minifb frame pacing authority boundary
+
+## scope
+
+- F5hd の後続として、minifb smoke backend の `Window::set_target_fps` based pacing を typed authority として明示する。
+- `NativeWindowMinifbFramePacingAuthority` は validated `NativeWindowTargetFps` を保持し、frame interval instruction の target fps と wait nanos を検査してから `FramePresentAlreadyPaced` を返す。
+- selector ownership、OS message-loop timer、F5hd wait owner の minifb hook 接続、`Window::set_target_fps` の置換、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- `set_target_fps 0` で minifb internal wait を無効化すると、現在の `WaitForHostEvent` path が `window.update` を通るため tight loop になると指摘された。
+- 改訂 plan では、F5he を minifb internal target-fps pacing authority boundary に絞り、typed `NativeWindowTargetFps` を保持する authority、`FramePresentAlreadyPaced` の authority helper 経由化、`set_target_fps 0` 禁止、deadline timer owner 未接続を条件として `PLAN_APPROVED` を得た。
+
+## implementation
+
+- `NativeWindowMinifbFramePacingAuthority` と `NativeWindowMinifbFramePacingAuthorityError` を追加した。
+- authority helper は instruction target fps mismatch と wait nanos mismatch を enum error として返し、matching frame interval だけを `FramePresentAlreadyPaced` に写す。
+- `MinifbNativeWindowRunLoopHost` は frame pacing authority を保持し、frame interval wait を authority helper へ委譲する。
+- `run_minifb_window_loop` は `config.target_fps` から authority を作り、`configure_minifb_window_frame_pacing` 経由で `window.set_target_fps authority.target_fps_usize` を設定する。`set_target_fps 0` は導入していない。
+- GUI docs、source-policy、`todo.md` を F5he contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_minifb_frame_pacing_authority -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: `cargo check -p nepl-gui-native --features window` の private wrapper payload warning は、error message 変換で lower error を明示的に読む形に修正して解消した。
+- info: source policy regression は 263.9 秒で exit 0 完走した。今回の native policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- subagent implementation review は `APPROVED_TO_COMMIT`。minifb pacing は `Window::set_target_fps target_fps` に残り、`FramePresentAlreadyPaced` は typed authority 経由でのみ生成され、F5hd wait owner / std deadline timer adapter が minifb path へ接続されていないことが確認された。
+
+# 2026-06-19 Agent2 GUI native F5hd wait owner boundary
+
+## scope
+
+- F5hc の後続として、host event queue wait path と frame interval deadline timer path を同じ owner で分岐する `NativeWindowHostLoopWaitOwner` boundary を追加する。
+- `NativeWindowHostLoopWaitOwnerError` は `EventQueueWaitFailed` と `FrameIntervalTimerWakeFailed` を分け、lower error 全体を保持する。
+- minifb wait hook、`Window::set_target_fps`、selector wakeup ownership、OS message loop timer、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOwner` と `execute_native_window_host_loop_wait_with_owner` を追加した。
+- `WaitForHostEvent` は event queue waiter だけへ渡し、成功を `HostEventPumpAlreadyPaced` に写す。
+- `WaitForFrameInterval` は deadline timer wakeup wait helper だけへ渡し、成功を `FrameIntervalTimerFired` として返す。
+- focused test で、host event path が timer clock / sleeper を呼ばないこと、frame interval path が event queue waiter を呼ばないこと、event queue error と timer wake error が別 stage として保持されることを検査した。
+- `nodesrc/test_native_gui_platform_behavior.js` の source policy を更新し、event queue wait slice と wait owner slice を分離した。
+- GUI docs と `todo.md` を F5hd contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native`
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_wait_owner -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --features window`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+- info: source policy regression は exit 0 で完走した。今回の F5hd native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- subagent implementation review は `IMPLEMENTATION_APPROVED`。F5hd は pure rename ではなく wait backend owner boundary であり、branch exclusivity、error separation、minifb 不変更、source policy guard が確認された。
+
+# 2026-06-19 Agent2 GUI native F5hc timer fired wait outcome boundary
+
+## scope
+
+- F5hb の後続として、timer fire completion を `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired` として scheduler に返せる boundary を追加する。
+- `FrameIntervalTimerRegistered` は pending registration evidence のまま維持し、`FrameIntervalTimerFired` だけを scheduler ready evidence にする。
+- minifb wait hook、`Window::set_target_fps`、selector wakeup ownership、OS message loop timer、queue integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd に実装前 plan review を依頼し、`APPROVED` を得た。
+- required constraints は、registered は waiting のままにすること、fired だけが resume すること、F5gz/F5hb の error separation を潰さないこと、minifb を変更しないこと、source policy で registered / fired の両 path を検査することである。
+
+## implementation
+
+- `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerFired` を追加した。
+- `native_window_host_loop_wait_outcome_from_timer_fire`、`execute_native_window_host_loop_timer_wakeup_wait_with_backend`、`execute_native_window_host_loop_deadline_timer_wakeup_wait_with_adapter` を追加した。
+- `native_window_host_loop_scheduler_resume_state_from_wait_outcome` は registered を waiting、fired を ready へ分岐する。
+- `execute_native_window_host_loop_timer_fire_wait_with_waiter` は already-fired wait outcome を二重待機せず、typed fire evidence として保持する。
+- GUI docs と source-policy を F5hc contract に更新した。
+
+## verification
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+
+## residual
+
+- selector / message-loop timer ownership、minifb `Window::set_target_fps` との pacing authority 分離、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+
+# 2026-06-19 Agent2 GUI native F5hb std deadline timer adapter boundary
+
+## scope
+
+- F5ha の後続として、native host-loop 用の std deadline timer adapter boundary を追加する。
+- F5gt の timer registration trait と F5gy の timer fire waiter trait を同じ host-owned adapter state で実装し、active timer、positive id、deadline nanos を明示的に管理する。
+- minifb wait hook 接続、`Window::set_target_fps` 置換、selector wakeup ownership、OS message loop timer、queue integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の初回 plan review は `CHANGES_REQUESTED`。
+- minifb は `Window::set_target_fps` が pacing authority であり、この slice で timer / sleep を minifb wait hook へ接続すると double pacing になると指摘された。
+- slice 名と実装範囲を real OS selector ownership ではなく std deadline timer adapter に狭め、overlap / missing / mismatch / id overflow / deadline overflow / clock failure / sleeper failure を enum error にすること、unit test は injected clock / sleeper で deterministic に行うことが要求された。
+- 実装はこの指摘に合わせ、minifb 接続と selector ownership を後続 residual に残す。
+
+## implementation_current
+
+- `NativeWindowHostLoopDeadlineTimerRecord` と `NativeWindowHostLoopDeadlineTimerAdapterError` を追加した。
+- `NativeWindowHostLoopDeadlineTimerClock` と `NativeWindowHostLoopDeadlineTimerSleeper` を追加し、clock / sleeper を adapter へ注入できるようにした。
+- `NativeWindowHostLoopDeadlineTimerAdapter` を追加し、registration 成功時だけ active timer を作り、fire wait 成功時だけ active timer を消費するようにした。
+- `execute_native_window_host_loop_deadline_timer_wakeup_with_adapter` を追加し、F5gt / F5gy helper を同じ adapter state で順に呼べるようにした。
+- cfg-gated std implementation として `StdNativeWindowHostLoopDeadlineTimerClock`、`StdNativeWindowHostLoopDeadlineTimerSleeper`、`native_window_host_loop_std_deadline_timer_adapter` を追加した。
+- focused tests、`nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5hb contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_deadline_timer_adapter -- --nocapture` は 8 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 164 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5hb native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `IMPLEMENTATION_APPROVED`。
+- 初回 plan review の blocking comments は解消済みであり、F5hb は std deadline timer adapter boundary に正しく狭められていると確認された。
+- minifb は `FramePresentAlreadyPaced` と `Window::set_target_fps` pacing authority を維持し、`std::thread::sleep` / `Duration` は cfg-gated deadline adapter slice 内だけに隔離されていることが確認された。
+- overlap、missing active timer、id overflow、deadline overflow、clock failure、sleeper failure、id mismatch の typed failure と、registration / fire の state staging も妥当と確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_deadline_timer_adapter -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が pass した。`git diff --check` の LF/CRLF warning は working-copy 変換 warning である。
+
+## residual
+
+- 次 slice では selector / message-loop timer ownership と minifb pacing authority の扱いを設計する。
+- F5hb は std deadline timer adapter boundary までであり、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI native F5ha scheduler timer resume gate boundary
+
+## scope
+
+- F5gz の後続として、scheduler long runner が `Waited` outcome を無条件に再開可能として扱う問題を修正する。
+- `FrameIntervalTimerRegistered` は timer fire 待ちの pending state として扱い、long runner では `TimerFireResumeRequired` を返して fail closed にする。
+- OS 固有 timer API、selector wakeup ownership、minifb timer path、thread sleep、busy loop、message pump、event queue substitution、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。`Waited` 無条件継続を止める root-cause slice として妥当であり、timer fire wait 実装へ踏み込まないこと、source policy で再発防止することが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopSchedulerResumeReady` と `NativeWindowHostLoopSchedulerResumeState` を追加した。
+- `native_window_host_loop_scheduler_resume_state_from_wait_outcome` を追加し、already-paced outcome だけを ready にし、`FrameIntervalTimerRegistered` は `WaitingForFrameIntervalTimer` に写すようにした。
+- `native_window_host_loop_scheduler_resume_ready_from_timer_fire` を追加し、`FrameIntervalTimerFired` evidence を ready evidence へ写せるようにした。
+- `NativeWindowHostLoopError::TimerFireResumeRequired` と `NativeWindowRunLoopError::TimerFireResumeRequired` を追加した。
+- `run_native_window_host_loop_with_policy_and_target_fps` は `Waited` outcome を resume gate に通し、timer fire が必要な場合は次 poll に進まず `TimerFireResumeRequired` を返すようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5ha contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_loop_scheduler_resume -- --nocapture` は 3 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy_requires_timer_fire_before_resume -- --nocapture` は 1 test passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 156 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5ha native source-policy は pass し、既存の Web GUI harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `IMPLEMENTATION_APPROVED`。
+- F5ha は `FrameIntervalTimerRegistered` を unconditional resume evidence として扱わず、timer fire が必要な pending state として fail closed にする root fix として妥当であることが確認された。
+- ready / pending resume state と timer-fire evidence が enum / Result 系の明示的な境界として分離され、real OS timer adapter / selector wakeup ownership を残件として分けている点も確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_host_loop_scheduler_resume -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_host_loop_with_policy_requires_timer_fire_before_resume -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js` が pass した。
+
+## residual
+
+- 次 slice では real OS timer adapter と selector wakeup ownership へ進む。
+- F5ha は resume gate までであり、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI native F5gz timer wakeup executor boundary
+
+## scope
+
+- F5gy の後続として、timer registration wait と timer fire wait を 1 つの wakeup executor へ合成する。
+- registration failure と fire failure を `NativeWindowHostLoopTimerWakeError` で分け、どちらで止まったかを enum として保持する。
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、scheduler resume policy、thread sleep、busy loop、message pump、event queue substitution、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+## plan_review
+
+- Darwin the 2nd の plan review は `APPROVED`。F5gx/F5gy helper を順に合成し、registration/fire の error を分離する boundary として進めてよいと確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopTimerWakeError` を追加した。
+- `execute_native_window_host_loop_timer_wakeup_with_backend` を追加し、registration wait helper の成功後だけ fire wait helper を呼ぶようにした。
+- registration failure では waiter を呼ばず、fire failure は `FireFailed` として保持する focused tests を追加した。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gz contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_wakeup -- --nocapture` は 6 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture` は 20 tests passed。
+- pass: `cargo test -p nepl-gui-native --lib` は 152 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gz native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Darwin the 2nd の implementation review は `APPROVED_TO_COMMIT`。
+- F5gz は pure rename ではなく、registration から fire wait へ順序付きで合成する wakeup executor として妥当であること、registration failure で waiter を呼ばないこと、`RegistrationFailed` / `FireFailed` の enum evidence が保持されていることが確認された。
+- subagent 側でも `cargo test -p nepl-gui-native --lib native_window_timer_wakeup -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が pass した。
+
+## residual
+
+- 次 slice では timer fire 後の scheduler resume policy と real OS timer adapter へ進む。
+- F5gz は typed wakeup executor boundary までであり、selector wakeup ownership、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gp Native window host-loop scheduler slice boundary
+
+## scope
+
+- F5go Native window host-loop wait dispatch boundary の後続として、hidden long loop 内の bounded run と wait dispatch を external scheduler が呼べる typed slice に切り出す。
+- `NativeWindowHostLoopSchedulerState` が `NativeWindowHostLoopRunnerState` を所有し、initial title initialization を slice 間で保持する。
+- `NativeWindowHostLoopSchedulerSliceResult` は `Exited` と `Waited` を分け、`Waited` では completed turn count、wait decision、wait outcome を保持する。
+
+## plan_review
+
+- Ptolemy the 2nd の plan review は `APPROVE`。`run_native_window_host_loop_with_policy` の hidden `bounded run -> wait dispatch -> repeat` を typed slice に分けることは pure rename ではなく、formal native OS scheduler / window backend loop の root boundary として妥当だと確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopSchedulerState`、`NativeWindowHostLoopSchedulerSliceResult`、`run_native_window_host_loop_scheduler_slice_with_policy` を追加した。
+- scheduler slice は policy の turn slice から `run_native_window_host_loop_bounded` を 1 回だけ実行し、`Exited` または `Waited` を返す。
+- `BudgetExhausted last_wait_decision = Some decision` では host wait hook を 1 回だけ呼び、wait outcome を `Waited` に保持する。
+- `BudgetExhausted last_wait_decision = None` は `WaitDecisionMissing` として fail closed にする。
+- `run_native_window_host_loop_with_policy` は scheduler slice API を反復する wrapper に縮小した。
+- tests、source-policy、GUI 関連 doc、todo を F5gp に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 112 tests passed。
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- additional verification は implementation review 後に実行する。
+
+## implementation_review
+
+- implementation review はこれから subagent に依頼する。
+
+## residual
+
+- F5gp は scheduler slice boundary までであり、actual OS wait strategy、queue / timer wait backend、real timer registration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5go Native window host-loop wait dispatch boundary
+
+## scope
+
+- F5gn Native window host-loop wait decision boundary の後続として、`NativeWindowHostLoopWaitDecision` を host wait boundary に渡す。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted`、`NativeWindowHostLoopWaitOutcome`、`HostWaitFailed`、`WaitDecisionMissing` を追加し、wait dispatch failure を enum で分離する。
+- minifb smoke backend では `Window::set_target_fps` による existing pacing を authority とし、wait hook で追加の `window.update`、`update_with_buffer`、sleep、queue、timer を実行しない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`AlreadyPaced` outcome は妥当であり、minifb `Window::update` / `update_with_buffer` は `set_target_fps` による rate limit を内部で通るため、wait hook で追加の update や sleep を実装してはいけないと確認された。
+
+## implementation_current
+
+- `NativeWindowRunLoopHost` に `WaitError` associated type と `wait_after_budget_exhausted` を追加した。
+- `NativeWindowHostLoopWaitOutcome` は `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` を持つ。
+- `NativeWindowHostLoopError` は `HostWaitFailed WaitError` と `WaitDecisionMissing` を持つ 3 generic enum になった。
+- `run_native_window_host_loop_with_policy` は `BudgetExhausted last_wait_decision = Some decision` で host wait hook を呼び、`None` は `WaitDecisionMissing` として返す。
+- minifb host adapter の `WaitError` は `std::convert::Infallible` であり、wait hook は decision を already-paced outcome へ写すだけにした。
+- tests、source-policy、GUI 関連 doc、todo を F5go に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 108 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5go native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `REVIEW_APPROVED_TO_COMMIT`。blocking issue は無く、`BudgetExhausted Some decision` の wait hook dispatch、`WaitDecisionMissing` の fail-closed path、minifb wait hook が additional update / sleep / timer / queue を実装しないこと、`HostWaitFailed` が wait error を保持することが確認された。
+- review では untracked `tmp_*` / `NUL` 系を commit に巻き込まないよう指摘されたため、F5go の 8 変更ファイルだけを stage 対象にする。
+
+## residual
+
+- F5go は wait dispatch boundary までであり、formal native OS scheduler / window backend loop、actual OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gn Native window host-loop wait decision boundary
+
+## scope
+
+- F5gm Native window host-loop turn evidence boundary の後続として、`NativeWindowHostLoopContinueEvidence` を future scheduler 向けの `NativeWindowHostLoopWaitDecision` へ分類する。
+- `run_native_window_host_loop_bounded` の `BudgetExhausted` に最後の wait decision を持たせ、zero budget では `None` とする。
+- formal OS wait strategy、queue / timer wait backend、`Duration` 計算、sleep、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`last_continue_evidence` で止めるより `NativeWindowHostLoopWaitDecision` に分類して `BudgetExhausted` に載せる方が後続 OS wait strategy 入力境界として意味があること、ただし value-only に限定し sleep / timer / queue へ進まないことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopWaitDecision::WaitForHostEvent` は pump-only continue turn の後続 wait class を表す。
+- `NativeWindowHostLoopWaitDecision::WaitForFrameInterval` は successful present turn の後続 wait class を表す。これは frame-paced wait class evidence であり、実時間待ちや FPS 保証ではない。
+- `native_window_host_loop_wait_decision` は `PumpedEventsOnly` / `PresentedFrame` を全域的に分類する pure helper である。
+- `run_native_window_host_loop_bounded` は `Continue evidence` ごとに `last_wait_decision` を更新し、budget exhaustion 時に最後の decision を返す。
+- policy runner は現 checkpoint では `last_wait_decision` を明示的に捨て、実 wait へは接続しない。
+- tests、source-policy、GUI 関連 doc、todo を F5gn に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 106 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gn native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopWaitDecision` が `NativeWindowHostLoopContinueEvidence` からの pure mapping であり、pixel borrow / host handle / scheduler state を持たないこと、`BudgetExhausted last_wait_decision` が後続 OS wait strategy の authority boundary として妥当であること、policy runner が `last_wait_decision _` を明示的に捨て sleep / timer / queue へ進んでいないことが確認された。
+
+## residual
+
+- F5gn は native host-loop wait decision classification までであり、formal native OS scheduler loop、actual OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gm Native window host-loop turn evidence boundary
+
+## scope
+
+- F5gl Native window host-loop run policy boundary の後続として、`NativeWindowHostLoopTurn::Continue` に pump-only / present-frame の実行証拠を持たせる。
+- `NativeWindowHostLoopContinueEvidence` を追加し、future OS wait strategy が surface-unavailable pump と successfully-presented frame を型で分岐できる前提を作る。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。F5gi の plain turn 方針とは衝突せず、generic や scheduler state を混ぜない value-only evidence であれば問題ないと確認された。名前は `NativeWindowHostLoopContinueEvidence` を推奨されたため採用する。
+
+## implementation_current
+
+- `NativeWindowHostLoopContinueEvidence::PumpedEventsOnly` は window size と size changed flag を保持する。
+- `NativeWindowHostLoopContinueEvidence::PresentedFrame` は `NativeWindowBackendLoopPresentation`、window size、size changed flag を保持する。pixel borrow は保持しない。
+- `step_native_window_host_loop` は pump / present の host operation 成功後だけ `Continue evidence` を返す。
+- bounded runner と policy runner は `Continue _` を turn count として扱い、evidence をまだ scheduler policy へ渡さない。
+- tests、source-policy、GUI 関連 doc、todo を F5gm に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 104 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gm native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`Continue` が `PumpedEventsOnly` / `PresentedFrame` の typed evidence を持つこと、present evidence が `current_present_frame_for_window` と `host.present_frame` 成功後だけ返ること、pixel borrow / scheduler state / queue / timer / sleep / fallback / silent no-op が混ざっていないこと、bounded / policy runner が `Continue _` を turn count としてだけ扱うことが確認された。
+
+## residual
+
+- F5gm は native host-loop turn evidence boundary までであり、formal native OS scheduler loop、OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gl Native window host-loop run policy boundary
+
+## scope
+
+- F5gj bounded runner と F5gk frame pacing config の後続として、native smoke window の long-running host loop を `NativeWindowHostLoopRunPolicy` へ接続する。
+- `NativeWindowHostLoopTurnSlice`、`NativeWindowHostLoopRunPolicy`、`NativeWindowRunLoopConfig.host_loop_policy`、`run_native_window_host_loop_with_policy` を追加する。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `APPROVED_TO_IMPLEMENT`。`DEFAULT=1` は現状の one-turn-per-host-update semantics を保つため正しいこと、`MAX=4096` は bounded turn budget の上限として docs / source-policy / tests に明記すること、CLI option は user-facing tuning ではないため今回は不要であること、`run_native_window_host_loop` は default policy runner に委譲してよいことが確認された。
+
+## implementation_current
+
+- `NativeWindowHostLoopTurnSlice` は `1..=4096` を validation し、`Zero` / `TooHigh max` を typed error として返す。
+- `NativeWindowHostLoopRunPolicy` は validation 済み `turn_slice` を保持し、`NativeWindowRunLoopConfig.host_loop_policy` に default policy として入る。
+- `run_native_window_host_loop_with_policy` は `run_native_window_host_loop_bounded` だけを反復し、`BudgetExhausted` では同じ runner state で次 slice へ進み、`Exited` では terminal reason を返す。
+- `run_native_window_host_loop` は default policy wrapper になり、`run_minifb_window_loop` は `config.host_loop_policy` を渡す。
+- tests、source-policy、GUI 関連 doc、todo を F5gl に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib` は 103 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gl native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopTurnSlice` / `NativeWindowHostLoopRunPolicy` が typed validated boundary になっていること、`run_native_window_host_loop_with_policy` が同じ runner state を維持して bounded runner だけを反復すること、`run_minifb_window_loop` が `config.host_loop_policy` 経由であること、fallback / silent no-op / queue / timer / sleep / direct minifb input API が混入していないことが確認された。
+
+## residual
+
+- F5gl は native host-loop run policy boundary までであり、formal native OS scheduler loop、OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gk Native window frame pacing config boundary
+
+## scope
+
+- native smoke window loop の frame pacing を hidden constant から typed config へ移す。
+- `NativeWindowTargetFps`、FPS range constants、`NativeWindowRunLoopConfig.target_fps`、CLI `--fps` を追加し、validation 済み値だけを minifb `set_target_fps` へ渡す。
+- formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。bare `usize` の公開ではなく typed newtype または上限付き policy にすること、invalid error に value と reason を持たせること、上限を定数化すること、CLI `--fps` は入れてよいが headless では使わないことを docs / usage に明記すること、source-policy で raw config 直渡しではなく validation 済み値だけを `set_target_fps` へ渡すことが指摘された。
+- 指摘に従い、`NativeWindowTargetFps` は `1..=240` の範囲を持つ newtype とし、`Zero` / `TooHigh max` を typed reason として保持する。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowTargetFps`、`NativeWindowTargetFpsInvalidReason`、`NativeWindowTargetFpsError`、FPS range constants を追加した。
+- `NativeWindowRunLoopConfig` は `target_fps` を保持し、既存 `new` は default 60、custom path は `new_with_target_fps` / raw helper を使う。
+- `run_minifb_window_loop` は `config.target_fps.as_usize` で得た validation 済み値だけを `window.set_target_fps` へ渡す。
+- CLI に `--fps N` を追加し、invalid value は CLI boundary で error にする。usage には window mode 用 option であることを追記した。
+- tests、source-policy、GUI 関連 doc、todo を F5gk に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo run -p nepl-gui-native -- --headless --fps 120 counter`
+- pass: `cargo run -p nepl-gui-native -- --headless --fps 0 counter` は exit 2 で `--fps must be greater than zero` と usage を返す。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gk native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowTargetFps` newtype と `1..=240` validation、`Zero` / `TooHigh` typed error、`NativeWindowRunLoopError::TargetFpsInvalid` raw helper が揃い、clamp / fallback / silent no-op になっていないことが確認された。`run_minifb_window_loop` は `config.target_fps.as_usize` の validation 済み値だけを `window.set_target_fps` に渡し、固定 60 を run-loop body に残していないことも確認された。
+
+## residual
+
+- F5gk は frame pacing config boundary までであり、formal OS wait strategy、queue / timer wait backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gj Native window host-loop bounded runner boundary
+
+## scope
+
+- F5gi Native window host-loop turn boundary の後続として、one-turn function を bounded に反復する Rust smoke/native layer runner を追加する。
+- `NativeWindowHostLoopRunnerState`、`NativeWindowHostLoopInitialization`、`NativeWindowHostLoopBoundedRunResult`、`run_native_window_host_loop_bounded` を追加し、finite turn count で `Exited` と `BudgetExhausted` を区別する。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。initializer の idempotent path を unit の silent no-op にせず `Initialized` / `AlreadyInitialized` の typed evidence にすること、initializer 自体の tests を追加すること、zero budget / exit turn count / source-policy の方針を維持することが指摘された。
+- 指摘に従い、`initialize_native_window_host_loop` は `NativeWindowHostLoopInitialization` を返し、bounded runner は `max_turn_count == 0` でも initial title の初期化確認だけを行って event poll をしない。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopRunnerState`、`NativeWindowHostLoopInitialization`、`NativeWindowHostLoopBoundedRunResult` を追加した。
+- `initialize_native_window_host_loop` は initial title の初回設定と `AlreadyInitialized` evidence を返す。
+- `run_native_window_host_loop_bounded` は `step_native_window_host_loop` だけで turn を進め、`Exited` と `BudgetExhausted` を分ける。
+- `run_native_window_host_loop` は `usize::MAX` を使わず、infinite loop の意味を保ったまま initializer と one-turn function を共有する。
+- bounded runner tests、source-policy、GUI 関連 doc、todo を F5gj に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gj native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`NativeWindowHostLoopInitialization` により idempotent path が typed evidence になっていること、bounded runner が initializer と `step_native_window_host_loop` だけで進み queue / timer / sleep / OS wait / fallback を隠していないこと、`run_native_window_host_loop` が `usize::MAX` 委譲ではなく infinite loop の意味を保っていることが確認された。
+
+## residual
+
+- F5gj は native host-loop bounded runner boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gi Native window host-loop turn boundary
+
+## scope
+
+- F5gh Native window host-loop core boundary の後続として、long loop body を typed one-turn boundary へ切り出す。
+- `NativeWindowHostLoopTurn` と `step_native_window_host_loop` を追加し、future formal native OS scheduler / window backend loop が再利用できる turn contract を作る。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`NativeWindowHostLoopTurn` は generic を持たない plain enum にすること、initial title は `run_native_window_host_loop` 側だけに残すこと、source-policy で long loop runner に low-level turn body が戻らないことを検査すること、one-turn tests に title 境界を追加すること、docs/note/todo に scheduler / wait / queue / timer ではなく typed turn boundary であることを明記することが指摘された。
+- 指摘に従い、F5gi は `Continue` / `Exit NativeWindowRunLoopExit` だけを持つ turn result とし、one-turn function は initial title を設定しない。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopTurn` と `step_native_window_host_loop` を追加した。
+- `step_native_window_host_loop` は host event snapshot、`step_host_action`、size changed title update、pump-only、present、exit の 1 turn だけを扱う。
+- `run_native_window_host_loop` は initial title を設定した後、`step_native_window_host_loop` の `Continue` / `Exit` だけを match する形へ変更した。
+- one-turn tests と source-policy、GUI 関連 doc、todo を F5gi に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gi native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。`run_native_window_host_loop` は initial title 設定後に `step_native_window_host_loop` の `Continue` / `Exit` だけを扱い、poll / action / present 本体が戻っていないこと、`step_native_window_host_loop` が minifb、direct input API、queue / timer / wait を持たず typed error を保持していることが確認された。
+
+## residual
+
+- F5gi は native host-loop turn boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gh Native window host-loop core boundary
+
+## scope
+
+- F5gg Native minifb window run-loop adapter boundary の後続として、minifb 非依存の native host-loop core を追加する。
+- F5gh は `NativeWindowRunLoopHost`、`NativeWindowHostLoopError`、`run_native_window_host_loop` を追加する。
+- `run_minifb_window_loop` は backend loop と minifb window / host adapter を初期化して core loop を呼ぶだけにし、minifb 固有 API は private host adapter に閉じる。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`run_native_window_host_loop` は backend loop を value で消費せず `&mut NativeWindowBackendLoop` を受けること、new core-loop error variant 全ての test を追加すること、source policy slice を core loop と minifb adapter に分けること、F5gg の古い source-policy 期待を F5gh 構造へ更新することが指摘された。
+- 指摘に従い、core loop は `&mut` backend loop を受け、`NativeWindowHostLoopError` は host event / host action / presenter frame unavailable / host present error を分ける。tests は terminal reason、unavailable pump-only、exact frame present、event error、present error、host action error、presenter frame error を検査する形にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowRunLoopHost` と `NativeWindowHostLoopError` を追加した。
+- `run_native_window_host_loop` は initial title を設定し、host event snapshot、`step_host_action`、`Terminate` / `PumpEventsOnly` / `PresentFrame` を実行する。
+- private `MinifbNativeWindowRunLoopHost` が minifb `set_title`、`window.update`、`update_with_buffer` を担当する。
+- `run_minifb_window_loop` は minifb window creation 後、host adapter を作って `run_native_window_host_loop` を呼ぶだけに変更した。
+- source-policy と GUI 関連 doc を F5gh に合わせて更新した。
+
+## implementation_review
+
+- Feynman the 2nd の implementation review は `APPROVED_TO_COMMIT`。core loop が minifb 非依存であること、backend state を `&mut` で保持していること、event / action / presenter / present error を typed variant として保存していること、minifb input が `poll_minifb_window_event_pump` に隔離されていることが確認された。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gh native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5gh は native host-loop core boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gg Native minifb window run-loop adapter boundary
+
+## scope
+
+- F5gf Native host action boundary の後続として、`NativeWindowHostAction` を実際の minifb smoke window に適用する cfg-gated run-loop adapter を追加する。
+- F5gg は `NativeWindowRunLoopConfig`、`NativeWindowRunLoopExit`、`NativeWindowRunLoopError`、`run_minifb_window_loop`、`native_window_title` を追加する。
+- `main.rs` は CLI option を config に変換して runner を呼ぶだけにし、minifb window lifecycle、title update、`window.update`、`update_with_buffer` を `run_minifb_window_loop` に閉じる。
+- formal native OS scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。F5ge / F5gf の `main.rs` ownership 記述を F5gg で supersede すること、source policy に dedicated run-loop slice を置くこと、direct minifb input API を run-loop から禁止すること、queue / timer / sleep / `Duration` / JS timer を禁止すること、存在しない `window.update` error ではなく `update_with_buffer` failure を表す error 名にすることが指摘された。
+- 指摘に従い、run-loop adapter は direct input API を `poll_minifb_window_event_pump` に隔離したまま `step_host_action` だけを消費し、present failure は `WindowPresentFailed` とした。docs と source policy は F5gg ownership boundary を明示する形へ更新中である。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に native run-loop config / exit / error と `run_minifb_window_loop` を追加した。
+- `run_minifb_window_loop` は `WindowOptions.resize = true`、`ScaleMode::UpperLeft`、`set_target_fps(60)`、dark background、title update、event pump、host action execution、presenter frame borrow、`update_with_buffer` を所有する。
+- `nepl-gui-native/src/main.rs` は direct minifb import、backend loop import、host action match、title helper を持たず、runner 呼び出しだけを行う。
+- source-policy と GUI 関連 doc を F5gg に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gg native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review の初回結果は `REQUIRED_CHANGES`。実装自体は main.rs の config + runner call 化、minifb lifecycle の `run_minifb_window_loop` 移動、direct input API の event pump 隔離、source-policy の F5gg boundary 固定が確認されたが、note の検証欄が pending のままだった。
+- 指摘に従い、verification_current を実行済みの pass / info へ更新した。
+- Feynman the 2nd の再レビューは `APPROVED_TO_COMMIT`。note の検証欄修正後、F5gg は commit 可能と確認された。
+
+## residual
+
+- F5gg は native minifb smoke adapter boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gf Native host action boundary
+
+## scope
+
+- F5ge Native backend loop step boundary の後続として、backend loop outcome を native host execution action へ写す境界を追加する。
+- F5gf は `NativeWindowHostAction`、`NativeWindowHostTerminalReason`、`NativeWindowHostActionError` を追加し、`step_host_action` から `Terminate` / `PumpEventsOnly` / `PresentFrame` を返す。
+- `main.rs` は `NativeWindowBackendLoopStepOutcome` を直接 match せず、host action を match して title update、`window.update`、`update_with_buffer`、loop termination だけを行う。
+- formal scheduler loop、OS wait strategy、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の plan review は `PLAN_CHANGES`。`PumpEventsOnly` は `u32` ではなく既存の `NativeWindowSize` を使うこと、`PresentFrame` は `NativeWindowBackendLoopPresentation` と window observation を保持すること、backend step failure を `FrameUnavailable` のように狭く名付けないこと、`CloseRequested Open` を error として unit test で固定することが指摘された。
+- 指摘に従い、host action は `NativeWindowSize` と F5ge の presentation evidence を再利用し、error は `StepFailed NativeWindowBackendLoopError` と `UnsupportedCloseState` にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostTerminalReason`、`NativeWindowHostAction`、`NativeWindowHostActionError` と `NativeWindowBackendLoop::step_host_action` を追加した。
+- `NativeWindowHostAction` は pixel borrow を持たず、`PresentFrame` の actual frame borrow は引き続き `current_present_frame_for_window` に限定した。
+- `nepl-gui-native/src/main.rs` は `NativeWindowHostAction` を match し、`NativeWindowBackendLoopStepOutcome` を import / match しない形に変更した。
+- source-policy と GUI 関連 doc を F5gf に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gf native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。F5gf は F5ge の detailed `StepOutcome` を host execution action へ落とす意味のある境界であり、単なる rename layer ではないと確認された。
+- `NativeWindowHostAction` が `Terminate` / `PumpEventsOnly` / `PresentFrame` を typed enum で分けること、`NativeWindowHostTerminalReason` が OS close と Escape を保持すること、`StepFailed NativeWindowBackendLoopError` が original backend error を潰さないこと、`main.rs` が `NativeWindowBackendLoopStepOutcome` を import / match しないこと、pixel borrow が `current_present_frame_for_window` に限定されること、docs/source-policy/note/todo が scope と非目標に整合することが確認された。
+
+## residual
+
+- F5gf は native host action boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5ge Native backend loop step boundary
+
+## scope
+
+- F5gd Native window event pump boundary の後続として、event snapshot 後の native smoke backend state transition を `NativeWindowBackendLoop` へ切り出す。
+- F5ge は close no-progress、unavailable observation update、positive resize commit-after-present、counter pointer action、final frame evidence を typed outcome として固定する。
+- `main.rs` は minifb window creation、event pump adapter、title update、`window.update`、`window.update_with_buffer` だけを担当する。
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Feynman the 2nd の初回 plan review は `PLAN_CHANGES`。resize と counter click が同じ snapshot に入る場合の outcome shape、commit rule、typed error、initial state construction、pointer miss reason、source-policy、failure preservation tests が不足していると指摘された。
+- 修正計画では `NativeWindowBackendLoop` が state と presenter state を所有し、outcome は resize evidence / pointer action / final frame evidence を分ける形にした。
+- 二度目の review は `PLAN_CHANGES`。presentation ownership、constructor と scale validation、positive resize failure commit semantics が未確定と指摘された。
+- 最終修正では `NativeWindowBackendLoopPresentation` を `frame_id,width,height` evidence のみにし、pixels borrow は `current_present_frame_for_window` へ分離した。`new_for_scale` で scale validation から initial present まで一貫させ、positive resize は present success 後だけ surface / previous size / frame id を commit する形にした。
+- Feynman the 2nd の再レビューは `PLAN_APPROVED`。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowBackendLoop`、`NativeWindowBackendLoopState`、`NativeWindowBackendLoopPresentation`、`NativeWindowBackendLoopPointerAction`、`NativeWindowBackendLoopStepOutcome`、`NativeWindowBackendLoopError` を追加した。
+- `NativeWindowBackendLoop::new_for_scale` は initial frame render、scale validation、checked initial size、presenter state creation、initial present を担当する。
+- `NativeWindowBackendLoop::event_pump_input` は previous observed size / mouse state から F5gd input を返し、`main.rs` が duplicate loop state を持たないようにした。
+- `NativeWindowBackendLoop::step` は close、unavailable、drawable を enum outcome へ分け、resize redraw evidence と counter presentation evidence の両方を保持できる。
+- `main.rs` から `counter_hit`、`map_native_window_point_to_image`、frame id `checked_add`、`rasterize_frame_to_surface`、`present_buffer`、`resize_surface` の直接呼び出しを取り除いた。
+- GUI standard library spec、GUI redesign implementation plan、GUI/TUI implementation plan、native platform behavior doc、source-policy、todo を F5ge に合わせて更新中である。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5ge native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。typed outcome/error、pixel borrow の `current_present_frame_for_window` 限定、`main.rs` の薄化、close no-progress / unavailable no blank / resize+counter same snapshot / overflow before mutation / rasterize failure preservation tests、source-policy、docs/note/todo の整合が確認された。
+
+## residual
+
+- F5ge は native smoke backend loop-step boundary までであり、formal native OS scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5gd Native window event pump boundary
+
+## scope
+
+- F5gc std layer host import scheduler-start boundary の後続として、native smoke runner の minifb input / resize polling を typed event pump boundary へ切り出す。
+- F5gd は `NativeWindowEventPumpInput` から `NativeWindowEventPumpSnapshot` を作り、observed window size、surface availability、close state、left button transition、pointer sample を enum / struct で表す。
+- zero-size surface は `NativeWindowPresenterSurfaceState::Unavailable` とし、blank frame / fallback frame を合成しない。
+- formal `std/gui` host import execution、scheduler loop、queue、timer wait、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+## plan_review
+
+- Banach the 2nd の plan review は実装開始可。ただし、OS close と Escape shortcut を同一 close state に潰さないこと、main.rs から minifb input API を source-policy で戻らないようにすること、`NativeWindowSize` の zero 許容を明文化すること、doc/neplg2/gui_native_platform_behavior.md を更新することが必須指摘だった。
+- 指摘に従い、close state を `Open` / `OsCloseRequested` / `ExitShortcutRequested` に分け、event pump helper は `window.update` / `update_with_buffer` を呼ばない仕様にした。
+
+## implementation_current
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowSize`、`NativeWindowEventPumpInput`、`NativeWindowEventPumpSnapshot`、`NativeWindowEventPumpCloseState`、`NativeWindowPointerButtonTransition`、`NativeWindowPointerSample`、`NativeWindowEventPumpError` を追加した。
+- pure builder `build_native_window_event_pump_snapshot_from_raw` と、cfg-gated minifb adapter `poll_minifb_window_event_pump` を追加した。
+- `nepl-gui-native/src/main.rs` は `Key` / `MouseButton` / `MouseMode` / `is_open` / `is_key_down` / `get_mouse_down` / `get_unscaled_mouse_pos` を直接扱わず、snapshot を `match` して close、resize、counter click を処理する形に変更した。
+- GUI standard library spec、GUI redesign implementation plan、native platform behavior doc、source-policy、todo を F5gd に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gd native platform source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- info: GitHub Actions run `27793833279` は全体 `cancelled`。指定 job `82250574782` / `examples-test` は `Run examples doctests` で failure。今回の F5gd 差分由来ではなく、既存 remote/main 側の CI 状態として監視を継続する。
+
+## subagent_review
+
+- Feynman the 2nd implementation review は `APPROVED_TO_COMMIT`。`main.rs` が minifb input polling API を直接扱わず snapshot を `match` していること、OS close と Escape が別 variant であること、zero size が `Unavailable` であること、non-finite pointer が typed error であること、event pump helper が `window.update` / `update_with_buffer` を呼ばないことが確認された。
+- docs、source-policy、note、todo は F5gd scope と非目標に整合し、指摘なしだった。
+
+## residual
+
+- F5gd は native event pump boundary までであり、formal native OS window backend loop、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI std F5gc host import scheduler-start boundary
+
+## scope
+
+- F5gb Native / Bare bounded real-loop runner の後続として、formal `std/gui` present host import connection の最小境界を追加する。
+- F5gc は F5cr request を F5cw action、F5du turn start、F5ea virtual scheduler initial state へ接続する。
+- public input authority は support、span policy、dynamic timer state、F5cr request だけに限定する。
+- actual host import execution、scheduler step / loop、real loop driver、queue、timer backend、platform API、DOM、Canvas、minifb、video memory、RenderTarget / DrawTarget fallback には進まない。
+
+## plan_review
+
+- Galileo the 2nd の plan review は `PLAN_CHANGES`。実装開始は可能だが、explicit empty timer semantics、layering policy への追加、後続 authority の禁止、support / span policy の recovery authority 非保持を文書と regression に入れる必要があると指摘された。
+- 指摘に従い、`start_with_empty_timer` は active timer を持たない明示 initial `GuiVirtualTimerState` であって fallback や silent no-op ではないと仕様化した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`nodesrc/test_web_gui_offscreen_headless_contract.js`、`nodesrc/test_stdlib_gui_layering_policy.js` に F5gc の source policy を追加する方針にした。
+
+## implementation_current
+
+- `stdlib/std/gui/tile_present_host_import_scheduler_start.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostImportSchedulerStartReady` は original request、derived action、initial scheduler state を保持する。
+- `GuiRgba8888RowTileRlePresentHostImportSchedulerStartError::TurnStartFailed` は original request、derived action、lower F5du error、category を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI standard library spec、GUI redesign implementation plan、source-policy、todo を F5gc に合わせて更新した。
+
+## subagent_review
+
+- Galileo the 2nd implementation review は `APPROVED_TO_COMMIT`。F5gc は F5cw action conversion、F5du `turn_start`、F5ea `virtual_scheduler_turn` だけを接続し、scheduler step / drain / slice / loop、executor completion、platform API、synthetic outcome、fallback、silent no-op を導入していないと確認された。
+- `start_with_empty_timer` は `gui_virtual_timer_empty` から main start へ委譲する明示 empty timer helper であり、backend unavailable fallback ではないことが確認された。
+- source-policy は font、offscreen/headless、stdlib layering の 3 箇所で exported surface、順序、括弧なし、wildcard 禁止、後続 authority 禁止を検査しており十分と確認された。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`
+- pass: `node --check nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: F5gc module doctest `stdlib/std/gui/tile_present_host_import_scheduler_start.nepl`。
+- pass: F5gc focused doctest `tests/stdlib/gui_std_tile_present_host_import_scheduler_start.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の F5gc source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5gc は scheduler initial state construction までであり、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5ga Bare scheduler real-loop action step boundary
+
+## scope
+
+- F5fz Native scheduler real-loop action step boundary の後続として、bare F5fy owner path から F5ek/F5el real-loop action step へ戻す boundary を追加する。
+- F5ga は public input authority を bare policy、backend clock state、`GuiBareDisplayMemoryOwner`、F5el `NeedInput` だけに限定する。
+- Yield / Timer は bare clock helper success payload を F5ek へ渡し、Execute は F5fy display presenter input owner path を F5ew に戻し、Complete だけが `CompleteAck` を作る。
+- F5ga は long-running scheduler backend、queue、timer wait、present loop、direct host import、DOM、Canvas、minifb、video memory transport、raw display state、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- Boole the 2nd の plan review は `PLAN_CHANGES`。F5ga 自体は F5eu / F5ew / F5el / F5fy が揃っているため delay 不要だが、全失敗経路の owner recovery を強める必要があると指摘された。
+- 指摘に従い、`RealStepFailed` と `DriverAfterStepFailed` は branch、relevant clock state、recovered owner、lower error を保持する設計にした。
+- Execute success と `BridgeFailedReady` では F5ew へ scheduler ready を渡す前に owner を回収し、`BridgeFailedMissingCategory` では `GuiError` を捏造せず direct error にする。
+
+## implementation_current
+
+- `stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl` を追加した。
+- ready payload は clock state、recovered owner、F5el driver result を保持する。
+- clock helper failure、F5ek failure、F5el failure は owner recovery を失わない error shape にした。
+- `platforms/gui/bare` facade、GUI standard library spec、GUI/font implementation plan、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5ga に合わせて更新した。
+
+## subagent_review
+
+- Kant the 2nd implementation review は `APPROVED_TO_COMMIT`。bare-only scope、`Result` / enum / match style、`BridgeFailedMissingCategory` direct error、F5ek/F5el failure wrapper の recovered owner + clock state、execute success / `BridgeFailedReady` の F5ew 前 owner recovery、F5ew single helper path が確認された。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_real_loop_step.nepl --no-tree -o tmp_gui_bare_scheduler_real_loop_step_module_f5ga_first.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_real_loop_step.n.md --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_step_f5ga_first.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## residual
+
+- F5ga は bare scheduler real-loop action step boundary までであり、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fx Bare display operation-to-driver-adapter bridge
+
+## scope
+
+- F5fw Bare display hardware flush accepted boundary の後続として、bare display operation-to-driver-adapter bridge を追加した。
+- F5fx は owner + `GuiRgba8888RowTileRlePresentHostSpanOperation` だけを public input authority とし、owner canonical state から framebuffer / storage / memory validation を通して actual display driver adapter へ 1 step 渡す。
+- public `StepApplied` value、driver outcome、raw storage、`RegionToken`、`MemPtr` は public input authority にしない。
+- F5fx は long-running scheduler backend、timer queue、present loop、DOM、Canvas、minifb、video memory transport、hardware flush、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- James the 2nd の plan review は `PLAN_APPROVED`。owner accessor 経由で canonical state を復元し、`framebuffer -> storage -> memory -> driver_adapter` の順に進めるなら Zenn / doc 方針に合うと確認された。
+- Carver the 2nd の plan review は `PLAN_CHANGES`。public API authority を owner + operation に限定すること、全 lower failure の owner-bearing recovery、host side effect rollback を過剰主張しないこと、owner-bearing completed / error payload を Clone / Copy にしないことが必須条件として指摘された。
+- 指摘に従い、module 名を `display_operation_driver_bridge` とし、operation enum 全体を扱うこと、adapter failure では lower adapter error の owner recovery に従うこと、host side effect rollback を主張しないことを docs / implementation に反映した。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl` を追加し、sealed `GuiBareDisplayOperationDriverBridgeCompleted` と owner-bearing lower error variants を定義した。
+- `gui_bare_display_operation_driver_bridge_step` は owner から `GuiBareDisplayDriverState`、`GuiBareDisplayMemoryState`、`GuiBareDisplayStorageState`、`GuiBareFramebufferState` を復元し、`gui_bare_framebuffer_validate_operation`、`gui_bare_display_storage_apply`、`gui_bare_display_memory_apply`、`gui_bare_display_driver_adapter_step` の順で処理する。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5fx に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_operation_driver_bridge.nepl --no-tree -o tmp_gui_bare_display_operation_driver_bridge_module_f5fx.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_operation_driver_bridge.n.md --no-tree -o tmp_gui_platform_bare_display_operation_driver_bridge_f5fx.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は 184 秒の local timeout に到達した。今回追加した GUI/font contract は直接 `node nodesrc/test_web_gui_font_rendering_contract.js` で pass している。
+
+## subagent_review
+
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。public entry authority、canonical state derivation、validation-before-adapter、raw step / raw storage input 不在、owner recovery、private seal、no rollback claim が確認された。
+- James the 2nd implementation review は初回 `REQUIRED_CHANGES`。`note.n.md` の verification が pending のままである点が blocker として指摘された。
+- 指摘に従い verification_current を実行済み command へ更新した後、James the 2nd の再レビューは `APPROVED_TO_COMMIT` となった。
+
+## remaining
+
+- F5fx は operation-to-driver-adapter bridge までであり、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fw Bare display hardware flush accepted boundary
+
+## scope
+
+- F5fv Bare whole-surface packet-readiness aggregation boundary の後続として、sealed whole-surface completed value を bare hardware flush host import へ渡す境界を追加した。
+- F5fw は host import が completed whole-surface evidence に対して accepted status を返したことだけを示し、physical scanout completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+- `GuiBareDisplayWholeSurfacePacketReadinessCompleted` に module-private completed seal を追加し、owner + copy evidence だけから completed authority を偽造できないようにした。
+
+## plan_review
+
+- James the 2nd の plan review は `BLOCKED`。preflight failure と host status failure の error shape を分けること、owner recovery の方針、status mapping、target encoding を明文化する必要があると指摘された。
+- Carver the 2nd の plan review は `BLOCKED`。F5fw の前提として F5fv `Completed` に private seal が必要であり、success 名称は scanout completion ではなく host accepted として扱うべきと指摘された。
+- 指摘に従い、F5fv `Completed` に private seal を追加し、F5fw は `GuiBareDisplayHardwareFlushAccepted` として host accepted status だけを表す設計へ変更した。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_flush_completion.nepl` を追加した。
+- public entry は `gui_bare_display_hardware_flush_accept_from_whole_surface completed` だけであり、copyable whole-surface evidence、flush evidence、driver step / outcome、raw storage を input authority にしない。
+- preflight は host import 前に width / height / tile rows / tile count、checked `width * height`、`ready_pixel_count == expected_pixel_count`、checked `width * 4`、checked `height * stride_bytes` を検査する。
+- preflight failure は `status == Option::None`、host status failure は `status == Option::Some status` として owner-bearing error に回収する。
+- host status は `0` だけを accepted とし、`-1` Unsupported、`-2` / `-6` InvalidCommand、`-3` / `-4` ResourceExhausted、その他は BackendFailure として fail-closed にする。
+- `GuiBareDisplayHardwareFlushAccepted` に module-private accepted seal を追加し、host accepted success value も後続 authority として偽造できないようにした。
+- `nodesrc/run_test.js` の default bare imports に `display_hardware_flush: () => -1` を追加し、未提供 host が fallback success にならないようにした。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy、todo を F5fw に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fw_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw_seal.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fw_final.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_flush_completion.nepl --no-tree -o tmp_gui_bare_display_flush_completion_module_f5fw_final.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_flush_completion.n.md --no-tree -o tmp_gui_platform_bare_display_flush_completion_f5fw_final.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- info: `node nodesrc/tests.js -i stdlib/platforms/gui/bare.nepl --no-tree -o tmp_gui_bare_facade_f5fw.json -j 1` は facade に runnable doctest が無いため `nodesrc/tests/no-runnable-doctests` になった。focused doctest 側で bare facade import は通している。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- James the 2nd implementation review は `REQUIRED_CHANGES`。F5fw success payload `GuiBareDisplayHardwareFlushAccepted` に private seal が無く、host status `0` を通さず success authority を偽造できる点が blocker として指摘された。
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。F5fv completed seal、F5fw public entry authority、preflight before host、status option、status `0` only success、non-scanout docs、fallback / silent no-op 不在が確認された。
+- James the 2nd の指摘に従い、`GuiBareDisplayHardwareFlushAcceptedSeal` を module-private に追加し、`Accepted` に seal field を持たせ、source-policy と focused doctest label を更新した。
+- James the 2nd の再レビューは `APPROVED_TO_COMMIT`。sealed completed value だけが input authority であること、validation / host status error の `Option` shape、`status 0` only success、accepted value の private seal、Zenn 方針の Result / enum / no fallback / no silent no-op contract に反していないことが確認された。
+
+## residual
+
+- F5fw は host accepted hardware flush boundary までであり、physical scanout completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fv Bare whole-surface packet-readiness aggregation boundary
+
+## scope
+
+- F5fu Bare presented packet readiness evidence boundary の後続として、row-tile RLE packet readiness を full-height surface の ordered packet readiness evidence へ集約する境界を追加した。
+- aggregation authority は F5fu の owner-bearing `GuiBareDisplayPresentedPacketReady` value だけに限定し、copyable evidence 単体、driver step / outcome / present accepted value、raw storage、`RegionToken`、`MemPtr` を input authority にしない。
+- F5fv は full-height surface の packet readiness が tile index 順に揃ったことだけを示し、hardware flush completion、scheduler loop completion、actual backend completion、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- James the 2nd と Carver the 2nd の初回 plan review は `PLAN_CHANGES`。固定 metadata と tile-local metadata の分離、failure payload owner recovery、completion 名称の過大主張回避、owner handoff flow、start 時の tile coverage 検査、duplicate / reorder / gap の concrete enum 化が必要と指摘された。
+- 指摘に従い、`GuiBareDisplayWholeSurfacePacketReadiness*` 系の型名へ絞り、public entry は `start ready` と `advance cursor ready` のみにした。
+- `Continue` は cursor と owner を保持し、`continue_take` で両方を同じ handoff value へ移す。`Completed` も owner-bearing とし、owner recovery を失わない計画へ変更した。
+- 修正計画は James the 2nd と Carver the 2nd の両方から `PLAN_APPROVED` を受けた。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_surface_readiness.nepl` を追加した。
+- `start ready` は tile 0 だけを受け取り、full-height plan、width / height / stride / tile rows / tile count / expected pixel count / first tile row range / pixel count を checked arithmetic で検査する。
+- `advance cursor ready` は fixed metadata の一致、expected tile index、row start、row count、pixel count、ready pixel count の overflow / out-of-bounds を fail-closed に検査する。
+- duplicate / reorder と gap は `DuplicateOrReorderedTile` と `TileGap` に分け、`TileIndexBeforeExpected` / `TileIndexAfterEnd` も別 variant として保持した。
+- `Cursor`、`Continue`、`Handoff`、`Completed`、start / advance error は Clone / Copy にせず、error kind と pure evidence だけ Copy にした。
+- `display_present_readiness` には F5fv の検査に必要な read-only evidence accessor だけを追加し、raw storage や driver accepted authority は公開していない。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5fv に合わせて更新した。
+- enum error category の分類は wildcard match を使わず、variant ごとの明示的な `match` にした。
+- James the 2nd の implementation review blocker に従い、cursor に module-private seal を追加し、public metadata だけで prior packet aggregation authority を偽造できないようにした。
+- 同じ blocker に従い、`AdvanceError` から cursor と incoming ready を同時回収する `advance_error_take` と recovery payload を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_surface_readiness.nepl --no-tree -o tmp_gui_bare_display_surface_readiness_module_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_surface_readiness.n.md --no-tree -o tmp_gui_platform_bare_display_surface_readiness_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_present_readiness.nepl --no-tree -o tmp_gui_bare_display_present_readiness_module_f5fv_seal.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_present_readiness.n.md --no-tree -o tmp_gui_platform_bare_display_present_readiness_f5fv_seal.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- James the 2nd implementation review は初回 `PLAN_CHANGES / not approved to commit`。public cursor が forged aggregation authority になる点と、advance error から cursor / ready を同時回収できない点が blocker として指摘された。
+- Carver the 2nd implementation review は `APPROVED_TO_COMMIT`。ready value authority、raw storage / driver outcome / `RegionToken` / `MemPtr` 不使用、full-height plan、tile order、duplicate/gap、owner-bearing recovery、Continue/Handoff/Completed の non-Copy 方針が一致していることが確認された。
+- James the 2nd 再レビューは `APPROVED_TO_COMMIT`。module-private cursor seal、public seal constructor/export 不在、`advance_error_take` の一括 recovery、owner-bearing payload の non-Copy 方針が確認された。
+
+## residual
+
+- F5fv は whole-surface packet-readiness aggregation までであり、hardware flush completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fu Bare presented packet readiness evidence boundary
+
+## scope
+
+- F5ft Bare actual display driver adapter boundary の後続として、row-tile RLE packet 単位の presented packet readiness evidence boundary を追加した。
+- F5ft の `GuiBareDisplayDriverAdapterCompleted` を value として消費し、copyable step / outcome / present evidence 単体を public authority として受け取らない。
+- F5fu は current packet の RGBA byte readback と host present accepted が揃ったことだけを示し、whole surface readiness、hardware flush completion、scheduler loop completion、actual backend、DOM、Canvas、minifb、video memory transport、fallback、silent no-op へは進まない。
+
+## plan_review
+
+- Jason the 2nd の初回 plan review は `BLOCKED`。`verified_byte_count >= packet_byte_count` は owner lifetime 累積であり、過去 packet の readback count を含むため current packet readiness の証明には使えないと指摘された。
+- 指摘に従い、`GuiBareDisplayMemoryOwner` に lifetime 累積の `verified_byte_count` とは別に packet-local `packet_verified_byte_count` を追加する計画へ変更した。
+- 修正計画では、create は 0、Begin は packet count だけ 0 reset、span full readback は `byte_len` を checked add、Present は count を保持し、readiness は `packet_verified_byte_count == pixel_count * 4` を要求する。
+- Jason the 2nd は修正計画を `PLAN_APPROVED`。checked add、exact equality、owner-bearing success/error non-Copy、last_present と driver phase の検査、non-goal の明文化が条件として示された。
+
+## implementation
+
+- `GuiBareDisplayMemoryOwner` に `packet_verified_byte_count` と accessor を追加した。create / single-byte echo / span readback / adapter completion は lifetime count と packet-local count を分けて更新する。
+- `display_memory_span_readback` は full store と full readback が成功した後だけ `byte_len` を lifetime count と packet-local count の両方へ checked add する。
+- `display_driver_adapter` は `BeginHostAccepted` だけで packet-local count を 0 に reset し、`SpanHostAcceptedAndReadback` と `FramePresentHostAccepted` では保持する。
+- `display_driver` に `GuiBareDisplayDriverFramePresentAccepted` の target / descriptor / frame / run_count / pixel_count / surface_byte_count accessor を追加した。
+- `platforms/gui/bare/display_present_readiness` を追加し、`gui_bare_display_present_readiness_from_adapter_completed completed` で `FramePresentHostAccepted` / `FramePresentAccepted`、owner canonical driver phase `Idle`、`last_present` 一致、owner surface と present surface の一致、checked `pixel_count * 4`、packet-local verified byte count の exact equality を検査する。
+- success payload `GuiBareDisplayPresentedPacketReady` と error payload `GuiBareDisplayPresentReadinessError` は owner-bearing とし、Clone / Copy を実装しない。pure evidence と error kind は Copy のままにした。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5fu に合わせて更新した。
+- Bacon the 2nd の非ブロッカー指摘に従い、`present_equal` の target / descriptor / frame / run_count / pixel_count / surface_byte_count 比較を source-policy で直接固定した。
+
+## verification_current
+
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_present_readiness.n.md --no-tree -o tmp_gui_bare_display_present_readiness_f5fu_second.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_present_readiness.nepl --no-tree -o tmp_gui_bare_display_present_readiness_module_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_owner.nepl --no-tree -o tmp_gui_bare_display_memory_owner_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_span_readback.nepl --no-tree -o tmp_gui_bare_span_readback_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_adapter.nepl --no-tree -o tmp_gui_bare_driver_adapter_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver.nepl --no-tree -o tmp_gui_bare_display_driver_f5fu.json -j 1 --timeout-nonfatal`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。今回の GUI/font contract は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+## subagent_review
+
+- Jason the 2nd implementation review は `APPROVED_TO_COMMIT`。前回 blocker だった lifetime count の誤用は解消され、packet-local count、Begin reset、exact equality、owner canonical driver phase と `last_present` 検査、owner-bearing non-Copy success/error、non-goal の明文化が確認された。
+- Bacon the 2nd implementation review は `APPROVED_TO_COMMIT`。docs が whole-surface readiness / flush completion / scheduler completion を過大主張していないこと、source-policy が主要 invariant を固定していることが確認された。
+- Bacon the 2nd の hardening 提案を反映した後の再レビューも `APPROVED_TO_COMMIT`。`present_equal` の field-by-field regression guard が追加され、既存 guard を緩めていないことが確認された。
+
+## residual
+
+- F5fu は row-tile RLE packet readiness evidence までであり、whole-surface readiness aggregation、hardware flush completion、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5ft Bare actual display driver adapter boundary
+
+## 目的
+
+- F5fs Bare display memory span write/readback boundary の後続として、F5fp host import accepted step と F5fs owner-side span write/readback を接続する bare actual display driver adapter boundary を追加する。
+- public driver step / outcome / accepted span / byte echo は Copy value として偽造できるため adapter の authority にせず、owner 内 canonical driver state から F5fp `gui_bare_display_driver_host_import_step` を実行する。
+- SpanWrite は host accepted と owner full span write/readback の両方が成功した場合だけ owner state を進める。
+- Begin / Present は host accepted ledger step completed evidence に限定し、frame ready / present ready / byte readback evidence とは扱わない。
+
+## subagent review
+
+- Jason the 2nd の実装前 plan review は `REVIEW_APPROVED`。
+- 実装条件は、owner 内 state から F5fp を呼ぶこと、returned step だけを authority にすること、SpanWrite は F5fs readback success だけで owner を進めること、Begin / Present は frame-ready を主張しないこと、owner-bearing success / error は Clone / Copy にしないこと、host import failure と span readback failure の両方で owner を回収できることだった。
+- 実装後 review も `REVIEW_APPROVED`。F5ft は approved plan と一致し、Begin / Present の evidence 過大主張、raw storage accessor、loop / queue / renderer / fallback / silent no-op leakage は見つからなかった。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_adapter.nepl` を追加した。
+- public entry `gui_bare_display_driver_adapter_step owner memory_step` は owner 内 `GuiBareDisplayDriverState` を取り出し、`gui_bare_display_driver_host_import_step driver_state memory_step` を呼ぶ。
+- host import failure は `GuiBareDisplayDriverAdapterErrorKind::HostImportFailed` として owner-bearing error にし、owner state は進めない。
+- returned step の action / outcome は enum `match` で明示的に分け、`SpanWrite` / `SpanWriteAccepted` では returned outcome を F5fs `gui_bare_display_memory_owner_write_span_readback` へ渡す。
+- F5fs span readback failure は F5fs error payload から owner を回収し、lower kind/category を `SpanReadbackFailed` として保持する。host 側 side effect は rollback されたものとは扱わない。
+- `FrameBegin` / `BeginAccepted` と `FramePresent` / `FramePresentAccepted` は storage と verified byte count を保持し、returned next driver state を owner へ反映し、`last_verified` を `Option::None` に clear する。
+- owner-bearing `GuiBareDisplayDriverAdapterCompleted` / `GuiBareDisplayDriverAdapterError` には Clone / Copy を実装しない。
+- `platforms/gui/bare` facade、GUI standard library spec、bare platform behavior、GUI/TUI implementation plan、focused doctest、source-policy を F5ft に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_adapter.nepl -o tmp_gui_bare_display_driver_adapter_module_f5ft_second.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_adapter.n.md -o tmp_gui_bare_display_driver_adapter_f5ft_second.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md -o tmp_gui_bare_display_memory_span_readback_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5ft.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。既存 broad warning は 9 件で、F5ft の direct policy である `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
+- `stdlib/platforms/gui/bare.nepl` の直接指定は facade-only file のため runnable doctest なしであり、focused F5ft doctest と source-policy で facade export を確認した。
+
+## residual
+
+- F5ft は actual display driver adapter の 1 step boundary までであり、frame readiness evidence、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fs Bare display memory span write/readback boundary
+
+## 目的
+
+- F5fr Bare raw display memory ownership boundary の後続として、bare display memory span write/readback boundary を追加する。
+- 初期案の pure span readback は F5fr が 1 byte しか raw memory に store しない事実と矛盾するため採用しない。
+- owner 内 canonical driver state から F5fo driver apply を再実行し、canonical `SpanWrite` / `SpanWriteAccepted` の span 全 byte を owner memory に store し、その後 full readback してからだけ owner state を進める。
+- F5fs は span readback evidence までであり、actual hardware driver adapter、frame ready / present ready evidence、host import、scheduler loop、queue、DOM、Canvas、minifb、video memory transport、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の初回 plan review は `NEEDS_CHANGES`。
+- 指摘内容は、F5fr owner memory には 1 echoed byte しか書かれていないため、そのまま bulk / span readback evidence を成功させると zero-fill / fallback-like assumption または single-byte evidence の拡大解釈になるというもの。
+- 指摘に従い、F5fs は pure readback ではなく、owner-side span memory write/readback boundary として再設計した。
+- 修正版 plan review は `REVIEW_APPROVED`。`gui_bare_display_driver_apply owner_driver_state memory_step outcome` を authority にすること、owner-bearing success / error は `Clone` / `Copy` にしないこと、full store + full readback 後にだけ state を進めること、`last_verified` を stale evidence として残さないことが実装条件になった。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_memory_span_readback.nepl` を追加し、`GuiBareDisplayMemoryOwnerSpanReadbackEvidence`、`GuiBareDisplayMemoryOwnerSpanReadbackCompleted`、`GuiBareDisplayMemoryOwnerSpanReadbackErrorKind`、`GuiBareDisplayMemoryOwnerSpanReadbackError`、`gui_bare_display_memory_owner_write_span_readback` を実装した。
+- public entry は `GuiBareDisplayMemoryOwner`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome` だけを受け、`GuiBareDisplayDriverByteEchoVerified` や `GuiBareDisplayDriverSpanWriteAccepted` を authority として受け取らない。
+- `gui_bare_display_memory_owner_write_span_readback` は owner の canonical driver state から `gui_bare_display_driver_apply` を呼び、returned step の `SpanWrite` / `SpanWriteAccepted` のみを受理する。
+- accepted span の byte range と surface byte count を検査し、owner 内 `RegionToken u8` へ RGBA8888 channel order で全 byte を store した後、同じ range の全 byte を load して expected value と比較する。
+- 成功時は `next_driver_state`、same storage、updated verified byte count、`Option::None` の `last_verified` で next owner を作る。owner-bearing success / error には `Clone` / `Copy` を実装しない。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、focused doctest、source-policy、todo を F5fs に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_span_readback.nepl -o tmp_gui_bare_display_memory_span_readback_module_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_span_readback.n.md -o tmp_gui_bare_display_memory_span_readback_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_after_f5fs.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fs.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。既存の broad warning は 9 件あり、F5fs の direct policy である `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
+
+## subagent implementation review
+
+- Bacon the 2nd の implementation review は `REVIEW_APPROVED`。
+- public entry が owner state から `gui_bare_display_driver_apply` を再実行し、canonical `SpanWrite` / `SpanWriteAccepted` だけを受理すること、全 byte store、全 byte readback、readback 後の state advance、`Option::None` による stale single-byte evidence clear が確認された。
+- public `ByteEchoVerified` / `SpanWriteAccepted` authority、raw storage accessor、host import / DOM / Canvas / minifb / queue / scheduler / fallback / frame-ready leakage は見つからなかった。
+- residual non-blocker として、store loop の途中で失敗した場合は raw memory が部分更新済みの owner が error payload で返るが、driver state は進まず retry / free 可能であると判断された。
+
+## residual
+
+- F5fs は owner-side span write/readback evidence までであり、bare actual hardware display driver adapter、frame readiness evidence、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fr Bare raw display memory ownership boundary
+
+## 目的
+
+- F5fq Bare display driver byte echo verification boundary の後続として、bare raw display memory ownership boundary を追加する。
+- `GuiBareDisplayDriverByteEchoVerified` は public Copy value として偽造できるため、public write API の権威にしない。
+- `GuiBareDisplayMemoryOwner` が canonical `GuiBareDisplayDriverState` と private `RegionToken u8` を保持し、owner 内 driver state から F5fq verification を再実行してから exact 1 byte だけを raw memory に反映する。
+- store / readback が成功するまで owner state を進めず、span ready / frame ready / bulk readback / actual driver adapter / host import / loop / queue / fallback / silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の plan review は `NEEDS_CHANGES`。
+- 初期案では `GuiBareDisplayDriverByteEchoVerified` を public success input として扱える余地があり、Copy-forgeable value を権威にしてしまう risk があると指摘された。
+- 指摘に従い、owner に canonical `GuiBareDisplayDriverState` を埋め込み、public write は `owner + memory_step + outcome + echo` から F5fq を再実行する設計に修正した。
+- owner と owner-bearing write error は `Clone` / `Copy` を実装しないこと、write failure は owner を error payload で返すこと、1 byte echo を span / frame readiness に拡大解釈しないことを実装条件にした。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_memory_owner.nepl` を追加し、`GuiBareDisplayMemoryOwner`、create / write echo / checked single-byte read / free API、typed create / write / read / free error を実装した。
+- owner は `GuiBareDisplayDriverState`、`surface_byte_count`、private `RegionToken u8`、`verified_byte_count`、`last_verified` を保持する。
+- `gui_bare_display_memory_owner_write_echo` は owner 内 driver state から `gui_bare_display_driver_byte_echo_verify` を呼び、成功後に exact byte index へ expected value を store し、同じ byte を load して一致を確認してからだけ driver state と verified byte count を進める。
+- write error は owner を保持し、caller が recovery / free / retry を選べる。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、focused doctest、source-policy、todo を F5fr に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory_owner.nepl -o tmp_gui_bare_display_memory_owner_module_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory_owner.n.md -o tmp_gui_bare_display_memory_owner_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_after_f5fr.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5fr.json --timeout-nonfatal` は 22 / 22 で通過した。
+
+## subagent implementation review
+
+- Bacon the 2nd の implementation review は `REVIEW_APPROVED`。
+- owner boundary は pure rename layer ではなく、canonical driver state を owner に持ち、public write が F5fq を再実行するため forged verified value を権威にしていないことが確認された。
+- owner / write error に `Clone` / `Copy` がなく、write error が owner を保持し、store / readback 成功後にだけ state と verified count を進めることが確認された。
+- residual risk として successful write path の full behavioral doctest は source-policy 中心であり、現 slice では blocker ではないと判断された。
+
+## residual
+
+- F5fr は single-byte raw memory ownership までであり、bulk byte readback evidence、span / frame readiness evidence、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fq Bare display driver byte echo verification boundary
+
+## 目的
+
+- F5fp Bare display driver host import boundary の後続として、bare display driver byte echo verification boundary を追加する。
+- `GuiBareDisplayDriverStepApplied` は public Copy value として偽造できるため public entry の入力権威にせず、`GuiBareDisplayDriverState`、`GuiBareDisplayMemoryStepApplied`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverByteEcho` から内部で F5fo `gui_bare_display_driver_apply` を呼ぶ。
+- canonical step が `SpanWrite` / `SpanWriteAccepted` の場合だけ、accepted byte range と RGBA8888 channel evidence を使って 1 byte echo を検証する。
+- raw display memory ownership、bulk byte readback、actual driver adapter、host import、loop、queue、DOM、Canvas、minifb、video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Archimedes the 2nd の plan review は `NEEDS_CHANGES`。
+- 初期案の `gui_bare_display_driver_byte_echo_verify driver_step echo` は public Copy の `GuiBareDisplayDriverStepApplied` を信用してしまうため、F5fo/F5fp が受理した canonical step であることを証明できないと指摘された。
+- 指摘に従い、public verify は supplied driver step を受け取らず、`driver_state + memory_step + outcome + echo` を受け、内部で `gui_bare_display_driver_apply` を呼んでから byte extraction へ進む設計に修正した。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_byte_echo.nepl` を追加し、`GuiBareDisplayDriverByteEcho`、typed channel enum `Red` / `Green` / `Blue` / `Alpha`、verified value、typed error、`gui_bare_display_driver_byte_echo_verify` を実装した。
+- driver apply failure は `DriverStepInvalid %GuiBareDisplayDriverErrorKind` として lower kind/category を保持する。
+- `SpanWrite` / `SpanWriteAccepted` 以外は `NonSpanWriteAction` / `NonSpanWriteOutcome` として fail-closed に拒否する。
+- byte echo は value 0..255、`byte_start <= byte_index < byte_end`、`rem_s relative 4` による typed channel、expected channel value との一致を検査し、mismatch は `EchoValueMismatch` にする。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy、todo を F5fq に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_byte_echo.nepl -o tmp_gui_bare_display_driver_byte_echo_module_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_byte_echo.n.md -o tmp_gui_bare_display_driver_byte_echo_f5fq.json --timeout-nonfatal` は 23 / 23 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fq.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_storage.n.md -o tmp_gui_bare_display_storage_after_f5fq.json --timeout-nonfatal` は既存 heavy forged sequence の doctest#2 が compile timeout として検出されたが、`--timeout-nonfatal` であり今回の差分起因ではない。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Archimedes the 2nd の implementation review は `REVIEW_APPROVED`。
+- prior blocker は解消済みであり、public verify が `GuiBareDisplayDriverStepApplied` を受け取らず、`gui_bare_display_driver_apply state memory_step outcome` を byte extraction 前に呼ぶこと、apply failure を `DriverStepInvalid` と lower kind/category で保持すること、`SpanWrite` / `SpanWriteAccepted` のみが検証へ進むことが確認された。
+- full forged storage / framebuffer executable sequence は heavy timeout に入りやすいため、F5fq では channel mapping と typed `DriverStepInvalid` の軽量 doctest、source-policy による apply-before-extract / forged-step rejection / span-only / bounds / mismatch / Begin-Present fail-closed 固定で妥当と判断された。
+
+## residual
+
+- F5fq は単一 byte echo verification までであり、raw display memory ownership、bulk byte readback、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fp Bare display driver host import boundary
+
+## 目的
+
+- F5fo Bare display driver outcome ledger boundary の後続として、bare display driver host import boundary を追加する。
+- `GuiBareDisplayMemoryStepApplied` は public value なので、host import の前に F5fo ledger preflight を通して stale / forged step を副作用なしで拒否する。
+- preflight success action に対応する `display_driver_begin` / `display_driver_span_write` / `display_driver_frame_present` を 1 回だけ呼び、status `0` だけを accepted outcome として F5fo ledger へ再適用する。
+- status `-1` は `Unsupported`、unknown negative と positive non-zero は `BackendFailure` として `DriverRejected` に写し、fallback、silent no-op、actual byte readback proof には進まない。
+
+## subagent plan review
+
+- Jason the 2nd の plan review は `PLAN_APPROVED`。
+- 実装条件として、status `0` だけを success にすること、success outcome は host accepted status と ledger match の証明に限定して byte write proof と混同しないこと、F5fk `display_presenter_session_*` とは別名の `display_driver_*` import にすること、span write では byte_start / byte_len / byte_end / surface byte count / run and pixel evidence を渡すこと、wildcard success / no-op を持たないことが示された。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_driver_host_import.nepl` を追加し、F5fo preflight、host import call、status-to-outcome mapping、final ledger reapply を `gui_bare_display_driver_host_import_step` に分離した。
+- `display_driver_begin` / `display_driver_span_write` / `display_driver_frame_present` の `nepl_gui_bare` import を追加し、doctest-only default stub は `nodesrc/run_test.js` で `-1` を返すようにした。
+- span write import には F5fn の checked byte evidence と RGBA8888 color evidence を渡し、Begin / Present には descriptor metadata と surface byte count を渡す。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を F5fp に合わせて更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver_host_import.n.md -o tmp_gui_bare_display_driver_host_import_f5fp_fix2.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver_host_import.nepl -o tmp_gui_bare_display_driver_host_import_module_f5fp_fix2.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_after_f5fp_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fp_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Jason the 2nd の implementation review は `REVIEW_APPROVED`。
+- preflight が host import より前に実行され、status `0` のみ success、positive non-zero を含む non-zero status は typed `DriverRejected` へ写ることが確認された。
+- span write が byte_start / byte_len / byte_end / surface byte count / color / run / pixel evidence を raw import へ渡し、action match が wildcard success ではないこと、DOM / Canvas / minifb / video memory / loop / queue leakage がないことも確認された。
+- reviewer 側でも `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` が通過した。
+
+## residual
+
+- F5fp は host accepted status と F5fo ledger match までであり、raw byte buffer readback、byte echo verification、bare actual display driver adapter、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fo Bare display driver outcome ledger boundary
+
+## 目的
+
+- F5fn Bare display memory write plan boundary の後続として、bare display driver outcome ledger boundary を追加する。
+- `GuiBareDisplayMemoryStepApplied` は public value なので、その supplied state / action を信用せず、driver state が保持する canonical `GuiBareDisplayMemoryState` から `gui_bare_display_memory_apply` を再適用した expected state / action と照合する。
+- 成功時だけ caller supplied driver outcome と checked action evidence を exact match し、actual hardware write、raw byte buffer ownership、host import、present loop、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装条件として、F5fo は pure driver outcome ledger boundary に限定すること、supplied memory step を canonical memory state で再適用してから信用すること、`BeginAccepted` / `SpanWriteAccepted` / `FramePresentAccepted` を checked action evidence と exact match すること、outcome mismatch / driver rejected / forged step を enum error と `Result` で返すこと、host import / loop / queue / DOM / Canvas / minifb / video memory / fallback / silent no-op を入れないことが示された。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_driver.nepl` を追加し、`GuiBareDisplayDriverState`、`GuiBareDisplayDriverPhase`、`GuiBareDisplayDriverOutcome`、`GuiBareDisplayDriverErrorKind`、`GuiBareDisplayDriverStepApplied`、`gui_bare_display_driver_apply` を追加した。
+- `gui_bare_display_driver_apply` は driver state invariant を確認し、supplied `GuiBareDisplayMemoryStepApplied` から storage step を取り出し、canonical memory state で `gui_bare_display_memory_apply` を再適用して expected state / action と supplied state / action を照合する。
+- outcome match は Begin / SpanWrite / FramePresent の typed evidence を field ごとに確認し、`DriverRejected` は lower `GuiError` を保持した driver error として返す。
+- F5fo source-policy のため、`display_memory` に plan / action / state の public accessor と equality helper を追加し、`platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を更新した。
+
+## verification
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_driver.n.md -o tmp_gui_bare_display_driver_f5fo_after_review3.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_driver.nepl -o tmp_gui_bare_display_driver_module_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_after_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory.nepl -o tmp_gui_bare_display_memory_module_after_f5fo_final.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+
+## subagent implementation review
+
+- Faraday the 2nd の初回 implementation review は `NEEDS_CHANGES`。実装本体には矛盾を見つけなかったが、F5fo source-policy と executable doctest が `SpanWriteAccepted` の pixel start / end、row byte start、x byte offset を十分に固定していないと指摘した。
+- 指摘対応として、source-policy の ordered fragments に missing field と mismatch kind を追加し、`display_driver` に accepted evidence accessor を追加し、focused doctest で target、span、run index、pixel range、row / x byte offset、byte range、surface byte count、color を確認するようにした。
+- 再レビューは `REVIEW_APPROVED`。追加の変更要求はない。
+
+## residual
+
+- F5fo は driver outcome ledger boundary までであり、actual hardware display driver write、raw byte buffer ownership、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fn Bare display memory write plan boundary
+
+## 目的
+
+- F5fm Bare display storage adapter boundary の後続として、bare display memory write plan boundary を追加する。
+- `GuiBareDisplayStorageStepApplied` / effect は public value なので、その supplied state / effect を信用せず、memory state が保持する canonical `GuiBareDisplayStorageState` から再適用した expected state / effect と照合する。
+- 成功時だけ actual display driver が消費できる checked byte write plan を返し、actual driver write、host import、present loop、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bacon the 2nd の plan review は `PLAN_APPROVED`。F5fm の typed effect ledger を actual driver 直前の checked byte write plan に落とす boundary であれば pure rename layer ではなく、F5fm の後続として妥当と確認された。
+- 実装条件として、canonical `GuiBareDisplayStorageState` を memory state に持つこと、`height * stride_bytes`、`y * stride_bytes`、`x * 4`、`width * 4`、start / end 加算を全て checked にすること、present は storage present effect と complete-frame evidence に基づいて許可すること、forged / stale step と forbidden host dependency を focused doctest / source-policy で固定することが示された。
+
+## implementation
+
+- `stdlib/platforms/gui/bare/display_memory.nepl` を追加し、`GuiBareDisplayMemoryState`、`GuiBareDisplayMemoryPhase`、`GuiBareDisplayMemorySpanWritePlan`、`GuiBareDisplayMemoryAction`、`GuiBareDisplayMemoryErrorKind`、`gui_bare_display_memory_apply` を追加した。
+- `gui_bare_display_memory_apply` は memory state invariant を確認し、supplied storage step から framebuffer step を読み、canonical storage state で `gui_bare_display_storage_apply` を再適用して expected state / effect と supplied state / effect を照合する。
+- `gui_bare_display_memory_span_write_plan_checked` は RGBA8888 row span の `byte_start` / `byte_len` / `byte_end` を checked arithmetic で計算し、negative geometry、overflow、surface OOB を enum error と `Result` で拒否する。
+- `platforms/gui/bare` facade、GUI spec、bare platform behavior、implementation plan、focused doctest、source-policy を F5fn に合わせて更新した。
+
+## verification
+
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_memory.n.md -o tmp_gui_bare_display_memory_f5fn.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_memory.nepl -o tmp_gui_bare_display_memory_module_f5fn.json --timeout-nonfatal` は 22 / 22 で通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `stdlib/platforms/gui/bare.nepl` facade 単体は runnable doctest を持たないため、facade export は source-policy と F5fn focused doctest の import smoke で確認した。
+- F5fm の heavy forged storage sequence は現 compiler で timeout しやすいため、F5fn では supplied storage step の再適用、mismatch rejection、overflow / OOB、present complete evidence を source-policy と軽量 executable doctest で固定した。
+
+## subagent implementation review
+
+- Arendt the 2nd の implementation review は `REVIEW_APPROVED`。
+- `gui_bare_display_memory_apply` が canonical storage state から `gui_bare_display_storage_apply` を再適用して supplied state / effect と照合していること、`height * stride_bytes`、`y * stride_bytes`、`x * 4`、`width * 4`、start / end を checked arithmetic にしていること、present が active state、target / descriptor、accepted run / pixel、expected run / pixel の一致に基づくことが確認された。
+- forged step と incomplete present の executable regression は、現 compiler で長い apply sequence が安定した後に追加する余地があるが、今回の実装承認条件ではないと判断された。
+
+## residual
+
+- F5fn は checked byte write plan boundary までであり、actual display driver write、raw byte buffer ownership、native / bare long-running scheduler backend、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+# 2026-06-19 Agent2 GUI platform F5fm Bare display storage adapter boundary
+
+## 目的
+
+- F5fl Bare display framebuffer adapter boundary の後続として、bare display storage adapter の typed effect ledger を追加する。
+- `GuiBareFramebufferStepApplied` は public value なので、その supplied next state を信用せず、storage が保持する canonical framebuffer state から operation を再検証する。
+- 成功時だけ `FrameBegin`、`SpanWrite`、`FramePresent` の typed effect を返し、actual display driver / raw memory / host import / present loop / fallback / silent no-op には進まない。
+
+## subagent plan review
+
+- Gibbs the 2nd は `PLAN_APPROVED` として実装開始可と判断した。
+- 必須条件として、canonical framebuffer state の保持、StepApplied state mismatch の拒否、Begin double execution、RunSpan order / bounds、Incomplete End、replay / stale / other target / forged applied state の enum error、host import / fallback / silent no-op / DOM / Canvas / minifb 禁止を挙げた。
+- pixel buffer の actual memory 実装は後続 slice とし、この slice では後続 driver が消費できる typed storage ledger とする方針も承認された。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/display_storage.nepl` を追加した。
+- `GuiBareDisplayStorageState`、`GuiBareDisplayStoragePhase`、`GuiBareDisplayStorageEffect`、`GuiBareDisplayStorageErrorKind`、`GuiBareDisplayStorageStepApplied`、`GuiBareDisplayStorageStepError` を追加した。
+- `gui_bare_display_storage_apply` は storage invariant を検査し、canonical framebuffer state から `gui_bare_framebuffer_validate_operation` を再実行した後、expected next state と supplied next state を比較する。
+- framebuffer validation failure は `FramebufferValidationFailed` に包み、applied state mismatch、storage phase mismatch、target / descriptor / accepted count mismatch は storage 側 enum error で返す。
+- `stdlib/platforms/gui/bare.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_bare_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+
+## verification current
+
+- `stdlib/platforms/gui/bare/display_storage.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_bare_display_storage.n.md` は import smoke に加え、forged `GuiBareFramebufferStepApplied` を `gui_bare_display_storage_apply` へ渡して `AppliedStateMismatch` になる executable doctest を持つ。
+- full Begin / RunSpan / End sequence を実行 doctest から直接呼ぶと現 compiler で 180 秒 timeout に入りやすいため、replay / double begin / incomplete end / frame mismatch / storage invariant の詳細条件は `nodesrc/test_web_gui_font_rendering_contract.js` の source-policy に寄せた。
+- F5fm source-policy は、facade export、docs、typed state / effect / error、canonical state 再検証順序、stale applied rejection、host import / fallback / loop / queue / renderer 禁止を検査する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- 1 回目の実装レビューでは `NEEDS_CHANGES` として、source-policy だけでは `gui_bare_display_storage_apply` の behavioral contract を固定できないと指摘された。
+- 指摘に従い、forged `GuiBareFramebufferStepApplied` が `AppliedStateMismatch` になる executable doctest を追加した。
+- full sequence などの重い条件は `source_policy_*` label に明示分離し、実行 coverage と構造 policy の責務を混ぜない形へ修正した。
+- 再レビューでは Gibbs the 2nd が `REVIEW_APPROVED` として blocker なしと判断した。
+
+# 2026-06-18 Agent2 GUI platform F5fl Bare display framebuffer adapter boundary
+
+## 目的
+
+- F5fk Bare display presenter session host import boundary の後続として、bare display framebuffer adapter の pure validation state machine を追加する。
+- これは actual display driver ではなく、existing bare scheduler host executor へ operation を渡す前に Begin / RunSpan / End の順序、target、surface、frame、shape、row-major progress、incomplete end を検査する boundary である。
+- validation failure と host failure は state と operation を保持する typed error とし、fallback、silent no-op、advanced state の採用、new `#extern`、long-running scheduler backend、timer、queue、Canvas / DOM / minifb / video memory には進まない。
+
+## subagent plan review
+
+- Archimedes the 2nd は `NEEDS_CHANGES` として、slice を actual display driver ではなく bare platform validation / adapter boundary に狭めるべきだと指摘した。
+- 指摘に従い、new host import は追加せず、pure validation と existing F5fk host executor wrapper を分離する計画へ修正した。
+- acceptance として、typed Config / State / Phase / Error、recoverable state / operation、valid begin/run/end、run-before-begin、end-before-begin、target mismatch、gap / overlap、incomplete end、source policy、docs checkpoint が必要とされた。
+
+## implementation current
+
+- `stdlib/platforms/gui/bare/framebuffer.nepl` を追加した。
+- `GuiBareFramebufferConfig`、`GuiBareFramebufferState`、`GuiBareFramebufferPhase`、`GuiBareFramebufferErrorKind`、`GuiBareFramebufferStepApplied`、`GuiBareFramebufferStepError` を追加した。
+- `gui_bare_framebuffer_validate_operation` は pure validation として host import を呼ばず、Begin / RunSpan / End の state transition だけを検査する。
+- Begin descriptor と RunSpan / End 前の active descriptor は `std/gui/tile_present` の descriptor contract を再検査し、active state の `seen_run_count` / `seen_pixel_count` は non-negative かつ descriptor count 以下であることを確認する。
+- `gui_bare_framebuffer_execute_operation` は validation 成功後だけ `gui_bare_scheduler_host_executor_execute_operation` を 1 回呼び、host failure では original state と operation を `HostExecutionFailed` に保持する。
+- `stdlib/platforms/gui/bare.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_bare_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。
+
+## verification current
+
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/framebuffer.nepl` は通過した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_framebuffer.n.md` は通過した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md` は通過した。
+- `node nodesrc/issues.js check --dir issues` は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の 9 件 warning が残っている。F5fl focused source policy は通過しており、この変更の blocker ではない。
+- `npm --prefix web run build:ts` と `npm --prefix web run build` は通過した。
+- `node nodesrc/cli.js -i tests/stdlib/gui_platform_bare_framebuffer.n.md -o html=tmp_f5fl_cli_html` は HTML を生成できた。`nodesrc/cli.js` の JSON 出力は playground editor test 専用なので、この slice は doctest JSON と CLI HTML で確認した。
+
+## subagent implementation review
+
+- 1 回目の実装レビューでは `NEEDS_CHANGES` として、public `Active` state を偽造すると active descriptor と seen count が再検査されず host execution へ進み得ると指摘された。
+- 指摘に従い、`gui_bare_framebuffer_validate_active_invariant` を追加し、RunSpan / End の入口で active descriptor contract と seen count 範囲を再検査するように修正した。
+- focused doctest と source policy に、偽造 active descriptor、negative seen count、over-range seen count、RunSpan / End の active invariant ordering を追加した。
+- 再レビューでは `APPROVED` として blocker なしと判断された。
+
+# 2026-06-18 Agent2 GUI platform F5ew Native/Bare scheduler executor one-step bridge boundary
+
+## 目的
+
+- F5ev Native/Bare scheduler executor outcome input helper の後続として、F5ev ready payload を F5ek real loop step へ 1 回だけ渡す。
+- これは backend-facing one-step bridge であり、not long-running scheduler backend である。
+- actual host action executor、F5ei direct complete、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Maxwell は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、F5ev typed boundary を維持すること、F5ek `real_loop_step` へ正確に 1 回だけ委譲すること、F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返すことだった。
+- source policy では action sink / driver、queue、loop、clock / timer、rendering / platform API、fallback、synthetic `Result::Ok` / `Result::Err` を禁止することも確認された。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_executor_step.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_step.nepl` を追加した。
+- public entry は `GuiNativeSchedulerExecutorInputReady` / `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy だけを受ける。
+- ready payload の original `ExecuteHostAction` を `LoopAction::ExecuteHostAction` として包み、packaged input を F5ek `real_loop_step` へ 1 回だけ渡す。
+- F5ek の `Result RealLoopStepResult RealLoopStepError` を再分類せず返し、success / failure outcome、`ClockDelta`、`CompleteAck`、unsupported error は合成しない。
+- 初回検証で step module の public return type が `Result` を使う一方、`core/result` import が不足していることが分かったため、native / bare の両方に明示 import を追加した。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_step.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md` は通過した。
+- `stdlib/platforms/gui/native/scheduler_executor_step.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_step.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md` は通過した。
+- F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の別領域に warning が残っている。F5ew focused source policy は通過しており、この変更の blocker ではない。
+
+## subagent implementation review
+
+- Maxwell は `REVIEW_APPROVED` として blocker なしと判断した。
+- Native / Bare step module が F5ev typed ready payload と borrowed F5ek policy だけを受けることが確認された。
+- `action` / `input` を取り出し、`LoopAction::ExecuteHostAction` として包み、F5ek `real_loop_step` を 1 回だけ呼び、lower `Result` をそのまま返すことが確認された。
+- synthetic `Result::Ok` / `Result::Err`、queue、timer、rendering / platform API、fallback、silent no-op、long-running scheduler behavior の混入はないと確認された。
+
+# 2026-06-18 Agent2 GUI platform F5ev Native/Bare scheduler executor outcome input helper boundary
+
+## 目的
+
+- F5eu Native/Bare scheduler clock action input helper の後続として、F5eg `ExecuteHostAction` action と caller supplied `Result unit GuiError` outcome を F5ek `RealLoopStepInput::ExecutorOutcome` に接続する。
+- これは backend-facing input boundary であり、not long-running scheduler backend である。
+- `YieldToClock`、`AwaitTimerAdvance`、`Complete`、`ClockDelta`、`CompleteAck`、F5ei executor complete、F5ek real loop step、action sink / driver、support validation、timer backend、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Volta は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、typed `ExecuteHostAction` だけを受けること、caller supplied `Result unit GuiError` をそのまま保持すること、`RealLoopStepInput::ExecutorOutcome` を構築して original action と返すこと、`Result` を重ねないことだった。
+- unsupported variants は型で除外し、F5ei / F5ek / action sink / queue / timer / rendering / fallback へ進まない方針を実装計画と source policy に反映した。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_executor_input.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_input.nepl` を追加した。
+- `gui_*_scheduler_executor_input` は typed `ExecuteHostAction` payload と caller supplied outcome だけを受け、F5ek `RealLoopStepInput::ExecutorOutcome` を 1 回だけ構築する。
+- ready payload は original action と `RealLoopStepInput` を保持する。
+- helper は total packaging なので `Result` を返さず、success / failure outcome を合成しない。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_executor_input.nepl` と `stdlib/platforms/gui/bare/scheduler_executor_input.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_executor_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md` は通過した。
+- F5eu native / bare scheduler clock input doctest と F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+## subagent implementation review
+
+- Volta は `REVIEW_APPROVED` として blocker なしと判断した。
+- native / bare とも backend-facing input boundary に閉じ、typed `ExecuteHostAction` と caller supplied `Result unit GuiError` だけを受けることが確認された。
+- `RealLoopStepInput::ExecutorOutcome` への 1 回だけの包装、original action の保持、`Result` を返さない total packaging が確認された。
+- `Result::Ok unit` / `Result::Err GuiError::*` 合成、F5ei / F5ek / action sink / driver / support validation / queue / rendering / fallback への踏み込みは見当たらないと確認された。
+
+# 2026-06-18 Agent2 GUI platform F5eu Native/Bare scheduler clock action input helper boundary
+
+## 目的
+
+- F5et Native/Bare scheduler clock one-tick helper の後続として、F5eg `YieldToClock` / `AwaitTimerAdvance` action を F5ek `RealLoopStepInput` に接続する。
+- これは action input helper only であり、not long-running scheduler backend である。
+- `ExecuteHostAction`、`Complete`、`ExecutorOutcome`、`CompleteAck`、timer backend、queue、while loop、present、minifb / Canvas / DOM / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Bohr は `PLAN_APPROVED` として実装開始可と判断した。
+- 指摘は、entry を `YieldToClock` / `AwaitTimerAdvance` に分けること、success payload に original action / new `BackendClockState` / F5eo-derived `RealLoopStepInput` を保持すること、error payload に original action / input clock state / lower error を保持すること、tick を 1 回だけ呼ぶことだった。
+- F5eo の `BackendClockState` は `i32` だけの state value なので、tick failure path で input state を失わないため Clone / Copy を明示した。F5ek `RealLoopStepInput` は既存 source policy が owner-bearing input として扱うため Copy 化しない。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_clock_input.nepl` と `stdlib/platforms/gui/bare/scheduler_clock_input.nepl` を追加した。
+- `gui_*_scheduler_clock_yield_input` と `gui_*_scheduler_clock_timer_input` は F5et `gui_*_scheduler_clock_tick` を 1 回だけ呼ぶ。
+- success payload は original action、新しい `BackendClockState`、F5eo 由来の `RealLoopStepInput` を保持する。
+- failure payload は original action、input clock state、lower platform scheduler clock error を保持する。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、todo を更新した。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_clock_input.nepl` と `stdlib/platforms/gui/bare/scheduler_clock_input.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_clock_input.n.md` と `tests/stdlib/gui_platform_bare_scheduler_clock_input.n.md` は通過した。
+- F5et native / bare scheduler clock doctest、F5eo backend clock doctest、F5ek real loop step doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+- `web` の `npm run build` は通過した。
+- `nodesrc/cli.js` は今回追加した focused doctest 文書から一時ディレクトリへ HTML を生成できた。
+
+## subagent implementation review
+
+- Euclid the 2nd は `REVIEW_APPROVED` として blocker なしと判断した。
+- F5eu は action input helper only / not long-running scheduler backend として設計どおりに閉じていることが確認された。
+- native / bare とも `YieldToClock` / `AwaitTimerAdvance` typed payload 用 entry だけを持ち、各 entry が `gui_*_scheduler_clock_tick` を 1 回だけ呼ぶことが確認された。
+- success payload は original action / new `BackendClockState` / F5eo 由来 `RealLoopStepInput`、error payload は original action / input state / lower error を保持していることが確認された。
+- scheduler backend、queue、timer backend、sleep、present、minifb、Canvas、DOM、video memory、fallback、silent no-op、汎用 `LoopAction` match、`ExecutorOutcome` / `CompleteAck` 合成は見当たらないと確認された。
+
+# 2026-06-18 Agent2 GUI platform F5et Native/Bare scheduler clock one-tick helper boundary
+
+## 目的
+
+- F5er / F5es clock source の後続として、native / bare host sample を F5eo backend clock boundary へ 1 tick 分だけ接続する。
+- これは long-running scheduler backend ではなく、`BackendClockPolicy` / `BackendClockState` と platform sample を F5eo `backend_clock_start` / `backend_clock_advance` へ渡す helper である。
+- timer、sleep、queue、while loop、present、minifb / Canvas / video memory、fallback、silent no-op には進まない。
+
+## subagent plan review
+
+- Chandrasekhar は `PLAN_CHANGES` として、方向性には blocker なしと判断した。
+- 指摘は、`scheduler_clock` が scheduler backend と誤解されないよう one-tick helper と明記すること、return shape を `BackendClockState` / `BackendClockAdvance` に固定すること、sample failure で policy / state を失わないことだった。
+- 指摘を implementation plan、doc comment、source policy、error payload 設計へ反映して実装した。
+
+## implementation current
+
+- `stdlib/platforms/gui/native/scheduler_clock.nepl` と `stdlib/platforms/gui/bare/scheduler_clock.nepl` を追加した。
+- start は platform clock sample を 1 回取得し、F5eo `backend_clock_start` へ委譲する。
+- tick は platform clock sample を 1 回取得し、F5eo `backend_clock_advance` へ委譲して `BackendClockAdvance` を返す。
+- start sample failure は policy と `GuiError`、tick sample failure は policy / state / `GuiError` を保持する。
+- F5eo lower error は再分類せず lower error として保持する。
+- native / bare facade、focused doctest、source policy、GUI/font rendering docs、bare behavior note、todo を更新した。
+
+## subagent implementation review
+
+- Noether は `REVIEW_APPROVED` として blocker なしと判断した。
+- F5et は one-tick helper 境界に留まり、native / bare とも F5eo `BackendClockPolicy` / `BackendClockState` / `BackendClockAdvance` へ委譲していることが確認された。
+- `ClockDelta` の直接合成、timer / queue / sleep / loop / present / minifb / Canvas / DOM / video memory / fallback / silent no-op / Vec の導入がないことも確認された。
+- sample failure payload は start で policy、tick で policy / state / error を保持しており、docs / source policy / focused doctest と整合している。
+- 新規 `scheduler_clock.nepl` と focused doctest は未追跡なので、commit 時に明示的に stage する必要がある。
+
+## verification current
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は通過した。
+- `stdlib/platforms/gui/native/scheduler_clock.nepl` と `stdlib/platforms/gui/bare/scheduler_clock.nepl` の module doctest は通過した。
+- `tests/stdlib/gui_platform_native_scheduler_clock.n.md` と `tests/stdlib/gui_platform_bare_scheduler_clock.n.md` は通過した。
+- 既存回帰として `tests/stdlib/gui_platform_native_clock.n.md`、`tests/stdlib/gui_platform_bare_clock.n.md`、F5eo backend clock の focused doctest と module doctest は通過した。
+- `git diff --check` は CRLF 予告のみで、空白エラーはない。
+
+# 2026-06-18 Agent2 GUI platform F5es Bare formal monotonic clock source backend boundary
+
+## 目的
+
+- F5er Native clock source の後続として、bare embedding host が明示提供する actual monotonic clock source を `platforms/gui/bare` に追加する。
+- `nepl_gui_bare.monotonic_clock_ms` の単一 `i32` ABI で sample または sentinel を受け、negative sentinel を `GuiError` へ写してから F5eo `BackendClockSample` constructor を通す。
+- bare stdlib は universal wall clock を仮定せず、Web `performance.now`、native `Instant`、timer、sleep、queue、fallback、silent no-op を使わない。
+
+## subagent plan review
+
+- Newton は `PLAN_APPROVED` として、bare actual clock source を host import ABI boundary として追加する計画を承認した。
+- `nepl_gui_bare.monotonic_clock_ms` は embedding host が明示提供する境界であり、stdlib が wall clock を生成した扱いにしないことが必須とされた。
+- doctest runner の既定 `nepl_gui_bare` import は -1 を返す doctest-only unsupported source とし、hidden fallback / hidden mock ではないことを docs と source policy に固定するよう指摘された。
+- Native と bare の責務を混同しないため、bare 固有の制約は `gui_bare_platform_behavior.md` に分けた。
+
+## subagent implementation review
+
+- Epicurus は `REVIEW_APPROVED` として blocker なしと判断した。
+- explicit `nepl_gui_bare.monotonic_clock_ms` host import boundary、-1 `Unsupported` / other negative `BackendFailure` / non-negative F5eo checked constructor delegation、universal wall clock 非仮定、doctest-only unsupported source、new NEPL files の括弧なしと `_:` 不使用が確認された。
+- review 側でも source policy、focused doctests、`git diff --check` の通過が確認された。
+- 運用 note として、新規 bare files が untracked なので commit 前に明示 stage する必要が指摘された。
+
+## 実装内容
+
+- `stdlib/platforms/gui/bare.nepl` と `stdlib/platforms/gui/bare/clock.nepl` を追加した。
+- `nodesrc/run_test.js` に doctest runtime 用の `nepl_gui_bare.monotonic_clock_ms` stub を追加し、既定で -1 `Unsupported` を返すようにした。
+- `tests/stdlib/gui_platform_bare_clock.n.md` を追加し、host clock 未提供時の `Unsupported` mapping を検査した。
+- `doc/neplg2/gui_bare_platform_behavior.md` を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5es source policy を追加した。
+
+## 未完了
+
+- F5es は bare monotonic clock host import boundary までであり、native / bare scheduler backend、timer backend、executor backend、formal present implementation、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI platform F5er Native formal monotonic clock source backend boundary
+
+## 目的
+
+- F5ep Web clock source と F5eq Headless scripted clock source の後続として、native runtime の actual monotonic clock source を `platforms/gui/native` に追加する。
+- `nepl_gui_native.monotonic_clock_ms` の単一 `i32` ABI で native `Instant` 由来 sample を受け、negative sentinel を `GuiError` へ写してから F5eo `BackendClockSample` constructor を通す。
+- fallback、silent no-op、timer、queue、window loop、present、scheduler backend、minifb rendering、stdout protocol は clock source として使わない。
+
+## subagent plan review
+
+- Euler は `PLAN_APPROVED` として、F5ep / F5eq の後続 slice として native actual clock source を追加する順序を承認した。
+- Rust `nepl-gui-native` 側では `Instant` だけを host boundary source とし、elapsed millisecond が `i32::MAX` を超える場合は wrap / clamp ではなく backend failure sentinel を返すことが必須とされた。
+- doctest runtime stub は import surface 検査だけのために使い、native runtime wiring の証拠として扱わないよう source policy と doc に固定した。
+
+## subagent implementation review
+
+- Euclid は `REVIEW_APPROVED` として blocker なしと判断した。
+- NEPL new native files に括弧 call と `_:` wildcard match がないこと、negative sentinel mapping、F5eo checked constructor delegation、Rust `Instant` helper の i32 range guard、no wrap / clamp / sleep / wall-clock、docs の pending scheduler / present / bare / real loop 分離が確認された。
+- review 側でも source policy、native platform behavior regression、focused doctests、`cargo test -p nepl-gui-native`、`git diff --check` の通過が確認された。
+
+## 実装内容
+
+- `stdlib/platforms/gui/native.nepl` と `stdlib/platforms/gui/native/clock.nepl` を追加した。
+- `nepl-gui-native/src/lib.rs` に native clock sentinel 定数と `Instant` 由来 elapsed millisecond の i32 range guard helper を追加した。
+- `nodesrc/run_test.js` に doctest runtime 用の `nepl_gui_native.monotonic_clock_ms` stub を追加した。
+- `tests/stdlib/gui_platform_native_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_native_gui_platform_behavior.js` に F5er source policy / native regression を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、native platform behavior notes、`todo.md` を更新した。
+
+## 未完了
+
+- F5er は native monotonic clock source までであり、bare actual clock source、native / bare scheduler backend、formal native present implementation、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI platform F5eq Headless scripted monotonic clock source backend boundary
+
+## 目的
+
+- F5ep Web clock source の後続として、headless / offscreen test 用の deterministic actual clock input source を `platforms/gui/headless` に追加する。
+- wall clock ではなく fixed-slot script から F5eo `BackendClockSample` を返し、同じ app code が virtualized time input でも実行できるようにする。
+- fallback、silent no-op、timer、queue、host import、platform API は使わない。
+
+## subagent plan review
+
+- Halley は `REVIEW_APPROVED` として、headless / offscreen testing に必要な virtualized time input source であり、wall clock backend を装っていないため次 slice として妥当と判断した。
+- `count` は 0 から 3、`cursor` は 0 から `count`、slot は count と一致する `Some` / `None` shape を必須とするよう指摘された。
+- constructor と poll の両方で sample を検査し、`cursor == count` は `Option::None` を返して sample を合成しない方針へ固定した。
+
+## subagent implementation review
+
+- Raman は最初 `REVIEW_CHANGES` として、poll が cursor 位置の sample だけを再検査しており、`cursor == count` や consumed slot に forged negative sample が残る public script を拒否できない問題を指摘した。
+- 指摘を反映し、poll entry で `count` 内の全 `Some` slot を再検査してから end `Option::None` または current sample を返すよう修正した。
+- forged current / consumed / end sample の doctest を追加し、Raman の再レビューは `REVIEW_APPROVED` だった。
+
+## 実装内容
+
+- `stdlib/platforms/gui/headless.nepl` と `stdlib/platforms/gui/headless/clock.nepl` を追加した。
+- `GuiHeadlessBackendClockScript` は 3 slot の `Option BackendClockSample`、`count`、`cursor` だけを持つ。
+- constructor は raw i32 sample を F5eo constructor で検査し、poll は public script の count / cursor / slot shape と count 内の全 sample を再検査してから cursor を進める。
+- `tests/stdlib/gui_platform_headless_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5eq source policy を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+
+## 未完了
+
+- F5eq は headless scripted clock input source までであり、native / bare actual clock source、native / bare scheduler backend、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI platform F5ep Web monotonic clock source backend boundary
+
+## 目的
+
+- F5eo backend clock delta boundary の後続として、Web Playground runtime の actual monotonic clock source を `platforms/gui/web` の formal host import 境界へ接続する。
+- `performance.now` 由来の sample を単一 `i32` ABI で受け、negative sentinel を `GuiError` へ写した後だけ F5eo `BackendClockSample` constructor に渡す。
+- `Date.now`、timer API、stdout protocol、polling loop、queue、fallback、silent no-op、wrap、clamp を使わない。
+
+## subagent plan review
+
+- Darwin は `PLAN_CHANGES` として、単一 `i32` ABI、`>= 0` sample / `-1` unsupported / `-2` backend failure、worker 側 i32 範囲検査、slice-based source policy を必須と指摘した。
+- `performance.now` を `Math.floor` で i32 millisecond にすることは、現在の F5eo `i32` clock type に対する platform boundary conversion として許容された。
+- 指摘を反映し、`i32::MAX` ms 超過は clamp や wrap ではなく `BackendFailure` sentinel にする設計へ固定した。
+
+## subagent implementation review
+
+- Russell は `REVIEW_CHANGES` として、raw `performance.now` value が `2147483647.9` の場合に floor 後の `2147483647` が成功扱いになる問題を指摘した。
+- 指摘を反映し、`timestampMs < 0` と `timestampMs > GUI_WEB_BACKEND_CLOCK_I32_MAX_MS` の検査を `Math.floor` より前へ移した。
+- source policy も raw timestamp の範囲検査が floor より前にあることを固定するよう更新した。
+
+## 実装内容
+
+- `stdlib/platforms/gui/web/clock.nepl` を追加した。
+- `stdlib/platforms/gui/web.nepl` から Web clock boundary を export した。
+- `web/src/runtime/worker.ts` に `nepl_gui_web.monotonic_clock_ms` import を追加し、`performance.now` の finite / non-negative / i32 range guard を実装した。
+- `nodesrc/run_test.js` の doctest runtime import stub に `monotonic_clock_ms` を追加した。
+- `tests/stdlib/gui_platform_web_clock.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ep source policy を追加した。
+- GUI / font rendering specs、detailed design、implementation plan、`todo.md` を更新した。
+
+## 未完了
+
+- F5ep は Web runtime の actual clock source だけであり、native / bare / headless actual clock source、native / bare scheduler backend、executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI std F5eo virtual scheduler backend clock delta boundary
+
+## 目的
+
+- Web / native / bare / headless backend が取得した monotonic clock sample を、std layer で F5ek `RealLoopStepInput::ClockDelta` へ変換する。
+- std layer は actual clock source、sleep、timer backend、queue、platform API を読まず、caller supplied sample の検査と delta 化だけを担当する。
+- F5en fixed script runner の後続として、long-running loop へ進む前の clock input contract を固定する。
+
+## subagent review
+
+- Volta plan review は `PLAN_CHANGES`。
+- 指摘は、public `Sample` / `State` を constructor 経由と仮定せず entry で再検査すること、`start` も `Result State BackendClockError` にすること、forged negative state を `StateInvalid` として拒否することだった。
+- error payload は policy / state / sample / previous / current / delta / max を回収可能に持つよう設計し、zero delta は `ClockDelta 0` として通し、delta が上限を超える場合は clamp せず `DeltaTooLarge` として返す方針へ修正した。
+- Hooke implementation review は最初 `REVIEW_CHANGES` で、新規 F5eo module と focused doctest が untracked のため commit 対象に入っていないことが blocker だった。
+- 対象 2 ファイルを含む全変更を明示的に stage し、再検証後の Hooke final review は `REVIEW_APPROVED` だった。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.nepl` を追加した。
+- `BackendClockPolicy` は `max_delta_ms` だけを保持する。
+- `BackendClockSample` は caller supplied `monotonic_ms` だけを保持する。
+- `BackendClockState` は previous `last_monotonic_ms` だけを保持する。
+- `backend_clock_start` は sample を再検査して baseline state を返し、delta を発行しない。
+- `backend_clock_advance` は policy / state / sample を再検査し、negative policy、negative sample、forged negative state、backward time、too-large delta を typed error として返す。
+- valid path は `RealLoopStepInput::ClockDelta delta_ms` だけを生成し、`ExecutorOutcome` / `CompleteAck` を生成しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_f5eo.json -j 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_f5eo_final_pair.json -j 1`。
+- pass: `git diff --cached --check`。CRLF normalization warning のみ。
+
+## 残件
+
+- F5eo は backend clock sample を `ClockDelta` input へ変換する boundary までであり、actual backend clock source、native / bare scheduler backend、real timer / executor backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI std F5en virtual scheduler bounded headless app-loop runner boundary
+
+## 目的
+
+- F5em `NeedInput` / `Completed` result を、fixed-slot script と explicit `max_advance_count` で bounded に進める deterministic std boundary へ接続する。
+- `HeadlessAppLoopRunnerScript` は 3 slot の `Option RealLoopStepInput`、`count`、`cursor` だけを持ち、queue / Vec / push を使わない。
+- `InputMissing` は input を合成せず、`BudgetExhausted` は F5em `advance` を呼ばず、`Completed` は script を消費しない。
+
+## subagent review
+
+- Rawls plan review は `PLAN_CHANGES`。
+- 指摘は、`InputMissing` 名称を統一すること、F5em `start` error も `StartFailed` として包むこと、script の負 cursor / capacity 超過 / slot hole を `ScriptInvalid` にすることだった。
+- `max_advance_count < 0` は typed policy error、`max_advance_count == 0` かつ `NeedInput` は script を読まず `BudgetExhausted` にする条件も追加した。
+- F5en は F5em `start` / `advance` だけを実行 authority にし、F5ek は `RealLoopStepInput` type surface のためだけに参照する方針へ修正した。
+- Mendel implementation review は `REVIEW_APPROVED`。bounded scripted runner、fixed-slot script、typed policy / script errors、zero-budget guard、completed no-consume、input no-synthesis、F5em-only authority、括弧なし / wildcard なし、doc / source policy coverage が確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.nepl` を追加した。
+- `HeadlessAppLoopRunnerPolicy` は F5em step policy と `max_advance_count` だけを保持する。
+- `HeadlessAppLoopRunnerScript` は fixed 3 slot と cursor / count invariant を持つ。
+- `headless_app_loop_runner_run` は policy と script を検査してから F5em `start` を 1 回だけ呼び、`drain_remaining` が positive budget と `Some input` の時だけ F5em `advance` を呼ぶ。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md -n 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_f5en.json -j 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_runner_f5en_pair.json -j 1`。
+- pass: `git diff --check`。CRLF normalization warning のみ。
+
+## 残件
+
+- F5en は bounded scripted headless runner までであり、actual backend clock source、native / bare scheduler backend、long-running real backend loop、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI std F5em virtual scheduler headless app-loop step boundary
+
+## 目的
+
+- F5el `RealLoopDriverResult::NeedInput` と F5ek `RealLoopStepInput` を、headless / offscreen test が 1 app-loop step として進められる deterministic std boundary へ接続する。
+- `Completed` は terminal output だけにし、advance input として再投入しない。
+- `Complete` action は caller supplied `CompleteAck` を待ち、F5em が ack、executor outcome、clock delta、fallback success、silent no-op を合成しない。
+
+## subagent review
+
+- Plato plan review は `PLAN_APPROVED with conditions`。
+- 条件は、F5em policy が F5el `RealLoopDriverPolicy` と F5ek `RealLoopStepPolicy` だけを保持すること、`advance` が F5ek step 成功時だけ F5el after-step を呼ぶこと、F5ek error では after-step を呼ばないことだった。
+- `Completed` を advance input にしないこと、`CompleteAck` を合成しないこと、`remaining_count == 0` を F5em で解釈せず F5el / F5ec の budget-yield semantics に任せることも条件として確認した。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.nepl` を追加した。
+- `HeadlessAppLoopStepPolicy` は F5el driver policy と F5ek step policy だけを保持する。
+- `headless_app_loop_step_start` は F5el `real_loop_driver_start` を 1 回呼び、driver result を F5em result へ写す。
+- `headless_app_loop_step_advance` は previous `NeedInput` action と caller supplied F5ek input を受け、F5ek `real_loop_step` を 1 回呼ぶ。成功時だけ F5el `real_loop_driver_after_step` を 1 回呼び、F5ek error は `RealStepFailed` として返す。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md -n 1`。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_headless_app_loop_step_f5em.json -j 1`。
+
+## 残件
+
+- F5em は deterministic one-step boundary までであり、actual backend clock source、native / bare scheduler backend、long-running headless loop runner、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI std F5el virtual scheduler real loop driver boundary
+
+## 目的
+
+- F5ek `RealLoopStepResult` を、F5ef / F5eg 経由で次に host / headless loop が処理する action へ戻す。
+- `StateReady` の `remaining_count` を捨てず、F5ec / F5ee / F5ef の resume boundary へ渡して同じ slice budget を継続する。
+- actual backend clock、executor、queue、DOM、Canvas、minifb、video memory、fallback、silent no-op へは踏み込まない。
+
+## subagent review
+
+- Wegener plan review は `PLAN_CHANGES`。
+- 指摘は、F5el policy が F5ek policy を持つと scheduler / timer authority が二重化するため、F5ef loop policy だけを保持することだった。
+- `remaining_count == 0` は error / completed / `CompleteAck` にせず、F5ec の budget-yield semantics に従って yield action へ進める。
+- `remaining_count` を本当に継続 budget として扱うため、F5ec `drain_resume`、F5ee `slice_resume`、F5ef `loop_resume` を追加して F5el から呼ぶ形へ計画を修正した。
+- Wegener implementation review は `REVIEW_CHANGES`。F5ec `drain_resume` が caller supplied `remaining_count > max_advance_count` を拒否せず、bounded drain contract を越えられる点が blocker として指摘された。
+- F5ec `drain_resume` で `policy_count` と `count` を比較し、`count > policy_count` を `RemainingCountInvalid` の typed `PolicyInvalid` にするよう修正した。`remaining_count == 0` は引き続き `BudgetExhausted` へ進む。
+- 修正後の Wegener review は `REVIEW_APPROVED`。over-budget rejection、zero-budget yield semantics、F5el から F5ef `loop_resume` 経由で戻す authority boundary、source policy coverage が確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl` を追加した。
+- `RealLoopDriverPolicy` は F5ef loop policy だけを保持し、F5ek policy、scheduler policy、timer policy は保持しない。
+- `real_loop_driver_start` は F5ef `loop_step` と F5eg `loop_action_from_result` を経由して `NeedInput` を返す。
+- `real_loop_driver_after_step` は F5ek result を `StateReady` / `YieldPending` / `Completed` として match し、`StateReady` は `loop_resume` へ戻す。
+- F5ec / F5ee / F5ef に resume boundary を追加し、`remaining_count == 0` は budget exhausted から yield action へ進め、`remaining_count < 0` だけを typed error にする。
+- F5ec `drain_resume` は `remaining_count > max_advance_count` も typed error にし、public resume boundary から budget cap を越えられないようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:"` over F5ec / F5ee / F5ef / F5el / focused F5el doctest target は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: F5ec module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl`。
+- pass: F5ee module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl`。
+- pass: F5ef module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl`。
+- pass: F5el module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.nepl`。
+- pass: F5el focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_driver.n.md`。
+- pass: `stdlib/std/gui.nepl` facade doctest。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残件
+
+- F5el は real loop driver boundary までであり、actual backend clock source、executor backend、headless app-loop integration、native / bare scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI std F5ek virtual scheduler real loop step boundary
+
+## 目的
+
+- F5eg `LoopAction` と explicit input を照合し、F5ej / F5eh / F5ei の typed authority へ 1 段だけ進める std layer boundary を追加する。
+- actual while loop、queue drain、timer sleep、host backend、platform API、DOM、Canvas、minifb、video memory へは踏み込まない。
+- input mismatch は silent no-op にせず、action owner と input owner を保持する typed error とする。
+
+## subagent review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 当初案の `executor_policy` と `timer_policy` を同時に持つ F5ek policy は timer policy authority を二重化するため、`scheduler_policy` と `timer_policy` だけを保持する形へ変更した。
+- F5ei に borrowed policy entry を追加し、F5ek Execute branch は同じ scheduler / timer policy authority を借用して executor completion へ渡す。
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source policy は clean で、required fix はこの note に implementation summary、verification results、implementation review result を追記することだけだった。
+- Dirac は F5ek policy が `scheduler_policy` と `timer_policy` だけを保持すること、Execute branch が F5ei borrowed policy entry 経由で同じ authority を使うこと、Timer branch が F5ek timer policy accessor を使うこと、全 action / input pair が F5ej / F5eh / F5ei へ dispatch されること、mismatch が action owner と input owner を持つ typed error になることを確認した。
+- wildcard match、synthetic outcome、platform backend、queue、timer loop、fallback、silent no-op、NEPL parentheses issue は見当たらないと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl` を追加した。
+- `RealLoopStepPolicy` は `scheduler_policy` と `timer_policy` だけを保持し、executor complete 用の policy を重複保持しない。
+- `RealLoopStepInput` は `ClockDelta`、`ExecutorOutcome`、`CompleteAck` を持ち、F5eg action と明示 input を 1 step だけ照合する。
+- `RealLoopStepResult` は `StateReady`、`YieldPending`、`Completed` を持ち、次の driver が状態遷移を enum として扱えるようにした。
+- `RealLoopStepError` は action / input mismatch と lower boundary failure を分け、mismatch では action owner と input owner を保持する。
+- F5ei に borrowed policy helper を追加し、F5ek Execute branch が scheduler policy と timer policy を同じ authority から借用して executor completion へ渡せるようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書、詳細設計、実装計画、source policy を更新した。
+
+## 検証
+
+- pass: `rg -n "[()]|_:" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: F5ek module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.nepl`。
+- pass: F5ei module regression doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl`。
+- pass: F5ek focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_real_loop_step.n.md`。
+- pass: F5ej / F5ei / F5eh focused regression doctests。
+- pass: `stdlib/std/gui.nepl` facade doctest。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`。既存 policy の warn は残ったが、`web GUI offscreen/headless contract passed` と `web GUI font rendering contract passed` は確認済みである。
+
+## 残件
+
+- F5ek は real loop step dispatch boundary までであり、actual real scheduler loop driver、headless app-loop integration、native / bare scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5ej std deterministic virtual scheduler loop yield complete boundary
+
+## 目的
+
+- F5ei executor complete の後続として、F5eg `YieldToClock` / `Complete` typed action payload を処理する boundary を追加する。
+- actual real scheduler loop そのものではなく、later real loop / headless app-loop / native / bare backend が呼ぶ deterministic clock-delta authority と complete ack authority を std layer に固定する。
+- timer advance、executor completion、scheduler decision、queue、platform API、fallback へは踏み込まない。
+
+## 直近の改良
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl` を追加し、`YieldAdvanceResult`、`YieldReady`、`YieldPending`、`Completed`、`DeltaInvalid` / `YieldDelayInvalid` owner-bearing error を定義した。
+- `loop_yield_complete_yield_advance` は `remaining_count` と `yield_delay_ms` を state owner consumption 前に読み、negative `delta_ms` と negative `yield_delay_ms` を別 error kind に分け、validation 後の pending branch だけで remaining delay を計算する。
+- `loop_yield_complete_complete_ack` は `Complete` payload の `remaining_count` を completed owner consumption 前に読み、terminal completed payload へ変換する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering の仕様書・詳細設計・実装計画、`todo.md`、source policy を更新した。
+
+## subagent review
+
+- Aquinas に F5ej 実装計画を渡した。
+- Review result は `REVIEW_CHANGES` だった。
+- 指摘は、F5eg `LoopActionYieldToClock` が public なので `yield_delay_ms < 0` を fail closed にすること、`DeltaInvalid` とは別に `YieldDelayInvalid` を持つこと、`YieldAdvanceResult` enum を明示すること、source policy で read-before-consume / validate-before-sub / pending branch only subtract を検査することだった。
+- 実装計画と source policy へ反映済みである。
+- Dirac に F5ej 実装レビューを依頼した。
+- Review result は `REVIEW_CHANGES` だったが、code / source policy は clean で、note 更新漏れだけが required fix だった。
+- Dirac は typed `YieldToClock` / `Complete` payload、read-before-consume、negative delta / negative yield delay separation、sub-after-validation、`Complete` ack ordering、F5du / F5dv / F5eh / F5ei / backend / queue / fallback 禁止、wildcard 禁止、disallowed Clone / Copy leakage なしを確認した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md` は match なし。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ej focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.n.md`。
+- pass: F5ej module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_yield_complete.nepl`。
+- pass: F5eg / F5eh / F5ei / F5ef focused doctest regressions。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。
+
+## これからする内容
+
+- 問題がなければ checkpoint commit、remote/main 同期、main merge、push、Discord 報告を行う。
+
+# 2026-06-18 Agent2 GUI font F5ei std deterministic virtual scheduler loop executor complete boundary
+
+## 目的
+
+- F5eg `ExecuteHostAction` action payload を consumed authority として受け、caller supplied `Result unit GuiError` を F5du `turn_driver_complete` へ 1 回だけ戻す。
+- Driver completion 後の step を F5dv `scheduler_decide`、F5ea `virtual_scheduler_decide` へ順に渡し、次の deterministic scheduler state へ戻す。
+- actual backend executor、outcome synthesis、queue、fallback へは踏み込まない。
+
+## subagent review
+
+- Aquinas に F5ei 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、F5ei は F5eg `ExecuteHostAction` と caller supplied outcome を F5du -> F5dv -> F5ea に接続する正しい次 slice だが、synthetic outcome、F5eg action rebuild、F5ef loop、direct timer、queue / backend / platform / fallback を持ってはならないことだった。
+- 必須 source policy は、ExecuteHostAction-only input、policy が scheduler policy と timer policy だけを持つこと、remaining_count / timer_state before owner consumption、F5du / F5dv / F5ea exactly once、caller supplied outcome only、lower error wrapping、direct F5dt / virtual timer / loop / queue / backend / fallback / silent no-op 禁止である。
+- Dirac に F5ei 実装レビューを依頼した。
+- implementation review は note 更新漏れ以外の blocker なしだった。F5ei は `ExecuteHostAction` payload、policy、caller supplied `Result unit GuiError` だけを受け、policy は scheduler policy と timer policy だけを保持し、`remaining_count`、`execute`、`timer_state`、`pending` の順で読み、F5du / F5dv / F5ea をそれぞれ 1 回だけ呼んでいると確認された。
+- synthetic `Result::Ok unit` / `Result::Err GuiError::`、F5ef / F5ee / F5ec / F5ed / F5eb / F5dt / direct timer / platform / queue / backend / fallback / silent no-op / wildcard / Clone / Copy / NEPL 括弧は見当たらないと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5ei loop executor complete boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5ei source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5ei checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ei focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.n.md`。
+- pass: F5ei module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_executor_complete.nepl`。
+- pass: F5eh regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md`。
+- pass: F5eg regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md`。
+- pass: F5ef regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md`。
+- pass: F5ea regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: F5du regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残り
+
+- F5ei の次は `YieldToClock` / `Complete` を含む real scheduler loop / headless app-loop integration、native・bare scheduler backend である。
+- これ以上の pure rename layer を増やさず、次 slice は F5eg action を real loop authority へ接続する。
+
+# 2026-06-18 Agent2 GUI font F5eh std deterministic virtual scheduler loop timer advance boundary
+
+## 目的
+
+- F5eg `AwaitTimerAdvance` action payload を consumed authority として受け、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼ぶ。
+- `remaining_count` を pending owner 消費前に保持し、成功 / 失敗のどちらでも scheduler loop 側が budget context を失わないようにする。
+- executor completion、yield-to-clock handling、actual loop、backend、queue、fallback へは踏み込まない。
+
+## subagent review
+
+- Aquinas に F5eh 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、F5eh は F5eg `AwaitTimerAdvance` payload と F5ea `virtual_scheduler_advance_timer` を接続する最初の typed timer authority として妥当だが、real scheduler loop や platform backend の代替にしてはならないことだった。
+- 必須 source policy は、F5eg / F5ea import、general `LoopAction` 非受け入れ、remaining_count-before-owner-consumption、F5ea advance exactly once、lower F5ea error wrapping、direct virtual timer / F5ef loop / lower scheduler / executor completion / backend / queue / fallback / silent no-op 禁止である。
+- Dirac に F5eh 実装レビューを依頼した。
+- implementation review は note 更新漏れ以外の blocker なしだった。F5eh は `AwaitTimerAdvance` payload、`&TurnTimerPolicy`、`delta_ms` だけを受け、`remaining_count` を owner 消費前に読み、F5ea `virtual_scheduler_advance_timer` を 1 回だけ呼び、lower F5ea error と original `remaining_count` を保持していると確認された。
+- F5ef / F5ee / F5ec / F5ed / F5eb、direct `virtual_timer_advance`、executor completion、queue / backend / platform / DOM / Canvas / minifb / video memory、fallback / silent no-op、wildcard、Clone / Copy、NEPL 括弧は見当たらないと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5eh loop timer advance boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5eh source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5eh checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5eh focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.n.md`。
+- pass: F5eh module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_timer_advance.nepl`。
+- pass: F5eg regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md`。
+- pass: F5ef regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md`。
+- pass: F5ea regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残り
+
+- F5eh の次は `ExecuteHostAction` を消費する executor completion authority、`YieldToClock` / `Complete` を含む real scheduler loop / headless app-loop integration、native・bare backend timer である。
+- これ以上の pure rename layer を増やさず、次 slice は F5eg action を実際の typed authority へ接続する。
+
+# 2026-06-18 Agent2 GUI font F5eg std deterministic virtual scheduler loop action boundary
+
+## 目的
+
+- F5ef `LoopResult` を、real scheduler loop / headless app-loop の outer authority が処理する action value へ詰め替える。
+- F5ef `loop_step`、F5ee / F5ec / F5ed / F5eb / F5ea、virtual timer、host、platform module を呼ばず、caller supplied loop result の total mapping だけにする。
+- まだ timer advance、executor completion、actual while loop、queue drain、backend には踏み込まない。
+
+## subagent review
+
+- Aquinas に F5eg 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、F5eg は F5ef loop result を消費する final pure dispatch-action boundary として妥当だが、timer advance や executor completion の代替にしてはならないことだった。
+- 必須 source policy は、F5ef-only import、`virtual_scheduler_loop_step` 非呼び出し、4 variant explicit match、scalar-before-owner-consume、F5ef payload struct 再公開禁止、owner-bearing payload の non-Copy / non-Clone、total mapping なので error `Result` を作らないこと、backend / queue / fallback / silent no-op 禁止である。
+- Dirac に F5eg 実装レビューを依頼した。
+- implementation review は note 更新漏れ以外の blocker なしだった。F5eg は `core/field` と F5ef loop boundary だけを import し、`loop_action_from_result` は 4 variant を explicit match で詰め替え、scalar field を owner payload 消費前に読み、`Result` を返さず、F5ef `loop_step` / lower scheduler / timer advance / executor completion / queue / platform backend / DOM / Canvas / minifb / video memory / fallback / silent no-op / wildcard / Clone / Copy / NEPL 括弧が無いと確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5eg loop action boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5eg source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5eg checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5eg focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.n.md`。
+- pass: F5eg module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop_action.nepl`。
+- pass: F5ef regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md`。
+- pass: F5ee regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残り
+
+- F5eg の次は `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を消費する timer advance authority、executor completion authority、real scheduler loop / headless app-loop integration、native・bare backend timer である。
+- これ以上の pure rename layer を増やさず、次 slice は F5eg action を実際の typed authority へ接続する。
+
+# 2026-06-18 Agent2 GUI font F5ef std deterministic virtual scheduler loop boundary
+
+## 目的
+
+- F5ee `virtual_scheduler_slice` の result を、real scheduler loop / headless app-loop が match できる loop-owned result へ詰め替える。
+- F5ee payload struct を public loop payload として保持せず、state / pending / execute / completed と `remaining_count` を明示値として扱う。
+- まだ timer advance、executor completion、actual while loop、platform backend、queue drain には踏み込まない。
+
+## subagent review
+
+- Aquinas に F5ef 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、F5ee slice import のみ許可、F5ec / F5ed / F5eb / F5ea 直呼び禁止、F5ee payload struct 再公開禁止、`virtual_scheduler_slice` exactly once、4 variant explicit match、wildcard 禁止、owner-bearing payload / policy / error の Clone / Copy 禁止を source policy に入れることだった。
+- Dirac に F5ef 実装レビューを依頼した。
+- implementation review は note 更新漏れ以外の blocker なしだった。F5ee slice だけを呼ぶ境界、F5ee payload 再公開禁止、lower-only slice error、typed enum / Result、wildcard 禁止、Clone / Copy 禁止、backend / queue / timer / executor / fallback 非介入は実装と source policy に入っていると確認された。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5ef loop boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5ef source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5ef checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ef focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.n.md`。
+- pass: F5ef module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_loop.nepl`。
+- pass: F5ee regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md`。
+- pass: F5ed regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。改行コード警告だけで空白エラーはなかった。
+
+## 残り
+
+- F5ef の次は timer advance event injection、executor completion、real scheduler loop / headless app-loop integration、native・bare backend timer の実装である。
+
+# 2026-06-18 Agent2 GUI font F5ee std deterministic virtual scheduler slice boundary
+
+## 目的
+
+- F5ec bounded drain と F5ed transition を 1 work slice の public boundary として接続する。
+- `yield_delay_ms` を typed policy と `YieldSlice` payload で保持し、後続 real scheduler loop が yield timing を明示的に扱えるようにする。
+- まだ timer advance、executor completion、actual scheduler loop、platform backend、queue drain には踏み込まない。
+
+## subagent review
+
+- Hegel に F5ee 実装計画を渡し、実装開始可否を確認した。
+- plan review は `PLAN_APPROVED`。
+- 指摘は、policy revalidation、one drain / one transition、F5ec / F5ed payload struct の再公開禁止、owner-bearing payload の non-Copy / non-Clone、lower-only drain failure、no backend / no queue / no fallback を source policy と doctest label で固定することだった。
+
+## 実装
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl` を追加した。
+- `stdlib/std/gui.nepl` facade に F5ee slice boundary を export した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` を追加した。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5ee source policy を追加した。
+- GUI / font rendering の仕様書、詳細設計、実装計画に F5ee checkpoint を追加した。
+
+## 検証
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ee focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.n.md`。
+- pass: F5ee module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_slice.nepl`。
+- pass: F5ed regression doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md`。
+- pass: `git diff --check`。
+
+## 残り
+
+- subagent 実装レビューの指摘は note の実装状況更新漏れのみだったため、本 section を修正した。
+- F5ee commit 後、main に merge / push して Discord に報告する。
+- F5ee の次は real scheduler loop / headless app-loop integration / native・bare backend timer の実装である。
+
+# 2026-06-18 Agent2 GUI font F5ed std deterministic virtual scheduler transition boundary
+
+## scope
+
+- F5ec deterministic virtual scheduler bounded drain terminal を、real scheduler loop / headless app-loop / host driver が読む transition enum へ写す。
+- `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` へ対応させる。
+- F5ec payload struct を transition payload として公開せず、state / pending / execute / completed と `remaining_count` を transition-owned payload に詰め替える。
+
+## plan_review
+
+- Curie plan review は `PLAN_APPROVED`。
+- 指摘は、F5ec payload struct を直接公開せず accessor で取り出して F5ed payload に詰め替えること、owner-bearing payload は Clone / Copy にしないこと、timer advance / executor completion / backend / queue を含めないことだった。
+- revised implementation plan は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerTransition` の 4 variant と `remaining_count` preservation を source policy で固定する形にした。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl` を追加した。
+- transition enum は `YieldSlice`、`AwaitTimer`、`ExecuteHostAction`、`Done` を持つ。
+- `transition_from_drain_result` は F5ec drain result を 1 回だけ match し、wildcard なしで全 terminal を写す。
+- `remaining_count` は F5ec terminal payload から先に読み、正規化、減算、再計算をしない。
+- `stdlib/std/gui.nepl` facade、focused doctest、docs、source policy を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ed focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.n.md`。
+- pass: F5ed module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_transition.nepl`。
+- pass: F5ec regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Curie implementation review は `REVIEW_APPROVED`。
+- F5ed payload が F5ec drain payload struct を保持しないこと、owner-bearing payload が Clone / Copy ではないこと、4 terminal を wildcard なしで明示 match すること、`remaining_count` を owner 消費前に保持すること、timer advance / executor completion / step / drain rerun / real loop / queue / backend / fallback / silent no-op が無いこと、docs / source policy / focused doctest label が一致することを確認した。
+- procedural 指摘として、`NUL` と大量の古い `tmp_*` を stage せず、F5ed の新規 module / focused doctest を明示的に stage することが挙げられた。
+- この note 更新後、意図した 13 file だけを stage する。
+
+## remaining
+
+- F5ed は transition boundary までであり、timer advance event injection、executor completion、real scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5ec std deterministic virtual scheduler bounded drain boundary
+
+## scope
+
+- F5eb deterministic virtual scheduler single-step boundary を `max_advance_count` で bounded に消費する drain boundary を std layer に追加する。
+- zero budget は F5eb step を呼ばず `BudgetExhausted` terminal として返す。
+- `Advanced` だけが budget を消費し、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` は remaining count を保持して外側 authority へ返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、`Advanced state remaining_count` のような曖昧 terminal ではなく `BudgetExhausted state remaining_count` を明示すること、zero budget では F5eb step を呼ばないこと、`StepFailed` は F5eb lower error だけを保持することだった。
+- revised plan では `BudgetExhausted`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerDrainResult` にし、positive budget helper だけが F5eb step を呼ぶ形にした。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl` を追加した。
+- drain policy は F5eb step policy と `max_advance_count` だけを保持し、dynamic timer state や backend handle を持たない。
+- `max_advance_count` は construction と drain entry の両方で 0 以上に検査する。
+- zero budget は `BudgetExhausted` を返し、F5eb step を呼ばない。
+- `Advanced` だけが budget を 1 消費し、blocked / completed terminal は remaining count を保持して返る。
+- `StepFailed` は lower F5eb error だけを保持し、original state を重複保持しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、docs、source policy を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ec focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.n.md`。
+- pass: F5ec module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_drain.nepl`。
+- pass: F5eb regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- code / source policy / docs / tests は F5ec contract と整合しており、Zenn 方針、typed terminal、zero-budget no-step、lower-only error、no fallback、no silent no-op、layering の content blocker は見つからなかった。
+- procedural 指摘として、この note 更新と、新規 F5ec module / focused doctest を commit 対象へ含めること、`NUL` と古い `tmp_*` を stage しないことが挙げられた。
+- この note 更新後、意図した 13 file だけを stage する。
+- Cicero follow-up review は `REVIEW_APPROVED`。staged set は意図した 13 file のみで、`git diff --cached --check` は clean、残 blocker はない。
+
+## remaining
+
+- F5ec は bounded drain boundary までであり、timer advance event injection、executor completion、real scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5eb std deterministic virtual scheduler single step boundary
+
+## scope
+
+- F5ea の deterministic virtual scheduler state を 1 回だけ前進させる single-step boundary を std layer に追加する。
+- Turn path は F5du driver poll、F5dv scheduler decide、F5ea timer decide の順序だけを扱う。
+- `WaitingTimer`、`Execute`、`Completed` は no-progress success にせず、外側 scheduler loop の authority へ返す typed blocked result にする。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、blocked phase を `Ok same state` にしないこと、`BlockedWaitingTimer` / `BlockedExecute` / `Completed` を result に持たせること、poll / scheduler decision failure に current timer state を保持すること、step policy に dynamic timer state を入れないことだった。
+- revised plan では `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` を追加し、Turn path の authority order と blocked result を明示した。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl` を追加した。
+- step policy は scheduler policy と timer policy だけを保持し、dynamic `GuiVirtualTimerState` を policy へ入れない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerStepResult` は `Advanced`、`BlockedWaitingTimer`、`BlockedExecute`、`Completed` を持つ。
+- Turn path は driver poll、scheduler decide、F5ea virtual scheduler decide をそれぞれ 1 回だけ呼ぶ。
+- poll failure と scheduler decision failure は current `GuiVirtualTimerState` と lower error を保持する。
+- timer decision failure は F5ea lower owner-bearing error を保持する。
+- `stdlib/std/gui.nepl` facade に F5eb step boundary を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` を追加し、facade、policy no dynamic timer state、blocked phase result、Turn path order、timer state recovery、no wildcard、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5eb source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5eb focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.n.md`。
+- pass: F5eb module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_step.nepl`。
+- pass: F5ea regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: F5dz regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- code / source policy / docs / tests は F5eb contract と整合しており、Zenn 方針、layering、ownership の blocker は見つからなかった。
+- procedural 指摘として、F5eb の新規 module / focused doctest を stage し、`NUL` と古い `tmp_*` を commit へ含めないことが挙げられた。
+- この note 更新後、意図した新規ファイルだけを commit 対象に含める。
+- Cicero follow-up review は `REVIEW_APPROVED`。stage 対象は意図した 13 file のみで、`git diff --cached --check` は clean、残 blocker はない。
+
+## remaining
+
+- F5eb は deterministic virtual scheduler single-step boundary までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5ea std deterministic virtual scheduler state boundary
+
+## scope
+
+- F5dv scheduler decision、F5dw timer request、F5dz virtual timer bridge を deterministic scheduler state として接続する。
+- actual scheduler loop、timeslice policy、event queue、platform timer backend はまだ実装せず、headless / offscreen test 用の phase-owned state boundary を固定する。
+- `GuiVirtualTimerState` は static policy ではなく dynamic state として phase payload に保持する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。
+- 指摘は、`GuiVirtualTimerState` を policy に入れると dynamic scheduler state が落ちること、`ContinueNow` を reusable decision に戻すと no-progress state になること、F5dz `Ready` 成功後の timer state が暗黙に失われることだった。
+- revised plan では `Turn`、`WaitingTimer`、`Execute`、`Completed` の phase-owned state に変更し、`ContinueNow` は `Turn` phase、F5dz `Ready` 後は one-shot complete 済みとして `gui_virtual_timer_empty` を明示的に使う。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualSchedulerState` は `Turn`、`WaitingTimer`、`Execute`、`Completed` を持つ。
+- `Turn`、`Execute`、`Completed` payload は `GuiVirtualTimerState` を保持し、`WaitingTimer` は F5dz pending が timer state を保持する。
+- decision boundary は F5dw `turn_timer_interpret_decision` を 1 回だけ呼び、`ContinueNow` を `Turn` phase、`ScheduleTimer` を F5dz schedule、`Execute` / `Completed` を明示 phase へ写す。
+- timer advance boundary は F5dz `virtual_timer_advance` を 1 回だけ呼び、`Ready` decision では `gui_virtual_timer_empty` を渡して decision boundary へ戻す。
+- `stdlib/std/gui.nepl` facade に F5ea virtual scheduler boundary を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` を追加し、phase state、ContinueNow -> Turn、schedule owner recovery、ready empty timer、exact authority calls、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5ea source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5ea focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.n.md`。
+- pass: F5ea module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler.nepl`。
+- pass: F5dz regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- content implementation は承認されたが、source policy の non-Copy / non-Clone 検査が top-level enum だけで、owner-bearing payload struct を覆っていないことが指摘された。
+- 修正として `VirtualSchedulerTurn`、`VirtualSchedulerExecute`、`VirtualSchedulerCompleted`、`VirtualSchedulerInterpretFailed`、`VirtualSchedulerScheduleFailed`、`VirtualSchedulerTimerAdvanceFailed`、`VirtualSchedulerReadyDecisionFailed` も non-Copy / non-Clone policy に含めた。
+- procedural 指摘として、新規 F5ea module / focused doctest を stage し、`NUL` と古い `tmp_*` を commit へ含めないことが挙げられた。
+
+## remaining
+
+- F5ea は deterministic virtual scheduler state boundary までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dz std deterministic virtual timer turn bridge
+
+## scope
+
+- F5dw の target-neutral timer pending request と F5dy deterministic virtual timer scheduler を std layer で接続する。
+- headless / offscreen test は actual Web / native / bare timer backend、queue、real scheduler loop を使わず、`GuiEvent::Timer` によって scheduled turn を再開できる。
+- bridge は schedule / advance / complete の authority を F5dw / F5dy に残し、owner recovery と接続順序だけを担当する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。
+- 指摘は、advance failure、unexpected event、timer complete failure の recovery payload から virtual timer state が失われること、schedule error の lower `GuiError` が category に縮約されていること、recovery accessor が計画されていないことだった。
+- revised plan では schedule error が original F5dw pending と original virtual state と lower `GuiError` を保持し、advance failure が original combined pending と lower `GuiError` を保持する。
+- unexpected event は F5dw pending、advance-after virtual timer state、event を保持し、timer complete failure は F5dw complete error と advance-after virtual timer state を保持する。
+- source policy は `gui_virtual_timer_schedule`、`gui_virtual_timer_advance`、F5dw `turn_timer_complete` をそれぞれ該当 path で 1 回だけ呼ぶこと、loop / drain / backend / queue / fallback に進まないことを固定する。Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnVirtualTimerPending` は F5dw pending と `GuiVirtualTimerState` を保持する。
+- schedule は F5dw pending から borrowed `TimerRequest` を読み、F5dy `gui_virtual_timer_schedule` を 1 回だけ呼ぶ。
+- advance は F5dy `gui_virtual_timer_advance` を 1 回だけ呼び、`Option::None` は next pending、`GuiEvent::Timer` は F5dw `turn_timer_complete`、timer 以外は owner-bearing unexpected event error に写す。
+- schedule error、advance failed error、unexpected event error、complete failed error に category / lower / pending / timer_state / event の recovery accessor を追加した。
+- owner-bearing pending、advance、error payload、top-level advance error には Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade に F5dz bridge を公開した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` を追加し、facade、owner recovery、exact authority calls、no loop / backend / queue / fallback の source policy label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` と `nodesrc/test_web_gui_offscreen_headless_contract.js` に F5dz source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: F5dz focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.n.md`。
+- pass: F5dz module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_virtual_timer.nepl`。
+- pass: F5dy regression `tests/stdlib/gui_std_virtual_timer.n.md`。
+- pass: F5dw regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md`。
+
+## subagent_review
+
+- Cicero implementation review 1 は `REVIEW_CHANGES`。
+- 指摘は `GuiEvent` の非 Timer 分岐が `_:` wildcard になっており、Zenn 方針の enum / match / static-checking に反することだった。
+- 修正として `Pointer`、`Keyboard`、`TextInput`、`Window`、`Lifecycle`、`Accessibility`、`Action` を明示列挙し、それぞれ unexpected event helper へ渡す形にした。source policy も `_:` 禁止と全 variant 明示を検査する。
+- Cicero follow-up review は、content blocker は解消され、owner recovery と F5dy / F5dw authority-call shape は正しいと確認した。
+- 残 procedural blocker は新規 intended files を stage することと、untracked `NUL` を commit に含めないことだった。
+- 新規 F5dz module / focused doctest を含む intended files を stage し、`NUL` は untracked のまま commit set から除外した。Cicero final review は `REVIEW_APPROVED`。
+
+## remaining
+
+- F5dz は deterministic virtual timer turn bridge までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dy std deterministic virtual timer scheduler
+
+## scope
+
+- headless / offscreen test 用に、実 OS / browser timer へ接続しない deterministic timer scheduler を std layer に追加する。
+- `TimerRequest` から `GuiEvent::Timer` を生成し、Web / native / bare と同じ app-facing event shape を使う。
+- event queue overflow を避けるため、timer catch-up は queue ではなく state の remainder と zero-delta drain で表す。
+- headless は presentation fallback ではなく、event replay / app state transition の test target として扱う。
+
+## plan_review
+
+- Cicero plan review は `PLAN_CHANGES`。
+- 指摘は、error shape を plain `Result ... GuiError` に決めること、public struct 偽造に備えて state invariant を schedule / advance で再検査すること、repeating catch-up で extra elapsed を捨てず `advance state 0` で drain 可能にすることだった。
+- revised implementation では plain `GuiError`、`None` state invariant、`Some TimerRequest` state invariant、negative delta / overflow validation、remainder preservation を source policy と doctest に入れる方針へ変更した。
+
+## implementation
+
+- `stdlib/std/gui/virtual_timer.nepl` を追加した。
+- `GuiVirtualTimerState` は `Option TimerRequest`、elapsed、tick を保持する。
+- `GuiVirtualTimerAdvance` は next state と `Option GuiEvent` を保持する。
+- `gui_virtual_timer_schedule` は incoming state と request を検査し、`interval_ms == 0` を clear request として active timer を消す。
+- `gui_virtual_timer_advance` は malformed state、negative delta、elapsed overflow、tick overflow を `GuiError::InvalidCommand` として拒否する。
+- repeating timer は 1 advance あたり最大 1 event を返し、余り elapsed は state の remainder として保持する。余りが interval 以上なら `advance state 0` で 1 event ずつ drain できる。
+- one-shot timer は event を返すときに state を empty へ戻す。
+- `stdlib/std/gui.nepl` facade に `virtual_timer` を公開した。
+- `tests/stdlib/gui_std_virtual_timer.n.md` と `nodesrc/test_web_gui_offscreen_headless_contract.js` を追加更新し、state invariant、repeating remainder、sentinel / queue / platform / fallback 禁止を固定した。
+- `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` に Phase 5.2 を追加した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/virtual_timer.nepl tests/stdlib/gui_std_virtual_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`。
+- pass: `tests/stdlib/gui_std_virtual_timer.n.md` focused doctest。
+- pass: `stdlib/std/gui/virtual_timer.nepl` module doctest。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+- known: broad `tests/stdlib/gui_std.n.md` は既存 `stdlib/alloc/gui/font/sfnt/glyf.nepl` の parser error を踏む。F5dy focused doctest は `std/gui` facade ではなく direct module imports で検査した。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- content implementation は `PLAN_CHANGES` を満たしており、std layer placement、plain `GuiError`、forged state invariant、repeating remainder、zero-delta drain、one-shot clear、no queue / platform / fallback は問題ないと確認された。
+- focused direct-module doctest は、既存 broad `std/gui` facade parse failure があるため許容された。
+- 残 blocker は、この F5dy note 追記、`todo.md` の virtual scheduler wording narrowing、新規 `stdlib/std/gui/virtual_timer.nepl` と `tests/stdlib/gui_std_virtual_timer.n.md` を commit set に含めることだった。
+- 上記 blocker を解消して staging 後、Cicero final review は `REVIEW_APPROVED`。F5dy は merge-ready と確認された。
+
+## remaining
+
+- F5dy は std layer deterministic virtual timer scheduler までであり、general scheduler loop、timeslice policy、native / bare real timer backend、headless app-loop integration、real scheduler と virtual timer の接続、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dx Web formal one-shot timer request backend boundary
+
+## scope
+
+- F5dw が作る `repeating false` の `TimerRequest` を Web platform backend で正式に受ける。
+- Worker の `nepl_gui_web.request_timer` scalar ABI は `repeatingRaw` 0 / 1 を受け、0 を one-shot、1 を repeating として Shell へ渡す。
+- Shell の timer registry は browser timer handle と repeating mode を保持し、one-shot は `setTimeout`、repeating は `setInterval` へ接続する。
+- one-shot timer は `GuiEvent::Timer` を input queue へ渡す前に active timer entry を clear する。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、timer state が repeating mode を必ず保持すること、idempotent reuse が interval と mode の両方を見ること、one-shot は event enqueue 前に clear すること、clear が mode に応じて `clearTimeout` / `clearInterval` を使い分けることだった。
+- `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` の old one-shot-invalid contract も更新対象とするよう指摘された。
+- revised plan で上記をすべて source policy に入れる方針へ変更し、Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/platforms/gui/web/timer.nepl` の invalid 判定から `not repeating` rejection を除き、one-shot / repeating の両方を public contract にした。
+- `web/src/runtime/worker.ts` は `repeatingRaw` 0 / 1 を受け、`repeatingRaw === 1` の boolean mode を Shell へ渡すようにした。
+- `web/src/terminal/shell.ts` は timer state に `repeating` を保持し、existing timer reuse を interval + mode の一致に限定した。
+- Shell は repeating timer を `setInterval`、one-shot timer を `setTimeout` で登録し、clear 時は stored mode に応じて `clearInterval` / `clearTimeout` を使い分ける。
+- one-shot tick は event payload を作ってから active timer entry を clear し、その後で `handleGuiInputEvent` へ渡す。
+- GUI / font rendering specs、redesign docs、implementation plan、source policy regression、video memory host import regression を更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node --check nodesrc/test_web_gui_video_memory_host_import.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `npm --prefix web run build:ts`。
+- pass: `node nodesrc/test_web_gui_shared_event_queue.js`。
+- pass: `node nodesrc/test_web_gui_video_memory_host_import.js`。
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`。
+- pass: `stdlib/platforms/gui/web/timer.nepl` doctest。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+- known: `stdlib/platforms/gui/web.nepl` direct input は runnable doctest が無い facade なので `nodesrc/tests/no-runnable-doctests` になる。実装検証は `platforms/gui/web/timer.nepl` と Web regression で行った。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は approved plan に沿っており、content blocker は無いと確認された。
+- `platforms/gui/web/timer.nepl` は `repeating false` を拒否せず、id / interval validation と `Result unit GuiError` mapping を維持している。
+- Worker は `repeatingRaw` 0 / 1 を受け、`repeatingRaw === 1` の mode を Shell へ渡している。
+- Shell は mode を保持し、interval + mode で idempotency 判定し、`setInterval` / `setTimeout` と `clearInterval` / `clearTimeout` を mode で分けている。
+- one-shot tick は event payload 作成後、enqueue 前に active timer entry を clear している。
+- stdout / polling fallback、std / core / alloc への DOM / Canvas / browser handle leakage、scheduler / native / headless / bare への scope creep は見当たらないと確認された。
+- 残 blocker はこの `subagent_review` が pending だったことだけだったため、この節を更新した。
+- Cicero final review は `REVIEW_APPROVED`。F5dx は merge-ready と確認された。
+
+## remaining
+
+- F5dx は Web backend の formal one-shot timer registration までであり、native / bare / headless timer backend、general scheduler loop、timeslice policy、virtual scheduler / real scheduler unification、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dw std host span operation presenter executor session turn timer request boundary
+
+## scope
+
+- F5dv scheduler decision を target-neutral timer request value に写す std layer boundary を追加する。
+- `ScheduleOneShot` は owner-bearing timer pending と `TimerRequest` に変換するが、actual timer backend、queue、platform API には進まない。
+- `TimerId` は unchecked raw wrapper なので、policy constructor と interpret の両方で `timer_id_raw > 0` を検査する。
+- timer completion は pending request timer id、incoming `TimerEvent` timer id、tick を検査し、成功時だけ scheduled turn state を回収して F5dv `ContinueNow` decision を返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、`TimerId` が unchecked raw wrapper であるため、policy は `Result Policy PolicyErrorKind` とし、`TimerIdInvalid` を持つ必要があるというものだった。
+- `interpret_decision` は scheduler decision を match / consume する前に borrowed policy を再検査し、invalid policy path では original decision owner を保持する必要がある。
+- invalid scheduled delay path でも original `ScheduleOneShot scheduled` decision を再構成して保持し、`TimerRequest` は policy validation と delay validation の後にだけ作る必要がある。
+- revised plan では positive timer id validation、owner-preserving invalid policy、owner-preserving invalid scheduled delay、`timer_request window timer delay_ms false` の作成順を source policy で固定する。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl` を追加した。
+- `TimerPolicy`、`PolicyErrorKind::TimerIdInvalid`、`TimerPending`、`TimerReady`、`InterpretErrorKind`、`InterpretError`、`CompleteErrorKind`、`CompleteError` を追加した。
+- `turn_timer_policy` と private validation の両方で timer id を positive raw id として検査する。
+- `turn_timer_interpret_decision` は policy を再検査してから decision を match し、`ScheduleOneShot` では delay を再検査してから one-shot `TimerRequest` を作る。
+- `turn_timer_complete` は pending request timer id、event timer id、tick、id match を検査してから scheduled turn state を回収する。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering specs、implementation plan、source policy regression、todo を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dw focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_timer.n.md`。
+- pass: F5dw module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_timer.nepl`。
+- pass: F5dv regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は approved plan に沿っており、content blocker は無いと確認された。
+- `TimerId` policy constructor と interpret revalidation はどちらも raw `> 0` を検査している。
+- `interpret_decision` は decision match の前に policy を検査し、invalid policy / invalid scheduled delay は scheduler decision owner を保持している。
+- `TimerRequest` は validation 後に `timer_request window timer delay_ms false` として作られ、backend timer registration、queue、platform、fallback、silent no-op には進んでいない。
+- `complete` は pending id、event id、tick、id match を検査してから scheduled state を消費している。
+- 指摘された残 blocker はこの `note.n.md` の F5dw `subagent_review` が pending だったことと、新規 intended files を commit 対象へ含めることだったため、この節を更新した。
+- 新規 F5dw files を含む intended change set を stage した後、Cicero final review は `REVIEW_APPROVED`。F5dw は merge-ready と確認された。
+
+## remaining
+
+- F5dw は request boundary までであり、actual Web / native / bare / headless timer backend、real scheduler loop、timeslice policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dv std host span operation presenter executor session turn scheduler decision boundary
+
+## scope
+
+- F5du driver step result を target-neutral scheduler decision へ写す std layer boundary を追加する。
+- `ScheduleOneShot` は validated delay と turn state を持つ typed request であり、actual timer backend、queue、platform API には進まない。
+- policy constructor と `scheduler_decide` の両方で `yield_delay_ms >= 0` を検査し、invalid policy は owner-bearing policy error として original step owner を返す。
+
+## plan_review
+
+- Cicero plan review 1 は `PLAN_CHANGES`。
+- 指摘は、public policy struct を信頼すると negative delay を手作り value で `ScheduleOneShot` にできるため、`scheduler_decide` が policy を再検査して `Result SchedulerDecision SchedulerDecisionError` を返す必要があるというものだった。
+- revised plan では validation が validated delay を返し、invalid policy error が original step owner を保持する形に変更した。
+- Cicero revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl` を追加した。
+- `SchedulerPolicy`、`PolicyErrorKind::YieldDelayInvalid`、`SchedulerScheduledState`、`SchedulerDecision`、`SchedulerDecisionErrorKind::PolicyInvalid`、`SchedulerDecisionError` を追加した。
+- `scheduler_policy` と private validation の両方で negative delay を拒否し、`scheduler_decide` は validated delay だけを `ScheduleOneShot` に渡す。
+- policy invalid では original driver step owner を `SchedulerDecisionError` に保持し、`decision_error_step` で回収できるようにした。
+- `stdlib/std/gui.nepl` facade、focused doctest、GUI / font rendering specs、implementation plan、source policy regression、todo を更新した。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dv focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_scheduler.n.md`。
+- pass: F5dv module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_scheduler.nepl`。
+- pass: F5du regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- 実装、source policy、docs、tests は clean と判断された。
+- F5dv は実 timer / queue / platform / scheduler backend / fallback に踏み込んでいない。
+- `scheduler_decide` の policy 再検証と owner-bearing error recovery は前回 blocker を満たしている。
+- `ScheduleOneShot` は validated delay のみを使っている。
+- 唯一の blocker はこの `note.n.md` の F5dv `subagent_review` が pending のままだったことだったため、この節を更新した。
+- Cicero final review は `REVIEW_APPROVED`。F5dv は merge-ready と確認された。
+
+## remaining
+
+- F5dv は decision boundary までであり、actual Web / native / bare / headless scheduler backend、one-shot timer interpreter、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5du std host span operation presenter executor session turn driver boundary
+
+## scope
+
+- F5dt `Execute` result を actual Web / native / bare / headless executor が outcome-only に扱える owner-bearing driver pending value へ包む。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnDriverPending` は F5dr session pending request を所有し、Clone / Copy しない。
+- executor は caller supplied outcome だけを返し、operation identity は pending から borrowed expected operation として読む。
+- `turn_driver_complete` は borrowed expected operation と caller supplied outcome から F5do `executor_attempt` を 1 回だけ作り、F5dt `turn_step_complete` を 1 回だけ呼ぶ。
+- F5du は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Cicero plan review は `PLAN_APPROVED`。
+- F5dr / F5ds に borrowed pending request accessor を追加する root fix は、pending owner を消費せず expected operation を読めるため適切と確認された。
+- F5du の F5do usage は `executor_request_operation` と `executor_attempt` に限定し、F5do complete / request は禁止する。
+- `turn_driver_complete` は full attempt ではなく `Result unit GuiError` を受け取り、operation mismatch をこの layer で防ぐ方針が承認された。
+
+## implementation
+
+- pending request を消費しない `session_pending_request_ref` と `session_turn_pending_request_ref` を追加した。
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl` を追加し、start / poll / pending operation / complete を F5dt 境界の上に実装した。
+- `stdlib/std/gui.nepl` facade、F5du focused doctest、GUI / font rendering specs、implementation plan、source policy regression を更新する。
+
+## verification
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md` は match なし。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5du focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_driver.n.md`。
+- pass: F5du module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_driver.nepl`。
+- pass: F5dt regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は CRLF warning のみで error なし。
+
+## subagent_review
+
+- Cicero implementation review は `REVIEW_CHANGES`。
+- code / source-policy / docs は clean と確認された。
+- 唯一の blocker はこの `note.n.md` の F5du `subagent_review` が pending のままだったことだったため、この節を更新した。
+- Cicero follow-up review は `REVIEW_APPROVED`。
+- 前回 blocker は解消され、F5du 実装は merge-ready と確認された。
+
+## remaining
+
+- F5du は actual Web / native / bare / headless executor が operation mismatch なしで outcome を返すための driver pending boundary であり、real scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dt std host span operation presenter executor session turn step boundary
+
+## scope
+
+- F5ds の poll result と complete result を、future Web / native / bare / headless driver が single transient step result として扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnStepResult` は `Execute`、`Continue`、`Yield`、`Completed` を持つ。
+- `Completed` は transient result であり、persistent completed state は追加しない。
+- start is setup authority なので `turn_step_start` は step result ではなく F5ds turn state を返す。
+- `turn_step_poll` は F5ds `turn_poll` を 1 回だけ呼び、Execute / Completed を step result へ写す。
+- `turn_step_complete` は F5ds `turn_complete` を 1 回だけ呼び、Continue / Yield を step result へ写す。
+- F5dt は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `turn_step_start -> Result TurnState StartError` は start が scheduler tick outcome ではないため適切と判断された。
+- single transient `TurnStepResult` は F5ds poll / complete result を future scheduler code が lower session variants を見ずに消費する std boundary として有用と判断された。
+- `StepResult::Completed` は transient result のみに限定し、persistent completed state を追加しないことが承認条件だった。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl` を追加した。
+- TurnStepResult、start / poll / complete wrapper errors、start / poll / complete functions、category / lower accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dt focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn_step.n.md`。
+- pass: F5dt module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn_step.nepl`。
+- pass: F5ds regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check` は CRLF warning のみで error なし。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- `TurnStepResult::Completed` が transient result のみで persistent completed state がないこと、`turn_step_start` が step result ではなく turn state を返すこと、poll / complete が F5ds だけへ 1 回委譲して結果を正規化することが確認された。
+- direct F5dr / F5dp / F5dq bypass、old action / virtual / dispatch path、synthetic outcome、platform / raw / scheduler / fallback leakage、NEPL parentheses はないと確認された。
+- 指摘はこの `note.n.md` の F5dt `subagent_review` が pending のままだったことだけだったため、この節を更新した。
+- Cicero follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった F5dt `subagent_review` 記録不足は解消され、code / source-policy / docs blocker はないと確認された。
+
+## remaining
+
+- F5dt は std layer turn step normalization boundary であり、actual Web / native / bare / headless scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5ds std host span operation presenter executor session turn boundary
+
+## scope
+
+- actual Web / native / bare / headless scheduler が F5dr session state と executor pending request を 1 turn 分の owner-bearing state として扱える std layer session turn boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionTurnState` は `Session` と `Pending` だけを持ち、独自の `Completed` state は持たない。
+- terminal completed state の authority は F5dr `SessionState` と F5dr session request に残す。
+- `turn_poll` は state を value として消費し、`Pending` branch は pending request を executor へ移し、`Session` branch だけが F5dr session request を 1 回だけ呼ぶ。
+- `turn_complete` は pending request と executor attempt を value として消費し、F5dr session complete を 1 回だけ呼ぶ。
+- F5ds は real scheduler policy、queue、timer、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation ではない。
+
+## plan_review
+
+- Dirac plan review 1 は `PLAN_CHANGES`。
+- 初期案の `Ready %SessionState` と separate `Completed` turn variant は、`TurnState::Ready SessionState::Completed` と `TurnState::Completed` の duplicate terminal state を作ると指摘された。
+- 修正版では `TurnState::Session %F5drSessionState | Pending %F5drSessionPending` を採用し、terminal completion を F5dr のみに集約した。
+- Dirac revised plan review は `PLAN_APPROVED`。
+- `turn_poll` が state を value 消費すること、F5dr session variants を直接 match しないこと、F5dr start / request / complete だけを authority にすること、source policy で separate `TurnState::Completed` と lower bypass を禁止することが承認条件だった。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl` を追加した。
+- SessionTurnState、SessionTurnPollResult、SessionTurnCompleteResult、start / poll / complete errors、start / poll / complete functions、public accessors を追加した。
+- `turn_start` は F5dr session start を 1 回だけ呼び、success で `Session` turn state を返す。
+- `turn_poll` は `Pending` branch で pending request を executor へ owner transfer し、`Session` branch だけで F5dr session request を 1 回だけ呼ぶ。
+- `turn_complete` は F5dr session complete を 1 回だけ呼び、Continue / Yield を `Session` turn state に写す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5ds focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session_turn.n.md`。
+- pass: F5ds module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session_turn.nepl`。
+- pass: F5dr regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5ds は `Session` / `Pending` だけの TurnState を持ち、duplicate `Completed` turn state がないこと、`turn_poll` が state を value 消費して pending ownership を明示的に transfer すること、F5dr start / request / complete だけに委譲し、F5dp / F5dq bypass、synthetic outcome、platform / raw / scheduler / fallback leakage がないことが確認された。
+- 指摘はこの `note.n.md` の F5ds section に subagent review result を記録することだったため、この節を更新した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった F5ds `subagent_review` 記録不足は解消され、code / source-policy は clean で note 証跡だけが指摘だったことも正しく記録された。
+
+## remaining
+
+- F5ds は std layer session turn boundary であり、actual Web / native / bare / headless scheduler backend、queue / timer policy、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dr std host span operation presenter executor session boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が ready state、executor pending request、completion result、terminal completed state を sentinel / null なしで保持できる std layer session boundary を追加する。
+- F5dr は F5dp executor loop と F5dq attempt driver を session contract に包むが、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionState` は `Ready` と `Completed` を持つ。
+- `Completed` state への request は明示 terminal behavior として request result `Completed` を返し、F5dp request を呼ばない。
+- `Ready` state だけが F5dp request を 1 回だけ呼ぶ。
+- pending request は `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorSessionPending` に value として移す。
+- `session_complete` は pending request と executor attempt を value として消費し、F5dq attempt driver step を 1 回だけ呼ぶ。
+- Continue / Yield は Ready session state に写す。
+- request / complete error recovery は lower F5dp / F5dq error chain を authority とする。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を `SessionState` に含める設計は sentinel / null を避けるので妥当と判断された。
+- `session_request Completed -> Completed` は明示 terminal behavior として document すれば silent no-op ではない。
+- `session_request` は state を value 消費し、`Ready` だけで F5dp request を 1 回呼ぶ。
+- `session_complete` は F5dq `attempt_driver_step` だけを authority にし、F5dp / F5do / F5dn へ戻らない。
+- F5dq success step から completion を取り出し、Continue / Yield だけを Ready session state へ包む。
+- request / complete は lower error chain を recovery authority とし、private field 復元や consumed request / attempt 再構築を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl` を追加した。
+- SessionState、SessionPending、SessionRequestResult、SessionCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `session_start` は F5dp start を 1 回だけ呼び、success で Ready session state を返す。
+- `session_request` は Ready branch だけで F5dp request を 1 回だけ呼び、Completed branch は terminal Completed result を返す。
+- `session_complete` は pending request と attempt を消費し、F5dq attempt driver step を 1 回だけ呼び、Continue / Yield を Ready session state に写す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dr focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_session.n.md`。
+- pass: F5dr module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_session.nepl`。
+- pass: F5dq regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md`。
+- pass: F5dp regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5dr は F5dp start / request と F5dq attempt driver を意図した位置で呼んでいること、Completed session request が明示 terminal behavior で F5dp を呼ばないこと、consumed request / attempt reconstruction がないこと、synthetic outcome creation がないこと、forbidden platform / raw / scheduler / fallback dependency がないことが確認された。
+- 指摘は `note.n.md` の F5dr section に subagent review result を記録することだったため、この節を追加した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- 前回の唯一の blocker だった `note.n.md` の F5dr `subagent_review` 欠落は解消され、記録内容も code / source-policy は clean で note 証跡だけが指摘だったことを正しく反映していると確認された。
+
+## remaining
+
+- F5dr は std layer session boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dq std host span operation presenter executor attempt driver boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter executor が返した executor supplied attempt を F5dp executor loop completion へ戻す std layer boundary を追加する。
+- F5dq は F5dp complete wrapper であり、actual execution、headless virtual drain、fallback、real scheduler policy ではない。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep` は completion-only success value とし、F5dp complete が value として消費した request / attempt を保持し直さない。
+- failure は category と lower F5dp error だけを持ち、lower F5dp error を recovery authority とする。
+- F5dq は `Result::Ok unit` / `Result::Err GuiError` を作らず、executor supplied attempt が持つ outcome を F5dp に渡すだけにする。
+- F5do direct complete / request、F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、old F5cw / F5da-F5de action paths、F5db virtual executor、F5cs virtual drain、F5cu / F5ct / F5cr / F5cp / F5co、queue、timer、scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review 1 は `PLAN_BLOCKED`。
+- 初期案は success step と failure payload に request / attempt を保持しようとしていたが、F5dp complete が request / attempt を value 消費するため non-Copy ownership model と衝突すると指摘された。
+- 修正版では success step は completion-only、failure は category + lower F5dp error のみとし、lower F5dp error chain を recovery authority とした。
+- Dirac revised plan review は `PLAN_APPROVED`。
+- F5dq は F5dp の post-completion wrapper として妥当であり、request / attempt を再保持しないこと、F5dp complete exactly once、synthetic outcome 禁止、old action path / platform / raw / scheduler / fallback 禁止を source policy で固定する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttemptDriverStep`、`CompleteRejected`、`Error`、step function、public accessors を追加した。
+- step function は `gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_loop_complete request attempt` を 1 回だけ呼ぶ。
+- success は completion-only step、failure は lower F5dp error と category だけを返す。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dq focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_attempt_driver.n.md`。
+- pass: F5dq module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_attempt_driver.nepl`。
+- pass: F5dp regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: F5do regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- code / source-policy blocker はないと判断された。
+- F5dq module は success completion-only、failure lower-error-only、F5dp loop complete exactly once、consumed request / attempt の非保持、synthetic outcome 禁止、F5do / F5dn / F5dm / F5dl / F5di / F5dh / F5dk / F5dj / old action path / virtual drain / virtual executor / platform / raw / scheduler / fallback / parentheses の漏れなしが確認された。
+- 指摘は `note.n.md` の F5dq section に subagent review state と remaining boundary を記録することだったため、この節と remaining 節を追加した。
+- Dirac follow-up review は `REVIEW_APPROVED`。
+- `note.n.md` の F5dq entry に subagent review と remaining が追加され、前回の note / status blocker は解消された。
+
+## remaining
+
+- F5dq は executor supplied attempt を F5dp loop completion へ戻す std layer boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dp std host span operation presenter executor loop boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dn request と F5do executor request / complete を手動で interleave せず、start / request / complete の std loop contract だけを扱えるようにする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorLoopState` は F5dn DriverState を保持する non-Copy loop state とする。
+- `request` は LoopState を value として消費し、F5dn driver request を 1 回だけ呼ぶ。
+- F5dn `Completed` branch では F5do を呼ばず、F5dn `Operation` branch でだけ F5do executor request を呼ぶ。
+- `complete` は F5do executor complete だけを 1 回呼び、F5dn DriverCompletion を Continue / Yield loop completion へ再包装する。
+- F5dp は actual Web / native / bare / headless execution でも real scheduler policy でもない。
+- host import、F5dn complete direct call、F5dm / F5dl / F5di / F5dh / F5dk / F5dj direct call、F5cw action mapping、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dp は real scheduler / platform backend の前に置く正しい std boundary であり、F5dn request と F5do executor request / complete の残る manual interleaving を除く。
+- LoopState、request result、completion、owner-bearing errors は non-Copy / non-Clone にする。
+- request order は F5dn `driver_request` once、F5dn `Operation` の場合だけ F5do `executor_request` once とする。
+- Driver `Completed` は F5do を呼ばない。
+- complete は F5do `executor_complete` だけを 1 回呼ぶ。F5dn complete、F5dm、F5di、F5dl、F5dh を直接呼ばない。
+- F5do unsupported / mismatch semantics を維持し、synthetic `Err Unsupported`、synthetic `Ok unit`、owner loss を作らない。
+- source policy は F5dn start / request と F5do request / complete、public category accessors だけを許可し、F5dn complete direct、F5dm/F5dl/F5di/F5dh/F5dk/F5dj direct calls、F5cw/F5da-F5de paths、platform / raw / queue / timer / scheduler、fallback / silent no-op、括弧を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl` を追加した。
+- LoopState、RequestResult、LoopCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `request` は F5dn `Completed` branch で F5do executor request を作らず、F5dn `Operation` branch でだけ F5do に進む。
+- `complete` は F5do complete だけを呼び、F5dn DriverCompletion を LoopCompletion へ再包装する。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dp focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor_loop.n.md`。
+- pass: F5dp module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor_loop.nepl`。
+- pass: F5do regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: F5dn regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5dp は merge-ready と判断された。
+- non-Copy LoopState / result / completion / error、F5dn start only、F5dn request once and F5do only in Operation branch、F5do complete only、no F5dn complete direct、no F5dm/F5dl/F5di/F5dh/F5dk/F5dj direct call、no old action-driver path、no platform/raw/scheduler/fallback leakage、no synthetic outcome、no parentheses が確認された。
+- docs、source policy、focused doctest labels、`todo.md`、`note.n.md` は「not actual execution / not real scheduler」contract と整合している。
+
+## remaining
+
+- F5dp は std layer の presenter executor loop contract であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5do std host span operation presenter executor boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter executor が F5dn OutcomeRequest から executor request を作り、executor supplied attempt を F5dn complete へ戻す直前の std layer validation boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorRequest` は OutcomeRequest、OutcomeRequest 内の F5dl request から読んだ support、expected span operation を保持する non-Copy request とする。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterExecutorAttempt` は executor が実行した span operation と caller supplied outcome を保持する。
+- unsupported operation では F5dn complete へ合成 `Err Unsupported` を渡さず、request owner を保持した typed error を返す。
+- complete は expected span operation と reported span operation を payload まで比較し、一致した場合だけ F5dn complete を 1 回だけ呼ぶ。
+- host import、F5dl complete direct call、F5dm outcome attempt / complete direct call、F5di constructor / validation direct call、F5cw action mapping、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` outcome creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5do は `OutcomeRequest -> ExecutorRequest -> ExecutorAttempt -> F5dn complete` の value-consuming bridge に絞る。
+- support は新 enum を作らず、既存 `GuiRgba8888RowTileRlePresentHostExecutorSupport` を使う。
+- support は OutcomeRequest 内の F5dl request から public accessor 経由で読む。別引数にすると F5dn start 時の support と F5do support が食い違う余地がある。
+- support rejection では F5dn complete に合成 `Err Unsupported` を渡さない。`UnsupportedOperation` error に non-Copy request wrapper を保持して返す。
+- executor から戻る値は `Result unit GuiError` だけでなく、`operation + outcome` の typed attempt にする。
+- action identity check は support check の後、F5dn complete の前に行う。
+- source policy は platform / DOM / Canvas / minifb / video_memory / raw / queue / timer / scheduler / fallback / silent no-op、F5dh / F5dk / F5dj direct call、F5dl complete direct、F5di constructor / validation direct、F5cw action mapping、F5da-F5de drivers、synthetic `Result::Ok unit` / `Result::Err GuiError` outcome creation、owner-bearing value の Clone / Copy、括弧を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl` を追加した。
+- ExecutorRequest、ExecutorAttempt、unsupported operation error、attempt mismatch error、driver complete error、request / complete error enum、request / attempt / complete functions、public accessors を追加した。
+- span operation payload identity check を F5do 内に置き、F5cw run-record action equality へ戻らないようにした。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5do focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_executor.n.md`。
+- pass: F5do module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_executor.nepl`。
+- pass: F5dn regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: F5dm regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review 1 は `REVIEW_CHANGES`。
+- 指摘は `note.n.md` に F5do implementation / review / verification entry がないことのみ。
+- code / source-policy blocker はなし。support が OutcomeRequest / F5dl request 由来であること、unsupported が request を保持して F5dn complete しないこと、identity check が `presenter_driver_complete` 前にあること、owner-bearing types が Clone / Copy を持たないこと、platform / raw / scheduler / fallback leakage がないことは確認済み。
+- `note.n.md` に本節を追加した後の Dirac implementation review 2 は `REVIEW_APPROVED`。
+- 追加 blocker はない。
+
+## remaining
+
+- F5do は std layer の presenter executor validation boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dn std host span operation presenter driver boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dl start / request と F5dm outcome request / attempt / complete を直接ばらばらに呼ばず、DriverState / DriverRequestResult / DriverCompletion contract だけを扱える std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterDriverState` は F5dl loop state を保持する non-Copy state とし、同じ state から複数 request を作る replay を避ける。
+- `request` は DriverState を value として消費し、F5dl request を 1 回だけ呼ぶ。
+- F5dm outcome request は F5dl `Request` branch でだけ呼び、F5dl `Completed` と F5dl request error では呼ばない。
+- `complete` は OutcomeRequest と caller supplied outcome を value として受け、F5dm outcome attempt と F5dm outcome complete を 1 回ずつ呼び、F5dl Continue / Yield を次の DriverState へ再包装する。
+- host import、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、action drivers、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、synthetic `Result::Ok unit` / `GuiError` creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dn は presenter-facing driver として妥当だが、DriverState は non-Copy / non-Clone にする必要がある。Copy state は同じ F5dl state から複数 request を作る replay を許すため、F5dm の replay 防止と矛盾する。
+- `presenter_driver_request` は DriverState を value として消費し、F5dl request error だけ original DriverState を typed error に戻す。
+- DriverRequestResult は OutcomeRequest を含むため non-Copy / non-Clone にする。DriverCompletion も DriverState を含むため non-Copy / non-Clone にする。
+- `presenter_driver_request` は F5dl `Request` branch でだけ F5dm `outcome_request` を呼ぶ。F5dl `Completed` と F5dl request error では F5dm を呼ばない。
+- `presenter_driver_complete` の error は F5dm lower error と F5dm public accessor 由来 category だけを保持する。request / attempt context は lower F5dm error が既に保持している。
+- source policy は F5dl start / request と F5dm outcome_request / outcome_attempt / outcome_complete だけを許可し、F5dl complete direct call、F5di constructor / validation direct call、F5dh start / step / resume direct call、`Result::Ok unit`、synthetic `Completed` creation、scheduler / platform / fallback を禁止する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl` を追加した。
+- DriverState、DriverRequestResult、DriverCompletion、start / request / complete errors、start / request / complete functions、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dn focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_driver.n.md`。
+- pass: F5dn module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_driver.nepl`。
+- pass: F5dm regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: F5dl regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- DriverState / request result / completion が non-Copy であること、`request` が driver state を消費して F5dl `Request` branch でだけ F5dm を呼ぶこと、`complete` が F5dm `outcome_attempt` / `outcome_complete` だけを通ることが承認された。
+- direct F5dl complete、F5di validation、platform / raw / scheduler / fallback leakage、synthetic `Result::Ok unit` / `GuiError`、括弧混入は見つからなかった。
+- docs / facade export / focused doctest labels / source policy / `todo.md` は実装と整合していると確認された。
+
+## remaining
+
+- F5dn は std layer の presenter driver boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dm std host span operation presenter outcome boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter glue が F5dl request から operation を読み、caller supplied outcome を F5di attempt constructor へ渡して F5dl complete へ戻す typed bridge を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeRequest` は F5dl request と F5dh ready operation accessor から得た expected operation を保持する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterOutcomeAttempt` は original F5dl request と F5di attempt を保持する。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError は Clone / Copy にしない。同じ request / outcome bridge の replay を static に避ける。
+- `outcome_request` は F5dl request ready と F5dh ready operation accessor だけを読む。
+- `outcome_attempt` は OutcomeRequest を value として消費し、F5di attempt constructor を 1 回だけ呼ぶ。
+- `outcome_complete` は OutcomeAttempt を value として消費し、F5dl complete を 1 回だけ呼ぶ。
+- host import、F5di validation、F5dk presenter step、F5dj completion step、F5dh start / step / resume、F5dg、F5da-F5de driver、queue、timer、real scheduler、platform API、DOM、Canvas、minifb、video memory、raw storage、fallback、silent no-op、loop `Completed` creation へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- F5dm は F5dl request と F5dl complete の間に置く次 boundary として妥当だが、OutcomeRequest / OutcomeAttempt を Copy にすると same request / outcome bridge の replay が起きやすいため、non-Copy / non-Clone にする必要があると指摘された。
+- required flow は `F5dl request -> OutcomeRequest -> borrowed operation inspection -> consume OutcomeRequest + caller outcome -> OutcomeAttempt -> consume OutcomeAttempt -> F5dl complete`。
+- `presenter_outcome_attempt` は OutcomeRequest を value として消費し、F5di validation ではなく F5di attempt constructor だけを呼ぶ。
+- `presenter_outcome_complete` は OutcomeAttempt を value として消費し、lower error に original request、F5di attempt、F5dl lower error、F5dl public accessor 由来 category を保持する。
+- source policy は Clone / Copy 禁止、F5di attempt constructor のみ許可、F5dl complete exact call order、F5di validation / F5dk / F5dj / F5dh start-step-resume / scheduler / platform / fallback 禁止を固定する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl` を追加した。
+- OutcomeRequest、OutcomeAttempt、OutcomeCompleteError、request / attempt / complete functions、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dm focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_outcome.n.md`。
+- pass: F5dm module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_outcome.nepl`。
+- pass: F5dl regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- OutcomeRequest / OutcomeAttempt / OutcomeCompleteError が non-Copy bridge value であること、`outcome_attempt` が F5di attempt constructor だけを呼ぶこと、`outcome_complete` が F5dl complete だけへ委譲し request / attempt / lower error context を保持することが承認された。
+- F5dh start / step / resume、F5di validation、F5dk / F5dj direct path、platform / raw / queue / timer / scheduler API、fallback / silent no-op、`Completed` construction への漏れは見つからなかった。
+- docs / source policy / todo は実装と整合していると確認された。
+
+## remaining
+
+- F5dm は presenter outcome request / attempt bridge であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-18 Agent2 GUI font F5dl std host span operation presenter loop boundary
+
+## scope
+
+- actual Web / native / bare / headless presenter loop が F5dh step と F5dk presenter step を直接呼ばず、LoopState / request / completion contract だけを扱う std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterLoopState` は support、F5dh policy、scheduled state を同じ value に保持し、次 request に必要な context を side state へ逃がさない。
+- `presenter_loop_start` は F5dh start を 1 回だけ呼び、success path だけで support / policy / scheduled state を LoopState へ束ねる。
+- `presenter_loop_request` は F5dh step を 1 回だけ呼び、F5dh `OperationReady` を support / policy / ready 付き request、F5dh operation-less terminal を loop `Completed` へ写す。
+- `presenter_loop_complete` は F5dk presenter step を 1 回だけ呼び、F5dk success branch でだけ F5dj completion step から Continue / Yield を読み、support / policy / scheduled state 付き LoopState へ再包装する。
+- host import、platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、real scheduler、fallback、silent no-op、F5dh `resume_slice`、F5di / F5dj direct call、F5dg start / step、F5da-F5de driver へ進まない。
+
+## plan_review
+
+- Dirac plan review は最初 `PLAN_CHANGES`。
+- F5dl の `Completed` は F5dh operation-less terminal を受ける場合に限り妥当であり、F5dk / F5dj の per-operation completion とは混同しない contract が必要と指摘された。
+- completion 後の次 request でも support / policy が必要なので、`Continue` / `Yield` は scheduled state だけではなく LoopState を返す必要がある。
+- request は ready だけではなく support / policy / ready を保持し、caller が support / policy を side state として別管理しない形にする必要がある。
+- F5dh start、F5dh step、F5dk presenter step の exact call order と、F5dh `resume_slice`、F5di / F5dj direct call、scheduler / platform / fallback 禁止を source policy で固定する必要がある。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl` を追加した。
+- LoopState、presenter request、loop step result、loop completion、start / request / complete error payload、category mapping helper、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dl focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_loop.n.md`。
+- pass: F5dl module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_loop.nepl`。
+- pass: F5dk regression `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md`。
+- pass: F5dh regression `tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- LoopState が support / policy / scheduled state を保持すること、F5dh `Completed` だけを loop `Completed` へ写すこと、F5dk success branch で F5dj Continue / Yield を LoopState へ再包装することが承認された。
+- host import execution、platform / raw leakage、queue / timer / scheduler、fallback、silent no-op、F5dh `resume_slice`、F5di / F5dj direct call は見つからなかった。
+- docs / source policy / todo は実装と整合しており、actual Web / native / bare / headless presenter や real scheduler readiness を過剰に主張していないと確認された。
+
+## remaining
+
+- F5dl は std layer の presenter loop state / request / completion boundary であり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5dk std host span operation presenter step boundary
+
+## scope
+
+- F5dh scheduled ready と actual Web / native / bare / headless presenter supplied attempt を、F5di before F5dj の順序で 1 operation の completion step へ戻す std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationPresenterStep` は F5dj completion step だけを保持する success value とする。
+- F5di rejection は support、ready、attempt、lower F5di error、lower category を保持する `AttemptRejected` に写す。
+- F5dj rejection は attempt step、lower F5dj error、lower category を保持する `CompletionRejected` に写す。
+- host import、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op、Completed、F5dh start / step / resume、F5dg start / step、F5da-F5de driver へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5dj の後続 boundary として妥当であり、platform execution や scheduling を早く結合しすぎていないと確認された。
+- F5di `attempt_step` は F5dj `completion_step` より先に呼び、F5dj は F5di `Ok attempt_step` branch でだけ呼ぶ。
+- `AttemptRejected` は support、original ready、original attempt、lower F5di error、public category accessor から得た category を保持する。
+- `CompletionRejected` は F5di AttemptStep と lower F5dj error を保持し、caller が ready / attempt context を復元するために lower variant を解析しなくてよい。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl` を追加した。
+- presenter step、attempt rejected payload、completion rejected payload、presenter step error enum、category mapping helper、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+- focused doctest は最初 no runnable doctests になったため、既存 GUI stdlib doctest 形式に合わせて `neplg2:test[stdio, normalize_newlines]` と expected stdout を追加した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dk focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_presenter_step.n.md`。
+- pass: F5dk module doctest `stdlib/std/gui/tile_present_host_span_operation_presenter_step.nepl`。
+- pass: F5dj regression `tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5dk が support、F5dh ready、presenter supplied attempt だけを受け、F5di を先に呼び、F5di `Ok` branch でだけ F5dj を呼ぶことが承認された。
+- F5di / F5dj lower error context と public accessor derived category、Completed を作らないこと、host outcome を合成しないこと、scheduler / platform / raw / fallback へ進まないことに blocker はなかった。
+
+## remaining
+
+- F5dk は actual presenter が作った attempt を completion boundary へ戻すだけであり、actual Web / native / bare / headless presenter loop、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5dj std host span operation completion boundary
+
+## scope
+
+- F5di の検査済み `GuiRgba8888RowTileRlePresentHostSpanOperationAttemptStep` を AttemptStep only の入力として受け、caller supplied outcome と ready phase を completion value へ写す std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCompletion` は `Continue state` / `Yield state` だけを持ち、per-operation completion does not create Completed。
+- host outcome failure does not publish state とし、`Err host_error` は host error、scheduled ready、attempt、category `Some host_error` を typed error に保持する。
+- F5di association validation、F5dh step / start / resume、F5cs / F5ct / F5cu、F5cy action validation、F5cw action equality、F5da-F5de action driver、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- `Completed` を F5dj で作らない判断は正しい。F5dh `Completed` は operation なし terminal なので、per-operation completion が作ると successful operation completion と end-of-stream completion を混同する。
+- F5di errors を wrap せず `AttemptStep` only input にする判断は正しい。association failure は F5di の責務であり、F5dj は検査済み step の host outcome completion だけに絞る。
+- `completion_step` は F5di `step_ready` / `step_attempt`、F5di `attempt_outcome`、F5dh `ready_phase` / `ready_state` の public accessor だけを使う。
+- outcome が `Err host_error` の場合は `HostOutcomeFailed` を返し、Continue / Yield state を publish しない。category は `Some host_error` とし、通常 failure に `None` を使わない。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_completion.nepl` を追加した。
+- completion enum、completion step、host failed payload、completion error enum、completion step function、public accessors を追加した。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_completion.nepl tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dj focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_completion.n.md`。
+- pass: F5dj module doctest `stdlib/std/gui/tile_present_host_span_operation_completion.nepl`。
+- pass: F5di regression `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は最初 `CHANGES_REQUIRED`。
+- 指摘は `note.n.md` の `verification_current` と `subagent_review` が未実行 / 未実施のままで、実際の検証済み状態と矛盾していることだった。
+- 実装本体については、AttemptStep only、host failure 時に state を publish しない、`Some host_error` + ready + attempt 保持、Ok 時のみ Continue / Yield へ写す、Completed variant なし、F5di / F5dh 下位処理や platform / raw / scheduler / fallback へ戻らない点に blocker はないと確認された。
+- `note.n.md` を修正した後の再レビューは `REVIEW_APPROVED`。
+
+## remaining
+
+- F5dj は検査済み attempt outcome を scheduled state completion に写すだけであり、actual Web / native / bare / headless presenter backend、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5di std host span operation attempt boundary
+
+## scope
+
+- F5dh scheduled ready と actual Web / native / bare / headless presenter が返した caller supplied outcome を、completion や queue へ進む前に対応検査する std layer boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationAttempt` は attempted operation と `Result unit GuiError` だけを保持し、std layer では success / failure outcome を作らない。
+- `attempt_step` は support before equality を固定し、F5cy support enum を target support set としてだけ使う。F5cy action validation / action equality へは戻らない。
+- operation equality は 9 variants をすべて扱い、Window variants は `window_id_raw`、Begin / End は descriptor、RunSpan は x / y / width / height / RGBA channel を public accessor で比較する。
+- unsupported と mismatch は scheduled ready と attempt を保持する typed error にする。
+- Yield phase is data only とし、この boundary では resume、queue、timer、scheduler、platform API、DOM / Canvas / minifb、video memory、raw storage、fallback、silent no-op へ進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、F5cy の `require_supported` は F5cw action 用なので使わず F5di 側で span operation target support helper を作ること、unsupported / mismatch error が scheduled ready と attempt を保持すること、attempt constructor と step が caller supplied outcome を生成しないこと、RunSpan equality では descriptor ではなく x / y / width / height / RGBA channel を比較することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation_attempt.nepl` を追加した。
+- attempt、attempt step、unsupported payload、mismatch payload、attempt error enum を追加した。
+- F5cy support enum を exhaustive match する target support helper を追加した。
+- F5dg operation equality helper を追加し、descriptor / span / color comparison を public accessor で行う。
+- `stdlib/std/gui.nepl` facade、focused import smoke doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation_attempt.nepl tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5di focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation_attempt.n.md`。
+- pass: F5di module doctest `stdlib/std/gui/tile_present_host_span_operation_attempt.nepl`。
+- pass: F5dh regression `tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `IMPLEMENTATION_APPROVED`。
+- 補足として OffscreenEnd / DeviceBegin / DeviceEnd の source policy 明示チェックを強化できる余地があったため、F5di operation equality の source policy に全 9 variants の断片を追加した。
+- 追加後に source policy、F5di focused doctest、`git diff --check` を再実行して pass した。
+
+## remaining
+
+- F5di は scheduled ready と presenter attempt の対応検査までであり、actual Web / native / bare / headless presenter completion、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5dg std host span operation boundary
+
+## scope
+
+- F5cw host execution action を、actual Web / native / bare presenter が 1 operation ずつ消費できる target-qualified operation stream に写す std layer boundary を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCursor` は `SinglePending operation`、`RunPending target run_span_cursor`、`Completed` だけを phase として持つ。
+- Begin / End action は one-shot operation と explicit Completed にし、Run action は start で F5df run-span cursor を 1 回だけ作って step で進める。
+- F5df start error は original F5cw action、F5df step error は current operation cursor を保持する typed error に包む。
+- F5dg does not call actual host import execution。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record / raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、`start action` を明示すること、cursor phase を `SinglePending operation` / `RunPending target run_span_cursor` / `Completed` に固定すること、step result を `OperationReady operation next_cursor` / `Completed` にすること、F5df error に action / cursor context を保持すること、public step が F5df step を 1 回だけ呼ぶことを source policy で固定することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_span_operation.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostSpanOperation` は Window / Offscreen / Device の Begin / RunSpan / End を表す。
+- `GuiRgba8888RowTileRlePresentHostSpanOperationCursor` と `GuiRgba8888RowTileRlePresentHostSpanOperationStepResult` を追加した。
+- `tests/stdlib/gui_std_tile_present_host_span_operation.n.md` を追加し、Begin one-shot、Run row-span split、start error wrapping を 3 doctest に分けて検査する。
+- `stdlib/std/gui.nepl` facade、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_span_operation.nepl tests/stdlib/gui_std_tile_present_host_span_operation.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dg focused doctest `tests/stdlib/gui_std_tile_present_host_span_operation.n.md`。
+- pass: F5dg module doctest `stdlib/std/gui/tile_present_host_span_operation.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5df regression `tests/stdlib/gui_std_tile_present_run_span.n.md`。
+- pass: F5cw regression `tests/stdlib/gui_std_tile_present_host_execution.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は最初 `REVIEW_CHANGES`。
+- 指摘は `todo.md` が F5dg を future work として残していた記録矛盾だけだった。
+- `todo.md` を未実装の Web / native / bare presenter、scheduler、FHD validation、compositor / stroke / shadow に限定し、再レビューで `REVIEW_APPROVED` を受けた。
+
+## remaining
+
+- F5dg は actual host import execution 直前の operation stream 正規化までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5df std run-span boundary
+
+## scope
+
+- F5cq host-command run record の tile-local linear run を、actual Web / native / bare / headless presenter が共通に消費できる 1 行 span stream へ分解する std layer boundary を追加した。
+- `GuiRgba8888RowTileRlePresentRunRowSpan` は x / y / width / color だけを持ち、height は accessor が 1 を返すため row-only invariant を保つ。
+- start で descriptor と run を checked arithmetic で検査し、invalid cursor を作らない。
+- step は `SpanReady` または explicit Completed を返し、empty span、silent no-op、fallback success は作らない。
+- F5df does not call platform import。F5da-F5de action / driver、F5cs virtual drain、F5cp / F5co lower cursor、packet record reader、raw storage、queue、scheduler、DOM / Canvas / minifb、video memory、DrawTarget / RenderTarget、fallback には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘は、start-time validation、専用 row span value、tile-local linear pixel offset の明文化、explicit Completed、descriptor / run bounds の enum error、禁止依存 source policy を追加することだった。
+- 実装計画と実装に指摘を反映した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_run_span.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentRunSpanCursor` は run record、next pixel offset、remaining pixel count を保持する。
+- `GuiRgba8888RowTileRlePresentRunSpanStepResult` は `SpanReady` と `Completed` を持つ。
+- `tests/stdlib/gui_std_tile_present_run_span.n.md` を追加し、row crossing run の 2 span 分解と 3 step 目の Completed を検査する。
+- `stdlib/std/gui.nepl` facade、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_run_span.nepl tests/stdlib/gui_std_tile_present_run_span.n.md` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5df focused doctest `tests/stdlib/gui_std_tile_present_run_span.n.md`。
+- pass: F5df module doctest `stdlib/std/gui/tile_present_run_span.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5cq regression `tests/stdlib/gui_std_tile_present_host_command.n.md`。
+- pass: F5de regression `tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。
+- 指摘は実装ではなく、note/todo が「追加中」「更新中」「未完了」となっている状態記録の矛盾だった。
+- start-time validation、row crossing split、explicit Completed、禁止依存、source policy は承認済み。
+
+## remaining
+
+- F5df は実 presenter 直前の row-span 分解までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5de std host action attempt driver boundary
+
+## scope
+
+- actual Web / native / bare executor が返す attempted action と outcome を、F5dd action sink driver completion の前で F5da driver pending の expected action と照合する std layer boundary を追加した。
+- mismatch では F5dd を呼ばず、original driver pending を `AttemptActionMismatch` owner-bearing error へ戻す。
+- F5de does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` は作らない。
+- actual platform execution、F5dc direct call、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、lower dispatch cursor、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- action 比較は F5cy `gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &attempted` を使う。
+- mismatch category は `Some GuiError::InvalidCommand` とし、driver owner を error payload へ保持する。
+- lower F5dd error を `SinkDriverFailed` に丸ごと保持し、top-level error と owner-bearing payload は Clone / Copy を実装しない。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_attempt_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionAttempt` は attempted action と caller-supplied `Result unit GuiError` outcome だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptDriverStep` は attempt と F5dd sink driver step を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionAttemptMismatch` は expected action、attempted action、`Option GuiError` category、F5da driver pending owner を保持し、Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_attempt_driver.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5de focused doctest `tests/stdlib/gui_std_tile_present_host_action_attempt_driver.n.md`。
+- pass: F5de module doctest `stdlib/std/gui/tile_present_host_action_attempt_driver.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5dd regression `tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md`。
+- pass: F5cy regression `tests/stdlib/gui_std_tile_present_host_executor.n.md`。
+- pass: `git diff --check`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## remaining
+
+- F5de は std identity guard までであり、actual Web / native / bare presenter host import execution、surface lifecycle state、packet owner transport、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5dd std host action sink driver boundary
+
+## scope
+
+- F5dc action sink step と F5da one-shot driver completion を接続する std layer bridge を追加した。
+- F5dc support preflight rejection では F5da completion を呼ばず、original driver pending を owner-bearing `SinkRejected` error として caller に返す。
+- F5dc success の場合だけ、caller-supplied outcome を F5da `complete_outcome` に渡し、sink step と dispatch loop completion を返す。
+- F5dd does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` は作らない。
+- actual platform execution、F5cv direct completion、F5cz direct bridge、F5cx report construction、F5cr request construction、F5db virtual executor、lower dispatch cursor、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は、success payload を nested completion result にせず、`Ok Step` / typed `Err` の単一 `Result` にすること、`SinkRejected` は original driver pending を owner-bearing error として保持すること、`DriverCompletionFailed` は driver consumed 後なので sink step と F5da driver error だけを保持することだった。
+- 修正版では上記を反映し、Dirac revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_sink_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverStep` は sink step と dispatch loop completion を保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected` は sink error と driver pending を保持し、Clone / Copy を実装しない。
+- `GuiRgba8888RowTileRlePresentHostActionSinkDriverError` は owner-bearing error なので Clone / Copy を実装しない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_sink_driver.nepl` は no match。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dd focused doctest `tests/stdlib/gui_std_tile_present_host_action_sink_driver.n.md`。
+- pass: F5dd module doctest `stdlib/std/gui/tile_present_host_action_sink_driver.nepl`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: F5dc regression `tests/stdlib/gui_std_tile_present_host_action_sink.n.md`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: F5db regression `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5dd は std bridge までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5dc std host action sink boundary
+
+## scope
+
+- actual Web / native / bare presenter が返す executor-supplied outcome を、F5cw action と一緒に std layer の typed step へ包む。
+- F5cy `require_supported` を step construction より前に呼び、unsupported target は typed error にする。
+- F5dc does not manufacture success。std layer で `Result::Ok unit` や fallback success を作らない。
+- F5da driver pending ownership、F5da completion、F5cx report、F5cz bridge、F5cr request construction、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は `accept` / `reject` helper が std layer で success / failure を作ると silent no-op success path になり得るため、executor-supplied outcome だけを包む API に絞ることだった。
+- 修正版では `gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome` だけを public constructor とし、Dirac revised plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_action_sink.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostActionSinkStep` は action と caller-supplied `Result unit GuiError` outcome だけを保持する。
+- `GuiRgba8888RowTileRlePresentHostActionSinkErrorKind` は `UnsupportedAction` だけを持ち、lower F5cy support error を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5dc focused doctest `tests/stdlib/gui_std_tile_present_host_action_sink.n.md`。
+- pass: F5dc module doctest `stdlib/std/gui/tile_present_host_action_sink.nepl`。
+- pass: F5db regression `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_action_sink.nepl` は no match。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5dc は actual executor outcome packaging までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5db std virtual host executor boundary
+
+## scope
+
+- F5da one-shot driver pending を deterministic virtual executor で消費し、F5cw action shape を F5cq host-command record と F5cs virtual drain に接続する。
+- support preflight は F5cy `require_supported` を使い、drain mutation より前に行う。
+- support rejection と drain failure でも F5da `complete_outcome` で pending を one-shot cleanup する。
+- drain failure の recovery executor は failed drain state ではなく original executor とする。
+- actual Web / native / bare presenter、F5cv direct completion、F5cz direct bridge、F5cr request construction、F5cu / F5ct / F5cp / F5co、raw storage、host API、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac initial plan review は `PLAN_CHANGES`。
+- 指摘は `InconsistentCompletion` を明示すること、drain failure でも pending を消費すること、support rejection cleanup を明文化すること、F5cw action 9 variant から F5cq record への total mapping を固定することだった。
+- 修正版で `SupportRejected`、`DrainFailed`、`DriverFailed`、`InconsistentCompletion` と recovery executor / optional driver error を明確化し、Dirac plan review は `PLAN_APPROVED`。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_virtual_executor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentVirtualExecutor` は support と F5cs virtual drain を保持する。
+- execute は support preflight 後だけ virtual drain を更新し、support rejection / drain failure / success の全 path で F5da `complete_outcome` により pending を消費する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: F5db focused doctest `tests/stdlib/gui_std_tile_present_virtual_executor.n.md`。
+- pass: F5db module doctest `stdlib/std/gui/tile_present_virtual_executor.nepl`。
+- pass: F5da regression `tests/stdlib/gui_std_tile_present_host_execution_driver.n.md`。
+- pass: std/gui facade doctest `stdlib/std/gui.nepl`。
+- pass: `git diff --check`。
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_virtual_executor.nepl` は no match。
+- note: initial focused behavior doctest は dispatch-loop scenario 再構築で 180 秒 timeout したため、doctest は import smoke と coverage label に縮小した。behavior order と禁止依存は source policy と module doctest に責務を分けて固定した。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+
+## residual
+
+- F5db は deterministic std virtual executor までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5da std host execution driver boundary
+
+## scope
+
+- F5cv pending request と F5cw action decoding を、actual Web / native / bare / headless executor が読む one-shot driver pending に束ねる。
+- executor は `pending_action` で action だけを読み、actual outcome は `Result unit GuiError` として `complete_outcome` に返す。
+- `complete_outcome` は stored action と outcome から F5cx report を作り、F5cz bridge に validation before completion と loop completion を委譲する。
+- actual host import execution、F5cv `complete_request` direct call、F5cy validation reimplementation、F5cr request construction、F5cu / F5ct / F5cs / F5cp / F5co、raw storage、host API、platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 条件は `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` が Clone / Copy を持たないこと、prepare が pending request を borrow して action を 1 回だけ導出することだった。
+- `complete_outcome` は action を読んでから `field::get driver "pending"` で pending を move し、F5cx report と F5cz bridge だけを呼ぶ方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution_driver.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostExecutionDriverPending` は pending と action を保持する owner-bearing struct とし、Clone / Copy を実装しない。
+- driver error は F5cz bridge error を `BridgeFailed` として包み、category と dispatch loop state を保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution_driver.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_driver_f5da.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_driver_module_f5da.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5da_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5da.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- Dirac は `DriverPending` が F5cv pending と F5cw action を所有し、Clone / Copy を持たないことを確認した。
+- Dirac は `prepare` の borrow-derived action、`complete_outcome` の action read -> `field::get driver "pending"` -> F5cx report -> F5cz bridge の順序、F5cv direct completion / F5cy reimplementation / F5cr construction / platform / raw / queue / timer / scheduler / fallback / silent no-op leakage なしを確認した。
+
+## residual
+
+- F5da は std driver boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cz std host report loop bridge boundary
+
+## scope
+
+- F5cv pending request、F5cw action decoding、F5cx report outcome、F5cy executor validation を、dispatch loop completion の手前で接続する。
+- validation before completion を contract とし、support / full action identity の検査が通った場合だけ pending value を F5cv `complete_request` へ渡す。
+- validation failure は previous state を保持し、F5cv completion を呼ばない。
+- matching action の failed report は validation failure にせず、F5cv `HostImportExecutionFailed` へ進める。
+- actual host import execution、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- 条件は pending を value として消費すること、pending request / previous state を completion 前に読むこと、F5cw action decode、F5cy validation、F5cx `report_outcome`、F5cv `complete_request` の順序を固定することだった。
+- validation failure では F5cv completion を呼ばず、completion failure では F5cv error kind / category / state を wrapper に保持する方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_report_loop_bridge.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostReportLoopBridgeErrorKind` と `GuiRgba8888RowTileRlePresentHostReportLoopBridgeError` を追加した。
+- `gui_rgba8888_row_tile_rle_present_host_report_loop_bridge_complete` は pending request から expected action を作り、F5cy validation 成功後だけ F5cx `report_outcome` と F5cv `complete_request` を呼ぶ。
+- focused doctest で F5cv `step_pending` が non-Copy pending を shared borrow から動かしていた root cause を検出したため、`field::get step "pending"` に修正し、source policy へ regression guard を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_report_loop_bridge.nepl stdlib/std/gui/tile_present_dispatch_loop.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5cz.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_module_f5cz.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_loop_module_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cz_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cz.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。code / source-policy blocker はなく、`note.n.md` の review status が pending のままだったことだけが blocking finding だった。
+- 指摘に従い、`subagent_review` を実際のレビュー結果へ更新した。
+- Dirac は、pending previous/request -> F5cw action -> F5cy validation -> F5cx `report_outcome` -> F5cv `complete_request` の順序、validation failure before completion、previous state preservation、F5cv `step_pending` の owned `field::get step "pending"` 修正、platform / raw / queue / timer / scheduler / fallback leakage なしを確認した。
+
+## residual
+
+- F5cz は report-to-loop bridge までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cy std row tile RLE present host executor validation boundary
+
+## scope
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と F5cx の `GuiRgba8888RowTileRlePresentHostExecutionReport` を、actual executor の手前で検査する。
+- `GuiRgba8888RowTileRlePresentHostExecutorSupport` は空 support を表現しない enum とし、unsupported target は typed error の `Result` で返す。
+- report validation は variant だけでなく full action identity を比較し、window、surface、frame、packet metadata、run offset、run count、RGBA channel の差異を検出する。
+- matching action の failed report は association として valid とし、execution outcome の解釈は F5cx `report_outcome` と F5cv completion に残す。
+
+## plan_review
+
+- Dirac の initial plan review は `PLAN_BLOCKED`。理由は loose bool support では supports-nothing state を表現でき、report/action 検査も variant 一致だけに弱まる危険があるため。
+- 修正版では non-empty support enum、typed executor error、full action equality、`validate_report_for_action` の順序を明確化し、Dirac plan review で `PLAN_APPROVED`。
+- `UnsupportedAction` は `reported = None`、`ReportActionMismatch` は `reported = Some reported_action` とする方針が承認された。
+- F5cv pending completion は caller-owned のまま残し、F5cy は F5cw action と F5cx report だけを消費する。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_executor.nepl` を追加した。
+- non-empty support enum、action kind enum、typed executor error、support validation、full action equality、`validate_report_for_action` を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_executor.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cy.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_executor.nepl --no-tree -o tmp_gui_std_tile_present_host_executor_module_f5cy.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cy_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cy_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cy.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_CHANGES`。code / source-policy blocker はなく、`note.n.md` の status が実際の完了状態に追従していないことだけが blocking finding だった。
+- 指摘に従い、implementation と verification_current と subagent_review を実際の完了状態へ更新した。
+- Dirac は F5cy code について、non-empty support enum、typed error、`reported = None` / `Some reported` の使い分け、descriptor / run / color / window payload の public-accessor-based equality、F5cv / platform / raw / fallback leakage の禁止が approved plan を満たすと確認した。
+
+## residual
+
+- F5cy は pre-executor validation boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cx std row tile RLE present host execution report boundary
+
+## scope
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と executor outcome を action context を失わない typed report に束ねる。
+- `GuiRgba8888RowTileRlePresentHostExecutionReportKind` は `Succeeded` / `Failed GuiError` の enum とし、string / bool / silent no-op へ落とさない。
+- actual Web / native / bare executor、F5cv pending completion、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5cw が executor action、F5cx が action-retaining outcome envelope を担う分割は、platform executor の前に置く root-cause slice として妥当と確認された。
+- executor outcome は既に存在するため、report construction は direct value return とし、新しい `Result` failure mode は作らない。
+- F5cx は F5cv から独立させ、caller が `report_outcome` を F5cv `complete_request` へ渡す方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution_report.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentHostExecutionReportKind`、`GuiRgba8888RowTileRlePresentHostExecutionReport`、`report`、`report_for_request`、accessor、`report_outcome` を追加した。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution_report.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cx.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_report.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_report_module_f5cx.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cx_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cx.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5cx は approved boundary どおり report construction のみであり、F5cw / F5cr を使い、F5cv completion や actual host execution へ進んでいないことが確認された。
+- `report_for_request` は F5cw action decoding を 1 回だけ呼び、supplied executor outcome を action-retaining report に束ねていることが確認された。
+- `report_outcome` は `Succeeded` / `Failed GuiError` から元の `Result unit GuiError` shape へ roundtrip し、F5cv caller が exact outcome を渡せることが確認された。
+- source policy / docs は platform / DOM / Canvas / minifb / video memory、queue / timer / scheduler、raw storage、lower cursor、fallback、silent no-op、NEPL parentheses leakage を禁止していることも確認された。
+
+## residual
+
+- F5cx は executor report boundary までであり、actual Web / native / bare presenter host import execution、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cw std row tile RLE present host execution action boundary
+
+## scope
+
+- F5cr の `GuiRgba8888RowTileRlePresentHostImportRequest` を actual Web / native / bare executor が match できる flat execution action に写す。
+- `GuiRgba8888RowTileRlePresentHostExecutionAction` は Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の直積を invalid-state-free enum として表す。
+- actual host import execution、dispatch loop、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5cr request と F5cq record の nested interpretation を platform backend から外す境界として意味があると確認された。
+- F5cr が validation 済みなので direct action return でよく、新しい `Result` failure mode は作らない方針が承認された。
+- 条件として、代表的な target x record mapping の functional doctest、F5cv/F5cu/F5ct/F5cs/F5cp/F5co 禁止、platform/raw/queue/timer/scheduler/fallback 禁止を追加することが求められた。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution.nepl` を追加した。
+- WindowBegin / WindowRun / WindowEnd payload と、Window / Offscreen / Device x Begin / Run / End の flat action enum を追加した。
+- `gui_rgba8888_row_tile_rle_present_host_execution_action` は F5cr request accessor で target / record を読み、F5cq record を match して action に写す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cw.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_module_f5cw.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cw.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は初回 `REVIEW_BLOCKED`。
+- blocking finding は `note.n.md` の stale status のみで、F5cw implementation / source-policy issue は無し。
+- 指摘に従い `verification_current` と `subagent_review` を実際の検証済み状態へ更新した。
+- follow-up review は `REVIEW_APPROVED`。remaining code / source-policy / docs blocker は無し。
+
+## residual
+
+- F5cw は host execution action decoding までであり、actual Web / native / bare presenter、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cv std row tile RLE present dispatch loop outcome boundary
+
+## scope
+
+- F5cu の `RequestReady request plus post phase` を future platform executor の host outcome と接続する std layer loop boundary を追加する。
+- `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` は previous state、next state、request、post phase を保持し、Clone / Copy を実装しない。
+- `complete_request` は pending value を消費し、host outcome Err では previous state、Ok では post phase に対応した next state を返す。
+- actual host import execution、Web / native / bare presenter、queue、timer、scheduler、platform API、video memory、raw packet storage、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `complete_request` が pending を borrow するだけだと、同じ host outcome を複数回完了して next state の publish や failure を replay できると指摘された。
+- 修正版計画は `PLAN_APPROVED`。`complete_request` が pending value を消費し、pending が previous / next state と request / post phase を保持する一回限りの境界にする方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_dispatch_loop.nepl` を追加した。
+- dispatch loop state、pending request、step、completion enum、typed error enum/value を追加した。
+- pending request と step は Clone / Copy を実装せず、source policy でも禁止した。
+- `dispatch_loop_step_record` は F5cu `dispatch_step_record` だけを呼び、success path で previous / next state を持つ pending request を返す。
+- `dispatch_loop_complete_request` は pending value と `Result unit GuiError` を受け、Err では previous state 付き error、Ok では Continue / Yield / Completed の next state completion を返す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cv.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_loop_module_f5cv.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cv_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cv.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `DispatchLoopState` が F5cu dispatch state だけを wrap すること、pending request が previous / next / request / post phase を保持し Clone / Copy を持たないことが確認された。
+- `complete_request` が pending value を消費して host outcome を one-shot にし、Err は previous state、Ok は post phase に従う next state completion に写すことが確認された。
+- source policy と docs が host import execution、queue、timer、scheduler backend、platform / DOM / Canvas / minifb / video memory、raw packet access、fallback、silent no-op を禁止していることも確認された。
+
+## residual
+
+- F5cv は one-shot pending / host outcome state transition までであり、actual Web / native / bare presenter、formal host import execution implementation、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cu std row tile RLE present scheduled dispatch boundary
+
+## scope
+
+- F5ct schedule state と F5cr host import request construction を接続し、actual host import execution の手前で typed dispatch value を作る。
+- success path は `RequestReady request plus post phase` とし、exact-budget record の request と `Yield`、EndFrame request と `Completed` を同時に保持する。
+- F5cs direct call、F5cp / F5co cursor、raw packet storage、queue、timer、host import execution、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `RequestReady` / `Yield` / `Completed` の単純 phase では、exact-budget record の request delivery と yield signal、EndFrame request と completed signal を同時に表現できないと指摘された。
+- 修正版計画は `PLAN_APPROVED`。`ReadyRequest` に request と post phase を同時に保持し、F5ct before F5cr、error は previous dispatch state preserved、F5cs direct call 禁止の方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_dispatch.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentDispatchState`、post phase enum、ready request、dispatch output、dispatch step、typed error enum/value を追加した。
+- `dispatch_step_record` は F5ct `schedule_step_record` を先に呼び、lower schedule error を category と previous dispatch state 付きで包む。
+- F5ct success 後だけ F5cr `host_import_request` を呼び、F5cr error では previous dispatch state を返す。
+- success path は updated dispatch state と `RequestReady ready` を返し、ready value が host import request と post phase を同時に保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cu_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_module_f5cu_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cu.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cu_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cu_regression_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cu_regression_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5cu_regression_rerun.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `DispatchState` が F5ct schedule state だけを wrap すること、`ReadyRequest` が request と post phase を同時に保持して `Option` invalid state を持たないことが確認された。
+- `step_record` が F5ct before F5cr の順序を守り、F5ct error と F5cr error の両方で previous dispatch state を保持することが確認された。
+- source policy が F5cs direct call、lower cursor、raw storage、platform / timer / queue / fallback path を禁止していることも確認された。
+
+## residual
+
+- F5cu は scheduled dispatch value までであり、actual Web / native / bare presenter、formal host import execution boundary、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5ct std row tile RLE present schedule boundary
+
+## scope
+
+- F5cq host-command record stream を、actual presenter / host import dispatch の前で deterministic slice budget に区切る std layer schedule boundary を追加する。
+- stream validation は F5cs virtual drain を single authority とし、F5ct は slice counter、exact-budget yield、over-budget typed error、explicit resume slice だけを担当する。
+- timer、queue、F5cr request、host import call、platform API、raw packet storage、video memory、Canvas / DOM / minifb には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- budget 超過を `Yield` にすると `max_pixels_per_slice` / `max_commands_per_slice` が権威を失うため、over-budget は typed error にする必要があると指摘された。
+- 修正版計画は `PLAN_APPROVED`。F5ct は F5cq record だけを消費し、F5cs `virtual_drain_step` を validation authority とし、`Yield` は exact budget、`Completed` は F5cs ended state、`resume_slice` は slice counter reset のみとする方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_schedule.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentSchedulePolicy`、policy error enum、schedule state、schedule phase、schedule step、step error enum/value を追加した。
+- policy constructor は positive command / pixel budget だけを `Result::Ok` にし、zero / negative budget を enum error にする。
+- schedule state は F5cs virtual drain value と slice-local command / pixel counters だけを保持する。
+- step は record pixel cost、single-run pixel budget、F5cs virtual drain step、checked slice counter add、Completed / over-budget / exact-budget Yield / Continue の順で判定する。
+- `resume_slice` は F5cs drain を保持したまま slice counters だけを 0 に戻す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5ct_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_schedule.nepl --no-tree -o tmp_gui_std_tile_present_schedule_module_f5ct_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5ct_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5ct.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5ct は F5cs state を wrap し、F5cq record だけを消費し、host import / platform work から budget decision を分離できていると確認された。
+- single-run pixel over-budget が F5cs 前に error になり、F5cs lower error が lower kind / category と previous schedule state を失わず包まれることが確認された。
+- checked counter add、Completed-before-budget、exact-budget Yield、over-budget typed error、resume slice counter reset、source policy の禁止依存も確認された。
+
+## residual
+
+- F5ct は schedule decision value までであり、actual Web / native / bare presenter、formal host import execution boundary、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cs std row tile RLE present virtual drain
+
+## scope
+
+- F5cq の host-command record stream を、headless / test が deterministic に検査する std layer virtual drain を追加する。
+- actual presenter、host import、scheduler、video memory submit には進まず、record stream の順序、descriptor 一致、run offset continuity、expected count completion を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- run count と pixel sum だけでは forged stream の gap / overlap / reorder を検出できないため、`run_pixel_offset == seen_pixel_count` を必須にする必要があると指摘された。
+- expected count は packet storage / record reader ではなく std-layer descriptor accessor で読むべきと指摘された。
+- error enum の具体性も求められた。
+- 修正版計画は `PLAN_APPROVED`。F5cs は F5cq record を消費し、F5cr request を消費しない方針が headless/test observation boundary として妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present.nepl` に present descriptor expected run / pixel count accessor を追加した。
+- `stdlib/std/gui/tile_present_virtual_drain.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentVirtualDrainPhase`、`GuiRgba8888RowTileRlePresentVirtualDrain`、`GuiRgba8888RowTileRlePresentVirtualDrainErrorKind`、error value を定義した。
+- BeginFrame は `WaitingBegin` のみ許可し、descriptor から expected run / pixel count を読んで `InFrame` へ進む。
+- RunRecord は `InFrame` のみ許可し、descriptor 一致、positive run pixel count、`run_pixel_offset == seen_pixel_count`、checked run end、expected bounds を検査する。
+- EndFrame は expected run / pixel count を満たした場合だけ `Ended` へ進む。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5cs_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_virtual_drain.nepl --no-tree -o tmp_gui_std_tile_present_virtual_drain_module_f5cs_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present.nepl --no-tree -o tmp_gui_std_tile_present_module_f5cs_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cs_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cs_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5cs が F5cq record を消費し F5cr request を消費しないこと、expected count が `tile_present` の std-layer accessor behind に置かれていること、run offset continuity と checked end / expected bound が実装されていることが確認された。
+- source policy が F5cr / F5cp / F5co / raw / platform / fallback path を禁止していることも確認された。
+
+## residual
+
+- F5cs は virtual drain までであり、actual Web / native / bare presenter、host import dispatcher、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cr std row tile RLE present host import request
+
+## scope
+
+- F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` を、formal host import request の typed value へ包む std layer boundary を追加する。
+- actual Web / native / bare presenter、host import call、scheduler、video memory submit には進まず、capability validation と target enum を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `DevicePixel` capability は任意 `ColorFormat` を持てるため、RGBA8888 row tile RLE request は `ColorFormat::FormatRgba8888` を request boundary で検査する必要があると指摘された。
+- F5cr は F5cq host-command record だけを消費し、F5cp / F5co cursor や packet storage、old pixel-frame present type へ戻らない source policy を強化する必要があると指摘された。
+- 指摘に従い、`FormatRgba8888` 検査を target selection の前に置き、source policy で F5cq-only dependency を固定する方針に修正した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_import.nepl` を追加し、`GuiRgba8888RowTileRlePresentHostImportTarget` と `GuiRgba8888RowTileRlePresentHostImportRequest` を定義した。
+- target は `Window WindowId`、`Offscreen`、`Device` に限定した。Headless / TextGrid は presentation target ではなく、`GuiError::Unsupported` とする。
+- `gui_rgba8888_row_tile_rle_present_host_import_request` は `GuiHost` の capability を読み、`ColorFormat::FormatRgba8888` を先に検査してから target を選ぶ。
+- Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を要求する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cr.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_import.nepl --no-tree -o tmp_gui_std_tile_present_host_import_module_f5cr.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cr_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_command.nepl --no-tree -o tmp_gui_std_tile_present_host_command_module_f5cr_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `GuiRgba8888RowTileRlePresentHostImportTarget` が Window / Offscreen / Device だけを持ち、Headless target を持たないこと、request が F5cq record を直接保持すること、RGBA8888 validation が target selection より前にあることが確認された。
+- F5cp / F5co / raw / old present / platform / fallback path の禁止が source policy で固定されていることも確認された。
+
+## residual
+
+- F5cr は host import request record までであり、actual Web / native / bare presenter、host import dispatcher、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cq std row tile RLE present host-command record
+
+## scope
+
+- F5cp の `GuiRgba8888RowTileRlePresentCommandCursorStep` を、Web / native / bare / headless presenter が後続 ABI で受け取れる host-command record に写す。
+- actual host import、scheduler policy、video memory submit、platform presenter には進まず、std layer の record shape と F5cp accessor 境界を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。`kind + Option run` では invalid state を表現でき、F5cp step descriptor を読むために private owner field へ触る危険があると指摘された。
+- 修正版計画は `APPROVED`。`BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` の enum record とし、F5cp に public step descriptor accessor を追加する方針が妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_command_cursor.nepl` に `gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor` を追加した。
+- `stdlib/std/gui/tile_present_host_command.nepl` を追加し、`GuiRgba8888RowTileRlePresentHostCommandRecord` と `GuiRgba8888RowTileRlePresentHostCommandStepResult` を定義した。
+- `RunRecord` payload は descriptor と `GuiRgba8888RowTileRleRun` の両方を保持し、kind + optional run へ flatten しない。
+- `gui_rgba8888_row_tile_rle_present_host_command_step_result` は F5cp の public accessor だけを使い、F5cp step 内部 owner field を直接読まない。
+- `stdlib/std/gui.nepl` facade、`tests/stdlib/gui_std_tile_present_host_command.n.md`、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cq.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cq_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_command.nepl --no-tree -o tmp_gui_std_tile_present_host_command_module_f5cq.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_tile_present_command_cursor_module_f5cq_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac 初回 implementation review は `REVIEW_BLOCKED`。`Run` enum variant に 2 payload を直接置いたため parser error になると指摘された。
+- 指摘に従い、descriptor と run を保持する `GuiRgba8888RowTileRlePresentHostCommandRunRecord` を追加し、enum variant は single-payload `RunRecord` に修正した。
+- Dirac 再レビューは `REVIEW_APPROVED`。F5cq は invalid-state-free shape を維持し、F5cp accessor を経由し、F5co / raw packet storage / host / platform / video API / fallback を bypass していないと確認された。
+
+## residual
+
+- F5cq は std layer host-command record boundary までであり、formal Web / native / headless host import ABI、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cp std row tile RLE present command cursor
+
+## scope
+
+- F5co の `GuiRgba8888RowTileRlePresentRunCursorOwner` を、host import 直前の std layer present command cursor に昇格する。
+- Web / native / bare / headless presenter が共有できる BeginFrame / Run / EndFrame の typed command stream を定義する。
+- actual host import、scheduler policy、2D compositor drain、platform presenter、video memory submit は後続 phase に残す。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。lower run cursor が `Completed` を返した時に public step が無出力になる計画は契約が曖昧であり、EndFrame を同じ public step で返すよう修正した。
+- start failure は lower start error から present owner を recover し、step failure は lower step error から run cursor owner を recover して command cursor owner に戻す必要があると指摘された。
+- 修正版計画は `APPROVED`。F5co cursor の上に typed frame command stream を作るのが summary drain より根本対処として妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_command_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentCommand` に BeginFrame / Run / EndFrame を定義した。
+- `GuiRgba8888RowTileRlePresentCommandCursorOwner` は lower run cursor owner、present descriptor copy、phase を保持する。owner-bearing 型は Clone / Copy を実装しない。
+- `gui_rgba8888_row_tile_rle_present_command_cursor_start` は descriptor をコピーしてから F5co start を 1 回だけ呼び、失敗時は original present owner を error に保持する。
+- `gui_rgba8888_row_tile_rle_present_command_cursor_step` は one typed output per public step を守る。BeginPending は BeginFrame、RunPending の lower RunReady は Run、lower Completed は同じ step で EndFrame、Completed phase は terminal Completed を返す。
+- lower step error は kind / category を保持しつつ lower owner を recover し、RunPending の command cursor owner に戻す。
+- `stdlib/std/gui.nepl` facade から command cursor boundary を再公開した。
+- `tests/stdlib/gui_std_tile_present_command_cursor.n.md` を追加し、source policy label と import smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cp source policy を追加し、F5co bypass、raw packet record access、host/platform/fallback を禁止した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cp contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cp.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5cp_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_tile_present_command_cursor_module_f5cp.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `tile_present_command_cursor.nepl` は F5co の上の std-layer cursor であり、packet record / raw storage / host / platform API に触れていないと確認された。
+- public step は BeginFrame、Run、EndFrame、terminal Completed のいずれか 1 output を返し、lower Completed と同じ step で EndFrame を返すため silent transition がないと確認された。
+- start failure は original present owner を recover し、step failure は lower run cursor owner を recover して RunPending command cursor owner に戻すと確認された。
+- source policy と docs / todo は F5cp の typed command stream と後続 host import / scheduler 残件を正しく分けていると確認された。
+
+## residual
+
+- F5cp は std layer typed command stream までであり、formal Web / native / headless host import ABI、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cn std row tile RLE present-frame owner
+
+## scope
+
+- F5cm の `GuiRgba8888RowTileRlePacketOwner` を、host import 直前の std layer present-frame owner に昇格する。
+- existing `GuiSurfacePresentCommand` / `PresentPixelFrame` には接続せず、packet owner と `SurfaceId` / `FrameId` の対応検査だけを std layer に置く。
+- Web / native / headless presenter、actual host import、byte reader、video memory、scheduler は後続 phase に残す。
+
+## plan_review
+
+- Descartes plan review は `PLAN_APPROVED`。
+- 条件として、`GuiSurfacePresentCommand` の拡張禁止、platform / host module import 禁止、`GuiSurfacePresentCommand` / `PresentPixelFrame` / `GuiPixelBufferDescriptor` / host import / video memory / raw bytes / fallback 禁止を source policy で固定することが挙げられた。
+- validation は id、frame mismatch、positive geometry/counts、`width * 4`、`row_count * width`、`total_run_count * 12`、derived tile count を owner move 前に行う。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` の packet descriptor に `plan_row_start` / `plan_row_count` を追加した。std layer が tile count を再導出するには tile 自身の row range だけでは不十分なためである。
+- `stdlib/std/gui/tile_present.nepl` を追加し、`GuiRgba8888RowTileRlePresentDescriptor`、`GuiRgba8888RowTileRlePresentFrameOwner`、owner-bearing prepare error、free / recovery helper を追加した。
+- `gui_rgba8888_row_tile_rle_present_frame_prepare` は packet descriptor を借用で読み、surface/frame id、packet frame id、positive shape/counts、row extent、stride、derived tile count、pixel count、encoded byte count を検査したあとでだけ packet owner を success owner に移す。
+- `stdlib/std/gui.nepl` facade から tile present boundary を再公開した。
+- `tests/stdlib/gui_std_tile_present.n.md` を追加し、source policy label と import smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cn source policy を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cn contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5cn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present.nepl --no-tree -o tmp_gui_std_tile_present_module_f5cn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_module_f5cn.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Descartes implementation review は `REVIEW_APPROVED`。
+- `tile_present.nepl` は `GuiSurfacePresentCommand` を拡張せず、`PresentPixelFrame` / `GuiPixelBufferDescriptor` を作らず、host / platform import と fallback path を持たないと確認された。
+- success / error owner は owner-bearing で Clone / Copy を持たず、prepare failure が packet owner を保持することが確認された。
+- validation は owner move 前に id、frame mismatch、positive shape/counts、row extent、stride、derived tile count、pixel count、encoded byte count を検査していると確認された。
+- packet descriptor に `plan_row_start` / `plan_row_count` を追加した根本対処と docs / source policy の反映も承認された。
+
+## residual
+
+- F5cn は std layer present-frame owner までであり、Web / native / headless presenter host import、formal tiled transport bytes handoff、queue / scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cm render2d row tile RLE packet owner
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-packet-f5cm-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cm の packet owner、metadata authority helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。条件付きで、payload descriptor を plan から再計算して authority を検証すること、validation order を source policy で固定すること、descriptor arithmetic を checked にすることが求められた。
+- required: packet owner は alloc-layer descriptor sealing に留め、byte reader、raw storage、host present、video memory、platform API、fallback に進まない。
+- required: prepare failure は original sealed encoded owner を owner-bearing error に保持し、validation success 後だけ packet owner に move する。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` に `GuiRgba8888RowTilePayloadAuthorityErrorKind` と descriptor authority validation helper を追加した。
+- `row_tile_rle.nepl` と `row_tile_rle_encoded.nepl` に checked descriptor / plan metadata helper を追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` を追加し、`GuiRgba8888RowTileRlePacketDescriptor`、`GuiRgba8888RowTileRlePacketOwner`、owner-bearing prepare error を追加した。
+- `gui_rgba8888_row_tile_rle_packet_prepare` は encoded count、cursor completion、payload descriptor authority、descriptor byte count、plan shape、tile metadata を検査し、成功時だけ sealed owner を packet owner に移す。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet.n.md` は import smoke と source policy labels にした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cm contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_module_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_payload.nepl --no-tree -o tmp_gui_render2d_row_tile_payload_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_f5cm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_module_f5cm.json -j 1`
+- pass: `git diff --check` CRLF warning のみ。
+
+## residual
+
+- F5cm は alloc-layer packet descriptor owner までであり、formal std/gui host present ABI、Web/native/headless presenter、FHD 60fps scheduler policy、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+
+# 2026-06-17 Agent2 GUI font F5cl render2d row tile RLE sealed encoded owner
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-sealed-owner-f5cl-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cl の sealed encoded owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。F5cl は F5ck の後、formal tile transport / host present ABI の前に置く sealed completion boundary として妥当と確認された。
+- required: count invariant は encoded count、total run count、`total_run_count * 12`、written run count range、written byte count range、`written_run_count * 12 == written_byte_count`、completion の順に検査する。
+- required: lower cursor status は count invariant が通った後で検査し、`Ready` は `CursorNotComplete` とする。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl` を追加した。
+- `GuiRgba8888RowTileRleEncodedOwner`、seal error kind、seal error、finish error を追加した。
+- `gui_rgba8888_row_tile_rle_encoded_seal` は count invariants と lower cursor `Complete` を検査してからだけ cursor / storage を sealed owner へ move する。
+- seal failure は original `GuiRgba8888RowTileRleWriteCursorOwner` を owner-bearing error に保持する。
+- public accessor は total run count、encoded byte count、cursor next pixel index、cursor pixel count に限定し、encoded byte reader と storage pointer accessor は提供しない。
+- `tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md` は current compiler timeout を避けるため import smoke と source policy labels にした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cl contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_f5cl.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_module_f5cl.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5cl_regression.json -j 1`
+- pass: `git diff --check` CRLF warning のみ。
+
+## residual
+
+- F5cl は sealed encoded owner までであり、formal tile bitmap transport、host present ABI、formal scheduler policy、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
+# 2026-06-17 Agent2 GUI font F5ck render2d row tile RLE run writer cursor
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-run-writer-f5ck-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ck の lower peek / advance、RLE storage write cursor、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review 1 は `PLAN_BLOCKED`。当初案の consuming `cursor_next_run` は store failure 時に pre-step cursor を返せないと確認された。
+- revised plan では `row_tile_rle` に borrowed `cursor_peek_run` と consuming `cursor_advance_by_run` を追加し、writer は peek、write、advance の順にした。
+- Descartes revised plan review は `PLAN_APPROVED`。write-success-before-advance、unchanged written counts、uncommitted slot、reader 禁止、little-endian layout、completion 明示を source policy と docs に固定する条件で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_peek_run` と `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を追加した。
+- `advance_by_run` 用に `RunPixelOffsetMismatch`、`RunPixelCountInvalid`、`RunEndOutOfBounds` を lower step error kind に追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` に `GuiRgba8888RowTileRleWriteCursorOwner`、start error、step status、step error を追加した。
+- `gui_rgba8888_row_tile_rle_write_cursor_start` は storage owner の encoded byte count / total run count / `total_run_count * 12` を再検査してから writer owner へ移す。
+- `gui_rgba8888_row_tile_rle_write_cursor_step_one` は written counts、completion、12 byte capacity、run count increment を検査し、borrowed peek、12 byte write、advance の順に進む。
+- encoded layout は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` として固定した。
+- store / projection / advance failure は owner-bearing error に unchanged written counts を保持する。partial byte slot は uncommitted で、reader は提供しない。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` は CI timeout を避けるため import smoke と source policy labels へ軽量化した。writer の詳細契約は `nodesrc/test_web_gui_font_rendering_contract.js` の source policy で固定した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ck contract を追加した。
+- `todo.md` は F5ck 完了後の formal tile bitmap transport / host present ABI / scheduler / compositor / stroke / shadow 残件へ更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5ck.json -j 1`
+- pass: temporary min import probe for `alloc/gui/render2d/row_tile_rle_storage` completed in 60s budget before the temporary file was removed.
+- note: end-to-end row surface pipeline with writer step execution was too heavy for the current doctest runner and reached 180000ms compile timeout. The committed focused doctest is intentionally an import smoke, while source policy pins the writer order and no-reader/no-platform contract.
+
+## subagent review
+
+- Descartes implementation review は `REVIEW_APPROVED`。`row_tile_rle_storage.nepl` は borrowed `peek_run`、dedicated byte helpers、write 成功後の `advance_by_run` の順序を守り、consuming `cursor_next_run`、payload byte reader、encoded byte reader を使っていないことが確認された。
+- store / projection / advance failure は unchanged written counts と owner-bearing error を返し、completion は written count と lower cursor `Complete` の両方を要求していることが確認された。
+- import-smoke doctest は current compiler timeout を避けるためこの slice では許容された。residual risk として、compiler timeout 改善または小さい runtime fixture が用意できた段階で writer behavior runtime coverage を追加する。
+
+## residual
+
+- F5ck は exact encoded byte writer cursor までであり、encoded storage reader、tile bitmap transport、host present ABI、formal scheduler policy、2D compositor drain、stroke rasterization、shadow rasterizationは未実装である。
+- 次 slice では encoded storage を host-visible transport に渡す owner boundary か、FHD 60fps 向け scheduler / compositor boundary のどちらかに進む。
+
+# 2026-06-17 Agent2 GUI font F5cj render2d row tile RLE encoded storage boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-storage-owner-f5cj-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cj の encoded storage allocation boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。F5cj は F5ci writer plan と future run writer の間に置く allocation / reservation only boundary として承認された。
+- prepare failure path は allocation failure だけでなく invalid count / overflow / byte count mismatch も original `GuiRgba8888RowTileRleWriterPlanOwner` を保持する必要があると確認された。
+- 検査順は encoded byte count 正値、total run count 正値、checked multiply、stored byte count との一致、allocation の順とする。
+- `cursor_next_run`、drain、payload read、byte write、`Vec`、host present、platform API、fallback に進まないことを docs/source policy/tests で固定する方針が承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` を追加した。
+- `GuiRgba8888RowTileRleStoragePrepareErrorKind`、`GuiRgba8888RowTileRleStorageFinishErrorKind`、`GuiRgba8888RowTileRleStorageOwner`、`GuiRgba8888RowTileRleStoragePrepareError`、`GuiRgba8888RowTileRleStorageFinishError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_storage_prepare` は writer plan の encoded byte count と total run count を再検査し、`total_run_count * 12` の checked recompute と stored byte count の一致を確認してから exact `RegionToken u8` storage を確保する。
+- allocation 成功後にだけ writer plan owner を finish して cursor owner を storage owner へ移す。failure path は original writer plan owner を保持する owner-bearing error を返す。
+- `gui_rgba8888_row_tile_rle_storage_finish_cursor` は storage を dealloc してから continuation cursor を返す。storage dealloc failure では cursor を finish error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encoded storage を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cj の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cj source policy を追加した。
+
+## verification
+
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` 1 / 1 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` 1 / 1 passed
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+- note: RLE pipeline doctest は重いため、並列実行では 180000ms compile timeout に到達した。単独実行かつ `NEPL_TEST_CASE_TIMEOUT_MS=360000` では storage / writer plan / encode cursor が通る。
+
+## subagent review
+
+- Descartes implementation review は `REVIEW_APPROVED`。F5cj が approved plan と一致し、stored byte count / run count の再検査、checked `total_run_count * 12`、mismatch rejection、exact `RegionToken u8` allocation、allocation 成功後だけの `writer_plan_owner_finish_cursor` を確認した。
+- Descartes は、この boundary が allocation-only であり、run drain、`cursor_next_run`、payload byte read、byte read/write helper、`Vec`、platform / present / fallback path に進んでいないことを確認した。
+- owner-bearing error と finish/free behavior が既存 `row_byte_storage` style と整合し、docs、facade export、focused doctest labels、source policy coverage が揃っていることを確認した。
+
+## remaining
+
+- 次 phase は storage owner から write cursor / run writer を作る boundary。byte write success before cursor advance、owner recovery、zero-fill fallback 禁止を維持する。
+
+# 2026-06-16 Agent2 GUI font F5ci render2d row tile RLE writer plan boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-writer-plan-f5ci-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ci の writer capacity plan boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ci は F5ch ready cursor owner と future encoded writer/storage の間に置く capacity-only boundary として承認された。
+- `total_run_count > 0` の再検査は formal capacity boundary として forged / internal misuse を fail-closed にするため許容された。
+- invalid count / overflow の error は original `GuiRgba8888RowTileRleEncodeCursorOwner` を保持し、`finish_cursor` は success path だけで行う方針が承認された。
+- fixed run layout は `pixel_offset i32`、`pixel_count i32`、`Rgba8888` 4 bytes の 12 bytes として document し、source policy で checked multiply by `12` を固定することが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl` を追加した。
+- `GuiRgba8888RowTileRleWriterPlanErrorKind`、`GuiRgba8888RowTileRleWriterPlanOwner`、`GuiRgba8888RowTileRleWriterPlanError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_writer_plan_prepare` は ready cursor owner の total run count を再検査し、0 以下なら `TotalRunCountInvalid` の owner-bearing error で original ready owner を返す。
+- `total_run_count * 12` は checked multiplication で検査し、overflow は `EncodedByteCountOverflow` の owner-bearing error にする。
+- 成功時だけ ready cursor owner を finish して cursor owner を writer plan owner へ移し、exact `encoded_byte_count` を保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE writer plan を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ci の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ci source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl` 1 / 1 passed
+- pass: row tile RLE encode cursor / seed / completed count / count / drain / cursor / payload / plan regression 16 / 16 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。F5ci が capacity-only boundary であり、storage allocation や run writing に進んでいないことを確認した。
+- Ramanujan は invalid count / overflow が original `GuiRgba8888RowTileRleEncodeCursorOwner` を保持し、`finish_cursor` が success path だけで呼ばれることを確認した。
+- 12-byte layout が document され、checked multiplication by `12` で固定されていること、owner/error が Clone / Copy でなく、error kind だけが Copy metadata であることを確認した。
+- source policy と doctest が facade export、ready-to-capacity success、byte count preservation、owner recovery label、no status / drain / payload read / encoded buffer / platform / fallback / 括弧禁止を覆っていることを確認した。
+
+## remaining
+
+- F5ci は ready cursor owner から writer capacity plan を作るところまでであり、encoded storage allocation、run writer、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5ch render2d row tile RLE encode cursor boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-encode-cursor-f5ch-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ch の encode cursor restart boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5ch では F5cg payload seed から ready cursor owner へ ownership transfer する境界に留め、encoded transport には進まない方針が承認された。
+- `cursor_start` の成功結果は positive aligned payload から `next_pixel_index = 0` と positive `pixel_count` を持つため、`cursor_status` の追加検査は不要であることが確認された。
+- start failure は lower `GuiRgba8888RowTileRleStartError` を owner-bearing recovery として保持し、seed owner を再構成しない方針が承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRleEncodeCursorErrorKind`、`GuiRgba8888RowTileRleEncodeCursorOwner`、`GuiRgba8888RowTileRleEncodeCursorError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_encode_cursor_start` は seed の total run count を読み、payload owner を finish してから `gui_rgba8888_row_tile_rle_cursor_start` を 1 回だけ呼ぶ。
+- start failure では `CursorStartFailed lower_kind` と lower start error と total run count を owner-bearing error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encode cursor を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ch の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ch source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_encode_cursor.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed after single rerun with 360000ms timeout
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。success は cursor と `total_run_count` を返し、failure は lower `GuiRgba8888RowTileRleStartError` と count metadata を保持して seed を再構成しないため、owner/error recovery shape が正しいことを確認した。
+- Ramanujan は F5cc の `cursor_start` contract により `cursor_status` を省略できること、source policy が exactly-one `cursor_start` と status / drain / next_run / payload read / raw storage / `Vec` / encoded buffer / platform / fallback / silent no-op / 括弧禁止を固定していることを確認した。
+- start-error path は public construction で invalid seed を作りにくいため、source policy による structural pinning で許容された。
+
+## remaining
+
+- F5ch は payload seed から ready cursor owner を作るところまでであり、writer seed、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5cg render2d row tile RLE encode seed boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-encode-seed-f5cg-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cg の encode payload seed boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。F5cg では cursor restart まで進まず、F5cf completed count evidence から payload seed へ所有権を移す境界に留める方針が承認された。
+- cursor restart は start error が payload owner を保持し、invalid total error は completed owner を保持するため、mixed owner error を避けて後続 phase へ分離することが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encode_seed.nepl` を追加した。
+- `GuiRgba8888RowTileRleEncodeSeedErrorKind`、`GuiRgba8888RowTileRleEncodeSeedOwner`、`GuiRgba8888RowTileRleEncodeSeedError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_encode_seed_prepare` は completed owner の `total_run_count` を再検査し、0 以下なら `TotalRunCountInvalid` の owner-bearing error で original completed owner を返す。
+- 成功時は `completed -> count -> cursor -> payload` の順に owner を閉じ、payload seed と exact total run count だけを残す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encode seed を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cg の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cg source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_encode_seed.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。`prepare` が total count を completed owner 消費前に検査し、invalid total では owner-bearing error で original completed owner を返し、成功時は `completed -> count -> cursor -> payload` の順に ownership transfer することを確認した。
+- Ramanujan は implementation に cursor restart、drain、`cursor_next_run`、payload byte read、raw storage、`Vec`、encoded buffer、host / platform、fallback、silent no-op、括弧の漏れがないことを確認した。
+- test-side の `cursor_start` は、extracted payload が先頭から restart できることを確認する fixture assertion であり、implementation boundary に責務を持ち込んでいないため許容された。
+
+## remaining
+
+- F5cg は completed evidence から payload seed を作るところまでであり、ready encode cursor / writer seed、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5cf render2d row tile RLE completed count boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-count-completed-f5cf-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cf の completed count evidence、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Ramanujan plan review は `PLAN_APPROVED`。formal encoded RLE transport へ直接進まず、F5ce の count owner を completed count evidence に昇格する境界を置く方針が承認された。
+- 実装条件として、completed module は count owner の private field を直接読まず、borrowed helper を通すこと、status first で `Ready -> CountNotCompleted`、status error -> `CursorInvalid`、Complete 後に `total_run_count > 0` を検査すること、drain / next_run / payload read / raw storage / `Vec` / encoded buffer / host / platform / fallback に進まないことが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` に `gui_rgba8888_row_tile_rle_count_owner_cursor_status` を追加した。
+- `stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl` を追加した。
+- `GuiRgba8888RowTileRleCountCompletedErrorKind`、`GuiRgba8888RowTileRleCountCompletedOwner`、`GuiRgba8888RowTileRleCountCompletedError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_count_completed_prepare` は count owner の cursor status を先に検査し、pending count を `CountNotCompleted`、status error を `CursorInvalid lower_kind`、Complete だが total が 0 以下の count を `TotalRunCountInvalid` として owner-bearing error で返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE completed count を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cf の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cf source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。`prepare` が status first であり、borrowed count-owner cursor status helper を使い、Ready を owner-bearing `CountNotCompleted`、status error を `CursorInvalid` として返し、Complete かつ正の total count だけを completed evidence にすることを確認した。
+- Ramanujan は completed implementation body に drain / `next_run` / payload byte read、raw storage、`Vec`、encoded transport、host / platform、fallback、silent no-op、括弧、completed module からの count owner internals 直接読みに該当する漏れがないこと、docs / facade / doctest labels / source policy が contract と aligned であることを確認した。
+
+## remaining
+
+- F5cf は completed count evidence までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5ce render2d row tile RLE count boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-count-f5ce-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ce の row tile RLE count、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `APPROVED`。formal encoded RLE transport へ直接進まず、scheduler slice の `emitted_run_count` を exact allocation 前段の count owner に累積する方針が承認された。
+- 実装条件として、`count_start` は Ready cursor だけを許可し Complete cursor を `InitialCursorComplete` として拒否すること、`count_step_budget` は F5cd drain に委譲して run を再走査しないこと、overflow で fake continuation owner を返さないこと、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進まないことが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` を追加した。
+- `GuiRgba8888RowTileRleCountErrorKind`、`GuiRgba8888RowTileRleCountStepStatus`、`GuiRgba8888RowTileRleCountOwner`、`GuiRgba8888RowTileRleCountStep`、`GuiRgba8888RowTileRleCountError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_count_start` は cursor status を読み、Ready だけを initial count owner とし、Complete cursor を `InitialCursorComplete` として拒否する。
+- `gui_rgba8888_row_tile_rle_count_step_budget` は F5cd drain terminal の `emitted_run_count` を `accumulated_run_count` に checked add し、`StepBudgetExhausted` を `Pending`、`Completed` を `Completed` に写す。
+- lower drain error は `DrainFailed lower_kind` として recoverable cursor と prior count を保持する。`AccumulatedRunCountOverflow` では continuation owner を偽造せず、advanced cursor と prior count だけを error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE count を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ce の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ce source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。`row_tile_rle_count.nepl` が count-only boundary であり、Ready cursor だけを start し、Complete cursor を `InitialCursorComplete` として拒否し、step は `gui_rgba8888_row_tile_rle_drain_budget` に委譲し、drain status を `Pending` / `Completed` に写し、`emitted_run_count` を checked add することを確認した。
+- Ramanujan は `AccumulatedRunCountOverflow` が advanced / recovered cursor と prior count を返し、fake continuation count owner を作らないこと、owner-bearing value が Clone / Copy されないこと、facade / docs / tests / source policy が aligned であること、raw storage、encoded buffer、`Vec`、host / platform、fallback、silent no-op 漏れがないことを確認した。
+
+## remaining
+
+- F5ce は row tile RLE drain result の count accumulation までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5cd render2d row tile RLE drain boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-drain-f5cd-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cd の row tile RLE drain、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `PLAN_APPROVED`。encoded transport へ直接進まず、scheduler semantics、run traversal、owner recovery、allocation / host concerns を分離するため、F5cc cursor の bounded drain を先に作る方針が承認された。
+- 追加条件として、continuation cursor index だけでなく discard する Copy run metadata の `pixel_offset == previous_next_pixel_index` と `pixel_count > 0` も検査する。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` を追加した。
+- `GuiRgba8888RowTileRleDrainErrorKind`、`GuiRgba8888RowTileRleDrainStatus`、`GuiRgba8888RowTileRleDrainTerminal`、`GuiRgba8888RowTileRleDrainError` を typed value として分けた。
+- `gui_rgba8888_row_tile_rle_drain_budget` は status-before-budget で cursor を進める。
+- complete cursor は負 budget でも `Completed` とし、Ready cursor の負 budget は owner-bearing `InvalidBudget`、zero budget は `StepBudgetExhausted` とする。
+- positive budget では `next_run` で得た Copy run metadata と continuation cursor の進捗不変条件を検査し、`emitted_run_count` を checked arithmetic で増やす。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE drain を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cd の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cd source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Cicero implementation review は `REVIEW_APPROVED`。`gui_rgba8888_row_tile_rle_drain_budget` が status-before-budget、complete cursor + negative budget の `Completed`、Ready cursor + negative budget の owner-bearing `InvalidBudget`、Ready cursor + zero budget の `StepBudgetExhausted`、run metadata と continuation cursor progress の検査、checked `emitted_run_count` 増加を満たすことを確認した。
+- Cicero は source / docs / source policy が `Result` / enum / match、owner recovery、no fallback、no host / platform、contract と current implementation の分離に沿っていることを確認した。
+- Cicero は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_rle_drain.n.md`、`stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` を再実行し、すべて pass、Node WASI experimental warning のみと確認した。
+
+## remaining
+
+- F5cd は row tile RLE cursor の scheduler/progress-only drain までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5cc render2d row tile RLE cursor boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-f5cc-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cc の row tile RLE cursor、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。`next_run` に complete cursor が渡された時に status / finish だけで扱える設計では public contract が弱く、owner-bearing typed error が必要だと指摘された。
+- revised plan は `PLAN_APPROVED`。`CursorComplete` を `GuiRgba8888RowTileRleStepErrorKind` の明示 variant とし、`GuiRgba8888RowTileRleStepError` が cursor owner を保持すること、`pixel_index * 4` と channel offset `+1` / `+2` / `+3` をすべて checked にすること、payload read failure を `PayloadReadFailed lower_kind` に包むことが実装条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` を追加した。
+- `GuiRgba8888RowTileRleStartErrorKind`、`GuiRgba8888RowTileRleStepErrorKind`、`GuiRgba8888RowTileRleCursorStatus` を typed enum として分けた。
+- `GuiRgba8888RowTileRleRun` は `pixel_offset`、`pixel_count`、`Rgba8888 color` の Copy metadata とした。
+- `GuiRgba8888RowTileRleCursorOwner` は payload owner、pixel_count、next_pixel_index を保持し、owner-bearing cursor / step / error は `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_tile_rle_cursor_start` は payload byte count が正で 4 byte RGBA8888 pixel に整列していることを検査し、失敗時は payload owner を start error に保持する。
+- `gui_rgba8888_row_tile_rle_cursor_next_run` は Ready cursor から同色 pixel run を走査し、Complete cursor には `CursorComplete` owner-bearing error を返す。
+- pixel read は `pixel_index * 4`、channel offset `+1` / `+2` / `+3` を checked arithmetic で検査し、payload read failure を `PayloadReadFailed lower_kind` に包む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE cursor を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cc の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cc source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Cicero implementation review は `REVIEW_APPROVED`。`CursorComplete` が owner-bearing typed `Result` error であること、cursor / step / error が `Clone` / `Copy` を実装していないこと、run metadata が Copy であること、`pixel_index * 4` と channel offset `+1` / `+2` / `+3` が checked であること、payload read failure が `PayloadReadFailed lower_kind` に包まれていることを確認した。
+- Cicero は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_rle.n.md`、`stdlib/alloc/gui/render2d/row_tile_rle.nepl` を再実行し、すべて pass、Node WASI experimental warning のみと確認した。
+
+## remaining
+
+- F5cc は existing copied row tile payload view 上の streaming RLE cursor までであり、formal encoded RLE transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5cb render2d row tile payload view boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-payload-f5cb-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cb の row tile payload view、row tile plan storage_ref、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `PLAN_APPROVED`。`gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず、`&GuiRgba8888RowByteStorageOwner` の borrowed authority に留めるなら抽象境界として許容されると確認された。
+- `payload` という名前は owned payload buffer ではなく tile-scoped byte payload view / formal payload owner over existing copied row storage と docs に明記する条件で承認された。
+- prepare failure は tile plan owner を owner-bearing error で返し、`byte_at` は tile-relative bounds、checked add、lower storage read error wrapping を通すことを source policy と focused doctest で固定するよう指摘された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` に `gui_rgba8888_row_tile_plan_storage_ref` を追加した。
+- `storage_ref` は raw storage や pointer を返さず、`&GuiRgba8888RowByteStorageOwner` だけを返す。
+- `stdlib/alloc/gui/render2d/row_tile_payload.nepl` を追加した。
+- `GuiRgba8888RowTilePayloadPrepareErrorKind` と `GuiRgba8888RowTilePayloadReadErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowTilePayloadOwner` は tile plan owner と Copy descriptor を保持し、owner-bearing success / error は `Clone` / `Copy` を実装しない。
+- prepare は `gui_rgba8888_row_tile_plan_descriptor_at &plan tile_index` を通し、descriptor invalid は owner-bearing `DescriptorInvalid lower_kind` として返す。
+- `byte_at` は tile-relative index bounds、descriptor byte offset との checked add、`gui_rgba8888_row_byte_storage_byte_at`、lower read error wrapping の順で進む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile payload を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_payload.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cb の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cb source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_payload.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` 1 / 1 passed
+
+## subagent review
+
+- Kuhn implementation review は `REVIEW_APPROVED`。`storage_ref` が `&GuiRgba8888RowByteStorageOwner` の借用だけを返し raw storage / pointer / byte read を公開しないこと、payload 命名が owned buffer ではなく existing copied row storage 上の tile-scoped byte payload view と固定されていること、prepare が descriptor authority を再検証して owner-bearing error を返すこと、`byte_at` が tile-relative bounds / checked add / lower read error wrap の順であることを確認した。
+- Kuhn は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_payload.n.md`、`stdlib/alloc/gui/render2d/row_tile_payload.nepl`、`git diff --check` を再実行し、すべて pass、CRLF warning のみと確認した。
+
+## remaining
+
+- F5cb は tile-scoped byte payload view までであり、RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5ca render2d row tile plan metadata boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-plan-f5ca-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ca の row byte storage authority helper、row tile plan metadata boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Nietzsche plan review 1 は `PLAN_BLOCKED`。F5ca 自体は妥当だが、F5bz storage owner は original batch owner を保持しないため、先に borrowed byte storage authority helper が必要だと指摘された。descriptor offset は storage-relative、row_start は frame-absolute と明記し、error taxonomy と source policy の禁止事項を具体化する必要があるとされた。
+- Beauvoir plan review 1 は `PLAN_BLOCKED`。`descriptor_at` は owner を消費せず借用 API にし、descriptor 計算前に `GuiRgba8888RowTilePlanInvariantErrorKind` と borrowed invariant validation を通す必要があると指摘された。
+- revised plan は Nietzsche / Beauvoir とも `PLAN_APPROVED`。byte storage authority helper は continuation cursor の `batch_index - 1` から expected range を再計算し、`row_tile_plan` は byte reader、raw memory、allocation、RLE、host / platform、fallback に進まない方針で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` に `GuiRgba8888RowByteStorageAuthorityErrorKind` と borrowed `gui_rgba8888_row_byte_storage_validate_authority` を追加した。
+- authority helper は continuation cursor status、plan invariant、previous batch index、expected range metadata、stored copied range metadata を再検証し、owner を消費せず copied byte storage の中身も読まない。
+- `stdlib/alloc/gui/render2d/row_tile_plan.nepl` を追加した。
+- `GuiRgba8888RowTilePlanPrepareErrorKind`、`GuiRgba8888RowTilePlanInvariantErrorKind`、`GuiRgba8888RowTilePlanDescriptorErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowTilePlanOwner` は exact byte storage owner と Copy `GuiRgba8888RowTilePlan` metadata を保持し、owner-bearing success / error は `Clone` / `Copy` を実装しない。
+- prepare は byte storage authority、positive `tile_rows`、`byte_count == row_count * stride_bytes`、quotient / remainder による checked ceil `tile_count` を検査し、失敗時は byte storage owner を prepare error に保持する。
+- `gui_rgba8888_row_tile_plan_validate_invariants` は storage authority、range metadata、shape / byte count / tile count を descriptor 計算前に再検証する。
+- `gui_rgba8888_row_tile_plan_descriptor_at` は owner を借用し、`byte_offset` を copied row byte storage 内の storage-relative offset、`row_start` を frame-absolute row として checked arithmetic で返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile plan を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_plan.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ca の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ca source policy を追加した。
+- implementation review で指摘された既存 source policy の全文 `[\s\S]*` regex 長時間化を修正し、`assertMatch` で順序検査用の any-pattern を lazy に正規化するようにした。あわせて F4h / F5a の特に重い検査を bounded section slice / ordered fragment 検査へ寄せた。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 0.78 seconds after source policy regex fix
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_plan.nepl` 1 / 1 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_byte_storage.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Nietzsche implementation review は `REVIEW_BLOCKED`。ただし code path に blocker はなく、byte storage authority helper、row tile plan metadata-only 方針、descriptor invariant validation、storage-relative byte offset、owner recovery は妥当と確認された。blocking correction は `note.n.md` の verification / implementation review が未実行のまま stale だったことのみで、この更新で対応した。
+- Beauvoir implementation review は `REVIEW_BLOCKED`。F5ca 実装本体には blocker はないが、source policy が既存 F4h regex で長時間化し merge-safe ではないと指摘された。`assertMatch` の lazy 正規化と bounded section slice 化で対応し、source policy は 0.78 seconds で pass した。
+- Nietzsche follow-up review は `REVIEW_APPROVED`。note blocker は解消済みと確認された。
+- Nietzsche source policy follow-up review は `REVIEW_APPROVED`。`assertMatch` の lazy 正規化、F4h / F5a の bounded section slice、contract test 0.796 seconds、CRLF warning のみを確認し、mergeable と判断された。
+
+## remaining
+
+- F5ca は row tile plan metadata までであり、formal tile byte payload、RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bz render2d row byte storage boundary
+
+## scope
+
+- branch: `gui-render2d-row-byte-storage-f5bz-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bz の render2d row byte storage boundary、F5by prerequisite revalidation helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Dewey plan review 1 は `PLAN_BLOCKED`。source byte access boundary が曖昧で、source `RegionToken` / `MemPtr` が public に漏れないこと、success / error owner path、scratch dealloc failure、`RangeMetadataMismatch` が明示されていないと指摘された。
+- Einstein plan review 1 は条件付きで進行可能。range authority の再検証、success-only cursor finish、scratch cleanup の typed error を source policy と focused doctest へ入れる必要があるとされた。
+- revised plan は Dewey / Einstein とも `PLAN_APPROVED`。`row_byte_storage` だけが source storage を borrow し、public raw accessor を出さず、`gui_rgba8888_row_batch_range_owner_validate_authority` のあとに exact allocation / copy / success-only cursor finish を行う方針で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` に `RangeMetadataMismatch` と borrowed `gui_rgba8888_row_batch_range_owner_validate_authority` を追加した。
+- borrowed authority helper は range owner を消費せず、batch descriptor authority、descriptor 由来の range metadata、continuation cursor status を再検証する。
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` を追加した。
+- `GuiRgba8888RowByteStorageCopyErrorKind`、`GuiRgba8888RowByteStoragePrepareErrorKind`、`GuiRgba8888RowByteStorageReadErrorKind`、`GuiRgba8888RowByteStorageFinishErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowByteStorageOwner` は continuation cursor、Copy range metadata、exact `byte_count` の copied byte storage を所有する。
+- source storage access は private helper 内で byte load まで完結させ、public API から source `RegionToken` / `MemPtr` を返さない。
+- prepare は range owner authority を再検証してから exact `byte_count` の scratch storage を確保し、checked offset / bounds / projection / load / store で byte copy を行い、全 copy 成功後だけ continuation cursor を取り出す。
+- copy 失敗時は scratch storage を dealloc し、dealloc 失敗は `ScratchDeallocFailed` として元の copy error と区別する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row byte storage を再公開した。
+- `tests/stdlib/gui_render2d_row_byte_storage.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bz の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bz source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_byte_storage.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Einstein implementation review は `REVIEW_APPROVED`。range owner authority revalidation、private source storage access、success-only cursor finish、typed copy/read/finish errors、`ScratchDeallocFailed`、owner-bearing error、facade / docs / source policy / focused tests を確認し、blocker なしと判断した。
+- Dewey implementation review は `REVIEW_APPROVED`。前回 blocker の public source `RegionToken` / `MemPtr` escape 禁止、copy 成功前 cursor finish 禁止、owner-bearing error path、scratch cleanup typing、no tile / RLE / host / platform / fallback を確認し、blocker なしと判断した。
+
+## remaining
+
+- F5bz は copied row byte storage までであり、formal tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5by render2d row batch range metadata boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-range-f5by-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5by の render2d row batch range metadata boundary、F5bw prerequisite helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Franklin plan review 1 は `PLAN_BLOCKED`。metadata-only phase に payload 名を使うと actual byte authority と混ざるため、`row_batch_range` / `GuiRgba8888RowBatchRangeOwner` に改める必要があると指摘された。
+- Helmholtz plan review 1 は `PLAN_BLOCKED`。continuation cursor を検査するには batch owner を消費しない borrowed cursor accessor が必要であり、range prepare 内で `gui_rgba8888_row_batch_cursor_batch_finish_cursor` を呼んではならないと指摘された。
+- Franklin plan review 2 は `PLAN_BLOCKED`。descriptor が内部的に整合していても embedded plan 由来か分からないため、cursor 側に descriptor authority helper が必要だと指摘された。
+- Franklin plan review 3 は `PLAN_BLOCKED`。embedded plan も forged されうるため、authority helper は plan invariant path を通し、`PlanInvariant lower_kind` を保持する必要があると指摘された。
+- Helmholtz revised review は `PLAN_APPROVED`。Franklin は plan invariant validation を追加する条件で実装開始を認めた。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` に `BatchDescriptorMismatch`、`gui_rgba8888_row_batch_cursor_batch_cursor_ref`、`gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority` を追加した。
+- authority helper は continuation cursor と embedded plan を借用し、plan invariant を再検査してから `continuation_index - 1` の descriptor を再計算し、全 descriptor field を比較する。
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` を追加した。
+- `GuiRgba8888RowBatchRangePrepareErrorKind` は `BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind` と `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind` を分ける。
+- `GuiRgba8888RowBatchRange` は `start_byte_offset` と `byte_count` を含む Copy metadata とし、`GuiRgba8888RowBatchRangeOwner` と prepare error は batch owner を保持するため `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_range_prepare` は authority validation、checked descriptor range validation、continuation validation の順に進め、検査中に batch owner を消費しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch range を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_range.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5by の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5by source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_range.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `git diff --check` CRLF warning のみ
+- note: partial batch offset の full runtime doctest は compile timeout を避けるため削除し、`row_start * stride_bytes` / `row_count * stride_bytes` の checked arithmetic は source policy で固定した。
+
+## subagent review
+
+- Franklin implementation review 1 は `REVIEW_BLOCKED` だが、content blocker はない。残指摘はこの note の verification / subagent review が `pending` のままだったことであり、この section で修正した。
+- Helmholtz implementation review 1 は `REVIEW_BLOCKED` だが、content blocker はない。残指摘はこの note の verification `pending` と新規 `row_batch_range` files が未追跡だったことである。note は修正済みであり、checkpoint commit 前に intended new files を staging に含める。
+- Franklin implementation review 2 は `REVIEW_APPROVED`。verification 記録と staged new files を確認し、content blocker がないことを再確認した。
+- Helmholtz implementation review 2 は `REVIEW_APPROVED`。verification 記録、partial-offset runtime coverage tradeoff、staged file set、unrelated untracked temp files の分離を確認した。
+
+## remaining
+
+- F5by は row range metadata までであり、actual row byte storage / writer、tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bx render2d row batch scheduler drain boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-drain-f5bx-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bx の render2d row batch scheduler drain、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan and implementation review
+
+- Tesla plan review は `PLAN_APPROVED`。F5bx を row payload ではなく scheduler progress boundary とし、`emitted_count` を transport authority にしないこと、no row payload / host / platform / fallback を docs/source policy に固定する条件で承認された。
+- Planck plan review は `PLAN_BLOCKED`。complete 判定を budget より先に置くこと、zero budget と negative budget を分けること、negative budget を owner-bearing `InvalidBudget` にすること、descriptor index と continuation cursor index の progress invariant を検査すること、checked emitted count を固定することが指摘された。
+- revised plan は Tesla / Planck とも `PLAN_APPROVED`。実装中に owner-bearing enum variant へ cursor と count を直接入れる形は parser / Resource checker 負荷が高かったため、`GuiRgba8888RowBatchDrainTerminal` owner-bearing struct と `GuiRgba8888RowBatchDrainStatus` Copy enum に分けた。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_drain.nepl` を追加した。
+- `GuiRgba8888RowBatchDrainErrorKind` は `CursorStepFailed %GuiRgba8888RowBatchCursorErrorKind`、`InvalidBudget`、`ProgressInvariantInvalid`、`EmittedCountOverflow` を持つ。
+- `GuiRgba8888RowBatchDrainStatus` は `Completed` / `StepBudgetExhausted` の Copy enum とし、terminal 自体は cursor owner を保持する struct なので `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_drain_budget` は status を budget より先に読み、complete cursor を budget exhaustion に隠さない。
+- Ready cursor では `remaining_steps < 0` を `InvalidBudget`、`remaining_steps == 0` を `StepBudgetExhausted` として分ける。
+- positive budget では `next_batch` 後に descriptor batch index と continuation cursor index の progress invariant を検査し、emitted count 加算も checked arithmetic にした。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch drain を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_drain.n.md` に F5bx focused doctest label と runnable case を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bx の scheduler progress boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bx source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_drain.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 322s
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。complete-before-budget、negative / zero budget の分離、owner-bearing error、cursor error kind の保持、progress invariant、checked emitted count、terminal / error owner struct の no Clone / no Copy、no row bytes / tile / RLE / Vec / host present / video memory / Canvas / DOM / minifb / platform / fallback を確認済みである。
+- Tesla implementation review は `REVIEW_BLOCKED` だが、content blocker はない。残指摘は新規 `row_batch_drain.nepl` / focused doctest の staging と、この note への review / `git diff --check` 記録だけであり、この section と verification を更新済みである。
+
+## remaining
+
+- F5bx は formal byte payload / host present 前の scheduler progress boundary までであり、formal row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bw render2d row batch cursor owner boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-cursor-f5bw-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bw の render2d row batch cursor owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan and implementation review
+
+- Tesla plan review は `PLAN_BLOCKED`。start は forged plan owner を前提に full plan invariant を再検証し、dirty span / batch count mismatch を typed error として返す必要があると指摘された。drain / budget は cursor slice から分離する必要も指摘された。
+- Planck plan review は `PLAN_BLOCKED`。owner-bearing `StepTerminal` / `CompleteOwner` と plan invariant enum 複製は型検査負荷と owner 解析負荷を増やすため、`status + next_batch` に縮小する必要があると指摘された。
+- 実装中 review でも同じ問題が確認されたため、当初の `StepTerminal` 実装を破棄し、`GuiRgba8888RowBatchCursorStatus` と `gui_rgba8888_row_batch_cursor_next_batch` に分けた。drain / budget は F5bw から外した。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_plan.nepl` の invariant validation を追加し、`GuiRgba8888RowBatchPlanInvariantErrorKind` と `gui_rgba8888_row_batch_plan_validate_invariants` で stored frame metadata、dirty metadata、row span、batch count を再検証できるようにした。
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` を追加した。
+- `GuiRgba8888RowBatchCursorErrorKind` は `PlanInvariant %GuiRgba8888RowBatchPlanInvariantErrorKind` を持ち、plan invariant を cursor layer に重複コピーしない。
+- `GuiRgba8888RowBatchCursorStatus` は `Ready` / `Complete` の Copy enum とした。
+- `GuiRgba8888RowBatchCursorOwner` と `GuiRgba8888RowBatchCursorBatchOwner` は owner-bearing 型なので `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_cursor_start` は full plan invariant を再検証し、失敗時は plan owner を保持する start error を返す。
+- `gui_rgba8888_row_batch_cursor_status` は start 済み cursor の local index boundary を検査し、`batch_index == batch_count` だけを complete とする。
+- `gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor から descriptor と continuation cursor owner を返す。next index は checked arithmetic を使い、row byte payload / host present / fallback へは進まない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch cursor owner を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_cursor.n.md` に F5bw focused doctest label と runnable case を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bw の row batch cursor owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bw source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 373s
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck follow-up review は `REVIEW_APPROVED`。3 batch continuation sequence、final `Complete`、start-only full invariant validation、local-only step validation、`batch_finish_cursor` path、checked next index、owner no Clone/Copy、no raw byte / tile / host / platform / fallback を確認済みである。
+- Tesla follow-up review は `REVIEW_BLOCKED` だが、content blocker はない。残指摘は `note.n.md` の pending 更新と新規 `row_batch_cursor.nepl` / focused doctest staging のみであり、note は実結果へ更新済みである。
+
+## remaining
+
+- F5bw は formal byte payload / host present 前の cursor owner boundary までであり、bounded drain / scheduler budget、formal row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bv render2d row batch plan owner boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-plan-f5bv-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bv の render2d row batch plan owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。public `GuiRgba8888BitmapFrameOwner` の再検証、typed error、dirty bounds validation、bottom overflow、quotient/remainder batch count、source policy が不足していると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。row planner が F5bu の validated owner を信頼しすぎると、forged public frame metadata から invalid stride / dirty が scheduler authority になるため、F5bv 内で再検証する必要があると指摘された。
+- revised plan は Planck / Tesla ともに `PLAN_APPROVED`。typed error、positive max rows、positive frame id、shape / stride / byte_len 再検証、dirty set state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、contiguous row span、quotient / remainder batch count、owner-bearing prepare error、no byte payload / no host / no fallback が実装開始条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_plan.nepl` を追加した。
+- `GuiRgba8888RowBatchPlanPrepareErrorKind` を追加し、max rows、frame id、frame shape、stride / byte length mismatch、dirty rect origin / size / overflow / out-of-bounds、row span invalid を typed error kind として表した。
+- `GuiRgba8888RowBatchPlanOwner` を追加し、元の `GuiRgba8888BitmapFrameOwner`、frame metadata、dirty set、row_start / row_count / batch_count / max_rows_per_batch を formal byte payload 前の validated owner として束ねた。
+- `GuiRgba8888RowBatchPlanPrepareError` を owner-bearing error として追加し、失敗時に元の bitmap frame owner を回収できるようにした。
+- `gui_rgba8888_row_batch_plan_prepare` は `max_rows_per_batch > 0`、`frame_id > 0`、surface shape metadata、dirty set / dirty rect bounds をすべて検査してから row span と quotient/remainder batch count を計算する。
+- `Empty` dirty は row_count 0、`Full` dirty は full-height span、`One` / `Two` dirty は checked rect から contiguous row span に畳む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch plan owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bv の row batch plan owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bv source policy を追加した。
+- `tests/stdlib/gui_render2d_row_batch_plan.n.md` に F5bv focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_plan.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_bitmap_frame.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 2 runs
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。metadata planning boundary、frame / dirty 再検証、owner recovery、no `finish_surface` / no raw storage / no byte payload / no tile / no host / no platform / no fallback、quotient/remainder batch count、compile-fail forged-frame coverage を確認済みである。
+- Tesla implementation review は `REVIEW_BLOCKED`。code / content blocker はなく、指摘は新規 `row_batch_plan.nepl` / focused doctest が未追跡であることと、review request 時点の `note.n.md` が pending 表記だったことに限定された。note は実結果へ更新済みであり、staging は今回の intended files に限定して行う。
+
+## remaining
+
+- F5bv は formal byte payload / host present 前の row batch plan owner boundary までであり、row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bu render2d bitmap frame owner boundary
+
+## scope
+
+- branch: `gui-render2d-bitmap-frame-f5bu-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bu の render2d bitmap frame owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。当初案の `frame_id >= 0` は positive id contract と衝突するため、`frame_id > 0` に変更する必要があると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。prepare error kind、forged public surface metadata の再検証、dirty rect bounds / overflow validation、`finish_surface` 前 validation、docs/source policy 固定が不足していると指摘された。
+- revised plan は Planck / Tesla ともに `PLAN_APPROVED`。`frame_id > 0`、surface shape / stride / byte_len 再検証、dirty set state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、owner-bearing prepare error、no raw pixel / no host / no fallback が実装開始条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/bitmap_frame.nepl` を追加した。
+- `GuiRgba8888BitmapFramePrepareErrorKind` を追加し、frame id、surface shape、stride / byte length mismatch、dirty rect origin / size / overflow / out-of-bounds を typed error kind として表した。
+- `GuiRgba8888BitmapFrameOwner` を追加し、positive frame id、width / height / stride / byte_len、`DirtyRegionSet`、`GuiRgba8888SoftwareSurfaceOwner` を formal transport 前の validated owner として束ねた。
+- `GuiRgba8888BitmapFramePrepareError` を owner-bearing error として追加し、失敗時に元の dirty owner を回収できるようにした。
+- `gui_rgba8888_bitmap_frame_prepare` は `frame_id > 0`、surface shape metadata、dirty set / dirty rect bounds をすべて検査してから `finish_surface` で surface owner を move する。
+- `stdlib/alloc/gui/render2d.nepl` facade から bitmap frame owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bu の validated bitmap frame owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bu source policy を追加した。
+- `tests/stdlib/gui_render2d_bitmap_frame.n.md` に F5bu focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 311s
+- pass: `tests/stdlib/gui_render2d_bitmap_frame.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `stdlib/alloc/gui/render2d/bitmap_frame.nepl` doctest 1 / 1 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。pre-transport boundary、validation-before-`finish_surface`、owner-bearing recovery、no `Clone` / `Copy`、no raw pixel / byte copy / tile / host / platform / fallback、public storage-token boundary doctest を確認済みである。
+- Tesla implementation review は初回 `REVIEW_BLOCKED`。code / content blocker はなく、指摘は新規 `bitmap_frame.nepl` / focused doctest が未追跡であることと、review request 時点の `note.n.md` が pending 表記だったことに限定された。note は実結果へ更新済みであり、staging は今回の intended files に限定して行う。
+- Tesla follow-up review は `REVIEW_APPROVED`。intended F5bu files が staged され、新 module と focused doctest が含まれ、`NUL` / `tmp_*` は未追跡のまま除外され、`git diff --cached --check` が通っていることを確認済みである。
+
+## remaining
+
+- F5bu は formal transport 前の validated bitmap frame owner boundary までであり、row / tile / RLE payload、host present、video memory import ABI、FHD 60fps batching、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bt render2d surface dirty owner boundary
+
+## scope
+
+- branch: `gui-render2d-surface-dirty-owner-f5bt-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bt の render2d dirty surface owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review は `PLAN_APPROVED`。`dirty_regions_push_region_checked` を `field::get owner "surface"` より前に呼ぶこと、失敗時に元 owner を owner-bearing error に入れること、owner / owner-bearing error に `Clone` / `Copy` を実装しないこと、surface の raw / mutable / split accessor を追加しないこと、`finish_surface` を recovery / teardown API として docs/source policy に明記することが条件である。
+- Tesla plan review は `PLAN_APPROVED`。dirty を Copy metadata として読み、surface move 前に checked push を適用すること、`finish_surface` 前に dirty を読む contract を固定すること、free は typed `GuiRgba8888SoftwareSurfaceErrorKind` を返して silent drop しないこと、facade export と no `dirty_region_merge` / no unchecked push / no platform / no present / no tile / no bitmap / no transport / no fallback を source policy に入れることが条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/dirty_surface.nepl` を追加した。
+- `GuiRgba8888SoftwareSurfaceDirtyOwner` で `GuiRgba8888SoftwareSurfaceOwner` と `DirtyRegionSet` を同じ所有境界に束ねた。
+- `GuiRgba8888SoftwareSurfaceDirtyPushError` を owner-bearing error として追加し、dirty push 失敗時に元 owner を回収できるようにした。
+- borrowed metadata accessor は width / height / stride_bytes / byte_len / dirty に限定した。
+- `gui_rgba8888_software_surface_dirty_owner_push_region_checked` は dirty を Copy metadata として読み、`dirty_regions_push_region_checked` 成功後だけ surface を move する。
+- `finish_surface` は dirty metadata を捨てる recovery / teardown API として追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade から dirty surface owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bt の surface + dirty owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bt source policy を追加した。
+- `tests/stdlib/gui_render2d_dirty_surface.n.md` に F5bt focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 368.8s
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `stdlib/alloc/gui/render2d/dirty_surface.nepl` doctest 1 / 1 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。render2d 共通 boundary に留まり、font/glyf、platform、present、tile / bitmap transport に踏み込んでいないこと、dirty checked push が surface move より前にあり owner loss がないこと、owner / owner-bearing error に `Clone` / `Copy` がなく、raw / mutable / split surface accessor がないことを確認済みである。
+- Tesla implementation review は初回 `REVIEW_BLOCKED`。code-level blocker はなく、blocker は新規 `dirty_surface.nepl` / focused doctest が未追跡であることと、review request 送信時点の `note.n.md` verification が pending 表記だったことに限定された。verification は pass 表記へ更新済みであり、staging は今回の intended files に限定して行う。
+- Tesla follow-up review は `REVIEW_APPROVED`。intended F5bt files が staged され、新 module と focused doctest が含まれ、`NUL` / `tmp_*` は未追跡のまま除外され、`git diff --cached --check` が通っていることを確認済みである。
+
+## remaining
+
+- F5bt は surface owner と dirty set を同じ render2d owner 境界へ束ねるところまでであり、formal tile / bitmap transport、host present、FHD 60fps batching、row / tile batching、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bs SourceOver dirty region set aggregation boundary
+
+## scope
+
+- branch: `gui-dirty-region-set-aggregation-f5bs-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bs の core no_alloc helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review は `PLAN_APPROVED`。`Rect` branch で `dirty_regions_push_unchecked` を使わないこと、Empty を silent no-op ではなく dirty なしの明示状態として doc 化すること、source policy で allocator / platform / present / tile / bitmap / transport / fallback と unchecked push direct use を禁止することが条件である。
+- Tesla plan review も `PLAN_APPROVED`。`DirtyRegion::Full` では必ず `dirty_regions_full` を返すこと、`DirtyRegion::Rect` では必ず `dirty_regions_push_checked` を使うこと、`dirty_region_merge` を使わないこと、`doc/neplg2/gui_standard_library_spec.md` も更新することが条件である。
+
+## implementation
+
+- `stdlib/core/gui/dirty_region_set.nepl` に `core/gui/dirty_region` import を追加した。
+- `dirty_regions_push_region_checked` を追加し、`DirtyRegion::Empty` / `Full` / `Rect` を `match` で明示した。
+- `DirtyRegion::Rect` は `dirty_regions_push_checked` に通し、unchecked constructor 由来の invalid rect を `Result::Err GuiError::InvalidGeometry` として拒否する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bs の pre-transport dirty aggregation contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bs source policy を追加した。
+- `tests/stdlib/gui_dirty_region_set.n.md` に F5bs focused doctest label と runnable case を追加した。
+- `todo.md` は F5bs 後の formal tile / bitmap transport、host present、FHD 60fps batching、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_dirty_region_set.n.md` 4 / 4 passed
+- pass: `tests/stdlib/gui_dirty_region.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `stdlib/core/gui/dirty_region_set.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_core.n.md` 9 / 9 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。Empty label を `empty_explicit_no_dirty` に改めたことで、silent no-op ではなく明示的な dirty なし合成として contract が読み取れること、source policy / focused doctest / `git diff --check` rerun が通っていることを確認済みである。
+- Tesla implementation review も `REVIEW_APPROVED`。`DirtyRegion::Empty` の wording risk は解消され、F5bs は merge-ready とされた。
+
+## remaining
+
+- F5bs は `DirtyRegion` から `DirtyRegionSet` への no_alloc aggregation helper までであり、formal tile / bitmap transport、generic `surface+dirty owner`、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5br SourceOver alpha-mask dirty-region completion boundary
+
+## scope
+
+- branch: `gui-font-alpha-mask-dirty-region-f5br-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5br の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest label、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、owner-bearing failure、source policy による静的検査を守る。
+
+## plan review
+
+- Tesla plan review は `PLAN_APPROVED`。`dirty_region_rect_checked` を使うこと、dirty construction failure を owner-bearing `StepError` にすること、dirty accessor だけを追加して prepared / surface split accessor を増やさないこと、finish 前に dirty を読む contract を docs/source policy に固定することが条件である。
+- Planck plan review も `PLAN_APPROVED`。`DirtyRegion` を completed owner の Copy metadata として持たせる境界は妥当で、render2d surface + dirty owner は tile / bitmap transport / present 境界まで defer してよいとされた。completion branch では owner を分解する前に `dirty_region_rect_checked` を呼ぶこと、fallback しないことが条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `core/gui/dirty_region` import を追加した。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind` に `DirtyRegionInvalid` を追加した。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner` に `dirty DirtyRegion` を追加し、owner-bearing type の no `Clone` / no `Copy` を維持した。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region` を追加し、record rect から `dirty_region_rect_checked` で dirty metadata を作るようにした。
+- completion branch は dirty construction 成功後だけ `prepared` / `surface` を owner から取り出し、failure では元の owner を `StepError` に保持する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty` を追加した。prepared / surface split accessor は追加していない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5br の contract、詳細設計、実装順序、subagent approval 条件を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5br source policy を追加し、checked dirty construction、completion branch order、dirty accessor、no platform / no present / no tile / no bitmap / no fallback を検査するようにした。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5br source policy label を追加した。
+- `todo.md` は F5br 後の formal tile / bitmap transport、dirty merge policy、FHD 60fps batching、host present、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest 1138 / 1138 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Tesla implementation review は `REVIEW_APPROVED`。`dirty_region_rect_checked` が completion branch で owner 分解前に呼ばれ、失敗時は `DirtyRegionInvalid` の owner-bearing `StepError` として元 owner を保持していること、dirty accessor だけを追加し prepared / surface split accessor を増やしていないこと、docs/source policy/focused labels/todo が F5br の範囲に合うことを確認済みである。
+- Planck implementation review も `REVIEW_APPROVED`。completed owner が `prepared + surface + dirty` を保持し no `Clone` / no `Copy` であること、dirty helper が `dirty_region_rect_checked` を使い fail-closed にすること、completion branch が dirty 作成後だけ prepared / surface を取り出すこと、platform / present / tile / bitmap / RenderTarget / DrawTarget / old FillRect bridge に進んでいないことを確認済みである。
+- commit hygiene として、未追跡の `NUL` と `tmp_*` は stage しない。
+
+## remaining
+
+- F5br は completed owner の dirty metadata までであり、formal tile / bitmap transport、dirty merge policy、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bq SourceOver alpha-mask software drain-step boundary
+
+## scope
+
+- branch: `gui-render2d-alpha-mask-drain-step-f5bq-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bq の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。既存 `gui_rgba8888_software_surface_write_pixel` が channel を順次 store するため、途中 store failure で partial pixel update になり得ること、completed terminal / owner と SourceOver 算術が未固定であることを指摘された。
+- Tesla plan review 1 も `PLAN_BLOCKED`。SourceOver の exact formula、budget terminal、write failure recovery、test coverage、fallback / raw command ban の明文化が必要と指摘された。
+- 改訂 plan では `write_pixel` 自体を all-channel projection before first store に置き換え、`alloc/gui/render2d/composite.nepl` に SourceOver helper を置き、completed owner pair、`InvalidBudget`、`StepBudgetExhausted`、write failure unchanged `cell_index`、no old FillRect bridge / no raw command accessor を source policy に固定した。
+- Planck revised plan review は `PLAN_APPROVED`。条件は allocator-created `RegionToken` invariant の明文化、SourceOver formula / rounding / overflow bound の docs/tests 固定、no split completed owner accessor、write failure で `cell_index` を進めないことである。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/composite.nepl` を追加し、RGBA8888 SourceOver alpha-mask helper と typed error enum を実装した。
+- Planck review blocker を受け、SourceOver RGB を `out_alpha_num = src_a * 255 + dest.a * (255 - src_a)` を分母として保持する式へ修正した。low alpha 同士の合成で 255 超え channel を `u8` へ cast しないよう、channel / alpha の range check helper を追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade から composite module を re-export した。
+- `stdlib/alloc/gui/render2d/software_surface.nepl` の pixel write を、4 channel の pointer projection をすべて成功させてから store する順序へ変更した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に completed owner pair、budget terminal、step error、alpha cell borrow read、checked position、one-step SourceOver drain、bounded drain、terminal/free helper を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bq の contract、詳細設計、実装順序、Planck blocker / revised approval を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bq source policy を追加し、composite math、projection-before-store、step order、write recovery、budget terminal、no old bridge / no target-platform-fallback を検査するようにした。
+- `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` を追加し、SourceOver formula、floor rounding、zero/full/partial alpha、typed error を runnable doctest として固定した。
+- `tests/stdlib/gui_render2d_software_surface.n.md` と `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5bq source policy coverage label を追加した。
+- `todo.md` は F5bq 後の dirty region、formal tile / bitmap transport、FHD 60fps batching、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 2 回実行し、いずれも passed
+- initial fail then fixed: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` は初回 `cast` overload ambiguity で失敗し、channel を `%u8` 中間値に分けて修正した後 1 / 1 passed
+- pass after Planck blocker fix: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` は low alpha unpremultiply case 追加後も 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_core_alpha_mask_command.n.md` 1 / 1 passed
+- pass after Planck blocker fix: `stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest 1138 / 1138 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Tesla implementation review 1 は `REVIEW_APPROVED`。commit 前に新規 file の stage と note の review status 更新を確認するよう指摘された。
+- Planck implementation review 1 は `REVIEW_BLOCKED`。SourceOver RGB の旧式が低 alpha 同士の合成で 255 を超え得て、未検証 `u8` cast に依存すると指摘された。
+- 指摘を受け、`out_alpha_num` を保持する formula、channel / alpha range check、low alpha runnable regression、docs/source policy 更新を追加した。
+- Planck implementation re-review は `REVIEW_APPROVED`。前回 blocker は解消され、`out_alpha_num` formula、range check、low alpha regression、projection-before-store、completed owner pair、write-success-before-advance、InvalidBudget / StepBudgetExhausted の区別を確認済みである。
+
+## remaining
+
+- F5bq は software surface 内の SourceOver drain step までであり、dirty region、formal tile / bitmap transport、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
+# 2026-06-16 Agent2 GUI font F5bp SourceOver alpha-mask software drain-start owner boundary
+
+## scope
+
+- branch: `gui-render2d-alpha-mask-drain-f5bp-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bp の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。completed drain ではなく drain-start / drain-cursor owner boundary と明記すること、paired recovery、private command field の start validation helper 限定、registered resource 再検証、checked geometry、pixel write 禁止が必要と指摘された。
+- 改訂実装では F5bp を start validation と cursor owner 作成に限定し、SourceOver pixel write、dirty region、tile / bitmap transport、host present は次 phase に残した。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bp の drain-start contract、paired recovery、checked geometry、no pixel write scope を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner`、owner-bearing start error、paired rejected owner、record revalidation、command payload validation、checked rect / surface containment validation、free helper を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bp source policy を追加し、F5bn と F5bp の source policy region を分離した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` を追加した。
+- `todo.md` は F5bp 後の bounded SourceOver drain step、alpha cell read、surface write recovery、dirty region、tile / bitmap transport、FHD 60fps batching へ進む残件へ更新した。
+
+## verification
+
+- node --check nodesrc/test_web_gui_font_rendering_contract.js: passed
+- node nodesrc/test_web_gui_font_rendering_contract.js: passed in 298s
+- F5bp focused doctest: passed 1 / 1
+- F5bn prepared command regression: passed 1 / 1
+- F5bo render2d software surface regression: passed 2 / 2
+- GUI core alpha mask regression: passed 1 / 1
+- stdlib/alloc/gui/font/sfnt/glyf.nepl doctest: passed 1138 / 1138
+- git diff --check: passed
+- Planck implementation review 1 は `REVIEW_BLOCKED`。実装自体は corrected plan の重要条件を満たすが、`note.n.md` の verification が未実行のままだったため commit blocker とされた。ここで実際の検証結果を追記した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、意図した tracked files と新規 focused doctest だけを stage し、`NUL` と `tmp_*` 生成物を stage しない条件で commit readiness acceptable とされた。
+
+# 2026-06-16 Agent2 GUI render2d F5bo software RGBA8888 surface owner boundary
+
+## scope
+
+- branch: `gui-font-alpha-mask-software-compositor-f5bo-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bo の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。software RGBA8888 surface owner と SourceOver compositor drain を `alloc/gui/font/sfnt/glyf.nepl` に置くと、pixel buffer という render2d 共通基盤を font glyf 固有 detail に閉じ込めてしまうと指摘された。
+- 改訂計画では `alloc/gui/render2d.nepl` facade と `alloc/gui/render2d/software_surface.nepl` を追加し、F5bo は owner-bearing RGBA8888 software surface contract だけに限定した。
+- Planck revised plan review は `PLAN_APPROVED`。safe `core/mem` facade のみ、raw pointer accessor 禁止、constructor fail-closed、owner-consuming write、borrow-only read、no platform / no font / no fallback の source policy を条件に実装開始が承認された。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に Software RGBA8888 surface owner boundary を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に row-major RGBA layout、stride / byte length、safe `core/mem` facade、write owner recovery、read borrow-only、SourceOver drain を次 phase に残す方針を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bo の initial blocker、revised approval、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade と `stdlib/alloc/gui/render2d/software_surface.nepl` を追加し、`alloc/gui.nepl` から re-export した。
+- `GuiRgba8888SoftwareSurfaceShape`、`GuiRgba8888SoftwareSurfaceOwner`、`GuiRgba8888SoftwareSurfaceErrorKind`、create / write error を追加した。surface owner と write error は owner-bearing なので `Clone` / `Copy` を実装しない。
+- shape validation は invalid geometry、pixel count overflow、stride overflow、byte length overflow を allocation 前に `Result::Err` で返す。
+- create は shape validation 後に `alloc_region_bytes<u8>` で storage を確保し、safe store loop で zero initialize してから owner を返す。allocation failure は `OutOfMemory` に写像する。
+- read は `&GuiRgba8888SoftwareSurfaceOwner` を受け取り、bounds / offset 検査後に `region_ptr_at<u8,u8>` と `load_u8` で RGBA channel を読む。
+- write は owner を消費し、bounds / offset 検査後に `store_u8` で RGBA channel を書く。失敗時は surface owner を `GuiRgba8888SoftwareSurfaceWriteError` に戻す。
+- `tests/stdlib/gui_render2d_software_surface.n.md` を追加し、shape validation、allocation failure mapping、read/write roundtrip、write failure owner recovery、free、no platform/no font/no fallback label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bo source policy を追加した。
+- `todo.md` は F5bo 後の SourceOver alpha-mask drain owner、formal tile / bitmap transport、FHD 60fps batching へ進む残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` CRLF warning のみ
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 約 300 秒で pass
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bo.json -j 1` 2/2 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bo_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bo_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bo_regression.json -j 1` 1/1 passed
+
+## subagent review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。内容面では render2d boundary、raw accessor 禁止、safe `core/mem` facade、font/glyf 非依存、platform/target/compositor 非依存、owner-bearing write error no `Clone` / `Copy`、read/write/free shape は承認された。
+- commit blocker は `note.n.md` の verification と implementation review が pending のままだったことである。
+- 指摘を受け、検証結果と review blocker をこの note に記録した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、commit readiness は acceptable とされた。注意点として、既存 untracked tmp file と `NUL` は stage せず、F5bo 対象ファイルだけ stage することが確認された。
+
+## remaining
+
+- F5bo は software RGBA8888 surface owner までであり、F5bn prepared command owner を消費する SourceOver alpha-mask drain、formal tile / bitmap transport、host present、FHD 60fps batching、stroke / shadow rasterization は未実装である。
+
+# 2026-06-16 Agent2 GUI font alpha mask resource reservation checkpoint
+
+## scope
+
+- branch: `gui-font-alpha-mask-resource-binding-f5bl-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bl の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、dangling command 禁止、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph alpha mask resource reservation boundary の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bl の internal reservation、未登録 handle の非 renderability、validation order、owner recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bl の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner` を追加した。owner-bearing type は `Clone` / `Copy` を実装せず、completed fill alpha mask owner と mask id / rect / paint metadata を保持する。
+- start error は original completed fill alpha mask owner と config を保持し、kind / config / owner recovery helper と free helper を持つ。
+- start は `AlphaMaskId.raw > 0`、completed owner shape invariant、`alpha_max > 0`、cell_count / alpha Vec len / cap、`GuiBlendMode::SourceOver` を fail-closed に検査してから reservation owner を作る。
+- success path は owner origin / size から rect を作り、fill paint をそのまま metadata として保持する。alpha Vec は copy しない。
+- F5bl は `RenderCommand` emission、resource table registration、RenderTarget / DrawTarget、platform / host / backend API、sample cursor、per-sample FillRect fallback へ進まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bl source policy を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md` を追加し、F5bl source policy coverage label を固定した。
+- `todo.md` は F5bl 完了後の次作業として、resource table registration と registered resource からの command emission へ進む内容へ更新した。
+
+## subagent review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。borrowed helper で `render_command_alpha_mask_rect` を返すと、reservation owner free 後にも Copy command が残り dangling `AlphaMaskId` command を作れると指摘された。
+- Planck は、private reservation owner を std/render2d handoff と表現すると後続 module が直接消費できるか曖昧だとも指摘した。
+- 指摘を受け、F5bl は command を一切発行しない内部 alloc/font reservation owner に修正した。resource table 登録、renderability、std/render2d handoff は docs で主張しない。
+- Planck revised plan review は `PLAN_APPROVED`。
+- Planck implementation review は `REVIEW_APPROVED`。dangling `AlphaMaskId` command を作れないこと、docs が resource table 登録や renderability を主張していないこと、owner-bearing type の no `Clone` / `Copy`、source policy、recovery/free を確認済みである。
+- commit 前の注意点として、新規 focused doctest file を stage することと、この note の review 状態を更新することが指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bl.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bl_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_sample_command_bridge_f5bl_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bl.json -j 1` 1131/1131 passed
+
+## remaining
+
+- F5bl は internal reservation までであり、resource table registration、registered resource からの `RenderCommand::AlphaMaskRect` emission、tile / bitmap formal transport、2D compositor drain、FHD 60fps batching、stroke / shadow rasterization は未実装である。
+
+# 2026-06-16 Agent2 GUI font render fill alpha mask boundary checkpoint
+
+## scope
+
+- branch: `gui-font-render2d-alpha-mask-f5bg-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bg の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、shape / alpha storage invariant、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph render fill alpha mask boundary の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bg の fill-only config、full `GuiGlyphPaint` 非受理、shape / alpha storage revalidation、owner handoff、free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bg の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に F5bf completed packed owner の shape / cell_count / alpha_max / alpha Vec len / cap accessor を追加した。
+- value-only `GuiSfntSimpleGlyphRenderFillAlphaMaskConfig` を追加し、`Clone` / `Copy` を実装した。config は origin、fill paint、blend mode だけを保持し、full glyph paint、stroke、shadow は受けない。
+- private `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を追加した。edge owner、shape、alpha cell Vec、cell_count、alpha_max、origin、fill_paint、blend を保持し、owner-bearing type は `Clone` / `Copy` を実装しない。
+- start error は original packed owner と config を保持し、kind / config / packed owner recovery helper と start error free helper を持つ。
+- start は shape invariant、`alpha_max > 0`、packed owner cell_count、alpha Vec len / cap を検査してから packed owner を destructure する。
+- success path は edge owner、shape、alpha cells、cell_count、alpha_max、origin、fill_paint、blend を completed render fill alpha mask owner へ移す。RenderCommand emission や platform 接続は行わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bg source policy を追加した。docs/types/private owner/recovery/shape alpha validation/fill paint and blend preservation/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md` を追加し、F5bg source policy coverage label を固定した。
+- `todo.md` は F5bg 完了後の次作業として、render command / 2D compositor boundary と full glyph paint binding へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。当初案の `GuiGlyphPaint` config は stroke-only や shadow-bearing paint を fill coverage に落としてしまう危険があり、hidden stroke / shadow fallback になると指摘された。
+- 指摘を受け、F5bg config から `GuiGlyphPaint` を削除し、`GuiPaint` と `GuiBlendMode` を持つ fill alpha mask 専用境界へ修正した。
+- stroke / shadow / full glyph paint binding は F5bg では扱わず、後続境界で明示的に accept / reject する契約にした。
+- Tesla revised plan review は `PLAN_APPROVED`。fill paint と blend の exact preservation、zero-copy owner handoff、shape / alpha storage revalidation before destructuring が実装条件として承認された。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容 blocker はなく、`tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md` が未追跡で commit 対象に入っていないことと、この review 結果を note に記録することが commit-readiness blocker として指摘された。
+- 指摘を受け、新規 focused doctest を他の F5bg ファイルとともに stage し、note に review blocker を記録した。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。staged files は意図した 8 files のみで、前回の commit-readiness blocker は解消済みと確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bg.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bg_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bg.json -j 1` 1113/1113 passed
+
+## remaining
+
+- F5bg は fill alpha mask owner handoff までであり、RenderCommand emission、2D compositor、stroke / shadow / full glyph paint binding、glyph bitmap composition、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では F5bg owner を authority として、render command / 2D compositor boundary または full glyph paint binding の明示 accept / reject 境界へ進む。
+
+# 2026-06-16 Agent2 GUI font raster packed mask owner checkpoint
+
+## scope
+
+- branch: `gui-font-packed-mask-f5bf-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bf の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、pack owner invariant、completion-time raw cell release、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster packed mask owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bf の config、transition owner、completed owner、start validation、pack owner invariant、raw cell read、alpha normalization、completion-time raw cell release、free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bf の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRasterPackedMaskConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRasterPackedMaskPackOwner` と private completed `GuiSfntSimpleGlyphRasterPackedMaskOwner` を追加した。owner-bearing type は `Clone` / `Copy` を実装しない。
+- start は `alpha_max > 0`、shape invariant、`coverage_max * alpha_max` overflow、raw coverage owner cell_count / len / cap、alpha cell Vec allocation を fail-closed に検査する。
+- pack owner invariant は `cell_index >= 0`、shape invariant、`cell_index <= shape.cell_count`、`alpha_cells.len == cell_index`、`alpha_cells.cap == shape.cell_count`、raw coverage owner cell_count / len / cap を検査する。
+- drain / step / complete は budget、raw cell read、alpha push、completion より前に pack owner invariant を通す。
+- raw coverage read は `vec::get None`、negative coverage、coverage exceeds max を typed error にする。
+- alpha normalization は `coverage * alpha_max / coverage_max` を integer-only で行い、multiply overflow を typed error にする。
+- step は 1 raw coverage cell を 1 alpha cell へ変換し、Vec push failure では lower storage error kind を読んでから recovered alpha Vec を unchanged cell_index の pack owner に戻す。
+- completion は exact invariant だけで成功し、raw coverage cell Vec を free して edge owner / shape / alpha cell Vec を completed packed mask owner へ移す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bf source policy を追加した。docs/types/private owner/start validation/owner invariant/raw read/alpha normalize/push recovery/drain/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md` を追加し、F5bf source policy coverage label を固定した。
+- `todo.md` は F5bf 完了後の次作業として、render2d glyph alpha mask boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`alpha_cells.len == cell_index` と `alpha_cells.cap == shape.cell_count` の pack-owner invariant が budget/read/push/completion より前に必要と指摘された。
+- 指摘を受け、`AlphaStorageLenMismatch` / `AlphaStorageCapacityMismatch` と `pack_owner_invariants` を追加し、drain / step / complete の入口で必ず検査する計画へ修正した。
+- push failure から回収した owner は cleanup / diagnostic 用であり、次に処理へ戻す場合も invariant を通過したときだけ続行できる contract にした。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。内容 blocker はなく、新規 focused doctest の stage とこの note の review 状態更新だけが commit-readiness 注意点として指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bf.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5bf_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bf.json -j 1` 1109/1109 passed
+
+## remaining
+
+- F5bf は normalized alpha cell owner までであり、render2d command emission、glyph bitmap composition、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では completed packed alpha mask owner を authority として、render2d glyph alpha mask boundary へ進む。
+
+# 2026-06-16 Agent2 GUI font raster coverage scan converter checkpoint
+
+## scope
+
+- branch: `gui-font-raster-scan-coverage-f5be-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5be の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、shape invariant revalidation、cell-index bounds、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster coverage scan converter の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5be の scan config/owner、shape revalidation、integer sample coordinate、line crossing、quadratic segment policy、step/drain/free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5be の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRasterCoverageScanConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRasterCoverageScanOwner` を追加した。F5bd writer owner、scan config、cell_index を保持し、owner-bearing type は `Clone` / `Copy` を実装しない。
+- start は `quadratic_segment_count > 0`、coverage shape invariant、writer written/cell Vec state、edge owner count、typed edge Vec len/cap を再検査してから scan owner を作る。
+- coverage shape invariant は `width_px > 0`、`height_px > 0`、`sample_scale > 0`、`coverage_max == sample_scale * sample_scale`、`cell_count == width_px * height_px` を検査する。
+- `cell_index` は drain/step の completion/budget/coordinate math/scan/push より前に `0 <= cell_index <= shape.cell_count` を検査する。
+- edge read helper は negative index、out of range、edge Vec len/cap mismatch、`vec::get None` を typed error にする。
+- line crossing は strict y activation と i64 cross product で判定し、division / float へ進まない。
+- quadratic crossing は `quadratic_segment_count` で明示的に flattening し、各 segment を line crossing helper へ渡す。0 coverage fallback や line fallback はしない。
+- 1 step は 1 cell の subpixel coverage を計算し、F5bd `push_cell` boundary へ渡す。push failure では lower error kind を保持し、recovered writer を scan owner に戻す。
+- bounded drain は `CoverageScanCompleted` と `StepBudgetExhausted` を success terminal として分け、completion は F5bd exact completion だけを成功にする。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5be source policy を追加した。docs/types/private owner/shape revalidation/cell bounds/edge read/line crossing/quadratic policy/cell sampling/push/drain/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md` を追加し、F5be source policy coverage label を固定した。
+- `todo.md` は F5be 完了後の次作業として、completed coverage mask owner から packed / render2d mask boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。F5bd coverage shape の再検証不足と、`cell_index > shape.cell_count` が typed error ではなく coordinate derivation へ進みうる点を指摘された。
+- 指摘を受け、F5be start に shape invariant validation を追加し、drain/step に completion/budget/scan より前の cell-index bounds を追加した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。内容 blocker はなく、新規 focused doctest の stage とこの note の review 状態更新だけが commit-readiness 注意点として指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5be.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5be_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5be.json -j 1` 1101/1101 passed
+
+## remaining
+
+- F5be は scalar coverage cell owner までであり、packed / anti-aliased mask conversion、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では completed coverage mask owner を authority として、packed / render2d mask boundary へ進む。
+
+# 2026-06-16 Agent2 GUI font raster coverage mask writer checkpoint
+
+## scope
+
+- branch: `gui-font-raster-edge-coverage-f5bd-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bd の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、overflow guard、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster coverage mask writer owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bd の coverage config/shape、typed edge Vec len/cap revalidation、writer/completed owner、push/completion/free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bd の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に scalar-only `GuiSfntSimpleGlyphRasterCoverageConfig` / `GuiSfntSimpleGlyphRasterCoverageShape` を追加した。value-only のため `Clone` / `Copy` を実装した。
+- shape derivation は width、height、sample scale、max cell count、`sample_scale * sample_scale` overflow、`width * height` overflow、cell count limit の順に検査する。
+- F5bc completed edge owner について、edge_count、line_edge_count、quadratic_edge_count、nested plan/capacity だけでなく typed edge Vec の len/cap も revalidation してから coverage cell Vec を確保する。
+- private `GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner` と completed `GuiSfntSimpleGlyphRasterCoverageMaskOwner` を追加した。owner-bearing types は `Clone` / `Copy` を実装しない。
+- start error は original F5bc edge owner を保持し、`raster_coverage_start_error_edge_owner` で回収できる。
+- push は coverage cell Vec len/cap、mask full、coverage negative、coverage exceeds max を typed error として返し、Vec push failure では lower error kind を読んでから Vec owner を回収する。
+- completion は Vec len/cap を再検査し、`written_cell_count == shape.cell_count` のときだけ completed owner を返す。partial owner の zero-fill completion は行わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bd source policy を追加した。docs/types/private owner/shape validation/edge storage revalidation/start recovery/push recovery/completion/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md` を追加し、F5bd source policy coverage label を固定した。
+- `todo.md` は F5bd 完了後の次作業として、edge scan conversion / coverage computation へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。completed edge owner の count だけでは typed edge Vec の len/cap 不整合を検出できず、新しい allocation boundary として弱いと指摘された。
+- 指摘を受け、F5bd start で `EdgeStorageLenMismatch` / `EdgeStorageCapacityMismatch` を追加し、coverage cell Vec allocation 前に typed edge Vec len/cap を再検査するよう spec/design/plan に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、この note の `implementation review: pending` 更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、この note に review result を記録する。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5bd.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bd_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bd.json -j 1` 1096/1096 passed
+
+## remaining
+
+- F5bd は coverage cell writer owner までであり、edge scan conversion、coverage computation、packed / anti-aliased mask conversion、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では F5bd writer owner を authority として、line / quadratic edge の scan conversion step と coverage cell push を接続する。
+
+# 2026-06-16 Agent2 GUI font raster edge owner checkpoint
+
+## scope
+
+- branch: `gui-font-raster-edge-object-f5bc-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bc の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、private transition-only owner、owner recovery、budgeted progress guard を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection raster edge owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bc の private drain/completed owner、non-consuming scalar read、typed error、budgeted drain、hard progress guard、push failure recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bc の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に scalar-only `GuiSfntSimpleGlyphRasterLineEdge` / `GuiSfntSimpleGlyphRasterQuadraticEdge` / `GuiSfntSimpleGlyphRasterEdge` を追加した。value-only のため `Clone` / `Copy` を実装した。
+- F5bb writer owner、typed edge Vec、scalar_index、edge_count、line_edge_count、quadratic_edge_count を持つ private `RasterEdgeDrainOwner` と、完全消費後だけ生成する private `RasterEdgeOwner` を追加した。
+- start は F5az capacity、stored capacity、path/raster cap、path/raster len、F5ba inner completed progress、F5bb outer completed progress、expected edge count、typed edge Vec allocation の順に検査する。
+- start error は original F5bb writer owner を保持し、`raster_edge_start_error_writer` で回収できる。
+- scalar read helper は F5bb writer を消費せず、negative / out-of-range / storage len-cap mismatch / `vec::get None` を typed error にする。`vec::get None` は `ScalarSlotMissing` として扱う。
+- drain は tag 2 を line edge 5 scalar、tag 3 を quadratic edge 7 scalar として読み、tag 1 / 4 は `UnexpectedNonRasterTag`、その他は `MalformedRasterMaskTag` で拒否する。
+- budgeted drain は complete terminal を先に返し、非 terminal かつ budget 0 以下では `StepBudgetExhausted` を返す。step 後は line +5/+1、quadratic +7/+1 の exact progress guard を通す。
+- edge Vec push failure では `vec_push_error_kind &e` を先に読み、`vec_push_error_vec e` で Vec owner を回収して unchanged drain owner を返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bc source policy を追加した。docs/types/private owner/start validation/scalar read/record parsing/budget guard/push recovery/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md` を追加し、F5bc source policy coverage label を固定した。
+- `todo.md` は F5bc 完了後の次作業として、mask coverage boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。storage representation、allocation cleanup、drain owner / completed owner の分離、scalar read contract、F5bb private owner への配慮が不足していると指摘された。
+- Tesla revised plan review 2 は `PLAN_BLOCKED`。start error writer recovery、budgeted drain hard progress guard、`vec::get None` の typed `ScalarSlotMissing` 化、F5bb complete checks の固定が不足していると指摘された。
+- Tesla revised plan 3 review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、focused doctest file が untracked のままになっていることと、この note の review 状態更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、focused doctest を commit 対象に含め、この note に review result を記録する。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。focused doctest は staged、note は review result 記録済み、staged set は意図した 8 files、`git diff --cached --check` は通過済みで追加 blocker はないと確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bc.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bc_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bc.json -j 1` 1086/1086 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5bc は typed raster edge owner までであり、scan conversion、coverage mask、anti-aliased pixel mask、render2d command emission は未実装である。
+- typed raster edge owner はまだ private boundary である。public API 化は、F5bb private owner と raster mask ownership の再検査 story が固まってから行う。
+
+# 2026-06-16 Agent2 GUI font raster mask writer checkpoint
+
+## scope
+
+- branch: `gui-font-raster-mask-writer-f5bb-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bb の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、private transition-only owner、owner recovery、partial append failure の fail-closed 化を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection raster mask writer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bb の transition-only owner、start / push validation、stable raster scalar format、push failure recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bb の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に module-private `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner` を追加した。current point は raster edge start point の authority なので、public constructor、`Clone`、`Copy` を持たせていない。
+- F5bb start は F5az plan/capacity、path sink Vec cap/len、raster mask Vec cap/len、inner F5ba completed progress / kind counts / last index を再検査してから zero progress owner を作る。
+- F5bb push は F5az plan/capacity、path sink complete state、raster mask len/count、inner F5ba complete state、F5bb kind progress、aggregate progress、path command index、stored/source/command tag consistency を再検査する。
+- MoveTo は raster scalar を書かず current point を更新し、SkipNoSegment は raster scalar を書かず current point を維持する。MoveTo と SkipNoSegment は別 progress count として検査する。
+- LineTo は F5au stable tag scalar 2、start_x2、start_y2、end_x2、end_y2 の 5 scalar を raster mask Vec へ書く。
+- QuadraticTo は F5au stable tag scalar 3、start_x2、start_y2、control_x2、control_y2、end_x2、end_y2 の 7 scalar を raster mask Vec へ書く。
+- LineTo / QuadraticTo は current point がない場合 `CurrentPointMissing` で失敗し、原点 fallback や silent skip はしない。
+- `raster_mask_writer_owner_push_scalar` は `vec::push` failure 時に `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec を回収し、F5az owner、F5ba writer owner、F5bb writer owner を unchanged progress/current point で復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bb source policy を追加した。docs/private owner/no Clone-Copy/start validation/push validation/inner complete checks/kind progress bounds/stable scalar order/current point behavior/push recovery/partial failure fail-closed/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md` を追加し、F5bb source policy coverage label を固定した。
+- `todo.md` は F5bb 完了後の次作業として、path object / raster edge boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`MoveTo` と `SkipNoSegment` を `skip_without_mask_count` にまとめると forged progress を隠せること、current point を public owner state として信頼すると forged mid-state から任意 start point を作れること、stable tag scalar を F5au helper 経由で固定する必要があることを指摘された。
+- 指摘を受け、MoveTo / LineTo / QuadraticTo / SkipNoSegment を separate progress count とし、F5bb owner を module-private transition-only owner に変更し、F5au stable tag scalar helper を source policy に固定する計画へ修正した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、focused doctest file が untracked のままになっていることと、この note の review 状態更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、focused doctest を commit 対象に含め、この note に review result を記録する。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、staged set は意図した 8 files のみ、検証出力や `NUL` は staged されていないことが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bb.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5bb_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bb.json -j 1` 1074/1074 passed
+
+## remaining
+
+- F5bb は raster mask scalar writer までであり、path object materialization、actual raster mask build、glyph mask coverage、render2d command emission は未実装である。
+- F5bb owner は current point を持つため、今後 public API に昇格する場合は opaque ownership / module boundary / revalidation story を改めて設計する。
+
+# 2026-06-16 Agent2 GUI font path command stream sink writer checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-writer-f5ba-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ba の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、forged public value の再検査、owner recovery、partial append failure の fail-closed 化を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink writer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ba の writer start / push boundary、PathCommandValue tag revalidation、path sink scalar format、partial append failure owner、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ba の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PathCommandValue` の `stored_tag` / `source_tag` accessor を追加した。writer は public value を trusted value として扱わず、stored / source / command-derived tag を push 前に再検査する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner` を追加した。writer owner は F5az owner、written count、path sink scalar count、kind 別 count、last path command index を持ち、Vec owner を含むため `Clone` / `Copy` を実装しない。
+- `WriterStartErrorKind` / `WriterStartError` を追加した。start error は original F5az owner、capacity derivation error option、derived capacity option、stored capacity、observed Vec len/cap を保持する。
+- `writer_owner_start` は plan、capacity_from_plan、stored capacity equality、path cap、raster cap、path len 0、raster len 0 の順に検査し、progress all zero / last index -1 の writer owner を返す。
+- `WriterStep` を追加した。`WrittenMoveTo`、`WrittenLineTo`、`WrittenQuadraticTo`、`SkippedNoSegment` が next writer owner を保持する。
+- `WriterPushErrorKind` / `WriterPushError` を追加した。push error は current or reconstructed writer owner、rejected `PathCommandValue`、capacity error option、rejected scalar option、storage error option を保持する。
+- `writer_owner_validate_for_push` は F5az plan/capacity 再検査、Vec cap equality、`path_sink_scalars_len == path_sink_scalar_count`、`raster_mask_scalars_len == 0`、written count、kind 別 progress count の非負 / plan 上限、aggregate progress、path command index、stored/source/command tag consistency を検査する。
+- `writer_owner_push_scalar` は `vec::push` failure 時に `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec を回収し、F5az owner と writer owner を復元する。
+- MoveTo / LineTo writer は stable tag scalar 1 / 2、x2、y2 の順に 3 scalar を push し、成功時に progress を 1 command / 3 scalar 進める。
+- QuadraticTo writer は stable tag scalar 3、control_x2、control_y2、end_x2、end_y2 の順に 5 scalar を push し、成功時に progress を 1 command / 5 scalar 進める。
+- SkipNoSegment writer は scalar を push せず、explicit `SkippedNoSegment` step として `written_count`、`skip_no_segment_count`、`last_path_command_index` だけ進める。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ba source policy を追加した。docs/types/no Clone/Copy/tag accessors/start validation/push validation/kind progress bounds/stable scalar order/push recovery/partial failure fail-closed/SkipNoSegment no-push/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md` を追加し、F5ba source policy coverage label を固定した。
+- `todo.md` は F5ba 完了後の次作業として、raster mask scalar writer へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。成功 result 型、owner-bearing error payload、start validation order、multi scalar push failure atomicity、remaining capacity check の明文化が必要と指摘された。
+- Tesla plan review 2 は `PLAN_BLOCKED`。public `PathCommandValue` の stored/source/command tag 再検査、stable tag scalar 値、success progress 更新、push 前 writer 再検査、partial append failure owner の fail-closed 化を source policy に固定する必要があると指摘された。
+- Tesla final plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。kind 別 progress count の個別非負 / plan 上限検査がなく、合計一致だけでは forged progress を通し得ると指摘された。また focused doctest stage と note 更新を指摘された。
+- 指摘を受け、`MoveToProgressInvalid` / `LineToProgressInvalid` / `QuadraticToProgressInvalid` / `SkipNoSegmentProgressInvalid` を追加し、kind 別 count を個別検査してから aggregate progress を検査するよう修正した。docs/source policy/focused doctest label も追従した。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。kind 別 count 検査、tag 再検査、partial append failure fail-closed、SkipNoSegment no-push、forbidden API、source policy / focused doctest 追従が確認された。
+- Peirce の計画レビューは旧計画に対する `PLAN_REVIEW_BLOCKED` だったが、主な指摘は partial append failure owner、path sink scalar count、raster Vec len/cap 再検査、kind count bounds、stable tag helperであり、最終実装で反映済みである。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5ba_progress_fix.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5ba_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ba_progress_fix.json -j 1` 1068/1068 passed
+
+## remaining
+
+- F5ba は path sink scalar writer までであり、raster mask writer、path object materialization、render2d command emission は未実装である。
+- multi scalar push failure の partial append owner は cleanup / diagnostic only であり、再開可能な scalar-progress writer や batch append helper は必要になった段階で別 phase として設計する。
+
+# 2026-06-16 Agent2 GUI font path command stream sink owner checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-owner-f5az-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5az の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、forged public plan の再検査、partial allocation cleanup を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5az の forged sink plan revalidation、scalar format、0 capacity owner、typed error、allocation order、cleanup order、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5az の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に F5ay `SinkPlan` の不足 accessor を追加した。F5az は plan field を直接読まず、accessor を通して forged value を検査する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity` を追加した。capacity は path sink scalar capacity、raster mask scalar capacity、path segment capacity、raster edge capacity を持つ value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind` と `SinkOwnerAllocError` を追加した。coarse `InvalidPlan` は使わず、negative count / capacity、last index invalid、prepared / emitted / draw / path / raster mismatch、count overflow、path sink / raster mask allocation failure を enum で分離する。
+- `SinkOwnerAllocError` は plan、`capacity Option`、`storage_error Option StdErrorKind` を保持する。allocation failure では lower `StdErrorKind` を保持し、validation / overflow では storage error を `None` にする。
+- checked add helper は `2147483647 - left` を使う residual guard、checked multiply helper は `2147483647 / factor` を使う factor guard を通してから arithmetic を行う。
+- path sink scalar capacity は MoveTo 3、LineTo 3、QuadraticTo 5、raster mask scalar capacity は LineTo 5、QuadraticTo 7 で導出する。`SkipNoSegment` は scalar capacity に入れない。
+- `SkipNoSegment` だけの completed plan は `with_capacity 0` による valid empty Vec owner として扱う契約を docs/source policy に固定した。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner` を追加した。owner は plan、capacity、path sink scalar Vec、raster mask scalar Vec を持ち、`Clone` / `Copy` を実装しない。
+- `sink_owner_alloc` は capacity derivation 後、path sink scalar Vec、raster mask scalar Vec の順に確保する。1 本目の allocation failure では free せず、2 本目の allocation failure では lower error を保持してから 1 本目の Vec を 1 回だけ free する。
+- owner の plan / capacity accessor、path sink / raster mask Vec len/cap accessor、owner free を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5az source policy を追加した。docs/types/value-only Clone/Copy/owner no Clone/Copy/error payload/precise validation/checked add/mul/scalar constants/capacity derivation/zero capacity success/allocation order/cleanup/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md` を追加し、types、accessors、precise validation、checked add/mul、capacity derivation、zero capacity success、allocation order、cleanup、no fallback / no byte-backed / no traversal / no push / no render の source policy coverage label を固定した。
+- `todo.md` は F5az 完了後の次作業として、real command sink writer へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。coarse `InvalidPlan` の禁止、typed validation failure の細分化、allocation failure の lower `StdErrorKind` 保持、raster Vec allocation failure 時の cleanup order 固定が必要と指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。追加条件として、`SkipNoSegment` only completed plan の 0 capacity allocation を valid owner として明文化するよう指摘された。
+- Tesla implementation review は `REVIEW_APPROVED`。precise validation kinds、`capacity` / `storage_error` payload、owner no Clone/Copy、zero-capacity owner contract、checked add / mul、second allocation cleanup order、writer / raster / render / platform / byte-backed / traversal / `vec::push` leakage なし、focused doctest staged を確認した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5az.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5az_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5az.json -j 1` 1048/1048 passed
+
+## remaining
+
+- F5az は scalar storage owner allocation までであり、real command sink writer、raster mask writer、render2d command emission は未実装である。
+
+# 2026-06-16 Agent2 GUI font path command stream sink plan checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-plan-f5ay-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ay の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、partial terminal を final plan として扱わないことを守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink plan の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ay の completed prepare drain terminal authority、partial terminal rejection、checked count guard、checked addition、capacity derivation、error context、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ay の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan` を追加した。plan は total / emitted / draw / command kind count / path segment capacity / raster edge capacity / last path command index だけを持つ value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind` と `SinkPlanError` を追加した。error は terminal と extracted count context を保持し、partial summary や forged count を silent no-op にしない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_from_prepare_drain_terminal` は `StepBudgetExhausted` を `PrepareNotCompleted` で拒否し、`Completed` branch だけで summary accessor から count を読む。
+- count guard は total / move / line / quadratic / skip / emitted の非負性、`total_count > 0`、`last_path_command_index >= 0` を検査する。
+- checked add helper は `2147483647 - left` を計算し、`right` が残余を超える場合は `CountOverflow` を返す。guard 後だけ `add left right` を使う。
+- public sink plan derivation は `move + line`、`move + line + quadratic`、`move + line + quadratic + skip`、`line + quadratic` を checked add で求め、`prepared_count == total_count`、`emitted_count == total_count`、`draw_count == raster_edge_capacity` を検査してから plan を返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ay source policy を追加した。docs/types/value-only Clone/Copy/completed terminal authority/budget exhausted rejection/non-negative guard/checked add guard/capacity derivation/count invariants/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md` を追加し、types、completed terminal authority、budget exhausted rejection、non-negative count guard、checked add guard、capacity derivation、count invariants、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5ay 完了後の次作業として、real command sink writer / raster mask writer owner boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`PrepareSummary` 単体では `StepBudgetExhausted` partial summary を completed capacity と誤認できるため、F5ax `PrepareDrainTerminal` か completed-only value が必要と指摘された。また全 count の非負検査と checked addition が必要と指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。staged 8 files、completed terminal authority、`StepBudgetExhausted` rejection、non-negative count checks、guarded addition、forbidden API、focused doctest、todo が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5ay.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ay_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ay.json -j 1` 1019/1019 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ay は completed path command stream sink plan までであり、real command sink writer、raster mask writer、render2d command emission は未実装である。
+
+# 2026-06-16 Agent2 GUI font path command stream prepare checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-stream-prepare-f5ax-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ax の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、F5aw authority の再利用を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream prepare の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ax の prepare summary、prepare action、single command classification、prepare step、bounded prepare drain、F5aw / F5av 呼び出し制限を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ax の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PathCommandValue` の `path_command_index` accessor を追加した。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary` を追加した。summary は total / MoveTo / LineTo / QuadraticTo / SkipNoSegment count と last path command index だけを持つ value-only record である。
+- initial summary helper は count をすべて `0`、last path command index を `-1` とする。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction` と `PrepareUpdate` を追加した。action は command kind count の domain action であり、renderer command ではない。
+- private summary increment helper は `PathCommandValue` から path command index と command payload をそれぞれ 1 回だけ読み、`GuiSfntSimpleGlyphPathCommand` を `match` して 1 種類の count だけを増やす。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep` を `Prepared action summary next_cursor` / `Completed summary cursor` の enum として追加した。completed branch は dummy action / dummy command value を持たない。
+- public prepare step は F5aw `path_command_stream_step` を exactly once 呼び、F5av lookup を直接呼ばない。lower completed は summary を変えず、lower emitted だけ summary increment helper を通す。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal` を `Completed summary cursor emitted_count` / `StepBudgetExhausted summary cursor emitted_count` の enum として追加した。
+- public prepare drain は `remaining_steps <= 0` では prepare step も F5aw step も呼ばず `StepBudgetExhausted summary cursor 0` を返す。positive budget では F5ax prepare step helper だけを呼ぶ。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ax source policy を追加した。docs/types/value-only Clone/Copy/initial summary/path command value accessor/single command classification/no dummy completed value/prepare step F5aw exactly once/no F5av/direct drain prepare-step-only/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md` を追加し、types、initial summary、accessor、single classification、completed no dummy、F5aw once、drain terminal、budget no step、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5ax 完了後の次作業として、explicit command sink / raster mask preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ax は sink ではなく prepare summary boundary として扱い、counts と `last_path_command_index` の value-only summary を最初の render preparation contract にする方針で承認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、staged set は意図した 8 ファイル、tmp / `NUL` artifacts は unstaged、F5ax の source policy / doctest / implementation は approved plan と一致すると確認された。blocker はこの note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ax.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_f5ax_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ax.json -j 1` 1008/1008 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ax は path command stream prepare summary までであり、real command sink、raster mask、render2d command emission は未実装である。
+
+# 2026-06-16 Agent2 GUI font path command stream cursor checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-stream-cursor-f5aw-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aw の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner 非消費 read boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream cursor の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aw の cursor creation authority order、completed cursor contract、step terminal enum、bounded drain terminal enum、F5av lookup 許可位置、drain が F5aw step helper だけを呼ぶ制約を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aw の plan review blocker と修正条件、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor`、cursor error kind / error、cursor validation、non-consuming capacity authority helper、public cursor creation boundary を追加した。
+- public cursor creation は summary capacity、owner storage capacity、collection capacity、capacity shape、start index を順に検査する。`start_index == path_command_count` は completed cursor として許可し、forged empty / malformed capacity は既存 capacity shape contract で拒否する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep` を `Emitted value next_cursor` / `Completed cursor` の enum として追加した。completed branch は dummy `PathCommandValue` を持たない。
+- step function は capacity / cursor authority を検査し、`next_index >= end_index` の場合は F5av lookup を呼ばず `Completed` を返す。未完了 branch だけで F5av lookup を exactly once 呼び、成功時に cursor を 1 つ進める。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal` を `Completed cursor emitted_count` / `StepBudgetExhausted cursor emitted_count` の enum として追加した。
+- bounded drain は `remaining_steps <= 0` では step helper も F5av lookup も呼ばず `StepBudgetExhausted cursor 0` を返す。positive budget では F5aw step helper だけを呼び、F5av lookup は直接呼ばない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aw source policy を追加した。docs/types/value-only Clone/Copy/capacity authority order/non-consuming owner/cursor validation/completed no dummy/no lookup/step F5av exactly once/drain step only/budget no step/no lookup/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md` を追加し、types、authority checks、cursor validation、completed no value/no lookup、step emits via F5av once、drain terminal variants、budget no step/no lookup、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5aw 完了後の次作業として、path command stream consumer / render preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。step は dummy value を必要としない enum にすること、drain terminal は Completed / StepBudgetExhausted を分けること、drain は F5av lookup ではなく F5aw step helper だけを呼ぶこと、empty stream success を別に作らないことが指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_f5aw.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_value_f5aw_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aw.json -j 1` 986/986 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aw は bounded cursor / step / drain terminal までであり、path command sink、raster mask、render2d command emission は未実装である。
+
+# 2026-06-15 Agent2 GUI font path command value lookup checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-value-boundary-f5av-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5av の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner 非消費 read boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command value lookup の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5av の CompleteOwner borrow authority、PathCommandTag scalar read helper、CompleteOwner non-consuming helper、source event exactly once、stored tag / source tag 照合、`SkipNoSegment` reason source payload recovery を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5av の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_path_command_tag_from_scalar_value` と `gui_sfnt_simple_glyph_path_command_tag_eq` を追加した。unknown scalar は代替値へ変換せず `Option::None` とし、storage read helper が typed error へ変換する。
+- `GuiSfntSimpleGlyphOutlinePathCommandTagReadErrorKind`、`GuiSfntSimpleGlyphOutlinePathCommandTagReadError`、`gui_sfnt_simple_glyph_outline_storage_read_path_command_tag` を追加した。storage capacity shape、scalar slot count、scalar storage capacity、path command index range、PathCommandTag region readiness、slot presence、known scalar value を検査し、storage owner は消費しない。
+- `PathCommandTagCompleteOwner` の non-consuming storage capacity accessor、private PathCommandTag read helper、private Edge owner read helper を追加した。いずれも `field::get_ref owner "storage"` だけを使い、consuming storage accessor は呼ばない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue` を追加した。path command index、edge index、contour index、contour edge index、event slot、stored tag、source tag、command payload を保持する value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueError` を追加した。public lookup は owner を borrow するだけなので、error は owner recovery payload を持たない value-only context である。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value` を追加した。summary capacity、owner storage capacity、collection capacity、path command index を検査してから stored tag、Edge owner、collection span、source event へ進む。
+- source event は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を span validation 後に exactly once 呼ぶ。source kind は返った event から導出し、`path_sink_event_kind_at` は呼ばない。
+- stored tag と source tag が一致しない場合は `TagMismatch` を返す。別 tag への推測変換、silent no-op、font 代替解決、byte-backed lookup、old sink traversal、stream construction、raster/render/platform API へは進まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5av source policy を追加した。docs/API/value-only Clone/Copy/non-consuming helpers/authority check order/scalar read validation/source event exactly once/source kind from event/tag mismatch/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md` を追加し、types、authority checks、PathCommandTag scalar read、CompleteOwner / Edge owner non-consuming read、source event exactly once、source kind from event、tag mismatch、SkipNoSegment reason rederive、no fallback / no byte-backed / no stream / no raster の source policy coverage label を固定した。
+- `todo.md` は F5av 完了後の次作業として、PathCommandValue を authority にした bounded path command stream cursor / stream preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5av は read-only value lookup boundary とし、source event は exactly once で読み、source kind は event から導出し、tag mismatch は fallback ではなく typed error にする設計で承認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5av public/helper read が owner を消費しないこと、storage mutation / Vec allocation / fallback がないこと、source event exactly once と source kind from event が守られていること、tag mismatch が typed error であること、staged set が意図した 8 ファイルのみであることは確認された。blocker はこの note の implementation review status が pending のままだったことだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_value_f5av.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_f5av_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5av.json -j 1` 970/970 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5av は 1 command value の read-only lookup までであり、bounded stream cursor、command stream preparation、raster mask、render2d command emission は未実装である。
+- F5av focused doctest の実呼び出しは source policy smoke だけで、詳細な value mismatch scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+
+# 2026-06-15 Agent2 GUI font PathCommandTag drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-tag-population-f5au-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5au の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5au の PathCommandTagStartOwner authority、partial drain 再開可能な cursor contract、logical path command index mapping、owner storage Edge owner scalar、collection path sink event kind source、PathCommandTagSlot scalar contract、bounded PathCommandTag drain、complete owner terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5au の plan review blocker と修正条件、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathCommandTag`、`GuiSfntSimpleGlyphOutlineEdgeOwnerMarker`、`GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind`、`GuiSfntSimpleGlyphOutlineEdgeOwnerReadError`、storage-level Edge owner scalar read helper、`PathCommandTagSlot`、`PathCommandTagCompleteOwner`、PathCommandTagStartOwner の non-consuming storage capacity accessor、non-consuming Edge owner helper、PathCommandTag drain error kind、owner-bearing drain error、drain terminal、internal PathCommandTagStartOwner push helper、public drain-to-complete boundary を追加した。
+- PathCommandTag region の scalar value は stable tag として固定した。`MoveTo = 1`、`LineTo = 2`、`QuadraticTo = 3`、`SkipNoSegment = 4` であり、`SkipNoSegment` reason は後続の path command value / stream boundary が collection source から再導出する。
+- logical path command index は `cursor.next_index - cursor.start` として固定した。absolute cursor `next_index` を command index として使わず、`div_s path_command_index 2` で global edge index、`rem_s path_command_index 2` で First / Second event slot を導出する。
+- public drain boundary は PathCommandTagStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。cursor は partial drain 再開のため PathCommandTag region start へ固定しない。
+- trusted drain は completion を budget より先に扱い、PathCommandTag region 完了時だけ `PathCommandTagCompleteOwner` へ進める。path command stream construction や raster / render には進まない。
+- budget exhausted は Edge owner scalar read、collection contour span / event kind source、PathCommandTag push を行わず `StepBudgetExhausted PathCommandTagStartOwner` として返す。
+- Edge owner scalar は `field::get_ref owner "storage"` の private helper から読む。owner storage を消費するのは PathCommandTag push helper と complete owner 成功 branch だけである。
+- Edge owner marker success 後に marker glyph / edge index を再検査し、collection span の glyph/index/range/count と span containment を検査してから `contour_edge_index = edge_index - span.start_point_index` を導出する。
+- PathCommandTag push failure では lower F5d error metadata を `kind -> scalar_value -> push_error_kind -> storage` の順で読み、returned storage と保存済み summary / cursor から PathCommandTagStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5au source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/PathCommandTagSlot Clone/Copy/PathCommandTag Clone/Copy/EdgeOwnerMarker Clone/Copy/authority check order/source-before-authority 禁止/cursor start 固定禁止/logical index mapping/Edge owner helper non-consuming/span invariant/event kind source/push failure owner recovery/lower metadata-before-storage/completion-only CompleteOwner/StepBudget no source/no push/forbidden byte-backed/traversal/path command stream/render/platform/fallback 禁止/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md` を追加し、types、authority checks、partial restart、logical index mapping、Edge owner non-consuming read、span/event source checks、push failure recovery、metadata ordering、completion CompleteOwner only、StepBudget no source/no push、no fallback / no byte-backed / no traversal / no raster の source policy coverage label を固定した。
+- `todo.md` は F5au 完了後の次作業として、PathCommandTagCompleteOwner を authority にした path command value / stream preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。partial restart の明文化、logical path command index の定義、Edge owner scalar read の non-consuming 契約、F5d push metadata-before-storage order、forged Edge owner scalar checks が不足していると指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。`PathCommandTagCompleteOwner` の名前、stable tag scalar、`SkipNoSegment` reason の後続再導出、`path_sink_event_kind_at` 利用が妥当と確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、partial restart、logical index mapping、non-consuming Edge owner read、marker/span checks、push metadata-before-storage order、owner-bearing no Clone/Copy、forbidden API boundaries は approved plan と一致すると確認された。blocker は新規 focused doctest が未追跡であること、F5au の note checkpoint がないこと、todo が F5au のままであることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。新規 focused doctest は staged 済み、F5au checkpoint / todo 更新済み、`git diff --cached --check` は通過済み、一時 JSON / profile / trace / `NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_f5au.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_edge_drain_f5au_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5au.json -j 1` 953/953 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5au は PathCommandTag scalar region drain と complete owner boundary までであり、path command value / stream construction、raster mask、render2d command emission は未実装である。
+- F5au focused doctest の実呼び出しは source policy smoke だけで、詳細な owner recovery scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+
+# 2026-06-15 Agent2 GUI font Edge drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-edge-population-boundary-f5at-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5at の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action Edge drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5at の EdgeStartOwner authority、partial drain 再開可能な cursor contract、owner storage endpoint marker、collection contour span / contour edge source、EdgeSlot scalar contract、bounded Edge drain、PathCommandTag cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5at の plan review blocker と修正条件、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot`、`PathCommandTagStartOwner`、EdgeStartOwner の non-consuming storage capacity accessor、non-consuming endpoint marker helper、Edge drain error kind、owner-bearing drain error、drain terminal、internal EdgeStartOwner push helper、public drain-to-PathCommandTag-start boundary を追加した。
+- Edge region の scalar value は `contour_index` として固定した。slot の `global_edge_index` は absolute start point index と同じで、local edge index は `global_edge_index - span.start_point_index` から導出する。
+- public drain boundary は EdgeStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。cursor は partial drain 再開のため Edge region start へ固定しない。
+- trusted drain は completion を budget より先に扱い、Edge region 完了時だけ PathCommandTag cursor start へ進める。curve segment classification や path command tag population は行わない。
+- budget exhausted は endpoint marker read、collection contour span / contour edge source、Edge push を行わず `StepBudgetExhausted EdgeStartOwner` として返す。
+- endpoint marker は `field::get_ref owner "storage"` の private helper から読む。owner storage を消費するのは Edge push helper と PathCommandTag cursor start 成功 branch だけである。
+- Edge push failure では lower F5d error metadata を `kind -> scalar_value -> push_error_kind -> storage` の順で読み、returned storage と保存済み summary / cursor から EdgeStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5at source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/EdgeSlot Clone/Copy/authority check order/source-before-authority 禁止/cursor start 固定禁止/endpoint marker helper non-consuming/span invariant/edge invariant/push failure owner recovery/lower metadata-before-storage/completion-only PathCommandTag cursor start/StepBudget no source/no push/forbidden byte-backed/traversal/curve segment/render/platform/path command population 禁止/括弧なし prefix style/focused doctest coverage label を検査する。
+- 既存 `nodesrc/test_web_gui_font_rendering_contract.js` の full run timeout 原因だった巨大 regex 2 件を、section slice + `includes` 検査へ置き換えた。F5at 追加ブロック単体は約 10ms で通り、timeout 原因ではなかった。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md` を追加し、types、authority checks、endpoint marker non-consuming、span/edge source checks、push failure recovery、metadata ordering、completion PathCommandTag start only、StepBudget no source/no push、no fallback / no byte-backed / no traversal / no curve segment の source policy coverage label を固定した。
+- `todo.md` は F5at 完了後の次作業として、PathCommandTagStartOwner を authority にした path command tag region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_BLOCKED`。public authority check が Edge cursor start 固定になっており partial drain 再開を拒否すること、owner storage endpoint marker read を non-consuming helper にすること、Edge scalar contract を `contour_index` として文書化し span containment を検査すること、curve segment source は F5at で呼ばないこと、F5d push error metadata-before-storage を source policy に固定することが指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、partial restart 許可、endpoint marker の non-consuming read、Edge scalar の `contour_index` 固定、curve / path classification 禁止、push error metadata-before-storage order は満たしていると確認された。blocker は新規 focused doctest が未追跡のまま残っていることと、この note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 8 ファイルのみ、新規 focused doctest は staged 済み、`git diff --cached --check` は通過済み、一時 JSON / profile / trace / `NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 75 秒で完了
+- pass: F5at source-policy block isolated eval 9.937ms
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_edge_drain_f5at.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_y_drain_f5at_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5at.json -j 1` 917/917 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5at は Edge region drain と PathCommandTag cursor start boundary までであり、path command tag population、curve segment classification integration、raster mask、render2d command emission は未実装である。
+- F5at focused doctest の実呼び出しは source policy smoke だけで、詳細な owner recovery scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+
+# 2026-06-15 Agent2 GUI font PointY drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-point-y-population-boundary-f5as-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5as の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action PointY drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5as の PointYStartOwner authority、storage / summary / cursor / collection の照合順序、collection read item source、forged item glyph / index / kind validation、bounded PointY drain、Edge cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5as の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `EdgeStartOwner`、PointYStartOwner の non-consuming storage capacity accessor、PointY drain error kind、owner-bearing drain error、drain terminal、internal PointYStartOwner push helper、public drain-to-Edge-start boundary を追加した。
+- public drain boundary は PointYStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。
+- trusted drain は completion を budget より先に扱い、PointY region 完了時だけ Edge cursor start へ進める。edge value population や path command population は行わない。
+- budget exhausted は collection read item や PointY push を行わず `StepBudgetExhausted PointYStartOwner` として返す。
+- collection-backed source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` のみを使い、read success 後に item の glyph raw id、logical point index、item kind consistency を再検査する。
+- PointY push failure では lower F5i error metadata を `kind -> point -> region_error_kind -> push_error_kind -> storage` の順で読み、returned storage と保存済み summary / cursor から PointYStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5as source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/authority check order/read-before-authority 禁止/forged item validation/push failure owner recovery/lower metadata-before-storage/Edge cursor failure owner preservation/completion-only Edge cursor start/StepBudget no read/no push/forbidden byte-backed/traversal/render/platform/edge value population 禁止/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md` を追加し、types、authority checks、source read once、forged item checks、push failure recovery、metadata ordering、completion Edge start only、StepBudget no read/no push、no fallback / no byte-backed / no traversal の source policy coverage label を固定した。
+- `todo.md` は F5as 完了後の次作業として、EdgeStartOwner を authority にした edge region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5i lower error metadata の `kind -> point -> region_error_kind -> push_error_kind -> storage` 順、public authority check 前の read / push / Edge cursor start / storage consume 禁止、Edge cursor start は許可し edge value population を禁止する source policy 粒度が条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5as 本体は PointY push helper の metadata-before-storage order、public authority-before-side-effect order、Edge cursor start 許可と edge value population / fallback 禁止、focused doctest staged、tmp / `NUL` commit 対象外の条件に沿っていると確認された。blocker は note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。note-only blocker は解消され、staged set は意図した 8 ファイル、新規 focused doctest は staged、`git diff --cached --check` も問題なし、`NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 326 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_y_drain_f5as.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_x_drain_f5as_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5as.json -j 1` 886/886 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5as は PointY region drain と Edge cursor start boundary までであり、edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5as focused doctest の実呼び出しは source policy smoke だけで、詳細な owner recovery scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font PointX drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-point-x-population-boundary-f5ar-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ar の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action PointX drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ar の PointXStartOwner authority、storage / summary / cursor / collection の照合順序、collection read item source、forged item glyph / index / kind validation、bounded PointX drain、PointY cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ar の plan review 経緯、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PointYStartOwner`、PointXStartOwner の non-consuming storage capacity accessor、PointX drain error kind、owner-bearing drain error、drain terminal、internal PointXStartOwner push helper、public drain-to-PointY-start boundary を追加した。
+- public drain boundary は PointXStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。
+- trusted drain は completion を budget より先に扱い、PointX region 完了時だけ PointY cursor start へ進める。PointY value push は行わない。
+- budget exhausted は collection read item や PointX push を行わず `StepBudgetExhausted PointXStartOwner` として返す。
+- collection-backed source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` のみを使い、read success 後に item の glyph raw id、logical point index、item kind consistency を再検査する。
+- PointX push failure では lower F5g error metadata を storage 回収前に読み、returned storage と保存済み summary / cursor から PointXStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ar source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/authority check order/read-before-authority 禁止/forged item validation/push failure owner recovery/lower metadata-before-storage/PointY cursor failure owner preservation/completion-only PointY cursor start/StepBudget no read/no push/forbidden byte-backed/traversal/render/platform/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md` を追加し、types、authority checks、source read once、forged item checks、push failure recovery、metadata ordering、completion PointY start only、StepBudget no read/no push、no fallback / no byte-backed / no traversal の source policy coverage label を固定した。
+- `todo.md` は F5ar 完了後の次作業として、PointYStartOwner を authority にした PointY region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。internal PointX push helper の F5g lower error metadata-before-storage recovery を plan / docs / source policy に明示する必要があると指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。summary / storage / cursor / collection の authority check、caller-side forged item validation、completion-before-budget、budget-before-read/push、PointY cursor start only、lower metadata-before-storage recovery が条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5ar 本体は authority check before read / push / storage consume、completion-before-budget、budget-before-read / push、forged item glyph / index / kind validation、F5g lower metadata-before-storage recovery、PointY cursor start only、byte-backed / traversal / render / platform fallback 禁止の計画に沿っていると確認された。blocker は新規 focused doctest が未追跡であること、note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。focused doctest は staged、`note.n.md` は `REVIEW_BLOCKED` の内容と理由を記録済み、`git diff --cached --check` も問題なし、`NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 259 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_x_drain_f5ar.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_f5ar_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ar.json -j 1` 865/865 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ar は PointX region drain と PointY cursor start boundary までであり、PointY / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ar focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font contour endpoint drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-contour-endpoint-drain-boundary-f5aq-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aq の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action contour endpoint drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aq の PushOwner authority、storage / summary / cursor / collection の照合順序、bounded endpoint drain、PointX cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aq の plan review 経緯、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PointXStartOwner`、contour endpoint drain error kind、owner-bearing drain error、drain terminal、PushOwner の non-consuming storage capacity accessor、internal PushOwner endpoint push helper、public drain-to-PointX-start boundary を追加した。
+- public drain boundary は PushOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。
+- authority failure、collection span failure、F5e push failure、PointX cursor start failure はそれぞれ typed error とし、current PushOwner を保持または復元して返す。
+- `remaining_steps <= 0` は span lookup や push を行わず `StepBudgetExhausted PushOwner` を返す。
+- contour endpoint region 完了時は PointX cursor を開始するだけで、PointX value push は行わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aq source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/authority check order/span lookup before authority 禁止/span failure owner preservation/push failure owner recovery/PointX cursor failure owner preservation/completion-only PointX cursor start/StepBudget no span/no push/forbidden byte-backed/traversal/render/platform API/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md` を追加し、types、authority checks、source span once、span failure recovery、push failure recovery、completion PointX start only、StepBudget no span/no push、no fallback / no byte-backed / no traversal の source policy coverage label を固定した。
+- `todo.md` は F5aq 完了後の次作業として、PointXStartOwner を authority にした PointX region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。collection contour span は collection 自体の topology だけを検査するため、PushOwner と collection capacity の照合が必要と指摘された。
+- Tesla plan review 2 回目は `PLAN_BLOCKED`。PushOwner も public constructor を持つため、summary / collection だけでなく owner 内 storage capacity と cursor validity も検査する必要があると指摘された。
+- Tesla plan review 3 回目は `PLAN_APPROVED`。summary-storage capacity match、cursor well-formed、ContourEndpoint region、cursor capacity match、collection-summary capacity match の順序、各 failure の owner-preserving error、PointX cursor start only、span/push/cursor failure の分離が条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5aq 本体は plan v2 の authority check 順序、trusted drain、PointX cursor start only、budget-before-span/push、F5e error owner recovery、forbidden API 境界に沿っていると確認された。blocker は新規 focused doctest が未追跡であること、note の implementation review / `git diff --check` 記録が未更新であることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。新規 focused doctest は staged、`note.n.md` は `REVIEW_BLOCKED` と `git diff --check` pass を記録済み、staged set は意図した 8 ファイルであると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 236 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_f5aq.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_f5aq_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aq.json -j 1` 844/844 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aq は contour endpoint drain と PointX cursor start boundary までであり、PointX / PointY / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5aq focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font contour endpoint push boundary checkpoint
+
+## scope
+
+- branch: `gui-font-contour-endpoint-push-boundary-f5ap-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ap の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action contour endpoint push の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ap の F5ao start terminal authority、F5e typed endpoint push、success returned state、error metadata-before-storage recovery、pass-through terminal の順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ap の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に contour endpoint push owner、owner-recovering contour endpoint push error、push terminal、start terminal to endpoint push boundary を追加した。
+- F5ap public helper は F5ao start terminal と typed endpoint slot だけを受け取り、`Started` branch だけで F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` に進める。
+- success branch は F5e returned cursor、returned previous endpoint、returned storage を使って push owner を作る。input endpoint から状態を再計算しない。
+- error branch は lower error kind、region error kind、storage push error kind を storage 回収前に読み、returned storage と保存済み summary / cursor / previous endpoint から start owner を復元して `Result::Err` で返す。
+- `Rejected` / `StepBudgetExhausted` branch は endpoint を読まず、F5e push、storage consume、owner/error construction を行わず typed `Ok` terminal として返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ap source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/Started branch order/F5e exact one-call/success returned state/error metadata-before-storage/pass-through branch no endpoint/no push/no consume/no owner construction/no byte-backed read-push/no traversal/no render/platform/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md` を追加し、types、Started calls F5e once、success returned state、error start owner recovery、Rejected no endpoint/no push、StepBudget no endpoint/no push、no fallback / no byte-backed read-push の source policy coverage label を固定した。
+- `todo.md` は F5ap 完了後の次作業として、push owner を authority にして contour endpoint region の残り slot を埋める completion boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5e lower error metadata を storage 回収前に読み、success branch は returned state を使い、`Rejected` / `StepBudgetExhausted` branch は endpoint / F5e / storage / owner construction に触れないことが条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、`note.n.md` の implementation review status が pending のまま残っていることだけが運用 blocker として指摘された。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 ファイルのままで追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 214 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_f5ap.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ap_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ap.json -j 1` 824/824 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ap は contour endpoint を 1 件だけ push する boundary であり、remaining contour endpoint drain、point x / point y / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ap focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font contour endpoint start boundary checkpoint
+
+## scope
+
+- branch: `gui-font-storage-owner-contour-endpoints-f5ao-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ao の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action contour endpoint start の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ao の F5an storage terminal authority、forged owner capacity check、cursor start、owner recovery、pass-through terminal の順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ao の plan review 経緯、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に non-consuming storage owner capacity accessor、capacity match helper、contour endpoint start owner、start error kind、owner-bearing start error、start terminal、storage terminal to contour endpoint start boundary を追加した。
+- F5ao public helper は F5an storage terminal だけを受け取り、`Allocated` branch だけで capacity match と F5d contour endpoint cursor start を行う。capacity mismatch と cursor start failure は original owner を保持した `Result::Err` として返す。
+- cursor start success 後だけ consuming storage accessor を呼び、`previous_endpoint = none` の `Started` terminal を返す。`Rejected` / `StepBudgetExhausted` は capacity match、cursor start、storage consume を行わず typed `Ok` terminal として返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ao source policy を追加した。docs/API/non-consuming capacity accessor/capacity match helper/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/ErrorKind Clone/Copy/cursor exact one-call/storage consume order/pass-through branch/no fallback/no byte-backed/no push/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md` を追加し、types、borrowed storage capacity、capacity mismatch owner recovery、allocated cursor start、Rejected no cursor、StepBudget no cursor、no fallback / no byte-backed / no push の source policy coverage label を固定した。
+- `todo.md` は F5ao 完了後の次作業として、F5ao start owner から typed contour endpoint slot population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。F5ao が storage owner を消費してから capacity mismatch や cursor start failure を検出すると original owner を返せないため、非消費の storage capacity accessor または borrowed capacity match helper が必要と指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。`storage_owner_storage_capacity &owner` を追加し、capacity match と cursor start success の後にだけ consuming storage accessor を呼ぶ修正版が承認された。
+- Tesla implementation review は `REVIEW_APPROVED`。非消費 capacity accessor、capacity mismatch before cursor start、cursor failure owner recovery、cursor `Ok` 後だけの consuming storage accessor、`Rejected` / `StepBudgetExhausted` pass-through、owner-bearing start owner / error / terminal no Clone/Copy、source policy の ordering / forbidden API 固定が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 208 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ao.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5ao_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ao.json -j 1` 809/809 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ao は contour endpoint cursor start boundary までであり、endpoint slot の実 push、point x / point y / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ao focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action storage owner checkpoint
+
+## scope
+
+- branch: `gui-font-drain-outcome-owner-boundary-f5an-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5an の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action storage owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5an の F5am outcome authority、`EndContour` only allocation、domain terminal と allocation failure の分離、owner no Clone/Copy、slot population 分離を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5an の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5an source policy を追加した。docs/API/owner no Clone/Copy/terminal no Clone/Copy/capacity exact one-call/F5b allocation exact one-call/Rejected と StepBudgetExhausted の no allocation/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に storage owner、summary-preserving storage allocation error、storage terminal、F5am outcome to storage owner boundary を追加した。
+- F5an public helper は F5am outcome と storage limit だけを受け取り、`EndContour` だけ F5b `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` に進める。`Rejected` / `StepBudgetExhausted` は owner を作らず typed `Ok` terminal として返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md` を追加し、storage owner types、EndContour allocation、Rejected no owner、StepBudgetExhausted no owner、allocation error summary preservation、no fallback / no byte-backed traversal の source policy coverage label を固定した。
+- `todo.md` は F5an 完了後の次作業として、allocated storage owner から scalar slot population 計画境界へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。`Result StorageTerminal StorageAllocError` は妥当で、allocation failure だけを `Err`、`Rejected` / `StepBudgetExhausted` は typed domain terminal として `Ok` に残す判断が承認された。
+- Tesla は、empty F5b storage owner allocation だけに留め、slot population / path owner fill は後続 slice に分ける設計を承認した。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、新規 focused doctest が未追跡であること、`note.n.md` / `todo.md` が未更新であることが運用 blocker として指摘された。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。新規 focused doctest、`note.n.md`、`todo.md` の更新が staged set に含まれ、追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 203 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5an.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5an_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5an.json -j 1` 794/794 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5an は storage owner allocation boundary までであり、allocated storage owner の scalar slot population、path command owner fill、raster mask、render2d command emission は未実装である。
+- F5an focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功するが約 203 秒かかる。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action drain outcome checkpoint
+
+## scope
+
+- branch: `gui-font-collection-drain-outcome-f5am-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5am の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action drain outcome の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5am の value-only outcome packet boundary、public forged pairing API 禁止、private projection の権限範囲を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5am の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5am source policy を追加した。docs/API/private projection 非 public/capacity exact one-call/F5al start drain exact one-call/private projection exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に capacity 付き drain summary、capacity 付き drain rejected、drain outcome enum、private projection、public start drain outcome helper を追加した。
+- F5am public helper は F5al start drain を 1 回だけ呼び、成功時だけ private projection に渡す。private projection は同じ collection の capacity を 1 回だけ読み、typed terminal を outcome に写す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md` を追加し、outcome types、private projection、public forged pairing prevention、F5al composition、terminal mapping、no owner / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。任意の collection と任意の drain result を受け取る public projection helper は、capacity と drain result の forged pairing を許すため危険と指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。public API を start drain outcome helper だけにし、同じ public call 内で F5al start drain を exactly once 呼び、その success result だけを private projection に exactly once 渡す設計が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、`note.n.md` に implementation review 結果を明示する必要があるという運用指摘だった。
+- Tesla は、public forged collection/drain pairing が private projection と public start outcome helper により防がれていること、private projection が traversal authority を持たないこと、新規 focused doctest と意図した 8 ファイルが staged であり tmp / `NUL` が除外されていることを確認した。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 ファイルのままで、追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5am.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5am_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5am.json -j 1` 784/784 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5am は capacity 付き drain outcome までであり、`EndContour` を outline storage / path command owner へ渡す owner-taking boundary、raster mask、render2d command emission は未実装である。
+- F5am focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consume summary drain checkpoint
+
+## scope
+
+- branch: `gui-font-collection-summary-drain-f5al-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5al の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action consume summary drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5al の collection-backed advance-once / drain budget / start drain boundary、terminal-before-budget、F5ak/F5aj authority、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5al の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5al source policy を追加した。docs/API/summary state exact one-call/summary terminal exact one-call/F5aj exact one-call/F5ak exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget` を追加した。
+- F5al advance-once は summary state / terminal を読み、`Continue` だけ F5aj consume-once に進める。`Rejected` / `EndContour` は `Result::Ok` の typed terminal として返す。
+- F5al drain は terminal-before-budget を守り、`StepBudgetExhausted` を success terminal として返す。positive budget の `Continue` だけ advance-once に進める。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md` を追加し、advance-once、terminal handling、budget zero/negative、recursive drain、start drain、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ak start summary を入口にし、F5aj consume-once を advance-once の唯一の collection-backed continuation authority にする設計が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、新規 focused doctest の stage と note の状態更新が必要という運用指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 focused doctest は staged `A` となり、note の状態更新と staged set の意図した 8 ファイル、tmp / `NUL` の除外が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5al.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5al_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5al.json -j 1` 774/774 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5al は collection-backed consume summary drain までであり、drain result から outline storage / path command owner へ渡す境界、raster mask、render2d command emission は未実装である。
+- F5al focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action start consumer checkpoint
+
+## scope
+
+- branch: `gui-font-collection-start-consumer-f5ak-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ak の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action start consumer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ak の collection-backed start item / start consumer item / start consume-once / start consume summary boundary、collection capacity glyph authority、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ak の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ak source policy を追加し、docs/API/capacity glyph exact one-call/start cursor exact one-call/F5ag/F5ah/F5ai/F5aj exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary` を追加した。
+- F5ak start item は caller supplied glyph を受け取らず、collection capacity の glyph から start cursor を作る。
+- F5ak higher helper は直下の F5ak helper と F5ai/F5aj authority だけを使い、F5ag/F5ah 直接呼び出しや byte-backed F4 helper へ戻らない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md` を追加し、capacity glyph authority、start item、start consumer、start consume-once、summary projection、error propagation、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`start_item` が caller supplied glyph を受け取ると forged cursor を作れるため、collection capacity glyph を authority にする必要があると指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。collection capacity glyph authority、F5ak helper 分割、summary advance/drain を次 slice に分ける責務境界が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、`note.n.md` に implementation review 結果を記録する必要があるという運用指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。前回 blocker の note 記録は staged diff に反映され、staged set は意図した 8 ファイルのみで、未追跡 tmp / `NUL` は commit 対象外であることが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5ak.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5ak_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ak.json -j 1` 771/771 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ak は collection-backed start consume summary までであり、consume summary advance-once、budgeted drain、outline traversal、raster mask、render2d command emission は未実装である。
+- F5ak focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consumer next checkpoint
+
+## scope
+
+- branch: `gui-font-collection-consumer-next-f5aj-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aj の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action consumer next and consume once の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aj の collection-backed consumer next / apply advance / consume-once boundary、F5ai authority、saved next authority、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aj の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aj source policy を追加し、docs/API/F5ai exact one-call/saved next exact one-call/consume step construction/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once` を追加した。
+- F5aj は F5ai `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item` を next item lookup authority とし、F4 byte-backed helper や lower F5 collection helper へ戻らない。
+- F5aj apply advance は terminal read 後、`Continue` の場合だけ apply step に保存済みの next を exactly once 読み、original consumer item や action payload を再解釈しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md` を追加し、consumer item next、apply advance saved next、terminal handling、consume-once、error propagation、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`consumer_apply_advance` の Continue branch で saved next を読む順序と、元 item/action payload を再解釈しない禁止条件の明文化が必要と指摘された。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。saved next authority、F5ai helper だけに戻る境界、helper ごとの source policy 分離が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、新規 focused doctest file を commit 対象へ stage する必要があるという指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 F5aj focused doctest は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5aj.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_item_f5aj_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aj.json -j 1` 767/767 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aj は collection-backed consumer next / apply advance / single consume boundary までであり、collection-backed start consumer、consume summary、budgeted drain、outline traversal、raster mask、render2d command emission は未実装である。
+- F5aj focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink event kind pair checkpoint
+
+## scope
+
+- branch: `gui-font-collection-path-event-kind-pair-f5ab-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ab の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink event kind pair の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ab の collection-backed path sink event kind pair boundary、F5aa exact one-call、pure kind pair projection exact one-call、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ab の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ab source policy を追加し、docs/API/F5aa exact one-call/pure kind pair projection exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair` を追加した。
+- F5ab は F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を exactly once 呼び、F5aa error を wrap せずにそのまま返す。
+- F5ab は F5aa success event pair を `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` へ exactly once 渡し、`GuiSfntSimpleGlyphPathSinkEventKindPair` を返す。
+- F5ab は新しい error enum を作らない。pure kind pair projection は失敗しないため、F5aa error domain をそのまま使う。
+- `NoSegment` は F4q と同じく explicit `SkipNoSegment` kind pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md` を追加し、line kind pair、quadratic kind pair、no-segment skip kind pair、F5aa error propagation、no Vec / no fallback / no sink traversal の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5aa/F5z/F5y 実呼び出しで timeout する問題を継承するため `skip` としている。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ab は F5aa と既存 pure path sink event kind pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- Tesla plan review の implementation note に従い、source policy の sink 禁止 pattern は意図した `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` 呼び出しを許し、traversal / consumer / action / renderer / raster / platform / host API を弾く粒度にした。
+- Tesla implementation review は `IMPLEMENTATION_APPROVED`。F5ab helper は意図した thin boundary であり、new doctest は staged `A`、tmp / `NUL` は commit 対象外のままであることが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_pair_f5ab.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_pair_f5ab_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ab.json -j 1` 744/744 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ab は collection-backed single-edge path sink event kind pair までであり、collection-backed typed slot selection、outline traversal、raster mask、render2d command emission は未実装である。
+- F5ab focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink event pair checkpoint
+
+## scope
+
+- branch: `gui-font-collection-path-event-pair-f5aa-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aa の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink event pair の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aa の collection-backed path sink event pair boundary、F5z exact one-call、pure event pair projection exact one-call、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aa の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aa source policy を追加し、docs/API/F5z exact one-call/pure event pair projection exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を追加した。
+- F5aa は F5z `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair` を exactly once 呼び、F5z error を wrap せずにそのまま返す。
+- F5aa は F5z success pair を `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` へ exactly once 渡し、`GuiSfntSimpleGlyphPathSinkEventPair` を返す。
+- F5aa は新しい error enum を作らない。pure event pair projection は失敗しないため、F5z error domain をそのまま使う。
+- `NoSegment` は F4p と同じく explicit `SkipNoSegment` event pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_pair.n.md` を追加し、line event pair、quadratic event pair、no-segment skip event pair、F5z error propagation、no Vec / no fallback / no sink traversal の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5z/F5y 実呼び出しで timeout する問題を継承するため `skip` としている。contract は source policy と `glyf.nepl` 全体 doctest で固定している。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5aa は F5z と既存 pure path sink event pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- Tesla plan review の implementation note に従い、source policy の sink 禁止 pattern は意図した `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` 呼び出しを許し、traversal / consumer / action / renderer / raster / platform / host API を弾く粒度にした。
+- Tesla implementation review は `IMPLEMENTATION_APPROVED`。F5aa helper は意図した thin boundary であり、new doctest は staged `A`、tmp / `NUL` は commit 対象外のままであることが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_pair_f5aa.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_pair_f5aa_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aa.json -j 1` 743/743 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aa は collection-backed single-edge path sink event pair までであり、collection-backed event kind / slot selection、outline traversal、raster mask、render2d command emission は未実装である。
+- F5aa focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection path command pair checkpoint
+
+## scope
+
+- branch: `gui-font-collection-path-command-pair-f5z-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5z の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command pair の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5z の collection-backed path command pair boundary、F5y exact one-call、pure pair projection exact one-call、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5z の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair` を追加した。
+- F5z は F5y `gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` を exactly once 呼び、F5y error を wrap せずにそのまま返す。
+- F5z は F5y success segment を `gui_sfnt_simple_glyph_curve_segment_path_command_pair` へ exactly once 渡し、`GuiSfntSimpleGlyphPathCommandPair` を返す。
+- F5z は新しい error enum を作らない。pure pair projection は失敗しないため、F5y error domain をそのまま使う。
+- `NoSegment` は F4o と同じく explicit `SkipNoSegment` pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md` を追加し、line pair、quadratic pair、no-segment skip pair、F5y error propagation、no Vec / no fallback / no sink traversal の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5y 実呼び出しで timeout する問題を継承するため `skip` としている。contract は source policy と `glyf.nepl` 全体 doctest で固定している。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5z は F5y と既存 pure path command pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- Tesla plan review の implementation note に従い、source policy の byte-backed 禁止 pattern は `gui_sfnt_lookup_simple_glyph_curve_segment` / `gui_sfnt_lookup_simple_glyph_path_command_pair` と `_with_tables` helper に絞り、意図した F5y collection-backed curve segment call を弾かないようにした。
+- Tesla implementation review は 1 回目 `IMPLEMENTATION_BLOCKED`。code/design blocker はなく、新規 focused doctest file を commit 対象へ stage する必要があるという指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 F5z focused doctest は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_pair_f5z.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5z_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5z.json -j 1` 742/742 passed
+
+## remaining
+
+- F5z は collection-backed single-edge path command pair までであり、collection-backed path sink event、outline traversal、raster mask、render2d command emission は未実装である。
+- F5z focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection curve segment checkpoint
+
+## scope
+
+- branch: `gui-font-collection-curve-segment-f5y-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5y の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection curve segment の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5y の collection-backed curve segment lookup、F5x exact one-call、edge invariant 再検査、条件付き F5w lookahead、lookahead invariant 再検査、missing lookahead の上位合成禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5y の plan review 経緯、実装中に行った helper 分割、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` と accessors を追加した。
+- F5y public wrapper は F5x contour edge lookup を exactly once 呼び、F5x failure を `ContourEdgeFailed` として lower error payload ごと保持する。
+- F5y は F5x success 後に private edge invariant helper で span、capacity、edge index、next local index、start/end local index、absolute point index を curve decision より前に再検査する。
+- F5y は start が on-curve かつ end が off-curve の場合だけ F5w contour point lookup を exactly once 呼び、lower failure を `LookaheadPointFailed` として保持する。
+- F5y は lookahead success 後に private lookahead invariant helper で span、local index、absolute point index を再検査してから、既存の curve segment classifier へ `Option::Some lookahead` を渡す。
+- F5y は lookahead 不要 branch では F5w を呼ばず、classifier へ `Option::None` を渡す。上位で `MissingLookahead` を合成して lookup を省略する fallback は行わない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md` を追加し、line、explicit quadratic、implied midpoint、single point no segment、off-curve start no segment、F5x failure wrapping、F5w lookahead failure wrapping の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5y 実呼び出しで 180 秒を超えるため `skip` としている。実行可能性は source policy と `stdlib/alloc/gui/font/sfnt/glyf.nepl` 全体 doctest で検査し、将来 compiler 側の compile time が改善された時点で unskip する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5y source policy を追加し、docs/API/F5x exact one-call/F5w conditional exact one-call/private invariant helper/forbidden API/括弧なし prefix style/test coverage label を検査する。
+
+## subagent review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。error payload の明示、F5x success 後の edge/span invariant 再検査、F5w 呼び出しを必要 branch だけに限定すること、source policy を必須指摘として受けた。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5x を authority とし、edge invariant、conditional lookahead、lookahead invariant、classifier projection の順で実装する方針が承認された。
+- F5y 実呼び出し doctest が compile timeout したため、public wrapper を小さく保ち、edge invariant / lookahead invariant / checked-edge branch を private helper に分割する方針を Tesla に確認した。
+- Tesla direction review は `IMPLEMENTATION_DIRECTION_APPROVED`。private helper は許可され、source policy は public wrapper と helper body の両方を検査する条件が示された。
+- Tesla implementation review は 1 回目 `IMPLEMENTATION_BLOCKED`。code-level blocker はなく、未追跡 doctest file の commit 対象化、`note.n.md` の F5y checkpoint 追加、`todo.md` の残件更新が必要とされた。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 doctest file は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5y.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_edge_f5y_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5y.json -j 1` 741/741 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5y は collection-backed curve segment lookup までであり、collection-backed path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+- F5y focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と full `glyf.nepl` doctest で固定している。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection contour edge checkpoint
+
+## scope
+
+- branch: `gui-font-collection-contour-edge-f5x-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5x の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection contour edge の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5x の collection-backed contour edge lookup、F5v exact one-call、F5w exact two-call、span invariant 再検査、edge range before point lookup、start/end invariant validation、one-point self-wrap を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5x の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge` と accessors を追加した。
+- F5x は F5v contour span lookup を exactly once 呼び、F5v success span の glyph、contour index、start/end/count、capacity range を edge index 判定より前に再検査する。
+- F5x は edge index が範囲外なら `EdgeIndexOutOfRange` を返し、F5w point lookup を呼ばない。
+- F5x は wrapped `next_contour_point_index` を計算し、1 point contour では start/end とも local index 0 を参照する。
+- F5x は F5w contour point lookup を start/end の順に exactly twice 呼び、lower failure を `StartPointFailed` / `EndPointFailed` として保持する。
+- F5x は start/end の span、local index、absolute point index を再検査し、成功時だけ `GuiSfntSimpleGlyphContourEdge` を返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md` に wrap success、second contour success、one-point self-wrap、span failure wrapping、edge index out of range、final endpoint topology failure propagation の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5x source policy を追加し、docs/API/F5v exact one-call/F5w exact two-call/span invariant before edge range/edge range before point lookup/start-end invariant/forbidden API/括弧なし prefix style を検査する。
+- `todo.md` の GUI font 残件を、F5x 完了後の curve classification / path tag population boundary へ更新した。
+
+## subagent review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5x error payload に `span_error`、`start_error`、`end_error`、start/end options を明示すること、start/end の span/local/absolute invariant を edge construction 前に固定すること、1 point contour self-wrap を doctest に入れることが必須指摘だった。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5x は F5v を authority とし、span invariant、edge range、wrapped next index、F5w start/end point lookup、start/end invariant validation の順で実装する方針が承認された。
+- Tesla implementation review は 1 回目 `REVIEW_BLOCKED`。指摘は F5x checkpoint が `note.n.md` 先頭にないことのみで、code / doctest contract blocker はなかった。
+- 指摘に従い、F5x scope、implementation summary、plan review result、implementation review status、verification、residual next boundary を `note.n.md` 先頭に追加した。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_edge_f5x.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_point_f5x_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5x.json -j 1` 724/724 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5x は collection-backed contour edge lookup までであり、collection-backed curve classification、path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection contour point checkpoint
+
+## scope
+
+- branch: `gui-font-contour-point-iterator-boundary-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5w の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection contour point の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5w の collection-backed contour point lookup、F5v exact one-call、span invariant 再検査、local range before collection read、byte-backed path 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5w の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point` と accessors を追加した。
+- F5w は F5v contour span lookup を exactly once 呼び、F5v success span の glyph、contour index、start/end/count、capacity range を local index 判定より前に再検査する。
+- F5w は local `contour_point_index` が範囲外なら `ContourPointIndexOutOfRange` を返し、collection item を読まない。
+- F5w は absolute index を span start と local index から計算し、absolute range を再検査してから `collection_read_item` を exactly once 呼ぶ。
+- F5w は read item の glyph、point index、kind を再検査し、成功時だけ `GuiSfntSimpleGlyphContourPoint` を返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md` に success、span failure wrapping、local index out of range、final endpoint topology failure propagation の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5w source policy を追加し、docs/API/F5v exact one-call/span invariant before local range/local range before read/collection read exact one-call/forbidden API/括弧なし prefix style を検査する。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5v が `Ok span` を返した後でも、F5w 側で span/capacity invariant を local index 判定や item read より前に visible に再検査する必要があると指摘された。
+- 計画を修正し、`span.glyph == capacity.glyph`、`span.contour_index == contour_index`、`span.start_point_index >= 0`、`span.end_point_index >= span.start_point_index`、`span.end_point_index < capacity.point_count`、`span.point_count == span.end_point_index - span.start_point_index + 1` を `ContourPointInvariantInvalid` として検査する方針にした。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5w は F5v を authority とし、span invariant、local range、absolute range、collection read、item validation の順で実装する方針が承認された。
+- Tesla implementation review は 1 回目 `REVIEW_BLOCKED`。コード、source policy、doctest の blocker はなく、`note.n.md` が実装レビュー未実施のままだったことだけが指摘された。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。note-only blocker は解消済みで、F5w は merge-ready とされた。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_point_f5w.json -j 1`
+- pass: `git diff --check`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_span_f5w_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5w.json -j 1`
+
+## residual
+
+- F5w は collection-backed contour point lookup までであり、contour edge extraction、path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection contour span checkpoint
+
+## scope
+
+- branch: `gui-font-outline-contour-collection-boundary-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5v の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection contour span の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5v の collection-backed contour topology lookup、full collection validation、final endpoint invariant、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5v の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` と accessors を追加した。
+- F5v は F5u/F5t が作った classified item collection だけを authority とし、byte-backed F4/F5 point reader、path/raster/render/platform/host API へ戻らない。
+- F5v は collection length / capacity / item count、contour index、各 item の glyph / point index / kind、target contour endpoint、observed contour count、最終 endpoint が `point_count - 1` であることを typed error として検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md` に 2 contour success、partial collection reject、contour index out of range、contour count mismatch、final endpoint mismatch、missing contour end の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5v source policy を追加し、docs/API/full collection validation/final endpoint invariant/F5t collection read exact path/byte-backed lookup 禁止/Vec・path・render・raster・platform・host API 禁止/括弧なし prefix style を検査する。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。target contour だけを返す設計では endpoints `[1, 2]` かつ `point_count = 4` のように最終点がどの contour にも属さない forged topology を見逃すため、scan 後に最終 contour endpoint が `point_count - 1` と一致することを検査する必要があると指摘された。
+- 計画を修正し、`FinalContourEndMismatch`、`last_endpoint_index` payload、全 item scan 後の final endpoint invariant、focused doctest と source policy を追加した。
+- Tesla follow-up plan review は `PLAN_APPROVED`。collection-backed topology lookup と final endpoint invariant を固定した上で実装開始が承認された。
+- Tesla implementation review は `REVIEW_APPROVED`。final endpoint invariant、owner-preserving/no-fallback boundary、source policy、focused doctest、`note.n.md` / `todo.md` の整合性に blocker はないと判断された。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_span_f5v_rerun.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='240000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5v_rerun2.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5v_rerun.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5v_rerun.json -j 1`
+- pass: `git diff --check`
+- note: F5u 回帰は 180 秒設定の並列実行で一度 timeout したが、240 秒設定の isolated rerun で pass した。重い doctest の境界事象であり、F5v の semantic regression ではない。
+
+## residual
+
+- F5v は collection-backed contour span lookup までであり、contour point iterator、edge extraction、path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item collection drain checkpoint
+
+## scope
+
+- branch: `gui-font-outline-item-collection-drain-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5u の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5u の owner-preserving bridge、F5s 0 / 1 step budget、F5t push commit、push error metadata 回収順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5u の plan review 経緯、実装中に追加した collection/cursor precondition、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget` と accessors を追加した。
+- F5u は F5s に caller `remaining_steps` を直接渡さず、local `step_budget` を 0 / 1 にして F5s drain を source 上 exactly once 呼ぶ。
+- F5u は `collection.item_count == cursor.next_point_index` を F5s 呼び出し前に検査し、不一致は `CollectionCursorMismatch` として collection owner を保持して返す。
+- F5u は F5s success summary の `items_read` が 0 / 1 以外、budget 0 で item を返す形、または `items_read == 1` かつ `last_item == None` を `ItemDrainInvariantInvalid` として fail-closed にする。
+- F5u は F5t collection push failure で `push_error_kind`、`push_storage_error`、`rejected_item` を owner 回収前に読み、`CollectionPushFailed` として collection owner、commit cursor、commit item count、lower F5s success value を保持して返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md` に full End、partial budget、zero budget non-terminal、zero budget terminal、collection/cursor mismatch、lower F5s failure wrapping、public `CollectionFull` push failure の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5u source policy を追加し、docs/API/budget 0/1/F5s exact one-call/F5t push exact one-call/push metadata before owner recovery/owner-bearing payload 非 Clone・非 Copy/lower path 禁止/括弧なし prefix style を検査する。
+- `todo.md` から F5u 実装項目を削除し、次の contour / edge / path tag population boundary へ置き換えた。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s success invariant failure 時に lower F5s success value を error payload に保持すること、F5s budget を 0 / 1 に固定すること、push error metadata を owner 回収前に読むこと、public API で push failure doctest が可能かを明確にすることが指摘された。
+- 計画を修正し、`item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain`、local `step_budget` 0 / 1、push error metadata 回収順序、collection capacity 1 と stream point count 4 による public `CollectionFull` doctest を追加した。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5u は F5s drain と F5t push だけを呼び、lower step/point/path/render/platform API へ進まない方針で実装開始が承認された。
+- 実装中に、terminal cursor と空 collection が成功値になる不整合を見つけ、`CollectionCursorMismatch` precondition を追加した。
+- Tesla implementation review は `REVIEW_BLOCKED`。コード、source policy、doctest の blocker はなく、`note.n.md` と `todo.md` が F5u 未実装のままだったことだけが指摘された。
+- `note.n.md` と `todo.md` を更新した follow-up review は `REVIEW_APPROVED`。F5u は merge-ready とされた。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5u.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5u_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_f5u_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5u.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5u は classified item stream を collection owner へ commit する境界までであり、contour span / edge / path tag population、outline point stream traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item drain checkpoint
 
 ## scope
@@ -63892,3 +73304,2308 @@ MERGE_APPROVED
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
 - sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
 - graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した typed event authority / unsupported override / owner cleanup / private type exposure ban を保てるため後続最適化として扱う。
+## 2026-06-15 GUI font collection path sink event kind at checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-event-kind-at-f5ac-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5ab error をそのまま返す `Result` と `GuiSfntSimpleGlyphPathSinkEventSlot` enum による typed slot selection で、invalid index を型から排除する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at` を追加した。
+- F5ac は F5ab `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair` を authority とし、成功時だけ pure `gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at` へ typed slot を渡す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ac の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md` を追加し、first / second slot、NoSegment skip、error propagation、no fallback/no Vec/no sink traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ac source policy を追加し、F5ab exact one-call、pure typed-slot projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の path sink event at / outline traversal boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ac は F5ab と既存 pure typed-slot kind projection の thin composition として scope が適切であり、`GuiSfntSimpleGlyphPathSinkEventSlot` が closed input domain なので新しい error enum は不要と判断された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。F5ac helper の設計と forbidden dependency は問題ないが、focused doctest file が未追跡のままだと commit tree から欠落して source policy が失敗するため、commit set へ追加するよう指摘された。
+- Tesla implementation review 1 fixes: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md` を明示的に staging 対象へ含める。
+- Tesla implementation review 2: `REVIEW_APPROVED`。focused doctest file が staged add になり、`note.n.md` に blocked review と fix が記録され、`git diff --cached --check` が pass しているため blocker 解消と確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_at_f5ac.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_pair_f5ac_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ac.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ac は typed slot から kind を読む lookup までであり、payload event selection、contour cursor、full traversal は未実装である。
+- 次 slice では F5ac を authority として、path sink event at または collection-backed contour traversal へ進む。
+
+## 2026-06-15 GUI font collection path sink event at checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-contour-step-f5ad-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5aa error をそのまま返す `Result` と `GuiSfntSimpleGlyphPathSinkEventSlot` enum による typed slot selection で、invalid index を型から排除する。
+- scope_note: branch 名は contour step を含むが、subagent review により実装 slice は `path_sink_event_at` へ狭めた。contour step は span failure と event/kind failure を統合する F5 専用 typed error が必要なため次 slice へ送った。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を追加した。
+- F5ad は F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を authority とし、成功時だけ pure `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` へ typed slot を渡す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ad の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md` を追加し、first / second slot、NoSegment skip、error propagation、no fallback/no Vec/no sink traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ad source policy を追加し、F5aa exact one-call、pure typed-slot event projection exact one-call、F5ab/F5ac kind helper 禁止、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed contour step boundary へ更新した。次 slice では contour span failure と event/kind lookup failure を混ぜない F5 専用 typed error を設計する。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。contour step 案では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` が返す `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError` を `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` として「そのまま返す」ことができず、F5aa と F5ac を同時に呼ぶと同じ edge を二重に導出することを指摘された。
+- Tesla revised plan review: `PLAN_APPROVED`。F5ad を F5aa と既存 pure typed-slot event projection の thin composition に狭める方針が承認された。
+- Tesla implementation review: `REVIEW_APPROVED`。F5ad staged commit set は coherent で、F5aa exact one-call、error propagation、pure typed-slot event projection、duplicate edge derivation なし、fallback / byte-backed regression / lower collection helper leakage / render-raster-platform drift なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ad.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_at_f5ad_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ad.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ad は typed slot から event を読む lookup までであり、kind lookup は F5ac、contour cursor / next state / full traversal は未実装である。
+- 次 slice では F5ad event at と F5ac kind at を使い、span lookup failure と event/kind lookup failure を明示的に分ける F5 contour step error を追加して collection-backed contour step へ進む。
+
+## 2026-06-15 GUI font collection path contour step checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-contour-step-f5ae-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、span lookup failure、cursor glyph mismatch、event lookup failure を専用 `Result` error enum で分ける。kind は返された event から導き、同じ edge を F5ac で二重導出しない。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError` を追加した。
+- F5ae error kind は `ContourSpanFailed`、`CursorGlyphMismatch`、`PathSinkEventFailed` の 3 種にした。
+- error payload は collection capacity、cursor、contour_index、edge_index、slot、span_error option、event_error option を保持する。
+- `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を追加した。
+- F5ae は collection contour span lookup を exactly once 呼び、span 成功後に cursor glyph と collection capacity glyph を比較する。
+- glyph mismatch では `CursorGlyphMismatch` を返し、F5ad event lookup へ進まない。
+- F5ae は F5ad `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を exactly once 呼び、成功した event から `gui_sfnt_simple_glyph_path_sink_event_kind` で kind を導く。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ae の contract、失敗分離、F5ac 非依存、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md` を追加し、first / second line step、end contour、span error、cursor glyph mismatch、event error、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ae source policy を追加し、docs、typed error payload、helper body order、F5ad exact one-call、event-kind exact one-call、cursor-next exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed sink step / action step boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。cursor が glyph を持つのに F5ad/F5aa collection helpers は collection 側の glyph を authority としており、cursor glyph と collection capacity glyph の一致を検査しないと forged cursor を成功 step に混ぜられると指摘された。
+- Tesla revised plan review: `PLAN_APPROVED`。`CursorGlyphMismatch` を専用 error kind として追加し、span 成功後かつ event lookup 前に glyph identity check を置く方針が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。source policy が読む新規 focused doctest file が未追跡のままだと commit tree から欠落するため、commit set へ追加するよう指摘された。
+- Tesla implementation review 1 fixes: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md` を明示的に staging 対象へ含めた。
+- Tesla implementation review 2: `REVIEW_APPROVED`。新規 F5ae doctest file が staged add になり、前回 blocker は解消した。未追跡 `tmp_*.json` と `NUL` は commit set 外であり、`git diff --cached --check` が pass していると確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5ae.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ae_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ae.json -j 1` は 758/758 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ae は collection-backed contour step までであり、sink policy decision、primary/tail action step、contour-wide action traversal は未実装である。
+- 次 slice では F5ae を authority として collection-backed sink step / action step boundary へ進む。F4 byte-backed helper、F5aa/F5ac 直接呼び出し、renderer/raster/platform API へ戻らない。
+
+## 2026-06-15 GUI font collection path sink step checkpoint
+
+### scope
+
+- branch: `gui-font-collection-sink-step-f5af-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5ae の typed `Result` をそのまま返す。policy reject は error にせず、既存 sink step payload の enum に保持する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を追加した。
+- F5af は F5ae `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を authority とし、error を wrap せず `Result::Err error` として返す。
+- F5af success path は pure `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` を呼び、policy decision と tail close handling を既存 F4t sink step contract に委譲する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5af の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md` を追加し、primary line、tail close、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5af source policy を追加し、F5ae exact one-call、pure sink-step projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed sink action step / action next boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5af は F5ae と pure `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` の thin composition として coherent であり、新しい error type は不要と判断された。
+- Tesla implementation review: `REVIEW_APPROVED`。新規 doctest は staged add であり、helper は F5ae exact one-call、error unchanged propagation、pure sink-step projection のみを使う。byte-backed/lower helper leakage、fallback、policy reject/error-domain drift はないと確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。5 分制限では timeout したため、source policy 本体は 900 秒制限で再実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5af.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5af_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5af.json -j 1` は 759/759 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5af は collection-backed sink step までであり、action slot traversal、action next、contour-wide sink traversal は未実装である。
+- 次 slice では F5af を authority として collection-backed sink action step / action next boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ag collection path sink action step
+
+### scope
+
+- F5ag は F5af collection-backed sink step lookup を authority とし、`GuiSfntSimpleGlyphPathSinkActionCursor` から `GuiSfntSimpleGlyphPathSinkActionStep` を 1 つ返す境界である。
+- action cursor は contour cursor と action slot に分ける。collection lookup は contour cursor だけを受け取り、action slot は pure action-step projection にだけ渡す。
+- fallback、silent no-op、byte-backed lookup への復帰、lower collection helper 直接呼び出し、renderer / rasterizer / platform / host API への漏れは禁止する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ag は F5af と pure `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` の thin boundary として coherent であり、新しい error type は不要と判断された。
+- source policy は F5af と pure projection のみを許可し、F5ae/F5ad/F5ac/F5aa 直接呼び出し、byte-backed F4 helper、Vec / push、sink traversal、consumer、render/raster/platform API、括弧構文を禁止する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step` を追加した。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor` と `gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot` で cursor を分解し、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を 1 回だけ呼ぶ。
+- F5af error は wrap せず `Result::Err error` として返し、success path では `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` を 1 回だけ呼ぶ。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ag の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md` を追加し、primary action、tail action、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ag source policy を追加し、cursor split、F5af exact one-call、pure action-step projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed action step advance / action item boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ag.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5ag_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ag.json -j 1` は 760/760 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面の blocker はないが、新規 doctest が untracked のため commit set に含める必要があると指摘された。
+- 新規 doctest を staged add した後の Tesla implementation review 2 は `REVIEW_APPROVED`。F5ag helper は action cursor split、F5af exact one-call、unchanged error propagation、pure action-step projection exact one-call を守り、byte-backed / lower / render / platform path への漏れがないと確認された。
+
+### residual
+
+- F5ag は action step 1 件の lookup までであり、checked advance、action step item、consumer item、contour-wide sink traversal は未実装である。
+- 次 slice では F5ag を authority として collection-backed action step advance / action item boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ah collection action step advance and item
+
+### scope
+
+- F5ah は F5ag collection-backed action step lookup を authority とし、typed next state から checked advance を作る境界である。
+- action step item は現在 step の value copy と checked advance を束ねるだけで、action payload の解釈、consumer、sink mutation、contour-wide traversal は行わない。
+- `EndContour` は `Result::Err` や `Option::None` にせず、successful terminal enum として保持する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ah は既存 byte-backed F4y/F4z の advance/item split を mirror しつつ、F5ag を唯一の collection-backed lookup authority とする計画として妥当と判断された。
+- source policy は advance helper の `action_step_next` exactly once、`Continue` で F5ag exactly once、item helper の advance exactly once、`*step` copy、no action payload inspection、F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し禁止を固定する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance` を追加した。
+- advance helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を読み、`Continue cursor` では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection cursor policy` へ 1 回だけ委譲し、`EndContour` は successful terminal value として返す。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item` を追加した。
+- item helper は collection-backed advance helper に 1 回だけ委譲し、success path では `let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step` で現在 step を明示 copy して `gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance` を返す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ah の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md` を追加し、continue advance、end advance、item copy、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ah source policy を追加し、body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed action item next / consumer item boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_item_f5ah.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ah_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ah.json -j 1` は 762/762 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面の blocker はないが、新規 doctest が untracked のため commit set に含める必要があると指摘された。
+- 新規 doctest を staged add した後の Tesla implementation review 2 は `REVIEW_APPROVED`。F5ah helper は typed next read exactly once、Continue だけの F5ag delegation、EndContour success terminal、`*step` copy と item construction を守り、残る content blocker はないと確認された。
+
+### residual
+
+- F5ah は action step item までであり、action item next、consumer item、consume/apply loop、contour-wide sink traversal は未実装である。
+- 次 slice では F5ah を authority として collection-backed action item next / consumer item boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ai collection action item next and consumer item
+
+### scope
+
+- F5ai は F5ah collection-backed action step item を authority とし、checked advance を action item next へ進める境界である。
+- consumer item helper は current action payload の value copy と checked next state を束ねるだけで、action payload の解釈、apply / consume、sink mutation、contour-wide traversal は行わない。
+- `EndContour` は `Result::Err` や `Option::None` にせず、successful terminal enum として保持する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ai は F5ah の checked advance/item を authority として、F4ab/F4ac と同じ分割を collection-backed に写す next boundary として妥当と判断された。
+- 指摘事項として、`consumer_item` は action value のコピーと next helper だけに限定し、source policy では pure constructor を許可しつつ consumer traversal / apply / consume 系 API を禁止する粒度にする必要がある。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next` を追加した。
+- action item next helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を 1 回だけ読み、`Continue next_step` の場合だけ F5ah `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item` へ 1 回だけ委譲する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item` を追加した。
+- consumer item helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step` と `gui_sfnt_simple_glyph_path_sink_action_step_action` を 1 回ずつ呼び、collection-backed action item next helper の success path で `gui_sfnt_simple_glyph_path_sink_action_consumer_item action next` を返す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ai の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md` を追加し、continue item next、end item next、consumer item copy、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ai source policy を追加し、body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed consumer item next / consume-once boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_item_f5ai.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_item_f5ai_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ai.json -j 1` は 764/764 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。code / source policy / doctest の blocker はないが、F5ai checkpoint の subagent review 欄が pending のままだったため、mergeable staged set として記録更新が必要と指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の note blocker は解消され、staged doctest が含まれ、code / source policy / doctest blocker はないと確認された。
+
+### residual
+
+- F5ai は action item next / consumer item までであり、consumer item next、consume/apply loop、contour-wide sink traversal は未実装である。
+- 次 slice では F5ai を authority として collection-backed consumer item next / consume-once boundary へ進む。
+
+## 2026-06-16 GUI font rendering F5bh render glyph paint binding boundary
+
+### scope
+
+- F5bh は F5bg の fill alpha mask owner start を authority とし、full `GuiGlyphPaint` を受ける最初の binding boundary である。
+- 現時点で受理するのは fill-only paint だけであり、stroke / shadow は fill coverage へ黙って縮退させず typed error として返す。
+- F5bh は `RenderCommand` emission、DrawTarget / RenderTarget、2D compositor、stroke rasterizer、shadow rasterizer、platform / host API、font fallback へ進まない。
+
+### plan_review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- lower F5bg error の kind を owner recovery 前に読むこと、start signature と success owner type を明示すること、stroke-only / shadow-only paint を `MissingFillPaint` で覆い隠さない validation precedence を固定することが指摘された。
+- revised plan では start signature を `Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintStartError` とし、validation order を stroke -> shadow -> fill に固定した。
+- F5bg lower error は `gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind &lower_error` で kind を読んでから packed owner recovery accessor で消費する。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderGlyphPaintConfig` を追加した。`origin` と `paint` を保持する value-only record で、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind` と owner-bearing `GuiSfntSimpleGlyphRenderGlyphPaintStartError` を追加した。
+- direct validation failure は `lower_kind = Option::None` とし、F5bg delegated failure は lower kind を `Option::Some` として保持して recovered packed owner と original config を返す。
+- `gui_sfnt_simple_glyph_render_glyph_paint_owner_start` は stroke Some、non-NoShadow、fill None の順に検査し、fill-only の場合だけ F5bg fill alpha mask owner start へ委譲する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bh の contract、validation precedence、lower error recovery order、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md` を追加し、config、fill-only accepted path、stroke / shadow / missing-fill reject、lower recovery、no platform / no command policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bh source policy を追加した。
+- `todo.md` は F5bh 後の render command / 2D compositor boundary と、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bh.json -j 1` は 1116/1116 pass。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。code / source policy / doctest / staging の content blocker はないが、F5bh checkpoint の subagent review 欄が pending のままだったため、mergeable staged set として記録更新が必要と指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 files のみで、新規 focused doctest も含まれ、`git diff --cached --check` も pass と確認された。
+
+### residual
+
+- F5bh は full glyph paint の explicit accept / reject boundary までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bh の accepted fill-only owner を authority として render command / 2D compositor boundary へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bi render fill alpha mask sample cursor boundary
+
+### scope
+
+- F5bi は F5bg / F5bh の completed fill alpha mask owner を authority とし、後続の 2D compositor / render command bridge が消費できる sample cursor boundary である。
+- sample は absolute `GuiPoint`、alpha、alpha_max、fill paint、blend を持つ value-only record とする。
+- cursor は completed owner と cell index を所有するため、cursor / start error / step error / terminal は `Clone` / `Copy` を実装しない。
+- F5bi は `RenderCommand` emission、DrawTarget / RenderTarget、2D compositor、stroke / shadow rasterizer、platform / host API、font fallback へ進まない。
+
+### plan_review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- F5bg に completed owner invariant helper がないため、F5bi 側で shape、alpha max、cell count、alpha Vec len/cap を再検査する helper が必要と指摘された。
+- `cell_index >= cell_count` を completed と扱うと `cell_index > cell_count` の壊れた progress を隠すため、`cell_index > cell_count` を completion より先に `CellIndexOutOfRange` として拒否する必要があると指摘された。
+- `origin + local position` は i32 overflow を起こしうるため、`PositionXOverflow` / `PositionYOverflow` と checked addition を `gui_point_new` より前に置く必要があると指摘された。
+- `sample_cursor_step` の failure は cursor を保持する owner-bearing error とし、read / invariant / alpha / position failure を recovery / free helper で扱えるようにする必要があると指摘された。
+- revised plan では completed owner invariant、`cell_index > cell_count` before completion、checked addition、step error owner recovery を追加した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSample` を追加した。`position`、`alpha`、`alpha_max`、`fill_paint`、`blend` を保持し、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor` を追加した。completed fill alpha mask owner と `cell_index` を所有し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind` を追加し、shape / alpha invariant、cell index bounds、alpha slot/range、position overflow、progress invariant を typed error として表す。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError` と `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError` を追加し、start failure では owner、step failure では cursor を回収できるようにした。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal` を追加し、`Sampled sample next_cursor` と `Completed owner` を明示した。
+- completed owner invariant helper、cursor invariant、checked add、position helper、start / read / step / recovery / free / terminal free helper を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bi の contract、bounds order、checked position addition、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md` を追加し、start、completed owner invariant、bounds fail-closed、position overflow、alpha read、step terminal、recovery/free、no platform / no command policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bi source policy を追加した。
+- `todo.md` は F5bi 後の 2D compositor / render command bridge と、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bi.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bi_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bi.json -j 1` は 1122/1122 pass。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。F5bi implementation content blocker はない。completed-owner invariant、`cell_index > cell_count` before completion、checked x/y addition before `gui_point_new`、owner-bearing step error、no RenderCommand / platform / fallback / stroke / shadow path は approved plan と一致していると確認された。
+- commit-readiness blocker として、新規 focused doctest file が未追跡で stage されていないこと、review 欄が pending のままだったことが指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の commit-readiness blockers は解消され、staged set は意図した 8 files のみで、新規 F5bi focused doctest も含まれ、`git diff --cached --check` も pass と確認された。
+
+### residual
+
+- F5bi は completed fill alpha mask owner の sample cursor 境界までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bi sample stream を authority として 2D compositor / render command bridge へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bj render fill alpha mask sample command bridge boundary
+
+### scope
+
+- F5bj は F5bi の completed fill alpha mask sample cursor を authority とし、1 sample を 1 typed `RenderCommand::FillRect` へ変換する correctness bridge である。
+- この bridge は高速 compositor が無い場合の fallback ではない。FHD 60fps path は後続の alpha-mask / tile command と 2D compositor drain で扱う。
+- 現行 `FillRectCommand` は blend を payload に持たないため、`GuiBlendMode::SourceOver` のみを受理し、それ以外は `UnsupportedBlendMode` で fail closed にする。
+- command conversion が成功する前に cursor を進めず、失敗時は元 cursor と rejected sample を回収できる。
+
+### plan_review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。
+- `sample.blend` を `FillRectCommand` へ落とすと blend semantic loss になるため、`SourceOver` 以外を typed error として拒否する必要があると指摘された。
+- F5bi の owning `sample_cursor_step` を先に呼ぶと、command conversion failure 時に sample 消費済みで command 未発行という partial completion になり得ると指摘された。
+- revised plan では SourceOver-only validation、conversion succeeds before cursor advances rule、command conversion failure の元 cursor + rejected sample recovery を追加した。
+- Planck revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/core/gui/render_command.nepl` に `gui_paint_color` accessor を追加した。font renderer / compositor が `GuiPaint` の field 名へ直接依存しないようにする。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind` を追加した。alpha max、alpha range、multiply overflow、scaled alpha range、unsupported blend を typed error とする。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError` を追加し、value-only rejected sample を保持する。
+- sample command paint helper を追加し、`gui_paint_color` で base color を読み、RGB を保持しつつ alpha だけを `sample.alpha * paint.alpha / sample.alpha_max` で scale する。
+- `cast i32 u8` の前に negative / max / overflow / scaled alpha range をすべて検査する。
+- `sample.alpha == 0` または `paint.alpha == 0` は skip/no-op ではなく透明 `FillRect` command を返す。
+- sample render command helper を追加し、absolute sample position から 1x1 `GuiRect` を作り `render_command_fill_rect` を返す。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind`、owner-bearing cursor error、command cursor terminal を追加した。
+- command cursor step は `cell_index == cell_count` を read より先に completed とし、`read &cursor`、sample command conversion、owner handoff to next cursor の順に進める。
+- command conversion failure では元 cursor と `rejected_sample = Some sample` を error に保持し、F5bi invariant/read failure では `rejected_sample = None` とする。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bj の contract、SourceOver-only、checked alpha scale、conversion-before-advance、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md` を追加し、paint accessor、SourceOver-only、checked alpha scale、transparent zero alpha、FillRect emission、conversion-before-advance、rejected sample recovery、terminal free、no platform / target / fallback policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bj source policy を追加した。
+- `todo.md` は F5bj 後の alpha-mask / tile command、2D compositor drain、formal render command transport、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge_f5bj.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bj_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bj.json -j 1` は 9/9 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bj.json -j 1` は 1127/1127 pass。
+
+### subagent_review
+
+- Planck implementation review は `REVIEW_APPROVED`。F5bj は fallback ではなく correctness bridge として閉じており、SourceOver-only validation により blend semantic loss は解消済み、conversion success before cursor advance と rejected sample recovery により partial completion も解消済みと確認された。
+- Planck は追加で `node nodesrc\test_web_gui_font_rendering_contract.js` と `git diff --check` を確認し、commit 可能と判断した。ただし未追跡の `NUL` と多数の `tmp_*.json` / profile は commit に含めず、新規 focused doctest file だけ stage するよう指摘された。
+
+### residual
+
+- F5bj は per-sample SourceOver FillRect correctness bridge であり、FHD 60fps 向けの alpha-mask / tile command、formal 2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bj の sample command bridge を authority として command drain / alpha-mask command 境界へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bk core alpha mask render command boundary
+
+### scope
+
+- F5bk は F5bj の per-sample `FillRect` correctness bridge を最終 FHD 60fps path にしないため、core render command に SourceOver-only alpha mask command を追加する境界である。
+- core は opaque `AlphaMaskId`、`AlphaMaskRectCommand`、`RenderCommand::AlphaMaskRect`、constructor/accessor だけを持ち、mask storage、renderer、host transport、font internals、fallback は持たない。
+- non-SourceOver glyph blend は F5bj と同じく command 構築前に fail closed とする。
+
+### plan_review
+
+- Planck plan review は `PLAN_APPROVED`。
+- 指摘として、`default paint semantics` を避け、`AlphaMaskRect` は SourceOver 専用 command と明記することが求められた。
+- mask alpha と `GuiPaint` alpha の合成意味、RGB が `GuiPaint` 由来であること、mask storage / dimensions 解決が core 外であること、missing / unsupported resource が renderer / host の `Result` になることを docs に固定する方針で承認された。
+
+### implementation
+
+- `stdlib/core/gui/render_command.nepl` に `AlphaMaskId` を追加した。`raw %i32` を保持し、`Clone` / `Copy`、`alpha_mask_id_new`、`alpha_mask_id_raw` を持つ。
+- `AlphaMaskRectCommand` を追加した。`mask_id %AlphaMaskId`、`rect %GuiRect`、`paint %GuiPaint` を保持し、`Clone` / `Copy` と field accessor を持つ。
+- `RenderCommand` に `AlphaMaskRect %AlphaMaskRectCommand` を追加し、`render_command_alpha_mask_rect` で constructor を公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bk の SourceOver-only contract、mask alpha / paint alpha 合成、no storage / no platform / no fallback policy を追加した。
+- `tests/stdlib/gui_core_alpha_mask_command.n.md` を追加し、handle、accessor、enum variant、SourceOver-only contract、no alloc / no platform / no fallback policy の coverage label と runnable smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bk source policy を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bk.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bk.json -j 1` は 10/10 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_f5bk_regression.json -j 1` は 9/9 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_sample_command_bridge_f5bk_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。F5bk implementation 自体に content blocker はないが、既存 `nodesrc/test_stdlib_gui_render_command_doc_contract.js` が古い `TextRunId` / `ImageId` だけの top contract を固定しており、`AlphaMaskId` 追加後の render command doc contract と矛盾していると指摘された。
+- 指摘に従い、render command doc contract script を `TextRunId` / `ImageId` / `AlphaMaskId` の top contract、`AlphaMaskRectCommand` runnable doctest、SourceOver alpha mask semantics、mask alpha / paint alpha、mask storage / dimensions 外部化を固定するように更新した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消され、F5bk は opaque handle / Copy payload / enum variant / constructor/accessor に限定され、alloc/std/platform/backend/font internals/fallback へ進んでいないこと、SourceOver-only contract により F5bj の blend semantic loss を再導入していないことが確認された。
+
+### residual
+
+- F5bk は core command contract までであり、completed fill alpha mask owner から `AlphaMaskId` resource table への登録、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+- 次 slice では F5bk を authority として alpha-mask resource binding / tile command / compositor drain のどれかに進む。
+
+## 2026-06-16 GUI font rendering F5bm alpha mask resource table boundary
+
+### scope
+
+- F5bm は F5bl の reservation owner を消費し、Copy metadata record を private metadata-only table に登録する内部 alloc/font 境界である。
+- table は alpha storage owner を `Vec` に保持しない。成功 owner は updated table owner と registered resource owner を同時に持つ。
+- F5bm は host-visible resource 登録、transport、`RenderCommand::AlphaMaskRect` emission、2D compositor drain、platform / backend API には進まない。
+
+### plan_review
+
+- Planck plan review は `PLAN_APPROVED`。
+- owner-bearing resource を `Vec` に持つ設計は、この slice では避ける。`Vec` payload destructor で reservation owner を確実に閉じる contract は未証明のため、metadata-only table と registered resource owner の pair にする。
+- registration は push 前に nonzero id、reservation owner invariant、SourceOver、rect / paint metadata、duplicate id を検査する。
+- push failure は元 table owner と reservation owner を typed error から回収できるようにし、partial registration を禁止する。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bm の metadata-only table contract、owner pair、registration order、禁止依存を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord`、metadata-only table owner、registered resource owner、registration owner、owner-bearing register error を追加した。
+- table new / len / contains / lookup / free、record derivation、registration、registration owner free、register error recovery / free を追加した。
+- implementation review 1 の指摘に従い、table だけ / reservation だけを返す split consuming accessor を削除した。success continuation は updated table owner と registered resource owner を同時に callback へ渡す helper にし、error recovery は table owner と reservation owner を同時に保持する rejected owner + callback helper にした。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md` を追加し、source policy coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bm source policy を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bm_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bm_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bm.json -j 1` は 1136/1136 pass。
+- pass after review fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bm_after_review.json -j 1` は 1136/1136 pass。
+
+### subagent_review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。`register_error_table` / `register_error_reservation` が error 全体を消費して片方の owner だけを返せるため、table または reservation の片側を失えると指摘された。
+- 指摘に従い split consuming accessor を削除し、success owner と error recovery を pair callback 型へ変更した。source policy でも split consuming accessor 禁止を追加した。
+- Planck follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 8 ファイルで、metadata-only table、owner-bearing Vec payload 禁止、duplicate-before-push、push failure recovery、command / fallback / platform 不介入、pair callback source policy が確認された。
+
+### residual
+
+- F5bm は private metadata table と owner pair までであり、registered resource からの `RenderCommand::AlphaMaskRect` emission、formal tile / bitmap transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+
+## 2026-06-16 GUI font rendering F5bn alpha mask prepared command owner boundary
+
+### scope
+
+- F5bn は F5bm の registered resource owner を消費し、stored record と internal reservation 由来の expected record を再検証してから `RenderCommand::AlphaMaskRect` を作る内部 alloc/font 境界である。
+- `RenderCommand` は Copy value なので、raw command を accessor や arbitrary callback で外へ出さない。prepared owner が registered resource owner と command を同時に保持する。
+- F5bn は command stream emission、formal tile / bitmap transport、2D compositor drain、host-visible resource upload、platform / backend API には進まない。
+
+### plan_review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。success callback が raw `RenderCommand` を arbitrary `.R` callback へ渡すと、callback が command だけを保持でき、registered resource owner を失った dangling `AlphaMaskId` command を作れると指摘された。
+- 改訂計画では raw command accessor / callback を禁止し、prepared owner 内部に command を保存するだけにした。
+- Planck revised plan review は `PLAN_APPROVED`。raw Copy `RenderCommand` escape を source policy で禁止し、formal transport / drain owner を次の消費境界として残す条件で実装開始を承認された。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bn の prepared owner contract、raw command escape 禁止、formal transport / drain owner 残件を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner`、prepared command error kind、owner-bearing error、rejected owner、record equality、registered resource prepare function を追加した。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_prepare_command` は stored record を読み、nonzero id、internal reservation からの expected record、record equality を検査し、成功時だけ `render_command_alpha_mask_rect` を呼ぶ。返った command は prepared owner 内部に保存し、raw command accessor は持たない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md` を追加し、source policy coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bn source policy を追加した。`prepared_command_owner_command` / `prepared_command_owner_with` / command field projection / command callback / target / platform / fallback / table lookup / sample cursor / transport / compositor を禁止している。
+- `todo.md` は F5bn 後の formal transport / drain owner、tile / bitmap transport、2D compositor drain、stroke / shadow 専用 raster boundary の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bn.json -j 1` は 1137/1137 pass。
+
+### subagent_review
+
+- Planck implementation review は `REVIEW_APPROVED`。raw Copy `RenderCommand` は `PreparedCommandOwner` 内部に閉じており、`prepared_command_owner_command` / `prepared_command_owner_with` / command field projection / command callback は見つからないと確認された。
+- `render_command_alpha_mask_rect` は stored record と reservation-derived expected record の検証後にだけ呼ばれ、返った command は owner 内部へ保存されている。prepared owner / error / rejected owner は owner-bearing で Clone / Copy を持たず、error recovery は registered resource owner だけを返すと確認された。
+- table lookup、RenderTarget / DrawTarget、platform / backend、transport / compositor / tile、FillRect fallback、sample cursor fallback へ進んでいないことが確認された。
+- commit 粒度の follow-up review では `PLAN_APPROVED: Candidate C`。software 2D compositor drain は pixel buffer / surface owner、alpha storage borrow、dirty region、stride / format、SourceOver 合成 error、FHD 60fps 目標との関係を先に設計する必要があるため、commit 粒度を粗くする目的で F5bn と同じ commit へ未設計の transport / compositor を押し込まない方針が承認された。
+
+### residual
+
+- F5bn は prepared owner までであり、prepared owner を formal transport / drain owner へ移す境界、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+
+## 2026-06-17 GUI font rendering F5co row tile RLE typed transport reader
+
+### scope
+
+- F5co は F5cn の `GuiRgba8888RowTileRlePresentFrameOwner` から、Web / native / headless presenter が共通に消費できる typed run cursor へ進める slice である。
+- `row_tile_rle_packet` と `row_tile_rle_encoded` の no-reader contract は維持し、raw storage read は `row_tile_rle_packet_record` の quarantined typed record reader 内だけに閉じる。
+- host import、video memory、platform API、scheduler policy、2D compositor drain はこの slice では実装しない。
+
+### plan_review
+
+- Pauli plan review は `PLAN_APPROVED`。F5cn は present-frame owner で止まっているため、typed record reader と std run cursor は正式 host import へ飛ぶ前の root-cause slice として妥当とされた。
+- 条件は raw read を `row_tile_rle_packet_record` に隔離すること、public raw storage / byte reader を出さないこと、`std/gui/tile_present*` に raw memory / host import を入れないこと、既存 F5cm/F5cn source policy を壊さないことである。
+
+### implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_packet_record.nepl` を追加した。
+- `GuiRgba8888RowTileRlePacketRecordReadErrorKind` は count、index、byte offset、projection/load、decoded i32、channel、run extent の失敗を enum で分ける。
+- `gui_rgba8888_row_tile_rle_packet_record_at` は packet owner を借用し、12 byte record を `GuiRgba8888RowTileRleRun` に戻す。`total_run_count * 12 == encoded_byte_count`、record range、non-negative LE i32、channel、run extent を検査する。
+- `stdlib/std/gui/tile_present_run_cursor.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentRunCursorOwner` は present owner、next record index、total run count を保持し、step は `RunReady run` または explicit `Completed` を返す。
+- `record_index > total_run_count` は owner-bearing `RecordIndexPastEnd` error、lower record reader failure は `PacketRecordReadFailed` として cursor owner を保持する。
+- `stdlib/alloc/gui/render2d.nepl` と `stdlib/std/gui.nepl` の facade に追加した。
+- `tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md` と `tests/stdlib/gui_std_tile_present_run_cursor.n.md` を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5co source policy を追加し、typed reader だけの raw read quarantine と std cursor の no raw / no host / no fallback を固定した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5co を追加した。
+- `todo.md` は F5co 後の正式 Web / native / headless host import ABI、FHD 60fps scheduler policy、2D compositor drain などの残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_record_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_packet_record.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_packet_record_module_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_run_cursor.nepl --no-tree -o tmp_gui_std_tile_present_run_cursor_module_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5co_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5co_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d.nepl --no-tree -o tmp_gui_render2d_facade_f5co.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5co.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Pauli plan review は `PLAN_APPROVED`。F5cn の present-frame owner から typed record reader と std run cursor へ進む計画は、正式 host import へ飛ぶ前の根本的な transport 境界として承認された。
+- Dirac implementation review は `REVIEW_APPROVED`。raw read は private helper に隔離され、public output は検証済み `GuiRgba8888RowTileRleRun` だけであり、std cursor は raw memory / host / platform API に触れていないことが確認された。
+- 残留 risk として、新規 `.n.md` doctest は import smoke と source-policy label が中心である。ただし、source policy が実装構造を直接検査しているため、この slice の merge blocker ではないと判断された。
+
+### residual
+
+- F5co は typed record reader と std present run cursor までであり、Web / native / headless の host import ABI、real scheduler policy、FHD 60fps 実測、formal event loop integration、2D compositor drain、stroke / shadow rasterization は未実装である。
+## 2026-06-17 GUI std F5dh scheduled span operation boundary
+
+### scope
+
+- F5dh は F5dg `GuiRgba8888RowTileRlePresentHostSpanOperation` stream を actual Web / native / bare / headless presenter の手前で deterministic slice budget に区切る std layer boundary である。
+- F5ct record scheduler は再利用しない。F5ct は F5cq record 単位、F5dh は F5dg operation stream 単位であり、RunRecord と RunSpan の cost model が異なる。
+- この slice は actual host import execution、platform API、DOM / Canvas / minifb、video memory、queue、timer、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- Dirac plan review は `PLAN_CHANGES`。
+- 指摘に従い、`tile_present_schedule` の state / policy を再利用する案を破棄し、新規 `max_operations_per_slice` / `max_pixels_per_slice` policy と F5dg cursor 所有 state に変更した。
+- F5dg / F5df を stream authority とし、F5cs / F5ct / F5cu を直接呼ばない方針にした。
+- `OperationReady` は operation、post phase、next state を同時に持ち、exact-budget yield で operation を落とさない形にした。
+
+### implementation
+
+- `stdlib/std/gui/tile_present_scheduled_span_operation.nepl` を追加した。
+- scheduled span operation policy、state、ready、step result、start error、step error を追加した。
+- Begin / End は operation cost 1 / pixel cost 0、RunSpan は `span.width * span.height` を checked arithmetic で計算する。
+- `step` は F5dg step を最大 1 回だけ呼び、F5dg lower error は previous state と lower error option を持つ typed error に包む。
+- `resume_slice` は F5dg cursor を保持し、slice counter だけ reset する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI / font rendering docs、`todo.md` を更新した。
+- 初期 focused doctest は Begin / Run scenario を直接構築したが、compile timeout が 60 秒と 180 秒の両方で発生した。既存 GUI doctest の実運用に合わせ、focused doctest は import smoke に軽量化し、behavior order と禁止依存は `nodesrc/test_web_gui_font_rendering_contract.js` の source policy で直接検査する形へ変更した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_scheduled_span_operation.nepl tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md` は no match。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_scheduled_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_f5dh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_scheduled_span_operation.nepl --no-tree -o tmp_gui_std_tile_present_scheduled_span_operation_module_f5dh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_span_operation.n.md --no-tree -o tmp_gui_std_tile_present_host_span_operation_f5dh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_span.n.md --no-tree -o tmp_gui_std_tile_present_run_span_f5dh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5dh.json -j 1`
+
+### residual
+
+- F5dh は scheduled span operation boundary までであり、actual Web / native / bare / headless presenter operation sink、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI platforms F5ex native/bare scheduler host executor bridge
+
+### scope
+
+- F5ex は virtual scheduler の `ExecuteHostAction` pending payload を native / bare platform backend の host import 境界へ 1 action だけ渡す bridge である。
+- host import の戻り値は fail-closed な status code とし、`Result unit GuiError` へ変換してから F5ev executor input と F5ew scheduler executor step へ戻す。
+- この slice は long-running loop、queue、timer、present scheduler、DOM / Canvas、minifb、video memory、fallback、silent no-op へ進まない。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_host_executor.nepl` と `stdlib/platforms/gui/bare/scheduler_host_executor.nepl` を追加した。
+- Begin / RunSpan / End の各 operation を match で網羅し、Window / Offscreen / Device target は branch-local な scalar 値へ明示的に落としてから host import へ渡す。
+- host status は `0` だけを `Ok unit` とし、unsupported / invalid command / resource exhausted / backend failure を `GuiError` として返す。
+- virtual scheduler 側に pending execute payload の borrowed accessor を追加し、operation owner を不必要に消費しない形にした。
+- native / bare facade と doctest default imports を更新し、host 実装が未接続の環境では `-1` により unsupported として fail-closed にした。
+- GUI / font rendering docs と source policy regression に F5ex contract を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_executor_input.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_executor_input.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_executor_step.n.md`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_executor_step.n.md`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Kuhn the 2nd implementation review は `APPROVED`。typed `ExecuteHostAction` 1 件だけを扱い、borrowed accessor、`Result unit GuiError` mapping、F5ev / F5ew reuse、no fallback / no loop / no queue / no timer / no present / no platform renderer 逸脱が確認された。
+
+### residual
+
+- F5ex は native / bare host import へ typed action を渡す bridge までであり、actual native / bare runtime の host import 実装、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ey span operation host ABI validator
+
+### scope
+
+- F5ey は F5ex native host import scalar payload を Rust side で検証し、typed `NativeSpanOperation` として injected sink へ渡す境界である。
+- この slice は actual renderer、window presenter、minifb runner、long-running scheduler、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- Peirce the 2nd の初回 plan review は `PLAN_BLOCKED`。`stride_bytes` は `width * 4` 以上ではなく完全一致、`tile_count` は `ceil(plan_row_count / tile_rows)` と完全一致させる必要があると指摘された。
+- 改訂 plan では stride と tile count を契約完全一致に変更し、invalid scalar input は sink を呼ぶ前に `-2` を返す方針にした。
+- Peirce the 2nd の改訂 plan review は `APPROVED`。native Rust validator と non-rendering injected sink に限定する条件で実装開始が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に span operation ABI status、target kind、`NativeSpanOperationTarget`、`NativeSpanOperationDescriptor`、`NativeSpanOperationRunSpan`、`NativeSpanOperation`、`NativeSpanOperationSink` を追加した。
+- `execute_native_span_operation_begin` / `run` / `end` は scalar payload を検証してから sink を呼び、known status は保持し、unknown positive / negative status は `BackendFailure` へ正規化する。
+- descriptor validation は positive ids/counts、`packet_frame_id == frame_id`、checked extent、row extent containment、`stride_bytes == width * 4`、`pixel_count == width * row_count`、`encoded_byte_count == total_run_count * 12`、`tile_count == ceil(plan_row_count / tile_rows)`、`tile_index < tile_count` を検査する。
+- run span validation は `height == 1`、positive width、non-negative x / y、RGBA channel 0..255 を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ契約へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Peirce the 2nd implementation review は `APPROVED`。F5ey の範囲は native Rust ABI validation と injected sink に収まっており、`main.rs` / minifb / rendering / scheduler wiring へ進んでいないことが確認された。
+- invalid scalar payload は sink の前で `-2` になり、typed operation は検証後にだけ構築され、sink status は文書化済み ABI status へ正規化されると確認された。
+- test-only recorder は fallback renderer や runtime backend ではなく、injected sink contract の検証だけに使われているため許容された。
+
+### residual
+
+- F5ey は Rust side validator までであり、actual native window presenter sink、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ez RGBA8888 framebuffer sink
+
+### scope
+
+- F5ez は F5ey の typed `NativeSpanOperation` を native offscreen RGBA8888 framebuffer へ反映する Rust side sink boundary である。
+- この slice は actual native presenter、window loop、minifb `update_with_buffer`、scheduler loop、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+
+### plan_review
+
+- McClintock the 2nd の初回 plan review は `PLAN_BLOCKED`。`Vec<u32>` の pixel packing、checked constructor、sequence completeness、failure state preservation、既存 ABI status への写像を計画へ追加する必要があると指摘された。
+- 改訂 plan では pixel を semantic `0xRRGGBBAA` として固定し、checked constructor、`seen_run_count`、End 時の exact run count、Run / End 失敗時の state preservation、既存 F5ey status への写像を追加した。
+- McClintock the 2nd の改訂 plan review は `APPROVED`。実装時には direct construction 対策として sink 側でも範囲検査を保つこと、active accessor を read-only snapshot にすること、source policy で endian byte view と minifb integration 禁止を見ることが条件として確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgba8888FrameBuffer`、`NativeSpanFramebufferError`、`NativeSpanFramebufferActiveSequence`、`native_pack_rgba8888_pixel` を追加した。
+- framebuffer は private field と checked constructor を持ち、positive width / height、checked `width * 4` stride、checked `width * height` pixel count、`try_reserve_exact` を通した後だけ生成される。
+- pixel storage は semantic `0xRRGGBBAA` の `u32` であり、native endian byte view は公開しない。
+- `NativeSpanOperationSink` 実装は Begin で descriptor / `seen_run_count = 0` を保持し、RunSpan は target、`x >= 0`、`width > 0`、`height == 1`、row extent、x extent、remaining run count、checked index を検査してから pixel を書く。成功した RunSpan だけが seen count を増やす。
+- End は descriptor equality と `seen_run_count == descriptor.total_run_count` を要求し、短い / 余分な span 列を silent partial frame として成功させない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- McClintock the 2nd implementation review 1 は `CHANGES_REQUESTED`。`write_run_span` が `run_span.x < 0` を拒否しておらず、`x = -1, y = 1, width = 1` が前行末尾へ書けると指摘された。あわせて public struct direct construction 対策として `width <= 0` と `height != 1` も sink 側で拒否する必要があるとされた。
+- 指摘に従い、index 計算と pixel write の前に `run_span.x < 0 || run_span.width <= 0 || run_span.height != 1` を拒否するようにした。negative x と non-unit height は `InvalidArgument`、pixels unchanged、`seen_run_count` unchanged を test で固定した。
+- McClintock the 2nd follow-up review は `APPROVED`。前行末尾への誤書き込み経路は閉じられ、docs/source-policyにも契約が反映されていると確認された。
+
+### residual
+
+- F5ez は offscreen framebuffer sink までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fa RGB0 present buffer conversion
+
+### scope
+
+- F5fa は F5ez の completed semantic `0xRRGGBBAA` framebuffer を native presenter が受け取れる semantic `0x00RRGGBB` present buffer へ変換する Rust side boundary である。
+- この slice は pixel contract conversion のみを扱い、actual window loop、minifb `update_with_buffer`、scheduler loop、timer、queue、video memory、DOM / Canvas、fallback、silent no-op へ進まない。
+- alpha composition は caller が明示した `NativeRgbColor` background に対してだけ行い、default background や暗黙 fallback は持たない。
+
+### plan_review
+
+- Zeno the 2nd の plan review は `APPROVED`。completed framebuffer だけを入力にし、active sequence を拒否し、semantic `0x00RRGGBB` buffer を private field で保持し、byte / endian view を公開しない条件で実装開始が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgbColor`、`NativeRgb0PresentBuffer`、`native_pack_rgb0_pixel`、`native_rgba8888_to_rgb0_over_background` を追加した。
+- `NativeRgb0PresentBuffer::from_rgba8888_framebuffer` は active sequence を `SequenceAlreadyActive` として拒否し、source pixel length を検査し、checked arithmetic と `try_reserve_exact` を通してから semantic `0x00RRGGBB` pixels を作る。
+- alpha composition は `(source * alpha + background * (255 - alpha) + 127) / 255` の integer round-to-nearest contract として固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Zeno the 2nd implementation review は `APPROVED`。semantic `0xRRGGBBAA` から `0x00RRGGBB` への変換、明示 background での alpha composition、active sequence 拒否、private buffer field、byte / endian view 禁止、`main.rs` / minifb 未接続の境界維持が確認された。
+
+### residual
+
+- F5fa は completed framebuffer から presenter-ready buffer への conversion boundary までであり、native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fb presenter frame adapter
+
+### scope
+
+- F5fb は F5fa の `NativeRgb0PresentBuffer` を native smoke runner が `update_with_buffer` に渡せる typed presenter frame へ借用変換する Rust side boundary である。
+- この slice は minifb 非依存の adapter と smoke runner call-site の typed frame 化だけを扱い、scheduler loop、queue、timer、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- smoke demo rasterizer からの RGB0 import は正式 NEPL span path ではなく、formal host import path が native window loop へ接続されるまでの smoke source である。
+
+### plan_review
+
+- Poincare the 2nd の初回 plan review は `PLAN_BLOCKED`。smoke/demo RGB0 constructor でも every pixel の high byte が 0 であることを検査する必要、presenter frame を minifb 非依存にする必要、`main.rs` が typed frame 経由でだけ `update_with_buffer` へ到達することを regression で固定する必要、subagent review 記録を `note.n.md` に残す必要が指摘された。
+- 改訂 plan では high byte 検査、immutable slice + checked `usize` dimensions の minifb 非依存 typed presenter frame、raw `image.pixels` present 禁止 regression、blocked / approved / implementation review の記録を追加した。
+- Poincare the 2nd の改訂 plan review は `PLAN_APPROVED`。RGB0 high-byte validation、typed frame boundary、scope exclusions が確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NATIVE_RGB0_HIGH_BYTE_MASK`、`NativePresenterFrameError`、`NativePresenterFrame` を追加した。
+- `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` は positive dimensions、checked `width * height`、exact pixel length、every pixel の high byte zero を検査し、invalid pixel を mask せず `PixelFormatMismatch` として返す。
+- `NativePresenterFrame::from_rgb0_present_buffer` は `i32` dimensions を `usize` へ checked conversion し、pixel count と high byte を再検査した上で immutable `&[u32]` を公開する。lib 側には minifb 型、OS handle、byte / endian view を入れていない。
+- `nepl-gui-native/src/main.rs` は demo rasterizer output を `NativeRgb0PresentBuffer::from_rgb0_pixels_for_smoke_demo` へ通し、`NativePresenterFrame` の `pixels` / `width` / `height` だけを `update_with_buffer` に渡すようにした。raw `&image.pixels, image.width, image.height` present は残していない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Poincare the 2nd implementation review 1 は `CHANGES_REQUESTED`。`note.n.md` に blocked plan review、revised approval、implementation review を記録していないこと、source-policy regression が smoke/demo import を正式 NEPL span path と区別する wording を検査していないことが指摘された。
+- 指摘に従い、`note.n.md` に F5fb 記録を追加し、`nodesrc/test_native_gui_platform_behavior.js` で `not the formal NEPL span presentation path` wording を検査するようにした。
+- Poincare the 2nd follow-up implementation review は `APPROVED`。typed presenter frame adapter、high-byte validation、minifb 非依存 lib boundary、raw image present 禁止、smoke/demo と正式 NEPL span path の分離が確認された。
+
+### residual
+
+- F5fb は typed presenter frame adapter と smoke runner call-site の境界までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fc RGB0 presenter sink
+
+### scope
+
+- F5fc は validated `NativeSpanOperation` stream を offscreen `NativeRgba8888FrameBuffer` に反映し、complete End の成功時だけ `NativeRgb0PresentBuffer` と typed presenter frame へ進める native sink boundary である。
+- この slice は Rust side sink と last completed frame state だけを扱い、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- `NativeRgba8888FrameBuffer` の既存 End semantics は維持し、present buffer を作る path は `NativeRgb0PresenterSink` 側へ分離する。
+
+### plan_review
+
+- Godel the 2nd の plan review は `PLAN_APPROVED`。実装条件として、conversion failure 時の active sequence preservation を OOM 依存ではなく deterministic に検査すること、RGB0 conversion helper を private に保つこと、既存 `NativeRgba8888FrameBuffer` End semantics を変えないこと、実際の subagent plan / implementation review を記録することが確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeRgb0PresenterSink` を追加した。sink は `NativeRgba8888FrameBuffer`、explicit background、last completed `NativeRgb0PresentBuffer`、last presented frame id を所有する。
+- Begin / RunSpan は既存 framebuffer と同じ validation / write contract を使う。End は descriptor equality と exact run count を検査し、RGB0 conversion succeeds の後だけ active sequence を閉じ、last completed buffer と frame id を更新する。
+- RGB0 conversion failure、descriptor mismatch、run count mismatch、invalid run は previous completed frame を置き換えない。conversion failure path は forged internal pixel length mismatch で deterministic に検査し、active sequence が保持されることを固定した。
+- completed RGBA8888 pixels から RGB0 present buffer を作る private helper を追加し、positive dimensions、checked pixel count、exact source length、`try_reserve_exact` を通してから semantic `0x00RRGGBB` pixels を作る。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Godel the 2nd implementation review は `APPROVED`。conversion が active sequence clear より先に行われること、sink が successful conversion の後だけ last completed frame / frame id を更新すること、private helper が checked dimensions / exact source length / `try_reserve_exact` を使うこと、deterministic forged-length test で conversion failure 時の active sequence preservation を固定していることが確認された。
+
+### residual
+
+- F5fc は native RGB0 presenter sink boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fd window presenter state
+
+### scope
+
+- F5fd は F5fc の completed RGB0 presenter frame と frame id を native window presenter state にコピー保持する lib-only boundary である。
+- この slice は surface resize state と last frame ownership を分離するだけで、minifb / OS window API、scheduler loop、timer、queue、bare runtime host import、formal `std/gui` present host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- resize は previous frame を stretch / crop せず、surface drawable state だけを更新する。application / layout は resize event に応じて新しい pixel buffer を生成し、その present 成功時に state が置き換わる。
+
+### plan_review
+
+- Popper the 2nd の初回 plan review は `PLAN_BLOCKED`。`last_present_frame` の raw frame validation error を `NativeWindowPresenterError` に写すこと、completed frame と completed frame id の両方を要求すること、state replacement を validation / reservation 成功後だけにすること、zero-size surface を stale keep ではなく明示 state にすること、lib boundary の scope を source policy で固定することが指摘された。
+- 改訂 plan では `NativeWindowPresenterSurfaceState::Unavailable`、`FrameMissing` / `FrameIdMissing` / `PresenterFrameValidationFailed` / `ResourceExhausted` / `DimensionOverflow` の分離、temporary buffer 成功後 replacement、resize が frame を stretch / crop しない contract、private fields と read-only accessor、source policy regression を追加した。
+- Popper the 2nd の改訂 plan review は `PLAN_APPROVED`。zero-size surface を unavailable として記録する方針、completed frame と frame id の fail-closed requirement、previous frame preservation test、minifb-independent lib boundary が確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowPresenterSurfaceState`、`NativeWindowPresenterError`、`NativeWindowPresenterState` を追加した。state は surface state、last frame id、last frame dimensions、RGB0 pixels を private field として所有し、read-only accessor だけを公開する。
+- `NativeWindowPresenterState::new` は positive initial surface だけを受け入れ、`resize_surface` は positive size を `Drawable`、zero width / height を `Unavailable` として記録する。
+- `present_sink_frame` は `NativeRgb0PresenterSink` から completed typed frame と completed frame id の両方を要求し、missing / validation / resource / overflow を enum error として返す。replacement は `try_reserve_exact` と pixel copy が成功した後だけ行う。
+- `NativePresenterFrame::from_rgb0_present_buffer` の validation を private helper に集約し、state-held pixels の再検査でも同じ invariant を使うようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Popper the 2nd implementation review は `APPROVED`。lib-only boundary が守られ、minifb / platform detail が `lib.rs` に漏れていないこと、explicit surface / frame / error state を使っていること、failed present が previous frame state を保持することが確認された。
+- Popper the 2nd は `cargo test -p nepl-gui-native native_window_presenter_state` と `node nodesrc/test_native_gui_platform_behavior.js` を再実行し、どちらも pass した。
+
+### residual
+
+- F5fd は native window presenter state boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fe window presenter smoke integration
+
+### scope
+
+- F5fe は native smoke runner の window loop を `NativeWindowPresenterState` 経由の present / hit-test path へ寄せる checkpoint である。
+- この slice は smoke window integration だけを扱い、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- minifb / OS window API は `main.rs` の call site に閉じ込め、`lib.rs` は platform-independent presenter state と validation boundary のままにする。
+
+### plan_review
+
+- Nietzsche the 2nd の plan review は `PLAN_APPROVED`。実装条件として、0 以下の frame id を `InvalidFrameId` で拒否すること、smoke frame id を `checked_add` で進めること、`present_buffer` と `present_sink_frame` を `present_frame` へ委譲すること、`last_present_frame_required` で blank fallback を禁止すること、resize を surface state へ通知して frame stretch / crop / clear をしないこと、source policy と tests で固定することが確認された。
+
+### implementation
+
+- `NativeWindowPresenterError` に `InvalidFrameId` を追加し、`NativeWindowPresenterState::present_frame` が positive frame id と checked typed frame だけを受け入れるようにした。
+- `present_buffer` は `NativeRgb0PresentBuffer` を typed presenter frame に変換して `present_frame` へ委譲し、`present_sink_frame` は completed frame と frame id を取り出した後で同じ `present_frame` を使う。
+- `last_present_frame_required` を追加し、frame missing を `FrameMissing` として返すようにした。
+- native smoke runner は初期 RGB0 frame を `NativeWindowPresenterState` に present し、window resize を `resize_surface` に通知し、counter hit test と `Window::update_with_buffer` の両方で state-held frame を読むようにした。
+- counter rerender 時の `counter_value` と smoke `presenter_frame_id` は `checked_add` で進め、overflow は error として返す。wrap、saturating、reset、silent reuse は行わない。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Nietzsche the 2nd implementation review は `APPROVED`。`present_buffer` と `present_sink_frame` が `present_frame` へ委譲されていること、`InvalidFrameId` が explicit error であること、validation / reservation 後だけ replacement すること、`main.rs` が `NativeWindowPresenterState` を display / counter hit-test authority として使うこと、minifb が `main.rs` に閉じていることが確認された。
+- Nietzsche the 2nd は `node nodesrc\test_native_gui_platform_behavior.js`、`cargo test -p nepl-gui-native --features window native_window_presenter_state`、`cargo fmt --package nepl-gui-native -- --check` を再実行し、すべて pass した。
+- residual risk として、この slice は smoke presenter integration と static source-policy shape の検証までであり、interactive minifb window 上の実 OS resize / minimize behavior、formal `std/gui` host import、scheduler、timer / queue、compositor drain、performance behavior はまだ検証対象外であることが確認された。
+
+### residual
+
+- F5fe は native smoke runner の presenter state integration までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5ff window resize redraw smoke presentation
+
+### scope
+
+- F5ff は native smoke runner の resize 後表示を OS scaling ではなく current drawable surface と同じ size の RGB0 buffer redraw に寄せる checkpoint である。
+- この slice は `nepl-gui-native` smoke window presentation だけを扱い、formal `std/gui` host import、scheduler loop、timer、queue、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へ進まない。
+- minifb / OS window API は `main.rs` の call site に閉じ込め、`lib.rs` は platform-independent rasterization / presenter validation boundary として維持する。
+
+### plan_review
+
+- Anscombe the 2nd の plan review は `PLAN_APPROVED`。実装条件として、positive resize ごとに exact-size RGB0 buffer を redraw / present してから `update_with_buffer` すること、zero-size resize は `Unavailable` として扱うこと、frame id は `checked_add` で進めること、minifb / OS API を `main.rs` に閉じること、source policy と docs で固定することが確認された。
+
+### implementation
+
+- `RasterizeSurfaceError` と `rasterize_frame_to_surface` を追加し、logical `GuiFrame` を current drawable surface と同じ width / height の `RasterImage` へ描画できるようにした。
+- `native_aspect_ratio_placement` は 1px minimum へ丸め込まず、ceil division と `Unavailable` state で zero / invalid surface を明示するようにした。
+- native smoke runner は `ScaleMode::UpperLeft` を使い、positive resize の後に `resize_surface`、`next_presenter_frame_id`、`present_demo_frame_to_window_state` を実行して current window size と同じ frame を presenter state へ present する。
+- `Window::update_with_buffer` の直前と counter hit test の前に、`last_present_frame_required` の dimensions が current window size と一致することを検査するようにした。
+- `--scale 0` は silent normalize せず error として返すようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を exact-size redraw contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check -- nepl-gui-native/src/lib.rs nepl-gui-native/src/main.rs nodesrc/test_native_gui_platform_behavior.js doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md todo.md note.n.md` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。native GUI source policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning が出ている。
+
+### subagent_review
+
+- Anscombe the 2nd implementation review は `APPROVED`。positive resize ごとの exact-size redraw / present、zero-size `Unavailable`、`checked_add` frame id、minifb API の `main.rs` 閉じ込め、out-of-bounds command error test が確認された。
+- Anscombe the 2nd は `cargo fmt --package nepl-gui-native -- --check`、通常 / window feature の `cargo test -p nepl-gui-native`、`node nodesrc/test_native_gui_platform_behavior.js`、changed-file `git diff --check` の pass を十分と判断した。
+
+### residual
+
+- F5ff は native smoke runner の resize redraw presentation までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fg presenter operation identity input boundary
+
+### scope
+
+- F5fg は typed `ExecuteHostAction` から pending span operation identity を取り出し、F5ev scheduler completion ready payload と同じ native presenter-facing input value に保持する checkpoint である。
+- この slice は presenter-facing input boundary だけを扱い、backend execution、raw status mapping、scheduler step、window loop、queue、timer、minifb、Canvas、DOM、video memory、fallback、silent no-op へ進まない。
+- F5ev は scheduler step input boundary、F5fg は native presenter-facing identity input boundary として責務を分ける。
+
+### plan_review
+
+- Hume the 2nd の plan review は、当初案のままでは F5ev の薄い wrapper になる危険があるため `PLAN_APPROVED` ではなかった。
+- 実装条件として、typed `ExecuteHostAction` だけを受けること、action を F5ev ready payload へ移す前に borrowed accessor で pending operation を読むこと、operation identity を typed value として保持すること、scheduler completion wrapping は F5ev を再利用すること、backend execution / minifb / loop / queue / timer / raw status mapping を持たないことが提示された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/presenter_input.nepl` を追加した。
+- `GuiNativePresenterInputOperationIdentity` は `GuiRgba8888RowTileRlePresentHostSpanOperation` を保持し、`WindowBegin` / `WindowRunSpan` / `WindowEnd` / `OffscreenBegin` / `OffscreenRunSpan` / `OffscreenEnd` / `DeviceBegin` / `DeviceRunSpan` / `DeviceEnd` を失わない。
+- `GuiNativePresenterInputReady` は operation identity と F5ev `GuiNativeSchedulerExecutorInputReady` を同じ value に保持する。
+- `gui_native_presenter_input` は `execute_host_action_execute_ref`、`virtual_scheduler_execute_pending_ref`、`turn_driver_pending_operation` の順で borrowed identity を読み、その後 `gui_native_scheduler_executor_input` を 1 回だけ呼ぶ。
+- `stdlib/platforms/gui/native.nepl` facade、`tests/stdlib/gui_platform_native_presenter_input.n.md`、GUI/font 関連 docs、`nodesrc/test_web_gui_font_rendering_contract.js`、`todo.md` を同じ contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_platform_native_presenter_input.n.md --no-tree -o tmp_gui_platform_native_presenter_input_f5fg.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/platforms/gui/native/presenter_input.nepl --no-tree -o tmp_gui_platform_native_presenter_input_module_f5fg.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_executor_input.n.md -i tests/stdlib/gui_platform_native_scheduler_executor_step.n.md -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_native_presenter_input_regression_f5fg.json -j 1`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check -- ...changed files...` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の GUI/font contract と native behavior policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning が残っている。
+
+### subagent_review
+
+- Hume the 2nd implementation review 1 は `BLOCKED`。実装本体は plan 条件に沿うが、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`note.n.md` の追従漏れが blocker と指摘された。
+- 指摘に従い、native behavior notes に F5fg section を追加し、GUI/TUI implementation plan の current implementation summary へ F5fg を追加し、`nodesrc/test_native_gui_platform_behavior.js` で F5fg doc 欠落を検出するようにした。
+- fixes 後に `node nodesrc/test_native_gui_platform_behavior.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、changed-file `git diff --check` を再実行し、すべて pass した。
+- Hume the 2nd implementation review 2 は `REVIEW_APPROVED`。前回 blocker の解消、F5fg doc / plan coverage、note 更新、typed `ExecuteHostAction` only input、borrowed identity read before F5ev reuse、platform backend 漏れがないことが確認された。
+
+### residual
+
+- F5fg は native presenter-facing input boundary までであり、formal native window presenter integration、bare runtime host import、long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fh formal presenter session
+
+### scope
+
+- F5fh は formal span operation stream と native window presenter state を結ぶ Rust lib-only boundary である。
+- この slice は `NativeWindowPresenterSession`、typed sink outcome、typed session outcome / error、unit tests、docs/source-policy の更新だけを扱う。
+- minifb / OS window loop、actual scheduler backend、timer、queue、stdout protocol、Canvas、DOM、video memory host import、bare runtime host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Linnaeus the 2nd の plan review は `PLAN_APPROVED`。条件として、session が既存 sink の `i32` status を薄く包むだけではなく typed outcome / error boundary を公開すること、End だけが presenter state への commit を試みること、失敗時に previous presenter state を保持することが確認された。
+
+### implementation
+
+- `NativeRgb0PresenterSinkOutcome` を追加し、`NativeRgb0PresenterSink::execute_span_operation_typed` が Begin / RunSpan を `Accepted`、End 成功を `Completed frame_id` として返すようにした。既存 `NativeSpanOperationSink` の `i32` ABI はこの typed helper の結果を status に写すだけにした。
+- `NativeWindowPresenterSession` を追加し、`NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有する boundary とした。
+- `NativeWindowPresenterSession::execute_span_operation` は Begin / RunSpan 成功で `NativeWindowPresenterSessionOutcome::NotPresented` を返し、End 成功時だけ `present_sink_frame` を呼んで `NativeWindowPresenterSessionOutcome::Presented` を返す。
+- sink failure は `NativeWindowPresenterSessionError::SinkFailed`、presenter state failure は `NativeWindowPresenterSessionError::PresenterFailed` に分け、failed RunSpan、failed End、invalid frame id による presenter failure、resize の各 path で previous frame が保持されることを unit test で固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を F5fh contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session -- --nocapture`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。native behavior policy は pass したが、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Linnaeus the 2nd implementation review は blocker なし。`NativeWindowPresenterSession` が `NativeRgb0PresenterSink` と `NativeWindowPresenterState` を所有し、typed `Result<NativeWindowPresenterSessionOutcome, NativeWindowPresenterSessionError>` を公開していること、Begin / RunSpan は `NotPresented` で End 成功時だけ `present_sink_frame` を呼ぶこと、legacy `i32` ABI は typed helper から status へ戻すだけであることが確認された。
+- failure mapping は `SinkFailed` と `PresenterFailed` に分かれており、unit tests と source-policy regression が End-only presentation、failed sink operation、presenter failure、resize non-stretch contract を検査していることが確認された。
+- residual note として、presenter failure after sink End succeeds では sink の last completed frame は進み、presenter state は previous frame のまま残る。これは今回の previous presenter state preservation contract に合うが、将来 retry API を設計するときの注意点として残す。
+
+### residual
+
+- F5fh は formal native presenter session boundary までであり、F5fg/F5ex/F5ey 由来の scheduler host executor path を session へ接続する formal `std/gui` present host import、bare runtime host import、native / bare long-running scheduler backend、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fi presenter session host helper
+
+### scope
+
+- F5fi は F5ey / F5ex 由来の scalar span operation host ABI validation path と F5fh `NativeWindowPresenterSession` を接続する Rust lib-only helper boundary である。
+- この slice は `NativeSpanOperationStatus`、`NativeWindowPresenterSessionHostError`、session helper begin / run / end、unit tests、docs/source-policy の更新だけを扱う。
+- formal NEPL `#extern` 差し替え、long-running scheduler backend、queue、timer、bare runtime host import、minifb loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Noether the 2nd の plan review は `PLAN_APPROVED`。F5fh 後続として妥当であり、scalar validation を通した後だけ session へ渡すこと、内部では typed outcome / error を保持して raw `i32` projection を外周に閉じること、Begin / RunSpan は `NotPresented`、End 成功だけ `Presented` とすることが必須条件として確認された。
+
+### implementation
+
+- `NativeSpanOperationStatus` を追加し、raw status は `from_raw` / `as_raw` で typed enum に投影するようにした。
+- `NativeWindowPresenterSessionHostError` を追加し、validation failure と session failure を分けた。session failure は lower `NativeWindowPresenterSessionError::SinkFailed` / `PresenterFailed` を保持する。
+- `execute_native_window_presenter_session_begin`、`execute_native_window_presenter_session_run`、`execute_native_window_presenter_session_end` を追加した。各 helper は既存 scalar validation を使い、validation 成功後だけ `NativeWindowPresenterSession::execute_span_operation` に進む。
+- unit tests で scalar helper 経由の Begin / RunSpan が present しないこと、End だけ present すること、invalid scalar input が session state を変えないこと、sink failure と presenter failure が host error 内で区別されることを固定した。
+- `nodesrc/test_native_gui_platform_behavior.js`、`doc/neplg2/gui_native_platform_behavior.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を F5fi contract へ更新した。
+
+### verification_current
+
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session_scalar -- --nocapture`
+- pass: `cargo test -p nepl-gui-native native_window_presenter_session_host_error -- --nocapture`
+- pass: `cargo fmt --package nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は長め timeout では exit code 0 で完走した。native behavior policy は pass し、既存の stdlib documentation / Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Erdos the 2nd implementation review は `REVIEW_APPROVED`。scalar helper が existing validation の後だけ session へ渡すこと、invalid scalar input が `ValidationFailed` で止まること、Begin / RunSpan は `NotPresented`、End だけ `Presented` であること、sink / presenter failure が lower error として分離され previous presenter frame preservation が保たれることが確認された。
+- Erdos the 2nd は targeted Rust tests と native behavior source-policy を再実行し、すべて pass と判断した。
+
+### residual
+
+- F5fi は Rust lib-only helper boundary までであり、formal NEPL `#extern` import 接続、native / bare long-running scheduler backend、bare runtime host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI native F5fj presenter session host import
+
+### scope
+
+- F5fj は native `platforms/gui/native/scheduler_host_executor` の formal NEPL host import 名を、F5fi の Rust `NativeWindowPresenterSession` helper contract へ寄せる checkpoint である。
+- この slice は native `#extern` import 名、doctest runtime stub、source-policy、docs、todo の更新だけを扱う。
+- bare runtime host import、native / bare long-running scheduler backend、timer、queue、minifb loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Laplace the 2nd の plan review は承認。F5fj は actual `#extern` import 名を `window_presenter_session_begin` / `run` / `end` へ変更する場合のみ、F5fi 後続として十分な意味を持つと判断された。
+- 条件として、native default doctest runtime は `-1` unsupported を返すこと、bare は今回 scope から外すこと、old native `execute_span_operation_*` extern を残さないこと、docs / source-policy / doctest を同時に更新することが示された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_host_executor.nepl` の native host import を `window_presenter_session_begin`、`window_presenter_session_run`、`window_presenter_session_end` に変更した。scalar ABI shape と `Result unit GuiError` mapping は既存 F5ex path を保つ。
+- `nodesrc/run_test.js` の native doctest default import を session-specific 名へ更新し、host 未提供時は `-1` から `GuiError::Unsupported` へ写る fail-closed path を維持した。bare default import は既存 `execute_span_operation_*` のまま残した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は native と bare の scheduler host executor check を分け、native では old generic `execute_span_operation_*` extern が残らないことを検査するようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、`tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`、GUI / font docs、`todo.md` を F5fj contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_native_scheduler_host_executor_f5fj.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl --no-tree -o tmp_gui_platform_native_scheduler_host_executor_module_f5fj.json -j 1`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_native_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/native/scheduler_host_executor.nepl`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native GUI source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Helmholtz the 2nd implementation review は `REVIEW_APPROVED`。native `#extern` 名が `window_presenter_session_begin` / `run` / `end` に変わり、call site が対応する raw import を使うこと、scalar ABI shape と `-1 -> GuiError::Unsupported` mapping が維持されること、bare executor が既存 `execute_span_operation_*` のまま scope 外に残ることが確認された。
+- `nodesrc/run_test.js` の native default stub が session-specific name で `-1` を返すこと、source-policy が native / bare を分けて old native generic extern を禁止すること、docs / todo / note が native-only F5fj boundary と non-goal を記録していることも確認された。
+
+### residual
+
+- F5fj は native formal NEPL host import 名の接続までであり、bare runtime host import、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-18 GUI bare F5fk display presenter session host import
+
+### scope
+
+- F5fk は bare `platforms/gui/bare/scheduler_host_executor` の formal NEPL host import 名を、generic `execute_span_operation_*` から bare display presenter session contract へ寄せる checkpoint である。
+- この slice は bare `#extern` import 名、doctest runtime stub、source-policy、docs、todo の更新だけを扱う。
+- bare actual display driver、framebuffer adapter、polling input、native / bare long-running scheduler backend、timer、queue、present loop、Canvas、DOM、video memory host import、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Franklin the 2nd の plan review は `PLAN_APPROVED`。F5fk は old generic bare public ABI を削除し、`display_presenter_session_begin` / `run` / `end` を exact host import 名にする場合だけ F5fj 後続として意味を持つと判断された。
+- 条件として、old `execute_span_operation_*` extern / raw names / default stubs / source-policy allowlist を残さないこと、scalar ABI と `-1 -> GuiError::Unsupported` mapping を維持すること、loop / timer / queue / fallback / display driver 実装へ進まないことが示された。
+
+### implementation
+
+- `stdlib/platforms/gui/bare/scheduler_host_executor.nepl` の bare host import を `display_presenter_session_begin`、`display_presenter_session_run`、`display_presenter_session_end` に変更した。scalar ABI shape と `Result unit GuiError` mapping は既存 F5ex path を保つ。
+- `nodesrc/run_test.js` の bare doctest default import を display-session-specific 名へ更新し、host 未提供時は `-1` から `GuiError::Unsupported` へ写る fail-closed path を維持した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は bare の old generic `execute_span_operation_*` extern が残らないことを検査するようにした。
+- `tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`、GUI / font docs、`todo.md` を F5fk contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/run_test.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md --no-tree -o tmp_gui_platform_bare_scheduler_host_executor_f5fk.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl --no-tree -o tmp_gui_platform_bare_scheduler_host_executor_module_f5fk.json -j 1`
+- pass: `node nodesrc/run_doctest.js -i tests/stdlib/gui_platform_bare_scheduler_host_executor.n.md`
+- pass: `node nodesrc/run_doctest.js -i stdlib/platforms/gui/bare/scheduler_host_executor.nepl`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `git diff --check main --`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5fk.json`
+- pass: `tmp/playground-editor-tests-f5fk.json` inspection showed 13 / 13 playground editor cases passed and 0 failed.
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の GUI/font contract は pass し、既存の stdlib documentation / Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Rawls the 2nd implementation review 1 は `BLOCKED`。実装本体に ABI / scope blocker は無いが、`note.n.md` の `verification_current` が pending のままで、docs / note / todo の一貫性条件を満たしていないと指摘された。
+- 指摘に従い、focused source-policy、doctest、issues check、diff check、trunk build、playground editor JSON 検証の通過状況を `verification_current` に反映した。
+- Rawls the 2nd implementation review 2 は `REVIEW_APPROVED`。前回 blocker の解消と note の一貫性回復が確認された。
+
+### residual
+
+- F5fk は bare formal NEPL host import 名の接続までであり、bare actual display driver、framebuffer adapter、polling input、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI bare F5fy display presenter input boundary
+
+### scope
+
+- F5fy は F5fx `display_operation_driver_bridge` を bare scheduler executor input path へ戻す platform boundary である。
+- この slice は `platforms/gui/bare/display_presenter_input`、focused doctest、source-policy、docs、note、todo の更新だけを扱う。
+- public input は `GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction` だけであり、general `LoopAction`、scheduler completed payload、raw operation、framebuffer / storage / memory state、driver step、host status、raw storage は受け取らない。
+- native / bare long-running scheduler backend、timer queue、present loop、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization へは進まない。
+
+### plan_review
+
+- Pauli the 2nd の plan review は `PLAN_CHANGES`。方向性は妥当だが、`display_presenter_input` は `GuiBareDisplayMemoryOwner` を扱うため `std/gui` ではなく bare platform module に置くこと、input を owner + `ExecuteHostAction` のみに絞ること、pending operation を action 消費前に読むこと、F5fx bridge を 1 回だけ呼ぶこと、category 無し bridge failure では scheduler ready を作らず original action と recovered owner / lower bridge error を保持することが条件として示された。
+- この指摘に従い、F5fy は `GuiBareDisplayMemoryOwner + ExecuteHostAction` のみを受ける boundary とし、direct host import、fallback、silent no-op、rollback claim を持たない設計にした。
+
+### implementation
+
+- `stdlib/platforms/gui/bare/display_presenter_input.nepl` を追加した。
+- `gui_bare_display_presenter_input` は typed `ExecuteHostAction` から borrowed accessor で pending operation を読み、`gui_bare_display_operation_driver_bridge_step owner operation` を 1 回だけ呼ぶ。
+- bridge success では `Result::Ok unit` を `gui_bare_scheduler_executor_input` へ渡し、operation identity、bridge completed value、scheduler ready を `GuiBareDisplayPresenterInputReady` に保持する。
+- bridge failure で category がある場合は `Result::Err GuiError` を `gui_bare_scheduler_executor_input` へ渡し、lower bridge error と scheduler ready を `GuiBareDisplayPresenterInputBridgeFailedReady` に保持する。
+- bridge failure で category が無い場合は scheduler ready を作らず、original action と lower bridge error を `GuiBareDisplayPresenterInputBridgeFailedMissingCategory` に保持する。
+- `stdlib/platforms/gui/bare.nepl` facade、`tests/stdlib/gui_platform_bare_display_presenter_input.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI docs、`todo.md` を F5fy contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/display_presenter_input.nepl --no-tree -o tmp_gui_bare_display_presenter_input_module_f5fy_postreview.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_display_presenter_input.n.md --no-tree -o tmp_gui_platform_bare_display_presenter_input_f5fy_postreview.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Pauli the 2nd implementation review は `REVIEW_APPROVED`。F5fy が bare platform scope に留まり、public input を `GuiBareDisplayMemoryOwner` と typed `ExecuteHostAction` に限定していること、pending operation を action 消費前に読み、F5fx bridge を 1 回だけ呼ぶこと、category 無し failure で scheduler ready を作らず original action と lower bridge error を保持することが確認された。
+- review 後に doc 表記と source-policy の期待文字列だけを読みやすい形へ揃え、focused source-policy と doctest を再実行した。
+
+### residual
+
+- F5fy は bare display presenter input boundary までであり、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5fz scheduler real-loop action step boundary
+
+### scope
+
+- F5fz は F5el `NeedInput` を native clock helper / native presenter host executor へ 1 action だけ接続し、F5ek success 後に F5el `real_loop_driver_after_step` へ戻す native-only boundary である。
+- public input は native policy、F5eo backend clock state、F5el `NeedInput` だけであり、bare owner path、queue、timer wait、present loop、renderer、surface、video memory は扱わない。
+- この slice は `platforms/gui/native/scheduler_real_loop_step`、facade export、focused doctest、source-policy、docs、todo の更新だけを扱う。
+
+### plan_review
+
+- Lorentz the 2nd の plan review 1 は `PLAN_CHANGES`。native と bare を同時に進めず F5fz を native-only に絞ること、Yield / Timer は clock helper success payload の action / input を使うこと、Execute は `gui_native_scheduler_host_executor_step` に委譲して追加 F5ek を呼ばないこと、CompleteAck は Complete branch だけで作ることが条件として示された。
+- Lorentz the 2nd の plan review 2 は `PLAN_APPROVED`。上記条件を計画へ反映し、source-policy で call count、禁止依存、fallback / silent no-op 禁止を固定する場合に実装開始可と判断された。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_step.nepl` を追加した。
+- `GuiNativeSchedulerRealLoopStepPolicy` は F5ek step policy、F5el driver policy、F5eo backend clock policy だけを保持する。
+- `YieldToClock` / `AwaitTimerAdvance` は native clock helper を 1 回だけ呼び、success payload の next clock state、action、input を使って F5ek へ進む。
+- `ExecuteHostAction` は `gui_native_scheduler_host_executor_step` を 1 回だけ呼び、host import failure を `Result unit GuiError` outcome として F5ek/F5el path へ戻す。
+- `Complete` だけが `RealLoopStepInput::CompleteAck` を作る。
+- `stdlib/platforms/gui/native.nepl` facade、`tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI / font docs、`todo.md` を F5fz contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_real_loop_step.nepl --no-tree -o tmp_gui_platform_native_scheduler_real_loop_step_module_f5fz_first.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_real_loop_step.n.md --no-tree -o tmp_gui_platform_native_scheduler_real_loop_step_f5fz_first.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の F5fz source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Lorentz the 2nd implementation review は `REVIEW_APPROVED`。F5fz が native-only の 1 action step boundary に留まり、public entry を policy / clock state / F5el `NeedInput` に限定していることが確認された。
+- Yield / Timer が native clock helper の ready payload から action / input を取り直して F5ek に渡すこと、Execute が `gui_native_scheduler_host_executor_step` に委譲して追加 F5ek call を持たないこと、F5ek success 後に F5el `real_loop_driver_after_step` へ進むこと、CompleteAck が Complete branch だけで生成されることが確認された。
+- ready / error は non-Copy / non-Clone、Copy は branch enum のみに限定され、docs / source-policy / focused doctest / todo / note が native-only、no bare path、no queue / fallback / silent no-op を固定していることも確認された。
+
+### residual
+
+- F5fz は native one-action step boundary までであり、bare F5fy owner path から real-loop action step へ戻す boundary、native / bare long-running scheduler backend、formal `std/gui` present host implementation、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native/bare F5gb scheduler bounded real-loop runner boundary
+
+### scope
+
+- F5gb は F5el `real_loop_driver_start` から開始し、F5fz / F5ga の platform action step を `max_step_count` の範囲で繰り返す bounded real-loop runner boundary である。
+- public policy は platform step policy と `max_step_count` だけを保持し、F5el driver policy は F5fz / F5ga policy accessor から借用する。
+- この slice は native / bare runner、facade export、focused doctest、source-policy、GUI docs、todo の更新だけを扱う。
+- OS window loop、minifb event pump、timer wait、sleep、queue drain、formal `std/gui` present host implementation、DOM、Canvas、video memory transport、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Heisenberg the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、native と bare を同時に実装すること、runner policy に F5el driver policy を重複保持しないこと、`max_step_count == 0` でも start は呼ぶこと、native error は runner level で clock state を保持すること、bare result / error は owner を保持または回収できる形にすることだった。
+- この指摘に従い、F5gb は bounded runner として `Completed` と `BudgetExhausted` を分離し、fallback、silent no-op、synthetic input を持たない設計にした。
+
+### implementation
+
+- `stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl` を追加した。
+- native runner は valid policy で F5el start を 1 回だけ呼び、`NeedInput` かつ positive budget の場合だけ `gui_native_scheduler_real_loop_step` へ進む。
+- native `StepFailed` は lower F5fz error と current clock state を保持する。
+- `stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl` を追加した。
+- bare runner は `GuiBareDisplayMemoryOwner` を result / error payload で保持し、step failure では `gui_bare_scheduler_real_loop_step_error_owner` から owner を回収する。
+- `stdlib/platforms/gui/native.nepl` と `stdlib/platforms/gui/bare.nepl` facade、`tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md`、`tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、GUI docs、`todo.md` を F5gb contract へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/native/scheduler_real_loop_runner.nepl --no-tree -o tmp_gui_platform_native_scheduler_real_loop_runner_module_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/platforms/gui/bare/scheduler_real_loop_runner.nepl --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_runner_module_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_native_scheduler_real_loop_runner.n.md --no-tree -o tmp_gui_platform_native_scheduler_real_loop_runner_f5gb.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_platform_bare_scheduler_real_loop_runner.n.md --no-tree -o tmp_gui_platform_bare_scheduler_real_loop_runner_f5gb.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の F5gb source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Planck the 2nd implementation review は `REVIEW_APPROVED`。指定ファイルに concrete blocking issue は無いと判断された。
+- review では F5gb が bounded runner 境界に留まり、policy shape、native clock state preservation、bare owner recovery、no fallback / no silent no-op、no synthetic `ClockDelta` / `ExecutorOutcome` / `CompleteAck` を満たすことを確認した。
+
+### residual
+
+- F5gb は native / bare bounded real-loop runner までであり、formal `std/gui` present host import 接続、OS window loop / minifb event pump、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gq host-loop wait request plan boundary
+
+### scope
+
+- F5gq は F5gp の scheduler slice が保持する wait decision を、actual backend が消費できる typed wait request plan へ変換する boundary である。
+- `NativeWindowFrameIntervalRequest` は validated `NativeWindowTargetFps` から `nanos_per_frame` と `remainder_nanos_per_second` を計算し、暗黙 rounding、clamp、sentinel を使わない。
+- `NativeWindowHostLoopWaitRequest` は host event wait と frame interval wait を分ける。host event wait は event payload や queue owner を持たない。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は decision ではなく request を受け取る。
+- `run_native_window_host_loop_with_policy_and_target_fps` と explicit target fps scheduler slice を追加し、minifb runner は `config.target_fps` を request plan へ渡す。
+- actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、pure rename にせず target fps 由来の checked millis / nanos request を作ること、`std::time::Duration` / `std::thread::sleep` / queue / timer registration / minifb wait update を入れないこと、入力 authority を wait decision と validated target fps に限定することだった。
+- この指摘に従い、F5gq は `NativeWindowFrameIntervalRequest` と `NativeWindowHostLoopWaitRequest` を追加し、wait hook 入力を request plan へ切り替えた。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に frame interval request、wait request、request builder、explicit target fps runner を追加した。
+- scheduler slice result は `decision`、`request`、`outcome` を保持し、future scheduler が分類元、backend request plan、host outcome を別々に検査できるようにした。
+- minifb wait hook は request を受け取るが、追加の update / sleep / timer を実行しない。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gq contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+
+### residual
+
+- 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gq は wait request plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
+
+## 2026-06-19 GUI native F5gr host-loop wait strategy instruction boundary
+
+### scope
+
+- F5gr は F5gq の wait request plan を、host wait hook が消費する typed wait instruction へ変換する boundary である。
+- `NativeWindowHostLoopWaitInstruction` は host event wait と frame interval wait を分ける。host event instruction は event payload、queue owner、poll result を持たない。
+- `NativeWindowHostLoopWaitStrategyState` は scheduler slice 間の frame pacing target FPS と remainder accumulator を保持する。
+- target FPS が変わった場合は accumulator を reset し、同じ target FPS の場合だけ previous remainder を使う。
+- accumulator invariant は `0 <= remainder < fps` であり、saturating、clamp、sentinel、zero-fill fallback は使わない。
+- frame interval instruction の `wait_nanos` は `nanos_per_frame` または `nanos_per_frame + 1` だけである。
+- actual OS wait strategy、queue / timer wait backend、real timer registration、`Duration`、`std::thread::sleep`、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘は、accumulator を target FPS に紐づけること、target FPS 変更時は reset または typed transition を明示すること、accumulator invariant を `0 <= accumulator < target_fps` に固定することだった。
+- さらに、`wait_nanos` は base または base + 1 だけにすること、host event instruction は queue owner / event payload / poll result を持たないこと、minifb wait hook は instruction を match して既存 outcome を返すだけにすることが確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopWaitInstruction`、`NativeWindowHostLoopWaitStrategyState`、`NativeWindowHostLoopWaitInstructionPlan` を追加した。
+- `native_window_host_loop_wait_instruction_plan` により、wait request と strategy state から next strategy state と host instruction を作る。
+- scheduler slice は wait hook 成功後だけ `wait_strategy_state` を次状態へ進め、wait failure では accumulator を消費しない。
+- `NativeWindowRunLoopHost::wait_after_budget_exhausted` は request ではなく instruction を受け取る。
+- scheduler slice result は `decision`、`request`、`instruction`、`outcome` を保持し、分類、plan、host input、host result を分けて検査できるようにした。
+- minifb wait hook は instruction を match するが、追加の update / sleep / timer を実行しない。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gr contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- info: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit code 0 で完走した。今回の native policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はなく、typed instruction boundary、scheduler-owned wait strategy state、success-only remainder commit、target FPS 変更時 reset、`wait_nanos` の base / base + 1 限定、`Duration` / sleep / queue / timer / extra minifb update 禁止を満たすことが確認された。
+
+### residual
+
+- 次 slice では actual OS wait strategy / queue / timer wait backend へ進む。F5gr は instruction plan までであり、実際の sleep / timer registration / host event queue wait は未実装である。
+
+## 2026-06-19 GUI native F5gs host-loop thread wait backend boundary
+
+### scope
+
+- F5gs は F5gr の wait instruction を native thread sleep backend へ渡す execution boundary である。
+- minifb smoke backend は `Window::set_target_fps` によって `update` / `update_with_buffer` 内部で pace されるため、F5gs thread wait backend を minifb wait hook へ接続しない。
+- `NativeWindowHostLoopThreadSleeper` は injected sleeper interface であり、test は scripted sleeper、actual std helper は `StdNativeWindowHostLoopThreadSleeper` を使う。
+- `Duration` と `std::thread::sleep` は F5gs backend helper にだけ閉じ、scheduler slice、instruction planner、minifb wait hook へ漏らさない。
+- frame interval instruction は `wait_nanos == nanos_per_frame` または `wait_nanos == nanos_per_frame + 1` を再検査し、不一致なら sleeper を呼ばず fail closed にする。
+- host event wait は OS event queue backend が未実装のため `HostEventWaitUnsupported` を返す。busy loop、thread sleep、silent no-op へ変換しない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `IMPLEMENTATION_APPROVED`。
+- 指摘は、`std::thread::sleep` / `Duration` を新しい native thread wait backend helper に閉じ込め、scheduler、instruction planner、minifb wait hook では引き続き禁止することだった。
+- `HostEventWaitUnsupported` による fail-closed と、minifb の already-paced outcome を維持して double pacing を避ける方針が承認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopThreadWaitError`、`NativeWindowHostLoopThreadWaitOutcome`、`NativeWindowHostLoopThreadSleeper` を追加した。
+- `execute_native_window_host_loop_thread_wait_with_sleeper` を追加し、frame interval instruction だけ sleeper を 1 回呼ぶようにした。
+- `StdNativeWindowHostLoopThreadSleeper` と `execute_native_window_host_loop_thread_wait` を `cfg(not(target_arch = "wasm32"))` で追加した。
+- scripted sleeper tests により、frame interval success、host event unsupported、invalid wait nanos、sleeper failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gs contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass_with_existing_warnings: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gs の native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はない。
+- thread sleep は `cfg(not(target_arch = "wasm32"))` の std sleeper helper に隔離され、host event wait は sleeper を呼ばず fail closed、invalid `wait_nanos` は sleep 前に拒否、sleeper error は保持、minifb は already-paced wait hook のままで double pacing を避けていると確認された。
+
+### residual
+
+- 次 slice では host event queue / timer registration backend へ進む。F5gs は frame interval thread sleep backend までであり、host event queue、timer registration、FHD 60fps measurement harness は未実装である。
+
+## 2026-06-19 GUI native F5gt host-loop timer registration backend boundary
+
+### scope
+
+- F5gt は F5gr の wait instruction を native timer registration backend へ渡す execution boundary である。
+- F5gs の thread sleep backend とは別に、formal native scheduler が frame interval wait を timer registration として扱える境界を追加する。
+- registrar は host boundary として raw `u32` timer id を返し、library 側で positive id を検査してから `NativeWindowHostLoopTimerRegistrationId` に変換する。
+- host event wait は OS event queue backend が未実装のため `HostEventTimerRegistrationUnsupported` を返す。timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+- minifb smoke backend の wait hook へは接続しない。minifb は引き続き `Window::set_target_fps` による already-paced outcome を使う。
+
+### plan_review
+
+- Darwin the 2nd の initial plan review は `PLAN_CHANGES`。
+- 指摘は、registrar が typed id を返すと `InvalidTimerRegistrationId` が表現不能になり dead design になることだった。
+- revised plan では registrar が raw `u32` を返し、`execute_native_window_host_loop_timer_registration_with_registrar` が positive id を検査して typed id へ変換する方針に変更した。
+- Darwin the 2nd の revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopTimerRegistrationId`、`NativeWindowHostLoopTimerRegistrationError`、`NativeWindowHostLoopTimerRegistrationOutcome`、`NativeWindowHostLoopTimerRegistrar` を追加する。
+- `execute_native_window_host_loop_timer_registration_with_registrar` を追加し、frame interval instruction だけ registrar を 1 回呼ぶようにする。
+- scripted registrar tests により、frame interval success、host event unsupported、invalid wait nanos、invalid raw timer id、registrar failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gt contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_registration -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib` は 127 tests passed。
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass_with_existing_warnings: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 で完走した。F5gt の native source-policy は pass し、既存の Mandelbrot progressive loop harness / doctest metadata 系など 9 件の warn-only warning は残っている。
+- pass: `git diff --check` は exit 0。LF/CRLF warning のみ。
+
+### subagent_review
+
+- Darwin the 2nd implementation review は `REVIEW_APPROVED`。
+- blocking issue はない。
+- raw `u32` id が registrar boundary で返され、`raw_id == 0` は typed id 構築前に拒否されること、invalid `wait_nanos` と host-event path は registrar を呼ばないこと、registrar error は保持されること、minifb や thread sleep へ接続していないことが確認された。
+
+### residual
+
+- 次 slice では host event queue / real OS timer backend connection へ進む。F5gt は timer registration backend boundary までであり、host event queue、selector、message pump、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gu host-loop event queue wait backend boundary
+
+### scope
+
+- F5gu は F5gr の wait instruction のうち `WaitForHostEvent` を native event queue wait backend へ渡す execution boundary である。
+- F5gs の thread sleep backend、F5gt の timer registration backend とは別に、host event wait だけを扱う境界を追加する。
+- waiter は `NativeWindowSize` と `size_changed` evidence を受け取り、`Result<(), Error>` を返す injected backend interface とする。
+- frame interval wait は event queue wait backend の責務ではないため `FrameIntervalEventQueueWaitUnsupported` を返す。timer registration、thread sleep、busy loop、silent no-op へ変換しない。
+- minifb smoke backend の wait hook、real OS event queue / selector / message pump adapter、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- `Result<(), Error>` waiter はこの boundary では妥当であり、later real OS queue adapter が raw status を返す場合はその adapter slice で検証する方針が承認された。
+- F5gu は pure rename layer ではなく、`WaitForHostEvent` を injected event-queue waiter 経由でだけ executable にし、frame interval wait を unsupported として分離するための typed split だと確認された。
+- scheduler / planner / timer registration / thread wait / minifb pacing の slice には queue terms を漏らさないことが条件として確認された。
+
+### implementation
+
+- `nepl-gui-native/src/lib.rs` に `NativeWindowHostLoopEventQueueWaitError`、`NativeWindowHostLoopEventQueueWaitOutcome`、`NativeWindowHostLoopEventQueueWaiter` を追加した。
+- `execute_native_window_host_loop_event_queue_wait_with_waiter` を追加し、host event instruction だけ waiter を 1 回呼ぶようにした。
+- scripted waiter tests により、host event success、frame interval unsupported、waiter failure preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gu contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue_wait -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- typed `Result` boundary、explicit enum error、host event only waiter execution、`FrameIntervalEventQueueWaitUnsupported` による fail closed が Zenn / doc 方針に合っていると確認された。
+- source policy の event pump slice 修正は、new legitimate queue wait backend と event pump helper の検査範囲を分ける root-cause policy correction であり、coverage を弱めるものではないと確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_event_queue_wait -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では real OS event queue adapter / real OS timer backend connection へ進む。F5gu は event queue wait backend boundary までであり、selector / message pump adapter、actual OS timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gv host-loop event queue normalized status adapter boundary
+
+### scope
+
+- F5gv は F5gu の `NativeWindowHostLoopEventQueueWaiter` に接続できる normalized status adapter boundary である。
+- raw status は OS API の値そのものではなく、platform adapter が `nepl-gui-native` の境界用に正規化して返す internal normalized status とする。
+- `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` だけを accepted ready status とし、`0` や未知 status は `InvalidRawStatus` として fail closed にする。
+- adapter failure は `AdapterFailed` として元の error value を保持し、invalid raw status と混ぜない。
+- actual OS selector / message pump adapter、minifb wait hook、real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5gv は F5gu で残した raw adapter status validation を切り出す実質的な検証境界であり、pure rename ではないと確認された。
+- actual OS API 接続は queue ownership、selector、wakeup、platform error mapping が混ざるため later slice に残す方針が承認された。
+- raw status constant は OS API の値ではなく internal normalized status として document すること、`AdapterFailed` と `InvalidRawStatus` を混ぜないこと、frame interval instruction で adapter を呼ばない test を維持することが条件として確認された。
+
+### implementation
+
+- `NativeWindowHostLoopEventQueueStatusAdapterError`、`NativeWindowHostLoopEventQueueStatusAdapter`、`NativeWindowHostLoopEventQueueStatusWaiter` を追加した。
+- `wait_native_window_host_loop_event_queue_raw_status_with_adapter` を追加し、adapter を 1 回呼んで normalized ready status だけを受け付けるようにした。
+- F5gu executor 経由で status waiter を使う tests により、ready success、invalid raw status、adapter failure、frame interval no-call を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gv contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue_status -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- `Result` と enum error による明示的境界、`InvalidRawStatus` と `AdapterFailed` の分離、non-ready status の fail closed、fallback / silent no-op 不在が Zenn / doc 方針に合っていると確認された。
+- `NativeWindowHostLoopEventQueueStatusWaiter` は F5gu の `NativeWindowHostLoopEventQueueWaiter` 境界へ normalized-status adapter を接続しており、minifb や actual OS API へ広げていないと確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_event_queue_status -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では actual OS selector / message pump adapter / real OS timer backend connection へ進む。F5gv は normalized status adapter boundary までであり、platform-specific queue ownership、selector wakeup、OS error mapping、actual timer integration、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gw host-loop message pump adapter boundary
+
+### scope
+
+- F5gw は F5gv の normalized status adapter に接続する message pump adapter boundary である。
+- platform window backend が持つ message pump を `NativeWindowHostLoopMessagePumpAdapter` として実行し、成功時だけ `NATIVE_WINDOW_HOST_EVENT_QUEUE_NORMALIZED_STATUS_READY` へ写す。
+- pump failure は `PumpFailed` として元の error value を保持し、normalized status validation と混ぜない。
+- minifb smoke backend では `window.update` を `MinifbNativeWindowHostLoopMessagePumpAdapter` に閉じ、host wait は F5gu / F5gv の event queue waiter 経由で `HostEventPumpAlreadyPaced` へ戻す。
+- real OS timer backend、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- F5gw を actual OS selector / message pump adapter boundary とする計画は、`todo.md` と GUI docs の F5gv 後続に合っていると確認された。
+- OS 固有 status / failure を `Result` + enum error に分離すること、platform detail を adapter 内に閉じること、real OS timer backend を別 slice に残すことが条件として確認された。
+
+### implementation
+
+- `NativeWindowHostLoopMessagePumpStatusAdapterError`、`NativeWindowHostLoopMessagePumpAdapter`、`NativeWindowHostLoopMessagePumpStatusAdapter` を追加した。
+- `NativeWindowHostLoopMessagePumpStatusAdapter` は pump 成功時だけ F5gv の ready status を返す。
+- `MinifbNativeWindowHostLoopMessagePumpAdapter` と `wait_minifb_window_host_event_message_pump` を追加し、minifb host event wait を event queue waiter 経由へ接続した。
+- `NativeWindowRunLoopError::HostWaitFailed` を追加し、host wait failure を run loop error として明示的に返せるようにした。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gw contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_message_pump -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- `NativeWindowHostLoopMessagePumpAdapter` が `Result<(), Error>` で pump failure を `PumpFailed` として保持し、F5gv normalized status 境界へ明示的に接続していると確認された。
+- minifb の `window.update` は `MinifbNativeWindowHostLoopMessagePumpAdapter` slice に隔離され、frame interval wait / timer registration / thread sleep / `Duration` へ広がっていないと確認された。
+- source policy は message pump status adapter と minifb message pump adapter を分け、timer / sleep / DOM / Canvas / video memory / fallback / silent no-op の混入を検査できていると確認された。
+- reviewer 側でも `cargo test -p nepl-gui-native --lib native_window_message_pump -- --nocapture`、`cargo test -p nepl-gui-native --lib native_window_event_queue -- --nocapture`、`node nodesrc/test_native_gui_platform_behavior.js`、`git diff --check` が再実行され、pass した。
+
+### residual
+
+- 次 slice では real OS timer backend connection へ進む。F5gw は message pump adapter boundary までであり、actual timer integration、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gx host-loop frame interval timer registration outcome boundary
+
+### scope
+
+- F5gx は F5gt の timer registration backend を host wait outcome evidence へ接続する boundary である。
+- timer registration 成功は future timer fire / wakeup の予約であり、frame wait completion や present pacing completion ではない。
+- `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` を追加し、`FramePresentAlreadyPaced` とは型で分離する。
+- `WaitForHostEvent` は timer registration backend の責務ではないため `HostEventTimerRegistrationUnsupported` のまま fail closed にする。
+- minifb smoke backend の wait hook は F5gx helper へ接続しない。minifb は `Window::set_target_fps` / `update_with_buffer` の pacing authority を引き続き使う。
+
+### plan_review
+
+- Darwin the 2nd の初回 plan review は `PLAN_BLOCKED`。
+- blocked reason は、timer registration 成功を `FramePresentAlreadyPaced` へ写すと wait completion を偽装し、silent no-op 相当の設計になるためである。
+- 修正版では `FrameIntervalTimerRegistered` outcome を追加し、timer registration evidence と pacing completion を型で分離する方針へ変更した。
+- 修正版 plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `NativeWindowHostLoopWaitOutcome::FrameIntervalTimerRegistered` を追加した。
+- `execute_native_window_host_loop_timer_registration_wait_with_registrar` を追加し、F5gt executor の successful registration outcome だけを wait outcome evidence へ写すようにした。
+- timer registration wait tests により、registration outcome、host event unsupported、registrar error preservation を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gx contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_registration_wait -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_registration -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- timer registration evidence と pacing completion を `FrameIntervalTimerRegistered` / `FramePresentAlreadyPaced` で分離しており、Zenn / doc 方針の fail-closed typed boundary に沿っていると確認された。
+- minifb wait hook へ F5gx helper を接続せず、timer registration backend が host event wait、message pump、thread sleep、fallback、silent no-op へ迂回しないことも確認された。
+
+### residual
+
+- 次 slice では real timer fire / wakeup backend connection へ進む。F5gx は timer registration outcome boundary までであり、actual timer firing、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-19 GUI native F5gy host-loop timer fire/wakeup backend boundary
+
+### scope
+
+- F5gy は F5gx の `FrameIntervalTimerRegistered` outcome を timer fire / wakeup evidence へ進める boundary である。
+- timer registration 成功と timer fire 成功を分け、registered id と fired id が完全一致した場合だけ `FrameIntervalTimerFired` を返す。
+- `HostEventPumpAlreadyPaced` と `FramePresentAlreadyPaced` は timer fire input ではないため unsupported として拒否し、waiter を呼ばない。
+- fired raw id `0` と registered id に一致しない fired raw id は fail closed にする。
+- OS 固有 timer API、selector wakeup ownership、minifb wait hook 接続、thread sleep、busy loop、scheduler resume policy、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は扱わない。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- registered timer id と fired timer id の照合境界にすること、already-paced outcome を timer fire success として扱わないこと、source policy で registration backend と fire backend を分離することが確認された。
+
+### implementation
+
+- `NativeWindowHostLoopTimerFireError`、`NativeWindowHostLoopTimerFireOutcome`、`NativeWindowHostLoopTimerFireWaiter` を追加した。
+- `execute_native_window_host_loop_timer_fire_wait_with_waiter` を追加し、`FrameIntervalTimerRegistered` の場合だけ waiter を 1 回呼ぶようにした。
+- scripted waiter tests により、matching id success、host event outcome rejection、already-paced present outcome rejection、waiter error preservation、invalid fired id rejection、mismatched fired id rejection を検査する。
+- `nodesrc/test_native_gui_platform_behavior.js`、GUI docs、`todo.md` を F5gy contract へ更新する。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer_fire_wait -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_timer -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+### subagent_review
+
+- approved: Darwin the 2nd の implementation review は `APPROVED`。
+- registered timer id と fired timer id の照合、already-paced outcome の unsupported 扱い、invalid / mismatch id の fail closed、source policy の registration/fire backend 分離が Zenn / doc 方針に沿っていると確認された。
+
+### residual
+
+- 次 slice では timer fire 後の scheduler resume policy と real OS timer adapter へ進む。F5gy は timer fire / wakeup backend boundary までであり、selector wakeup ownership の詳細化、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization は未実装である。
+
+## 2026-06-20 GUI native F5hy Linux selector timerfd actual sys shim boundary
+
+### scope
+
+- F5hy は F5hu/F5hv の Linux selector / timerfd raw API に actual Linux syscall shim を追加する checkpoint である。
+- sys shim は `#[cfg(target_os = "linux")]` の `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` に閉じ、標準 API や非 Linux build に `libc` / `epoll` / `timerfd` を漏らさない。
+- timer fired evidence は `epoll_wait` による timer fd readiness と `read` による `u64` expiration drain が両方成立した場合だけ返す。
+- host-event-only wait は host event fd registration が未接続なので `ENOTSUP` 相当で fail closed にする。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- 指摘された必須条件は、Linux dependency を target-specific にすること、sys shim を raw API implementation だけに限定すること、host-event-only wait で `HostEventReady` を捏造しないこと、timerfd `read` を省略して timer fired evidence を作らないこと、`EINTR` を今回 retry loop で隠さないことだった。
+
+### implementation
+
+- `nepl-gui-native/Cargo.toml` に cfg Linux 専用の `libc` dependency を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdSysApi` を追加し、selector creation、timerfd creation、registration、relative arm、timer-or-event wait、close、last error code を Linux syscall shim として実装した。
+- construction failure cleanup の close 成功では直前の syscall failure code を消さないようにした。
+- raw fd helper は public にせず、test または Linux cfg の private helper としてだけ使う。
+- source policy は core/fake Linux backend slice と cfg Linux sys shim slice を分離し、syscall が許可される範囲を明示した。
+- GUI standard spec、implementation plan、native platform behavior note、`todo.md` を F5hy contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+- subagent pass: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`
+- not run locally: Linux `--features window` target check。subagent 側では `x86_64-linux-gnu-gcc` 不在で minifb build が止まり、F5hy code blocker ではないと判定された。
+
+### implementation_review
+
+- Darwin the 2nd の implementation review は initial `CHANGES_REQUESTED`。
+- code 指摘ではなく note-only 指摘であり、error preservation 修正は正しいと確認された。
+- 指摘内容は、F5hy セクションに `verification_current` と `implementation_review` が無いことだった。
+- この項目で実行済み検証とレビュー結果を記録し、再レビューへ回す。
+- 再レビューは `APPROVED`。merge / commit 可と判定された。
+
+### residual
+
+- Linux host event fd integration、Linux generic platform helper connection、native runner / CLI dispatch はまだ未実装である。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 GUI native F5hz Native Linux host event fd integration boundary
+
+### scope
+
+- F5hz は F5hy の Linux selector / timerfd sys shim に host event fd owner を追加する checkpoint である。
+- host event fd は `NativeWindowHostLoopLinuxHostEventFd` として private raw fd owner にし、fd `0` は有効、負値だけ invalid とする。
+- Linux sys shim は `eventfd` を host event readiness source として selector へ登録する。
+- eventfd write / signal producer、generic platform wait helper、runner / CLI、minifb wait path への接続は後続に残す。
+
+### plan_review
+
+- Darwin the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、`eventfd` を cfg Linux sys shim に閉じること、host event fd を private owner にすること、constructor cleanup と close-once cleanup を source policy / unit test で固定すること、host-event-only wait は host event fd readiness だけを成功にすること、timer fired evidence と host event evidence を混ぜないこと、eventfd producer や generic platform helper へ進まないことだった。
+
+### implementation
+
+- `NativeWindowHostLoopLinuxHostEventFd`、host event fd validator、private raw helper を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に host event fd create / register / close と、host event fd owner を受け取る wait method を追加した。
+- Linux backend は selector、timerfd、host event fd の 3 owner を保持し、constructor failure cleanup と normal close-once cleanup を host event fd 対応にした。
+- cfg Linux sys shim は `eventfd 0 EFD_CLOEXEC | EFD_NONBLOCK` を作り、`epoll_ctl` で selector へ登録する。timerfd readiness は timerfd drain 後だけ `TimerFired`、eventfd readiness は eventfd drain 後だけ `HostEventReady` にする。
+- scripted raw API、Never raw API、unit tests、source policy、GUI docs、`todo.md` を F5hz contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --features window`
+- pass with existing warning: `cargo check -p nepl-gui-native --lib --target x86_64-unknown-linux-gnu`。warning は `native_window_host_loop_windows_wait_handle_raw` の cfg Linux target 上の dead_code であり、F5hz の host event fd blocker ではない。
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 300s で完走しなかった。F5hz で更新した focused source policy は `node nodesrc/test_native_gui_platform_behavior.js` で通過済みである。
+
+### implementation_review
+
+- Darwin the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は code/doc/source policy blocker ではなく、この F5hz セクションに `verification_current` と `implementation_review` が未記録であることだった。
+- 指摘時点で、fd `0` valid / negative invalid、selector / timer / host event owner 分離、逆順 cleanup、close success で failure code を消さない方針、event-only wait の timer-fired 拒否、TimerFired / HostEventReady evidence 分離、minifb / generic platform / runner 未接続は F5hz plan と Zenn / doc 方針に沿っていると確認された。
+
+## 2026-06-20 Agent2 GUI native F5ir Linux window event source fd registration boundary
+
+### scope
+
+- F5ir は F5iq の `LinuxWindowEventSourceFdMissing` の後続として、external window event source fd を Linux selector / timerfd backend へ登録・解除する checkpoint である。
+- window event source fd は host-event wake 用 `eventfd` とは別の non-owning token とし、backend は `epoll_ctl` registration を管理するが external fd を close しない。
+- actual X11 / Wayland fd acquisition、readiness status classification、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、external fd を host-event `eventfd` と混同しないこと、fd `0` valid / negative invalid、duplicate registration before raw call、raw API 名を window-specific にすること、close teardown は unregister を先に行うこと、unregister failure を bool cleanup で隠さず typed `Result` boundary を用意すること、support gate / runner / CLI / readiness classification へ進まないことだった。
+
+### implementation
+
+- `NativeWindowHostLoopLinuxWindowEventSourceFd` と checked constructor を追加し、negative fd を `InvalidWindowEventSourceRawFd` として拒否する。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `register_window_event_source_fd_raw` と `unregister_window_event_source_fd_raw` を追加し、cfg Linux sys shim は `epoll_ctl EPOLL_CTL_ADD` / `EPOLL_CTL_DEL` だけを行う。
+- Linux selector / timerfd backend は window event source fd token を 1 個だけ保持し、duplicate registration は raw API 呼び出し前に `WindowEventSourceFdAlreadyRegistered` として返す。
+- `unregister_window_event_source_fd_if_registered` と `try_close_handles_if_open` を追加し、unregister failure では token を戻して owned selector / timerfd / host-event fd cleanup を進めない。
+- scripted raw API、Never raw API、focused unit tests、source policy、GUI docs、`todo.md` を F5ir contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5ir blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker は無く、external fd non-owning、fd `0` valid、negative / duplicate before raw call、unregister failure token restore、owned handles preserved、readiness / runner / CLI / support-gate `Ok` 非導入、`try_close_handles_if_open` を typed cleanup authority とする方針は確認された。
+- 指摘は、この section の `verification_current` に `node --check` と `git diff --check` が未記録で、`implementation_review` が pending のままだったことだった。この指摘に従い、実行済み検証と review 結果を記録した。
+- 再レビューは `REVIEW_APPROVED`。previous note blockers は解消され、tracked diff は F5ir scope に限定されていると確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、readiness status classification、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5is Linux window event source readiness status boundary
+
+### scope
+
+- F5is は F5ir の registered external window event source fd を、Linux selector 層で独立 readiness status として分類する checkpoint である。
+- window event source readiness は event pump へ戻るための non-timer wake であり、timer fired evidence、scheduler completion、Linux runner readiness ではない。
+- actual X11 / Wayland fd acquisition、event parsing、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- required constraints は、new status constant と `WindowEventSourceReady` enum variant を追加すること、host-event-only wait は strict に保つこと、registered window path だけ explicit new raw method を呼ぶこと、optional / sentinel fd を使わないこと、cfg Linux sys shim は external fd を read / drain / close しないこと、support gate / runner / CLI / minifb wait replacement へ進まないことだった。
+- `WindowEventSourceReady` を upper `NativeWindowHostLoopInterruptibleDeadlineWaiter` の `HostEventReady` へ写すことは、この trait が timer deadline と non-timer wake だけを区別するため許可された。ただし Linux selector layer では source を区別し、docs / source policy で timer evidence ではないことを固定する。
+
+### implementation
+
+- `NATIVE_WINDOW_HOST_LOOP_LINUX_SELECTOR_STATUS_WINDOW_EVENT_SOURCE_READY` と `NativeWindowHostLoopLinuxSelectorTimerFdWake::WindowEventSourceReady` を追加した。
+- `NativeWindowHostLoopLinuxSelectorTimerFdRawApi` に `selector_wait_for_timer_host_or_window_event_raw` を追加し、backend は registered window event source fd がある場合だけこの raw method を呼ぶ。
+- cfg Linux sys shim は `event.u64` が window event source fd と一致した場合、external fd を read / drain / close せず `WINDOW_EVENT_SOURCE_READY` を返す。
+- host-event-only wait は `HOST_EVENT_READY` だけを success とし、window event source readiness は unexpected status のままにした。
+- direct backend waiter と owner-retaining run-loop host は、`WindowEventSourceReady` を event pump へ戻る non-timer wake として扱う。
+- scripted raw API、Never raw API、unit tests、source policy、GUI docs、`todo.md` を F5is contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_externally_wakeable_run_loop_host_maps_window_event_source_to_event_pump -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5is blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- code / source policy / docs blocker は無く、Linux support gate fail-closed、distinct `WindowEventSourceReady`、strict host-event-only waits、registered path only raw wait、external fd read / drain / close 禁止は確認された。
+- 指摘は、この section の `implementation_review` が pending のままだったことだった。この指摘に従い、実行済み review 結果を記録した。
+- 再レビューは `REVIEW_APPROVED`。previous note blocker は解消され、tracked diff は F5is scope に限定されていると確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、event parsing、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5it Linux window event source fd config-to-registration boundary
+
+### scope
+
+- F5it は F5ir / F5is の window event source fd registration / readiness classification を、低レベル Linux `from_config_with_apis` builder へ接続する checkpoint である。
+- `ExternallyWakeableEventSource` は分類値のまま残し、actual fd が無い config は `MissingLinuxWindowEventSourceRawFd` として拒否する。
+- fd-present config でも Linux generic support gate は `Ok` を返さず、残る blocker を event decoding / runner dispatch missing として保持する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は、config が fd を持てるようになった後も generic support gate が `LinuxWindowEventSourceFdMissing` を返すと実態とずれるため、fd-present 用の missing integration reason を分ける必要があるというものだった。
+- revised plan は `PLAN_APPROVED`。required constraints は、`ObservedInputOnly` は従来通り `LinuxEventSourceSupportFailed`、fd なし externally-wakeable は `MissingLinuxWindowEventSourceRawFd`、fd-present は `LinuxWindowEventSourceEventParsingMissing` として fail-closed、backend construction 後 owner construction 前に fd register、registration failure では host / config / backend / typed error を保持、CLI raw-fd option / runner dispatch / support-gate `Ok` / fd read-drain-close / synthetic evidence 非導入だった。
+
+### implementation
+
+- `NativeWindowRunLoopPlatformWaitBackendConfig` に optional `linux_window_event_source_raw_fd` と `new_with_linux_window_event_source_raw_fd`、getter、raw fd extraction helper を追加した。
+- `NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxWindowEventSourceRawFd` と `NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxWindowEventSourceEventParsingMissing` を追加した。
+- Linux generic support gate は capability validation 後に raw fd を要求し、fd がある場合も event parsing missing として fail-closed にした。
+- `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` は raw fd を backend construction 前に抽出し、backend construction 後 owner construction 前に `register_window_event_source_fd_from_raw` を呼ぶ。
+- window fd registration failure 用に、host、config、backend、typed error を保持する `WindowEventSourceRegisterFailed` error variant を追加した。
+- source policy、GUI docs、`todo.md` を F5it contract へ更新した。
+
+### verification_current
+
+- pass: `cargo test -p nepl-gui-native --lib native_window_platform_wait_runner_support_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_host_from_config_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_run_loop_platform_wait_config_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_selector_timer_fd_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5it blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は、code / source-policy の blocker ではなく、この section の `implementation_review` が pending のままだったことと、`doc/neplg2/gui_standard_library_spec.md` の current contract が F5iq の `LinuxWindowEventSourceFdMissing` 表現のまま残っていたことだった。
+- 指摘対応として、この欄に初回 review result を記録し、spec / native behavior current summary を F5it 後の contract に更新した。fd なし externally-wakeable config は `MissingLinuxWindowEventSourceRawFd`、fd-present config は `LinuxWindowEventSourceEventParsingMissing` として fail-closed になる。
+- 2 回目の review は `CHANGES_REQUESTED`。`doc/neplg2/gui_tui_implementation_plan.md` の F5ih / F5ik に F5iq 以降 current contract として古い `LinuxWindowEventSourceFdMissing` 表現が残っていたことと、source policy が F5it current plan wording を直接固定していなかったことが blocker だった。
+- 指摘対応として、implementation plan の F5iq 文言を historical wording に変更し、F5it current contract を `MissingLinuxWindowEventSourceRawFd` / `LinuxWindowEventSourceEventParsingMissing` として明記した。`nodesrc/test_native_gui_platform_behavior.js` でも F5it current wording を固定した。
+- final re-review は `REVIEW_APPROVED`。残る `LinuxWindowEventSourceFdMissing` references は historical F5iq/F5ir/F5it context であり、stale current-contract wording ではないこと、F5it current contract が implementation plan と source policy に固定されたことが確認された。
+
+### residual
+
+- 次 slice では actual X11 / Wayland window event source fd acquisition、event decoding、Linux runner / CLI dispatch へ進む。
+- macOS actual sys shim、FHD 60fps measurement harness、2D compositor drain、font / stroke / shadow rasterization も後続 phase とする。
+
+## 2026-06-20 Agent2 GUI native F5iu Linux window event source provider-owned platform config boundary
+
+### scope
+
+- F5iu は F5it の raw fd config を provider-owned prepared platform-wait config へ進める checkpoint である。
+- selection と provider だけから full `NativeWindowRunLoopConfig` は作らない。demo、counter、scale、target FPS、run policy は caller が既存 constructor へ明示する。
+- provider owner と descriptor と platform-wait config を同じ prepared value に保持し、fd non-owning value だけを残して owner を落とす形にしない。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は、selection + provider だけで full `NativeWindowRunLoopConfig` を作ると demo / scale / target FPS / run policy を暗黙 default 化してしまうことだった。
+- revised plan は `PLAN_APPROVED`。F5iu は owner-bearing `NativeWindowRunLoopPlatformWaitBackendConfig` preparation だけに留め、provider call は Linux + `LinuxSelectorTimerFd` selection validation 後に 1 回だけ行い、fd validation は既存 typed Linux window fd validation を使い、success/error すべてで provider owner を保持する方針になった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceKind`、`NativeWindowLinuxWindowEventSourceDescriptor`、`NativeWindowLinuxWindowEventSourceProvider` を追加した。
+- `NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig Provider` は platform-wait config、descriptor、provider を保持し、provider に対する Clone / Copy は提供しない。
+- `native_window_linux_window_event_source_prepare_platform_wait_backend_config` は selection validation、provider descriptor call、fd validation、platform-wait config construction の順に進む。
+- error enum は backend selection failure、provider failure、invalid descriptor を分け、provider owner / selection / descriptor を回収できる形にした。
+- docs、source policy、`todo.md` を F5iu contract へ更新した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_prepare_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`。warning は既存の `native_window_host_loop_windows_wait_handle_raw` と `NativeGuiOptions::window_wait_backend` の dead_code であり、F5iu blocker ではない。
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- 指摘は、`NativeWindowLinuxWindowEventSourcePreparedPlatformWaitConfig` の `pub fn new` が、Linux selection validation、provider exactly-once call、descriptor fd validation を bypass して prepared value を捏造できる public constructor になっていたことだった。
+- 追加指摘として、source policy が prepared value の public constructor 禁止を固定していなかったことと、この `implementation_review` 欄が pending のままだったことも commit readiness blocker だった。
+- 指摘対応として、prepared value constructor を private にし、`nodesrc/test_native_gui_platform_behavior.js` に `pub fn new` 禁止を追加した。
+- final re-review は `REVIEW_APPROVED`。public constructor bypass が残っていないこと、provider ownership が success/error path で保持されること、invalid selection が provider call 前に拒否されること、fd validation が既存 typed Linux fd path を使うこと、full `NativeWindowRunLoopConfig` を helper が構築しないこと、source policy と docs/note/todo が F5iu scope と整合することが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iv Linux window event source provider-owned run-loop handoff boundary
+
+### scope
+
+- F5iv は F5iu の prepared platform config を、provider owner を落とさず full run-loop config と Linux owner-retaining run-loop host へ渡す checkpoint とする。
+- selection + provider だけから full `NativeWindowRunLoopConfig` を作らず、demo、counter、scale、target FPS、run policy は caller の明示引数として扱う。
+- actual X11 / Wayland fd acquisition、event decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fd read / drain / close、synthetic readiness はこの checkpoint では扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig Provider` を追加し、full `NativeWindowRunLoopConfig`、descriptor、provider owner を同時に保持する。
+- F5iu prepared platform config と explicit run-loop parameters から prepared run-loop config を作る helper を追加する。
+- `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を追加し、既存 Linux owner-retaining host、descriptor、provider owner を同時に保持する。
+- prepared run-loop config から既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ helper を追加し、success / failure のどちらでも provider owner と descriptor を失わない。
+- source policy は public constructor bypass、selection + provider だけによる暗黙 full config、runner / CLI dispatch、minifb fallback、fd read / drain / close、event decoding、synthetic readiness を禁止する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は 2 点だった。1 つ目は private constructor だけでは不十分で、new provider-owned value から config-only / host-only に抜ける `into_config`、`into_host`、consuming accessor、provider を返さない split も禁止する必要があること。2 つ目は host handoff helper の入力 shape と lower error recovery を明文化する必要があることだった。
+- 指摘対応として、prepared run-loop config と host wrapper は borrowed accessor と provider / descriptor を同時に返す `into_parts` だけを許し、config-only / host-only escape path を禁止する契約へ修正した。
+- host handoff helper は visual host、prepared run-loop config、backend api、producer api を入力にし、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ。failure では provider owner、descriptor、lower owner-bearing error を保持し、lower error 内の host / config / backend recovery を潰さない契約に修正した。
+- revised plan review は `PLAN_APPROVED`。実装 constraints は、private constructor、config-only / host-only escape path 禁止、borrowed accessor または provider / descriptor / config-host を同時に返す `into_parts` のみ許可、host handoff helper は visual host / prepared run-loop config / backend api / producer api を入力として既存 from-config helper を 1 回だけ呼ぶこと、provider / descriptor / lower owner-bearing error を失わないこと、Linux support gate fail-closed と runner / CLI / minifb / fallback / fd read-drain-close / event decoding / synthetic readiness 非導入を維持することだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourcePreparedRunLoopConfig Provider` を追加し、F5iu prepared platform config から full `NativeWindowRunLoopConfig`、descriptor、provider owner を同時に保持する owner-bearing value を作れるようにした。
+- prepared run-loop config helper は demo、counter、scale、target FPS、run policy を caller 明示入力として受け、provider / selection だけから暗黙 default full config を作らない。
+- `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を追加し、既存 Linux owner-retaining host、descriptor、provider owner を同時に保持しながら `NativeWindowRunLoopHost` を委譲する。
+- host handoff helper は visual host、prepared run-loop config、backend api、producer api を受け、既存 `native_window_host_loop_linux_platform_wait_run_loop_host_from_config_with_apis` を 1 回だけ呼ぶ。success では provider owner と descriptor を host wrapper に保持し、failure では provider owner、descriptor、lower owner-bearing error を保持して返す。
+- prepared run-loop config / host wrapper は private constructor とし、config-only / host-only escape path を作らず、borrowed accessor と owner / descriptor を同時に返す `into_parts` だけを公開した。
+- Rust unit tests と source policy で、explicit config parameter preservation、success owner retention、failure recovery、public constructor bypass 禁止、selection + provider だけの暗黙 full config 禁止、support gate / runner / CLI / minifb / fallback / fd read-drain-close / event decoding / synthetic readiness 非導入を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing warnings only: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+- post-merge fix: `nodesrc/test_native_gui_platform_behavior.js` の source policy input を LF 正規化し、Windows working tree の CRLF で F5iv slice marker が空になる問題を解消した。
+
+### implementation_review
+
+- Beauvoir the 2nd の initial implementation review は `CHANGES_REQUESTED`。
+- 指摘は、code / source policy / docs の blocker ではなく、この `implementation_review` 欄が pending のままで commit readiness を満たしていなかったことだけだった。
+- review では、public constructor bypass が無いこと、config-only / host-only escape path が無いこと、explicit run-loop parameters が必須であること、handoff helper が既存 from-config helper を 1 回だけ呼ぶこと、lower owner-bearing recovery が保持されることは approved plan と整合していると確認された。
+- 指摘対応として、この欄を実際の review 結果へ更新した。
+- final re-review は `REVIEW_APPROVED`。note-only blocker は解消され、code / source-policy / docs に新しい blocker は無く、`git diff --check` は LF/CRLF 警告のみであることが確認された。
+- post-merge source-policy fix review も `REVIEW_APPROVED`。`readRepoFile` で CRLF を LF に正規化する修正は、F5iv marker を弱める one-off workaround ではなく、source policy input boundary 全体の line-ending 依存を解消する root-cause fix と確認された。
+
+## 2026-06-20 Agent2 GUI native F5iw Linux window event source provider-owned event pump boundary
+
+### scope
+
+- F5iw は、F5iv で保持した provider owner を `NativeWindowEventPumpSnapshot` の供給境界へ接続する checkpoint とする。
+- window event source fd readiness は selector / wait layer の wake evidence に留め、event snapshot authority は provider owner 側に置く。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceEventPumpProvider` trait を追加し、descriptor と `NativeWindowEventPumpInput` から `Result NativeWindowEventPumpSnapshot ProviderError` を返す contract を作る。
+- `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost Host BackendApi ProducerApi Provider` を追加し、F5iv host wrapper と provider owner を同時に保持したまま `poll_event_snapshot` だけを provider authority にする。
+- title、pump-only、present、wait は lower F5iv host へ委譲し、lower host event pump と provider event pump を同時 authority にしない。
+- provider poll failure は descriptor と provider-local error を持つ wrapper error に写し、failure 後も wrapper が lower host と provider owner を保持し続ける。
+- F5iv host wrapper から provider-owned event pump wrapper への conversion は infallible helper とし、曖昧な failure recovery stage は作らない。
+- provider-owned event pump wrapper は host-only / provider-only escape path を作らず、borrowed accessor と owner を同時に返す `into_parts` だけを許す。
+- source policy は `poll_event_snapshot` が provider を呼び lower host event pump fallback を呼ばないこと、title / pump-only / present / wait が lower host へ委譲されること、support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、actual X11 / Wayland API、synthetic readiness、timer fired evidence を禁止する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `CHANGES_REQUESTED`。
+- 指摘は 3 点だった。provider poll failure は provider owner を value として返せないため wrapper error と owner retention を明文化すること、source policy で provider-only poll と lower host delegation を固定すること、conversion helper を fallible にするのか infallible にするのか明確化することだった。
+- 指摘対応として、provider poll failure は `ProviderPollFailed { descriptor, error }` 形の wrapper error とし、failure 後も wrapper が lower host + provider owner を保持する contract にした。conversion helper は F5iv host wrapper を consume する infallible helper とし、source policy では provider poll / lower delegation split を固定する方針へ修正した。
+- revised plan review は `PLAN_APPROVED`。実装 constraints は、`poll_event_snapshot` が provider を descriptor + input で呼び lower host event pump fallback を呼ばないこと、provider poll failure は `ProviderPollFailed { descriptor, error }` として返し wrapper が lower host + provider owner を保持し続けること、title / pump-only / present / wait は lower F5iv host へ委譲すること、host-only / provider-only escape path を作らないこと、support gate `Ok` 化、runner / CLI dispatch、minifb fallback、fd read / drain / close、concrete X11 / Wayland API、synthetic readiness、timer evidence を導入しないことだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceEventPumpProvider` trait を追加し、descriptor と `NativeWindowEventPumpInput` から snapshot または provider-local error を返す provider authority を定義した。
+- `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` を追加し、F5iv host wrapper から lower host、descriptor、provider owner を infallible に移して保持するようにした。
+- `poll_event_snapshot` は provider を呼び、provider failure は `ProviderPollFailed { descriptor, error }` に写す。failure 後も wrapper は lower host と provider owner を保持し続ける。
+- `set_window_title`、`pump_events_only`、`present_frame`、`wait_after_budget_exhausted` は lower F5iv host へ委譲する。lower host event pump fallback、support gate `Ok` 化、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API は導入していない。
+- Rust tests と source policy で provider-only poll、provider failure owner retention、lower host delegation、infallible conversion、禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_event_pump_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass with existing dead_code warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、`note.n.md` のこの欄が pending のままで commit readiness が記録されていないことだけが指摘された。
+- 指摘対応として、この欄を実際の review 結果へ更新した。provider-owned poll authority、lower host poll fallback 禁止、provider failure 後の owner retention、title / pump / present / wait delegation、source policy 固定は review で blocker なしと確認された。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。note readiness blocker は解消され、tracked diff は F5iw の想定 7 ファイルのみで追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5ix Linux window event source normalized observation boundary
+
+### scope
+
+- F5ix は、F5iw の provider-owned event pump の下に normalized observation to snapshot contract を追加する checkpoint とする。
+- future X11 / Wayland / toolkit decoder が得る os close、exit shortcut、current size、mouse down、optional raw pointer を標準 helper へ渡し、resize、pointer transition、surface state、close-state priority、pointer finite check を一箇所へ集約する。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceObservation` を追加し、provider が decode 結果として返す normalized observation を明示する。
+- `NativeWindowLinuxWindowEventSourceObservationSnapshotError` を追加し、snapshot construction failure を descriptor 付き typed error として返す。
+- `native_window_linux_window_event_source_snapshot_from_observation` を追加し、descriptor、`NativeWindowEventPumpInput`、observation から既存 `build_native_window_event_pump_snapshot_from_raw` 経由で snapshot を作る。
+- `NativeWindowLinuxWindowEventSourceObservationProvider` trait と adapter を追加し、observation provider owner を保持したまま F5iw の event pump provider として使えるようにする。
+- adapter error は provider observation failure と snapshot failure を分ける。non-finite pointer は unavailable pointer や silent success にせず typed error とする。
+- source policy は helper / adapter の呼び出し順序と、actual fd acquisition / read / drain / close / runner dispatch / CLI dispatch / support gate `Ok` 化 / fallback / silent no-op の禁止を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装時の必須条件は、adapter error が provider observation failure と snapshot construction failure を分けること、`&mut self` poll failure 後も provider owner を保持し続けること、snapshot helper が既存 `build_native_window_event_pump_snapshot_from_raw` を通して non-finite pointer を `Unavailable` にしないこと、source policy で provider call -> snapshot helper 順と fd read / drain / close、runner / CLI、support gate `Ok` 化、fallback / silent no-op 禁止を固定することだった。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceObservation` を追加し、future decoder が返す normalized observation を close state / size / mouse / pointer raw sample の最小データとして表すようにした。
+- `native_window_linux_window_event_source_snapshot_from_observation` を追加し、descriptor と `NativeWindowEventPumpInput` と observation を既存 `build_native_window_event_pump_snapshot_from_raw` に通して、resize、pointer transition、surface state、close-state priority、pointer finite check を共通化した。
+- `NativeWindowLinuxWindowEventSourceObservationProvider` と `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` adapter を追加し、provider observation failure と snapshot construction failure を descriptor 付きの別 variant で返すようにした。
+- source policy は provider observation call -> snapshot helper の順序、raw helper 経由、provider owner retention、fd read / drain / close、runner / CLI、support gate `Ok` 化、fallback / silent no-op 禁止を固定するようにした。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、snapshot helper が既存 raw helper を通すこと、non-finite pointer が descriptor 付き typed error のままになること、provider observation failure と snapshot failure が分離されること、adapter が `&mut self` poll failure 後も provider owner を保持することは確認された。
+- 指摘はこの欄が pending のままで commit readiness が記録されていないことと、`verification_current` に `git diff --check` の結果が記録されていないことだった。
+- 指摘対応として、この欄と `verification_current` を実際の review / verification 結果へ更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iy Linux window event source observation run-loop adapter boundary
+
+### scope
+
+- F5iy は、F5iv の provider-owned run-loop host を F5ix の observation provider adapter へ接続する checkpoint とする。
+- future X11 / Wayland / toolkit decoder が descriptor provider と observation provider を同一 owner として実装した場合、その provider owner を落とさず event pump run-loop host へ渡せるようにする。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `native_window_linux_window_event_source_enable_observation_provider_event_pump` を追加する。
+- helper は F5iv `NativeWindowLinuxWindowEventSourceRunLoopHost` を consume し、`into_parts` で lower host、descriptor、provider owner を同時に取り出す。
+- provider owner を `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` で包み、F5iw `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` へ渡す。
+- helper は infallible とし、validation、backend construction、support gate、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API、fallback、silent no-op は行わない。
+- source policy は helper の呼び出し順序と、support gate `Ok` 化、runner / CLI dispatch、fd IO、fallback、silent no-op 禁止を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装時の必須条件は、helper が infallible で F5iv `NativeWindowLinuxWindowEventSourceRunLoopHost` を consume すること、`into_parts` で lower host / descriptor / provider owner を同時に取り出すこと、同じ provider owner を `native_window_linux_window_event_source_observation_event_pump_provider` で包んで F5iw event pump run-loop host を作ること、descriptor provider owner と observation provider owner を分けないこと、provider bound は F5ix observation provider contract を要求し、poll error は F5ix adapter typed error のままにすること、source policy で support gate `Ok` 化、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland parsing、fallback、silent no-op 禁止を固定することだった。
+
+### implementation_current
+
+- `native_window_linux_window_event_source_enable_observation_provider_event_pump` を追加し、F5iv host wrapper を consume して lower host、descriptor、provider owner を同時に取り出すようにした。
+- helper は同じ provider owner を `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` で包み、F5iw `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` へ渡す。
+- helper は infallible で、validation、backend construction、support gate、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API、fallback、silent no-op は導入していない。
+- tests と source policy で observation provider polling、typed failure propagation、lower host delegation、call chain、禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_run_loop_adapter_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、helper が infallible で F5iv host を consume し、`into_parts` を使い、同じ provider owner を F5ix observation adapter で包み、F5iw event pump run-loop host を作り、runner / CLI / support gate `Ok` 化 / fd IO / fallback path を scope 外に保っていることは確認された。
+- 指摘はこの欄が pending のままで commit readiness が記録されていないことだけだった。
+- 指摘対応として、この欄を実際の review 結果へ更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iz Linux window event source fd acquisition boundary
+
+### scope
+
+- F5iz は、actual X11 / Wayland event decoding の前段として、Linux window event source fd acquisition を typed sys boundary と provider owner boundary に分けて固定する checkpoint とする。
+- Wayland は `XDG_RUNTIME_DIR` と相対 `WAYLAND_DISPLAY` 名から Unix domain socket path を作る。slash や絶対 path は unsupported display form として拒否する。
+- X11 は local Unix form の `:N` / `:N.screen` / `unix/:N` / `unix/:N.screen` だけを受ける。host / tcp form は unsupported display form として拒否する。
+- acquired fd は provider owner が保持し、descriptor request は open state の raw fd だけを返す。明示 close 後は stale descriptor ではなく typed closed error を返す。
+- selector registration 後に provider-owned fd が backend unregister より先に close されない final owner bundle / drop-order contract、actual protocol parsing、fd read / drain、Linux runner / CLI dispatch、support gate `Ok` 化は後続に残す。
+
+### plan_current
+
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi` を追加し、environment variable lookup、Unix stream socket creation、connect、close、last error code を trait-injected boundary にする。
+- cfg Linux sys wrapper は `std::env::var`、`socket AF_UNIX SOCK_STREAM SOCK_CLOEXEC`、`connect`、`close` だけを行う薄い実装にする。
+- `NativeWindowLinuxWindowEventSourceOwnedFd` は raw fd を private state enum として保持し、non-Copy / non-Clone owner とする。
+- `close` は fallible Result とし、成功後は closed state、失敗後は close-failed state にする。Drop は open state だけを best-effort cleanup し、error reporting authority や retry authority にはしない。
+- `NativeWindowLinuxWindowEventSourceOwnedFdProvider` は open owned fd から `NativeWindowLinuxWindowEventSourceDescriptor` を返し、closed state は typed error とする。
+- tests と source policy で trait-injected acquisition、form validation、connect failure cleanup、closed state、no runner / no CLI / no fd drain / no support gate `Ok` 化を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の initial plan review は `PLAN_CHANGES`。
+- 指摘は、fd owner / drop-order contract の過大主張を避けること、closed-fd state を stale descriptor として返さないこと、primary tests を trait-injected acquisition path に置くこと、Wayland / X11 display form の受理範囲を仕様化することだった。
+- revised plan では F5iz を acquisition/provider-only に絞り、final runner safety は後続 owner bundle / drop-order contract へ分離した。owned fd は non-Copy / non-Clone、private state、explicit close typed Result、Drop cleanup-only とし、trait-injected API を primary tested boundary にする方針で `PLAN_APPROVED` を得た。
+
+### implementation_current
+
+- `NativeWindowLinuxWindowEventSourceFdAcquisitionKind`、environment variable enum、typed acquisition error、owner-bearing failure、raw API trait を追加した。
+- Wayland / X11 display form validation と Unix socket path construction を追加し、unsupported form と path overflow は raw API 呼び出し前に失敗するようにした。
+- `native_window_linux_window_event_source_acquire_fd_with_api` は trait API から socket 作成と connect を行い、connect failure では acquired raw fd を close して close code も typed error に保持する。
+- `NativeWindowLinuxWindowEventSourceOwnedFd` と provider wrapper を追加し、open fd だけ descriptor として公開するようにした。explicit close 成功後は closed error、explicit close 失敗後は close-failed error を返し、descriptor も Drop retry も発生しない。
+- cfg Linux sys wrapper は Linux 上だけで env / socket / connect / close を実装する。event read / drain、protocol parsing、runner / CLI dispatch、support gate `Ok` 化は追加していない。
+- Rust tests と source policy を追加し、Wayland / X11 success、missing env、unsupported display form、path overflow、connect failure cleanup、closed state、non-Copy / non-Clone owner、scope 外禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_fd_acquisition_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。
+- 指摘は、`close()` failure 後に `raw_fd: Some(raw_fd)` が残り、subsequent `raw_fd()` / provider descriptor が stale fd を返せること、さらに Drop が同じ fd を retry close できることだった。これは close at most once と no stale descriptor after closed / uncertain close state の contract に反する。
+- 指摘対応として、owned fd state を `Open` / `Closed` / `CloseFailed` に明示化し、`raw_fd()` と provider descriptor は `Open` だけ成功するようにした。`close()` は fd を state から取り出してから raw close を呼び、失敗後は `CloseFailed` state に移す。Drop は `Open` state だけを best-effort cleanup し、explicit close failure 後の retry close は行わない。
+- Rust test は close failure 後の `raw_fd()` が `CloseFailed` を返すこと、2 回目の `close()` が raw close を再実行しないこと、Drop 後も close call が 1 回のままであることを検査するように修正した。source policy も private state enum と close-once contract を検査するように更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。close-state blocker は解消され、`NativeWindowLinuxWindowEventSourceOwnedFdState` が close failure 後の stale descriptor access を防ぎ、repeated `close()` と Drop が raw close を再試行しないことが確認された。

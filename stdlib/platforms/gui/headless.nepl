@@ -1,0 +1,14 @@
+//: # platforms/gui/headless
+//: Headless GUI backend facade
+//:
+//: ### [目的/もくてき]
+//: - headless / offscreen test backend が[使/つか]う deterministic platform [境界/きょうかい]を公開します。
+//: - Web / native / bare の actual host API とは[分/わ]け、仮想化された event と clock input を同じ GUI contract へ[渡/わた]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この facade は wall clock、timer、queue、DOM、Canvas、minifb を公開しません。
+//: - clock input は fixed script から[読/よ]み、fallback や silent no-op は[行/おこな]いません。
+
+#indent 4
+
+pub #import "./headless/clock" as @merge

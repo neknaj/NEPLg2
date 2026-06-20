@@ -13,5 +13,6 @@
 
 pub #import "./web/surface" as @merge
 pub #import "./web/timer" as @merge
+pub #import "./web/clock" as @merge
 pub #import "./web/stdout_protocol" as @merge
 pub #import "./web/input" as @merge

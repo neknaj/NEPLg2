@@ -1,0 +1,306 @@
+//: # platforms/gui/bare/display_driver_byte_echo
+//: Bare display driver byte echo verification boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fp の display driver host import が accepted status を[返/かえ]したあと、host が[報告/ほうこく]する 1 byte echo を checked span write evidence と[照合/しょうごう]します。
+//: - public driver step は Copy value として[偽造/ぎぞう]できるため、入力として[信用/しんよう]せず、driver state と memory step と outcome から F5fo ledger を[再適用/さいてきよう]します。
+//: - byte index は F5fn/F5fo の canonical byte range に[含/ふく]まれる必要があり、RGBA channel は typed enum として[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - raw memory ownership、actual byte buffer write、host import、scheduler loop、timer、queue、DOM、Canvas、minifb、video memory、fallback、silent no-op は[扱/あつか]いません。
+//: - Begin / Present outcome、forged memory step、byte range 外、channel offset 不正、echo value 範囲外、echo mismatch は enum error と `Result` で fail-closed に[返/かえ]します。
+//: - この module が[検証/けんしょう]するのは 1 byte echo だけであり、raw display memory 全体の ownership と bulk verification は後続 slice の[責務/せきむ]です。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_driver_byte_echo" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_driver" as *
+#import "platforms/gui/bare/display_memory" as *
+
+pub struct GuiBareDisplayDriverByteEcho:
+    byte_index %i32
+    value %i32
+
+impl Clone for GuiBareDisplayDriverByteEcho:
+    fn clone %fn &GuiBareDisplayDriverByteEcho GuiBareDisplayDriverByteEcho \echo:
+        *echo
+
+impl Copy for GuiBareDisplayDriverByteEcho:
+    fn copy_mark %fn GuiBareDisplayDriverByteEcho GuiBareDisplayDriverByteEcho \echo:
+        echo
+
+pub enum GuiBareDisplayDriverByteChannel:
+    Red
+    Green
+    Blue
+    Alpha
+
+impl Clone for GuiBareDisplayDriverByteChannel:
+    fn clone %fn &GuiBareDisplayDriverByteChannel GuiBareDisplayDriverByteChannel \channel:
+        *channel
+
+impl Copy for GuiBareDisplayDriverByteChannel:
+    fn copy_mark %fn GuiBareDisplayDriverByteChannel GuiBareDisplayDriverByteChannel \channel:
+        channel
+
+pub struct GuiBareDisplayDriverByteEchoExpected:
+    channel %GuiBareDisplayDriverByteChannel
+    value %i32
+
+impl Clone for GuiBareDisplayDriverByteEchoExpected:
+    fn clone %fn &GuiBareDisplayDriverByteEchoExpected GuiBareDisplayDriverByteEchoExpected \expected:
+        *expected
+
+impl Copy for GuiBareDisplayDriverByteEchoExpected:
+    fn copy_mark %fn GuiBareDisplayDriverByteEchoExpected GuiBareDisplayDriverByteEchoExpected \expected:
+        expected
+
+pub struct GuiBareDisplayDriverByteEchoVerified:
+    step %GuiBareDisplayDriverStepApplied
+    echo %GuiBareDisplayDriverByteEcho
+    channel %GuiBareDisplayDriverByteChannel
+    expected_value %i32
+
+impl Clone for GuiBareDisplayDriverByteEchoVerified:
+    fn clone %fn &GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEchoVerified \verified:
+        *verified
+
+impl Copy for GuiBareDisplayDriverByteEchoVerified:
+    fn copy_mark %fn GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEchoVerified \verified:
+        verified
+
+pub enum GuiBareDisplayDriverByteEchoErrorKind:
+    DriverStepInvalid %GuiBareDisplayDriverErrorKind
+    NonSpanWriteAction
+    NonSpanWriteOutcome
+    ByteIndexBeforeSpan
+    ByteIndexAfterSpan
+    ByteOffsetInvalid
+    EchoValueInvalid
+    EchoValueMismatch
+
+impl Clone for GuiBareDisplayDriverByteEchoErrorKind:
+    fn clone %fn &GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayDriverByteEchoErrorKind:
+    fn copy_mark %fn GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayDriverByteEchoError:
+    kind %GuiBareDisplayDriverByteEchoErrorKind
+    category %Option GuiError
+    state %GuiBareDisplayDriverState
+    memory_step %GuiBareDisplayMemoryStepApplied
+    outcome %GuiBareDisplayDriverOutcome
+    echo %GuiBareDisplayDriverByteEcho
+
+impl Clone for GuiBareDisplayDriverByteEchoError:
+    fn clone %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverByteEchoError \error:
+        *error
+
+impl Copy for GuiBareDisplayDriverByteEchoError:
+    fn copy_mark %fn GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverByteEchoError \error:
+        error
+
+fn gui_bare_display_driver_byte_echo_expected_new %fn GuiBareDisplayDriverByteChannel fn i32 GuiBareDisplayDriverByteEchoExpected \channel\value:
+    GuiBareDisplayDriverByteEchoExpected channel value
+
+fn gui_bare_display_driver_byte_echo_verified_new %fn GuiBareDisplayDriverStepApplied fn GuiBareDisplayDriverByteEcho fn GuiBareDisplayDriverByteEchoExpected GuiBareDisplayDriverByteEchoVerified \step\echo\expected:
+    let channel %GuiBareDisplayDriverByteChannel gui_bare_display_driver_byte_echo_expected_channel &expected
+    let expected_value %i32 gui_bare_display_driver_byte_echo_expected_value &expected
+    GuiBareDisplayDriverByteEchoVerified step echo channel expected_value
+
+fn gui_bare_display_driver_byte_echo_error_category %fn GuiBareDisplayDriverByteEchoErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayDriverByteEchoErrorKind::DriverStepInvalid lower:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteAction:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayDriverByteEchoErrorKind::ByteIndexBeforeSpan:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayDriverByteEchoErrorKind::ByteIndexAfterSpan:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayDriverByteEchoErrorKind::ByteOffsetInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiBareDisplayDriverByteEchoErrorKind::EchoValueInvalid:
+            Option::Some GuiError::InvalidColor
+        GuiBareDisplayDriverByteEchoErrorKind::EchoValueMismatch:
+            Option::Some GuiError::BackendFailure
+
+fn gui_bare_display_driver_byte_echo_error %fn GuiBareDisplayDriverByteEchoErrorKind fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho GuiBareDisplayDriverByteEchoError \kind\state\memory_step\outcome\echo:
+    let category %Option GuiError gui_bare_display_driver_byte_echo_error_category kind
+    GuiBareDisplayDriverByteEchoError kind category state memory_step outcome echo
+
+fn gui_bare_display_driver_byte_echo_error_from_driver_step %fn GuiBareDisplayDriverStepError fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho GuiBareDisplayDriverByteEchoError \driver_error\state\memory_step\outcome\echo:
+    let lower_kind %GuiBareDisplayDriverErrorKind gui_bare_display_driver_step_error_kind &driver_error
+    let category %Option GuiError gui_bare_display_driver_step_error_category_value &driver_error
+    GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverByteEchoErrorKind::DriverStepInvalid lower_kind category state memory_step outcome echo
+
+pub fn gui_bare_display_driver_byte_echo_byte_index %fn &GuiBareDisplayDriverByteEcho i32 \echo:
+    *field::get_ref echo "byte_index"
+
+pub fn gui_bare_display_driver_byte_echo_value %fn &GuiBareDisplayDriverByteEcho i32 \echo:
+    *field::get_ref echo "value"
+
+pub fn gui_bare_display_driver_byte_echo_expected_channel %fn &GuiBareDisplayDriverByteEchoExpected GuiBareDisplayDriverByteChannel \expected:
+    *field::get_ref expected "channel"
+
+pub fn gui_bare_display_driver_byte_echo_expected_value %fn &GuiBareDisplayDriverByteEchoExpected i32 \expected:
+    *field::get_ref expected "value"
+
+pub fn gui_bare_display_driver_byte_echo_verified_step %fn &GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverStepApplied \verified:
+    *field::get_ref verified "step"
+
+pub fn gui_bare_display_driver_byte_echo_verified_echo %fn &GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEcho \verified:
+    *field::get_ref verified "echo"
+
+pub fn gui_bare_display_driver_byte_echo_verified_channel %fn &GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteChannel \verified:
+    *field::get_ref verified "channel"
+
+pub fn gui_bare_display_driver_byte_echo_verified_expected_value %fn &GuiBareDisplayDriverByteEchoVerified i32 \verified:
+    *field::get_ref verified "expected_value"
+
+pub fn gui_bare_display_driver_byte_echo_error_kind %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverByteEchoErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_driver_byte_echo_error_category_value %fn &GuiBareDisplayDriverByteEchoError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_driver_byte_echo_error_state %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverState \error:
+    *field::get_ref error "state"
+
+pub fn gui_bare_display_driver_byte_echo_error_memory_step %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayMemoryStepApplied \error:
+    *field::get_ref error "memory_step"
+
+pub fn gui_bare_display_driver_byte_echo_error_outcome %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverOutcome \error:
+    *field::get_ref error "outcome"
+
+pub fn gui_bare_display_driver_byte_echo_error_echo %fn &GuiBareDisplayDriverByteEchoError GuiBareDisplayDriverByteEcho \error:
+    *field::get_ref error "echo"
+
+pub fn gui_bare_display_driver_byte_echo_channel_for_byte_offset %fn i32 Result GuiBareDisplayDriverByteChannel GuiBareDisplayDriverByteEchoErrorKind \offset:
+    if eq offset 0:
+        then Result::Ok GuiBareDisplayDriverByteChannel::Red
+        else:
+            if eq offset 1:
+                then Result::Ok GuiBareDisplayDriverByteChannel::Green
+                else:
+                    if eq offset 2:
+                        then Result::Ok GuiBareDisplayDriverByteChannel::Blue
+                        else:
+                            if eq offset 3:
+                                then Result::Ok GuiBareDisplayDriverByteChannel::Alpha
+                                else Result::Err GuiBareDisplayDriverByteEchoErrorKind::ByteOffsetInvalid
+
+pub fn gui_bare_display_driver_byte_echo_channel_value %fn GuiBareDisplayDriverByteChannel fn Rgba8888 i32 \channel\color:
+    match channel:
+        GuiBareDisplayDriverByteChannel::Red:
+            cast rgba8888_r &color
+        GuiBareDisplayDriverByteChannel::Green:
+            cast rgba8888_g &color
+        GuiBareDisplayDriverByteChannel::Blue:
+            cast rgba8888_b &color
+        GuiBareDisplayDriverByteChannel::Alpha:
+            cast rgba8888_a &color
+
+fn gui_bare_display_driver_byte_echo_expected_for_offset %fn i32 fn Rgba8888 Result GuiBareDisplayDriverByteEchoExpected GuiBareDisplayDriverByteEchoErrorKind \offset\color:
+    match gui_bare_display_driver_byte_echo_channel_for_byte_offset offset:
+        Result::Err offset_kind:
+            Result::Err offset_kind
+        Result::Ok channel:
+            let value %i32 gui_bare_display_driver_byte_echo_channel_value channel color
+            Result::Ok gui_bare_display_driver_byte_echo_expected_new channel value
+
+fn gui_bare_display_driver_byte_echo_verify_span %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho fn GuiBareDisplayDriverStepApplied fn GuiBareDisplayDriverSpanWriteAccepted Result GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEchoError \state\memory_step\outcome\echo\step\accepted:
+    let echo_value %i32 gui_bare_display_driver_byte_echo_value &echo
+    if or lt echo_value 0 gt echo_value 255:
+        then:
+            let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::EchoValueInvalid
+            Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+        else:
+            let byte_index %i32 gui_bare_display_driver_byte_echo_byte_index &echo
+            let byte_start %i32 gui_bare_display_driver_span_write_accepted_byte_start &accepted
+            let byte_end %i32 gui_bare_display_driver_span_write_accepted_byte_end &accepted
+            if lt byte_index byte_start:
+                then:
+                    let before_kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::ByteIndexBeforeSpan
+                    Result::Err gui_bare_display_driver_byte_echo_error before_kind state memory_step outcome echo
+                else:
+                    if ge byte_index byte_end:
+                        then:
+                            let after_kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::ByteIndexAfterSpan
+                            Result::Err gui_bare_display_driver_byte_echo_error after_kind state memory_step outcome echo
+                        else:
+                            let relative %i32 sub byte_index byte_start
+                            let offset %i32 rem_s relative 4
+                            let color %Rgba8888 gui_bare_display_driver_span_write_accepted_color &accepted
+                            match gui_bare_display_driver_byte_echo_expected_for_offset offset color:
+                                Result::Err offset_kind:
+                                    Result::Err gui_bare_display_driver_byte_echo_error offset_kind state memory_step outcome echo
+                                Result::Ok expected:
+                                    let expected_value %i32 gui_bare_display_driver_byte_echo_expected_value &expected
+                                    if ne echo_value expected_value:
+                                        then:
+                                            let mismatch_kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::EchoValueMismatch
+                                            Result::Err gui_bare_display_driver_byte_echo_error mismatch_kind state memory_step outcome echo
+                                        else Result::Ok gui_bare_display_driver_byte_echo_verified_new step echo expected
+
+fn gui_bare_display_driver_byte_echo_verify_step %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho fn GuiBareDisplayDriverStepApplied Result GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEchoError \state\memory_step\outcome\echo\step:
+    let action %GuiBareDisplayMemoryAction gui_bare_display_driver_step_applied_action &step
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin begin_plan:
+            let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteAction
+            Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+        GuiBareDisplayMemoryAction::SpanWrite span_plan:
+            match outcome:
+                GuiBareDisplayDriverOutcome::SpanWriteAccepted accepted:
+                    gui_bare_display_driver_byte_echo_verify_span state memory_step outcome echo step accepted
+                GuiBareDisplayDriverOutcome::BeginAccepted begin_accepted:
+                    let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome
+                    Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+                GuiBareDisplayDriverOutcome::FramePresentAccepted present_accepted:
+                    let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome
+                    Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+                GuiBareDisplayDriverOutcome::DriverRejected lower:
+                    let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteOutcome
+                    Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+        GuiBareDisplayMemoryAction::FramePresent present_plan:
+            let kind %GuiBareDisplayDriverByteEchoErrorKind GuiBareDisplayDriverByteEchoErrorKind::NonSpanWriteAction
+            Result::Err gui_bare_display_driver_byte_echo_error kind state memory_step outcome echo
+
+//: gui_bare_display_driver_byte_echo_verify: canonical driver step から byte echo を[検証/けんしょう]する
+//:
+//: [契約/けいやく]:
+//: - public `GuiBareDisplayDriverStepApplied` は入力に[取/と]らず、F5fo の `gui_bare_display_driver_apply` を[内部/ないぶ]で[呼/よ]びます。
+//: - `SpanWriteAccepted` 以外の action / outcome は fail-closed に[拒否/きょひ]します。
+//: - echo の byte index と value は canonical span range と typed RGBA channel に[一致/いっち]する必要があります。
+pub fn gui_bare_display_driver_byte_echo_verify %fn GuiBareDisplayDriverState fn GuiBareDisplayMemoryStepApplied fn GuiBareDisplayDriverOutcome fn GuiBareDisplayDriverByteEcho Result GuiBareDisplayDriverByteEchoVerified GuiBareDisplayDriverByteEchoError \state\memory_step\outcome\echo:
+    match gui_bare_display_driver_apply state memory_step outcome:
+        Result::Err driver_error:
+            Result::Err gui_bare_display_driver_byte_echo_error_from_driver_step driver_error state memory_step outcome echo
+        Result::Ok step:
+            gui_bare_display_driver_byte_echo_verify_step state memory_step outcome echo step

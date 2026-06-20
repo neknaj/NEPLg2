@@ -126,6 +126,7 @@ function defaultNeplGuiWebImports() {
         last_event_timer_id: () => 0,
         last_event_timer_tick: () => 0,
         request_timer: () => -1,
+        monotonic_clock_ms: () => 0,
         video_memory_create_surface: () => -1,
         video_memory_acquire_write_slot: () => -1,
         video_memory_write_slot_bytes: () => -2,
@@ -135,6 +136,28 @@ function defaultNeplGuiWebImports() {
         video_memory_publish_slot: () => -2,
         video_memory_present_surface: () => -2,
         video_memory_close_surface: () => -2,
+    };
+}
+
+function defaultNeplGuiNativeImports() {
+    return {
+        monotonic_clock_ms: () => 0,
+        window_presenter_session_begin: () => -1,
+        window_presenter_session_run: () => -1,
+        window_presenter_session_end: () => -1,
+    };
+}
+
+function defaultNeplGuiBareImports() {
+    return {
+        monotonic_clock_ms: () => -1,
+        display_presenter_session_begin: () => -1,
+        display_presenter_session_run: () => -1,
+        display_presenter_session_end: () => -1,
+        display_driver_begin: () => -1,
+        display_driver_span_write: () => -1,
+        display_driver_frame_present: () => -1,
+        display_hardware_flush: () => -1,
     };
 }
 
@@ -187,6 +210,8 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
         const resolvedExtraImports = resolveRuntimeImports(extraImports, runtimeContext);
         const {
             nepl_gui_web: extraNeplGuiWebImports = {},
+            nepl_gui_native: extraNeplGuiNativeImports = {},
+            nepl_gui_bare: extraNeplGuiBareImports = {},
             ...extraImportNamespaces
         } = resolvedExtraImports;
         const instance = new WebAssembly.Instance(module, {
@@ -196,6 +221,18 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
                 ...defaultNeplGuiWebImports(),
                 ...(extraNeplGuiWebImports && typeof extraNeplGuiWebImports === 'object'
                     ? extraNeplGuiWebImports
+                    : {}),
+            },
+            nepl_gui_native: {
+                ...defaultNeplGuiNativeImports(),
+                ...(extraNeplGuiNativeImports && typeof extraNeplGuiNativeImports === 'object'
+                    ? extraNeplGuiNativeImports
+                    : {}),
+            },
+            nepl_gui_bare: {
+                ...defaultNeplGuiBareImports(),
+                ...(extraNeplGuiBareImports && typeof extraNeplGuiBareImports === 'object'
+                    ? extraNeplGuiBareImports
                     : {}),
             },
         });

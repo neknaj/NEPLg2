@@ -1,0 +1,35 @@
+//: # platforms/gui/bare
+//: Bare GUI backend facade
+//:
+//: ### [目的/もくてき]
+//: - bare GUI backend が提供する formal platform [境界/きょうかい]を公開します。
+//: - 現 checkpoint では monotonic clock source import、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、scheduler executor one-step bridge、scheduler host action executor backend bridge、scheduler real-loop action step boundary、bounded real-loop runner boundary、display framebuffer adapter、display storage adapter、display memory write plan boundary、display driver outcome ledger boundary、display driver host import boundary、display driver byte echo verification boundary、raw display memory ownership boundary、span write/readback boundary、actual display driver adapter boundary、operation-to-driver-adapter bridge、display presenter input boundary、presented packet readiness boundary、whole-surface packet-readiness aggregation boundary、hardware flush accepted boundary を公開し、timer backend は後続 slice に分けます。
+//:
+//: ### [注意/ちゅうい]
+//: - bare は universal wall clock を持つ前提にしません。
+//: - embedding host が clock source を提供しない場合は `Unsupported` を返し、fallback や silent no-op にはしません。
+
+#indent 4
+
+pub #import "./bare/clock" as @merge
+pub #import "./bare/scheduler_clock" as @merge
+pub #import "./bare/scheduler_clock_input" as @merge
+pub #import "./bare/scheduler_executor_input" as @merge
+pub #import "./bare/scheduler_executor_step" as @merge
+pub #import "./bare/scheduler_host_executor" as @merge
+pub #import "./bare/scheduler_real_loop_step" as @merge
+pub #import "./bare/scheduler_real_loop_runner" as @merge
+pub #import "./bare/framebuffer" as @merge
+pub #import "./bare/display_storage" as @merge
+pub #import "./bare/display_memory" as @merge
+pub #import "./bare/display_driver" as @merge
+pub #import "./bare/display_driver_host_import" as @merge
+pub #import "./bare/display_driver_byte_echo" as @merge
+pub #import "./bare/display_memory_owner" as @merge
+pub #import "./bare/display_memory_span_readback" as @merge
+pub #import "./bare/display_driver_adapter" as @merge
+pub #import "./bare/display_operation_driver_bridge" as @merge
+pub #import "./bare/display_presenter_input" as @merge
+pub #import "./bare/display_present_readiness" as @merge
+pub #import "./bare/display_surface_readiness" as @merge
+pub #import "./bare/display_flush_completion" as @merge

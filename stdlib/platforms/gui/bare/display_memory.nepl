@@ -1,0 +1,1152 @@
+//: # platforms/gui/bare/display_memory
+//: Bare display memory write plan boundary
+//:
+//: ### [目的/もくてき]
+//: - F5fm の display storage typed effect ledger を、actual bare display driver が[消費/しょうひ]できる checked byte write plan へ[変換/へんかん]します。
+//: - storage step は public value なのでそのまま[信用/しんよう]せず、memory state が[持/も]つ canonical storage state から[再適用/さいてきよう]します。
+//: - row span の `x` / `y` / `width` から RGBA8888 byte range を checked arithmetic で[計算/けいさん]します。
+//:
+//: ### [契約/けいやく]
+//: - host import、platform window、DOM、Canvas、minifb、fallback、silent no-op はこの module に[含/ふく]めません。
+//: - raw byte buffer の[所有/しょゆう]や actual driver write はまだ[行/おこな]いません。byte range、color、frame evidence を typed action として[返/かえ]します。
+//: - negative geometry、overflow、out-of-bounds、forged storage step、incomplete present は enum error と `Result` で fail-closed に[拒否/きょひ]します。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/bare/display_memory" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/bare/display_storage" as *
+#import "platforms/gui/bare/framebuffer" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_span_operation" as *
+#import "std/gui/tile_present_run_span" as *
+#import "std/gui/window" as *
+
+pub struct GuiBareDisplayMemoryActiveFrame:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    accepted_run_count %i32
+    accepted_pixel_count %i32
+
+impl Clone for GuiBareDisplayMemoryActiveFrame:
+    fn clone %fn &GuiBareDisplayMemoryActiveFrame GuiBareDisplayMemoryActiveFrame \active:
+        *active
+
+impl Copy for GuiBareDisplayMemoryActiveFrame:
+    fn copy_mark %fn GuiBareDisplayMemoryActiveFrame GuiBareDisplayMemoryActiveFrame \active:
+        active
+
+pub enum GuiBareDisplayMemoryPhase:
+    Idle
+    Active %GuiBareDisplayMemoryActiveFrame
+
+impl Clone for GuiBareDisplayMemoryPhase:
+    fn clone %fn &GuiBareDisplayMemoryPhase GuiBareDisplayMemoryPhase \phase:
+        *phase
+
+impl Copy for GuiBareDisplayMemoryPhase:
+    fn copy_mark %fn GuiBareDisplayMemoryPhase GuiBareDisplayMemoryPhase \phase:
+        phase
+
+pub struct GuiBareDisplayMemorySpanWritePlan:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    span %GuiRgba8888RowTileRlePresentRunRowSpan
+    run_index %i32
+    pixel_start %i32
+    pixel_end %i32
+    row_byte_start %i32
+    x_byte_offset %i32
+    byte_start %i32
+    byte_len %i32
+    byte_end %i32
+    surface_byte_count %i32
+    color %Rgba8888
+
+impl Clone for GuiBareDisplayMemorySpanWritePlan:
+    fn clone %fn &GuiBareDisplayMemorySpanWritePlan GuiBareDisplayMemorySpanWritePlan \plan:
+        *plan
+
+impl Copy for GuiBareDisplayMemorySpanWritePlan:
+    fn copy_mark %fn GuiBareDisplayMemorySpanWritePlan GuiBareDisplayMemorySpanWritePlan \plan:
+        plan
+
+pub struct GuiBareDisplayMemoryFrameBeginPlan:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayMemoryFrameBeginPlan:
+    fn clone %fn &GuiBareDisplayMemoryFrameBeginPlan GuiBareDisplayMemoryFrameBeginPlan \plan:
+        *plan
+
+impl Copy for GuiBareDisplayMemoryFrameBeginPlan:
+    fn copy_mark %fn GuiBareDisplayMemoryFrameBeginPlan GuiBareDisplayMemoryFrameBeginPlan \plan:
+        plan
+
+pub struct GuiBareDisplayMemoryFramePresentPlan:
+    target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    frame %FrameId
+    run_count %i32
+    pixel_count %i32
+    surface_byte_count %i32
+
+impl Clone for GuiBareDisplayMemoryFramePresentPlan:
+    fn clone %fn &GuiBareDisplayMemoryFramePresentPlan GuiBareDisplayMemoryFramePresentPlan \plan:
+        *plan
+
+impl Copy for GuiBareDisplayMemoryFramePresentPlan:
+    fn copy_mark %fn GuiBareDisplayMemoryFramePresentPlan GuiBareDisplayMemoryFramePresentPlan \plan:
+        plan
+
+pub enum GuiBareDisplayMemoryAction:
+    FrameBegin %GuiBareDisplayMemoryFrameBeginPlan
+    SpanWrite %GuiBareDisplayMemorySpanWritePlan
+    FramePresent %GuiBareDisplayMemoryFramePresentPlan
+
+impl Clone for GuiBareDisplayMemoryAction:
+    fn clone %fn &GuiBareDisplayMemoryAction GuiBareDisplayMemoryAction \action:
+        *action
+
+impl Copy for GuiBareDisplayMemoryAction:
+    fn copy_mark %fn GuiBareDisplayMemoryAction GuiBareDisplayMemoryAction \action:
+        action
+
+pub struct GuiBareDisplayMemoryState:
+    storage_state %GuiBareDisplayStorageState
+    phase %GuiBareDisplayMemoryPhase
+    total_byte_count %i32
+    last_write %Option GuiBareDisplayMemorySpanWritePlan
+
+impl Clone for GuiBareDisplayMemoryState:
+    fn clone %fn &GuiBareDisplayMemoryState GuiBareDisplayMemoryState \state:
+        *state
+
+impl Copy for GuiBareDisplayMemoryState:
+    fn copy_mark %fn GuiBareDisplayMemoryState GuiBareDisplayMemoryState \state:
+        state
+
+pub enum GuiBareDisplayMemoryErrorKind:
+    ConfigSurfaceInvalid
+    ConfigWidthInvalid
+    ConfigHeightInvalid
+    ConfigStrideInvalid
+    ConfigStrideOverflow
+    ConfigStrideMismatch
+    SurfaceByteCountOverflow
+    SurfaceByteCountMismatch
+    StorageApplyFailed %GuiBareDisplayStorageErrorKind
+    StorageStepStateMismatch
+    StorageStepEffectMismatch
+    MemoryPhaseMismatch
+    TargetMismatch
+    DescriptorMismatch
+    AcceptedRunCountMismatch
+    AcceptedPixelCountMismatch
+    RunIndexMismatch
+    PixelStartMismatch
+    PixelEndMismatch
+    BeginWhileActive
+    RunWithoutBegin
+    EndWithoutBegin
+    SpanXInvalid
+    SpanYInvalid
+    SpanWidthInvalid
+    SpanRightOverflow
+    SpanOutOfBounds
+    RowByteOffsetOverflow
+    XByteOffsetOverflow
+    SpanByteLengthOverflow
+    ByteStartOverflow
+    ByteEndOverflow
+    ByteOutOfBounds
+    PresentRunCountMismatch
+    PresentPixelCountMismatch
+    LastWriteOutOfBounds
+
+impl Clone for GuiBareDisplayMemoryErrorKind:
+    fn clone %fn &GuiBareDisplayMemoryErrorKind GuiBareDisplayMemoryErrorKind \kind:
+        *kind
+
+impl Copy for GuiBareDisplayMemoryErrorKind:
+    fn copy_mark %fn GuiBareDisplayMemoryErrorKind GuiBareDisplayMemoryErrorKind \kind:
+        kind
+
+pub struct GuiBareDisplayMemoryStepApplied:
+    state %GuiBareDisplayMemoryState
+    action %GuiBareDisplayMemoryAction
+    storage_step %GuiBareDisplayStorageStepApplied
+
+impl Clone for GuiBareDisplayMemoryStepApplied:
+    fn clone %fn &GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryStepApplied \applied:
+        *applied
+
+impl Copy for GuiBareDisplayMemoryStepApplied:
+    fn copy_mark %fn GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryStepApplied \applied:
+        applied
+
+pub struct GuiBareDisplayMemoryStepError:
+    kind %GuiBareDisplayMemoryErrorKind
+    category %Option GuiError
+    state %GuiBareDisplayMemoryState
+    storage_step %GuiBareDisplayStorageStepApplied
+
+impl Clone for GuiBareDisplayMemoryStepError:
+    fn clone %fn &GuiBareDisplayMemoryStepError GuiBareDisplayMemoryStepError \error:
+        *error
+
+impl Copy for GuiBareDisplayMemoryStepError:
+    fn copy_mark %fn GuiBareDisplayMemoryStepError GuiBareDisplayMemoryStepError \error:
+        error
+
+fn gui_bare_display_memory_active_frame_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 fn i32 GuiBareDisplayMemoryActiveFrame \target\descriptor\accepted_run_count\accepted_pixel_count:
+    GuiBareDisplayMemoryActiveFrame target descriptor accepted_run_count accepted_pixel_count
+
+fn gui_bare_display_memory_state_new %fn GuiBareDisplayStorageState fn GuiBareDisplayMemoryPhase fn i32 fn Option GuiBareDisplayMemorySpanWritePlan GuiBareDisplayMemoryState \storage_state\phase\total_byte_count\last_write:
+    GuiBareDisplayMemoryState storage_state phase total_byte_count last_write
+
+fn gui_bare_display_memory_span_write_plan_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentRunRowSpan fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn Rgba8888 GuiBareDisplayMemorySpanWritePlan \target\span\run_index\pixel_start\pixel_end\row_byte_start\x_byte_offset\byte_start\byte_len\byte_end\surface_byte_count\color:
+    GuiBareDisplayMemorySpanWritePlan target span run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count color
+
+fn gui_bare_display_memory_begin_plan_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn i32 GuiBareDisplayMemoryFrameBeginPlan \target\descriptor\surface_byte_count:
+    GuiBareDisplayMemoryFrameBeginPlan target descriptor surface_byte_count
+
+fn gui_bare_display_memory_present_plan_new %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentDescriptor fn FrameId fn i32 fn i32 fn i32 GuiBareDisplayMemoryFramePresentPlan \target\descriptor\frame\run_count\pixel_count\surface_byte_count:
+    GuiBareDisplayMemoryFramePresentPlan target descriptor frame run_count pixel_count surface_byte_count
+
+fn gui_bare_display_memory_step_applied_new %fn GuiBareDisplayMemoryState fn GuiBareDisplayMemoryAction fn GuiBareDisplayStorageStepApplied GuiBareDisplayMemoryStepApplied \state\action\storage_step:
+    GuiBareDisplayMemoryStepApplied state action storage_step
+
+fn gui_bare_display_memory_error_category %fn GuiBareDisplayMemoryErrorKind Option GuiError \kind:
+    match kind:
+        GuiBareDisplayMemoryErrorKind::StorageApplyFailed lower:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::ConfigSurfaceInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::StorageStepStateMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::StorageStepEffectMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::MemoryPhaseMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::TargetMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::DescriptorMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::AcceptedRunCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::AcceptedPixelCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::RunIndexMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::PixelStartMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::PixelEndMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::BeginWhileActive:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::RunWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::EndWithoutBegin:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::PresentRunCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiBareDisplayMemoryErrorKind::PresentPixelCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_bare_display_memory_step_error %fn GuiBareDisplayMemoryErrorKind fn GuiBareDisplayMemoryState fn GuiBareDisplayStorageStepApplied GuiBareDisplayMemoryStepError \kind\state\storage_step:
+    let category %Option GuiError gui_bare_display_memory_error_category kind
+    GuiBareDisplayMemoryStepError kind category state storage_step
+
+pub fn gui_bare_display_memory_state_storage_state %fn &GuiBareDisplayMemoryState GuiBareDisplayStorageState \state:
+    *field::get_ref state "storage_state"
+
+pub fn gui_bare_display_memory_state_phase %fn &GuiBareDisplayMemoryState GuiBareDisplayMemoryPhase \state:
+    *field::get_ref state "phase"
+
+pub fn gui_bare_display_memory_state_total_byte_count %fn &GuiBareDisplayMemoryState i32 \state:
+    *field::get_ref state "total_byte_count"
+
+pub fn gui_bare_display_memory_state_last_write %fn &GuiBareDisplayMemoryState Option GuiBareDisplayMemorySpanWritePlan \state:
+    *field::get_ref state "last_write"
+
+pub fn gui_bare_display_memory_active_frame_target %fn &GuiBareDisplayMemoryActiveFrame GuiRgba8888RowTileRlePresentHostSpanOperationTarget \active:
+    *field::get_ref active "target"
+
+pub fn gui_bare_display_memory_active_frame_descriptor %fn &GuiBareDisplayMemoryActiveFrame GuiRgba8888RowTileRlePresentDescriptor \active:
+    *field::get_ref active "descriptor"
+
+pub fn gui_bare_display_memory_active_frame_accepted_run_count %fn &GuiBareDisplayMemoryActiveFrame i32 \active:
+    *field::get_ref active "accepted_run_count"
+
+pub fn gui_bare_display_memory_active_frame_accepted_pixel_count %fn &GuiBareDisplayMemoryActiveFrame i32 \active:
+    *field::get_ref active "accepted_pixel_count"
+
+pub fn gui_bare_display_memory_begin_plan_target %fn &GuiBareDisplayMemoryFrameBeginPlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_begin_plan_descriptor %fn &GuiBareDisplayMemoryFrameBeginPlan GuiRgba8888RowTileRlePresentDescriptor \plan:
+    *field::get_ref plan "descriptor"
+
+pub fn gui_bare_display_memory_begin_plan_surface_byte_count %fn &GuiBareDisplayMemoryFrameBeginPlan i32 \plan:
+    *field::get_ref plan "surface_byte_count"
+
+pub fn gui_bare_display_memory_span_write_plan_target %fn &GuiBareDisplayMemorySpanWritePlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_span_write_plan_span %fn &GuiBareDisplayMemorySpanWritePlan GuiRgba8888RowTileRlePresentRunRowSpan \plan:
+    *field::get_ref plan "span"
+
+pub fn gui_bare_display_memory_span_write_plan_run_index %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "run_index"
+
+pub fn gui_bare_display_memory_span_write_plan_pixel_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "pixel_start"
+
+pub fn gui_bare_display_memory_span_write_plan_pixel_end %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "pixel_end"
+
+pub fn gui_bare_display_memory_span_write_plan_row_byte_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "row_byte_start"
+
+pub fn gui_bare_display_memory_span_write_plan_x_byte_offset %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "x_byte_offset"
+
+pub fn gui_bare_display_memory_span_write_plan_byte_start %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "byte_start"
+
+pub fn gui_bare_display_memory_span_write_plan_byte_len %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "byte_len"
+
+pub fn gui_bare_display_memory_span_write_plan_byte_end %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "byte_end"
+
+pub fn gui_bare_display_memory_span_write_plan_surface_byte_count %fn &GuiBareDisplayMemorySpanWritePlan i32 \plan:
+    *field::get_ref plan "surface_byte_count"
+
+pub fn gui_bare_display_memory_span_write_plan_color %fn &GuiBareDisplayMemorySpanWritePlan Rgba8888 \plan:
+    *field::get_ref plan "color"
+
+pub fn gui_bare_display_memory_present_plan_target %fn &GuiBareDisplayMemoryFramePresentPlan GuiRgba8888RowTileRlePresentHostSpanOperationTarget \plan:
+    *field::get_ref plan "target"
+
+pub fn gui_bare_display_memory_present_plan_descriptor %fn &GuiBareDisplayMemoryFramePresentPlan GuiRgba8888RowTileRlePresentDescriptor \plan:
+    *field::get_ref plan "descriptor"
+
+pub fn gui_bare_display_memory_present_plan_frame %fn &GuiBareDisplayMemoryFramePresentPlan FrameId \plan:
+    *field::get_ref plan "frame"
+
+pub fn gui_bare_display_memory_present_plan_run_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    *field::get_ref plan "run_count"
+
+pub fn gui_bare_display_memory_present_plan_pixel_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    *field::get_ref plan "pixel_count"
+
+pub fn gui_bare_display_memory_present_plan_surface_byte_count %fn &GuiBareDisplayMemoryFramePresentPlan i32 \plan:
+    *field::get_ref plan "surface_byte_count"
+
+pub fn gui_bare_display_memory_step_applied_state %fn &GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryState \applied:
+    *field::get_ref applied "state"
+
+pub fn gui_bare_display_memory_step_applied_action %fn &GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryAction \applied:
+    *field::get_ref applied "action"
+
+pub fn gui_bare_display_memory_step_applied_storage_step %fn &GuiBareDisplayMemoryStepApplied GuiBareDisplayStorageStepApplied \applied:
+    *field::get_ref applied "storage_step"
+
+pub fn gui_bare_display_memory_step_error_kind %fn &GuiBareDisplayMemoryStepError GuiBareDisplayMemoryErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_bare_display_memory_step_error_category_value %fn &GuiBareDisplayMemoryStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_bare_display_memory_step_error_state %fn &GuiBareDisplayMemoryStepError GuiBareDisplayMemoryState \error:
+    *field::get_ref error "state"
+
+pub fn gui_bare_display_memory_step_error_storage_step %fn &GuiBareDisplayMemoryStepError GuiBareDisplayStorageStepApplied \error:
+    *field::get_ref error "storage_step"
+
+fn gui_bare_display_memory_begin_effect_target %fn &GuiBareDisplayStorageFrameBeginEffect GuiRgba8888RowTileRlePresentHostSpanOperationTarget \effect:
+    *field::get_ref effect "target"
+
+fn gui_bare_display_memory_begin_effect_descriptor %fn &GuiBareDisplayStorageFrameBeginEffect GuiRgba8888RowTileRlePresentDescriptor \effect:
+    *field::get_ref effect "descriptor"
+
+fn gui_bare_display_memory_span_effect_target %fn &GuiBareDisplayStorageSpanWriteEffect GuiRgba8888RowTileRlePresentHostSpanOperationTarget \effect:
+    *field::get_ref effect "target"
+
+fn gui_bare_display_memory_span_effect_span %fn &GuiBareDisplayStorageSpanWriteEffect GuiRgba8888RowTileRlePresentRunRowSpan \effect:
+    *field::get_ref effect "span"
+
+fn gui_bare_display_memory_present_effect_target %fn &GuiBareDisplayStorageFramePresentEffect GuiRgba8888RowTileRlePresentHostSpanOperationTarget \effect:
+    *field::get_ref effect "target"
+
+fn gui_bare_display_memory_present_effect_descriptor %fn &GuiBareDisplayStorageFramePresentEffect GuiRgba8888RowTileRlePresentDescriptor \effect:
+    *field::get_ref effect "descriptor"
+
+fn gui_bare_display_memory_checked_add %fn i32 fn i32 fn GuiBareDisplayMemoryErrorKind Result i32 GuiBareDisplayMemoryErrorKind \base\delta\overflow_kind:
+    if or lt base 0 lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_bare_display_memory_checked_mul %fn i32 fn i32 fn GuiBareDisplayMemoryErrorKind Result i32 GuiBareDisplayMemoryErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_bare_display_memory_config_total_byte_count %fn &GuiBareFramebufferConfig Result i32 GuiBareDisplayMemoryErrorKind \config:
+    let surface %SurfaceId gui_bare_framebuffer_config_surface config
+    if le surface_id_raw &surface 0:
+        then Result::Err GuiBareDisplayMemoryErrorKind::ConfigSurfaceInvalid
+        else:
+            let width %i32 gui_bare_framebuffer_config_width config
+            if le width 0:
+                then Result::Err GuiBareDisplayMemoryErrorKind::ConfigWidthInvalid
+                else:
+                    let height %i32 gui_bare_framebuffer_config_height config
+                    if le height 0:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::ConfigHeightInvalid
+                        else:
+                            let stride_bytes %i32 gui_bare_framebuffer_config_stride_bytes config
+                            if le stride_bytes 0:
+                                then Result::Err GuiBareDisplayMemoryErrorKind::ConfigStrideInvalid
+                                else:
+                                    match gui_bare_display_memory_checked_mul width 4 GuiBareDisplayMemoryErrorKind::ConfigStrideOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok expected_stride:
+                                            if ne stride_bytes expected_stride:
+                                                then Result::Err GuiBareDisplayMemoryErrorKind::ConfigStrideMismatch
+                                                else gui_bare_display_memory_checked_mul height stride_bytes GuiBareDisplayMemoryErrorKind::SurfaceByteCountOverflow
+
+pub fn gui_bare_display_memory_state_initial %fn GuiBareFramebufferConfig Result GuiBareDisplayMemoryState GuiBareDisplayMemoryErrorKind \config:
+    match gui_bare_display_memory_config_total_byte_count &config:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok total_byte_count:
+            let storage_state %GuiBareDisplayStorageState gui_bare_display_storage_state_initial config
+            Result::Ok gui_bare_display_memory_state_new storage_state GuiBareDisplayMemoryPhase::Idle total_byte_count Option::None
+
+pub fn gui_bare_display_memory_target_equal %fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget fn GuiRgba8888RowTileRlePresentHostSpanOperationTarget bool \left\right:
+    match left:
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window left_window:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window:
+                    eq window_id_raw &left_window window_id_raw &right_window
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    true
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    false
+        GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+            match right:
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Window right_window_nonmatching2:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Offscreen:
+                    false
+                GuiRgba8888RowTileRlePresentHostSpanOperationTarget::Device:
+                    true
+
+pub fn gui_bare_display_memory_descriptor_equal %fn &GuiRgba8888RowTileRlePresentDescriptor fn &GuiRgba8888RowTileRlePresentDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame right
+    let left_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet left
+    let right_packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &right_packet
+                and:
+                    eq gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &right_packet
+                    and:
+                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &right_packet
+                        and:
+                            eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &right_packet
+                            and:
+                                eq gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &right_packet
+                                and:
+                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_row_start &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_start &right_packet
+                                    and:
+                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_row_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_row_count &right_packet
+                                        and:
+                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_width &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_width &right_packet
+                                            and:
+                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_height &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_height &right_packet
+                                                and:
+                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &right_packet
+                                                    and:
+                                                        eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &right_packet
+                                                        and:
+                                                            eq gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &right_packet
+                                                            and:
+                                                                eq gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &right_packet
+                                                                and:
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &right_packet
+                                                                    eq gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &left_packet gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &right_packet
+
+fn gui_bare_display_memory_option_frame_equal %fn Option FrameId fn Option FrameId bool \left\right:
+    match left:
+        Option::None:
+            match right:
+                Option::None:
+                    true
+                Option::Some right_frame:
+                    false
+        Option::Some left_frame:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_frame:
+                    eq frame_id_raw &left_frame frame_id_raw &right_frame
+
+fn gui_bare_display_memory_config_equal %fn &GuiBareFramebufferConfig fn &GuiBareFramebufferConfig bool \left\right:
+    let left_surface %SurfaceId gui_bare_framebuffer_config_surface left
+    let right_surface %SurfaceId gui_bare_framebuffer_config_surface right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq gui_bare_framebuffer_config_width left gui_bare_framebuffer_config_width right
+            and:
+                eq gui_bare_framebuffer_config_height left gui_bare_framebuffer_config_height right
+                eq gui_bare_framebuffer_config_stride_bytes left gui_bare_framebuffer_config_stride_bytes right
+
+fn gui_bare_display_memory_storage_active_from_storage %fn &GuiBareDisplayStorageActiveFrame GuiBareDisplayMemoryActiveFrame \active:
+    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_storage_active_frame_target active
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_storage_active_frame_descriptor active
+    let run_count %i32 gui_bare_display_storage_active_frame_accepted_run_count active
+    let pixel_count %i32 gui_bare_display_storage_active_frame_accepted_pixel_count active
+    gui_bare_display_memory_active_frame_new target descriptor run_count pixel_count
+
+fn gui_bare_display_memory_phase_from_storage_state %fn &GuiBareDisplayStorageState GuiBareDisplayMemoryPhase \storage_state:
+    match gui_bare_display_storage_state_phase storage_state:
+        GuiBareDisplayStoragePhase::Idle:
+            GuiBareDisplayMemoryPhase::Idle
+        GuiBareDisplayStoragePhase::Active active:
+            GuiBareDisplayMemoryPhase::Active gui_bare_display_memory_storage_active_from_storage &active
+
+fn gui_bare_display_memory_active_matches_storage %fn &GuiBareDisplayMemoryActiveFrame fn &GuiBareDisplayStorageActiveFrame Result unit GuiBareDisplayMemoryErrorKind \memory_active\storage_active:
+    let memory_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target memory_active
+    let storage_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_storage_active_frame_target storage_active
+    if not gui_bare_display_memory_target_equal memory_target storage_target:
+        then Result::Err GuiBareDisplayMemoryErrorKind::TargetMismatch
+        else:
+            let memory_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor memory_active
+            let storage_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_storage_active_frame_descriptor storage_active
+            if not gui_bare_display_memory_descriptor_equal &memory_descriptor &storage_descriptor:
+                then Result::Err GuiBareDisplayMemoryErrorKind::DescriptorMismatch
+                else:
+                    let memory_run_count %i32 gui_bare_display_memory_active_frame_accepted_run_count memory_active
+                    let storage_run_count %i32 gui_bare_display_storage_active_frame_accepted_run_count storage_active
+                    if ne memory_run_count storage_run_count:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::AcceptedRunCountMismatch
+                        else:
+                            let memory_pixel_count %i32 gui_bare_display_memory_active_frame_accepted_pixel_count memory_active
+                            let storage_pixel_count %i32 gui_bare_display_storage_active_frame_accepted_pixel_count storage_active
+                            if ne memory_pixel_count storage_pixel_count:
+                                then Result::Err GuiBareDisplayMemoryErrorKind::AcceptedPixelCountMismatch
+                                else Result::Ok unit
+
+fn gui_bare_display_memory_state_phase_matches_storage %fn &GuiBareDisplayMemoryState Result unit GuiBareDisplayMemoryErrorKind \state:
+    let storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state state
+    match gui_bare_display_storage_state_phase &storage_state:
+        GuiBareDisplayStoragePhase::Idle:
+            match gui_bare_display_memory_state_phase state:
+                GuiBareDisplayMemoryPhase::Idle:
+                    Result::Ok unit
+                GuiBareDisplayMemoryPhase::Active memory_active:
+                    Result::Err GuiBareDisplayMemoryErrorKind::MemoryPhaseMismatch
+        GuiBareDisplayStoragePhase::Active storage_active:
+            match gui_bare_display_memory_state_phase state:
+                GuiBareDisplayMemoryPhase::Idle:
+                    Result::Err GuiBareDisplayMemoryErrorKind::MemoryPhaseMismatch
+                GuiBareDisplayMemoryPhase::Active memory_active:
+                    gui_bare_display_memory_active_matches_storage &memory_active &storage_active
+
+fn gui_bare_display_memory_last_write_in_bounds %fn i32 fn GuiBareDisplayMemorySpanWritePlan Result unit GuiBareDisplayMemoryErrorKind \total_byte_count\plan:
+    let byte_start %i32 gui_bare_display_memory_span_write_plan_byte_start &plan
+    let byte_len %i32 gui_bare_display_memory_span_write_plan_byte_len &plan
+    let byte_end %i32 gui_bare_display_memory_span_write_plan_byte_end &plan
+    if or lt byte_start 0 le byte_len 0:
+        then Result::Err GuiBareDisplayMemoryErrorKind::LastWriteOutOfBounds
+        else:
+            if or lt byte_end byte_start gt byte_end total_byte_count:
+                then Result::Err GuiBareDisplayMemoryErrorKind::LastWriteOutOfBounds
+                else Result::Ok unit
+
+fn gui_bare_display_memory_state_invariant %fn &GuiBareDisplayMemoryState Result unit GuiBareDisplayMemoryErrorKind \state:
+    let storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state state
+    let framebuffer_state %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state &storage_state
+    let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &framebuffer_state
+    match gui_bare_display_memory_config_total_byte_count &config:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok expected_total:
+            let total_byte_count %i32 gui_bare_display_memory_state_total_byte_count state
+            if ne expected_total total_byte_count:
+                then Result::Err GuiBareDisplayMemoryErrorKind::SurfaceByteCountMismatch
+                else:
+                    match gui_bare_display_memory_state_phase_matches_storage state:
+                        Result::Err phase_kind:
+                            Result::Err phase_kind
+                        Result::Ok phase_ok:
+                            match gui_bare_display_memory_state_last_write state:
+                                Option::None:
+                                    Result::Ok unit
+                                Option::Some plan:
+                                    gui_bare_display_memory_last_write_in_bounds total_byte_count plan
+
+fn gui_bare_display_memory_storage_phase_equal %fn GuiBareDisplayStoragePhase fn GuiBareDisplayStoragePhase bool \left\right:
+    match left:
+        GuiBareDisplayStoragePhase::Idle:
+            match right:
+                GuiBareDisplayStoragePhase::Idle:
+                    true
+                GuiBareDisplayStoragePhase::Active right_active:
+                    false
+        GuiBareDisplayStoragePhase::Active left_active:
+            match right:
+                GuiBareDisplayStoragePhase::Idle:
+                    false
+                GuiBareDisplayStoragePhase::Active right_active:
+                    let memory_active %GuiBareDisplayMemoryActiveFrame gui_bare_display_memory_storage_active_from_storage &left_active
+                    match gui_bare_display_memory_active_matches_storage &memory_active &right_active:
+                        Result::Ok matched:
+                            true
+                        Result::Err mismatch:
+                            false
+
+fn gui_bare_display_memory_framebuffer_phase_equal %fn GuiBareFramebufferPhase fn GuiBareFramebufferPhase bool \left\right:
+    match left:
+        GuiBareFramebufferPhase::Idle:
+            match right:
+                GuiBareFramebufferPhase::Idle:
+                    true
+                GuiBareFramebufferPhase::Active right_active:
+                    false
+        GuiBareFramebufferPhase::Active left_active:
+            match right:
+                GuiBareFramebufferPhase::Idle:
+                    false
+                GuiBareFramebufferPhase::Active right_active:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target &left_active
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_framebuffer_active_sequence_target &right_active
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor &left_active
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_framebuffer_active_sequence_descriptor &right_active
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq gui_bare_framebuffer_active_sequence_seen_run_count &left_active gui_bare_framebuffer_active_sequence_seen_run_count &right_active
+                                eq gui_bare_framebuffer_active_sequence_seen_pixel_count &left_active gui_bare_framebuffer_active_sequence_seen_pixel_count &right_active
+
+fn gui_bare_display_memory_framebuffer_state_equal %fn &GuiBareFramebufferState fn &GuiBareFramebufferState bool \left\right:
+    let left_config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config left
+    let right_config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config right
+    let left_phase %GuiBareFramebufferPhase gui_bare_framebuffer_state_phase left
+    let right_phase %GuiBareFramebufferPhase gui_bare_framebuffer_state_phase right
+    let left_completed %Option FrameId gui_bare_framebuffer_state_last_completed_frame left
+    let right_completed %Option FrameId gui_bare_framebuffer_state_last_completed_frame right
+    and:
+        gui_bare_display_memory_config_equal &left_config &right_config
+        and:
+            gui_bare_display_memory_framebuffer_phase_equal left_phase right_phase
+            gui_bare_display_memory_option_frame_equal left_completed right_completed
+
+fn gui_bare_display_memory_storage_state_equal %fn &GuiBareDisplayStorageState fn &GuiBareDisplayStorageState bool \left\right:
+    let left_framebuffer %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state left
+    let right_framebuffer %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state right
+    let left_phase %GuiBareDisplayStoragePhase gui_bare_display_storage_state_phase left
+    let right_phase %GuiBareDisplayStoragePhase gui_bare_display_storage_state_phase right
+    let left_presented %Option FrameId gui_bare_display_storage_state_last_presented_frame left
+    let right_presented %Option FrameId gui_bare_display_storage_state_last_presented_frame right
+    and:
+        gui_bare_display_memory_framebuffer_state_equal &left_framebuffer &right_framebuffer
+        and:
+            gui_bare_display_memory_storage_phase_equal left_phase right_phase
+            gui_bare_display_memory_option_frame_equal left_presented right_presented
+
+pub fn gui_bare_display_memory_color_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r &left rgba8888_r &right
+        and:
+            eq rgba8888_g &left rgba8888_g &right
+            and:
+                eq rgba8888_b &left rgba8888_b &right
+                eq rgba8888_a &left rgba8888_a &right
+
+pub fn gui_bare_display_memory_span_equal %fn &GuiRgba8888RowTileRlePresentRunRowSpan fn &GuiRgba8888RowTileRlePresentRunRowSpan bool \left\right:
+    let left_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color left
+    let right_color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color right
+    and:
+        eq gui_rgba8888_row_tile_rle_present_run_row_span_x left gui_rgba8888_row_tile_rle_present_run_row_span_x right
+        and:
+            eq gui_rgba8888_row_tile_rle_present_run_row_span_y left gui_rgba8888_row_tile_rle_present_run_row_span_y right
+            and:
+                eq gui_rgba8888_row_tile_rle_present_run_row_span_width left gui_rgba8888_row_tile_rle_present_run_row_span_width right
+                gui_bare_display_memory_color_equal left_color right_color
+
+fn gui_bare_display_memory_effect_equal %fn GuiBareDisplayStorageEffect fn GuiBareDisplayStorageEffect bool \left\right:
+    match left:
+        GuiBareDisplayStorageEffect::FrameBegin left_begin:
+            match right:
+                GuiBareDisplayStorageEffect::FrameBegin right_begin:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_effect_target &left_begin
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_effect_target &right_begin
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_effect_descriptor &left_begin
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_effect_descriptor &right_begin
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                GuiBareDisplayStorageEffect::SpanWrite right_span:
+                    false
+                GuiBareDisplayStorageEffect::FramePresent right_present:
+                    false
+        GuiBareDisplayStorageEffect::SpanWrite left_span:
+            match right:
+                GuiBareDisplayStorageEffect::FrameBegin right_begin2:
+                    false
+                GuiBareDisplayStorageEffect::SpanWrite right_span:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_effect_target &left_span
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_effect_target &right_span
+                    let left_row_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_effect_span &left_span
+                    let right_row_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_effect_span &right_span
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_span_equal &left_row_span &right_row_span
+                            and:
+                                eq gui_bare_display_storage_span_write_effect_run_index &left_span gui_bare_display_storage_span_write_effect_run_index &right_span
+                                and:
+                                    eq gui_bare_display_storage_span_write_effect_pixel_start &left_span gui_bare_display_storage_span_write_effect_pixel_start &right_span
+                                    eq gui_bare_display_storage_span_write_effect_pixel_end &left_span gui_bare_display_storage_span_write_effect_pixel_end &right_span
+                GuiBareDisplayStorageEffect::FramePresent right_present2:
+                    false
+        GuiBareDisplayStorageEffect::FramePresent left_present:
+            match right:
+                GuiBareDisplayStorageEffect::FrameBegin right_begin3:
+                    false
+                GuiBareDisplayStorageEffect::SpanWrite right_span2:
+                    false
+                GuiBareDisplayStorageEffect::FramePresent right_present:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_effect_target &left_present
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_effect_target &right_present
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_effect_descriptor &left_present
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_effect_descriptor &right_present
+                    let left_frame %FrameId gui_bare_display_storage_present_effect_frame &left_present
+                    let right_frame %FrameId gui_bare_display_storage_present_effect_frame &right_present
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq frame_id_raw &left_frame frame_id_raw &right_frame
+                                and:
+                                    eq gui_bare_display_storage_present_effect_run_count &left_present gui_bare_display_storage_present_effect_run_count &right_present
+                                    eq gui_bare_display_storage_present_effect_pixel_count &left_present gui_bare_display_storage_present_effect_pixel_count &right_present
+
+fn gui_bare_display_memory_descriptor_matches_config %fn &GuiBareFramebufferConfig fn &GuiRgba8888RowTileRlePresentDescriptor Result unit GuiBareDisplayMemoryErrorKind \config\descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet descriptor
+    let descriptor_surface %SurfaceId gui_rgba8888_row_tile_rle_present_descriptor_surface descriptor
+    let config_surface %SurfaceId gui_bare_framebuffer_config_surface config
+    if ne surface_id_raw &descriptor_surface surface_id_raw &config_surface:
+        then Result::Err GuiBareDisplayMemoryErrorKind::DescriptorMismatch
+        else:
+            if or ne gui_rgba8888_row_tile_rle_packet_descriptor_width &packet gui_bare_framebuffer_config_width config ne gui_rgba8888_row_tile_rle_packet_descriptor_height &packet gui_bare_framebuffer_config_height config:
+                then Result::Err GuiBareDisplayMemoryErrorKind::DescriptorMismatch
+                else:
+                    if ne gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet gui_bare_framebuffer_config_stride_bytes config:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::DescriptorMismatch
+                        else Result::Ok unit
+
+pub fn gui_bare_display_memory_span_write_plan_checked %fn GuiBareFramebufferConfig fn GuiBareDisplayStorageSpanWriteEffect Result GuiBareDisplayMemorySpanWritePlan GuiBareDisplayMemoryErrorKind \config\effect:
+    match gui_bare_display_memory_config_total_byte_count &config:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok surface_byte_count:
+            let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_effect_span &effect
+            let span_x %i32 gui_rgba8888_row_tile_rle_present_run_row_span_x &span
+            let span_y %i32 gui_rgba8888_row_tile_rle_present_run_row_span_y &span
+            let span_width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width &span
+            if lt span_x 0:
+                then Result::Err GuiBareDisplayMemoryErrorKind::SpanXInvalid
+                else:
+                    if lt span_y 0:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::SpanYInvalid
+                        else:
+                            if le span_width 0:
+                                then Result::Err GuiBareDisplayMemoryErrorKind::SpanWidthInvalid
+                                else:
+                                    match gui_bare_display_memory_checked_add span_x span_width GuiBareDisplayMemoryErrorKind::SpanRightOverflow:
+                                        Result::Err right_kind:
+                                            Result::Err right_kind
+                                        Result::Ok span_right:
+                                            let width %i32 gui_bare_framebuffer_config_width &config
+                                            let height %i32 gui_bare_framebuffer_config_height &config
+                                            if or gt span_right width ge span_y height:
+                                                then Result::Err GuiBareDisplayMemoryErrorKind::SpanOutOfBounds
+                                                else:
+                                                    let stride_bytes %i32 gui_bare_framebuffer_config_stride_bytes &config
+                                                    match gui_bare_display_memory_checked_mul span_y stride_bytes GuiBareDisplayMemoryErrorKind::RowByteOffsetOverflow:
+                                                        Result::Err row_kind:
+                                                            Result::Err row_kind
+                                                        Result::Ok row_byte_start:
+                                                            match gui_bare_display_memory_checked_mul span_x 4 GuiBareDisplayMemoryErrorKind::XByteOffsetOverflow:
+                                                                Result::Err x_kind:
+                                                                    Result::Err x_kind
+                                                                Result::Ok x_byte_offset:
+                                                                    match gui_bare_display_memory_checked_add row_byte_start x_byte_offset GuiBareDisplayMemoryErrorKind::ByteStartOverflow:
+                                                                        Result::Err start_kind:
+                                                                            Result::Err start_kind
+                                                                        Result::Ok byte_start:
+                                                                            match gui_bare_display_memory_checked_mul span_width 4 GuiBareDisplayMemoryErrorKind::SpanByteLengthOverflow:
+                                                                                Result::Err len_kind:
+                                                                                    Result::Err len_kind
+                                                                                Result::Ok byte_len:
+                                                                                    match gui_bare_display_memory_checked_add byte_start byte_len GuiBareDisplayMemoryErrorKind::ByteEndOverflow:
+                                                                                        Result::Err end_kind:
+                                                                                            Result::Err end_kind
+                                                                                        Result::Ok byte_end:
+                                                                                            if gt byte_end surface_byte_count:
+                                                                                                then Result::Err GuiBareDisplayMemoryErrorKind::ByteOutOfBounds
+                                                                                                else:
+                                                                                                    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_effect_target &effect
+                                                                                                    let run_index %i32 gui_bare_display_storage_span_write_effect_run_index &effect
+                                                                                                    let pixel_start %i32 gui_bare_display_storage_span_write_effect_pixel_start &effect
+                                                                                                    let pixel_end %i32 gui_bare_display_storage_span_write_effect_pixel_end &effect
+                                                                                                    let color %Rgba8888 gui_rgba8888_row_tile_rle_present_run_row_span_color &span
+                                                                                                    Result::Ok gui_bare_display_memory_span_write_plan_new target span run_index pixel_start pixel_end row_byte_start x_byte_offset byte_start byte_len byte_end surface_byte_count color
+
+fn gui_bare_display_memory_action_begin %fn &GuiBareDisplayMemoryState fn GuiBareDisplayStorageFrameBeginEffect Result GuiBareDisplayMemoryAction GuiBareDisplayMemoryErrorKind \state\effect:
+    match gui_bare_display_memory_state_phase state:
+        GuiBareDisplayMemoryPhase::Active active:
+            Result::Err GuiBareDisplayMemoryErrorKind::BeginWhileActive
+        GuiBareDisplayMemoryPhase::Idle:
+            let storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state state
+            let framebuffer_state %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state &storage_state
+            let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &framebuffer_state
+            let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_effect_descriptor &effect
+            match gui_bare_display_memory_descriptor_matches_config &config &descriptor:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok descriptor_ok:
+                    let target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_effect_target &effect
+                    let surface_byte_count %i32 gui_bare_display_memory_state_total_byte_count state
+                    Result::Ok GuiBareDisplayMemoryAction::FrameBegin gui_bare_display_memory_begin_plan_new target descriptor surface_byte_count
+
+fn gui_bare_display_memory_action_span %fn &GuiBareDisplayMemoryState fn GuiBareDisplayStorageSpanWriteEffect Result GuiBareDisplayMemoryAction GuiBareDisplayMemoryErrorKind \state\effect:
+    match gui_bare_display_memory_state_phase state:
+        GuiBareDisplayMemoryPhase::Idle:
+            Result::Err GuiBareDisplayMemoryErrorKind::RunWithoutBegin
+        GuiBareDisplayMemoryPhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &active
+            let effect_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_effect_target &effect
+            if not gui_bare_display_memory_target_equal active_target effect_target:
+                then Result::Err GuiBareDisplayMemoryErrorKind::TargetMismatch
+                else:
+                    let expected_run_index %i32 gui_bare_display_memory_active_frame_accepted_run_count &active
+                    let effect_run_index %i32 gui_bare_display_storage_span_write_effect_run_index &effect
+                    if ne expected_run_index effect_run_index:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::RunIndexMismatch
+                        else:
+                            let expected_pixel_start %i32 gui_bare_display_memory_active_frame_accepted_pixel_count &active
+                            let effect_pixel_start %i32 gui_bare_display_storage_span_write_effect_pixel_start &effect
+                            if ne expected_pixel_start effect_pixel_start:
+                                then Result::Err GuiBareDisplayMemoryErrorKind::PixelStartMismatch
+                                else:
+                                    let span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_effect_span &effect
+                                    let span_width %i32 gui_rgba8888_row_tile_rle_present_run_row_span_width &span
+                                    match gui_bare_display_memory_checked_add effect_pixel_start span_width GuiBareDisplayMemoryErrorKind::PixelEndMismatch:
+                                        Result::Err end_kind:
+                                            Result::Err end_kind
+                                        Result::Ok expected_pixel_end:
+                                            let effect_pixel_end %i32 gui_bare_display_storage_span_write_effect_pixel_end &effect
+                                            if ne expected_pixel_end effect_pixel_end:
+                                                then Result::Err GuiBareDisplayMemoryErrorKind::PixelEndMismatch
+                                                else:
+                                                    let storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state state
+                                                    let framebuffer_state %GuiBareFramebufferState gui_bare_display_storage_state_framebuffer_state &storage_state
+                                                    let config %GuiBareFramebufferConfig gui_bare_framebuffer_state_config &framebuffer_state
+                                                    match gui_bare_display_memory_span_write_plan_checked config effect:
+                                                        Result::Err plan_kind:
+                                                            Result::Err plan_kind
+                                                        Result::Ok plan:
+                                                            Result::Ok GuiBareDisplayMemoryAction::SpanWrite plan
+
+fn gui_bare_display_memory_action_present %fn &GuiBareDisplayMemoryState fn GuiBareDisplayStorageFramePresentEffect Result GuiBareDisplayMemoryAction GuiBareDisplayMemoryErrorKind \state\effect:
+    match gui_bare_display_memory_state_phase state:
+        GuiBareDisplayMemoryPhase::Idle:
+            Result::Err GuiBareDisplayMemoryErrorKind::EndWithoutBegin
+        GuiBareDisplayMemoryPhase::Active active:
+            let active_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &active
+            let effect_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_effect_target &effect
+            if not gui_bare_display_memory_target_equal active_target effect_target:
+                then Result::Err GuiBareDisplayMemoryErrorKind::TargetMismatch
+                else:
+                    let active_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor &active
+                    let effect_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_effect_descriptor &effect
+                    if not gui_bare_display_memory_descriptor_equal &active_descriptor &effect_descriptor:
+                        then Result::Err GuiBareDisplayMemoryErrorKind::DescriptorMismatch
+                        else:
+                            let active_run_count %i32 gui_bare_display_memory_active_frame_accepted_run_count &active
+                            let effect_run_count %i32 gui_bare_display_storage_present_effect_run_count &effect
+                            if ne active_run_count effect_run_count:
+                                then Result::Err GuiBareDisplayMemoryErrorKind::PresentRunCountMismatch
+                                else:
+                                    let active_pixel_count %i32 gui_bare_display_memory_active_frame_accepted_pixel_count &active
+                                    let effect_pixel_count %i32 gui_bare_display_storage_present_effect_pixel_count &effect
+                                    if ne active_pixel_count effect_pixel_count:
+                                        then Result::Err GuiBareDisplayMemoryErrorKind::PresentPixelCountMismatch
+                                        else:
+                                            let expected_run_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count &effect_descriptor
+                                            let expected_pixel_count %i32 gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count &effect_descriptor
+                                            if ne effect_run_count expected_run_count:
+                                                then Result::Err GuiBareDisplayMemoryErrorKind::PresentRunCountMismatch
+                                                else:
+                                                    if ne effect_pixel_count expected_pixel_count:
+                                                        then Result::Err GuiBareDisplayMemoryErrorKind::PresentPixelCountMismatch
+                                                        else:
+                                                            let frame %FrameId gui_bare_display_storage_present_effect_frame &effect
+                                                            let surface_byte_count %i32 gui_bare_display_memory_state_total_byte_count state
+                                                            Result::Ok GuiBareDisplayMemoryAction::FramePresent gui_bare_display_memory_present_plan_new effect_target effect_descriptor frame effect_run_count effect_pixel_count surface_byte_count
+
+fn gui_bare_display_memory_action_for_effect %fn &GuiBareDisplayMemoryState fn GuiBareDisplayStorageEffect Result GuiBareDisplayMemoryAction GuiBareDisplayMemoryErrorKind \state\effect:
+    match effect:
+        GuiBareDisplayStorageEffect::FrameBegin begin:
+            gui_bare_display_memory_action_begin state begin
+        GuiBareDisplayStorageEffect::SpanWrite span:
+            gui_bare_display_memory_action_span state span
+        GuiBareDisplayStorageEffect::FramePresent present:
+            gui_bare_display_memory_action_present state present
+
+fn gui_bare_display_memory_last_write_after_action %fn Option GuiBareDisplayMemorySpanWritePlan fn GuiBareDisplayMemoryAction Option GuiBareDisplayMemorySpanWritePlan \last_write\action:
+    match action:
+        GuiBareDisplayMemoryAction::FrameBegin begin:
+            Option::None
+        GuiBareDisplayMemoryAction::SpanWrite plan:
+            Option::Some plan
+        GuiBareDisplayMemoryAction::FramePresent present:
+            last_write
+
+pub fn gui_bare_display_memory_span_write_plan_equal %fn &GuiBareDisplayMemorySpanWritePlan fn &GuiBareDisplayMemorySpanWritePlan bool \left\right:
+    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target left
+    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_span_write_plan_target right
+    let left_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span left
+    let right_span %GuiRgba8888RowTileRlePresentRunRowSpan gui_bare_display_memory_span_write_plan_span right
+    let left_color %Rgba8888 gui_bare_display_memory_span_write_plan_color left
+    let right_color %Rgba8888 gui_bare_display_memory_span_write_plan_color right
+    and:
+        gui_bare_display_memory_target_equal left_target right_target
+        and:
+            gui_bare_display_memory_span_equal &left_span &right_span
+            and:
+                eq gui_bare_display_memory_span_write_plan_run_index left gui_bare_display_memory_span_write_plan_run_index right
+                and:
+                    eq gui_bare_display_memory_span_write_plan_pixel_start left gui_bare_display_memory_span_write_plan_pixel_start right
+                    and:
+                        eq gui_bare_display_memory_span_write_plan_pixel_end left gui_bare_display_memory_span_write_plan_pixel_end right
+                        and:
+                            eq gui_bare_display_memory_span_write_plan_row_byte_start left gui_bare_display_memory_span_write_plan_row_byte_start right
+                            and:
+                                eq gui_bare_display_memory_span_write_plan_x_byte_offset left gui_bare_display_memory_span_write_plan_x_byte_offset right
+                                and:
+                                    eq gui_bare_display_memory_span_write_plan_byte_start left gui_bare_display_memory_span_write_plan_byte_start right
+                                    and:
+                                        eq gui_bare_display_memory_span_write_plan_byte_len left gui_bare_display_memory_span_write_plan_byte_len right
+                                        and:
+                                            eq gui_bare_display_memory_span_write_plan_byte_end left gui_bare_display_memory_span_write_plan_byte_end right
+                                            and:
+                                                eq gui_bare_display_memory_span_write_plan_surface_byte_count left gui_bare_display_memory_span_write_plan_surface_byte_count right
+                                                gui_bare_display_memory_color_equal left_color right_color
+
+fn gui_bare_display_memory_option_write_plan_equal %fn Option GuiBareDisplayMemorySpanWritePlan fn Option GuiBareDisplayMemorySpanWritePlan bool \left\right:
+    match left:
+        Option::None:
+            match right:
+                Option::None:
+                    true
+                Option::Some right_plan:
+                    false
+        Option::Some left_plan:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_plan:
+                    gui_bare_display_memory_span_write_plan_equal &left_plan &right_plan
+
+pub fn gui_bare_display_memory_action_equal %fn GuiBareDisplayMemoryAction fn GuiBareDisplayMemoryAction bool \left\right:
+    match left:
+        GuiBareDisplayMemoryAction::FrameBegin left_begin:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &left_begin
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_begin_plan_target &right_begin
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &left_begin
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_begin_plan_descriptor &right_begin
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            eq gui_bare_display_memory_begin_plan_surface_byte_count &left_begin gui_bare_display_memory_begin_plan_surface_byte_count &right_begin
+                GuiBareDisplayMemoryAction::SpanWrite right_span:
+                    false
+                GuiBareDisplayMemoryAction::FramePresent right_present:
+                    false
+        GuiBareDisplayMemoryAction::SpanWrite left_span:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin2:
+                    false
+                GuiBareDisplayMemoryAction::SpanWrite right_span:
+                    gui_bare_display_memory_span_write_plan_equal &left_span &right_span
+                GuiBareDisplayMemoryAction::FramePresent right_present2:
+                    false
+        GuiBareDisplayMemoryAction::FramePresent left_present:
+            match right:
+                GuiBareDisplayMemoryAction::FrameBegin right_begin3:
+                    false
+                GuiBareDisplayMemoryAction::SpanWrite right_span2:
+                    false
+                GuiBareDisplayMemoryAction::FramePresent right_present:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &left_present
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_present_plan_target &right_present
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &left_present
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_present_plan_descriptor &right_present
+                    let left_frame %FrameId gui_bare_display_memory_present_plan_frame &left_present
+                    let right_frame %FrameId gui_bare_display_memory_present_plan_frame &right_present
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq frame_id_raw &left_frame frame_id_raw &right_frame
+                                and:
+                                    eq gui_bare_display_memory_present_plan_run_count &left_present gui_bare_display_memory_present_plan_run_count &right_present
+                                    and:
+                                        eq gui_bare_display_memory_present_plan_pixel_count &left_present gui_bare_display_memory_present_plan_pixel_count &right_present
+                                        eq gui_bare_display_memory_present_plan_surface_byte_count &left_present gui_bare_display_memory_present_plan_surface_byte_count &right_present
+
+fn gui_bare_display_memory_phase_equal %fn GuiBareDisplayMemoryPhase fn GuiBareDisplayMemoryPhase bool \left\right:
+    match left:
+        GuiBareDisplayMemoryPhase::Idle:
+            match right:
+                GuiBareDisplayMemoryPhase::Idle:
+                    true
+                GuiBareDisplayMemoryPhase::Active right_active:
+                    false
+        GuiBareDisplayMemoryPhase::Active left_active:
+            match right:
+                GuiBareDisplayMemoryPhase::Idle:
+                    false
+                GuiBareDisplayMemoryPhase::Active right_active:
+                    let left_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &left_active
+                    let right_target %GuiRgba8888RowTileRlePresentHostSpanOperationTarget gui_bare_display_memory_active_frame_target &right_active
+                    let left_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor &left_active
+                    let right_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_bare_display_memory_active_frame_descriptor &right_active
+                    and:
+                        gui_bare_display_memory_target_equal left_target right_target
+                        and:
+                            gui_bare_display_memory_descriptor_equal &left_descriptor &right_descriptor
+                            and:
+                                eq gui_bare_display_memory_active_frame_accepted_run_count &left_active gui_bare_display_memory_active_frame_accepted_run_count &right_active
+                                eq gui_bare_display_memory_active_frame_accepted_pixel_count &left_active gui_bare_display_memory_active_frame_accepted_pixel_count &right_active
+
+pub fn gui_bare_display_memory_state_equal %fn &GuiBareDisplayMemoryState fn &GuiBareDisplayMemoryState bool \left\right:
+    let left_storage %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state left
+    let right_storage %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state right
+    let left_phase %GuiBareDisplayMemoryPhase gui_bare_display_memory_state_phase left
+    let right_phase %GuiBareDisplayMemoryPhase gui_bare_display_memory_state_phase right
+    let left_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_state_last_write left
+    let right_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_state_last_write right
+    and:
+        gui_bare_display_memory_storage_state_equal &left_storage &right_storage
+        and:
+            gui_bare_display_memory_phase_equal left_phase right_phase
+            and:
+                eq gui_bare_display_memory_state_total_byte_count left gui_bare_display_memory_state_total_byte_count right
+                gui_bare_display_memory_option_write_plan_equal left_write right_write
+
+//: gui_bare_display_memory_apply: storage ledger を checked byte write plan へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - supplied storage step は canonical storage state から[再適用/さいてきよう]し、state / effect が[一致/いっち]しない場合は[拒否/きょひ]します。
+//: - span は RGBA8888 byte range に[変換/へんかん]し、overflow と surface out-of-bounds を[検査/けんさ]します。
+//: - present は storage present effect と descriptor complete count が[一致/いっち]する場合だけ[成功/せいこう]します。
+pub fn gui_bare_display_memory_apply %fn GuiBareDisplayMemoryState fn GuiBareDisplayStorageStepApplied Result GuiBareDisplayMemoryStepApplied GuiBareDisplayMemoryStepError \state\storage_step:
+    match gui_bare_display_memory_state_invariant &state:
+        Result::Err invariant_kind:
+            Result::Err gui_bare_display_memory_step_error invariant_kind state storage_step
+        Result::Ok invariant_ok:
+            let framebuffer_step %GuiBareFramebufferStepApplied gui_bare_display_storage_step_applied_framebuffer_step &storage_step
+            let current_storage_state %GuiBareDisplayStorageState gui_bare_display_memory_state_storage_state &state
+            match gui_bare_display_storage_apply current_storage_state framebuffer_step:
+                Result::Err storage_error:
+                    let storage_kind %GuiBareDisplayStorageErrorKind gui_bare_display_storage_step_error_kind &storage_error
+                    let memory_kind %GuiBareDisplayMemoryErrorKind GuiBareDisplayMemoryErrorKind::StorageApplyFailed storage_kind
+                    Result::Err gui_bare_display_memory_step_error memory_kind state storage_step
+                Result::Ok expected_storage_step:
+                    let expected_storage_state %GuiBareDisplayStorageState gui_bare_display_storage_step_applied_state &expected_storage_step
+                    let supplied_storage_state %GuiBareDisplayStorageState gui_bare_display_storage_step_applied_state &storage_step
+                    if not gui_bare_display_memory_storage_state_equal &expected_storage_state &supplied_storage_state:
+                        then Result::Err gui_bare_display_memory_step_error GuiBareDisplayMemoryErrorKind::StorageStepStateMismatch state storage_step
+                        else:
+                            let expected_effect %GuiBareDisplayStorageEffect gui_bare_display_storage_step_applied_effect &expected_storage_step
+                            let supplied_effect %GuiBareDisplayStorageEffect gui_bare_display_storage_step_applied_effect &storage_step
+                            if not gui_bare_display_memory_effect_equal expected_effect supplied_effect:
+                                then Result::Err gui_bare_display_memory_step_error GuiBareDisplayMemoryErrorKind::StorageStepEffectMismatch state storage_step
+                                else:
+                                    match gui_bare_display_memory_action_for_effect &state expected_effect:
+                                        Result::Err action_kind:
+                                            Result::Err gui_bare_display_memory_step_error action_kind state storage_step
+                                        Result::Ok action:
+                                            let next_phase %GuiBareDisplayMemoryPhase gui_bare_display_memory_phase_from_storage_state &expected_storage_state
+                                            let last_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_state_last_write &state
+                                            let next_write %Option GuiBareDisplayMemorySpanWritePlan gui_bare_display_memory_last_write_after_action last_write action
+                                            let total_byte_count %i32 gui_bare_display_memory_state_total_byte_count &state
+                                            let next_state %GuiBareDisplayMemoryState gui_bare_display_memory_state_new expected_storage_state next_phase total_byte_count next_write
+                                            Result::Ok gui_bare_display_memory_step_applied_new next_state action expected_storage_step

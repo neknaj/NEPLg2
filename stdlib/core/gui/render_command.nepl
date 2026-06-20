@@ -6,7 +6,7 @@
 //: - TUI text-grid backend は `TextCellRun` command を[受/う]け、具体的な output encoding は platform [層/そう]で[処理/しょり]します。
 //:
 //: ### [注意/ちゅうい]
-//: - text/image の[実体/じったい]は `TextRunId` / `ImageId` で[参照/さんしょう]します。文字列 buffer や image buffer は core では[保持/ほじ]しません。
+//: - text/image/alpha mask の[実体/じったい]は `TextRunId` / `ImageId` / `AlphaMaskId` で[参照/さんしょう]します。文字列 buffer、image buffer、mask buffer は core では[保持/ほじ]しません。
 //: - Phase 1 では command value と constructor だけを[置/お]き、trait-heavy な RenderTarget/DrawTarget 実装は[追加/ついか]しません。
 //:
 //: ### [計算量/けいさんりょう]
@@ -46,6 +46,18 @@ impl Clone for ImageId:
 
 impl Copy for ImageId:
     fn copy_mark %fn ImageId ImageId \id:
+        id
+
+//: AlphaMaskId: backend [側/がわ]の alpha mask resource を[参照/さんしょう]する id
+pub struct AlphaMaskId:
+    raw %i32
+
+impl Clone for AlphaMaskId:
+    fn clone %fn &AlphaMaskId AlphaMaskId \id:
+        *id
+
+impl Copy for AlphaMaskId:
+    fn copy_mark %fn AlphaMaskId AlphaMaskId \id:
         id
 
 //: GuiPaint: fill [用/よう] paint
@@ -433,6 +445,73 @@ impl Copy for ImageRectCommand:
     fn copy_mark %fn ImageRectCommand ImageRectCommand \command:
         command
 
+//: AlphaMaskRectCommand: alpha mask resource [参照/さんしょう] command の payload
+//:
+//: ### [目的/もくてき]
+//: - alpha mask buffer の[実体/じったい]を core に[持/も]たせず、`AlphaMaskId`、[配置/はいち]先 `GuiRect`、[着色/ちゃくしょく]に[使/つか]う `GuiPaint` だけを command stream に[載/の]せます。
+//:
+//: ### [契約/けいやく]
+//: - この command は SourceOver [合成/ごうせい]で alpha mask を[塗/ぬ]るための payload です。任意の blend mode は payload に[持/も]たないため、SourceOver 以外の glyph blend は command [構築/こうちく]前に typed error で[拒否/きょひ]します。
+//: - 出力 RGB は `GuiPaint` の RGB 由来です。出力 alpha は mask alpha と `GuiPaint` alpha を renderer [層/そう]が SourceOver contract に[従/したが]って[合成/ごうせい]します。
+//: - mask byte storage、mask dimensions、resource 解決、missing resource、unsupported resource は alloc/std/platform/renderer [層/そう]が `Result` / `GuiError` で[扱/あつか]います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `AlphaMaskId`、`GuiRect`、`GuiPaint` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。mask decode、upload、blend 実行はこの型では[行/おこな]いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_alpha_mask_rect_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"mask id\" expected=\"42\" actual=\"42\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn command_code %fn RenderCommand i32 \command:
+//:     match command:
+//:         RenderCommand::AlphaMaskRect payload:
+//:             let read_id %AlphaMaskId alpha_mask_rect_command_mask_id &payload
+//:             alpha_mask_id_raw &read_id
+//:         _:
+//:             0
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new full full full full
+//:     let paint %GuiPaint gui_paint_solid color
+//:     let mask %AlphaMaskId alpha_mask_id_new 42
+//:     let rect %GuiRect gui_rect_new 3 4 50 60
+//:     command_code render_command_alpha_mask_rect mask rect paint
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_alpha_mask_rect_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "mask id" 42 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
+pub struct AlphaMaskRectCommand:
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+
+impl Clone for AlphaMaskRectCommand:
+    fn clone %fn &AlphaMaskRectCommand AlphaMaskRectCommand \command:
+        *command
+
+impl Copy for AlphaMaskRectCommand:
+    fn copy_mark %fn AlphaMaskRectCommand AlphaMaskRectCommand \command:
+        command
+
 //: TextCellRunCommand: text-grid run command の payload
 //:
 //: ### [目的/もくてき]
@@ -500,7 +579,7 @@ impl Copy for TextCellRunCommand:
 //: - resource handle と command payload は typed value として[渡/わた]し、platform handle や string sentinel は core public API に[出/だ]しません。
 //:
 //: ### [現在/げんざい]の[実装/じっそう]
-//: - Fill/stroke/line/text/image/clip/transform/text-cell command を持つ Copy enum です。
+//: - Fill/stroke/line/text/image/alpha-mask/clip/transform/text-cell command を持つ Copy enum です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - construction、copy、variant match は O(1) です。描画 cost は backend の variant [処理/しょり]に[依存/いぞん]します。
@@ -547,6 +626,7 @@ pub enum RenderCommand:
     Line %LineCommand
     TextRun %TextRunCommand
     ImageRect %ImageRectCommand
+    AlphaMaskRect %AlphaMaskRectCommand
     PushClip %GuiRect
     PopClip
     PushTransform %Transform2d
@@ -569,9 +649,49 @@ pub fn text_run_id_new %fn i32 TextRunId \raw:
 pub fn image_id_new %fn i32 ImageId \raw:
     ImageId raw
 
+//: alpha_mask_id_new: alpha mask id を[作/つく]る
+pub fn alpha_mask_id_new %fn i32 AlphaMaskId \raw:
+    AlphaMaskId raw
+
 //: gui_paint_solid: solid fill paint を[作/つく]る
 pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
     GuiPaint color
+
+//: gui_paint_color: fill paint の color を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - renderer や font rasterizer が `GuiPaint` の[内部/ないぶ] field 名に[依存/いぞん]せず、solid color を O(1) で[取得/しゅとく]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let r %u8 cast 10
+//:     let g %u8 cast 20
+//:     let b %u8 cast 30
+//:     let a %u8 cast 40
+//:     let color %Rgba8888 rgba8888_new r g b a
+//:     let paint %GuiPaint gui_paint_solid color
+//:     let read_color %Rgba8888 gui_paint_color &paint
+//:     cast rgba8888_a &read_color
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_render_command_gui_paint_color_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "alpha" 40 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
+pub fn gui_paint_color %fn &GuiPaint Rgba8888 \paint:
+    *field::get_ref paint "color"
 
 //: gui_stroke_new: stroke を[作/つく]る
 pub fn gui_stroke_new %fn Rgba8888 fn i32 GuiStroke \color\width:
@@ -629,9 +749,25 @@ pub fn text_cell_run_cell_count %fn &TextCellRun i32 \run:
 pub fn text_cell_run_style %fn &TextCellRun TextCellStyle \run:
     *field::get_ref run "style"
 
+//: alpha_mask_rect_command_mask_id: alpha mask command の mask id を[読/よ]む
+pub fn alpha_mask_rect_command_mask_id %fn &AlphaMaskRectCommand AlphaMaskId \command:
+    *field::get_ref command "mask_id"
+
+//: alpha_mask_rect_command_rect: alpha mask command の rect を[読/よ]む
+pub fn alpha_mask_rect_command_rect %fn &AlphaMaskRectCommand GuiRect \command:
+    *field::get_ref command "rect"
+
+//: alpha_mask_rect_command_paint: alpha mask command の paint を[読/よ]む
+pub fn alpha_mask_rect_command_paint %fn &AlphaMaskRectCommand GuiPaint \command:
+    *field::get_ref command "paint"
+
 //: render_command_fill_rect: fill rect command を[作/つく]る
 pub fn render_command_fill_rect %fn GuiRect fn GuiPaint RenderCommand \rect\paint:
     RenderCommand::FillRect FillRectCommand rect paint
+
+//: render_command_alpha_mask_rect: SourceOver alpha mask rect command を[作/つく]る
+pub fn render_command_alpha_mask_rect %fn AlphaMaskId fn GuiRect fn GuiPaint RenderCommand \mask_id\rect\paint:
+    RenderCommand::AlphaMaskRect AlphaMaskRectCommand mask_id rect paint
 
 //: render_command_text_cell_run: text cell run command を[作/つく]る
 pub fn render_command_text_cell_run %fn TextCellRun RenderCommand \run:
@@ -647,4 +783,8 @@ pub fn render_command_is_text_cell_run %fn RenderCommand bool \command:
 
 //: text_run_id_raw: text run id の raw value を[読/よ]む
 pub fn text_run_id_raw %fn &TextRunId i32 \id:
+    *field::get_ref id "raw"
+
+//: alpha_mask_id_raw: alpha mask id の raw value を[読/よ]む
+pub fn alpha_mask_id_raw %fn &AlphaMaskId i32 \id:
     *field::get_ref id "raw"

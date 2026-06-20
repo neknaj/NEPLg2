@@ -1,0 +1,472 @@
+//: # alloc/gui/render2d/row_tile_rle
+//: RGBA8888 row tile RLE cursor boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTilePayloadOwner` を、tile 内の RGBA8888 pixel run を 1 件ずつ[読/よ]む streaming cursor に[変換/へんかん]します。
+//: - run は `pixel_offset`、`pixel_count`、`Rgba8888 color` だけを[持/も]つ Copy metadata とし、cursor が payload owner を[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - start は payload byte count が正で RGBA8888 の 4 byte pixel に[整列/せいれつ]していることを[検査/けんさ]します。
+//: - next_run は complete cursor に対して `CursorComplete` を[返/かえ]し、error から cursor owner を[回収/かいしゅう]できます。
+//: - pixel index から byte offset への変換と channel offset はすべて checked 演算で[検査/けんさ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は encoded RLE buffer、Vec、raw storage、video memory、host present、Canvas、DOM、minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleStartErrorKind:
+    PayloadByteCountInvalid
+    PayloadByteCountNotRgbaAligned
+
+impl Clone for GuiRgba8888RowTileRleStartErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleStartErrorKind GuiRgba8888RowTileRleStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleStartErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleStartErrorKind GuiRgba8888RowTileRleStartErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleStepErrorKind:
+    CursorIndexNegative
+    CursorIndexPastEnd
+    CursorComplete
+    PixelByteOffsetOverflow
+    PixelByteChannelOverflow
+    PayloadReadFailed %GuiRgba8888RowTilePayloadReadErrorKind
+    NextPixelIndexOverflow
+    RunLengthOverflow
+    RunPixelOffsetMismatch
+    RunPixelCountInvalid
+    RunEndOutOfBounds
+
+impl Clone for GuiRgba8888RowTileRleStepErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleStepErrorKind GuiRgba8888RowTileRleStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleStepErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleStepErrorKind GuiRgba8888RowTileRleStepErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleCursorStatus:
+    Ready
+    Complete
+
+impl Clone for GuiRgba8888RowTileRleCursorStatus:
+    fn clone %fn &GuiRgba8888RowTileRleCursorStatus GuiRgba8888RowTileRleCursorStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowTileRleCursorStatus:
+    fn copy_mark %fn GuiRgba8888RowTileRleCursorStatus GuiRgba8888RowTileRleCursorStatus \status:
+        status
+
+pub struct GuiRgba8888RowTileRleRun:
+    pixel_offset %i32
+    pixel_count %i32
+    color %Rgba8888
+
+impl Clone for GuiRgba8888RowTileRleRun:
+    fn clone %fn &GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleRun \run:
+        *run
+
+impl Copy for GuiRgba8888RowTileRleRun:
+    fn copy_mark %fn GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleRun \run:
+        run
+
+pub struct GuiRgba8888RowTileRleCursorOwner:
+    payload %GuiRgba8888RowTilePayloadOwner
+    pixel_count %i32
+    next_pixel_index %i32
+
+pub struct GuiRgba8888RowTileRleStartError:
+    kind %GuiRgba8888RowTileRleStartErrorKind
+    category %Option GuiError
+    payload %GuiRgba8888RowTilePayloadOwner
+
+pub struct GuiRgba8888RowTileRleStep:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    run %GuiRgba8888RowTileRleRun
+
+pub struct GuiRgba8888RowTileRleStepError:
+    kind %GuiRgba8888RowTileRleStepErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowTileRleCursorOwner
+
+fn gui_rgba8888_row_tile_rle_cursor_owner_new %fn GuiRgba8888RowTilePayloadOwner fn i32 fn i32 GuiRgba8888RowTileRleCursorOwner \payload\pixel_count\next_pixel_index:
+    GuiRgba8888RowTileRleCursorOwner payload pixel_count next_pixel_index
+
+fn gui_rgba8888_row_tile_rle_run_new %fn i32 fn i32 fn Rgba8888 GuiRgba8888RowTileRleRun \pixel_offset\pixel_count\color:
+    GuiRgba8888RowTileRleRun pixel_offset pixel_count color
+
+fn gui_rgba8888_row_tile_rle_step_new %fn GuiRgba8888RowTileRleCursorOwner fn GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleStep \cursor\run:
+    GuiRgba8888RowTileRleStep cursor run
+
+fn gui_rgba8888_row_tile_rle_start_error_category %fn GuiRgba8888RowTileRleStartErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountNotRgbaAligned:
+            Option::Some GuiError::InvalidGeometry
+
+fn gui_rgba8888_row_tile_rle_step_error_category %fn GuiRgba8888RowTileRleStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleStepErrorKind::PixelByteOffsetOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleStepErrorKind::PayloadReadFailed _:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_start_error %fn GuiRgba8888RowTileRleStartErrorKind fn GuiRgba8888RowTilePayloadOwner GuiRgba8888RowTileRleStartError \kind\payload:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_start_error_category kind
+    GuiRgba8888RowTileRleStartError kind category payload
+
+fn gui_rgba8888_row_tile_rle_step_error %fn GuiRgba8888RowTileRleStepErrorKind fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStepError \kind\cursor:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_step_error_category kind
+    GuiRgba8888RowTileRleStepError kind category cursor
+
+fn gui_rgba8888_row_tile_rle_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleStepErrorKind Result i32 GuiRgba8888RowTileRleStepErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowTileRleStepErrorKind Result i32 GuiRgba8888RowTileRleStepErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_tile_rle_payload_byte_at %fn &GuiRgba8888RowTilePayloadOwner fn i32 Result i32 GuiRgba8888RowTileRleStepErrorKind \payload\index:
+    match gui_rgba8888_row_tile_payload_byte_at payload index:
+        Result::Err kind:
+            Result::Err GuiRgba8888RowTileRleStepErrorKind::PayloadReadFailed kind
+        Result::Ok value:
+            Result::Ok value
+
+fn gui_rgba8888_row_tile_rle_pixel_byte_offset %fn i32 Result i32 GuiRgba8888RowTileRleStepErrorKind \pixel_index:
+    gui_rgba8888_row_tile_rle_checked_mul_nonnegative pixel_index 4 GuiRgba8888RowTileRleStepErrorKind::PixelByteOffsetOverflow
+
+fn gui_rgba8888_row_tile_rle_read_pixel %fn &GuiRgba8888RowTilePayloadOwner fn i32 Result Rgba8888 GuiRgba8888RowTileRleStepErrorKind \payload\pixel_index:
+    match gui_rgba8888_row_tile_rle_pixel_byte_offset pixel_index:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok byte_offset:
+            match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 1 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok g_offset:
+                    match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 2 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok b_offset:
+                            match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta byte_offset 3 GuiRgba8888RowTileRleStepErrorKind::PixelByteChannelOverflow:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok a_offset:
+                                    match gui_rgba8888_row_tile_rle_payload_byte_at payload byte_offset:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok r:
+                                            match gui_rgba8888_row_tile_rle_payload_byte_at payload g_offset:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok g:
+                                                    match gui_rgba8888_row_tile_rle_payload_byte_at payload b_offset:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok b:
+                                                            match gui_rgba8888_row_tile_rle_payload_byte_at payload a_offset:
+                                                                Result::Err kind:
+                                                                    Result::Err kind
+                                                                Result::Ok a:
+                                                                    let r_channel %u8 cast r
+                                                                    let g_channel %u8 cast g
+                                                                    let b_channel %u8 cast b
+                                                                    let a_channel %u8 cast a
+                                                                    Result::Ok rgba8888_new r_channel g_channel b_channel a_channel
+
+fn gui_rgba8888_row_tile_rle_color_equal %fn &Rgba8888 fn &Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r left rgba8888_r right
+        and:
+            eq rgba8888_g left rgba8888_g right
+            and:
+                eq rgba8888_b left rgba8888_b right
+                eq rgba8888_a left rgba8888_a right
+
+pub fn gui_rgba8888_row_tile_rle_run_pixel_offset %fn &GuiRgba8888RowTileRleRun i32 \run:
+    *field::get_ref run "pixel_offset"
+
+pub fn gui_rgba8888_row_tile_rle_run_pixel_count %fn &GuiRgba8888RowTileRleRun i32 \run:
+    *field::get_ref run "pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_run_color %fn &GuiRgba8888RowTileRleRun Rgba8888 \run:
+    *field::get_ref run "color"
+
+pub fn gui_rgba8888_row_tile_rle_cursor_pixel_count %fn &GuiRgba8888RowTileRleCursorOwner i32 \cursor:
+    *field::get_ref cursor "pixel_count"
+
+pub fn gui_rgba8888_row_tile_rle_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleCursorOwner i32 \cursor:
+    *field::get_ref cursor "next_pixel_index"
+
+pub fn gui_rgba8888_row_tile_rle_cursor_payload_descriptor_checked %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePayloadAuthorityErrorKind \cursor:
+    let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref cursor "payload"
+    gui_rgba8888_row_tile_payload_descriptor_checked payload
+
+pub fn gui_rgba8888_row_tile_rle_cursor_payload_plan_metadata_checked %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTilePlan GuiRgba8888RowTilePayloadAuthorityErrorKind \cursor:
+    let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref cursor "payload"
+    gui_rgba8888_row_tile_payload_plan_metadata_checked payload
+
+pub fn gui_rgba8888_row_tile_rle_start_error_kind %fn &GuiRgba8888RowTileRleStartError GuiRgba8888RowTileRleStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_start_error_category_value %fn &GuiRgba8888RowTileRleStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_start_error_payload %fn GuiRgba8888RowTileRleStartError GuiRgba8888RowTilePayloadOwner \error:
+    field::get error "payload"
+
+pub fn gui_rgba8888_row_tile_rle_step_run %fn &GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleRun \step:
+    *field::get_ref step "run"
+
+pub fn gui_rgba8888_row_tile_rle_step_finish_cursor %fn GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleCursorOwner \step:
+    field::get step "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_step_error_kind %fn &GuiRgba8888RowTileRleStepError GuiRgba8888RowTileRleStepErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_step_error_category_value %fn &GuiRgba8888RowTileRleStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_step_error_cursor %fn GuiRgba8888RowTileRleStepError GuiRgba8888RowTileRleCursorOwner \error:
+    field::get error "cursor"
+
+//: gui_rgba8888_row_tile_rle_cursor_start: tile payload を pixel run cursor に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - payload byte count が 4 byte pixel に[整列/せいれつ]していない場合は start error に payload owner を[保持/ほじ]します。
+//: - start は cursor を先頭 pixel に[置/お]き、pixel payload をまだ[走査/そうさ]しません。
+pub fn gui_rgba8888_row_tile_rle_cursor_start %fn GuiRgba8888RowTilePayloadOwner Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStartError \payload:
+    let byte_count %i32 gui_rgba8888_row_tile_payload_byte_count &payload
+    if le byte_count 0:
+        then Result::Err gui_rgba8888_row_tile_rle_start_error GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountInvalid payload
+        else:
+            let remainder %i32 rem_s byte_count 4
+            if ne remainder 0:
+                then Result::Err gui_rgba8888_row_tile_rle_start_error GuiRgba8888RowTileRleStartErrorKind::PayloadByteCountNotRgbaAligned payload
+                else:
+                    let pixel_count %i32 div_s byte_count 4
+                    Result::Ok gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count 0
+
+//: gui_rgba8888_row_tile_rle_cursor_status: cursor の現在位置を pixel run stream status として[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `next_pixel_index == pixel_count` だけが `Complete` です。
+//: - index が負または終端を[越/こ]えている場合は typed error です。
+pub fn gui_rgba8888_row_tile_rle_cursor_status %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileRleCursorStatus GuiRgba8888RowTileRleStepErrorKind \cursor:
+    let next_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+    if lt next_pixel_index 0:
+        then Result::Err GuiRgba8888RowTileRleStepErrorKind::CursorIndexNegative
+        else:
+            if gt next_pixel_index pixel_count:
+                then Result::Err GuiRgba8888RowTileRleStepErrorKind::CursorIndexPastEnd
+                else:
+                    if eq next_pixel_index pixel_count:
+                        then Result::Ok GuiRgba8888RowTileRleCursorStatus::Complete
+                        else Result::Ok GuiRgba8888RowTileRleCursorStatus::Ready
+
+fn gui_rgba8888_row_tile_rle_scan_run %fn &GuiRgba8888RowTilePayloadOwner fn i32 fn i32 fn Rgba8888 Result i32 GuiRgba8888RowTileRleStepErrorKind \payload\start_pixel_index\pixel_count\color:
+    let mut scan_index %i32 add start_pixel_index 1
+    let mut run_count %i32 1
+    let mut done %bool false
+    let mut failed %bool false
+    let mut failure_kind %GuiRgba8888RowTileRleStepErrorKind GuiRgba8888RowTileRleStepErrorKind::CursorComplete
+    while not done:
+        do:
+            if ge scan_index pixel_count:
+                then:
+                    set done true
+                else:
+                    match gui_rgba8888_row_tile_rle_read_pixel payload scan_index:
+                        Result::Err kind:
+                            set failed true
+                            set failure_kind kind
+                            set done true
+                        Result::Ok next_color:
+                            if gui_rgba8888_row_tile_rle_color_equal &color &next_color:
+                                then:
+                                    match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta scan_index 1 GuiRgba8888RowTileRleStepErrorKind::NextPixelIndexOverflow:
+                                        Result::Err kind:
+                                            set failed true
+                                            set failure_kind kind
+                                            set done true
+                                        Result::Ok next_scan_index:
+                                            match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta run_count 1 GuiRgba8888RowTileRleStepErrorKind::RunLengthOverflow:
+                                                Result::Err kind:
+                                                    set failed true
+                                                    set failure_kind kind
+                                                    set done true
+                                                Result::Ok next_run_count:
+                                                    set scan_index next_scan_index
+                                                    set run_count next_run_count
+                                else:
+                                    set done true
+    if failed:
+        then Result::Err failure_kind
+        else Result::Ok run_count
+
+fn gui_rgba8888_row_tile_rle_peek_run_at %fn &GuiRgba8888RowTilePayloadOwner fn i32 fn i32 Result GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleStepErrorKind \payload\start_pixel_index\pixel_count:
+    match gui_rgba8888_row_tile_rle_read_pixel payload start_pixel_index:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok color:
+            match gui_rgba8888_row_tile_rle_scan_run payload start_pixel_index pixel_count color:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok run_count:
+                    Result::Ok gui_rgba8888_row_tile_rle_run_new start_pixel_index run_count color
+
+//: gui_rgba8888_row_tile_rle_cursor_peek_run: cursor を[進/すす]めずに次の pixel run を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - cursor owner を[消費/しょうひ]せず、payload owner も[外/そと]へ[出/だ]しません。
+//: - Complete cursor は `CursorComplete` を[返/かえ]します。
+//: - writer はこの関数で run を[借用/しゃくよう]読みにし、storage write が成功した後でだけ `advance_by_run` を[呼/よ]びます。
+pub fn gui_rgba8888_row_tile_rle_cursor_peek_run %fn &GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileRleRun GuiRgba8888RowTileRleStepErrorKind \cursor:
+    match gui_rgba8888_row_tile_rle_cursor_status cursor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Err GuiRgba8888RowTileRleStepErrorKind::CursorComplete
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+                    let start_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+                    let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref cursor "payload"
+                    gui_rgba8888_row_tile_rle_peek_run_at payload start_pixel_index pixel_count
+
+fn gui_rgba8888_row_tile_rle_run_advance_index %fn &GuiRgba8888RowTileRleCursorOwner fn &GuiRgba8888RowTileRleRun Result i32 GuiRgba8888RowTileRleStepErrorKind \cursor\run:
+    match gui_rgba8888_row_tile_rle_cursor_status cursor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Err GuiRgba8888RowTileRleStepErrorKind::CursorComplete
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    let start_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+                    let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset run
+                    if ne run_pixel_offset start_pixel_index:
+                        then Result::Err GuiRgba8888RowTileRleStepErrorKind::RunPixelOffsetMismatch
+                        else:
+                            let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count run
+                            if le run_pixel_count 0:
+                                then Result::Err GuiRgba8888RowTileRleStepErrorKind::RunPixelCountInvalid
+                                else:
+                                    match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta start_pixel_index run_pixel_count GuiRgba8888RowTileRleStepErrorKind::NextPixelIndexOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok next_pixel_index:
+                                            let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+                                            if gt next_pixel_index pixel_count:
+                                                then Result::Err GuiRgba8888RowTileRleStepErrorKind::RunEndOutOfBounds
+                                                else Result::Ok next_pixel_index
+
+//: gui_rgba8888_row_tile_rle_cursor_advance_by_run: peek 済み run で cursor を 1 run [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - run の `pixel_offset` が cursor の現在位置と一致し、`pixel_count` が正で、終端を[越/こ]えないことを[検査/けんさ]します。
+//: - 失敗時は original cursor owner を error に[保持/ほじ]します。
+//: - payload の再読込は行わず、storage write 成功後の continuation 生成だけを[担当/たんとう]します。
+pub fn gui_rgba8888_row_tile_rle_cursor_advance_by_run %fn GuiRgba8888RowTileRleCursorOwner fn &GuiRgba8888RowTileRleRun Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStepError \cursor\run:
+    match gui_rgba8888_row_tile_rle_run_advance_index &cursor run:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_step_error kind cursor
+        Result::Ok next_pixel_index:
+            let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count &cursor
+            let payload %GuiRgba8888RowTilePayloadOwner field::get cursor "payload"
+            Result::Ok gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count next_pixel_index
+
+//: gui_rgba8888_row_tile_rle_cursor_next_run: cursor を 1 pixel run [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - Ready cursor では現在 pixel の color を[読/よ]み、同色の連続 run を[数/かぞ]えます。
+//: - Complete cursor は `CursorComplete` error として cursor owner を[返/かえ]します。
+//: - 成功時は continuation cursor owner と Copy run metadata を[返/かえ]します。
+pub fn gui_rgba8888_row_tile_rle_cursor_next_run %fn GuiRgba8888RowTileRleCursorOwner Result GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleStepError \cursor:
+    match gui_rgba8888_row_tile_rle_cursor_status &cursor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_step_error kind cursor
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Err gui_rgba8888_row_tile_rle_step_error GuiRgba8888RowTileRleStepErrorKind::CursorComplete cursor
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count &cursor
+                    let start_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index &cursor
+                    let payload %GuiRgba8888RowTilePayloadOwner field::get cursor "payload"
+                    match gui_rgba8888_row_tile_rle_read_pixel &payload start_pixel_index:
+                        Result::Err kind:
+                            let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count start_pixel_index
+                            Result::Err gui_rgba8888_row_tile_rle_step_error kind recovered_cursor
+                        Result::Ok color:
+                            match gui_rgba8888_row_tile_rle_scan_run &payload start_pixel_index pixel_count color:
+                                Result::Err kind:
+                                    let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count start_pixel_index
+                                    Result::Err gui_rgba8888_row_tile_rle_step_error kind recovered_cursor
+                                Result::Ok run_count:
+                                    match gui_rgba8888_row_tile_rle_checked_add_nonnegative_delta start_pixel_index run_count GuiRgba8888RowTileRleStepErrorKind::NextPixelIndexOverflow:
+                                        Result::Err kind:
+                                            let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count start_pixel_index
+                                            Result::Err gui_rgba8888_row_tile_rle_step_error kind recovered_cursor
+                                        Result::Ok next_pixel_index:
+                                            let next_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count next_pixel_index
+                                            let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_run_new start_pixel_index run_count color
+                                            Result::Ok gui_rgba8888_row_tile_rle_step_new next_cursor run
+
+pub fn gui_rgba8888_row_tile_rle_cursor_finish_payload %fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTilePayloadOwner \cursor:
+    field::get cursor "payload"
+
+pub fn gui_rgba8888_row_tile_rle_cursor_free %fn GuiRgba8888RowTileRleCursorOwner Result unit GuiRgba8888RowByteStorageFinishErrorKind \cursor:
+    let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload cursor
+    gui_rgba8888_row_tile_payload_free payload
+
+pub fn gui_rgba8888_row_tile_rle_start_error_free %fn GuiRgba8888RowTileRleStartError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_start_error_payload error
+    gui_rgba8888_row_tile_payload_free payload
+
+pub fn gui_rgba8888_row_tile_rle_step_error_free %fn GuiRgba8888RowTileRleStepError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_error_cursor error
+    gui_rgba8888_row_tile_rle_cursor_free cursor

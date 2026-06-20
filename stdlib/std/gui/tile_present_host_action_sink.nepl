@@ -1,0 +1,103 @@
+//: # std/gui/tile_present_host_action_sink
+//: RGBA8888 row tile RLE present host action sink の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - Web / native / bare executor が[返/かえ]した outcome を、F5cw action と[一緒/いっしょ]に std layer の typed step へ[包/つつ]みます。
+//: - outcome を[包/つつ]む[前/まえ]に、F5cy support validation を[必/かなら]ず[通/とお]します。
+//:
+//: ### [契約/けいやく]
+//: - この module は actual platform execution を[行/おこな]いません。
+//: - success / failure outcome は caller が[渡/わた]した `Result unit GuiError` をそのまま[保持/ほじ]し、std layer では[作/つく]りません。
+//: - unsupported target は fallback や silent no-op にせず、typed error として[返/かえ]します。
+//: - F5da driver pending、dispatch loop completion、host report bridge、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_action_sink" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_host_execution" as *
+#import "std/gui/tile_present_host_executor" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostActionSinkStep:
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+    outcome %Result unit GuiError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionSinkStep GuiRgba8888RowTileRlePresentHostActionSinkStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionSinkStep GuiRgba8888RowTileRlePresentHostActionSinkStep \step:
+        step
+
+pub enum GuiRgba8888RowTileRlePresentHostActionSinkErrorKind:
+    UnsupportedAction %GuiRgba8888RowTileRlePresentHostExecutorError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionSinkErrorKind GuiRgba8888RowTileRlePresentHostActionSinkErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionSinkErrorKind GuiRgba8888RowTileRlePresentHostActionSinkErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRlePresentHostActionSinkError:
+    kind %GuiRgba8888RowTileRlePresentHostActionSinkErrorKind
+    category %Option GuiError
+    action %GuiRgba8888RowTileRlePresentHostExecutionAction
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkError:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionSinkError GuiRgba8888RowTileRlePresentHostActionSinkError \error:
+        *error
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkError:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionSinkError GuiRgba8888RowTileRlePresentHostActionSinkError \error:
+        error
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_step_new %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888RowTileRlePresentHostActionSinkStep \action\outcome:
+    GuiRgba8888RowTileRlePresentHostActionSinkStep action outcome
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_error_new %fn GuiRgba8888RowTileRlePresentHostActionSinkErrorKind fn Option GuiError fn GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostActionSinkError \kind\category\action:
+    GuiRgba8888RowTileRlePresentHostActionSinkError kind category action
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_unsupported_error %fn GuiRgba8888RowTileRlePresentHostExecutionAction fn GuiRgba8888RowTileRlePresentHostExecutorError GuiRgba8888RowTileRlePresentHostActionSinkError \action\support_error:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_host_executor_error_category_value &support_error
+    let kind %GuiRgba8888RowTileRlePresentHostActionSinkErrorKind GuiRgba8888RowTileRlePresentHostActionSinkErrorKind::UnsupportedAction support_error
+    gui_rgba8888_row_tile_rle_present_host_action_sink_error_new kind category action
+
+//: gui_rgba8888_row_tile_rle_present_host_action_sink_step: executor outcome を support validation [後/ご]に step へ[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - F5cy `require_supported` が[成功/せいこう]した action だけを step にします。
+//: - outcome は caller が[渡/わた]した[値/あたい]をそのまま[保持/ほじ]し、この boundary では success / failure を[作/つく]りません。
+//: - F5da pending completion は caller の[責務/せきむ]であり、この function は pending を[所有/しょゆう]しません。
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_step %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostExecutionAction fn Result unit GuiError Result GuiRgba8888RowTileRlePresentHostActionSinkStep GuiRgba8888RowTileRlePresentHostActionSinkError \support\action\outcome:
+    match gui_rgba8888_row_tile_rle_present_host_executor_require_supported support action:
+        Result::Err support_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_action_sink_unsupported_error action support_error
+        Result::Ok _unit:
+            let step %GuiRgba8888RowTileRlePresentHostActionSinkStep gui_rgba8888_row_tile_rle_present_host_action_sink_step_new action outcome
+            Result::Ok step
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_step_action %fn &GuiRgba8888RowTileRlePresentHostActionSinkStep GuiRgba8888RowTileRlePresentHostExecutionAction \step:
+    *field::get_ref step "action"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_step_outcome %fn &GuiRgba8888RowTileRlePresentHostActionSinkStep Result unit GuiError \step:
+    *field::get_ref step "outcome"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_error_kind %fn &GuiRgba8888RowTileRlePresentHostActionSinkError GuiRgba8888RowTileRlePresentHostActionSinkErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_error_category_value %fn &GuiRgba8888RowTileRlePresentHostActionSinkError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_error_action %fn &GuiRgba8888RowTileRlePresentHostActionSinkError GuiRgba8888RowTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"

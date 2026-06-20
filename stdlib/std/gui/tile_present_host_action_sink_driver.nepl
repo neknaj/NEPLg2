@@ -1,0 +1,113 @@
+//: # std/gui/tile_present_host_action_sink_driver
+//: RGBA8888 row tile RLE present host action sink driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare executor が[返/かえ]した outcome を F5dc action sink で[検査/けんさ]し、F5da one-shot driver completion へ[接続/せつぞく]します。
+//: - sink rejection では driver pending を[消費/しょうひ]せず、owner-bearing error として caller に[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - success / failure outcome は caller が[渡/わた]した `Result unit GuiError` だけを[使/つか]い、この module では[作/つく]りません。
+//: - F5dc support preflight が[失敗/しっぱい]した[場合/ばあい]、F5da completion は[呼/よ]ばず、original driver pending を error payload へ[移/うつ]します。
+//: - F5dc support preflight が[成功/せいこう]した[場合/ばあい]だけ、F5da `complete_outcome` で dispatch loop completion へ[進/すす]みます。
+//: - platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_action_sink_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present_dispatch_loop" as *
+#import "std/gui/tile_present_host_action_sink" as *
+#import "std/gui/tile_present_host_execution_driver" as *
+#import "std/gui/tile_present_host_executor" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostActionSinkDriverStep:
+    sink_step %GuiRgba8888RowTileRlePresentHostActionSinkStep
+    completion %GuiRgba8888RowTileRlePresentDispatchLoopCompletion
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkDriverStep:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentHostActionSinkDriverStep \step:
+        *step
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkDriverStep:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentHostActionSinkDriverStep \step:
+        step
+
+pub struct GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected:
+    sink_error %GuiRgba8888RowTileRlePresentHostActionSinkError
+    driver %GuiRgba8888RowTileRlePresentHostExecutionDriverPending
+
+pub struct GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed:
+    sink_step %GuiRgba8888RowTileRlePresentHostActionSinkStep
+    driver_error %GuiRgba8888RowTileRlePresentHostExecutionDriverError
+
+impl Clone for GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed \failure:
+        *failure
+
+impl Copy for GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed \failure:
+        failure
+
+pub enum GuiRgba8888RowTileRlePresentHostActionSinkDriverError:
+    SinkRejected %GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected
+    DriverCompletionFailed %GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step_new %fn GuiRgba8888RowTileRlePresentHostActionSinkStep fn GuiRgba8888RowTileRlePresentDispatchLoopCompletion GuiRgba8888RowTileRlePresentHostActionSinkDriverStep \sink_step\completion:
+    GuiRgba8888RowTileRlePresentHostActionSinkDriverStep sink_step completion
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_rejected_new %fn GuiRgba8888RowTileRlePresentHostActionSinkError fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected \sink_error\driver:
+    GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected sink_error driver
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_failed_new %fn GuiRgba8888RowTileRlePresentHostActionSinkStep fn GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed \sink_step\driver_error:
+    GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed sink_step driver_error
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_sink_error %fn GuiRgba8888RowTileRlePresentHostActionSinkError fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending GuiRgba8888RowTileRlePresentHostActionSinkDriverError \sink_error\driver:
+    let rejection %GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected gui_rgba8888_row_tile_rle_present_host_action_sink_driver_rejected_new sink_error driver
+    GuiRgba8888RowTileRlePresentHostActionSinkDriverError::SinkRejected rejection
+
+fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_error %fn GuiRgba8888RowTileRlePresentHostActionSinkStep fn GuiRgba8888RowTileRlePresentHostExecutionDriverError GuiRgba8888RowTileRlePresentHostActionSinkDriverError \sink_step\driver_error:
+    let failure %GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_failed_new sink_step driver_error
+    GuiRgba8888RowTileRlePresentHostActionSinkDriverError::DriverCompletionFailed failure
+
+//: gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step: F5dc sink step を F5da one-shot completion へ[接続/せつぞく]する
+//:
+//: [契約/けいやく]:
+//: - F5da driver pending から action を[借用/しゃくよう]で[読/よ]み、F5dc support preflight と outcome packaging を[先/さき]に[行/おこな]います。
+//: - F5dc が[拒否/きょひ]した[場合/ばあい]、driver pending は error payload へ[移/うつ]され、F5da completion は[呼/よ]ばれません。
+//: - F5dc が[成功/せいこう]した[場合/ばあい]だけ、同じ caller-supplied outcome で F5da completion を[呼/よ]びます。
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step %fn GuiRgba8888RowTileRlePresentHostExecutorSupport fn GuiRgba8888RowTileRlePresentHostExecutionDriverPending fn Result unit GuiError Result GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentHostActionSinkDriverError \support\driver\outcome:
+    let action gui_rgba8888_row_tile_rle_present_host_execution_driver_pending_action &driver
+    match gui_rgba8888_row_tile_rle_present_host_action_sink_step support action outcome:
+        Result::Err sink_error:
+            Result::Err gui_rgba8888_row_tile_rle_present_host_action_sink_driver_sink_error sink_error driver
+        Result::Ok sink_step:
+            match gui_rgba8888_row_tile_rle_present_host_execution_driver_complete_outcome support driver outcome:
+                Result::Ok completion:
+                    Result::Ok gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step_new sink_step completion
+                Result::Err driver_error:
+                    Result::Err gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_error sink_step driver_error
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step_sink_step %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentHostActionSinkStep \step:
+    *field::get_ref step "sink_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_step_completion %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverStep GuiRgba8888RowTileRlePresentDispatchLoopCompletion \step:
+    *field::get_ref step "completion"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_rejected_sink_error %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected GuiRgba8888RowTileRlePresentHostActionSinkError \rejection:
+    *field::get_ref rejection "sink_error"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_rejected_driver %fn GuiRgba8888RowTileRlePresentHostActionSinkDriverRejected GuiRgba8888RowTileRlePresentHostExecutionDriverPending \rejection:
+    field::get rejection "driver"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_failed_sink_step %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed GuiRgba8888RowTileRlePresentHostActionSinkStep \failure:
+    *field::get_ref failure "sink_step"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_action_sink_driver_completion_failed_driver_error %fn &GuiRgba8888RowTileRlePresentHostActionSinkDriverCompletionFailed GuiRgba8888RowTileRlePresentHostExecutionDriverError \failure:
+    *field::get_ref failure "driver_error"

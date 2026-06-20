@@ -28,6 +28,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     const surfaceSource = readRepoFile("stdlib", "platforms", "gui", "web", "surface.nepl");
     const timerSource = readRepoFile("stdlib", "platforms", "gui", "web", "timer.nepl");
     const surfaceCode = stripNeplLineComments(surfaceSource);
+    const timerCode = stripNeplLineComments(timerSource);
     const runTestSource = readRepoFile("nodesrc", "run_test.js");
     const designSource = readRepoFile("doc", "neplg2", "gui_redesign_detailed_design.md");
     const implementationPlanSource = readRepoFile("doc", "neplg2", "gui_redesign_implementation_plan.md");
@@ -153,8 +154,9 @@ async function runWebGuiVideoMemoryHostImportRegression() {
         "nepl_gui_web_request_timer",
         "private storeGuiWebInputEventTakeResult",
     );
-    assert.match(workerTimerImportPath, /repeatingRaw !== 1/);
-    assert.match(workerTimerImportPath, /this\.requestGuiRuntimeTimer\(windowId, timerId, intervalMs, true\)/);
+    assert.match(workerTimerImportPath, /repeatingRaw !== 0 && repeatingRaw !== 1/);
+    assert.match(workerTimerImportPath, /this\.requestGuiRuntimeTimer\(windowId, timerId, intervalMs, repeatingRaw === 1\)/);
+    assert.doesNotMatch(workerTimerImportPath, /\|\|\s*repeatingRaw !== 1\s*(?:\n|\r\n)|requestGuiRuntimeTimer\(windowId, timerId, intervalMs, true\)/);
     assert.doesNotMatch(workerTimerImportPath, /stdout|GuiWebStdoutProtocol|parse/);
     assert.doesNotMatch(workerTimerImportPath, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
 
@@ -198,9 +200,12 @@ async function runWebGuiVideoMemoryHostImportRegression() {
         "private queueGuiRuntimeTimerTick",
     );
     assert.match(timerRequestHelper, /this\.guiRuntimeInputWindowIds\.has\(request\.windowId\)/);
-    assert.match(timerRequestHelper, /!request\.repeating/);
+    assert.match(timerRequestHelper, /typeof request\.repeating !== 'boolean'/);
+    assert.match(timerRequestHelper, /existing && existing\.intervalMs === request\.intervalMs && existing\.repeating === request\.repeating/);
     assert.match(timerRequestHelper, /request\.intervalMs === 0/);
     assert.match(timerRequestHelper, /setInterval\(\(\) => this\.queueGuiRuntimeTimerTick\(key\), request\.intervalMs\)/);
+    assert.match(timerRequestHelper, /setTimeout\(\(\) => this\.queueGuiRuntimeTimerTick\(key\), request\.intervalMs\)/);
+    assert.doesNotMatch(timerRequestHelper, /if \(!request\.repeating\)[\s\S]*GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT/);
     assert.doesNotMatch(timerRequestHelper, /GuiWebStdoutProtocolEvent|NEPLG2_GUI_ANIMATE_MS|stdout/);
 
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_create_surface"/);
@@ -225,8 +230,8 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(timerSource, /timer_request_timer/);
     assert.match(timerSource, /timer_request_interval_ms/);
     assert.match(timerSource, /timer_request_repeating/);
-    assert.match(timerSource, /not repeating/);
-    assert.doesNotMatch(stripNeplLineComments(timerSource), /stdout_protocol|gui_web_stdout|presentCommands|beginFrame|fallback/);
+    assert.doesNotMatch(timerSource, /not repeating|one-shot timer[^。]*InvalidCommand/);
+    assert.doesNotMatch(timerCode, /stdout_protocol|gui_web_stdout|presentCommands|beginFrame|fallback/);
 
     assert.match(runTestSource, /request_timer: \(\) => -1/);
     assert.match(runTestSource, /video_memory_create_surface: \(\) => -1/);
