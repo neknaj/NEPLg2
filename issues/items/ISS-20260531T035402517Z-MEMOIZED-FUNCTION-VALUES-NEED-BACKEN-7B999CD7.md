@@ -319,3 +319,31 @@ observation kind / status / record / table は module-private である。public
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge / observation ban gate の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - observation table request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。
+
+## 2026-06-21 selfhost memo_call backend actual walker event normalizer stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future actual Resource IR walker が返す単一の unified event stream を既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配する normalizer stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。目的は、actual traversal が将来 body / place / edge / unsupported / observation を 1 本の typed stream として返したときに、それを GraphInput や proof table へ直接渡さず、既存 scanner / graph gate / observation ban gate へ必ず通す境界を固定することである。
+
+normalizer は body / place / edge / unsupported payload を `SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` へ写し、detected observation だけを `SelfhostMemoCallBackendPrivateCacheObservationBanTable` へ写す。`NoObservationDetected` は body 全体の無観測証明ではないため table に追加せず、成功 proof や accepted graph へ変換しない。detected observation が 1 件でもある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにした。
+
+unified event payload / table / split output は module-private である。public API には private unified stream や split output を受け取る accepted path を作らず、stage0 summary と typed result helper だけを公開した。split の失敗時は、walker input push が失敗した場合には observation table だけを閉じ、observation table push が失敗した場合には walker input だけを閉じるように、owner cleanup の責務を push 関数の消費契約に合わせて分けた。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。unified event payload / table / split output が public signature に露出しないこと、owner table と split output が Clone / Copy にならないこと、split loop と error helper が wildcard fallback を使わないこと、graph-side event は既存 walker input push へ、observation event は既存 observation ban table / gate へ流すこと、normalizer が `PrivateCacheNoEscapeProven` / `PrivateCacheStorage` / `CloneOutOwnedValue` / GraphInput / proof table record を合成しないことを固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-normalizer-full.json`
+
+残件:
+
+- actual Resource IR walker 本体が unified event stream を生成する境界。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner / producer bridge / observation ban gate / unified normalizer の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- observation table request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化、stage0 fixture 分割。

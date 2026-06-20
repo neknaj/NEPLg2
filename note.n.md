@@ -75789,3 +75789,36 @@ MERGE_APPROVED
 - actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する。
 - actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して observation table へ出す。
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+
+## 2026-06-21 selfhost memo_call actual walker event normalizer checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource observation ban classifier stage0 の次段として actual walker unified event normalizer stage0 を追加した。
+- この checkpoint は actual Resource IR walker 本体ではない。future actual walker が返す単一の body / place / edge / unsupported / observation stream を、既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配する境界を固定した。
+- detected observation が 1 件でもある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにした。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload`、`SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable`、`SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput` を module-private 型として追加した。
+- split loop は body / place / edge / unsupported payload を既存 `ResourceWalkerInput` push へ通し、`ObservationDetected` だけを `ObservationBanTable` へ通す。`NoObservationDetected` は body 全体の無観測証明ではないため accepted proof に変換せず、table にも追加しない。
+- normalizer gate は split 後、detected observation があれば graph-side walker input を閉じて既存 observation ban gate を実行する。detected observation がなければ observation table を閉じて既存 scanner / graph gate を実行する。
+- split の owner cleanup は、walker input push 失敗時には observation table だけを閉じ、observation table push 失敗時には walker input だけを閉じるように分けた。unified event table は split result が成功・失敗どちらでも閉じる。
+- source policy を更新し、unified event payload / table / split output の public 露出禁止、owner Clone / Copy 禁止、wildcard fallback 禁止、既存 scanner / graph gate / observation ban gate 経由、accepted proof / accepted graph payload / proof table / GraphInput 合成禁止を固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。この slice は、actual Resource IR traversal に入る前に単一 typed event stream を既存 graph path と observation path へ分配する境界を固定する right next step と確認された。
+- required 指摘は、actual walker 本体と誤認されない命名、unified event 型の module-private 維持、exhaustive match、既存 scanner / graph gate / observation ban gate 経由、accepted proof / place / edge 合成禁止、operation ordinal と owner cleanup の明確化だった。今回の実装と source policy で対応した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-normalizer-full.json`
+
+### remaining
+
+- actual Resource IR walker 本体が unified event stream を生成する境界へ進める。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。

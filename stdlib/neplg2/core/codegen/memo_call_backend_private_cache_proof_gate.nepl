@@ -26,6 +26,7 @@
 //: - Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します。event stream はまだ actual walker 由来ではなく stage0 fixture だけですが、body / place / edge / unsupported event の authority 境界、owner cleanup、unsupported override を先に固定します。
 //: - Resource walker producer bridge は、HIR root から request table を内部再構築し、request occurrence ごとの private walker event stream を module-private に生成して既存 scanner / graph gate へ渡します。actual Resource IR traversal が閉じた graph を返せない部分は typed unsupported event として fail-closed に扱い、成功 proof にはしません。
 //: - Resource observation ban stage0 は、cache hit / miss / size / clear / debug と、function equality / hash / debug / wrapper identity / raw address observation を typed observation kind から unsupported walker event へ畳みます。これは actual walker からの検出結果を受けるための分類境界であり、NoEscape proof を合成する境界ではありません。
+//: - Actual walker event normalizer stage0 は、future actual Resource IR walker が返す単一の unified stream を、既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配します。detected observation がある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにします。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -34,6 +35,7 @@
 //: - walker input scanner は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると、duplicate / membership / unsupported override の線形 scan に O((b+p+e+u)^2) 時間を使います。これは index 化可能ですが、event stream の typed authority と unsupported override の contract を先に固定します。
 //: - producer bridge は現状、request table を O(n) で収集し、request 数 `m` に対して O(m) 個の body / unsupported event を作ります。その後の scanner と graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従います。actual Resource IR walker が接続された後も、request authority を HIR root から再収集する contract は維持します。
 //: - observation kind から unsupported reason への分類は O(1) です。実際の HIR / Resource IR traversal が観測 operation を列挙する計算量は、actual walker stage の doc comment で別に記録します。
+//: - unified event normalizer は event 数を `a` とすると O(a) 時間で stream を分配し、その後は observation が検出された場合は既存 observation ban gate、検出されない場合は既存 walker scanner / graph gate の計算量に従います。actual traversal の探索範囲削減や event index 化は後続で行えますが、observation precedence と owner cleanup の契約は維持します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -215,6 +217,30 @@
 //:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.cache_observation_rejected expected_key
 //:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.function_identity_observation_rejected expected_key
 //:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq summary.raw_identity_observation_rejected expected_key
+//:     let shown checks_print_report checks3
+//:     checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_stage0
+//:     let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq summary.unsupported_rejected expected_key
+//:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq summary.observation_rejected expected_key
+//:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq summary.mixed_observation_rejected expected_key
 //:     let shown checks_print_report checks3
 //:     checks_exit_code shown
 //: ```
@@ -658,6 +684,41 @@ struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInput:
     edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord
     unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord
 
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload: future actual walker が返す単一 event stream の 1 payload
+//:
+//: [目的/もくてき]:
+//: - actual Resource IR walker は実装上、body / place / edge / unsupported / observation を 1 本の typed stream として返す方が、traversal order と owner cleanup を管理しやすくなります。
+//: - この enum は、その単一 stream を既存の `ResourceWalkerInput` と `ObservationBanTable` へ分配するための module-private payload です。
+//:
+//: [契約/けいやく]:
+//: - payload は actual traversal の結果を分類するためだけに使います。`PrivateCacheNoEscapeProven`、`PrivateCacheStorage`、`CloneOutOwnedValue`、accepted proof record はここでは作りません。
+//: - observation payload は observation ban gate へ渡すための record であり、graph path に直接混ぜて accepted proof を作る用途には使いません。
+//: - この enum は public API に出しません。actual walker が接続されるまでは、外部 caller が forged stream を渡せる入口を作らないためです。
+enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload:
+    Body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord
+    Place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord
+    Edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord
+    Unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord
+    Observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable: future actual walker event stream の owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private owner です。外部 module から stream を渡せる public API は、actual Resource walker 本体が authority を持つまで作りません。
+//: - table 自体に `Clone` / `Copy` を実装してはいけません。
+struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable:
+    events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput: unified event stream を分配した owner pair
+//:
+//: [契約/けいやく]:
+//: - `walker_input` は body / place / edge / unsupported event だけを持ち、既存 scanner で GraphInput へ正規化されます。
+//: - `observations` は `ObservationDetected` だけを保持します。`NoObservationDetected` は proof ではないため、accepted path には進めず、単に分配後の観測禁止 table に追加しません。
+//: - この struct は owner を 2 つ持つため、`Clone` / `Copy` を実装してはいけません。
+struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput:
+    walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput
+    observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable
+
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind: walker event scanner の拒否理由
 //:
 //: [目的/もくてき]:
@@ -749,6 +810,26 @@ pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKin
     OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
     Stage0FixtureAllocFailed %StdErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind: unified walker event normalizer の拒否分類
+//:
+//: [目的/もくてき]:
+//: - future actual walker の単一 event stream を既存の scanner / graph gate / observation ban gate へ渡す途中で、どの境界が拒否したかを enum で保持します。
+//:
+//: [契約/けいやく]:
+//: - error payload は owner table を含みません。途中失敗時には normalizer が unified event table、walker input、observation table の owner を閉じます。
+//: - `GraphGateRejected` は graph-only stream が既存 graph gate で拒否されたことを表します。`ObservationGateRejected` は detected observation が既存 observation ban gate で拒否されたことを表します。
+//: - この error は accepted backend plan ではありません。stage0 doctest が fail-closed 経路を比較するための public enum です。
+pub enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind:
+    ActualWalkerEventTableAllocFailed %StdErrorKind
+    ActualWalkerEventPushFailed %StdErrorKind
+    ActualWalkerEventReadFailed %i32
+    WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    ObservationTableBuildRejected %StdErrorKind
+    ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    GraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    ObservationGateRejected %SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -759,6 +840,18 @@ pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKin
 pub struct SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary:
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary: unified walker event normalizer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - unsupported graph-only stream、observation-only stream、graph と observation が混ざった stream が、いずれも accepted proof へ進まず fail-closed になることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は private unified event table、split output、walker input、observation table を公開しません。公開されるのは Result payload だけです。
+pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary:
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
+    mixed_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
@@ -1231,6 +1324,45 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeSt
 //: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary: producer bridge stage0 summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload: unified walker event payload を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - payload は typed record を 1 つ持つだけで、event table owner ではありません。copy は stream owner を複製せず、正規化中の record 値を渡すためだけに使います。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload: unified walker event payload の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind: normalizer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error payload は enum と index だけを持ち、unified event table owner、walker input owner、observation table owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind: normalizer error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary: normalizer smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private owner table を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary: normalizer smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -1967,6 +2099,46 @@ fn selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupport
         Result::Err e:
             selfhost_memo_call_backend_private_cache_resource_walker_input_free input
             Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_new: [空/から]の unified event table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この table は actual walker event stream の owner です。stage0 fixture 以外の public caller へは公開しません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \void:
+    let events_result %Result Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload StdErrorKind v::new
+    match events_result:
+        Result::Ok events:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable events
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_free: unified event table owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_free %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable unit \table:
+    v::free field::get table "events"
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_len: unified event 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_len %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable i32 \table:
+    let events %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get_ref table "events"
+    v::len events
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_get: unified event payload を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_get %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable fn i32 Option SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \table\idx:
+    let events %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get_ref table "events"
+    v::get events idx
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_push: unified event payload を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - push は payload を stream owner に保存するだけです。body / place / edge / observation の semantic validation は、既存 walker input push と observation table push へ分配するときに行います。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_push %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \table\payload:
+    let events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get table "events"
+    match v::push events payload:
+        Result::Ok next_events:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable next_events
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed error
 
 //: selfhost_memo_call_backend_private_cache_resource_walker_body_identity_eq: walker body identity が同じか[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_resource_walker_body_identity_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord bool \a\b:
@@ -4342,6 +4514,67 @@ pub fn selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_e
                 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_code: normalizer error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が display string ではなく enum 分類で unified event normalizer の拒否理由を比較できるようにします。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_code %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventTableAllocFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed _e:
+            2
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
+            3
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
+            4
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected _e:
+            5
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ScannerOutputRejected _e:
+            6
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::GraphGateRejected _e:
+            7
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationGateRejected _e:
+            8
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::Stage0FixtureAllocFailed _e:
+            9
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_kind_eq: normalizer error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_code a selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_code b
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq: normalizer が Unknown proof として拒否したか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - graph-only unsupported stream と detected observation stream が、どちらも accepted proof ではなく既存 gate の Unknown rejection へ流れたことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `GraphGateRejected` と `ObservationGateRejected` だけを true にし、alloc / scanner / read failure を観測禁止分類や graph proof 成功として扱いません。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::GraphGateRejected graph_error:
+                    selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq Result::Err graph_error expected_key
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationGateRejected observation_error:
+                    selfhost_memo_call_backend_private_cache_observation_ban_unknown_result_eq Result::Err observation_error expected_key
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ScannerOutputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_placeholder_result_eq: producer bridge が placeholder fingerprint を key 生成前に拒否したか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -4746,6 +4979,102 @@ fn selfhost_memo_call_backend_private_cache_observation_status_to_reason %fn Sel
         SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected kind:
             some selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason kind
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_with_owners: split 失敗時に両 owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_with_owners %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \input\observations\error:
+    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push: walker input push 失敗後に observation owner だけを[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - walker input push は失敗時に input owner を閉じるため、この helper は observation table だけを閉じます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push %impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \observations\error:
+    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected error
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_observation_push: observation push 失敗後に walker input だけを[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - observation table push は失敗時に table owner を閉じるため、この helper は walker input だけを閉じます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_observation_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn StdErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \input\error:
+    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected error
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop: unified event stream を walker input と observation table へ[分配/ぶんぱい]する
+//:
+//: [契約/けいやく]:
+//: - body / place / edge / unsupported payload は既存 `ResourceWalkerInput` push へ通します。GraphInput や proof table へ直接書きません。
+//: - `ObservationDetected` だけを observation table へ通します。`NoObservationDetected` は全体証明ではないため、成功 proof や accepted graph に変換しません。
+//: - match は wildcard fallback を使いません。event payload が増えた場合、分配先を明示する必要があります。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop %impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \events\input\observations\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+        else:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_get events idx:
+                Option::Some payload:
+                    match payload:
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input body:
+                                Result::Ok next_input:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events next_input observations add idx 1 n
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push observations e
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input place:
+                                Result::Ok next_input:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events next_input observations add idx 1 n
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push observations e
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input edge:
+                                Result::Ok next_input:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events next_input observations add idx 1 n
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push observations e
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input unsupported:
+                                Result::Ok next_input:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events next_input observations add idx 1 n
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_walker_push observations e
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation record:
+                            match record.status:
+                                SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events input observations add idx 1 n
+                                SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected _kind:
+                                    match selfhost_memo_call_backend_private_cache_observation_ban_table_push observations record:
+                                        Result::Ok next_observations:
+                                            selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop events input next_observations add idx 1 n
+                                        Result::Err e:
+                                            selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_after_observation_push input e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_split_fail_with_owners input observations SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_split_result: unified event table を既存 gate 用 owner へ[分配/ぶんぱい]する
+//:
+//: [契約/けいやく]:
+//: - 成功時は split output が walker input と observation table の owner を保持します。
+//: - 失敗時はこの関数または下位 helper が作成済み owner を閉じます。unified event table は成功・失敗のどちらでもここで閉じます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \events:
+    match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+        Result::Ok input0:
+            match selfhost_memo_call_backend_private_cache_observation_ban_table_new:
+                Result::Ok observations0:
+                    let n %i32 selfhost_memo_call_backend_private_cache_actual_walker_event_table_len &events
+                    let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop &events input0 observations0 0 n
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_walker_input_free input0
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected e
+
 //: selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key: observation record が request key に[属/ぞく]するか[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_observation_ban_record_matches_key %fn SelfhostMemoCallBackendPrivateCacheObservationBanRecord fn SelfhostMemoCallBackendPrivateCacheProofKey bool \record\key:
     selfhost_memo_call_backend_private_cache_proof_key_eq record.key key
@@ -4871,6 +5200,63 @@ fn selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_r
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_graph_gate_result: split 後の graph stream を既存 scanner / graph gate へ[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - walker input は必ず既存 scanner を通します。GraphInput や proof table へ直接書く経路は作りません。
+//: - graph-only stream が accepted graph を作れるとしても、この関数は backend bytes や effect masking には進みません。返すのは既存 gate の non-executable summary だけです。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_graph_gate_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \module\root\fuel\body_module_fingerprint\input:
+    match selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input:
+        Result::Ok graph:
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph
+            selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+            match result:
+                Result::Ok summary:
+                    Result::Ok summary
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::GraphGateRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ScannerOutputRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_observation_gate_result: split 後の observation stream を既存 observation ban gate へ[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - detected observation が 1 件でもある場合、graph stream の結果で上書きせず、observation ban gate を優先して実行します。
+//: - observation table は accepted proof table ではありません。既存 observation ban gate で unsupported event へ変換し、graph gate の Unknown rejection として扱います。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_observation_gate_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \module\root\fuel\body_module_fingerprint\input\observations:
+    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result module root fuel body_module_fingerprint &observations
+    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+    match result:
+        Result::Ok summary:
+            Result::Ok summary
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationGateRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result: unified event stream を既存安全境界へ[接続/せつぞく]する
+//:
+//: [目的/もくてき]:
+//: - future actual Resource IR walker が返す単一 event stream を、現存する scanner / graph gate / observation ban gate だけに接続します。
+//:
+//: [契約/けいやく]:
+//: - caller supplied request table、GraphInput、proof table は受け取りません。request authority は後段の既存 gate が HIR root から再構築します。
+//: - detected observation がある stream は observation ban gate を優先し、成功 graph による観測禁止操作の隠蔽を許しません。
+//: - この関数は `PrivateCacheNoEscapeProven`、accepted proof record、sealed backend representation、Wasm / LLVM bytes を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \module\root\fuel\body_module_fingerprint\events:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+        Result::Ok output:
+            let input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
+            let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
+            if:
+                gt selfhost_memo_call_backend_private_cache_observation_ban_table_len &observations 0
+                then:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_observation_gate_result module root fuel body_module_fingerprint input observations
+                else:
+                    selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_graph_gate_result module root fuel body_module_fingerprint input
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_observation_ban_stage0_single_table_result: 1 observation record の stage0 table を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -4935,6 +5321,126 @@ pub fn selfhost_memo_call_backend_private_cache_resource_observation_ban_stage0 
     let function_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved
     let raw_identity_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind selfhost_memo_call_backend_private_cache_observation_ban_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved
     SelfhostMemoCallBackendPrivateCacheResourceObservationBanStage0Summary cache_observation_rejected function_identity_observation_rejected raw_identity_observation_rejected
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_body_payload: stage0 body payload を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_body_payload %fn void SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \void:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+    SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_payload: stage0 unsupported payload を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_payload %fn void SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \void:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let event %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new key graph_id 0 SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
+    SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported event
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_payload: stage0 detected observation payload を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_payload %fn SelfhostMemoCallBackendPrivateCacheObservationKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected kind
+    let record %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new key graph_id 0 status
+    SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation record
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_table_result: unsupported graph-only unified stream を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - stage0 は body と unsupported event だけを作ります。accepted private-cache place / edge や no-escape proof は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push table0 selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_body_payload:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_table_push table1 selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_payload
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_table_result: observation-only unified stream を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_table_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+        Result::Ok table0:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_table_push table0 selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_payload kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_table_result: graph body と observation が混ざった unified stream を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - mixed stream では detected observation が graph path に優先して拒否されることを確認します。body event は accepted proof を意味しません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_table_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push table0 selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_body_payload:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_table_push table1 selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_payload kind
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_summary_result: stage0 module と unified stream を[閉/と]じながら gate を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_summary_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \events:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result &module root 8 77 events
+            selfhost_hir_module_free module
+            result
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_i32_result: normalizer result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \events:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_summary_result events:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_result: unsupported graph-only stream の smoke result を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_table_result:
+        Result::Ok events:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_i32_result events
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_result: observation-only stream の smoke result を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_table_result kind:
+        Result::Ok events:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_i32_result events
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_result: mixed stream の smoke result を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_result %impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_table_result kind:
+        Result::Ok events:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_run_i32_result events
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_stage0: unified walker event normalizer の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - future actual walker が返す単一 stream を、graph path と observation path へ分配する境界を確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR traversal はまだ接続していません。この stage0 は unified stream normalizer の owner cleanup、gate pass-through、observation precedence だけを固定します。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary \void:
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_result
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_observation_result SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
+    let mixed_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_mixed_result SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved
+    SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0Summary unsupported_rejected observation_rejected mixed_observation_rejected
 
 //: selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_fail_with_input: producer bridge 失敗時に private walker input を[閉/と]じる
 //:

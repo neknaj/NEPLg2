@@ -66,9 +66,10 @@ assert.ok(
         source.includes("Resource observation producer も同じ module-private proof table writer を使います") &&
         source.includes("Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します") &&
         source.includes("Resource observation ban stage0") &&
+        source.includes("unified stream normalizer") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0 is present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0 and unified stream normalizer are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -179,6 +180,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualWalkerEvent(?:Payload|Table|SplitOutput)\b/,
+    "actual walker unified event payload, owner table, and split output must stay private until actual Resource IR walker owns stream production",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload|SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable|SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput)\b/m,
+    "public functions must not expose private actual walker unified event payload or owner types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -242,6 +253,16 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheObservationBanTable\b/,
     "observation ban table owner must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable\b/,
+    "actual walker unified event table owner must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput\b/,
+    "actual walker split output owner pair must not implement Clone or Copy",
 );
 assertOrdered(
     source,
@@ -673,6 +694,47 @@ assertOrdered(
     "observation ban status must keep one-record no-observation separate from a detected observation",
 );
 assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload"),
+    [
+        "Body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord",
+        "Place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord",
+        "Edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord",
+        "Unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord",
+        "Observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord",
+    ],
+    "actual walker unified event payload must distinguish body, place, edge, unsupported, and observation events explicitly",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable"),
+    [
+        "events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload",
+    ],
+    "actual walker unified event table must be a Vec-backed private owner",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput"),
+    [
+        "walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput",
+        "observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable",
+    ],
+    "actual walker unified event split output must own both the graph-side walker input and the observation-side table",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind"),
+    [
+        "ActualWalkerEventTableAllocFailed %StdErrorKind",
+        "ActualWalkerEventPushFailed %StdErrorKind",
+        "ActualWalkerEventReadFailed %i32",
+        "WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ObservationTableBuildRejected %StdErrorKind",
+        "ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "GraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind",
+        "ObservationGateRejected %SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind",
+        "Stage0FixtureAllocFailed %StdErrorKind",
+    ],
+    "actual walker event normalizer error taxonomy must distinguish unified table, walker input, observation table, scanner, graph gate, observation gate, and fixture failures",
+);
+assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind"),
     [
         "RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind",
@@ -735,6 +797,107 @@ assertOrdered(
         "some selfhost_memo_call_backend_private_cache_observation_kind_to_unsupported_reason kind",
     ],
     "observation ban status fold must not treat a single no-observation record as proof, and must map detected observations through the typed classifier",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop"),
+    /_:/,
+    "actual walker event split loop must not use wildcard fallback for unified event payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input body",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input place",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input edge",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input unsupported",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation record:",
+        "NoObservationDetected:",
+        "ObservationDetected _kind:",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_push observations record",
+    ],
+    "actual walker event split loop must route graph events through ResourceWalkerInput, detected observations through ObservationBanTable, and keep no-observation records neutral",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop"),
+    /PrivateCacheNoEscapeProven|PrivateCacheStorage|CloneOutOwnedValue|resource_graph_input_push|proof_table_push/,
+    "actual walker event split loop must not synthesize accepted proof, accepted private-cache graph payload, GraphInput, or proof table records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_new",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_new",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop &events input0 observations0 0 n",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events",
+        "ObservationTableBuildRejected e",
+        "WalkerInputBuildRejected e",
+    ],
+    "actual walker event split must allocate existing owner tables, run the splitter, free the unified table on success or failure, and preserve typed allocation errors",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "field::get output \"walker_input\"",
+        "field::get output \"observations\"",
+        "gt selfhost_memo_call_backend_private_cache_observation_ban_table_len &observations 0",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_observation_gate_result module root fuel body_module_fingerprint input observations",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_graph_gate_result module root fuel body_module_fingerprint input",
+    ],
+    "actual walker event gate must split the unified stream, prioritize detected observations, free empty observation owners, and send graph-only streams through the graph path",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_graph_gate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input",
+        "selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result module root fuel body_module_fingerprint &graph",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_free graph",
+        "GraphGateRejected e",
+        "ScannerOutputRejected e",
+    ],
+    "actual walker event graph path must pass through the existing scanner and graph gate, close GraphInput, and wrap scanner/graph failures",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_observation_gate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "selfhost_memo_call_backend_private_cache_observation_ban_gate_from_hir_root_result module root fuel body_module_fingerprint &observations",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "ObservationGateRejected e",
+    ],
+    "actual walker event observation path must close the graph-side walker input and route observations through the existing observation ban gate",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_event_(?:split|gate|graph_gate|observation_gate|table|stage0_(?:body|unsupported|observation|mixed|run|push|table))/m,
+    "actual walker event normalizer internals must stay module-private and must not expose private unified stream construction as public accepted-path APIs",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error_code"),
+    /_:/,
+    "actual walker event normalizer error code helper must not use wildcard fallback",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_unknown_result_eq"),
+    /_:/,
+    "actual walker event normalizer unknown result helper must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_stage0"),
+    [
+        "unsupported_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_stage0_unsupported_result",
+        "observation_rejected",
+        "CacheHitObserved",
+        "mixed_observation_rejected",
+        "FunctionEqualityObserved",
+    ],
+    "actual walker event normalizer stage0 must cover unsupported graph-only, observation-only, and mixed graph/observation streams",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result"),
