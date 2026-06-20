@@ -2446,6 +2446,34 @@ Phase F5jr では、F5jq の setup resource info を使い、caller supplied ser
 - `git diff --check`
 - subagent implementation review で setup-backed resource id allocation、root id zero-only validation、no reader mutation / no runner / no fallback が承認される。
 
+## Phase F5js: Native Linux X11 reader setup-backed top-level request generation boundary
+
+Phase F5js では、F5jr の setup-backed request owner builder を X11 observation reader の setup state へ接続する。ただし reader が geometry や event mask を暗黙 default として発明してはいけない。caller supplied typed plan として `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` が window resource serial、geometry、border width、background pixel、event mask を保持し、reader は setup が `Ready` になって `setup_resource_info` を保持した後だけ、その plan と setup resource info から `NativeWindowLinuxX11TopLevelWindowCreateRequest` を作る。
+
+実装:
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` を追加し、setup resource info を含まない typed generation config として serial、geometry、background pixel、event mask を保持する。
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` に `SetupBackedBuildPending` を追加し、setup ready 後の request owner build と既存 F5jp partial-write を同じ state machine で扱う。
+- request build は必ず `native_window_linux_x11_top_level_window_create_request_from_setup_resource_info` に委譲し、resource id allocation と root parent validation の authority を F5jr に残す。
+- `SetupBackedBuildPending` なのに caller supplied typed plan が無い、setup resource info が無い、allocation に失敗した、request build に失敗した場合は `TopLevelWindowRequestSetupBackedPlanMissing`、`TopLevelWindowRequestSetupResourceInfoMissing`、または `TopLevelWindowRequestBuildFailed` で fail-closed にし、以後の poll は `TopLevelWindowRequestPreviouslyFailed` を返す。
+- prebuilt request owner constructor と no-request constructor は互換 path として残す。no-request constructor は readiness evidence ではなく `NotConfigured` compatibility path である。
+- source-policy は typed plan が serial / geometry / background / event mask を保持すること、reader が hidden default / fallback / silent no-op を作らないこと、build 後は F5jp partial-write path を再利用することを検査する。
+
+非目標:
+
+- server sequence / error / reply decode、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、StructureNotify / Expose subscription、MapNotify / ConfigureNotify / Expose decode は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化、Wayland concrete decoding、fallback、synthetic readiness は作らない。
+- reader は geometry、event mask、serial を生成しない。暗黙の default を使いたい場合も caller が explicit default constructor を通して plan を渡す。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で typed plan、setup-backed plan missing fail-closed、setup resource info missing fail-closed、F5jp partial-write reuse、no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

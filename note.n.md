@@ -1,3 +1,46 @@
+# 2026-06-20 Agent2 GUI native F5js Linux X11 reader setup-backed top-level request generation boundary
+
+## 目的
+
+- F5jr の setup-backed top-level request owner builder を、X11 observation reader の setup completion path へ接続する。
+- reader が serial / geometry / background / event mask を暗黙 default として作らないよう、caller supplied typed plan を追加する。
+- setup-backed plan missing、setup resource info missing、allocation failure、request build failure は typed error で fail-closed にする。
+- server error / reply、WM_DELETE_WINDOW、keyboard / IME、runner / CLI dispatch、support gate `Ok` 化は scope 外にする。
+
+## subagent review
+
+- plan review は `PLAN_CHANGES` だった。
+- 指摘は、reader が setup state だけから request を作るのではなく、serial、geometry、background pixel、event mask を保持する typed config / plan を caller から受け取る必要がある、というものだった。
+- 実装方針を `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` による explicit plan に修正した。
+- implementation review では、`SetupBackedBuildPending` なのに plan が無い内部不変条件違反を `NotConfigured` + `Ok` に戻す branch が silent no-op になると指摘された。
+- 指摘に従い、`TopLevelWindowRequestSetupBackedPlanMissing` を追加して fail-closed にし、source policy も old branch shape を拒否するようにした。
+- re-review では note の stale status だけが required fix として残ったため、実装済み / 検証済みの記録と残作業の範囲を更新した。
+- 最終 re-review は `REVIEW_APPROVED`。caller supplied typed plan、setup resource info 後の build、missing plan / missing info / build failure の typed fail-closed、fallback / no-op success 不在、docs / source policy / todo / note の整合が確認された。
+
+## 実装
+
+- `NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan` を追加し、setup resource info を含まない request generation config とした。
+- `NativeWindowLinuxX11TopLevelWindowRequestWriteState` に `SetupBackedBuildPending` を追加し、setup ready 後の build と既存 partial-write path を接続した。
+- setup-backed plan missing、setup resource info missing、F5jr builder failure を `NativeWindowLinuxX11EventSourceObservationError` の typed variant として保持する。
+- provider / reader constructor に setup-backed plan path を追加した。
+- GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5js contract へ更新した。
+
+## 検証
+
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_builds_top_level_request_from_setup_resource_info -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_resource_info_is_missing -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_plan_is_missing -- --nocapture` 相当の focused suite は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_fails_closed_when_setup_backed_build_fails -- --nocapture` は通過した。
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider -- --nocapture` は通過した。
+- `cargo fmt -p nepl-gui-native -- --check` は通過した。
+- `cargo test -p nepl-gui-native --lib -- --nocapture` は 443 件通過した。
+- `node nodesrc/test_native_gui_platform_behavior.js` は通過した。
+- `git diff --check` は通過した。
+
+## 後続 scope
+
+- X11 server error / reply decode、WM_DELETE_WINDOW、keyboard / IME、StructureNotify / Expose subscription、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-20 Agent2 GUI native F5jr Linux X11 setup-backed top-level request owner boundary
 
 ## 目的
