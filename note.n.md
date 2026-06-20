@@ -75596,3 +75596,19 @@ MERGE_APPROVED
 - after simplification pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
 - after simplification pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - after simplification pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 Agent2 GUI native F5kh Linux X11 raw keyboard modifier evidence boundary
+
+- F5kh では、F5kg の raw keyboard event evidence に X11 core event の raw `state` field を追加する。
+- subagent 計画レビューは Carver / Einstein ともに `PLAN_APPROVED`。必須条件は、offset 28 の little-endian `u16` を raw X11 key/button mask evidence として保持すること、raw keycode `0` だけを typed error にすること、`NativeWindowKeyboardEvent::new` は empty modifier state の互換 path として残し、X11 decode は modifier-aware constructor を使うことだった。
+- 指摘条件に従い、`NativeWindowKeyboardModifierState` を追加し、`NativeWindowKeyboardEvent` は raw keycode と raw modifier state を同時に保持する方針にした。
+- この checkpoint は portable modifier mapping、keysym / layout mapping、shortcut policy、IME / text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness を扱わない。
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`

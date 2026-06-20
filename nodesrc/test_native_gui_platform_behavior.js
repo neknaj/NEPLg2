@@ -856,6 +856,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5kb: Native Linux X11 InternAtom reply sequence correlation boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5kf: Native Linux X11 StructureNotify and Expose event evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5kg: Native Linux X11 raw keyboard event evidence boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5kh: Native Linux X11 raw keyboard modifier evidence boundary/);
     assert.match(guiRedesignImplementationPlan, /generic `InternAtom` owner は X11 counted bytes を扱うため、NUL byte を C string terminator として拒否しない/);
     assert.match(guiRedesignImplementationPlan, /actual write、accepted write progress、sequence assignment、reply body retention\/parser、request \/ reply correlation は含めない/);
     assert.match(guiRedesignImplementationPlan, /actual property registration ではない/);
@@ -868,6 +869,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /empty hostname bytes は F5jm helper の `EmptyAddress` に委譲/);
     assert.match(guiRedesignImplementationPlan, /CreateWindow \/ MapWindow request bytes を typed owner として作る/);
     assert.match(guiRedesignImplementationPlan, /`ButtonPress \| ButtonRelease \| PointerMotion`/);
+    assert.match(guiRedesignImplementationPlan, /offset 28 の little-endian `u16` を raw state として読む/);
+    assert.match(guiRedesignImplementationPlan, /portable modifier mapping、keysym \/ layout mapping、shortcut policy は含めない/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify は ConfigureNotify だけでなく MapNotify/);
     assert.match(guiRedesignImplementationPlan, /StructureNotify \/ Expose subscription は F5jo では行わない/);
     assert.match(guiRedesignImplementationPlan, /CreateWindow \/ MapWindow request owner を、既存の `NativeWindowLinuxX11EventSourceObservationReader` が setup completion 後に partial write/);
@@ -923,9 +926,12 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5ka Native Linux X11 InternAtom batch partial-write scheduling boundary/);
     assert.match(standardSpec, /F5kf Native Linux X11 StructureNotify and Expose event evidence boundary/);
     assert.match(standardSpec, /F5kg Native Linux X11 raw keyboard event evidence boundary/);
+    assert.match(standardSpec, /F5kh Native Linux X11 raw keyboard modifier evidence boundary/);
     assert.match(standardSpec, /generic `InternAtom` owner は C string ではないため NUL byte を terminator として解釈せず/);
     assert.match(standardSpec, /raw fd write\/read、accepted write progress、sequence assignment、InternAtom reply parse \/ retain、request \/ reply correlation/);
     assert.match(standardSpec, /`WM_PROTOCOLS` と `WM_DELETE_WINDOW` の `InternAtom` request batch/);
+    assert.match(standardSpec, /X11 の key\/button mask bitset/);
+    assert.match(standardSpec, /raw modifier state は全 `u16` 値を valid evidence/);
     assert.match(standardSpec, /Atom ID が取得済みであることや window property が登録済みであることを意味しない/);
     assert.match(standardSpec, /nonzero Atom ID を `NativeWindowLinuxX11AtomId` として保持/);
     assert.match(standardSpec, /only_if_exists = true` では意味を持ち得る/);
@@ -1273,7 +1279,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE/);
     assert.match(libSource, /pub enum NativeWindowEventPumpEventKind\s*\{[\s\S]*Poll,[\s\S]*CloseRequested,[\s\S]*WindowResized,[\s\S]*PointerMotion,[\s\S]*PointerButton,[\s\S]*Keyboard,[\s\S]*WindowMapped,[\s\S]*RedrawRequested/);
-    assert.match(libSource, /pub struct NativeWindowKeyboardEvent\s*\{[\s\S]*kind: NativeWindowKeyboardEventKind,[\s\S]*raw_keycode: u8/);
+    assert.match(libSource, /pub struct NativeWindowKeyboardModifierState\s*\{[\s\S]*raw_state: u16/);
+    assert.match(libSource, /impl NativeWindowKeyboardModifierState[\s\S]*pub const fn empty\([\s\S]*raw_state: 0[\s\S]*pub const fn new\(raw_state: u16\)[\s\S]*pub fn raw_state\(self\) -> u16/);
+    assert.match(libSource, /pub struct NativeWindowKeyboardEvent\s*\{[\s\S]*kind: NativeWindowKeyboardEventKind,[\s\S]*raw_keycode: u8,[\s\S]*modifier_state: NativeWindowKeyboardModifierState/);
+    assert.match(libSource, /impl NativeWindowKeyboardEvent[\s\S]*pub fn new\([\s\S]*NativeWindowKeyboardModifierState::empty\(\)[\s\S]*pub fn new_with_modifier_state\([\s\S]*modifier_state: NativeWindowKeyboardModifierState[\s\S]*InvalidKeyboardKeycode[\s\S]*modifier_state,[\s\S]*pub fn modifier_state\(self\) -> NativeWindowKeyboardModifierState/);
     assert.match(nativeWindowLinuxWindowEventSourceObservationSurface, /pub struct NativeWindowLinuxWindowEventSourceObservation\s*\{[\s\S]*event_kind: NativeWindowEventPumpEventKind,[\s\S]*keyboard_event: Option<NativeWindowKeyboardEvent>/);
     assert.match(nativeWindowLinuxWindowEventSourceObservationSurface, /pub fn new_with_event_kind\([\s\S]*event_kind: NativeWindowEventPumpEventKind[\s\S]*Self\s*\{[\s\S]*event_kind/);
     assert.match(nativeWindowLinuxWindowEventSourceObservationSurface, /pub fn new_with_event_kind_and_keyboard_event\([\s\S]*event_kind: NativeWindowEventPumpEventKind,[\s\S]*keyboard_event: Option<NativeWindowKeyboardEvent>[\s\S]*Self\s*\{[\s\S]*event_kind,[\s\S]*keyboard_event/);
@@ -1282,6 +1291,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /descriptor\.source_kind\(\) != NativeWindowLinuxWindowEventSourceKind::X11Connection[\s\S]*UnsupportedSourceKind/);
     assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /WaylandDisplay[\s\S]*poll_observation|ToolkitExternal[\s\S]*poll_observation/);
     assert.match(nativeWindowLinuxX11EventPacketToObservation, /registered_wm_protocol_context: Option<NativeWindowLinuxX11RegisteredWmProtocolContext>/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET: usize = 28/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /fn native_window_linux_x11_keyboard_event\([\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_DETAIL_OFFSET[\s\S]*NativeWindowKeyboardModifierState::new\([\s\S]*native_window_linux_x11_u16_le\([\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_STATE_OFFSET[\s\S]*NativeWindowKeyboardEvent::new_with_modifier_state\([\s\S]*KeyboardKeycodeInvalid/);
     assert.match(nativeWindowLinuxX11EventPacketToObservation, /match native_window_linux_x11_event_response_type\(packet\)[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_PRESS[\s\S]*native_window_linux_x11_keyboard_event\([\s\S]*NativeWindowKeyboardEventKind::Pressed[\s\S]*NativeWindowEventPumpEventKind::Keyboard[\s\S]*Some\(keyboard_event\)[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_KEY_RELEASE[\s\S]*native_window_linux_x11_keyboard_event\([\s\S]*NativeWindowKeyboardEventKind::Released[\s\S]*NativeWindowEventPumpEventKind::Keyboard[\s\S]*Some\(keyboard_event\)[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY[\s\S]*NativeWindowEventPumpEventKind::WindowResized[\s\S]*NativeWindowSize::new[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY[\s\S]*NativeWindowEventPumpEventKind::PointerMotion[\s\S]*native_window_linux_x11_event_pointer_raw[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS[\s\S]*NativeWindowEventPumpEventKind::PointerButton[\s\S]*true[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE[\s\S]*NativeWindowEventPumpEventKind::PointerButton[\s\S]*false[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CLIENT_MESSAGE[\s\S]*native_window_linux_x11_client_message_close_observation\([\s\S]*registered_wm_protocol_context[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MAP_NOTIFY[\s\S]*NativeWindowEventPumpEventKind::WindowMapped[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_EXPOSE[\s\S]*NativeWindowEventPumpEventKind::RedrawRequested/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /pub fn registered_wm_protocol_context\([\s\S]*Option<NativeWindowLinuxX11RegisteredWmProtocolContext>[\s\S]*wm_protocol_registration_write_state[\s\S]*NativeWindowLinuxX11WmProtocolRegistrationWriteState::Ready[\s\S]*return None[\s\S]*wm_protocol_registration_request[\s\S]*NativeWindowLinuxX11RegisteredWmProtocolContext::new\([\s\S]*request\.window_id\(\),[\s\S]*request\.atoms\(\)/);
     assert.match(nativeWindowLinuxX11ObservationReaderImpl, /native_window_linux_x11_event_packet_to_observation\([\s\S]*self\.top_level_window_request_sequence_plan,[\s\S]*self\.wm_protocol_registration_sequence_plan,[\s\S]*self\.registered_wm_protocol_context\(\)/);
@@ -1289,7 +1300,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(libSource, /native_window_linux_x11_registered_context_requires_accepted_registration/);
     assert.match(libSource, /native_window_linux_x11_structure_expose_decode_preserves_event_kind/);
     assert.match(libSource, /native_window_linux_x11_event_decode_marks_pointer_and_close_kinds/);
-    assert.match(libSource, /native_window_linux_x11_keyboard_decode_preserves_raw_key_evidence/);
+    assert.match(libSource, /native_window_linux_x11_keyboard_decode_preserves_raw_key_and_modifier_evidence/);
+    assert.match(libSource, /modifier_state\(\)[\s\S]*raw_state\(\)[\s\S]*0x0005[\s\S]*modifier_state\(\)[\s\S]*raw_state\(\)[\s\S]*0x0014/);
     assert.match(libSource, /native_window_linux_x11_keyboard_decode_rejects_zero_keycode/);
     assert.match(libSource, /native_window_backend_loop_host_action_preserves_keyboard_evidence/);
     assert.doesNotMatch(nativeWindowLinuxX11EventPacketToObservation, /XLookupString|Xutf8LookupString|XmbLookupString|Keysym|KeySym|IME|TextInput|shortcut|run_linux_platform_wait_window_loop|validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|fallback|silent no-op|synthetic/i);

@@ -2957,3 +2957,40 @@ Phase F5kg では、X11 `KeyPressMask` と `KeyReleaseMask` を top-level window
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で raw keyboard evidence、zero keycode typed error、no IME / keysym / runner / fallback scope creep が承認される。
+
+## Phase F5kh: Native Linux X11 raw keyboard modifier evidence boundary
+
+Phase F5kh では、F5kg の raw keyboard event evidence に X11 core event の `state` field を追加する。`state` は X11 の key/button mask bitset であり、NEPLg2 portable modifier、layout 済み key、text input、shortcut command へは変換しない。
+
+実装:
+
+- `NativeWindowKeyboardModifierState` を追加し、raw X11 `state` を `u16` の typed evidence として保持する。
+- `NativeWindowKeyboardEvent` は `Pressed` / `Released`、raw X11 keycode、raw modifier state を持つ。
+- `NativeWindowKeyboardEvent::new` は互換用に empty modifier state を使い、X11 concrete decode は modifier-aware constructor を使う。
+- X11 `KeyPress` / `KeyRelease` decode は packet offset 28 の little-endian `u16` を raw state として読む。
+- raw keycode `0` だけを typed error にし、raw state は全 `u16` 値を valid evidence として保持する。
+- source-policy は raw state offset、modifier state wrapper、X11 decode、host action propagation、IME / keysym / portable modifier mapping 非導入を検査する。
+
+非目標:
+
+- portable modifier mapping、keysym / layout mapping、shortcut policy は含めない。
+- IME composition、text input、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback text、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- `KeyPress` / `KeyRelease` が raw keycode と raw modifier state を observation / snapshot / backend outcome / host action に残す。
+- raw modifier state は X11 `state` の key/button mask raw evidence として document される。
+- raw keycode `0` rejection は維持され、raw state の値で error にならない。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_backend_loop_host_action_preserves_keyboard_evidence -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で raw modifier evidence、no mapping、no fallback / no silent no-op scope creep が承認される。
