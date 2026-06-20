@@ -2701,6 +2701,37 @@ Phase F5jz では、X11 `InternAtom` の fixed 32 byte reply packet から nonze
 - `git diff --check`
 - subagent implementation review で nonzero AtomId owner、fixed 32 byte packet parser、no reader/correlation/registration integration、no fallback が承認される。
 
+## Phase F5ka: Native Linux X11 InternAtom batch partial-write scheduling boundary
+
+Phase F5ka では、F5jx の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` `InternAtom` request batch owner を reader-owned partial-write state に接続する。F5jy の split request owner を前提に、明示的に WM protocol batch を渡した reader だけが `CreateWindow -> InternAtom batch -> MapWindow` の順序で書く。これは MapWindow を batch 前に送らないための最小 scheduling split を含む boundary であり、compatibility path の combined top-level request は hidden fallback ではなく batch 未構成時の明示状態として残す。
+
+実装:
+
+- `NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState` を追加し、`NotConfigured`、`BatchPending`、`Ready`、`Failed` を持たせる。
+- reader は optional `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch` と written length を private field に保持する。
+- batch configured path では top-level request writer が CreateWindow byte boundary までを先に書き、次に InternAtom batch writer を完了させ、最後に MapWindow byte boundary までを書き進める。
+- CreateWindow と MapWindow の sequence tracking は既存 `NativeWindowLinuxX11TopLevelWindowRequestSequencePlan` を authority とし、InternAtom request sequence は batch offset boundary で進めるが、Atom meaning assignment や reply correlation は行わない。
+- would-block は retryable typed error として state を保持し、hard failure / zero write / overflow は batch write state を `Failed` にする。
+
+非目標:
+
+- InternAtom reply packet の reader dispatch、request / reply correlation、`WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment は含めない。
+- `ChangeProperty` による actual WM property mutation、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- batch 未構成 path を WM protocol registration 完了と偽装しない。
+
+完了条件:
+
+- partial batch write が would-block 後に同じ byte offset から再開する。
+- batch configured path では write order が setup、CreateWindow、InternAtom batch、MapWindow になる。
+- batch が完了するまで MapWindow write と MapWindow sequence record は発生しない。
+- batch failure 後の再 poll は previous failure として fail closed する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_batch_write -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で split writer ordering、batch partial-write state、no reply/correlation/registration integration、no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
