@@ -28,6 +28,7 @@
 //: - Resource observation ban stage0 は、cache hit / miss / size / clear / debug と、function equality / hash / debug / wrapper identity / raw address observation を typed observation kind から unsupported walker event へ畳みます。これは actual walker からの検出結果を受けるための分類境界であり、NoEscape proof を合成する境界ではありません。
 //: - Actual walker event normalizer stage0 は、future actual Resource IR walker が返す単一の unified stream を、既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配します。detected observation がある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにします。
 //: - Actual walker event producer bridge stage0 は、HIR root から request authority を再収集し、producer-owned unified event stream を normalizer へ渡します。actual traversal 本体はまだ接続せず、request ごとの closed body と typed unsupported event によって fail-closed になることを確認します。
+//: - Actual walker operation classifier stage0 は、actual Resource IR traversal が将来列挙する最小 operation vocabulary を module-private record として受け、body event と同じ request key / graph id / ordinal を保ったまま unified stream へ分類します。accepted graph を作る case は classifier 接続確認に限り、sealed backend representation や PrivateCache effect masking の完了として扱いません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -38,6 +39,7 @@
 //: - observation kind から unsupported reason への分類は O(1) です。実際の HIR / Resource IR traversal が観測 operation を列挙する計算量は、actual walker stage の doc comment で別に記録します。
 //: - unified event normalizer は event 数を `a` とすると O(a) 時間で stream を分配し、その後は observation が検出された場合は既存 observation ban gate、検出されない場合は既存 walker scanner / graph gate の計算量に従います。actual traversal の探索範囲削減や event index 化は後続で行えますが、observation precedence と owner cleanup の契約は維持します。
 //: - actual walker event producer bridge は request 数 `m` に対して O(m) 個の body / unsupported event を作り、必要に応じて stage0 observation event を O(1) で追加します。実際の Resource IR traversal の探索範囲削減は、producer が unsupported event ではなく typed place / edge / observation event を作る段階で扱います。
+//: - actual walker operation classifier は operation record 数を `o` とすると、現状 request ごとに operation table を線形走査するため O(m * o) 時間です。request key / ordinal の bucket 化は後からできる最適化ですが、operation kind の typed 分類、observation precedence、normalizer 経由の contract は維持します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -745,6 +747,52 @@ struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput:
     walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput
     observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable
 
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: actual walker が列挙する Resource operation 相当の最小分類
+//:
+//: [目的/もくてき]:
+//: - actual Resource IR traversal を接続する前に、memo_call private cache boundary で必要な operation vocabulary を typed enum として固定します。
+//: - この分類は unified event stream への入力であり、proof status や backend representation そのものではありません。
+//:
+//: [契約/けいやく]:
+//: - private cache storage / entry / owned clone は graph event へ写します。
+//: - cache reference return や public store は escaping graph event へ写し、後段で refuted proof として扱わせます。
+//: - unknown operation は unsupported event へ写し、Unknown proof rejection へ進めます。
+//: - cache state、function identity、raw identity の観測は graph event へ混ぜず、observation event として normalizer の observation precedence に委ねます。
+enum SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind:
+    PrivateCacheStoragePlace
+    PrivateCacheEntryPlace
+    ReturnedOwnedClonePlace
+    CloneOutOwnedValueEdge
+    ReturnCacheReferencePlace
+    ReturnCacheReferenceEdge
+    PublicStorePlace
+    PublicStoreEdge
+    UnknownResourceOperation
+    CacheHitObservation
+    FunctionIdentityObservation
+    RawIdentityObservation
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord: operation classifier が読む 1 record
+//:
+//: [契約/けいやく]:
+//: - key / graph id / operation ordinal は actual traversal 由来の authority です。classifier はこれらを event record へそのまま運び、source text や display name から補いません。
+//: - `from_place` と `to_place` は edge 用の endpoint です。place / observation / unsupported operation では `from_place` を主 place として使い、未使用の endpoint も負値を許さないことで malformed record を早期に拒否します。
+struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable: operation classifier 用 owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private owner です。public API で caller が operation table を渡して accepted graph を作る入口は作りません。
+//: - table 自体に `Clone` / `Copy` を実装してはいけません。
+struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord
+
 //: SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind: walker event scanner の拒否理由
 //:
 //: [目的/もくてき]:
@@ -870,6 +918,9 @@ pub enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeError
     RequestEntryMissing %i32
     RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
     ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    ActualWalkerOperationTableAllocFailed %StdErrorKind
+    ActualWalkerOperationPushFailed %StdErrorKind
+    ActualWalkerOperationReadFailed %i32
     ActualWalkerEventBuildRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
     NormalizerRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
     Stage0FixtureAllocFailed %StdErrorKind
@@ -905,6 +956,21 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0S
 //: [契約/けいやく]:
 //: - summary は private unified event table や injected observation fixture を公開しません。公開されるのは Result payload だけです。
 pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary:
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary: operation classifier smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - synthetic operation descriptor が既存 unified event normalizer へ正しく分類されることを、accepted / refuted / unknown / observation / placeholder の代表 case で確認します。
+//:
+//: [契約/けいやく]:
+//: - accepted result は classifier 接続確認であり、actual Resource IR traversal、PrivateCache effect masking、sealed backend representation の完了ではありません。
+//: - summary は private operation table や unified event table owner を公開しません。
+pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -1395,6 +1461,32 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: operation kind を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - kind は classifier 用の enum tag であり、operation table owner や Resource storage owner を含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: operation kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord: operation record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は typed key、graph id、ordinal、place id、kind だけを持ち、operation table owner は `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable` が保持します。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord: operation record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind: normalizer error を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -1448,6 +1540,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridg
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary: unified event producer bridge smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary: operation classifier smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、private operation table や unified event table owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary: operation classifier smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -4701,12 +4806,18 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
             3
         SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ProofKeyRejected _e:
             4
-        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected _e:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed _e:
             5
-        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected _e:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed _e:
             6
-        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationReadFailed _idx:
             7
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected _e:
+            8
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected _e:
+            9
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+            10
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_kind_eq: unified event producer bridge error が同じ分類か[返/かえ]す
 pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind bool \a\b:
@@ -4735,6 +4846,75 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bri
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ProofKeyRejected _e:
                     false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_ok_result_eq: unified event producer bridge が期待 count で成功したか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - operation classifier stage0 の accepted case が既存 graph gate まで到達したことを、backend bytes ではなく non-executable summary count で確認します。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_ok_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _actual:
+            false
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_refuted_result_eq: unified event producer bridge が MayEscape proof として拒否されたか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - operation classifier stage0 の escaping operation が Unknown ではなく、既存 graph gate の MayEscape / ProofRefuted 経路へ進むことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `NormalizerRejected(GraphGateRejected(...))` だけを true にします。observation rejection や build failure を refuted proof と偽装しません。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_refuted_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected normalizer_error:
+                    match normalizer_error:
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::GraphGateRejected graph_error:
+                            selfhost_memo_call_backend_private_cache_resource_graph_refuted_result_eq Result::Err graph_error expected_key
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationGateRejected _observation_error:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventTableAllocFailed _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ScannerOutputRejected _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::Stage0FixtureAllocFailed _e:
+                            false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestRecheckRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ProofKeyRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationReadFailed _idx:
+                    false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected _e:
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed _e:
@@ -4757,6 +4937,12 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bri
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing _idx:
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestRecheckRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationReadFailed _idx:
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected _e:
                     false
@@ -5741,6 +5927,208 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
     selfhost_memo_call_backend_private_cache_actual_walker_event_table_free events
     Result::Err error
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new: operation classifier record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \key\graph_id\operation_ordinal\from_place\to_place\kind:
+    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new: [空/から]の operation table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free: operation table owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len: operation record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_get: operation record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_table_get %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn i32 Option SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \table\idx:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord field::get_ref table "records"
+    v::get records idx
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push: operation record を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - placeholder fingerprint、負の graph id、負の operation ordinal、負の endpoint id は actual traversal origin を証明できないため table owner を閉じて拒否します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、typed operation push failure として返します。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \table\record:
+    if:
+        or or or or eq record.key.body_module_fingerprint 0 lt record.graph_id.index 0 lt record.operation_ordinal 0 lt record.from_place.index 0 lt record.to_place.index 0
+        then:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free table
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed StdErrorKind::InvalidOperation
+        else:
+            let records %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord field::get table "records"
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationPushFailed error
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_record_matches_request: operation record が request graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_record_matches_request %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId bool \record\key\graph_id:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq record.key key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id graph_id
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result: classified payload を unified stream へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \events\payload:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events payload:
+        Result::Ok next_events:
+            Result::Ok next_events
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result: operation record を unified event に[分類/ぶんるい]する
+//:
+//: [契約/けいやく]:
+//: - match は operation kind を網羅し、wildcard fallback を使いません。
+//: - accepted graph に寄与する place / edge と、MayEscape に寄与する place / edge と、Unknown に落とす unsupported と、observation ban に渡す observation をここで明示的に分けます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \events\record:
+    match record.kind:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheStoragePlace:
+            let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new record.key record.graph_id record.operation_ordinal record.from_place SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheEntryPlace:
+            let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new record.key record.graph_id record.operation_ordinal record.from_place SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheEntry
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnedOwnedClonePlace:
+            let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new record.key record.graph_id record.operation_ordinal record.from_place SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnedOwnedClone
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CloneOutOwnedValueEdge:
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new record.key record.graph_id record.operation_ordinal record.from_place record.to_place SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferencePlace:
+            let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new record.key record.graph_id record.operation_ordinal record.from_place SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferenceEdge:
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new record.key record.graph_id record.operation_ordinal record.from_place record.to_place SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::ReturnCacheReference
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStorePlace:
+            let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new record.key record.graph_id record.operation_ordinal record.from_place SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PublicStore
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Place place
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStoreEdge:
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new record.key record.graph_id record.operation_ordinal record.from_place record.to_place SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::StoreToPublic
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation:
+            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionIdentityObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawIdentityObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop: request graph に対応する operation を unified stream へ[分類/ぶんるい]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop %impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \operations\events\key\graph_id\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok events
+        else:
+            match selfhost_memo_call_backend_private_cache_actual_walker_operation_table_get operations idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_call_backend_private_cache_actual_walker_operation_record_matches_request record key graph_id
+                        then:
+                            match selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result events record:
+                                Result::Ok next_events:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations next_events key graph_id add idx 1 n
+                                Result::Err e:
+                                    Result::Err e
+                        else:
+                            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events key graph_id add idx 1 n
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_request_result: request entry と operation table から unified event を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - request entry は既存 gate と同じ HIR payload recheck と proof key construction を通します。
+//: - body header は request ごとに producer が作りますが、operation record の分類は classifier に委ねます。operation record が無い場合は body-only graph として後段で Unknown に倒します。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\operations\events\graph_index:
+    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry:
+        Result::Ok _rechecked:
+            match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
+                Result::Ok key:
+                    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
+                    let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+                    let body_payload %SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body
+                    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events body_payload:
+                        Result::Ok events1:
+                            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1 key graph_id 0 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ProofKeyRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestRecheckRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_requests_loop: request table 全体を operation-aware unified stream に[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_requests_loop %impure fn &SelfhostHirModule impure fn &SelfhostMemoCallBackendRequestTable impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\table\operations\events\root_expr_id\body_module_fingerprint\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok events
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_request_result module entry root_expr_id body_module_fingerprint operations events idx:
+                        Result::Ok next_events:
+                            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_requests_loop module table operations next_events root_expr_id body_module_fingerprint add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result: HIR root と operation table から unified event table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - caller supplied request table は受け取らず、HIR root から request table を内部再構築します。
+//: - operation table は borrowed input として読みますが、public API には公開しません。actual walker が producer-owned table を作る段階まで module-private に保ちます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\operations:
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+                Result::Ok events0:
+                    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
+                    let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_requests_loop module &table operations events0 root body_module_fingerprint 0 request_count
+                    selfhost_memo_call_backend_request_table_free table
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_request_table_free table
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result: operation-aware unified stream を normalizer へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - classifier は graph gate や observation gate を直接呼びません。必ず既存 unified event normalizer を経由し、observation precedence と owner cleanup を共有します。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\operations:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel body_module_fingerprint operations:
+        Result::Ok events:
+            selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result module root fuel body_module_fingerprint events
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result: request entry を unified event stream に[写/うつ]す
 //:
 //: [目的/もくてき]:
@@ -5917,6 +6305,114 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bri
     let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_observation_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 0
     SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary unsupported_rejected observation_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new from_index
+    let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new to_index
+    selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result: stage0 operation を table へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \table\operation_ordinal\from_index\to_index\kind:
+    let record %SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record operation_ordinal from_index to_index kind
+    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push table record
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_closed_clone_table_result: accepted graph 用 operation table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_closed_clone_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result table0 0 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheStoragePlace:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result table1 1 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CloneOutOwnedValueEdge
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_escape_table_result: escaping graph 用 operation table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_escape_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new:
+        Result::Ok table0:
+            match selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result table0 0 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferencePlace:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result table1 1 0 0 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ReturnCacheReferenceEdge
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result: 1 operation の stage0 table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new:
+        Result::Ok table0:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_push_record_result table0 0 0 0 kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_summary_result: operation table を閉じながら classifier を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_summary_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\operations:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result &module root 8 body_module_fingerprint &operations
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+            selfhost_hir_module_free module
+            result
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_i32_result: operation classifier result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_i32_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\operations:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_summary_result body_module_fingerprint operations:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result: accepted classifier smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_closed_clone_table_result:
+        Result::Ok operations:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_i32_result body_module_fingerprint operations
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_escape_result: escaping classifier smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_escape_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_escape_table_result:
+        Result::Ok operations:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_i32_result body_module_fingerprint operations
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_single_result: single operation classifier smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_single_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result kind:
+        Result::Ok operations:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_run_i32_result body_module_fingerprint operations
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0: operation classifier の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - typed operation descriptor が private cache graph event、escaping graph event、unsupported event、observation event へ分類され、既存 normalizer 経由で expected result に到達することを確認します。
+//:
+//: [現状/げんじょう]:
+//: - actual Resource IR traversal はまだ接続していません。accepted case は synthetic descriptor が existing graph gate に渡ることの確認であり、memo_call の完全な private-cache safety proof ではありません。
+pub fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result 77
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_escape_result 77
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_single_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_single_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result 0
+    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary accepted_result may_escape_rejected unsupported_rejected observation_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record: stage0 用 graph body record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \completeness:

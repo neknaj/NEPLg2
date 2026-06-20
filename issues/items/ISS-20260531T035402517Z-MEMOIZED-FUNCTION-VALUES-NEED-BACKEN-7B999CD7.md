@@ -374,3 +374,30 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化。
+
+## 2026-06-21 selfhost memo_call backend actual walker operation classifier stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual Resource IR walker が将来出す operation 相当の record を typed enum で分類し、既存 actual walker event normalizer へ渡す operation classifier stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、operation kind / record / table の module-private owner boundary、HIR root 由来 request authority、request entry と proof key の再照合、operation record から unified event stream への typed mapping、既存 normalizer への委譲である。
+
+分類は wildcard fallback を使わず、closed private cache storage / clone-out owned value を graph accepted 側の event、return cache reference / public store を MayEscape 側の event、未知 operation を `UnknownResourceOperation` unsupported event、cache hit / function identity / raw identity を observation event へ写す。operation table は public API に出さず Clone / Copy にしない。classifier は scanner / graph gate / observation gate を直接呼ばず、GraphInput、proof table record、sealed backend bytes、`PrivateCacheNoEscapeProven` を合成しない。
+
+stage0 public summary は synthetic closed clone path、escape path、unknown operation path、observation path、placeholder proof key path を返す。accepted path は「operation classifier が既存 graph gate と normalizer に接続される」ことの smoke であり、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed memoized backend representation、artifact replay の完了ではない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。operation vocabulary、operation record authority、operation table owner exposure、wildcard-free classification、normalizer bypass 禁止、proof / backend 合成禁止を固定している。追加 doctest は巨大 module の compile timeout を悪化させたため、この checkpoint では source policy と既存 selfhost shard runner で contract を検査し、stage0 fixture 分割を後続最適化として残した。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-operation-classifier-selfhost-shard8of8.json`
+
+残件:
+
+- actual Resource IR traversal 本体が typed operation record または unified event stream を生成する境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と operation classifier / producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。

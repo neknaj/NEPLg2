@@ -2192,6 +2192,37 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化。
 
+## 2026-06-21 memo_call backend actual walker operation classifier stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual Resource IR walker が将来列挙する operation 相当の最小分類を受け、既存 actual walker event normalizer へ渡す operation classifier stage0 を追加した。
+
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、traversal 本体が接続された後に使う typed operation vocabulary、operation record authority、request / proof key 再照合、normalizer 経由、observation precedence である。closed private cache storage / clone-out owned value は graph event へ写し、return cache reference / public store は MayEscape 側の graph event へ写す。未知 operation は `UnknownResourceOperation` unsupported event へ写し、cache hit observation、function identity observation、raw identity observation は observation event へ写す。
+
+operation kind / record / table は module-private である。record は proof key、graph id、operation ordinal、from/to place、operation kind だけを持つ。table は owner であり Clone / Copy にしない。public API は operation table を受け取らず、stage0 summary だけを返す。これにより caller supplied operation table や forged graph input を public authority にせず、HIR root 由来 request から再構築した proof key と graph id に一致する record だけを分類する。
+
+operation classifier は request entry を HIR payload と再照合し、body event を追加した後で operation record を分類する。分類後の unified event stream は `selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result` を通り、既存 normalizer / scanner / graph gate / observation ban gate へ委譲される。scanner、graph gate、observation gate を classifier から直接呼ばず、`PrivateCacheNoEscapeProven`、GraphInput、proof table record、sealed backend bytes も合成しない。
+
+stage0 public summary は、synthetic closed clone path、escape path、unknown operation path、observation path、placeholder proof key path を返す。accepted path は「operation classifier が既存 graph gate へ接続される」ことだけを確認する smoke であり、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed memoized backend representation、artifact replay の完了を意味しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。operation kind / record / table の public exposure 禁止、operation table owner の Clone / Copy 禁止、分類 match の wildcard fallback 禁止、accepted / MayEscape / unsupported / observation の typed event mapping、HIR-root request authority、normalizer bypass 禁止、proof table / backend representation 合成禁止を固定している。追加 doctest は巨大 module の compile timeout を悪化させたため、この checkpoint では source policy と既存 selfhost shard runner で contract を検査し、stage0 fixture 分割を後続最適化として残した。
+
+計算量として、現状の operation table と request table の照合は request 数 `m`、operation record 数 `o` に対して O(m * o) である。これは request/key bucket 化または graph id index 化で後から置換できる最適化であり、semantic boundary を変えない。一方、operation kind の typed enum 化、wildcard-free match、HIR root authority、normalizer 経由、observation precedence、module-private owner table は後から変えると proof boundary を壊すため、この stage で固定する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-operation-classifier-selfhost-shard8of8.json`
+
+残件:
+
+- actual Resource IR traversal 本体が typed operation record または unified event stream を生成する境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と operation classifier / producer-owned private cache region proof の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

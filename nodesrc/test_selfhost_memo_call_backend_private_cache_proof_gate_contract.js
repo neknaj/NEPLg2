@@ -68,9 +68,10 @@ assert.ok(
         source.includes("Resource observation ban stage0") &&
         source.includes("unified stream normalizer") &&
         source.includes("Actual walker event producer bridge stage0") &&
+        source.includes("Actual walker operation classifier stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, and HIR-root unified event producer bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, and operation classifier are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -191,6 +192,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualWalkerOperation(?:Kind|Record|Table)\b/,
+    "actual walker operation classifier kind, record, and owner table must stay private until actual Resource IR traversal owns operation production",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind|SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord|SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable)\b/m,
+    "public functions must not expose private actual walker operation classifier payload or owner table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -264,6 +275,11 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput\b/,
     "actual walker split output owner pair must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable\b/,
+    "actual walker operation table owner must not implement Clone or Copy",
 );
 assertOrdered(
     source,
@@ -907,11 +923,14 @@ assertOrdered(
         "RequestEntryMissing %i32",
         "RequestRecheckRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
         "ProofKeyRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
+        "ActualWalkerOperationTableAllocFailed %StdErrorKind",
+        "ActualWalkerOperationPushFailed %StdErrorKind",
+        "ActualWalkerOperationReadFailed %i32",
         "ActualWalkerEventBuildRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind",
         "NormalizerRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind",
         "Stage0FixtureAllocFailed %StdErrorKind",
     ],
-    "actual walker event producer bridge error taxonomy must distinguish request collection, request entry, request recheck, proof key, event build, normalizer, and fixture failures",
+    "actual walker event producer bridge error taxonomy must distinguish request collection, request entry, request recheck, proof key, operation table, operation push/read, event build, normalizer, and fixture failures",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_code"),
@@ -922,6 +941,11 @@ assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_unknown_result_eq"),
     /_:/,
     "actual walker event producer bridge unknown result helper must not use wildcard fallback",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_refuted_result_eq"),
+    /_:/,
+    "actual walker event producer bridge refuted result helper must not use wildcard fallback",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result"),
@@ -994,6 +1018,125 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 0",
     ],
     "actual walker event producer bridge stage0 must cover unsupported traversal, observation precedence, and placeholder fingerprint rejection without exposing private unified event tables",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind"),
+    [
+        "PrivateCacheStoragePlace",
+        "PrivateCacheEntryPlace",
+        "ReturnedOwnedClonePlace",
+        "CloneOutOwnedValueEdge",
+        "ReturnCacheReferencePlace",
+        "ReturnCacheReferenceEdge",
+        "PublicStorePlace",
+        "PublicStoreEdge",
+        "UnknownResourceOperation",
+        "CacheHitObservation",
+        "FunctionIdentityObservation",
+        "RawIdentityObservation",
+    ],
+    "actual walker operation classifier must keep accepted graph, escaping graph, unknown operation, and observation operation vocabulary typed and explicit",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "operation_ordinal %i32",
+        "from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "kind %SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind",
+    ],
+    "actual walker operation record must retain request key, graph id, ordinal, endpoint ids, and typed operation kind",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push"),
+    [
+        "eq record.key.body_module_fingerprint 0",
+        "lt record.graph_id.index 0",
+        "lt record.operation_ordinal 0",
+        "lt record.from_place.index 0",
+        "lt record.to_place.index 0",
+        "ActualWalkerOperationPushFailed StdErrorKind::InvalidOperation",
+    ],
+    "actual walker operation table push must reject placeholder fingerprints and invalid graph/operation/place ids before classification",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result"),
+    /_:/,
+    "actual walker operation classifier must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result"),
+    [
+        "PrivateCacheStoragePlace:",
+        "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage",
+        "CloneOutOwnedValueEdge:",
+        "SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue",
+        "ReturnCacheReferencePlace:",
+        "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference",
+        "ReturnCacheReferenceEdge:",
+        "SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::ReturnCacheReference",
+        "UnknownResourceOperation:",
+        "SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation",
+        "CacheHitObservation:",
+        "SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved",
+        "FunctionIdentityObservation:",
+        "SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved",
+        "RawIdentityObservation:",
+        "SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved",
+    ],
+    "actual walker operation classifier must route accepted graph, escaping graph, unknown operation, and observations to distinct typed event payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_request_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
+        "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
+        "SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1 key graph_id 0",
+    ],
+    "actual walker operation classifier must recheck request authority, create only body headers itself, and classify operation records for graph/observation events",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result"),
+    /resource_graph_input_scanner_output_result|resource_graph_gate_from_hir_root_result|observation_ban_gate_from_hir_root_result/,
+    "actual walker operation classifier must not bypass the unified event normalizer by directly calling scanner, graph gate, or observation ban gate",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel body_module_fingerprint operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result module root fuel body_module_fingerprint events",
+    ],
+    "actual walker operation classifier must pass classified unified event stream through the existing normalizer gate",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_operation_(?:record|table|classifier_stage0_(?:run|accepted|escape|single)|classifier_(?:append|events|from)|stage0_(?:record|push|closed|escape|single))/m,
+    "actual walker operation classifier internals must stay module-private and must not expose private operation table or classifier construction APIs",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0"),
+    [
+        "accepted_result",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result 77",
+        "may_escape_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_escape_result 77",
+        "unsupported_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation",
+        "observation_rejected",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result 0",
+    ],
+    "actual walker operation classifier stage0 must cover accepted, escaping, unknown, observation, and placeholder paths",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_record_result"),
+    /PrivateCacheNoEscapeProven|proof_table_push|resource_graph_input_push|Wasm|LLVM/,
+    "actual walker operation classifier must not synthesize proof table records, direct GraphInput, or backend bytes",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result"),

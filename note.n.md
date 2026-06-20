@@ -75983,3 +75983,47 @@ MERGE_APPROVED
 - actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
 - stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化は、今回固定した typed authority / normalizer / owner cleanup contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker operation classifier checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker event producer bridge stage0 の次段として operation classifier stage0 を追加した。
+- この checkpoint は actual Resource IR traversal 本体ではない。future traversal が出す operation 相当の typed record を、既存 unified event normalizer へ渡す前段 classifier として固定した。
+- accepted path は synthetic closed private cache storage + clone-out owner value を既存 graph gate へ通す smoke であり、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、artifact replay の完了を意味しない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / match による静的検査、外部観測可能な効果の分離、module-private owner boundary、試作段階でも設計の曖昧さを残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。今回も doc comment には contract、現状の範囲、残件、計算量を明記する方針を維持した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind`、`SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord`、`SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable` を追加した。operation table は owner であり module-private のままにし、Clone / Copy は実装していない。
+- operation record は proof key、graph id、operation ordinal、from/to place、operation kind を持つ。source text、function name、diagnostic text、display string を authority にしない。
+- classifier は HIR root から request table を内部再構築し、request entry と proof key を再照合してから body event と operation-derived event を unified event stream へ追加する。
+- closed private cache storage / clone-out owned value は graph accepted 側の place/edge event、return cache reference / public store は MayEscape 側の place/edge event、未知 operation は `UnknownResourceOperation` unsupported event、cache hit / function identity / raw identity は observation event へ写す。
+- classifier は scanner / graph gate / observation ban gate を直接呼ばず、既存 producer bridge の normalizer path へ渡す。GraphInput、proof table record、sealed backend bytes、`PrivateCacheNoEscapeProven` は合成しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、operation vocabulary、operation record authority、operation table public exposure 禁止、owner Clone / Copy 禁止、wildcard-free classification、accepted / MayEscape / unsupported / observation mapping、normalizer bypass 禁止、proof / backend 合成禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal、fresh private cache region proof、PrivateCache / PrivateState masking、sealed representation、prechecked artifact key 投影を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、accepted path を classifier-to-existing-gate connectivity に限定すること、operation descriptor / record / table を module-private owner に閉じること、wildcard fallback や string/source/function name authority を使わないこと、unknown operation と observation を別 path に落とすこと、normalizer bypass を作らないこと、backend/proof 合成をしないことだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。operation owner type の public 露出なし、operation table Clone / Copy なし、wildcard-free classifier、placeholder / invalid id fail-closed、accepted / MayEscape / Unknown / observation の分離、HIR-root request authority、normalizer 経由、backend / proof 合成なし、docs / issue / todo / note 整合、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-operation-classifier-selfhost-shard8of8.json`
+- removed: operation classifier 専用 doctest は巨大 module の compile timeout を悪化させたため、この checkpoint では追加しない。semantic boundary は source policy で固定し、stage0 fixture 分割を後続最適化として扱う。
+
+### remaining
+
+- actual Resource IR traversal 本体が typed operation record または unified event stream を生成する境界へ進める。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と operation classifier / producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、typed operation vocabulary / HIR-root authority / normalizer path / observation precedence contract を保って後から行う。
