@@ -63785,3 +63785,38 @@ MERGE_APPROVED
 - sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
 - `MemoKey` / `MemoValue` aggregate proof と proof gate の接続、producer-owned Resource proof boundary、prechecked artifact / `.neplobj` / `.neplproof` stable key 投影は後続 slice で行う。
 - proof lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した exact key / duplicate rejection / orphan rejection / non-executable summary contract を保てるため後続最適化として扱う。
+## 2026-06-20 selfhost memo_call backend Resource observation producer stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-20 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、Resource observation 由来の private-cache proof status を既存 request-evidence proof gate へ流す module-private producer stage0 を追加した。
+- Resource status は `PrivateCacheNoEscapeProven` / `PrivateCacheMayEscape` / `PrivateCacheMissing` / `PrivateCacheUnknown` に分けた。`PrivateCacheNoEscapeProven` だけを `RequestEvidenceProven` へ変換し、`PrivateCacheMayEscape` は `RequestEvidenceRefuted` へ変換して既存 gate の `ProofRefuted` で止める。`PrivateCacheMissing` と `PrivateCacheUnknown` は `ResourceProofMissing` / `ResourceProofUnknown` として producer error にし、request-evidence proof table へ保存しない。
+- Resource proof record、Resource proof table、Resource proof table writer、Resource proof gate は module-private にした。外部 module が forged Resource observation table を public API に渡して accepted path を作る経路は公開していない。
+- producer は Resource observation table を module-private request-evidence proof table へ変換してから既存 gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築し、request entry を HIR payload と再照合する。
+- 既存 request-evidence status / key / record / summary / error の `Clone` / `Copy` impl に、owner lifecycle と authority を緩めないことを説明する doc comment を補った。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、private request-evidence 型と private Resource proof 型が public function signature や `pub struct` / `pub enum` に露出しないこと、Missing / Unknown が `Result::Ok` へ畳まれないこと、MayEscape が refuted request-evidence として fail-closed に進むことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Parfit review: Blocker / Required なし。`SelfhostMemoCallBackendPrivateCacheProofStatus/Record/Table` と `SelfhostMemoCallBackendPrivateCacheResourceProofStatus/Record/Table` が private のままで public signature に露出していないこと、`PrivateCacheMissing` / `PrivateCacheUnknown` が `Err` で fail-closed になること、`PrivateCacheMayEscape` が `RequestEvidenceRefuted` 経由で `ProofRefuted` に流れること、Resource no-escape を cache correctness / sealed representation / artifact replay の完了と混同していないこと、行数制限や doc comment 長制限を追加していないことを確認した。
+- 対応として、追加修正は不要だった。レビュー前に受けていた前回指摘に基づき、source policy は名前 allowlist ではなく private table / record / status 型が public signature に漏れること自体を禁止する形へ拡張済みである。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-proof-producer.json`
+- subagent observed timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 124 秒で timeout した。今回更新した個別 source policy は pass しているため、全体 runner の既存長時間化として扱う。
+
+### residual
+
+- actual Resource IR graph walker から `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を作る境界は未実装である。
+- fresh private cache region / non-escape proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- Resource proof table lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した private type exposure ban / fail-closed status fold / HIR-root recheck contract を保てるため後続最適化として扱う。

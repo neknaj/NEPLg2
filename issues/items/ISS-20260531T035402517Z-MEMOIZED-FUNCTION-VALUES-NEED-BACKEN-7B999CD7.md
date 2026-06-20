@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-15
+updated: 2026-06-20
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -189,3 +189,30 @@ subagent review では、status 名が広すぎると PrivateCache proof 完了�
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - proof lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割。
+
+## 2026-06-20 selfhost memo_call backend Resource observation producer stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、Resource observation 由来の private-cache proof status を既存 request-evidence proof gate へ流す module-private producer stage0 を追加した。
+
+この checkpoint は sealed private cache backend representation そのものではない。actual Resource IR graph walker、PrivateCache / PrivateState surface fold、cache allocation、cache lookup / insert、cache region identity、Wasm / LLVM bytes、永続 `.neplobj` / `.neplproof` artifact はまだ作らない。目的は、Resource 側の observation を request-evidence gate へ接続する直前の status fold を typed enum / Result で固定し、未証明や未判定を成功 path に混ぜないことである。
+
+Resource status は `PrivateCacheNoEscapeProven`、`PrivateCacheMayEscape`、`PrivateCacheMissing`、`PrivateCacheUnknown` に分けた。`PrivateCacheNoEscapeProven` だけを `RequestEvidenceProven` へ変換し、`PrivateCacheMayEscape` は `RequestEvidenceRefuted` へ変換して既存 gate の `ProofRefuted` として止める。`PrivateCacheMissing` と `PrivateCacheUnknown` は `ResourceProofMissing` / `ResourceProofUnknown` として producer error にし、request-evidence proof table には保存しない。
+
+Resource proof record、Resource proof table、Resource proof table writer、Resource proof gate は module-private にした。外部 module が forged Resource observation table を public API に渡して accepted path を作る経路は公開していない。producer は Resource observation table を module-private request-evidence proof table へ変換してから既存 gate を呼び、既存 gate は引き続き HIR root から request table を内部再構築して request entry を HIR payload と再照合する。
+
+subagent review では、Resource proof producer が public key / public request table を authority として受け取ると forged evidence になること、request occurrence evidence と Resource no-escape proof completion を混同しないこと、Missing / Unknown / Refuted を `Ok` にしないこと、known function 名だけではなく private table / record / status type が public signature に漏れること自体を source policy で禁止することが required として指摘された。実装では private Resource proof table / record / status、fail-closed status fold、private request-evidence table conversion、public private-type exposure ban、stage0 Resource producer smoke を追加して対応した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-proof-producer.json`
+
+残件:
+
+- actual Resource IR graph walker から `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を作る境界。
+- fresh private cache region / non-escape proof と PrivateCache / PrivateState effect masking。
+- cache hit / miss / size / clear / raw identity observation ban。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- Resource proof table lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割。

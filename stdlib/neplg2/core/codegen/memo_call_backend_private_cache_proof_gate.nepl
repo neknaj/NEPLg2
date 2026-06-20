@@ -9,7 +9,7 @@
 //: - proof が揃っている場合でも、この stage は実行可能な backend plan ではなく、non-executable summary だけを返します。cache allocation、lookup、insert、sealed representation、Wasm / LLVM bytes は後続 stage が別の proof boundary で扱います。
 //:
 //: [契約/けいやく]:
-//: - public entrypoint は borrowed `SelfhostHirModule`、root expression id、traversal fuel、body module fingerprint、borrowed proof table だけを受け取ります。caller supplied request table は受け取りません。
+//: - module-private gate は borrowed `SelfhostHirModule`、root expression id、traversal fuel、body module fingerprint、borrowed proof table だけを受け取ります。caller supplied request table は受け取りません。
 //: - request table は `selfhost_memo_call_backend_request_table_from_hir_root_result` で内部構築し、各 entry は `memoized_expr_id` から HIR expression を引き直して request builder を再実行します。
 //: - accepted proof key は `memoized_expr_id`、`source_function_def_id`、`function_ty`、`root_expr_id`、`body_module_fingerprint`、`request_kind`、`source_effect`、`type_arg_count`、`proof_kind`、`proof_schema_version` の完全一致を要求します。`SelfhostDefId` や `SelfhostTypeId` だけの proof reuse は認めません。
 //: - `body_module_fingerprint == 0` は placeholder origin なので、非空 request に対する key と proof record として拒否します。
@@ -21,6 +21,7 @@
 //: - proof table は session-local owner table です。永続 `.neplproof` / `.neplobj` artifact ではありません。永続 artifact key へ投影するには、module source identity、typed public surface hash、policy hash、stable type argument identity を別 boundary で合成する必要があります。
 //: - PrivateCache / PrivateState internal effect の fold、Resource IR no-escape proof 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate だけを担当します。
 //: - Phase 1 では proof record / proof table / proof table writer / gate 本体は module-private です。後続の Resource proof producer が接続されるまでは、外部 module が arbitrary `RequestEvidenceProven` record を table に注入したり、その table を accepted gate に渡したりできないようにします。
+//: - Resource observation producer も同じ module-private proof table writer を使います。現 checkpoint では public accepted path を追加せず、stage0 smoke だけで Resource observation から request-evidence gate へ流す境界を確認します。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -54,6 +55,42 @@
 //:         Result::Err _setup:
 //:             let checks0 checks_new
 //:             let checks1 checks_push checks0 Result::Err "memo_call private cache proof gate stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_call_backend_private_cache_resource_proof_producer_stage0:
+//:         Result::Ok summary:
+//:             let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check_eq_i32 1 summary.accepted_request_count
+//:             let checks2 checks_push checks1 check_eq_i32 1 summary.accepted_proof_count
+//:             let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_resource_proof_refuted_result_eq summary.may_escape_rejected expected_key
+//:             let checks4 checks_push checks3 check selfhost_memo_call_backend_private_cache_resource_proof_missing_result_eq summary.missing_rejected expected_key
+//:             let checks5 checks_push checks4 check selfhost_memo_call_backend_private_cache_resource_proof_unknown_result_eq summary.unknown_rejected expected_key
+//:             let checks6 checks_push checks5 check selfhost_memo_call_backend_private_cache_resource_proof_duplicate_result_eq summary.duplicate_rejected expected_key
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "memo_call private cache Resource proof producer stage0 setup failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
@@ -145,6 +182,39 @@ pub struct SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
     missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
     refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheResourceProofStatus: Resource IR private-cache observation の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - Resource IR 側の private-cache escape analysis が「外へ逃げない」「外へ逃げる」「入力不足」「未判定」を bool に潰さず producer へ渡すための typed status です。
+//:
+//: [契約/けいやく]:
+//: - `PrivateCacheNoEscapeProven` は request occurrence evidence へ変換できますが、それだけで cache algorithm correctness、sealed backend representation、artifact replay を証明したことにはなりません。
+//: - `PrivateCacheMayEscape` は request occurrence を反証する evidence へ変換し、既存 gate が `ProofRefuted` として backend accepted path を止めます。
+//: - `PrivateCacheMissing` と `PrivateCacheUnknown` は proof table に保存せず producer error にします。未証明の private cache を pure / accepted に mask してはいけません。
+enum SelfhostMemoCallBackendPrivateCacheResourceProofStatus:
+    PrivateCacheNoEscapeProven
+    PrivateCacheMayEscape
+    PrivateCacheMissing
+    PrivateCacheUnknown
+
+//: SelfhostMemoCallBackendPrivateCacheResourceProofRecord: Resource IR observation 由来の private-cache proof record
+//:
+//: [契約/けいやく]:
+//: - key は既存 request-evidence gate と同じ `SelfhostMemoCallBackendPrivateCacheProofKey` を使います。Resource proof producer が別の key shape を使うと、request occurrence、root origin、body module fingerprint、request kind、effect、type argument count の照合が弱くなるためです。
+//: - status は Resource IR 側の observation です。この record から直接 backend bytes や executable cache plan を作ってはいけません。
+struct SelfhostMemoCallBackendPrivateCacheResourceProofRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    status %SelfhostMemoCallBackendPrivateCacheResourceProofStatus
+
+//: SelfhostMemoCallBackendPrivateCacheResourceProofTable: Resource IR observation record の owner table
+//:
+//: [契約/けいやく]:
+//: - table は module-private です。外部 caller が forged Resource observation table を accepted gate へ直接渡せないようにします。
+//: - `records` は owner buffer です。この table に `Clone` / `Copy` を実装してはいけません。
+//: - table は session-local な producer 入力であり、永続 `.neplproof` artifact ではありません。
+struct SelfhostMemoCallBackendPrivateCacheResourceProofTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord
+
 //: SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate の失敗分類
 //:
 //: [目的/もくてき]:
@@ -165,58 +235,209 @@ pub enum SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
     ProofOrphan %SelfhostMemoCallBackendPrivateCacheProofKey
     Stage0FixtureAllocFailed %StdErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer の失敗分類
+//:
+//: [目的/もくてき]:
+//: - Resource observation table の構築、duplicate detection、Missing / Unknown rejection、request-evidence proof table 生成、既存 gate rejection を enum として分けます。
+//:
+//: [契約/けいやく]:
+//: - `ResourceProofMissing` と `ResourceProofUnknown` は成功 summary に畳みません。Resource IR 側の証明が無い、または未判定であることをそのまま compile-blocking error として保持します。
+//: - `RequestEvidenceGateRejected` は、Resource observation から request-evidence table を作ったあと既存 gate が拒否したことを表します。特に `PrivateCacheMayEscape` はここで `ProofRefuted` として観測されます。
+pub enum SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind:
+    ResourceProofTableAllocFailed %StdErrorKind
+    ResourceProofRecordPushFailed %StdErrorKind
+    ResourceProofRecordReadFailed %i32
+    ResourceProofDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    BodyModuleFingerprintPlaceholder
+    ResourceProofMissing %SelfhostMemoCallBackendPrivateCacheProofKey
+    ResourceProofUnknown %SelfhostMemoCallBackendPrivateCacheProofKey
+    RequestEvidenceGateRejected %SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary: Resource proof producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - Resource `NoEscapeProven` から既存 request-evidence gate 成功へ進む case と、`MayEscape`、`Missing`、`Unknown`、duplicate を fail-closed に拒否する case を確認します。
+pub struct SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary:
+    accepted_request_count %i32
+    accepted_proof_count %i32
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
+    missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
+    unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
+    duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は owner を含まない enum tag です。`RequestEvidenceProven` の copy は「証明済み record を増やす」操作ではなく、既存 record の状態値を関数間で渡すだけです。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofStatus:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofStatus \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status の Copy marker
+//:
+//: [契約/けいやく]:
+//: - proof table owner や Resource observation owner は copy しません。lookup 結果の enum tag を fail-closed fold へ渡すためだけに使います。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofStatus:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofStatus \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofKind: proof kind tag を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - kind は key schema の一部であり、request occurrence evidence と将来の Resource no-escape proof を混同しないための分類です。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofKind:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofKind SelfhostMemoCallBackendPrivateCacheProofKind \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofKind: proof kind tag の Copy marker
+//:
+//: [契約/けいやく]:
+//: - tag copy は key 比較と key construction に使うだけです。別 kind の proof をこの gate へ昇格する操作ではありません。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofKind:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofKind SelfhostMemoCallBackendPrivateCacheProofKind \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofKey: proof key を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - key は session-local identity と typed request field の値だけを持ちます。key を copy しても proof status や table authority は複製されません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofKey:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofKey \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofKey: proof key の Copy marker
+//:
+//: [契約/けいやく]:
+//: - key は error payload と doctest helper で繰り返し比較するため Copy にします。accepted 判定は常に table lookup と status fold を通ります。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofKey:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofKey \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofRecord: request-evidence proof record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key と status の pair だけです。proof table owner は `SelfhostMemoCallBackendPrivateCacheProofTable` が保持し、この record copy では owner lifecycle を緩めません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofRecord:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofRecord SelfhostMemoCallBackendPrivateCacheProofRecord \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofRecord: request-evidence proof record の Copy marker
+//:
+//: [契約/けいやく]:
+//: - lookup 中に候補 record の key/status を比較するための marker です。外部 caller が record table を作れるようにする API ではありません。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofRecord:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofRecord SelfhostMemoCallBackendPrivateCacheProofRecord \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofStatus: Resource proof status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は enum tag だけで owner buffer を含まないため、typed payload をそのまま返します。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceProofStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceProofStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceProofStatus: Resource proof status の Copy marker
+//:
+//: [契約/けいやく]:
+//: - status copy は producer loop の分岐用 tag copy であり、Resource IR owner や proof table owner を複製しません。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceProofStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceProofStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofRecord: Resource proof record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key と status の pair だけです。Resource IR graph owner、cache storage owner、proof artifact owner はここへ入れません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceProofRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceProofRecord SelfhostMemoCallBackendPrivateCacheResourceProofRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceProofRecord: Resource proof record の Copy marker
+//:
+//: [契約/けいやく]:
+//: - record copy は validation と table lookup の候補値を持ち運ぶためだけに使います。table owner の copy ではありません。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceProofRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceProofRecord SelfhostMemoCallBackendPrivateCacheResourceProofRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofGateSummary: proof gate summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は request 件数と accepted request-evidence 件数だけを持ち、backend plan や cache representation を含みません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateSummary:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateSummary \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofGateSummary: proof gate summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - summary copy は doctest と上位診断用であり、実行可能 backend artifact の copy ではありません。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateSummary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateSummary \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - stage0 summary は accepted / missing / refuted の代表結果だけを保持します。table owner は fixture helper 内で閉じています。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - smoke test が複数 field を検査できるようにするための marker であり、proof table owner の copy は許可しません。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ち、input / output table owner は含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - nested gate error も owner を含まない typed payload です。owner-bearing diagnostic が必要になった場合はこの Copy impl を削除します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary: Resource producer smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は doctest 用の代表結果だけを持つ Copy payload です。table owner は stage0 helper 内で閉じます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary: Resource producer smoke summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest が summary field を複数回確認できるようにするための marker であり、owner lifecycle を緩めるものではありません。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ちます。request table owner や proof table owner は error payload に入れません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateErrorKind SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \self:
         *self
 
+//: Copy for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - error comparison helper と doctest で payload を比較するための marker です。owner-bearing diagnostic が必要になった場合はこの Copy impl を削除します。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \self:
         self
@@ -278,6 +499,87 @@ fn selfhost_memo_call_backend_private_cache_proof_table_push %impure fn Selfhost
                     let error %StdErrorKind field::get e "error"
                     v::free v::vec_push_error_vec e
                     Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed error
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_record_new: Resource observation record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_proof_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus SelfhostMemoCallBackendPrivateCacheResourceProofRecord \key\status:
+    SelfhostMemoCallBackendPrivateCacheResourceProofRecord key status
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_new: [空/から]の Resource observation table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofTable records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_free: Resource observation table の owner buffer を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_len: Resource observation record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_len %fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_loop: Resource table が同じ key をすでに持つか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - duplicate observation を first-wins にしないため、push 前に exact key で既存 record を探します。
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \table\key\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok false
+        else:
+            let records %&Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_call_backend_private_cache_proof_key_eq record.key key
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_loop table key add idx 1 n
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_result: Resource table の duplicate key を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_result %fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable fn SelfhostMemoCallBackendPrivateCacheProofKey Result bool SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \table\key:
+    selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_loop table key 0 selfhost_memo_call_backend_private_cache_resource_proof_table_len table
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_push: Resource observation record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `body_module_fingerprint == 0` は root origin を証明できない placeholder なので、table owner を閉じて拒否します。
+//: - 同じ key の record は `ResourceProofDuplicate` として拒否します。record order による first-wins は使いません。
+//: - push 失敗時は `Vec` が返した owner を閉じ、lower `StdErrorKind` を保持します。
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofTable impure fn SelfhostMemoCallBackendPrivateCacheResourceProofRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \table\record:
+    if:
+        eq record.key.body_module_fingerprint 0
+        then:
+            selfhost_memo_call_backend_private_cache_resource_proof_table_free table
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_proof_table_contains_key_result &table record.key:
+                Result::Ok exists:
+                    if:
+                        exists
+                        then:
+                            selfhost_memo_call_backend_private_cache_resource_proof_table_free table
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate record.key
+                        else:
+                            let records %Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord field::get table "records"
+                            match v::push records record:
+                                Result::Ok next_records:
+                                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofTable next_records
+                                Result::Err e:
+                                    let error %StdErrorKind field::get e "error"
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed error
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_proof_table_free table
+                    Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_proof_status_eq: proof status が同じ variant か[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_proof_status_eq %fn SelfhostMemoCallBackendPrivateCacheProofStatus fn SelfhostMemoCallBackendPrivateCacheProofStatus bool \a\b:
@@ -556,6 +858,101 @@ fn selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result %imp
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed e
 
+//: selfhost_memo_call_backend_private_cache_resource_status_to_request_status_result: Resource status を request-evidence status へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - Resource IR の private-cache no-escape observation を、既存 request-evidence gate が扱う status へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `PrivateCacheNoEscapeProven` だけが `RequestEvidenceProven` になります。
+//: - `PrivateCacheMayEscape` は `RequestEvidenceRefuted` になります。この status は gate 側で accepted summary にならず、`ProofRefuted` として拒否されます。
+//: - `PrivateCacheMissing` と `PrivateCacheUnknown` は proof record を作らず producer error にします。未証明を `Ok` の deferred plan にしません。
+fn selfhost_memo_call_backend_private_cache_resource_status_to_request_status_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus Result SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \key\status:
+    match status:
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMissing:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing key
+        SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown key
+
+//: selfhost_memo_call_backend_private_cache_resource_record_to_request_record_result: Resource observation record を request-evidence record へ[変換/へんかん]する
+fn selfhost_memo_call_backend_private_cache_resource_record_to_request_record_result %fn SelfhostMemoCallBackendPrivateCacheResourceProofRecord Result SelfhostMemoCallBackendPrivateCacheProofRecord SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \record:
+    match selfhost_memo_call_backend_private_cache_resource_status_to_request_status_result record.key record.status:
+        Result::Ok request_status:
+            Result::Ok selfhost_memo_call_backend_private_cache_proof_record_new record.key request_status
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_producer_fail_with_output: producer 失敗時に output proof table を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_resource_producer_fail_with_output %impure fn SelfhostMemoCallBackendPrivateCacheProofTable impure fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \output\error:
+    selfhost_memo_call_backend_private_cache_proof_table_free output
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_produce_loop: Resource observation table を request-evidence proof table へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - direct table contents を左から読み、Missing / Unknown を producer error として止めます。
+//: - output proof table push は既存 private writer を使うため、body module fingerprint placeholder や lower push failure は既存 gate error を `RequestEvidenceGateRejected` に包みます。
+fn selfhost_memo_call_backend_private_cache_resource_proof_produce_loop %impure fn SelfhostMemoCallBackendPrivateCacheProofTable impure fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_proof_table_len source
+        then:
+            Result::Ok output
+        else:
+            let records %&Vec SelfhostMemoCallBackendPrivateCacheResourceProofRecord field::get_ref source "records"
+            match v::get records idx:
+                Option::Some resource_record:
+                    match selfhost_memo_call_backend_private_cache_resource_record_to_request_record_result resource_record:
+                        Result::Ok request_record:
+                            match selfhost_memo_call_backend_private_cache_proof_table_push output request_record:
+                                Result::Ok next_output:
+                                    selfhost_memo_call_backend_private_cache_resource_proof_produce_loop next_output source add idx 1
+                                Result::Err gate_error:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected gate_error
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_producer_fail_with_output output e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_producer_fail_with_output output SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_table_to_request_evidence_result: Resource table から request-evidence proof table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - producer-owned Resource observation を既存 gate が読める module-private proof table へ変換します。
+//:
+//: [契約/けいやく]:
+//: - 成功時だけ caller が output proof table owner を受け取ります。失敗時はこの関数が output owner を閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_proof_table_to_request_evidence_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \source:
+    match selfhost_memo_call_backend_private_cache_proof_table_new:
+        Result::Ok output0:
+            selfhost_memo_call_backend_private_cache_resource_proof_produce_loop output0 source 0
+        Result::Err gate_error:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected gate_error
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result: Resource observation 由来の proof で既存 gate を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - Resource observation table を直接 accepted authority にせず、module-private request-evidence proof table へ変換してから既存 gate へ渡します。
+//:
+//: [契約/けいやく]:
+//: - この入口は module-private です。Resource IR graph walker / no-escape producer が接続されるまで、外部 caller に accepted path を公開しません。
+//: - request table は既存 gate の内部で HIR root から再構築します。Resource table は proof table へ変換されるだけで、caller supplied request table にはなりません。
+//: - 既存 gate の成功は non-executable summary のままであり、backend bytes、cache operation、sealed representation は作りません。
+fn selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheResourceProofTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \module\root\fuel\body_module_fingerprint\resource_proofs:
+    match selfhost_memo_call_backend_private_cache_resource_proof_table_to_request_evidence_result resource_proofs:
+        Result::Ok request_proofs:
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result module root fuel body_module_fingerprint &request_proofs
+            selfhost_memo_call_backend_private_cache_proof_table_free request_proofs
+            match result:
+                Result::Ok summary:
+                    Result::Ok summary
+                Result::Err gate_error:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected gate_error
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_proof_gate_error_code: gate error kind の比較用 code を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_proof_gate_error_code %fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind i32 \error:
     match error:
@@ -708,6 +1105,175 @@ pub fn selfhost_memo_call_backend_private_cache_proof_gate_refuted_result_eq %fn
                 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_resource_proof_error_code: Resource producer error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が表示文字列ではなく enum 分類を比較できるようにします。
+fn selfhost_memo_call_backend_private_cache_resource_proof_error_code %fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed _e:
+            2
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed _idx:
+            3
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate _key:
+            4
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            5
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing _key:
+            6
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown _key:
+            7
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected _e:
+            8
+        SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
+            9
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_error_kind_eq: Resource producer error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_resource_proof_error_code a selfhost_memo_call_backend_private_cache_resource_proof_error_code b
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_error_result_eq: Resource producer result が期待 error 分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_error_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_call_backend_private_cache_resource_proof_error_kind_eq actual expected
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_missing_result_eq: Missing resource proof error が expected key を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_missing_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_unknown_result_eq: Unknown resource proof error が expected key を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_duplicate_result_eq: duplicate resource proof error が expected key を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_duplicate_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_refuted_result_eq: MayEscape resource proof が gate の refuted error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_refuted_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::RequestEvidenceGateRejected gate_error:
+                    match gate_error:
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted actual_key:
+                            selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing _key:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate _key:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan _key:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing _index:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing _expr_id:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected _rejection:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch _expr_id:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed _e:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed _index:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
+                            false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofRecordReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::ResourceProofUnknown _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key: stage0 の期待 key を[返/かえ]す
 pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
     let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
@@ -799,5 +1365,79 @@ pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0 %impure fn voi
             let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_empty_result
             let refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted
             Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary accepted.request_count accepted.proven_request_count missing_rejected refuted_rejected
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_stage0_single_table_result: 1 record の Resource observation table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_proof_stage0_single_table_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \status:
+    match selfhost_memo_call_backend_private_cache_resource_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+            let record %SelfhostMemoCallBackendPrivateCacheResourceProofRecord selfhost_memo_call_backend_private_cache_resource_proof_record_new key status
+            selfhost_memo_call_backend_private_cache_resource_proof_table_push table0 record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_summary_result: Resource observation table 経由で gate summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_summary_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \status:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            match selfhost_memo_call_backend_private_cache_resource_proof_stage0_single_table_result status:
+                Result::Ok resource_proofs:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result &module root 8 77 &resource_proofs
+                    selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_proofs
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result: Resource producer result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceProofStatus Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \status:
+    match selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_summary_result status:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_stage0_duplicate_result: duplicate Resource observation を[拒否/きょひ]する smoke result を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_proof_stage0_duplicate_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+            let record %SelfhostMemoCallBackendPrivateCacheResourceProofRecord selfhost_memo_call_backend_private_cache_resource_proof_record_new key SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+            match selfhost_memo_call_backend_private_cache_resource_proof_table_push table0 record:
+                Result::Ok table1:
+                    match selfhost_memo_call_backend_private_cache_resource_proof_table_push table1 record:
+                        Result::Ok table2:
+                            let n %i32 selfhost_memo_call_backend_private_cache_resource_proof_table_len &table2
+                            selfhost_memo_call_backend_private_cache_resource_proof_table_free table2
+                            Result::Ok n
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_proof_producer_stage0: Resource proof producer 境界の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - Resource observation 由来の `PrivateCacheNoEscapeProven` は既存 request-evidence gate の non-executable accepted summary まで進めることを確認します。
+//: - `PrivateCacheMayEscape` は request-evidence gate の `ProofRefuted` へ、`PrivateCacheMissing` / `PrivateCacheUnknown` は producer error へ、duplicate は table construction error へ進むことを確認します。
+pub fn selfhost_memo_call_backend_private_cache_resource_proof_producer_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_summary_result SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven:
+        Result::Ok accepted:
+            let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape
+            let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMissing
+            let unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown
+            let duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind selfhost_memo_call_backend_private_cache_resource_proof_stage0_duplicate_result
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary accepted.request_count accepted.proven_request_count may_escape_rejected missing_rejected unknown_rejected duplicate_rejected
         Result::Err e:
             Result::Err e

@@ -2069,6 +2069,20 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 この checkpoint 後の残件は、producer-owned Resource proof boundary、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity の observation ban、sealed backend representation、MemoKey / MemoValue aggregate proof と backend request の接続、prechecked artifact / `.neplobj` / `.neplproof` stable key 投影である。現状の proof lookup は request 数を `m`、proof record 数を `p` とすると O(m * p) であり、sorted index 化、root / fingerprint bucket 化、artifact sidecar index 化は後続で行える。ただし exact key、duplicate rejection、orphan rejection、non-executable summary という semantic contract は今の stage で固定した。
 
+## 2026-06-20 memo_call backend Resource observation producer stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、Resource observation 由来の private-cache proof status を request-evidence proof table へ変換する module-private producer stage0 を追加した。
+
+この checkpoint は actual Resource IR graph walker でも、PrivateCache / PrivateState effect masking でも、sealed cache backend representation でもない。ここで固定したのは、Resource 側の observation status を `PrivateCacheNoEscapeProven`、`PrivateCacheMayEscape`、`PrivateCacheMissing`、`PrivateCacheUnknown` に分け、未証明や未判定を成功扱いにしない変換境界である。`PrivateCacheNoEscapeProven` だけが既存の `RequestEvidenceProven` へ進み、`PrivateCacheMayEscape` は `RequestEvidenceRefuted` として既存 gate の `ProofRefuted` に流れる。`PrivateCacheMissing` と `PrivateCacheUnknown` は producer error のまま返し、request-evidence proof table へ保存しない。
+
+Resource proof record / table / status は module-private である。public API に `SelfhostMemoCallBackendPrivateCacheResourceProofTable` や `SelfhostMemoCallBackendPrivateCacheResourceProofRecord` を渡す経路は作らない。これは、caller が forged Resource observation table を直接 accepted gate へ渡す trust bypass を作らないためである。stage0 fixture は同じ module 内で private writer を使い、外部 module へ accepted path を公開しないまま、NoEscape / MayEscape / Missing / Unknown / duplicate の代表ケースを確認する。
+
+producer は Resource observation table を一度 `SelfhostMemoCallBackendPrivateCacheProofTable` へ変換し、その後で既存の module-private request-evidence gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築し、request entry を HIR payload と再照合するため、Resource observation table は caller supplied request table の代替 authority にならない。既存 gate が拒否した場合は `RequestEvidenceGateRejected` として包み、Resource producer 側の table 構築失敗、duplicate、Missing、Unknown と分けて診断できるようにした。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。private request-evidence 型と private Resource proof 型が public function signature や `pub struct` / `pub enum` に露出しないこと、`public entrypoint` という誤った説明が残らないこと、Missing / Unknown が `Result::Ok` へ畳まれないこと、MayEscape が refuted request-evidence として fail-closed に進むこと、行数や doc comment 量の制限を追加しないことを固定している。
+
+この checkpoint 後も、actual Resource IR graph walker からこの Resource observation table を作る境界、private cache region の fresh / non-escape proof、cache hit / miss / size / clear / raw identity の observation ban、PrivateCache / PrivateState internal effect の surface fold、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。Resource proof table lookup の sorted index 化や root / fingerprint bucket 化は後からできる最適化であり、今回固定した private type exposure ban、fail-closed status fold、HIR-root recheck contract を保つ限り後続で置換できる。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

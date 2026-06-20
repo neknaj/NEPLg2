@@ -63,8 +63,15 @@ assert.ok(
     source.includes("caller が渡す proof table をそのまま authority にせず") &&
         source.includes("non-executable summary") &&
         source.includes("proof record / proof table / proof table writer / gate 本体は module-private") &&
+        source.includes("Resource observation producer も同じ module-private proof table writer を使います") &&
+        source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, and index optimization is a later contract-preserving change",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer without adding a public accepted path, and index optimization is a later contract-preserving change",
+);
+assert.doesNotMatch(
+    source,
+    /public entrypoint/,
+    "docs must not describe the private proof gate as a public entrypoint",
 );
 assert.ok(
     runner.includes('"nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js"'),
@@ -125,6 +132,21 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheProofStatus|SelfhostMemoCallBackendPrivateCacheProofRecord|SelfhostMemoCallBackendPrivateCacheProofTable)\b/m,
+    "public functions must not expose private request-evidence proof status, record, or table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheResourceProof(?:Status|Record|Table)\b/,
+    "Resource proof status, record, and table must stay private until the real Resource graph producer owns their construction",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheResourceProofStatus|SelfhostMemoCallBackendPrivateCacheResourceProofRecord|SelfhostMemoCallBackendPrivateCacheResourceProofTable)\b/m,
+    "public functions must not expose private Resource proof status, record, or table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -132,6 +154,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result\b/m,
     "request-evidence gate must stay module-private until a producer-owned Resource proof boundary owns the proof table",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result\b/m,
+    "Resource proof producer gate must stay module-private until the Resource graph walker owns the proof table input",
 );
 const tableArea = source.slice(
     source.indexOf("struct SelfhostMemoCallBackendPrivateCacheProofTable:"),
@@ -141,6 +168,15 @@ assert.doesNotMatch(
     tableArea,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheProofTable/,
     "private-cache proof table owner must not implement Clone or Copy",
+);
+const resourceTableArea = source.slice(
+    source.indexOf("struct SelfhostMemoCallBackendPrivateCacheResourceProofTable:"),
+    source.indexOf("pub enum SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:"),
+);
+assert.doesNotMatch(
+    resourceTableArea,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceProofTable/,
+    "Resource proof table owner must not implement Clone or Copy",
 );
 assertOrdered(
     source,
@@ -268,6 +304,47 @@ assertOrdered(
         "ProofRefuted key",
     ],
     "proof status fold must accept only request-evidence Proven and reject request-evidence Refuted",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceProofStatus"),
+    [
+        "PrivateCacheNoEscapeProven",
+        "PrivateCacheMayEscape",
+        "PrivateCacheMissing",
+        "PrivateCacheUnknown",
+    ],
+    "Resource proof status must distinguish no-escape proof, escape, missing proof, and unknown proof explicitly",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_status_to_request_status_result"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven:",
+        "Result::Ok SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven",
+        "SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMayEscape:",
+        "Result::Ok SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted",
+        "SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheMissing:",
+        "ResourceProofMissing key",
+        "SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheUnknown:",
+        "ResourceProofUnknown key",
+    ],
+    "Resource status fold must translate no-escape into request evidence, translate escape into refuted request evidence, and keep missing/unknown as producer errors",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_status_to_request_status_result"),
+    /PrivateCache(?:Missing|Unknown)[\s\S]*?Result::Ok/,
+    "Resource Missing and Unknown status must not become successful request evidence",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_proof_gate_from_hir_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_to_request_evidence_result resource_proofs",
+        "Result::Ok request_proofs:",
+        "selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result module root fuel body_module_fingerprint &request_proofs",
+        "selfhost_memo_call_backend_private_cache_proof_table_free request_proofs",
+        "Result::Err gate_error:",
+        "RequestEvidenceGateRejected gate_error",
+    ],
+    "Resource proof producer gate must convert private Resource observations through the module-private request-evidence table and wrap the existing private gate rejection",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_proof_table_push"),
