@@ -1449,6 +1449,32 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 - `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
 - owner-retaining adapter を generic platform wait backend selection や minifb default runner へ接続しない。
 
+### Phase F5in: Native Linux platform-wait owner-ready run-loop input boundary
+
+目的:
+
+- Linux runner 実装の前段として、validated platform-wait config と externally-wakeable owner 全体を同じ input object に保持する。
+- generic support gate の Linux `PlatformRunnerIntegrationMissing` behavior を維持したまま、runner 専用の下位 validation 境界を分離する。
+- fallible path で config と owner を失わず、backend-only / producer-dropping path を public API にしない。
+
+実装:
+
+- `NativeWindowLinuxPlatformWaitRunLoopInputBuildError` を追加し、config failure、platform unavailable、wrong current platform、backend support failure、Linux event-source support failure、closed owner を分ける。すべての failure は config と owner を保持して返す。
+- `NativeWindowLinuxPlatformWaitRunLoopInput` を追加し、config と full owner を private field として保持する。`into_parts` は config と full owner だけを返す。
+- `native_window_linux_platform_wait_run_loop_input_for_platform` を追加し、config extraction、current platform、Linux backend kind、selection platform、Linux capability、owner open state を順に検査する。
+- current-platform wrapper は `native_window_host_loop_current_platform_kind` を渡すだけにし、generic runner support gate や backend construction helper は呼ばない。
+
+検証:
+
+- Rust unit tests で open owner accepted、missing Linux capability、observed-input-only、wrong current platform、closed owner を検査する。
+- source policy で full owner retention、generic support gate 非呼び出し、runner / CLI / minifb / sys API / fallback / synthetic readiness 非導入を固定する。
+
+非目標:
+
+- Linux platform wait runner support gate を `Ok` にしない。
+- `run_linux_platform_wait_window_loop`、Linux CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady`、timer fired evidence、scheduler-ready evidence、FHD 60fps measurement、2D compositor drain、font / stroke / shadow rasterization は実装しない。
+- owner-ready input を generic platform wait backend selection や minifb default runner へ接続しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

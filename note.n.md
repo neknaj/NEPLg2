@@ -1,3 +1,50 @@
+# 2026-06-20 Agent2 GUI native F5in Linux platform-wait owner-ready run-loop input boundary
+
+## scope
+
+- F5im owner-retaining run-loop host の後続として、Linux platform-wait config と externally-wakeable owner 全体を同時に保持する input boundary を追加する。
+- generic runner support gate は Linux を引き続き `PlatformRunnerIntegrationMissing` として扱い、F5in helper では下位の config / platform / backend kind / Linux event-source capability / owner open state だけを検査する。
+- Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、minifb wait replacement、fallback、synthetic readiness、timer fired evidence の偽装は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- new helper は generic `validate_native_window_run_loop_platform_wait_runner_support_for_platform` を呼ばず、generic gate が Linux で `PlatformRunnerIntegrationMissing` を返す contract を維持することが条件として確認された。
+- lower-level config / selection / capability validation と `owner.are_handles_open` を検査し、失敗時は config と owner を error variant に保持して返すことが条件として確認された。
+- public extraction は config と full owner だけを返し、backend-only / producer-dropping escape、runner / CLI / minifb / sys / fallback / sleep / synthetic readiness を追加しないことが条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxPlatformWaitRunLoopInputBuildError` を追加し、config failure、platform unavailable、wrong current platform、backend support failure、Linux event-source support failure、closed owner を分け、各 failure で config と owner を保持するようにした。
+- `NativeWindowLinuxPlatformWaitRunLoopInput` を追加し、config と full owner を private field として保持するようにした。
+- `native_window_linux_platform_wait_run_loop_input_for_platform` と current-platform wrapper を追加し、generic support gate を呼ばずに Linux owner-ready input だけを作るようにした。
+- Rust unit tests、source policy、GUI spec、implementation plan、native platform behavior、`todo.md` を F5in contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_platform_wait_run_loop_input -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo test -p nepl-gui-native --features window --lib`
+- pass: `cargo test -p nepl-gui-native --features window --bin nepl-gui-native -- --nocapture`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check`
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source policy blocker はなく、input が config と full owner を保持し、`into_parts` が `(config, owner)` だけを返し、owner-bearing error recovery を持ち、generic runner support gate を呼ばず、Linux `PlatformRunnerIntegrationMissing` behavior を維持し、runner dispatch / fallback / minifb / sys calls / sleep / synthetic readiness を導入していないことが確認された。
+- 指摘は、この section の `implementation_review` が pending のままで、`verification_current` に `git diff --check` が未記録だったことだった。
+- 指摘対応として、初回 review result と focused / broader verification result をこの欄に記録した。
+- Beauvoir the 2nd の再レビューは `REVIEW_APPROVED_TO_COMMIT`。note readiness blocker は解消済みで、commit / merge / push に進めてよいと判定された。
+
+## residual
+
+- actual X11 / Wayland event source fd integration または同等の externally-wakeable source、Linux platform wait runner / CLI dispatch は未実装である。
+- macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5im Linux externally-wakeable event source run-loop host boundary
 
 ## scope

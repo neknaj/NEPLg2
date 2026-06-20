@@ -929,6 +929,16 @@ owner から backend だけを public に取り出す API は持たない。`int
 
 F5im は owner-retaining wait hook checkpoint であり、Linux runner support gate は引き続き `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` を返す。Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop`、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、`set_target_fps 0`、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
 
+## F5in Native Linux platform-wait owner-ready run-loop input boundary
+
+F5in では、F5im の owner-retaining run-loop host を Linux runner へ接続する前段として、platform-wait config と `NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner` を同時に検査して保持する Linux 専用 input boundary を追加する。
+
+`NativeWindowLinuxPlatformWaitRunLoopInput` は `NativeWindowRunLoopConfig` と Linux externally-wakeable owner 全体を所有する。`into_parts` は config と owner を返すだけで、backend 単体や producer 単体を public に取り出さない。これにより、producer を落とした backend-only path や、owner を失う fallible builder を runner 入口に作らない。
+
+`native_window_linux_platform_wait_run_loop_input_for_platform` は generic runner support gate を呼ばない。generic support gate は引き続き Linux を `PlatformRunnerIntegrationMissing LinuxExternallyWakeableEventSourceOwnerMissing` として扱うためである。F5in helper は下位の config / platform / backend kind / Linux event-source capability / owner-open validation だけを行い、失敗時は config と owner を error variant に保持して返す。
+
+F5in は owner-ready input checkpoint であり、Linux runner support gate の `Ok` 化、`run_linux_platform_wait_window_loop`、CLI dispatch、actual X11 / Wayland fd integration、macOS actual sys shim、CoreFoundation / AppKit binding、minifb wait replacement、sleep、busy loop、fallback、silent no-op、synthetic `HostEventReady` / timer fired evidence / scheduler-ready evidence は追加しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

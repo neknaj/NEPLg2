@@ -1272,6 +1272,47 @@ pub enum NativeWindowRunLoopPlatformWaitRunnerSupportError {
     },
 }
 
+#[derive(Debug)]
+pub enum NativeWindowLinuxPlatformWaitRunLoopInputBuildError<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    Config {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        error: NativeWindowRunLoopPlatformWaitBackendConfigError,
+    },
+    PlatformUnavailable {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        platform: NativeWindowHostLoopPlatformKind,
+        backend: NativeWindowHostLoopPlatformWaitBackendKind,
+    },
+    WrongCurrentPlatform {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        current: NativeWindowHostLoopPlatformKind,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+    },
+    BackendSupportFailed {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        error: NativeWindowHostLoopPlatformWaitBackendSupportError,
+    },
+    LinuxEventSourceSupportFailed {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        error: NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError,
+    },
+    OwnerClosed {
+        config: NativeWindowRunLoopConfig,
+        owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+        selection: NativeWindowHostLoopPlatformWaitBackendSelection,
+        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    },
+}
+
 #[cfg(target_os = "windows")]
 pub type NativeWindowWindowsPlatformWaitHostLoopError = NativeWindowHostLoopError<
     NativeWindowEventPumpError,
@@ -3577,6 +3618,180 @@ pub fn validate_native_window_run_loop_platform_wait_runner_support(
     validate_native_window_run_loop_platform_wait_runner_support_for_platform(
         native_window_host_loop_current_platform_kind(),
         config,
+    )
+}
+
+#[derive(Debug)]
+pub struct NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    config: NativeWindowRunLoopConfig,
+    owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+}
+
+impl<BackendApi, ProducerApi> NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    pub fn config(&self) -> NativeWindowRunLoopConfig {
+        self.config
+    }
+
+    pub fn owner(
+        &self,
+    ) -> &NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi> {
+        &self.owner
+    }
+
+    pub fn owner_mut(
+        &mut self,
+    ) -> &mut NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>
+    {
+        &mut self.owner
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        NativeWindowRunLoopConfig,
+        NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+    ) {
+        (self.config, self.owner)
+    }
+}
+
+pub fn native_window_linux_platform_wait_run_loop_input_for_platform<BackendApi, ProducerApi>(
+    current: NativeWindowHostLoopPlatformKind,
+    config: NativeWindowRunLoopConfig,
+    owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+) -> Result<
+    NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+    NativeWindowLinuxPlatformWaitRunLoopInputBuildError<BackendApi, ProducerApi>,
+>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    let platform_wait_config = match native_window_run_loop_platform_wait_backend_config(config) {
+        Ok(platform_wait_config) => platform_wait_config,
+        Err(error) => {
+            return Err(
+                NativeWindowLinuxPlatformWaitRunLoopInputBuildError::Config {
+                    config,
+                    owner,
+                    error,
+                },
+            );
+        }
+    };
+    let selection = platform_wait_config.selection();
+    if current == NativeWindowHostLoopPlatformKind::Unsupported {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::PlatformUnavailable {
+                config,
+                owner,
+                platform: current,
+                backend: selection.backend(),
+            },
+        );
+    }
+    if current != NativeWindowHostLoopPlatformKind::Linux {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::WrongCurrentPlatform {
+                config,
+                owner,
+                current,
+                selection,
+            },
+        );
+    }
+    if let Err(error) = validate_native_window_host_loop_platform_wait_backend_kind_for_platform(
+        NativeWindowHostLoopPlatformKind::Linux,
+        selection.backend(),
+    ) {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::BackendSupportFailed {
+                config,
+                owner,
+                error,
+            },
+        );
+    }
+    if selection.platform() != NativeWindowHostLoopPlatformKind::Linux {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::BackendSupportFailed {
+                config,
+                owner,
+                error:
+                    NativeWindowHostLoopPlatformWaitBackendSupportError::BackendPlatformMismatch {
+                        current: NativeWindowHostLoopPlatformKind::Linux,
+                        requested: selection.backend(),
+                    },
+            },
+        );
+    }
+    let capability =
+        match native_window_run_loop_linux_event_source_capability_from_platform_wait_config(
+            platform_wait_config,
+        ) {
+            Ok(capability) => capability,
+            Err(error) => {
+                return Err(
+                    NativeWindowLinuxPlatformWaitRunLoopInputBuildError::Config {
+                        config,
+                        owner,
+                        error,
+                    },
+                );
+            }
+        };
+    let capability =
+        match validate_native_window_host_loop_linux_blocking_wait_event_source_capability(
+            capability,
+        ) {
+            Ok(capability) => capability,
+            Err(error) => {
+                return Err(
+                    NativeWindowLinuxPlatformWaitRunLoopInputBuildError::LinuxEventSourceSupportFailed {
+                        config,
+                        owner,
+                        error,
+                    },
+                );
+            }
+        };
+    if !owner.are_handles_open() {
+        return Err(
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::OwnerClosed {
+                config,
+                owner,
+                selection,
+                capability,
+            },
+        );
+    }
+
+    Ok(NativeWindowLinuxPlatformWaitRunLoopInput { config, owner })
+}
+
+pub fn native_window_linux_platform_wait_run_loop_input<BackendApi, ProducerApi>(
+    config: NativeWindowRunLoopConfig,
+    owner: NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<BackendApi, ProducerApi>,
+) -> Result<
+    NativeWindowLinuxPlatformWaitRunLoopInput<BackendApi, ProducerApi>,
+    NativeWindowLinuxPlatformWaitRunLoopInputBuildError<BackendApi, ProducerApi>,
+>
+where
+    BackendApi: NativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+    ProducerApi: NativeWindowHostLoopLinuxHostEventSignalRawApi,
+{
+    native_window_linux_platform_wait_run_loop_input_for_platform(
+        native_window_host_loop_current_platform_kind(),
+        config,
+        owner,
     )
 }
 
@@ -12425,6 +12640,228 @@ mod tests {
                 },
             )
         );
+    }
+
+    fn native_window_linux_externally_wakeable_run_loop_test_config(
+        capability: NativeWindowHostLoopLinuxEventSourceCapability,
+    ) -> NativeWindowRunLoopConfig {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let platform_wait_config =
+            NativeWindowRunLoopPlatformWaitBackendConfig::new_with_linux_event_source_capability(
+                selection, capability,
+            );
+        NativeWindowRunLoopConfig::new_with_platform_wait_backend_config(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            platform_wait_config,
+        )
+    }
+
+    fn native_window_linux_externally_wakeable_run_loop_test_owner(
+        selector_fd: i32,
+        timer_fd: i32,
+        producer_fd: i32,
+    ) -> NativeWindowHostLoopLinuxExternallyWakeableEventSourceOwner<
+        ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi,
+        ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi,
+    > {
+        let backend_api =
+            ScriptedNativeWindowHostLoopLinuxSelectorTimerFdRawApi::new(selector_fd, timer_fd);
+        let backend = NativeWindowHostLoopLinuxSelectorTimerFdBackend::new(backend_api).unwrap();
+        let producer_api = ScriptedNativeWindowHostLoopLinuxHostEventSignalRawApi::new(producer_fd);
+        native_window_host_loop_linux_externally_wakeable_event_source_owner_from_backend(
+            backend,
+            producer_api,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_input_accepts_open_externally_wakeable_owner() {
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+        );
+        let owner = native_window_linux_externally_wakeable_run_loop_test_owner(41, 42, 50);
+
+        assert!(matches!(
+            validate_native_window_run_loop_platform_wait_runner_support_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                config,
+            )
+            .unwrap_err(),
+            NativeWindowRunLoopPlatformWaitRunnerSupportError::PlatformRunnerIntegrationMissing {
+                missing:
+                    NativeWindowRunLoopPlatformWaitRunnerMissingIntegration::LinuxExternallyWakeableEventSourceOwnerMissing {
+                        ..
+                    },
+                ..
+            }
+        ));
+
+        let input = native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap();
+
+        assert_eq!(input.config(), config);
+        assert!(input.owner().are_handles_open());
+        assert_eq!(input.owner().backend().api().register_calls, vec![(41, 42)]);
+        assert_eq!(
+            input.owner().backend().api().register_host_event_calls,
+            vec![(41, 43)]
+        );
+        assert_eq!(input.owner().producer().api().clone_calls, vec![43]);
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_input_rejects_missing_linux_capability_with_owner(
+    ) {
+        let selection =
+            validate_native_window_host_loop_platform_wait_backend_selection_for_platform(
+                NativeWindowHostLoopPlatformKind::Linux,
+                NativeWindowHostLoopPlatformWaitBackendKind::LinuxSelectorTimerFd,
+            )
+            .unwrap();
+        let config = NativeWindowRunLoopConfig::new_with_platform_wait_backend_selection(
+            GuiDemo::Life,
+            0,
+            1,
+            NativeWindowTargetFps::default(),
+            NativeWindowHostLoopRunPolicy::default(),
+            selection,
+        );
+        let owner = native_window_linux_externally_wakeable_run_loop_test_owner(44, 45, 51);
+
+        match native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::Config {
+                config: returned_config,
+                owner,
+                error,
+            } => {
+                assert_eq!(returned_config, config);
+                assert_eq!(
+                    error,
+                    NativeWindowRunLoopPlatformWaitBackendConfigError::MissingLinuxEventSourceCapability {
+                        selection,
+                    }
+                );
+                assert!(owner.are_handles_open());
+            }
+            error => panic!("expected missing Linux capability error, got {error:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_input_rejects_observed_input_with_owner() {
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+        );
+        let owner = native_window_linux_externally_wakeable_run_loop_test_owner(46, 47, 52);
+
+        match native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::LinuxEventSourceSupportFailed {
+                config: returned_config,
+                owner,
+                error,
+            } => {
+                assert_eq!(returned_config, config);
+                assert_eq!(
+                    error,
+                    NativeWindowHostLoopLinuxPlatformWaitEventSourceSupportError::ObservedInputOnlyUnsupportedForBlockingWait {
+                        requested: NativeWindowHostLoopLinuxEventSourceCapability::ObservedInputOnly,
+                    }
+                );
+                assert!(owner.are_handles_open());
+            }
+            error => panic!("expected observed input error, got {error:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_input_rejects_wrong_current_platform_with_owner()
+    {
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+        );
+        let selection = native_window_run_loop_platform_wait_backend_selection(config).unwrap();
+        let owner = native_window_linux_externally_wakeable_run_loop_test_owner(48, 49, 53);
+
+        match native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Windows,
+            config,
+            owner,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::WrongCurrentPlatform {
+                config: returned_config,
+                owner,
+                current,
+                selection: returned_selection,
+            } => {
+                assert_eq!(returned_config, config);
+                assert_eq!(current, NativeWindowHostLoopPlatformKind::Windows);
+                assert_eq!(returned_selection, selection);
+                assert!(owner.are_handles_open());
+            }
+            error => panic!("expected wrong platform error, got {error:?}"),
+        }
+    }
+
+    #[test]
+    fn native_window_linux_platform_wait_run_loop_input_rejects_closed_owner() {
+        let config = native_window_linux_externally_wakeable_run_loop_test_config(
+            NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource,
+        );
+        let selection = native_window_run_loop_platform_wait_backend_selection(config).unwrap();
+        let mut owner = native_window_linux_externally_wakeable_run_loop_test_owner(54, 55, 60);
+        assert_eq!(owner.backend_mut().close_handles_if_open(), true);
+
+        match native_window_linux_platform_wait_run_loop_input_for_platform(
+            NativeWindowHostLoopPlatformKind::Linux,
+            config,
+            owner,
+        )
+        .unwrap_err()
+        {
+            NativeWindowLinuxPlatformWaitRunLoopInputBuildError::OwnerClosed {
+                config: returned_config,
+                owner,
+                selection: returned_selection,
+                capability,
+            } => {
+                assert_eq!(returned_config, config);
+                assert_eq!(returned_selection, selection);
+                assert_eq!(
+                    capability,
+                    NativeWindowHostLoopLinuxEventSourceCapability::ExternallyWakeableEventSource
+                );
+                assert!(!owner.are_handles_open());
+            }
+            error => panic!("expected closed owner error, got {error:?}"),
+        }
     }
 
     #[cfg(all(feature = "window", target_os = "windows", not(target_arch = "wasm32")))]
