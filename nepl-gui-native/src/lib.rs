@@ -7482,6 +7482,32 @@ pub enum NativeWindowLinuxX11XauthorityPathPlanError {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityEnvironmentValueKind {
+    AuthorityFilePath,
+    HomeDirectoryPath,
+}
+
+pub trait NativeWindowLinuxX11XauthorityEnvironmentReader {
+    type Error;
+
+    fn read_xauthority_environment_value(
+        &mut self,
+        variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+    ) -> Result<Option<String>, Self::Error>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11XauthorityEnvironmentPathPlanError<ReaderError> {
+    EnvironmentReadFailed {
+        variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+        error: ReaderError,
+    },
+    PathPlanFailed {
+        error: NativeWindowLinuxX11XauthorityPathPlanError,
+    },
+}
+
 pub trait NativeWindowLinuxX11XauthorityFileBytesReader {
     type Error;
 
@@ -7815,6 +7841,53 @@ pub fn native_window_linux_x11_xauthority_path_plan(
         return native_window_linux_x11_xauthority_plan_home_default_path(home_directory_path);
     }
     Err(NativeWindowLinuxX11XauthorityPathPlanError::MissingAuthorityLocation)
+}
+
+pub fn native_window_linux_x11_xauthority_path_plan_from_environment<Reader>(
+    reader: &mut Reader,
+) -> Result<
+    NativeWindowLinuxX11XauthorityPathPlan,
+    NativeWindowLinuxX11XauthorityEnvironmentPathPlanError<Reader::Error>,
+>
+where
+    Reader: NativeWindowLinuxX11XauthorityEnvironmentReader,
+{
+    let authority_file_path = reader
+        .read_xauthority_environment_value(
+            NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+        )
+        .map_err(|error| {
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::EnvironmentReadFailed {
+                variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                error,
+            }
+        })?;
+    if let Some(authority_file_path) = authority_file_path.as_deref() {
+        return native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(Some(authority_file_path), None),
+        )
+        .map_err(|error| {
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::PathPlanFailed { error }
+        });
+    }
+
+    let home_directory_path = reader
+        .read_xauthority_environment_value(
+            NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+        )
+        .map_err(|error| {
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::EnvironmentReadFailed {
+                variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                error,
+            }
+        })?;
+    native_window_linux_x11_xauthority_path_plan(NativeWindowLinuxX11XauthorityLookupInput::new(
+        None,
+        home_directory_path.as_deref(),
+    ))
+    .map_err(
+        |error| NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::PathPlanFailed { error },
+    )
 }
 
 pub fn native_window_linux_x11_xauthority_read_file_bytes_with_limit<Reader>(
@@ -16659,10 +16732,50 @@ mod tests {
         PermissionDenied,
     }
 
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    enum ScriptedXauthorityEnvironmentReadError {
+        Unavailable,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    struct ScriptedXauthorityEnvironmentReadStep {
+        variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+        result: Result<Option<String>, ScriptedXauthorityEnvironmentReadError>,
+    }
+
+    struct ScriptedXauthorityEnvironmentReader {
+        steps: Vec<ScriptedXauthorityEnvironmentReadStep>,
+        step_index: usize,
+        seen_variables: Vec<NativeWindowLinuxX11XauthorityEnvironmentValueKind>,
+    }
+
     struct ScriptedXauthorityFileBytesReader {
         expected_path: &'static str,
         result: Option<Result<Vec<u8>, ScriptedXauthorityFileReadError>>,
         seen_path: Option<String>,
+    }
+
+    impl ScriptedXauthorityEnvironmentReadStep {
+        fn new(
+            variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+            result: Result<Option<String>, ScriptedXauthorityEnvironmentReadError>,
+        ) -> Self {
+            Self { variable, result }
+        }
+    }
+
+    impl ScriptedXauthorityEnvironmentReader {
+        fn new(steps: Vec<ScriptedXauthorityEnvironmentReadStep>) -> Self {
+            Self {
+                steps,
+                step_index: 0,
+                seen_variables: Vec::new(),
+            }
+        }
+
+        fn seen_variables(&self) -> &[NativeWindowLinuxX11XauthorityEnvironmentValueKind] {
+            &self.seen_variables
+        }
     }
 
     impl ScriptedXauthorityFileBytesReader {
@@ -16679,6 +16792,25 @@ mod tests {
 
         fn seen_path(&self) -> Option<&str> {
             self.seen_path.as_deref()
+        }
+    }
+
+    impl NativeWindowLinuxX11XauthorityEnvironmentReader for ScriptedXauthorityEnvironmentReader {
+        type Error = ScriptedXauthorityEnvironmentReadError;
+
+        fn read_xauthority_environment_value(
+            &mut self,
+            variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind,
+        ) -> Result<Option<String>, Self::Error> {
+            let step = self
+                .steps
+                .get(self.step_index)
+                .cloned()
+                .expect("scripted xauthority environment reader step should be available");
+            assert_eq!(variable, step.variable);
+            self.step_index += 1;
+            self.seen_variables.push(variable);
+            step.result
         }
     }
 
@@ -17805,6 +17937,166 @@ mod tests {
             )
             .unwrap_err(),
             NativeWindowLinuxX11XauthorityPathPlanError::HomeDirectoryContainsNul
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_preserves_explicit_path_without_home_read(
+    ) {
+        let mut reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(Some("/run/user/1000/custom.auth".to_owned())),
+            ),
+        ]);
+
+        let plan =
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader).unwrap();
+
+        assert_eq!(
+            reader.seen_variables(),
+            &[NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath]
+        );
+        assert_eq!(
+            plan.source(),
+            NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+        );
+        assert_eq!(plan.path(), "/run/user/1000/custom.auth");
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_rejects_empty_explicit_path_without_home_read(
+    ) {
+        let mut reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(Some(String::new())),
+            ),
+        ]);
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::PathPlanFailed {
+                error: NativeWindowLinuxX11XauthorityPathPlanError::EmptyAuthorityFilePath,
+            }
+        );
+        assert_eq!(
+            reader.seen_variables(),
+            &[NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_stops_on_authority_read_failure() {
+        let mut reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Err(ScriptedXauthorityEnvironmentReadError::Unavailable),
+            ),
+        ]);
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::EnvironmentReadFailed {
+                variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                error: ScriptedXauthorityEnvironmentReadError::Unavailable,
+            }
+        );
+        assert_eq!(
+            reader.seen_variables(),
+            &[NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_builds_home_default_when_authority_absent(
+    ) {
+        let mut reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(None),
+            ),
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                Ok(Some("/home/alice".to_owned())),
+            ),
+        ]);
+
+        let plan =
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader).unwrap();
+
+        assert_eq!(
+            reader.seen_variables(),
+            &[
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+            ]
+        );
+        assert_eq!(
+            plan.source(),
+            NativeWindowLinuxX11XauthorityPathSource::HomeDirectoryDefault
+        );
+        assert_eq!(plan.path(), "/home/alice/.Xauthority");
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_reports_missing_and_empty_home() {
+        let mut missing_reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(None),
+            ),
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                Ok(None),
+            ),
+        ]);
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut missing_reader)
+                .unwrap_err(),
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::PathPlanFailed {
+                error: NativeWindowLinuxX11XauthorityPathPlanError::MissingAuthorityLocation,
+            }
+        );
+
+        let mut empty_home_reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(None),
+            ),
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                Ok(Some(String::new())),
+            ),
+        ]);
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut empty_home_reader)
+                .unwrap_err(),
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::PathPlanFailed {
+                error: NativeWindowLinuxX11XauthorityPathPlanError::EmptyHomeDirectory,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_xauthority_environment_path_plan_preserves_home_read_failure() {
+        let mut reader = ScriptedXauthorityEnvironmentReader::new(vec![
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::AuthorityFilePath,
+                Ok(None),
+            ),
+            ScriptedXauthorityEnvironmentReadStep::new(
+                NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                Err(ScriptedXauthorityEnvironmentReadError::Unavailable),
+            ),
+        ]);
+
+        assert_eq!(
+            native_window_linux_x11_xauthority_path_plan_from_environment(&mut reader).unwrap_err(),
+            NativeWindowLinuxX11XauthorityEnvironmentPathPlanError::EnvironmentReadFailed {
+                variable: NativeWindowLinuxX11XauthorityEnvironmentValueKind::HomeDirectoryPath,
+                error: ScriptedXauthorityEnvironmentReadError::Unavailable,
+            }
         );
     }
 

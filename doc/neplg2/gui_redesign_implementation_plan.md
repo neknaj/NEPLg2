@@ -2093,6 +2093,37 @@ Phase F5jg では、F5jf の `NativeWindowLinuxX11XauthorityPathPlan` から Xau
 - `git diff --check`
 - subagent implementation review で exact plan path use、typed nonempty / size-checked byte owner、no env/fs/VFS / no credential/setup coupling / no fallback / no runner dispatch が承認される。
 
+## Phase F5jh: Native Linux Xauthority environment acquisition boundary
+
+Phase F5jh では、F5jf の caller supplied path request の前段として、platform environment 由来の authority-file path variable と home-directory path variable を取得する trait-injected boundary を追加する。これは environment acquisition contract であり、actual `std::env` adapter、filesystem / VFS read、credential selection、setup request integration は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityEnvironmentValueKind` は authority-file path variable と home-directory path variable を型付き enum として表す。raw variable name string は public helper の引数にしない。
+- `NativeWindowLinuxX11XauthorityEnvironmentReader` は variable kind を受け取り、`Result Option String Error` 相当を返す injected reader trait とする。
+- public helper は authority-file path variable を先に読む。`Some value` が返った場合は home-directory path variable を読まず、F5jf path plan に `Some value, None` を渡す。
+- authority-file path variable が missing の場合だけ home-directory path variable を読み、F5jf path plan に `None, home` を渡す。
+- authority-file path variable が present empty の場合は `EmptyAuthorityFilePath` として fail closed にし、home-directory path variable へ fallback しない。
+- read failure は `EnvironmentReadFailed variable error` として保持し、F5jf path plan failure は `PathPlanFailed error` として保持する。
+- success は既存 `NativeWindowLinuxX11XauthorityPathPlan` を返し、別の success evidence owner は作らない。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jh contract へ更新する。
+
+非目標:
+
+- direct `std::env`、raw environment API、actual filesystem / VFS adapter、`std::fs`、`File`、`OpenOptions`、`read_to*`、metadata / exists / canonicalize、file locking は扱わない。
+- Xauthority file bytes read、record parse、credential selection、setup request integration は扱わない。
+- Hostname / `gethostname`、Unix socket peer identity、TCP/IP address、SSH forwarding display policy は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で environment acquisition が path plan boundary にだけ接続され、no direct env/fs/VFS / no file read / no credential selection / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

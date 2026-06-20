@@ -1115,6 +1115,16 @@ reader trait は exact `plan.path` だけを受け取り、source を再解釈�
 
 F5jg は bytes acquisition boundary であり、`XAUTHORITY` / `HOME` の env acquisition、direct `std::fs` / `File` / `OpenOptions` / `read_to*`、metadata / exists / canonicalize、VFS adapter 実装、file locking、credential selection、setup request integration は扱わない。empty / failed read は no-auth fallback や `NoMatchingRecord` に変換しない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化、runner / CLI dispatch は後続にも混ぜない。
 
+## F5jh Native Linux Xauthority environment acquisition boundary
+
+F5jh では、F5jf の path plan を作るための environment acquisition boundary を追加する。Rust boundary 名としては、typed variable kind を `NativeWindowLinuxX11XauthorityEnvironmentValueKind`、reader trait を `NativeWindowLinuxX11XauthorityEnvironmentReader`、failure を `NativeWindowLinuxX11XauthorityEnvironmentPathPlanError` とする。
+
+reader trait は authority-file path variable と home-directory path variable を raw string ではなく enum で受け取り、`Option String` を返す。public helper は authority-file path variable を先に読み、present の場合は home-directory path variable を読まない。その値は `NativeWindowLinuxX11XauthorityLookupInput Some value None` へ渡し、F5jf の explicit path priority と empty explicit path fail-closed をそのまま使う。authority-file path variable が missing の場合だけ home-directory path variable を読み、F5jf の home default path plan へ進む。
+
+environment reader failure は `EnvironmentReadFailed variable error`、F5jf path plan failure は `PathPlanFailed error` として分ける。success は既存 `NativeWindowLinuxX11XauthorityPathPlan` だけを返し、file bytes owner や credential selection result は返さない。
+
+F5jh は environment acquisition boundary であり、direct `std::env` adapter、actual filesystem / VFS adapter、`std::fs` / `File` / `OpenOptions` / `read_to*`、metadata / exists / canonicalize、file locking、Xauthority file bytes read、record parse、credential selection、setup request integration は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化、runner / CLI dispatch は後続にも混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
