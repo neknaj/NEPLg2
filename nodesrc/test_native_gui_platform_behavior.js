@@ -31,6 +31,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeCargoToml = readRepoFile("nepl-gui-native", "Cargo.toml");
     const platformDoc = readRepoFile("doc", "neplg2", "gui_native_platform_behavior.md");
     const implementationPlan = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
+    const guiRedesignImplementationPlan = readRepoFile("doc", "neplg2", "gui_redesign_implementation_plan.md");
     const standardSpec = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
     const nativeFacade = readRepoFile("stdlib", "platforms", "gui", "native.nepl");
     const nativeClock = readRepoFile("stdlib", "platforms", "gui", "native", "clock.nepl");
@@ -197,7 +198,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxWindowEventSourceRunLoopHostHandoff = textSliceBetween(
         libSource,
         "pub fn native_window_host_loop_linux_platform_wait_run_loop_host_from_prepared_window_event_source_with_apis",
-        "impl<Api> NativeWindowHostLoopDeadlineTimerClock",
+        "impl<Host, BackendApi, ProducerApi, Api>\n    NativeWindowLinuxWindowEventSourceOwnedFdRunLoopHost",
     );
     const nativeWindowLinuxWindowEventSourceOwnedFdFinalRunLoopImpl = textSliceBetween(
         libSource,
@@ -227,12 +228,22 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxWindowEventSourceObservationImpl = textSliceBetween(
         libSource,
         "impl NativeWindowLinuxWindowEventSourceObservation",
-        "impl<Api> NativeWindowHostLoopDeadlineTimerClock",
+        "pub const NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN",
     );
     const nativeWindowLinuxWindowEventSourceObservationSurface = [
         nativeWindowLinuxWindowEventSourceObservationTypes,
         nativeWindowLinuxWindowEventSourceObservationImpl,
     ].join("\n");
+    const nativeWindowLinuxX11EventSourceObservationSurface = textSliceBetween(
+        libSource,
+        "pub const NATIVE_WINDOW_LINUX_X11_SETUP_REQUEST_BYTE_LEN",
+        "impl<Api> NativeWindowHostLoopDeadlineTimerClock",
+    );
+    const nativeWindowLinuxX11EventSourceSysApi = textSliceBetween(
+        libSource,
+        "pub struct NativeWindowLinuxX11EventSourceSysApi",
+        "impl NativeWindowLinuxWindowEventSourceFdAcquisitionRawApi",
+    );
     const nativeWindowLinuxWindowEventSourceEventPumpSurface = [
         nativeWindowLinuxWindowEventSourceRunLoopTypes,
         nativeWindowLinuxWindowEventSourceEventPumpHostImpl,
@@ -596,6 +607,37 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxWindowEventSourceObservationImpl, /impl<Provider> NativeWindowLinuxWindowEventSourceEventPumpProvider[\s\S]*NativeWindowLinuxWindowEventSourceObservationEventPumpProvider<Provider>[\s\S]*Provider: NativeWindowLinuxWindowEventSourceObservationProvider[\s\S]*poll_window_event_source_snapshot\([\s\S]*descriptor: NativeWindowLinuxWindowEventSourceDescriptor,[\s\S]*input: NativeWindowEventPumpInput[\s\S]*self[\s\S]*\.provider[\s\S]*\.poll_window_event_source_observation\(descriptor, input\)[\s\S]*ProviderObservationFailed\s*\{[\s\S]*descriptor,[\s\S]*error[\s\S]*native_window_linux_window_event_source_snapshot_from_observation\([\s\S]*descriptor,[\s\S]*input,[\s\S]*observation[\s\S]*SnapshotConstructionFailed\s*\{[\s\S]*descriptor,[\s\S]*error/);
     assert.doesNotMatch(nativeWindowLinuxWindowEventSourceObservationImpl, /NativeWindowPointerSample::Unavailable[\s\S]*InvalidPointerSample|unwrap_or|unwrap_or_else|ok\(\)|Err\(.*InvalidPointerSample.*\)\.ok|self\.provider\s*=|drop\(|std::mem::take|std::mem::replace/);
     assert.doesNotMatch(nativeWindowLinuxWindowEventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc|epoll|timerfd_create|eventfd\(|read\(|drain|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jb: Native Linux X11 setup and event observation boundary/);
+    assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
+    assert.match(guiRedesignImplementationPlan, /Linux support gate の `Ok` 化/);
+    assert.match(standardSpec, /F5jb Native Linux X11 setup and event observation boundary/);
+    assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
+    assert.match(standardSpec, /fallback snapshot や silent no-op は作らない/);
+    assert.match(platformDoc, /F5jb/);
+    assert.match(platformDoc, /setup request write/);
+    assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11EventSourceObservationReader<Api>\s*\{[\s\S]*setup_state: NativeWindowLinuxX11EventSourceSetupState,[\s\S]*setup_request_written_len: usize,[\s\S]*setup_prefix_len: usize,[\s\S]*setup_body_remaining_len: usize,[\s\S]*event_packet_len: usize/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider,\s*Api>\s*\{[\s\S]*provider: Provider,[\s\S]*reader: NativeWindowLinuxX11EventSourceObservationReader<Api>/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /SetupWriteWouldBlock[\s\S]*SetupPrefixReadWouldBlock[\s\S]*SetupBodyReadWouldBlock[\s\S]*EventReadWouldBlock/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /SetupPreviouslyFailed/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /SetupPrefixReadEof[\s\S]*SetupBodyReadEof/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /SetupRejected[\s\S]*SetupAuthRequiredUnsupported[\s\S]*SetupStatusInvalid/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /EventTypeUnsupported/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /descriptor\.source_kind\(\) != NativeWindowLinuxWindowEventSourceKind::X11Connection[\s\S]*UnsupportedSourceKind/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /WaylandDisplay[\s\S]*poll_observation|ToolkitExternal[\s\S]*poll_observation/);
+    assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /native_window_linux_x11_event_packet_to_observation[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_CONFIGURE_NOTIFY[\s\S]*NativeWindowSize::new[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_MOTION_NOTIFY[\s\S]*native_window_linux_x11_event_pointer_raw[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_PRESS[\s\S]*true[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_TYPE_BUTTON_RELEASE[\s\S]*false/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /pub fn provider_mut|pub fn reader_mut|pub fn into_parts|owned_fd_mut|into_owned_fd|\.close\(/);
+    assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_DONTWAIT/);
+    assert.match(nativeWindowLinuxX11EventSourceSysApi, /MSG_NOSIGNAL/);
+    assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::send/);
+    assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::recv/);
+    assert.match(nativeWindowLinuxX11EventSourceSysApi, /libc::EAGAIN[\s\S]*libc::EWOULDBLOCK/);
+    assert.doesNotMatch(nativeWindowLinuxX11EventSourceObservationSurface, /validate_native_window_run_loop_platform_wait_runner_support_for_platform|PlatformRunnerIntegrationMissing|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|std::thread::sleep|Duration|libc::|epoll|timerfd_create|eventfd\(|close\(|select\(|DOM|Canvas|video_memory|stdout_protocol|fallback|silent no-op|synthetic/i);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_polls_observation_provider/);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_keeps_typed_failures/);
     assert.match(libSource, /native_window_linux_window_event_source_observation_run_loop_adapter_delegates_visual_and_wait/);
@@ -2204,6 +2246,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native Linux window event source fd acquisition keeps socket ownership explicit",
             "Native Linux window event source normalized observation converts through typed snapshot helper",
             "Native Linux window event source observation provider plugs into run-loop event pump",
+            "Native Linux X11 event observation reads setup and event bytes without runner fallback",
             "Native presenter input preserves typed operation identity before scheduler ready payload",
             "Native formal presenter session commits successful End operations to presenter state",
             "Native presenter session host helper validates scalar ABI before session execution",

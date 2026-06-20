@@ -1910,6 +1910,35 @@ subagent review:
 
 - Darwin the 2nd に F5hl 計画を渡し、`PLAN_APPROVED` を得た。required constraints は、`HeadlessScripted` を default / native fallback にしないこと、standard spec も同期すること、source policy が typed enum と `cfg` selection を固定し runtime string / env probing / fallback / silent no-op を拒否すること、全 mismatch pair と unsupported platform を test することである。
 
+## Phase F5jb: Native Linux X11 setup and event observation boundary
+
+Phase F5jb では、F5ja で保持した acquired fd owner を actual X11 decoder へ進める最小 boundary として、X11 setup request write、setup response prefix / body drain、32 byte event packet read、normalized observation decode を追加する。Wayland は registry / surface / xdg-shell まで広がるため、この phase では対象外にする。
+
+実装:
+
+- `NativeWindowLinuxX11EventSourceRawApi` を追加し、raw byte write / read / last error code / would-block 判定を trait-injected にする。
+- cfg Linux `NativeWindowLinuxX11EventSourceSysApi` は `send` / `recv MSG_DONTWAIT` と errno 分類の薄い wrapper にする。
+- `NativeWindowLinuxX11EventSourceObservationReader` は setup request write progress、setup prefix progress、setup body remaining、event packet progress を保持する。
+- `WouldBlock` は retryable typed error として返すが、partial bytes は reader state に保持し、次回 poll で続きを読む。
+- setup rejected / auth required / invalid status / EOF / raw failure / unsupported event type は enum error にする。
+- `ConfigureNotify` は current size observation、`MotionNotify` / `ButtonPress` / `ButtonRelease` は pointer / mouse observation へ写す。
+- `NativeWindowLinuxX11WindowEventSourceObservationProvider` は descriptor provider owner と X11 reader を同じ owner に保持し、F5ix / F5iy の observation provider contract へ接続できる形にする。ただし provider mutable escape、reader mutable escape、consuming `into_parts` は公開しない。
+- Rust unit tests、source policy、GUI spec、native platform behavior、`todo.md`、`note.n.md` を F5jb contract へ更新する。
+
+非目標:
+
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- Wayland decoding、X11 authorization file lookup、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME は扱わない。
+- minifb fallback、ObservedInputOnly promotion、synthetic readiness、timer fired evidence、fallback snapshot、silent no-op は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で owner保持、typed error、partial byte retry、no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

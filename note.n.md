@@ -1,3 +1,46 @@
+# 2026-06-20 Agent2 GUI native F5jb Linux X11 setup and event observation boundary
+
+## scope
+
+- F5ja の acquired fd owner bundle の後続として、X11 local Unix connection の setup request / setup response drain / 32 byte event packet read / minimal observation decode を追加する。
+- `WouldBlock` は retryable typed error とし、partial setup / event bytes を reader state に保持する。
+- `ConfigureNotify` は size observation、`MotionNotify` / `ButtonPress` / `ButtonRelease` は pointer / mouse observation に写す。
+- Wayland、X11 authorization file lookup、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、fallback、synthetic readiness、timer fired evidence は今回 scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 推奨 slice は F5jb Native Linux X11 event source setup/read observation provider boundary で、Wayland を同時に扱わず、trait-injected raw API、typed setup / read / event errors、owned fd owner 保持、no fallback / no runner dispatch を条件として確認された。
+
+## implementation
+
+- `NativeWindowLinuxX11EventSourceRawApi`、cfg Linux `NativeWindowLinuxX11EventSourceSysApi`、`NativeWindowLinuxX11EventSourceObservationReader`、`NativeWindowLinuxX11WindowEventSourceObservationProvider` を追加した。
+- X11 setup request write、setup prefix read、setup body drain、event packet read は progress を保持し、partial + would-block から次回 poll で復帰できるようにした。
+- X11 ConfigureNotify / MotionNotify / ButtonPress / ButtonRelease を normalized observation へ写し、unsupported source / unsupported event / setup failure / EOF / raw failure は enum error にした。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、`todo.md` を F5jb contract へ更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_observation_provider_ -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib`
+- pass: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu` with existing dead_code warnings only
+- pass: `git diff --check` with LF / CRLF warnings only
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- blocker は `NativeWindowLinuxX11WindowEventSourceObservationProvider` が `provider_mut` / `into_parts` を公開しており、owned fd provider を F5ja final owner wrapper 外へ逃がせることだった。
+- 指摘対応として、X11 observation provider から public `provider_mut`、`reader_mut`、consuming `into_parts` を削除し、read-only `provider()` / `reader()` に限定した。source policy でも provider / reader mutable escape、owned fd close escape、consuming split を禁止した。
+- 再レビューは `REVIEW_APPROVED`。前回 blocker は解消され、F5ja acquired-fd final owner / drop-order contract、trait-injected X11 reader boundary、typed would-block / error handling、runner / CLI / support-gate / fallback 非導入の範囲で commit-ready と確認された。
+
+## residual
+
+- X11 authorization、window creation、event mask selection、WM_DELETE_WINDOW / ClientMessage、keyboard / IME は未実装である。
+- Wayland concrete event decoding、Linux support gate `Ok` 化、Linux runner / CLI dispatch、minifb wait replacement、macOS actual sys shim、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization、font integration は後続である。
+
 # 2026-06-20 Agent2 GUI native F5ja Linux acquired-fd final owner drop-order boundary
 
 ## scope
