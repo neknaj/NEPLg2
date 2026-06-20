@@ -2320,6 +2320,38 @@ Phase F5jn では、F5jm の `NativeWindowLinuxX11LocalAuthorityAddressReader` �
 - `git diff --check`
 - subagent implementation review で F5jn が process hostname adapter boundary に留まり、selector / credential / setup request / raw X11 fd / window setup / runner dispatch が混入していないことが承認される。
 
+## Phase F5jo: Native Linux X11 top-level window create/map request owner boundary
+
+Phase F5jo では、X11 local Unix connection 上で使う top-level window の CreateWindow / MapWindow request bytes を typed owner として作る。これは request byte owner boundary であり、actual `write_x11_bytes_raw` integration、server error handling、resource id allocator、WM_DELETE_WINDOW / InternAtom / ChangeProperty、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、support gate `Ok` 化はまだ行わない。
+
+実装:
+
+- `NativeWindowLinuxX11TopLevelWindowCreateInput`、`NativeWindowLinuxX11TopLevelWindowCreateRequest`、`NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError` を追加する。
+- window id と parent window id は zero と top 3 bits set を typed error として拒否する。
+- width / height は zero を typed error として拒否する。
+- default event mask は F5jo request 自体が MapWindow を直後に送ることを考慮し、current F5jb decoder が non-fatal に扱える pointer / button event だけに合わせ、`ButtonPress | ButtonRelease | PointerMotion` とする。StructureNotify は ConfigureNotify だけでなく MapNotify なども購読するため、追加 event decode phase まで含めない。Expose もまだ decode しないため含めない。
+- CreateWindow は opcode `1`、depth `CopyFromParent`、class `InputOutput`、visual `CopyFromParent`、value mask `background-pixel | event-mask`、value-list `background-pixel` then `event-mask` として encode する。
+- background-pixel と event-mask の 2 value だけを持つため、CreateWindow request length は `10` units とする。
+- MapWindow は opcode `8`、request length `2`、同じ window id として encode する。
+- request owner は private `Vec u8` を保持し、public surface は `window_id` / `as_bytes` / `len` に限定する。
+- Rust focused tests は exact byte layout、zero ids、high-bit ids、zero width / height、unused event-mask bits、default event mask に StructureNotify / Expose が無いことを検査する。
+- `nodesrc/test_native_gui_platform_behavior.js` に F5jo 専用 source-policy slice を追加し、F5jb raw API surface と混ぜない。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_native_platform_behavior.md`、note、todo を同じ slice で更新する。
+
+非目標:
+
+- actual raw fd write / read、setup observation reader への接続、Xauthority credential lookup、resource id allocation、server sequence / error handling、WM_DELETE_WINDOW、keyboard / IME、Linux runner / CLI dispatch は含めない。
+- StructureNotify / Expose subscription は F5jo では行わない。MapNotify / ConfigureNotify / Expose decode を追加する phase まで、それらを silent no-op にしない。
+- fallback、silent no-op、synthetic readiness、Linux support gate `Ok` 化は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で pure request-owner boundary、default mask scope、exact request length、no raw IO / no runner / no fallback が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。

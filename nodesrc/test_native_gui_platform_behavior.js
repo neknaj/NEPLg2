@@ -252,6 +252,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11ProcessLocalAuthorityAddressTypes = textSliceBetween(
         libSource,
         "pub trait NativeWindowLinuxX11LocalAuthorityAddressRawApi",
+        "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11TopLevelWindowResourceIdKind",
+    );
+    const nativeWindowLinuxX11TopLevelWindowCreateRequestTypes = textSliceBetween(
+        libSource,
+        "pub enum NativeWindowLinuxX11TopLevelWindowResourceIdKind",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\npub enum NativeWindowLinuxX11XauthorityPathSource",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressImpl = textSliceBetween(
@@ -262,6 +267,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11ProcessLocalAuthorityAddressImpl = textSliceBetween(
         libSource,
         "impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>",
+        "impl NativeWindowLinuxX11TopLevelWindowCreateInput",
+    );
+    const nativeWindowLinuxX11TopLevelWindowCreateRequestImpl = textSliceBetween(
+        libSource,
+        "impl NativeWindowLinuxX11TopLevelWindowCreateInput",
         "impl<'a> NativeWindowLinuxX11XauthorityLookupInput",
     );
     const nativeWindowLinuxX11LocalAuthorityAddressHelpers = textSliceBetween(
@@ -283,6 +293,10 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface = [
         nativeWindowLinuxX11ProcessLocalAuthorityAddressTypes,
         nativeWindowLinuxX11ProcessLocalAuthorityAddressImpl,
+    ].join("\n");
+    const nativeWindowLinuxX11TopLevelWindowCreateRequestSurface = [
+        nativeWindowLinuxX11TopLevelWindowCreateRequestTypes,
+        nativeWindowLinuxX11TopLevelWindowCreateRequestImpl,
     ].join("\n");
     const nativeWindowLinuxX11XauthorityEnvironmentTypes = textSliceBetween(
         libSource,
@@ -719,9 +733,14 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(guiRedesignImplementationPlan, /Phase F5jl: Native Linux Xauthority credential setup request boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jm: Native Linux Xauthority local authority address owner boundary/);
     assert.match(guiRedesignImplementationPlan, /Phase F5jn: Native Linux Xauthority process hostname address adapter boundary/);
+    assert.match(guiRedesignImplementationPlan, /Phase F5jo: Native Linux X11 top-level window create\/map request owner boundary/);
     assert.match(guiRedesignImplementationPlan, /actual hostname \/ process identity acquisition は扱わない/);
     assert.match(guiRedesignImplementationPlan, /raw API を 1 回だけ呼ぶ/);
     assert.match(guiRedesignImplementationPlan, /empty hostname bytes は F5jm helper の `EmptyAddress` に委譲/);
+    assert.match(guiRedesignImplementationPlan, /CreateWindow \/ MapWindow request bytes を typed owner として作る/);
+    assert.match(guiRedesignImplementationPlan, /`ButtonPress \| ButtonRelease \| PointerMotion`/);
+    assert.match(guiRedesignImplementationPlan, /StructureNotify は ConfigureNotify だけでなく MapNotify/);
+    assert.match(guiRedesignImplementationPlan, /StructureNotify \/ Expose subscription は F5jo では行わない/);
     assert.match(guiRedesignImplementationPlan, /partial bytes は reader state に保持/);
     assert.match(guiRedesignImplementationPlan, /raw API owner を消費する前に返す/);
     assert.match(guiRedesignImplementationPlan, /family \+ address \+ display_number` と exact match/);
@@ -745,6 +764,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /F5jl Native Linux Xauthority credential setup request boundary/);
     assert.match(standardSpec, /F5jm Native Linux Xauthority local authority address owner boundary/);
     assert.match(standardSpec, /F5jn Native Linux Xauthority process hostname address adapter boundary/);
+    assert.match(standardSpec, /F5jo Native Linux X11 top-level window create\/map request owner boundary/);
     assert.match(standardSpec, /NativeWindowLinuxX11EventSourceRawApi/);
     assert.match(standardSpec, /NativeWindowLinuxX11SetupRequest/);
     assert.match(standardSpec, /NativeWindowLinuxX11XauthoritySelector/);
@@ -754,6 +774,11 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(standardSpec, /NativeWindowLinuxX11XauthorityFileBytesReader/);
     assert.match(standardSpec, /raw fd \/ raw API owner を消費しない/);
     assert.match(standardSpec, /fallback snapshot や silent no-op は作らない/);
+    assert.match(standardSpec, /CreateWindow request は opcode `1`[\s\S]*request length は `10` units/);
+    assert.match(standardSpec, /MapWindow request は opcode `8`、request length `2`/);
+    assert.match(standardSpec, /`ButtonPress \| ButtonRelease \| PointerMotion`/);
+    assert.match(standardSpec, /StructureNotify は ConfigureNotify だけでなく MapNotify/);
+    assert.match(standardSpec, /StructureNotify \/ Expose subscription と MapNotify \/ ConfigureNotify \/ Expose decode は後続 phase/);
     assert.match(platformDoc, /F5jb/);
     assert.match(platformDoc, /F5jc/);
     assert.match(platformDoc, /F5jd/);
@@ -767,6 +792,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /F5jl/);
     assert.match(platformDoc, /F5jm/);
     assert.match(platformDoc, /F5jn/);
+    assert.match(platformDoc, /F5jo/);
     assert.match(platformDoc, /setup request write/);
     assert.match(platformDoc, /exact selector/);
     assert.match(platformDoc, /selector criteria/);
@@ -779,6 +805,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(platformDoc, /credential setup request/);
     assert.match(platformDoc, /local authority address owner/);
     assert.match(platformDoc, /process hostname adapter/);
+    assert.match(platformDoc, /top-level window の CreateWindow \/ MapWindow request bytes/);
+    assert.match(platformDoc, /actual X11 request write/);
     assert.match(platformDoc, /Wayland[^。\n]*まだ行わない/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub trait NativeWindowLinuxX11EventSourceRawApi\s*\{[\s\S]*write_x11_bytes_raw[\s\S]*read_x11_bytes_raw[\s\S]*last_error_code[\s\S]*error_code_is_would_block/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11AuthorizationCredential<'a>\s*\{[\s\S]*protocol_name: &'a \[u8\],[\s\S]*protocol_data: &'a \[u8\]/);
@@ -799,6 +827,35 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*pub fn new\(api: Api\) -> Self[\s\S]*pub fn api\(&self\) -> &Api[\s\S]*pub fn api_mut\(&mut self\) -> &mut Api[\s\S]*pub fn into_api\(self\) -> Api/);
     assert.match(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /impl<Api> NativeWindowLinuxX11LocalAuthorityAddressReader[\s\S]*for NativeWindowLinuxX11ProcessLocalAuthorityAddressReader<Api>[\s\S]*Api: NativeWindowLinuxX11LocalAuthorityAddressRawApi[\s\S]*vec!\[0_u8; NATIVE_WINDOW_LINUX_X11_LOCAL_AUTHORITY_ADDRESS_MAX_BYTE_LEN \+ 1\][\s\S]*get_hostname_raw\(&mut buffer\)[\s\S]*GetHostnameFailed[\s\S]*position\(\|byte\| \*byte == 0\)[\s\S]*HostnameNotTerminated[\s\S]*buffer_byte_len: buffer\.len\(\)[\s\S]*Ok\(buffer\[..byte_len\]\.to_vec\(\)\)/);
     assert.doesNotMatch(nativeWindowLinuxX11ProcessLocalAuthorityAddressSurface, /NativeWindowLinuxX11XauthoritySelectorCriteria|NativeWindowLinuxX11XauthoritySelection|NoMatchingRecord|std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE: u8 = 1/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE: u8 = 8/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS: u16 = 8/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT: u16 = 2/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS: u16 = 2/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_BACKGROUND_PIXEL: u32 = 0x0000_0002/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK: u32 = 0x0000_0800/);
+    assert.match(libSource, /NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS: u32 = 0xe000_0000/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub enum NativeWindowLinuxX11TopLevelWindowResourceIdKind\s*\{[\s\S]*Window,[\s\S]*ParentWindow/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub struct NativeWindowLinuxX11TopLevelWindowCreateInput\s*\{[\s\S]*window_id: u32,[\s\S]*parent_window_id: u32,[\s\S]*x: i16,[\s\S]*y: i16,[\s\S]*width: u16,[\s\S]*height: u16,[\s\S]*border_width: u16,[\s\S]*background_pixel: u32,[\s\S]*event_mask: u32/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub struct NativeWindowLinuxX11TopLevelWindowCreateRequest\s*\{[\s\S]*window_id: u32,[\s\S]*bytes: Vec<u8>/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub enum NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError\s*\{[\s\S]*ResourceIdZero[\s\S]*ResourceIdHighBitsSet[\s\S]*WidthZero[\s\S]*HeightZero[\s\S]*EventMaskHasUnusedBits[\s\S]*RequestLengthOverflow/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub fn new\([\s\S]*native_window_linux_x11_top_level_window_default_event_mask\(\)/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub fn new_with_event_mask\([\s\S]*event_mask: u32[\s\S]*Self\s*\{[\s\S]*event_mask/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub fn as_bytes\(&self\) -> &\[u8\][\s\S]*&self\.bytes/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub fn native_window_linux_x11_top_level_window_default_event_mask\(\) -> u32[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_RELEASE[\s\S]*NATIVE_WINDOW_LINUX_X11_EVENT_MASK_POINTER_MOTION/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /native_window_linux_x11_top_level_window_validate_resource_id[\s\S]*value == 0[\s\S]*ResourceIdZero[\s\S]*value & NATIVE_WINDOW_LINUX_X11_RESOURCE_ID_UNUSED_HIGH_BITS[\s\S]*ResourceIdHighBitsSet/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /native_window_linux_x11_top_level_window_validate_event_mask[\s\S]*event_mask & NATIVE_WINDOW_LINUX_X11_EVENT_MASK_UNUSED_HIGH_BITS[\s\S]*EventMaskHasUnusedBits/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub fn native_window_linux_x11_top_level_window_create_request[\s\S]*checked_add\(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT\)[\s\S]*RequestLengthOverflow/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /bytes\.push\(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE\)[\s\S]*bytes\.push\(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH\)[\s\S]*input\.window_id\.to_le_bytes\(\)[\s\S]*input\.parent_window_id\.to_le_bytes\(\)/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_BACKGROUND_PIXEL[\s\S]*NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_MASK_EVENT_MASK[\s\S]*input\.background_pixel\.to_le_bytes\(\)[\s\S]*input\.event_mask\.to_le_bytes\(\)/);
+    assert.match(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /bytes\.push\(NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE\)[\s\S]*NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS\.to_le_bytes\(\)[\s\S]*input\.window_id\.to_le_bytes\(\)/);
+    assert.doesNotMatch(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /NATIVE_WINDOW_LINUX_X11_EVENT_MASK_STRUCTURE_NOTIFY|NATIVE_WINDOW_LINUX_X11_EVENT_MASK_EXPOSURE|StructureNotify|Expose|Exposure/);
+    assert.doesNotMatch(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /pub window_id:|pub parent_window_id:|pub bytes:/);
+    assert.doesNotMatch(nativeWindowLinuxX11TopLevelWindowCreateRequestSurface, /NativeWindowLinuxX11EventSourceObservationReader|NativeWindowLinuxX11SetupRequest|NativeWindowLinuxX11XauthoritySelector|NativeWindowLinuxX11XauthoritySelection|NoMatchingRecord|std::env|std::fs|vfs|\bDISPLAY\b|\bXAUTHORITY\b|\bHOME\b|read_xauthority_environment_value|read_xauthority_file_bytes|native_window_linux_x11_xauthority_select_credential|native_window_linux_x11_setup_request_from_xauthority|native_window_linux_x11_setup_request_from_authorization|write_x11_bytes_raw|read_x11_bytes_raw|validate_native_window_run_loop_platform_wait_runner_support_for_platform|run_linux_platform_wait_window_loop|run_windows_platform_wait_window_loop|run_minifb|WindowOptions|ScaleMode|window\.update\(|update_with_buffer|set_target_fps|WM_DELETE|InternAtom|ChangeProperty|KeyPress|IME|fallback|silent no-op|synthetic/i);
+    assert.match(libSource, /native_window_linux_x11_top_level_window_create_request_encodes_create_and_map/);
+    assert.match(libSource, /native_window_linux_x11_top_level_window_create_request_rejects_invalid_ids/);
+    assert.match(libSource, /native_window_linux_x11_top_level_window_create_request_rejects_invalid_geometry/);
+    assert.match(libSource, /native_window_linux_x11_top_level_window_create_request_rejects_unused_event_mask_bits/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub enum NativeWindowLinuxX11XauthorityPathSource\s*\{[\s\S]*ExplicitAuthorityFile,[\s\S]*HomeDirectoryDefault/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityLookupInput<'a>\s*\{[\s\S]*authority_file_path: Option<&'a str>,[\s\S]*home_directory_path: Option<&'a str>/);
     assert.match(nativeWindowLinuxX11EventSourceObservationSurface, /pub struct NativeWindowLinuxX11XauthorityPathPlan\s*\{[\s\S]*source: NativeWindowLinuxX11XauthorityPathSource,[\s\S]*path: String/);
