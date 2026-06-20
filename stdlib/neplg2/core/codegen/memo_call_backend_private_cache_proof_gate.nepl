@@ -35,6 +35,7 @@
 //: - Actual walker traversal source collector stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` を borrowed input として読み、operation producer が読む traversal source table owner を作ります。known unsupported traversal / observation は `ResourceIrTraversalUnavailable` へ潰さず、`UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持します。この collector は GraphInput、proof table、operation table、backend bytes を作りません。
 //: - Private cache region proof stage0 は、traversal source table を private region proof input / status table へ写し、closed clone / neutral internal edge / escaping / observation / unsupported / unavailable / placeholder の代表 path を fail-closed に畳みます。この stage は Pure mask、`PrivateCacheNoEscapeProven`、sealed backend representation、artifact proof record を作りません。
 //: - Region no-escape candidate stage0 は、private region proof table が単一 request key / 単一 graph に閉じ、root candidate と support candidate が 1 件ずつだけ存在し、duplicate や bad status が無いことを確認します。この stage は candidate consistency checker で止まり、Resource proof table や request-evidence proof table へ昇格しません。
+//: - Fresh region witness stage0 は、no-escape candidate と別に渡された fresh-region witness candidate が同じ request key / graph / root ordinal / support ordinal を指す場合だけ、module-private Resource proof table を 1 件作れることを確認します。この stage は request-evidence gate、Pure mask、sealed backend representation、artifact proof record へ接続しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -51,6 +52,7 @@
 //: - actual walker traversal source collector は body 数 `b`、place 数 `p`、edge 数 `e`、unsupported 数 `u`、observation 数 `a` に対して validation と source append を線形に行います。known unsupported と traversal unavailable を分ける contract は semantic 境界なので、後続の index 化でも維持します。
 //: - private cache region proof stage0 は source 数 `s` に対して O(s) 時間で input / status table を作り、同じく O(s) 時間で fail-closed fold を行います。これは actual non-escape proof の探索計算量ではなく、source vocabulary と proof status の contract を固定するための smoke です。
 //: - region no-escape candidate checker は region proof record 数 `r` に対して O(r) 時間で、単一 key / graph、root / support の存在、duplicate ordinal、bad status を検査します。複数 support を効率的に扱う graph-shaped proof は後続 stage で追加しますが、candidate を `PrivateCacheNoEscapeProven` と混同しない contract は維持します。
+//: - fresh region witness checker は witness record 数 `w` に対して O(w) 時間で、candidate と witness の key / graph / ordinal 一致と duplicate witness を検査します。stage0 では witness は 1 件だけを受け入れますが、actual traversal が複数 support を返す場合の graph-shaped witness table は後続 stage で追加します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -316,6 +318,42 @@
 //:     let checks2 checks_push checks1 check candidate_i32_result_is_err summary.empty_rejected
 //:     let checks3 checks_push checks2 check candidate_i32_result_is_err summary.key_mismatch_rejected
 //:     let checks4 checks_push checks3 check candidate_i32_result_is_err summary.may_escape_rejected
+//:     let shown checks_print_report checks4
+//:     checks_exit_code shown
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn fresh_witness_i32_result_is_err %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind bool \result:
+//:     match result:
+//:         Result::Ok _value:
+//:             false
+//:         Result::Err _error:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 match summary.accepted_result:
+//:         Result::Ok n:
+//:             check_eq_i32 1 n
+//:         Result::Err _e:
+//:             Result::Err "fresh witness accepted path failed"
+//:     let checks2 checks_push checks1 check fresh_witness_i32_result_is_err summary.empty_witness_rejected
+//:     let checks3 checks_push checks2 check fresh_witness_i32_result_is_err summary.root_ordinal_mismatch_rejected
+//:     let checks4 checks_push checks3 check fresh_witness_i32_result_is_err summary.rejected_status_rejected
 //:     let shown checks_print_report checks4
 //:     checks_exit_code shown
 //: ```
@@ -945,6 +983,41 @@ struct SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord:
     support_operation_ordinal %i32
     status %SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus
 
+//: SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus: fresh region witness checker の中間状態
+//:
+//: [目的/もくてき]:
+//: - candidate consistency checker とは別の根拠として、fresh private cache region を観測した候補だけを表します。
+//:
+//: [契約/けいやく]:
+//: - この status は actual Resource IR traversal の完全な freshness proof ではありません。stage0 の checker-layer witness が candidate と同じ key / graph / ordinal を指すことだけを表します。
+//: - `PrivateCacheRegionFreshWitnessCandidateAccepted` 以外は fail-closed です。missing / rejected / unavailable を accepted proof へ混ぜてはいけません。
+enum SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus:
+    PrivateCacheRegionFreshWitnessCandidateAccepted
+    PrivateCacheRegionFreshWitnessMissing
+    PrivateCacheRegionFreshWitnessRejected
+    PrivateCacheRegionFreshWitnessUnavailable
+
+//: SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord: fresh region witness candidate の 1 record
+//:
+//: [契約/けいやく]:
+//: - witness authority は proof key、graph id、root operation ordinal、support operation ordinal、typed status に限定します。
+//: - source text、display name、diagnostic label、backend bytes、artifact key、GraphInput、Resource proof record を witness authority として使ってはいけません。
+//: - record は module-private です。外部 caller が witness を forged input として public accepted path へ渡せる入口を作りません。
+struct SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    root_operation_ordinal %i32
+    support_operation_ordinal %i32
+    status %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus
+
+//: SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable: fresh region witness record の owner table
+//:
+//: [契約/けいやく]:
+//: - owner table は module-private です。`Clone` / `Copy` を実装してはいけません。
+//: - stage0 では 1 witness だけを受け入れます。duplicate witness は first-wins にせず fail-closed にします。
+struct SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord
+
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: actual walker が列挙する Resource operation 相当の最小分類
 //:
 //: [目的/もくてき]:
@@ -1161,6 +1234,23 @@ pub enum SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind:
     RegionProofRootDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofSupportDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofOperationOrdinalDuplicate %i32
+    RegionFreshWitnessTableAllocFailed %StdErrorKind
+    RegionFreshWitnessRecordPushFailed %StdErrorKind
+    RegionFreshWitnessRecordReadFailed %i32
+    RegionFreshWitnessEmpty
+    RegionFreshWitnessBodyModuleFingerprintPlaceholder %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessGraphIdInvalid %i32
+    RegionFreshWitnessOperationOrdinalInvalid %i32
+    RegionFreshWitnessKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessGraphMismatch %i32
+    RegionFreshWitnessRootOrdinalMismatch %i32
+    RegionFreshWitnessSupportOrdinalMismatch %i32
+    RegionFreshWitnessRootSupportOrdinalDuplicate %i32
+    RegionFreshWitnessDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessMissing %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessRejected %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey
+    RegionFreshWitnessResourceProofRejected %SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind
     RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey
     RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey
@@ -1304,6 +1394,30 @@ pub struct SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summa
     unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary: fresh region witness bridge smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - no-escape candidate と fresh-region witness candidate が同じ request key / graph / root ordinal / support ordinal を持つ場合だけ、module-private Resource proof table を 1 件作れることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを公開します。fresh witness table、candidate record、Resource proof table owner は公開しません。
+//: - accepted result は Resource proof table 生成の到達確認だけです。request-evidence gate、Pure mask、sealed backend representation、artifact projection には接続しません。
+pub struct SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    empty_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    root_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    support_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    duplicate_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    invalid_graph_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    invalid_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    rejected_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    unavailable_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
@@ -1895,6 +2009,32 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord \self:
         self
 
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus: fresh witness status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は witness classification だけであり、owner table や Resource proof table を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus: fresh witness status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord: fresh witness record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key、graph id、root/support ordinal、status だけを保持し、witness table owner や Resource proof table owner は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord: fresh witness record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord \self:
+        self
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: operation kind を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -2068,6 +2208,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0S
 //: Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary: region no-escape candidate smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary: fresh witness smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は Result payload だけを保持し、fresh witness table owner や Resource proof table owner を保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary: fresh witness smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -8066,6 +8219,262 @@ fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_i32_resul
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_record_new: fresh region witness record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - witness は candidate と別の typed evidence です。candidate だけで Resource proof table を作らないため、root/support ordinal と status を別 record として保持します。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord \key\graph_id\root_operation_ordinal\support_operation_ordinal\status:
+    SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord key graph_id root_operation_ordinal support_operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new: [空/から]の fresh witness table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free: fresh witness table の owner buffer を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free %impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_len: fresh witness record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_len %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_get: fresh witness record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_get %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable fn i32 Option SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord \table\idx:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord field::get_ref table "records"
+    v::get records idx
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_record_validate_result: witness authority field を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - placeholder fingerprint、負の graph id、負の ordinal、root/support ordinal の重複は fresh witness の根拠として扱いません。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord Result unit SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \record:
+    if:
+        eq record.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessBodyModuleFingerprintPlaceholder record.key
+        else:
+            if:
+                lt record.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessGraphIdInvalid record.graph_id.index
+                else:
+                    if:
+                        lt record.root_operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessOperationOrdinalInvalid record.root_operation_ordinal
+                        else:
+                            if:
+                                lt record.support_operation_ordinal 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessOperationOrdinalInvalid record.support_operation_ordinal
+                                else:
+                                    if:
+                                        eq record.root_operation_ordinal record.support_operation_ordinal
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRootSupportOrdinalDuplicate record.root_operation_ordinal
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_record_identity_eq: witness record の identity が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_record_identity_eq %fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord bool \a\b:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq a.key b.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq a.graph_id b.graph_id
+        eq a.root_operation_ordinal b.root_operation_ordinal
+        eq a.support_operation_ordinal b.support_operation_ordinal
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_loop: 同じ witness identity が既にあるか[探/さが]す
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_loop %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\record\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_get table idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_call_backend_private_cache_region_fresh_witness_record_identity_eq existing record
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_loop table record add idx 1 n
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_result: duplicate witness を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_result %fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord Result bool SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\record:
+    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_loop table record 0 selfhost_memo_call_backend_private_cache_region_fresh_witness_table_len table
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push: fresh witness record を table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - invalid witness と duplicate witness は owner table を閉じて fail-closed にします。record order による first-wins は使いません。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push %impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\record:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_record_validate_result record:
+        Result::Ok _valid:
+            match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_contains_result &table record:
+                Result::Ok exists:
+                    if:
+                        exists
+                        then:
+                            selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free table
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessDuplicate record.key
+                        else:
+                            let records %Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord field::get table "records"
+                            match v::push records record:
+                                Result::Ok next_records:
+                                    Result::Ok SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable next_records
+                                Result::Err e:
+                                    let error %StdErrorKind field::get e "error"
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRecordPushFailed error
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free table
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free table
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_candidate_validate_result: candidate record が accepted 中間状態か[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - candidate record も再検査します。private helper 由来であっても、placeholder key や不正 ordinal を witness bridge の成功に使いません。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_candidate_validate_result %fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord Result unit SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate:
+    if:
+        eq candidate.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessBodyModuleFingerprintPlaceholder candidate.key
+        else:
+            if:
+                lt candidate.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessGraphIdInvalid candidate.graph_id.index
+                else:
+                    if:
+                        lt candidate.root_operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessOperationOrdinalInvalid candidate.root_operation_ordinal
+                        else:
+                            if:
+                                lt candidate.support_operation_ordinal 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessOperationOrdinalInvalid candidate.support_operation_ordinal
+                                else:
+                                    if:
+                                        eq candidate.root_operation_ordinal candidate.support_operation_ordinal
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRootSupportOrdinalDuplicate candidate.root_operation_ordinal
+                                        else:
+                                            match candidate.status:
+                                                SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus::PrivateCacheRegionNoEscapeCandidateAccepted:
+                                                    Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate: accepted candidate から Resource proof table を 1 件[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - ここで作るのは module-private Resource proof table だけです。request-evidence gate、Pure mask、backend bytes、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate %impure fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate:
+    match selfhost_memo_call_backend_private_cache_resource_proof_table_new:
+        Result::Ok table0:
+            let resource_record %SelfhostMemoCallBackendPrivateCacheResourceProofRecord selfhost_memo_call_backend_private_cache_resource_proof_record_new candidate.key SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven
+            match selfhost_memo_call_backend_private_cache_resource_proof_table_push table0 resource_record:
+                Result::Ok resource_table:
+                    Result::Ok resource_table
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessResourceProofRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessResourceProofRejected e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_scan_record_result: 1 witness を candidate と[照合/しょうごう]する
+//:
+//: [契約/けいやく]:
+//: - witness は candidate と同じ request key / graph / root ordinal / support ordinal を持つ必要があります。
+//: - accepted 以外の witness status は fail-closed です。missing / rejected / unavailable を no-escape proof として扱いません。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_scan_record_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord impure fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable impure fn i32 impure fn i32 impure fn bool impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate\witnesses\idx\n\seen\record:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_record_validate_result record:
+        Result::Ok _valid:
+            if:
+                selfhost_memo_call_backend_private_cache_proof_key_eq record.key candidate.key
+                then:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id candidate.graph_id
+                        then:
+                            if:
+                                eq record.root_operation_ordinal candidate.root_operation_ordinal
+                                then:
+                                    if:
+                                        eq record.support_operation_ordinal candidate.support_operation_ordinal
+                                        then:
+                                            match record.status:
+                                                SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted:
+                                                    if:
+                                                        seen
+                                                        then:
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessDuplicate record.key
+                                                        else:
+                                                            selfhost_memo_call_backend_private_cache_region_fresh_witness_loop candidate witnesses add idx 1 n true
+                                                SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessMissing:
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessMissing record.key
+                                                SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessRejected:
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRejected record.key
+                                                SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessUnavailable:
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessUnavailable record.key
+                                        else:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessSupportOrdinalMismatch record.support_operation_ordinal
+                                else:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRootOrdinalMismatch record.root_operation_ordinal
+                        else:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessGraphMismatch record.graph_id.index
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessKeyMismatch record.key
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_loop: witness table を candidate と[照合/しょうごう]する
+//:
+//: [契約/けいやく]:
+//: - stage0 では exactly one accepted witness を要求します。empty / missing / duplicate / mismatch はすべて Resource proof table 生成前に止めます。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_loop %impure fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord impure fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable impure fn i32 impure fn i32 impure fn bool Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate\witnesses\idx\n\seen:
+    if:
+        ge idx n
+        then:
+            if:
+                seen
+                then:
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate candidate
+                else:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessMissing candidate.key
+        else:
+            match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_get witnesses idx:
+                Option::Some record:
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_scan_record_result candidate witnesses idx n seen record
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_result: candidate と witness から Resource proof table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - 成功しても Resource proof table owner は module-private のまま caller に返します。request-evidence gate には接続しません。
+//: - empty witness table は `RegionFreshWitnessEmpty` として、accepted witness が無い nonempty table は `RegionFreshWitnessMissing` として分けます。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_result %impure fn SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord impure fn &SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \candidate\witnesses:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_candidate_validate_result candidate:
+        Result::Ok _candidate:
+            let n %i32 selfhost_memo_call_backend_private_cache_region_fresh_witness_table_len witnesses
+            if:
+                eq n 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessEmpty
+                else:
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_loop candidate witnesses 0 n false
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_region_proof_stage0_run_i32_with_sources_result: source owner から region proof smoke を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -8294,6 +8703,99 @@ pub fn selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage
     let unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_run_i32_from_source_result selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_proof_stage0_placeholder_result
     SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStage0Summary accepted_result empty_rejected key_mismatch_rejected graph_mismatch_rejected root_duplicate_rejected support_duplicate_rejected ordinal_duplicate_rejected missing_support_rejected may_escape_rejected observation_rejected unsupported_rejected unavailable_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_candidate_result: accepted candidate fixture を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - fixture でも candidate checker を通します。candidate record を直接組み立てて fresh witness bridge に渡すと、直前 stage の consistency contract を検査できないためです。
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_candidate_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_no_escape_candidate_stage0_two_record_table_result 77 77 0 0:
+        Result::Ok table:
+            let candidate_result %Result SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table
+            selfhost_memo_call_backend_private_cache_region_proof_table_free table
+            candidate_result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_record: witness fixture record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_record %fn i32 fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord \body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint body_module_fingerprint
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
+    selfhost_memo_call_backend_private_cache_region_fresh_witness_record_new key graph_id root_operation_ordinal support_operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_table_result: 1 witness fixture table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_table_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new:
+        Result::Ok table0:
+            let record %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_record body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+            selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push table0 record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_empty_table_result: empty witness fixture table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_empty_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_duplicate_table_result: duplicate witness fixture table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_duplicate_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new:
+        Result::Ok table0:
+            let record %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_record 77 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+            match selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push table0 record:
+                Result::Ok table1:
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push table1 record
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_with_table_result: witness table を閉じながら bridge を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_with_table_result %impure fn Result SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \witness_result:
+    match selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_candidate_result:
+        Result::Ok candidate:
+            match witness_result:
+                Result::Ok witnesses:
+                    let resource_result %Result SelfhostMemoCallBackendPrivateCacheResourceProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_result candidate &witnesses
+                    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses
+                    match resource_result:
+                        Result::Ok resource_table:
+                            let n %i32 selfhost_memo_call_backend_private_cache_resource_proof_table_len &resource_table
+                            selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_table
+                            Result::Ok n
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result: 1 witness fixture を bridge smoke へ[渡/わた]す
+fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_with_table_result selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_table_result body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+
+//: selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0: fresh region witness bridge の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - candidate consistency checker の accepted output と fresh-region witness candidate が一致する場合だけ、module-private Resource proof table を 1 件作れることを確認します。
+//:
+//: [現状/げんじょう]:
+//: - request-evidence gate、PrivateCache / PrivateState effect masking、sealed backend representation、artifact projection は未接続です。この stage は Resource proof table 生成で止まります。
+pub fn selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let empty_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_with_table_result selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_empty_table_result
+    let missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessMissing
+    let key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 78 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 1 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let root_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 2 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let support_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 2 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 0 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let duplicate_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_with_table_result selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_duplicate_table_result
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 0 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let invalid_graph_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 -1 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let invalid_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 -1 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let rejected_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessRejected
+    let unavailable_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_run_i32_result 77 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessUnavailable
+    SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary accepted_result empty_witness_rejected missing_witness_rejected key_mismatch_rejected graph_mismatch_rejected root_ordinal_mismatch_rejected support_ordinal_mismatch_rejected ordinal_duplicate_rejected duplicate_witness_rejected placeholder_rejected invalid_graph_rejected invalid_ordinal_rejected rejected_status_rejected unavailable_status_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record: stage0 operation record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \operation_ordinal\from_index\to_index\kind:

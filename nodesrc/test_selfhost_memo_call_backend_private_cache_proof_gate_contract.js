@@ -73,9 +73,10 @@ assert.ok(
         source.includes("Actual walker operation producer bridge stage0") &&
         source.includes("Private cache region proof stage0") &&
         source.includes("Region no-escape candidate stage0") &&
+        source.includes("Fresh region witness stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, and no-escape candidate checker are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, and fresh witness bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -206,13 +207,13 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheRegion(?:Proof(?:InputKind|InputRecord|Status|Record|Table)|NoEscapeCandidate(?:Status|Record))\b/,
-    "private cache region proof input/status payload, no-escape candidate payload, and owner table must stay private until actual Resource IR traversal and effect masking own the proof boundary",
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheRegion(?:Proof(?:InputKind|InputRecord|Status|Record|Table)|NoEscapeCandidate(?:Status|Record)|FreshWitness(?:Status|Record|Table))\b/,
+    "private cache region proof input/status payload, no-escape candidate payload, fresh witness payload, and owner tables must stay private until actual Resource IR traversal and effect masking own the proof boundary",
 );
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheRegionProofInputKind|SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord|SelfhostMemoCallBackendPrivateCacheRegionProofStatus|SelfhostMemoCallBackendPrivateCacheRegionProofRecord|SelfhostMemoCallBackendPrivateCacheRegionProofTable|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord)\b/m,
-    "public functions must not expose private cache region proof input/status payload, no-escape candidate payload, or owner table types in their signatures",
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheRegionProofInputKind|SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord|SelfhostMemoCallBackendPrivateCacheRegionProofStatus|SelfhostMemoCallBackendPrivateCacheRegionProofRecord|SelfhostMemoCallBackendPrivateCacheRegionProofTable|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord|SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus|SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord|SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable)\b/m,
+    "public functions must not expose private cache region proof input/status payload, no-escape candidate payload, fresh witness payload, or owner table types in their signatures",
 );
 assert.doesNotMatch(
     code,
@@ -309,6 +310,11 @@ assert.doesNotMatch(
     code,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheRegionProofTable\b/,
     "private cache region proof table owner must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable\b/,
+    "fresh region witness table owner must not implement Clone or Copy",
 );
 assert.doesNotMatch(
     code,
@@ -1615,6 +1621,32 @@ assertOrdered(
     "region no-escape candidate record must retain the single request key, graph id, root/support ordinals, and candidate-only status",
 );
 assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus"),
+    [
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "PrivateCacheRegionFreshWitnessUnavailable",
+    ],
+    "fresh region witness status must keep accepted, missing, rejected, and unavailable states distinct",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "root_operation_ordinal %i32",
+        "support_operation_ordinal %i32",
+        "status %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus",
+    ],
+    "fresh region witness record must retain only key, graph id, root/support ordinals, and typed witness status as authority",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable"),
+    ["records %Vec SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessRecord"],
+    "fresh region witness table must be a private Vec-backed owner table",
+);
+assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind"),
     [
         "RegionProofTableAllocFailed %StdErrorKind",
@@ -1630,6 +1662,23 @@ assertOrdered(
         "RegionProofRootDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofSupportDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofOperationOrdinalDuplicate %i32",
+        "RegionFreshWitnessTableAllocFailed %StdErrorKind",
+        "RegionFreshWitnessRecordPushFailed %StdErrorKind",
+        "RegionFreshWitnessRecordReadFailed %i32",
+        "RegionFreshWitnessEmpty",
+        "RegionFreshWitnessBodyModuleFingerprintPlaceholder %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessGraphIdInvalid %i32",
+        "RegionFreshWitnessOperationOrdinalInvalid %i32",
+        "RegionFreshWitnessKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessGraphMismatch %i32",
+        "RegionFreshWitnessRootOrdinalMismatch %i32",
+        "RegionFreshWitnessSupportOrdinalMismatch %i32",
+        "RegionFreshWitnessRootSupportOrdinalDuplicate %i32",
+        "RegionFreshWitnessDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "RegionFreshWitnessResourceProofRejected %SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind",
         "RegionProofMayEscape %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofObservationRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
         "RegionProofUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
@@ -1637,7 +1686,7 @@ assertOrdered(
         "RegionProofMissingFreshRegion",
         "Stage0SourceRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
-    "private cache region proof producer errors must keep allocation, read, empty, malformed origin, mismatch, duplicate, escape, observation, unsupported, unavailable, missing, and source-fixture failures distinct",
+    "private cache region proof producer errors must keep allocation, read, empty, malformed origin, mismatch, duplicate, fresh witness, escape, observation, unsupported, unavailable, missing, and source-fixture failures distinct",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind"),
@@ -1912,10 +1961,143 @@ assertOrdered(
     ],
     "region no-escape candidate stage0 must cover accepted, empty, key/graph mismatch, duplicate, missing support, escaping, observation, unsupported, unavailable, and placeholder paths",
 );
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_record_validate_result"),
+    [
+        "eq record.key.body_module_fingerprint 0",
+        "RegionFreshWitnessBodyModuleFingerprintPlaceholder record.key",
+        "lt record.graph_id.index 0",
+        "RegionFreshWitnessGraphIdInvalid record.graph_id.index",
+        "lt record.root_operation_ordinal 0",
+        "RegionFreshWitnessOperationOrdinalInvalid record.root_operation_ordinal",
+        "lt record.support_operation_ordinal 0",
+        "RegionFreshWitnessOperationOrdinalInvalid record.support_operation_ordinal",
+        "eq record.root_operation_ordinal record.support_operation_ordinal",
+        "RegionFreshWitnessRootSupportOrdinalDuplicate record.root_operation_ordinal",
+    ],
+    "fresh witness validation must reject placeholder key, invalid graph, invalid ordinal, and root/support ordinal collision before proof table generation",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_scan_record_result"),
+    /_:/,
+    "fresh witness scan must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_scan_record_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_key_eq record.key candidate.key",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id candidate.graph_id",
+        "eq record.root_operation_ordinal candidate.root_operation_ordinal",
+        "eq record.support_operation_ordinal candidate.support_operation_ordinal",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted:",
+        "RegionFreshWitnessDuplicate record.key",
+        "PrivateCacheRegionFreshWitnessMissing:",
+        "RegionFreshWitnessMissing record.key",
+        "PrivateCacheRegionFreshWitnessRejected:",
+        "RegionFreshWitnessRejected record.key",
+        "PrivateCacheRegionFreshWitnessUnavailable:",
+        "RegionFreshWitnessUnavailable record.key",
+        "RegionFreshWitnessSupportOrdinalMismatch record.support_operation_ordinal",
+        "RegionFreshWitnessRootOrdinalMismatch record.root_operation_ordinal",
+        "RegionFreshWitnessGraphMismatch record.graph_id.index",
+        "RegionFreshWitnessKeyMismatch record.key",
+    ],
+    "fresh witness scan must require exact key, graph, root/support ordinals, accepted status, and distinct fail-closed status errors",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_loop"),
+    /_:/,
+    "fresh witness loop must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_loop"),
+    [
+        "if:",
+        "seen",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate candidate",
+        "RegionFreshWitnessMissing candidate.key",
+        "RegionFreshWitnessRecordReadFailed idx",
+    ],
+    "fresh witness loop must require exactly one accepted witness before producing the module-private Resource proof table",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_new",
+        "selfhost_memo_call_backend_private_cache_resource_proof_record_new candidate.key SelfhostMemoCallBackendPrivateCacheResourceProofStatus::PrivateCacheNoEscapeProven",
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_push table0 resource_record",
+        "RegionFreshWitnessResourceProofRejected e",
+    ],
+    "fresh witness bridge may create only a module-private Resource proof table record and must keep lower Resource proof construction failures typed",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_from_candidate")),
+    /resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "fresh witness Resource table bridge must not call request-evidence gate, synthesize request proof table records, GraphInput, backend bytes, effect masking, or artifact keys",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0")),
+    /resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof/,
+    "fresh witness stage0 must not call request-evidence gate, synthesize request proof table records, GraphInput, backend bytes, effect masking, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary"),
+    [
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "empty_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "root_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "support_ordinal_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "ordinal_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "duplicate_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "invalid_graph_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "invalid_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "rejected_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "unavailable_status_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "fresh witness stage0 summary must expose only typed Result payloads for accepted and fail-closed representative paths",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0"),
+    [
+        "accepted_result",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "empty_witness_rejected",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_empty_table_result",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "key_mismatch_rejected",
+        "78 0 0 1",
+        "graph_mismatch_rejected",
+        "77 1 0 1",
+        "root_ordinal_mismatch_rejected",
+        "77 0 2 1",
+        "support_ordinal_mismatch_rejected",
+        "77 0 0 2",
+        "ordinal_duplicate_rejected",
+        "77 0 0 0",
+        "duplicate_witness_rejected",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_stage0_duplicate_table_result",
+        "placeholder_rejected",
+        "0 0 0 1",
+        "invalid_graph_rejected",
+        "77 -1 0 1",
+        "invalid_ordinal_rejected",
+        "77 0 -1 1",
+        "rejected_status_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "unavailable_status_rejected",
+        "PrivateCacheRegionFreshWitnessUnavailable",
+    ],
+    "fresh witness stage0 must cover accepted, empty, missing, key/graph mismatch, ordinal mismatch, duplicate, invalid, rejected, and unavailable witness paths",
+);
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_(?:proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)|no_escape_candidate_(?:record|scan|loop|from|i32|stage0_))/m,
-    "private cache region proof and no-escape candidate helpers must stay module-private and only typed smoke summaries may be public",
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_region_(?:proof_(?:input|status|record|table|fail|append|collect|fold|stage0_)|no_escape_candidate_(?:record|scan|loop|from|i32|stage0_)|fresh_witness_(?:record|table|candidate|resource|scan|loop|stage0_))/m,
+    "private cache region proof, no-escape candidate, and fresh witness helpers must stay module-private and only typed smoke summaries may be public",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result"),

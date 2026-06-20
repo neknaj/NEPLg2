@@ -1,3 +1,38 @@
+# 2026-06-21 selfhost memo_call fresh region witness bridge
+
+## 目的
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の続きとして、region no-escape candidate consistency checker の次段に fresh-region witness bridge を追加した。
+- candidate record だけで `PrivateCacheNoEscapeProven` へ昇格させず、別 record として渡される fresh witness が同じ key / graph / root ordinal / support ordinal を持つ場合だけ、module-private Resource proof table を 1 件作る境界にした。
+
+## subagent review
+
+- 実装前 review で Wegener は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、この slice で既存 Resource proof producer / request-evidence gate へ接続すると actual Resource IR traversal 未接続でも accepted request evidence に進めるように見えるため、Resource proof table 生成で止めるべきというものだった。
+- 対応として、fresh witness bridge は `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を作るところで止め、`resource_proof_gate_from_hir_root_result`、request-evidence proof table、`RequestEvidenceProven`、GraphInput、backend bytes、effect mask、artifact key へ接続しない source policy を追加した。
+- 実装後 review で Wegener は `REVIEW_APPROVED` を返した。Resource proof table 生成止まりで request-evidence gate へ接続していないこと、fresh witness 型が module-private に閉じていること、owner table Clone / Copy ban、wildcard fallback ban、fail-closed 分類が揃っていることを確認した。
+
+## 実装内容
+
+- `SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus` / `Record` / `Table` を module-private に追加した。
+- witness は accepted / missing / rejected / unavailable を enum で区別し、accepted 以外は fail-closed にした。
+- candidate と witness の key / graph / root ordinal / support ordinal 一致を検査し、empty witness、missing、key mismatch、graph mismatch、root/support ordinal mismatch、root/support ordinal duplicate、duplicate witness、placeholder fingerprint、invalid graph、invalid ordinal を typed error として拒否する。
+- public には `SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary` だけを出し、private owner table や Resource proof table を公開しない。
+- module doc、設計doc、issue、source policy、doctest、todo を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-fresh-witness-doctest.json`
+
+## 未接続
+
+- actual Resource IR traversal 本体から fresh-region witness table を作る boundary。
+- fresh witness bridge で作った Resource proof table を、producer-owned request-evidence gate へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
 # 2026-06-21 selfhost memo_call region no-escape candidate consistency checker
 
 ## 目的
