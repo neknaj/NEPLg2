@@ -1,3 +1,43 @@
+# 2026-06-21 Agent2 GUI native F5ka Linux X11 InternAtom batch partial-write scheduling boundary
+
+## 目的
+
+- F5jx の `WM_PROTOCOLS` / `WM_DELETE_WINDOW` `InternAtom` request batch owner を、X11 observation reader の reader-owned partial-write state へ接続する。
+- batch configured path では `CreateWindow -> InternAtom batch -> MapWindow` の順に書き、MapWindow を batch より前に送らない。
+- 現段階では InternAtom reply correlation、Atom ID meaning assignment、actual `ChangeProperty`、`ClientMessage` decode、runner / support gate 有効化は扱わない。
+
+## subagent review
+
+- 実装前 review で Cicero と Sartre はどちらも `CHANGES_REQUESTED` を返した。
+- 指摘は、当初案の「MapWindow 前に batch を挿入する」と「MapWindow scheduling relocation は外」が矛盾すること、旧 combined top-level request writer の source-policy を延長せず split writer invariant へ更新する必要があることだった。
+- 対応として、F5ka は MapWindow 前に batch を置くための最小 scheduling split を含む boundary として doc / plan を修正し、reply / ChangeProperty / ClientMessage / runner gate は非目標に残した。
+- 実装後 review では、CreateWindow-only phase の過受理を `target_len` ではなく full request 長で判定していた点が blocker とされた。
+- 対応として `written > remaining` と `accepted_end_len > target_len` の fail-closed 判定を追加し、CreateWindow slice の over-acceptance が batch / MapWindow を進めない regression test を追加した。
+- Cicero と Sartre の再 review はどちらも `REVIEW_APPROVED`。残る F5ka blocker は無い。
+
+## 実装内容
+
+- `NativeWindowLinuxX11WmProtocolAtomInternBatchWriteState` と batch write error variant を追加した。
+- reader は optional `NativeWindowLinuxX11WmProtocolAtomInternRequestBatch`、batch write state、batch written length を private field として保持する。
+- batch configured path は top-level request を CreateWindow byte boundary まで書き、batch writer 完了後に MapWindow byte boundary まで書く。
+- InternAtom batch は request boundary offset を使って `next_x11_request_sequence` を進めるが、sequence retention / reply correlation / Atom meaning assignment はまだ行わない。
+- focused tests と source-policy は write order、partial resume、failure after CreateWindow blocking MapWindow、CreateWindow slice over-acceptance rejection、no reply / registration integration を固定した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_wm_protocol_atom_intern_batch -- --nocapture`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+## 未接続
+
+- InternAtom accepted sequence retention / reply correlation、`WM_PROTOCOLS` / `WM_DELETE_WINDOW` への meaning assignment、actual `ChangeProperty` registration は未接続。
+- `WM_DELETE_WINDOW` `ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch は未接続。
+
 # 2026-06-21 Agent2 GUI native F5jz Linux X11 InternAtom reply packet AtomId owner boundary
 
 ## 目的
