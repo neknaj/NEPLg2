@@ -1,3 +1,49 @@
+# 2026-06-20 Agent2 GUI native F5jk Linux Xauthority VFS file bytes adapter boundary
+
+## scope
+
+- F5jg の injected file bytes reader に対する caller supplied VFS source adapter を追加する。
+- adapter は F5jg から渡された exact `path` を mutable VFS source へそのまま渡す。
+- source failure は exact requested path と injected source error を保持する typed error とする。
+- empty file / file too large validation は F5jg helper に委譲し、adapter 内で重複実装しない。
+- actual Web VFS、native resource root、filesystem fallback、path normalization、alias lookup、credential selection、setup request integration、runner / CLI dispatch、Linux support gate `Ok` 化、fallback、synthetic readiness は scope 外にする。
+
+## plan_review
+
+- Beauvoir the 2nd から `PLAN_APPROVED`。
+- exact `plan.path` forwarding、typed source failure、F5jg validation delegation が required とされた。
+- source policy は F5jg injected surface、F5jj filesystem adapter、F5jk VFS adapter を separate slice として扱うことが required とされた。
+- docs / todo / note では credential selection to setup、hostname / display identity、runner / CLI dispatch、support-gate `Ok` を residual として残すことが required とされた。
+
+## implementation
+
+- `NativeWindowLinuxX11XauthorityVfsFileBytesSource`、`NativeWindowLinuxX11XauthorityVfsFileBytesReader`、`NativeWindowLinuxX11XauthorityVfsFileBytesReadError` を追加した。
+- VFS reader adapter は `read_xauthority_vfs_file_bytes(path)` の error を typed `ReadFailed path error` に変換する。
+- `native_window_linux_x11_xauthority_read_file_bytes_from_vfs` を追加し、F5jg helper への委譲だけを行う。
+- Rust focused tests、GUI spec、implementation plan、native platform behavior、source policy、`todo.md` を F5jk contract へ更新した。
+
+## verification
+
+- passed: `cargo fmt -p nepl-gui-native -- --check`
+- passed: `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- passed: `node nodesrc/test_native_gui_platform_behavior.js`
+- passed: `cargo test -p nepl-gui-native --lib`
+- passed: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- passed: `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- passed: `git diff --check`
+- note: Linux target check は既存 dead_code warning を報告したが、F5jk の compile blocker ではない。
+
+## implementation_review
+
+- Beauvoir the 2nd の初回 implementation review は `CHANGES_REQUESTED`。
+- code / source-policy / docs の content blocker は無く、blocker は F5jk 節に implementation review 結果が記録されていないことだった。
+- この節を追加し、レビュー結果と対応内容を記録した。
+- Beauvoir the 2nd の follow-up implementation review は `IMPLEMENTATION_APPROVED`。
+
+## residual
+
+- hostname / display identity policy、credential-selection-to-setup integration、window setup、Linux runner / CLI dispatch は未実装である。
+
 # 2026-06-20 Agent2 GUI native F5jj Linux Xauthority filesystem file bytes adapter boundary
 
 ## scope

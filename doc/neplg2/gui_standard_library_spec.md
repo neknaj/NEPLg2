@@ -1141,6 +1141,14 @@ adapter は F5jg から渡された exact `path` に対して `std::fs::read(pat
 
 convenience helper は filesystem reader を構築し、F5jg `native_window_linux_x11_xauthority_read_file_bytes` を呼んで `NativeWindowLinuxX11XauthorityFileBytes` を返すだけにする。F5jj は actual filesystem file bytes adapter boundary であり、VFS adapter、path normalization、metadata / exists / canonicalize、file locking、record parse、credential selection、setup request integration、runner / CLI dispatch は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化は後続にも混ぜない。
 
+## F5jk Native Linux Xauthority VFS file bytes adapter boundary
+
+F5jk では、F5jg の `NativeWindowLinuxX11XauthorityFileBytesReader` に対する VFS source adapter を追加する。Rust boundary 名としては、virtual source を `NativeWindowLinuxX11XauthorityVfsFileBytesSource`、reader adapter を `NativeWindowLinuxX11XauthorityVfsFileBytesReader`、failure を `NativeWindowLinuxX11XauthorityVfsFileBytesReadError` とする。
+
+adapter は F5jg から渡された exact `path` を mutable VFS source の `read_xauthority_vfs_file_bytes` にそのまま渡す。path normalization、alias lookup、alternate path synthesis、home fallback は行わない。source failure は exact requested path と source error を保持する typed error として返す。empty file / file too large validation は F5jg の `native_window_linux_x11_xauthority_read_file_bytes` が担当し、adapter は validation を重複実装しない。
+
+convenience helper は caller supplied VFS source を借用して reader adapter を構築し、F5jg `native_window_linux_x11_xauthority_read_file_bytes` を呼んで `NativeWindowLinuxX11XauthorityFileBytes` を返すだけにする。F5jk は VFS adapter boundary であり、actual Web VFS、native resource root、direct `std::fs` / `File` / `OpenOptions` / `read_to*`、metadata / exists / canonicalize、file locking、record parse、credential selection、setup request integration、runner / CLI dispatch は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化は後続にも混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

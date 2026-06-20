@@ -2187,6 +2187,40 @@ Phase F5jj では、F5jg の injected file bytes reader に対する cfg Linux a
 - `git diff --check`
 - subagent implementation review で actual filesystem adapter が F5jg にだけ接続され、no VFS / no credential selection / no fallback / no runner dispatch が承認される。
 
+## Phase F5jk: Native Linux Xauthority VFS file bytes adapter boundary
+
+Phase F5jk では、F5jg の injected file bytes reader に対する VFS source adapter を追加する。これは host / test / future Web resource root が持つ virtual file bytes source を Xauthority file bytes reader contract へ接続する境界であり、actual filesystem、path normalization、credential selection、setup request integration、runner / CLI dispatch は扱わない。
+
+実装:
+
+- `NativeWindowLinuxX11XauthorityVfsFileBytesSource` は `read_xauthority_vfs_file_bytes path` だけを持つ injected virtual source trait とする。
+- `NativeWindowLinuxX11XauthorityVfsFileBytesReader` は mutable VFS source を借用し、`NativeWindowLinuxX11XauthorityFileBytesReader` を実装する adapter とする。
+- adapter は F5jg から渡された exact `path` を source にそのまま渡し、path normalization、alias lookup、alternate path synthesis は行わない。
+- source failure は exact requested path と source error を保持する `NativeWindowLinuxX11XauthorityVfsFileBytesReadError` として返す。
+- empty file / file too large validation は F5jg `native_window_linux_x11_xauthority_read_file_bytes` に委譲し、adapter 内で重複実装しない。
+- convenience helper は caller supplied VFS source を借用して adapter を作り、F5jg helper を呼ぶだけにする。
+- source policy は F5jg injected surface、F5jj filesystem adapter surface、F5jk VFS adapter surface を分け、F5jk surface では `std::fs` / `File` / `OpenOptions` / `read_to*` を禁止する。
+
+非目標:
+
+- actual Web VFS、native resource root、filesystem fallback は扱わない。
+- `std::fs`、`File`、`OpenOptions`、`read_to*`、metadata / exists / canonicalize、file locking は扱わない。
+- path normalization、home fallback、alternate path synthesis、no-auth fallback は扱わない。
+- record parse、credential selection、setup request integration は扱わない。
+- Linux support gate の `Ok` 化、Linux runner / CLI dispatch、`run_linux_platform_wait_window_loop` は行わない。
+- fallback、silent no-op、synthetic readiness は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_ -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `cargo test -p nepl-gui-native --lib`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `cargo check -p nepl-gui-native --lib --tests --target x86_64-unknown-linux-gnu`
+- `git diff --check`
+- subagent implementation review で VFS adapter が F5jg にだけ接続され、exact path forwarding、typed source failure、no fs / no credential selection / no fallback / no runner dispatch が承認される。
+
 - scheduler loop は F5eg の `YieldToClock` / `AwaitTimerAdvance` / `ExecuteHostAction` / `Complete` action を明示的に進める必要がある。
 - `YieldToClock` は F5ej の deterministic clock-delta authority によってだけ pending / ready を判断する必要がある。
 - `WaitingTimer` は F5eh の `loop_timer_advance` または later real timer backend authority によってだけ再開する必要がある。
