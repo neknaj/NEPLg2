@@ -37,6 +37,12 @@ F5kj checkpoint:
 - header parser は explicit byte order、object id、opcode、message size、payload byte len、shape error を扱う。
 - xdg-shell configure / close、keyboard、IME、text input、fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化はまだ接続しない。
 
+F5kk checkpoint:
+
+- 現実装は caller supplied X11 keysym value を typed evidence として保持し、狭い portable key evidence へ射影する境界までを持つ。
+- projection は `NoSymbol`、unknown raw value、ASCII printable range、Return / Escape / Tab / Backspace / Delete、arrow、Home / End、PageUp / PageDown を区別する。
+- raw X11 keycode から keysym を取得する layout / keymap query、X11 event packet decode への接続、IME、text input、shortcut policy、Linux runner / CLI dispatch、support gate `Ok` 化はまだ接続しない。
+
 Linux X11:
 
 - window manager は top-level window を reparent したり、client の希望と異なる size / position を割り当てたりできる。
@@ -542,6 +548,8 @@ F5kg では、X11 top-level window の default event mask に `KeyPressMask` と
 F5kh では、F5kg の keyboard evidence に X11 core event の raw `state` field を追加する。`NativeWindowKeyboardModifierState` は packet offset 28 の little-endian `u16` を X11 key/button mask raw evidence として保持し、portable modifier、keysym、layout 済み key、shortcut、IME text へは変換しない。`NativeWindowKeyboardEvent::new` は compatibility path として empty modifier state を使い、X11 concrete decode は modifier-aware constructor を使う。raw keycode `0` rejection は維持し、raw modifier state は全 `u16` 値を valid evidence とする。F5kh は raw modifier evidence boundary であり、portable modifier mapping、IME / text input、keysym / layout mapping、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
 
 F5ki では、F5kh の raw `state` から Shift / Control / Alt / Meta の portable modifier evidence だけを導出する。`NativeWindowPortableKeyboardModifiers` は raw `NativeWindowKeyboardModifierState` から内部導出され、raw state と portable modifier を別々に public input として受け取る constructor は作らない。X11 `ShiftMask`、`ControlMask`、`Mod1Mask`、`Mod4Mask` だけを projection に使い、Lock、Mod2、Mod3、Mod5、button mask、unknown high bit は raw state にだけ残す。F5ki は portable modifier evidence boundary であり、keysym / layout mapping、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
+
+F5kk では、caller supplied X11 keysym value を `NativeWindowLinuxX11KeysymValue` として保持し、`NativeWindowPortableKey` へ狭く射影する。`NoSymbol = 0x0000` は `NoSymbol` として明示し、unknown raw value は `Unknown { raw_keysym }` として raw value を保持する。ASCII `0x20..0x7e` は printable ASCII として扱い、X11 named Delete `0xffff` と ASCII DEL `0x007f` を混同しない。F5kk は keysym value projection boundary であり、X11 keycode から keysym を取得する layout / keymap query、X11 event packet decode への接続、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
 
 ## Current implementation
 

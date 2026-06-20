@@ -3063,3 +3063,44 @@ Phase F5kj では、caller supplied packet bytes から Wayland raw message head
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で Wayland header evidence、explicit byte order、no event loop / no semantic decode / no fallback scope creep が承認される。
+
+## Phase F5kk: Native Linux X11 caller-supplied keysym value projection boundary
+
+Phase F5kk では、caller supplied X11 keysym value を backend-local typed evidence として保持し、ごく狭い portable key evidence へ射影する。keysym は raw X11 keycode から layout / keymap を使って取得済みであるとはみなさない。この phase は「すでに caller が持っている raw keysym integer を分類する」だけであり、X11 event packet decode や keyboard layout query へは接続しない。
+
+実装:
+
+- `NativeWindowLinuxX11KeysymValue` を追加し、caller supplied raw keysym value を `u32` evidence として保持する。
+- `NativeWindowPortableKey` を追加し、`NoSymbol`、`Unknown { raw_keysym }`、ASCII `0x20..0x7e`、Return、Escape、Tab、Backspace、Delete、arrow、Home / End、PageUp / PageDown だけを表す。
+- `NativeWindowLinuxX11KeysymProjection` を追加し、raw keysym owner と portable projection を同時に保持する。
+- projection は `NativeWindowLinuxX11KeysymValue` からだけ作る。raw value と portable key を別々に受け取る public constructor は作らない。
+- X11 `NoSymbol = 0x0000` は `Unknown` ではなく `NoSymbol` として明示する。
+- X11 named Delete は `0xffff` であり、ASCII DEL `0x007f` は portable `Delete` にしない。
+- source-policy は projection helper が event packet decode から分離されていること、NoSymbol / Unknown が明示されていること、XLookupString / Xutf8LookupString / XmbLookupString / XKB / xkbcommon / keymap / runner / queue / fallback 非導入を検査する。
+
+非目標:
+
+- X11 keycode から keysym を取得する layout / keymap query は含めない。
+- `XLookupString`、`Xutf8LookupString`、`XmbLookupString`、XKB、xkbcommon は呼ばない。
+- `native_window_linux_x11_event_packet_to_observation` へは接続しない。
+- IME composition、text input、shortcut policy、multi-scalar text は含めない。
+- Wayland concrete keyboard decoding は含めない。
+- Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback key、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- caller supplied raw keysym value が projection 後も失われず保持される。
+- `NoSymbol`、unknown raw value、ASCII printable range、navigation key の分類が test で固定される。
+- ASCII DEL `0x007f` を X11 named Delete と誤分類しないことを test で固定する。
+- event packet decode 関数に KeySym / keysym projection / text / shortcut / fallback policy が混入しないことを source-policy で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keysym -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で keysym value projection、raw preservation、no event decode / no keymap / no fallback scope creep が承認される。
