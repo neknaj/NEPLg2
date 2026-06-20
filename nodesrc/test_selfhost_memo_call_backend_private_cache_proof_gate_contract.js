@@ -2563,6 +2563,27 @@ assertOrdered(
     "actual traversal body adapter must keep the future real-body input boundary explicit while stage0 remains unavailable-only",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
+        "let record",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record key graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources0 record",
+    ],
+    "actual traversal body adapter unavailable fallback must return a request-local source table owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result"),
+    [
+        "SelfhostHirModule",
+        "SelfhostMemoCallBackendRequestTableEntry",
+        "SelfhostHirExprId",
+        "body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result key graph_id",
+    ],
+    "actual traversal body adapter request boundary must return source table owners while production remains unavailable-only",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations",
@@ -2592,16 +2613,37 @@ assert.doesNotMatch(
     "actual traversal body adapter stage0 must not synthesize accepted sources, fresh witnesses, lower proof tables, backend bytes, effect masks, or artifact records",
 );
 assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheStoragePlace|CloneOutOwnedValueEdge|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body adapter request-local source table helper must not synthesize accepted sources, fresh witnesses, lower proof tables, backend bytes, effect masks, or artifact records",
+);
+assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result")),
     /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual traversal body input adapter must only produce traversal source tables and must not synthesize proof, fresh witness, backend, effect, or artifact records",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_loop sources &request_sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free request_sources",
+        "result",
+    ],
+    "actual walker operation producer bridge must close request-local source table owners after merge success or failure",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual walker operation producer source table merge must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
+assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary"),
     [
+        "unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "observation_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "unsupported_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
     "actual traversal body input adapter stage0 summary must expose only source counts and typed Result payloads",
@@ -2609,16 +2651,20 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_stage0"),
     [
+        "unavailable_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_count_result",
         "accepted_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "observation_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_observation_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "unsupported_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result",
+        "merged_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_merged_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
     ],
-    "actual traversal body input adapter stage0 must cover accepted-shaped, observation-shaped, unsupported, and malformed placeholder body inputs",
+    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, and malformed placeholder body inputs",
 );
 assert.doesNotMatch(
     code,
@@ -2631,15 +2677,15 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
         "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
         "selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
-        "Result::Ok record:",
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources record",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
+        "Result::Ok request_sources:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result sources request_sources",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_traversal_sources sources e",
         "ProofKeyRejected e",
         "RequestRecheckRejected e",
     ],
-    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and delegate real-body or unavailable source creation to the actual traversal body adapter",
+    "actual walker operation producer bridge must recheck each request entry, derive the proof key, and merge request-local source table owners from the actual traversal body adapter",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop"),

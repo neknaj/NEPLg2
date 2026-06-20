@@ -2586,6 +2586,38 @@ subagent review:
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 
+## 2026-06-21 memo_call backend request-local source table merge checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、operation producer bridge が request ごとに単一 traversal source record を受け取る形をやめ、request-local `ActualWalkerTraversalSourceTable` owner を受け取って producer-owned source table へ merge する境界へ変更した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。production HIR-root path は real body input をまだ読まず、`actual_traversal_body_adapter_sources_from_request_result` から unavailable-only source table を返す。重要なのは、後続で real body input が available になったとき、1 request から place / edge / observation / unsupported source が複数返っても、request collection や operation projection の public contract を再度崩さなくてよい形にした点である。
+
+`actual_traversal_body_adapter_unavailable_sources_from_request_result` は source table owner を作り、`ResourceIrTraversalUnavailable` source 1 件だけを push する。`actual_walker_operation_producer_bridge_append_request_sources_result` は request-local source table owner を success / failure のどちらでも閉じ、producer source table owner は success の場合だけ返す。merge 失敗時は producer source table owner も fail helper で閉じる。
+
+public summary は unavailable fallback source count、accepted-shaped input source count、observation-shaped input source count、unsupported input source count、producer merge count、placeholder rejected result だけを返す。private walker input、observation table、request-local source table、producer source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。unavailable fallback が request-local source table owner を返すこと、request adapter が source table owner boundary を持つこと、request-local source table owner を merge helper が必ず閉じること、`append_request_result` が plural helper を呼ぶこと、proof / fresh witness / backend / effect / artifact 合成をしないことを固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は request-local source 数 `s` に対して O(s) である。現時点の unavailable fallback は source 1 件なので O(1) だが、real traversal body input が複数 source を返す後続 stage でも同じ merge 境界を使う。source table の bucket 化、operation projection の index 化、request-key bucket 化は後続最適化として扱えるが、source authority、owner cleanup、request-local table merge の contract は semantic boundary として維持する。
+
+subagent review:
+
+- Meitner design review は、次 slice で production HIR-root adapter に availability typed Result と source table owner transfer を入れるべきだと整理した。今回の checkpoint は、その前段として単一 record push を request-local source table merge へ広げるものである。
+- Wegener implementation review は `REVIEW_APPROVED`。request-local source table owner cleanup、production unavailable-only、public owner 非公開、proof / fresh witness / backend / effect / artifact 合成禁止が確認され、availability typed Result は次 slice 残件として扱えると判断された。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-source-table-merge-doctest-current.json`
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ `actual_traversal_body_adapter_sources_from_input_owners_result` 相当の path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

@@ -76814,3 +76814,37 @@ MERGE_APPROVED
 - production HIR-root adapter が real body input available のときだけ source table owner path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
+## 2026-06-21 selfhost memo_call backend request-local source table merge checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、operation producer bridge が request ごとに単一 traversal source record を push する形をやめ、request-local `ActualWalkerTraversalSourceTable` owner を producer source table owner へ merge する形に変更した。
+- `actual_traversal_body_adapter_unavailable_sources_from_request_result` は unavailable source 1 件だけを持つ request-local source table owner を作る。production HIR-root path はまだ real body input を読まず、unavailable-only table を返す。
+- `actual_walker_operation_producer_bridge_append_request_sources_result` は request-local source table owner を success / failure のどちらでも閉じる。producer source table owner は success の場合だけ返し、merge failure では fail helper が閉じる。
+- public stage0 summary は unavailable fallback source count、accepted-shaped input source count、observation-shaped input source count、unsupported input source count、merged source count、placeholder rejected result だけを返す。private walker input、observation table、request-local source table、producer source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+- この checkpoint は actual Resource IR body traversal 本体ではない。real body input が 1 request から複数 source を返す後続 stage でも、request collection と source-to-operation projection の public contract を再度崩さないための owner merge 境界である。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に request-local source table merge checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、unavailable fallback の source table owner、request adapter の source table owner boundary、request-local source table owner cleanup、plural helper 経由、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、次 slice として production HIR-root adapter の availability typed Result と source table owner transfer を推奨した。今回の checkpoint は、その前段として単一 source record push を request-local source table merge へ広げた。
+- Wegener implementation review は `REVIEW_APPROVED`。request-local source table owner cleanup、production unavailable-only、public owner 非公開、proof / fresh witness / backend / effect / artifact 合成禁止が確認され、availability typed Result は次 slice 残件として扱えると判断された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-source-table-merge-doctest-current.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ `actual_traversal_body_adapter_sources_from_input_owners_result` 相当の path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
