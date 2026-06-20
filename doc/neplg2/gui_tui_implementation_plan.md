@@ -1737,6 +1737,33 @@ node nodesrc/cli.js -i tests/gui_playground --gui-playground-tests -o json=tmp/g
 
 - actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
 
+### Phase F5iy: Native Linux window event source observation run-loop adapter boundary
+
+目的:
+
+- F5iv の provider-owned run-loop host を、F5ix の observation provider adapter へ infallible に接続する。
+- future X11 / Wayland / toolkit decoder が `NativeWindowLinuxWindowEventSourceProvider` と `NativeWindowLinuxWindowEventSourceObservationProvider` を実装すれば、snapshot authority として provider-owned run-loop に入れる境界を作る。
+- descriptor provider owner と observation provider owner を別 owner に分けず、F5iv で保持した同じ provider owner を adapter で包んで event pump provider にする。
+
+実装:
+
+- `native_window_linux_window_event_source_enable_observation_provider_event_pump` を追加する。
+- helper は `NativeWindowLinuxWindowEventSourceRunLoopHost Host BackendApi ProducerApi Provider` を consume し、`host.into_parts` で lower host、descriptor、provider owner を同時に取り出す。
+- provider owner を `native_window_linux_window_event_source_observation_event_pump_provider provider` で包み、`NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` へ渡す。
+- helper は infallible とし、validation、backend construction、support gate、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API、minifb fallback は行わない。
+- source policy で helper が `into_parts`、observation adapter、event pump run-loop host constructor だけを使うこと、support gate `Ok` 化、runner / CLI dispatch、fd IO、fallback、silent no-op を導入しないことを固定する。
+
+検証:
+
+- Rust unit tests で observation provider を持つ F5iv host wrapper が helper 経由で event pump run-loop host になり、provider observation から snapshot が得られることを検査する。
+- Rust unit tests で observation failure と snapshot construction failure が既存 F5ix adapter error として伝播し、helper 自体が owner-dropping error path を持たないことを検査する。
+- Rust unit tests で lower host の title / pump-only / present / wait delegation が維持されることを検査する。
+- source policy で F5iy helper が actual fd acquisition / read / drain / close / runner dispatch / CLI dispatch / support gate `Ok` 化へ進んでいないことを固定する。
+
+非目標:
+
+- actual X11 / Wayland fd acquisition、X11 / Wayland concrete event parsing、provider 内部での fd read / drain / close、`run_linux_platform_wait_window_loop`、Linux CLI dispatch、Linux support gate の `Ok` 化、macOS actual sys shim、minifb wait replacement、sleep、busy loop、fallback、silent no-op、timer fired evidence の偽装、scheduler-ready evidence は実装しない。
+
 ## Checkpoint Commit Rule
 
 各 phase は小さく commit する。

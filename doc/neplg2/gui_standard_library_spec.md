@@ -1037,6 +1037,16 @@ F5ix では、F5iw の provider-owned event pump contract の下に、future X11
 
 F5ix でも Linux support gate は `Ok` にならない。actual X11 / Wayland sys API、fd read / drain / close、runner dispatch、CLI dispatch、`run_linux_platform_wait_window_loop`、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
 
+## F5iy Native Linux window event source observation run-loop adapter boundary
+
+F5iy では、F5iv の provider-owned run-loop host と F5ix の observation provider adapter を接続する。これは concrete event parser ではなく、provider owner を落とさずに normalized observation provider を event pump provider として使うための run-loop adapter boundary である。
+
+`native_window_linux_window_event_source_enable_observation_provider_event_pump` は、F5iv host wrapper を consume し、lower host、descriptor、provider owner を同時に取り出す。provider owner は F5ix の observation adapter で包まれ、F5iw の event pump run-loop host へ渡される。descriptor provider owner と observation provider owner を別 owner に分けない。
+
+helper は infallible である。validation、backend construction、fd registration、runner support validation は F5iu / F5iv までに済んでいるため、F5iy では新しい owner recovery stage を作らない。poll 時の observation failure と snapshot construction failure は、F5ix adapter の typed error として返る。
+
+F5iy でも Linux support gate は `Ok` にならない。actual X11 / Wayland sys API、fd read / drain / close、runner dispatch、CLI dispatch、`run_linux_platform_wait_window_loop`、minifb wait replacement、synthetic readiness、timer evidence は後続に残す。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

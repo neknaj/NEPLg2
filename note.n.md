@@ -74129,3 +74129,47 @@ MERGE_APPROVED
 - 指摘はこの欄が pending のままで commit readiness が記録されていないことと、`verification_current` に `git diff --check` の結果が記録されていないことだった。
 - 指摘対応として、この欄と `verification_current` を実際の review / verification 結果へ更新した。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
+
+## 2026-06-20 Agent2 GUI native F5iy Linux window event source observation run-loop adapter boundary
+
+### scope
+
+- F5iy は、F5iv の provider-owned run-loop host を F5ix の observation provider adapter へ接続する checkpoint とする。
+- future X11 / Wayland / toolkit decoder が descriptor provider と observation provider を同一 owner として実装した場合、その provider owner を落とさず event pump run-loop host へ渡せるようにする。
+- actual X11 / Wayland fd acquisition、concrete event parsing、provider 内部での fd read / drain / close、Linux runner / CLI dispatch、support gate `Ok` 化、minifb fallback、synthetic readiness、timer fired evidence は扱わない。
+
+### plan_current
+
+- `native_window_linux_window_event_source_enable_observation_provider_event_pump` を追加する。
+- helper は F5iv `NativeWindowLinuxWindowEventSourceRunLoopHost` を consume し、`into_parts` で lower host、descriptor、provider owner を同時に取り出す。
+- provider owner を `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` で包み、F5iw `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` へ渡す。
+- helper は infallible とし、validation、backend construction、support gate、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API、fallback、silent no-op は行わない。
+- source policy は helper の呼び出し順序と、support gate `Ok` 化、runner / CLI dispatch、fd IO、fallback、silent no-op 禁止を固定する。
+
+### plan_review
+
+- Beauvoir the 2nd の plan review は `PLAN_APPROVED`。
+- 実装時の必須条件は、helper が infallible で F5iv `NativeWindowLinuxWindowEventSourceRunLoopHost` を consume すること、`into_parts` で lower host / descriptor / provider owner を同時に取り出すこと、同じ provider owner を `native_window_linux_window_event_source_observation_event_pump_provider` で包んで F5iw event pump run-loop host を作ること、descriptor provider owner と observation provider owner を分けないこと、provider bound は F5ix observation provider contract を要求し、poll error は F5ix adapter typed error のままにすること、source policy で support gate `Ok` 化、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland parsing、fallback、silent no-op 禁止を固定することだった。
+
+### implementation_current
+
+- `native_window_linux_window_event_source_enable_observation_provider_event_pump` を追加し、F5iv host wrapper を consume して lower host、descriptor、provider owner を同時に取り出すようにした。
+- helper は同じ provider owner を `NativeWindowLinuxWindowEventSourceObservationEventPumpProvider` で包み、F5iw `NativeWindowLinuxWindowEventSourceEventPumpRunLoopHost` へ渡す。
+- helper は infallible で、validation、backend construction、support gate、runner / CLI dispatch、fd read / drain / close、actual X11 / Wayland API、fallback、silent no-op は導入していない。
+- tests と source policy で observation provider polling、typed failure propagation、lower host delegation、call chain、禁止事項を固定した。
+
+### verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_run_loop_adapter_ -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_window_event_source_observation_ -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check -- doc/neplg2/gui_native_platform_behavior.md doc/neplg2/gui_standard_library_spec.md doc/neplg2/gui_tui_implementation_plan.md nepl-gui-native/src/lib.rs nodesrc/test_native_gui_platform_behavior.js note.n.md todo.md`
+
+### implementation_review
+
+- Beauvoir the 2nd の implementation review は `CHANGES_REQUESTED`。code / source-policy / docs の content blocker は無く、helper が infallible で F5iv host を consume し、`into_parts` を使い、同じ provider owner を F5ix observation adapter で包み、F5iw event pump run-loop host を作り、runner / CLI / support gate `Ok` 化 / fd IO / fallback path を scope 外に保っていることは確認された。
+- 指摘はこの欄が pending のままで commit readiness が記録されていないことだけだった。
+- 指摘対応として、この欄を実際の review 結果へ更新した。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、追加 blocker は無いことが確認された。
