@@ -1395,6 +1395,14 @@ X11 core state のうち、`ShiftMask = 0x0001`、`ControlMask = 0x0004`、`Mod1
 
 F5ki は modifier evidence projection boundary だけを担当する。keysym / layout mapping、shortcut policy、IME composition、text input、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、fallback text、silent no-op、synthetic readiness は扱わない。
 
+## F5kj Native Linux Wayland raw message header evidence boundary
+
+F5kj は Wayland raw message header を backend-local typed evidence として読む boundary である。Wayland message header は 8 byte で、word 1 が object id、word 2 の上位 16 bit が message size、下位 16 bit が opcode である。Wayland wire value は connection host byte order なので、parser は caller supplied `NativeWindowLinuxWaylandByteOrder` を受け取り、暗黙 endian や portable file format 固定 endian として扱わない。
+
+parser は supplied packet bytes だけを読み、object id、opcode、message size、payload byte len を返す。packet が 8 byte 未満、object id が 0、size が header 未満、4 byte alignment 違反、packet byte len 超過の場合は `Result` error として区別する。payload signature、object interface table、xdg-shell semantic、keyboard、IME、text input はこの boundary では解釈しない。
+
+F5kj は Wayland header evidence boundary だけを担当する。Wayland event loop、xdg-shell semantic decode、fd read / drain / close、selector registration、Linux runner / CLI dispatch、support gate `Ok` 化、fallback event、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
