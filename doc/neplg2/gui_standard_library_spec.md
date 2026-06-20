@@ -1133,6 +1133,14 @@ adapter は `AuthorityFilePath` を固定 env name `XAUTHORITY`、`HomeDirectory
 
 convenience helper は process environment reader を構築し、F5jh `native_window_linux_x11_xauthority_path_plan_from_environment` を呼んで `NativeWindowLinuxX11XauthorityPathPlan` を返すだけにする。F5ji は actual environment adapter boundary であり、filesystem / VFS adapter、file bytes read、record parse、credential selection、setup request integration、runner / CLI dispatch は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化は後続にも混ぜない。
 
+## F5jj Native Linux Xauthority filesystem file bytes adapter boundary
+
+F5jj では、F5jg の `NativeWindowLinuxX11XauthorityFileBytesReader` に対する cfg Linux actual filesystem adapter を追加する。Rust boundary 名としては、reader を `NativeWindowLinuxX11XauthorityFilesystemFileBytesReader`、failure を `NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError` とする。
+
+adapter は F5jg から渡された exact `path` に対して `std::fs::read(path)` だけを行う。read failure は exact requested path と original `std::io::Error` を保持する typed error として返す。empty file / file too large validation は F5jg の `native_window_linux_x11_xauthority_read_file_bytes` が担当し、adapter は validation を重複実装しない。
+
+convenience helper は filesystem reader を構築し、F5jg `native_window_linux_x11_xauthority_read_file_bytes` を呼んで `NativeWindowLinuxX11XauthorityFileBytes` を返すだけにする。F5jj は actual filesystem file bytes adapter boundary であり、VFS adapter、path normalization、metadata / exists / canonicalize、file locking、record parse、credential selection、setup request integration、runner / CLI dispatch は扱わない。fallback、silent no-op、synthetic readiness、Linux support gate の `Ok` 化は後続にも混ぜない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

@@ -9065,6 +9065,52 @@ pub fn native_window_linux_x11_xauthority_path_plan_from_process_environment() -
 }
 
 #[cfg(target_os = "linux")]
+#[derive(Debug)]
+pub enum NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError {
+    ReadFailed { path: String, error: std::io::Error },
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11XauthorityFilesystemFileBytesReader;
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11XauthorityFilesystemFileBytesReader {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl NativeWindowLinuxX11XauthorityFileBytesReader
+    for NativeWindowLinuxX11XauthorityFilesystemFileBytesReader
+{
+    type Error = NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError;
+
+    fn read_xauthority_file_bytes(&mut self, path: &str) -> Result<Vec<u8>, Self::Error> {
+        std::fs::read(path).map_err(|error| {
+            NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError::ReadFailed {
+                path: path.to_owned(),
+                error,
+            }
+        })
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn native_window_linux_x11_xauthority_read_file_bytes_from_filesystem(
+    plan: &NativeWindowLinuxX11XauthorityPathPlan,
+) -> Result<
+    NativeWindowLinuxX11XauthorityFileBytes,
+    NativeWindowLinuxX11XauthorityFileBytesReadError<
+        NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError,
+    >,
+> {
+    let mut reader = NativeWindowLinuxX11XauthorityFilesystemFileBytesReader::new();
+    native_window_linux_x11_xauthority_read_file_bytes(plan, &mut reader)
+}
+
+#[cfg(target_os = "linux")]
 impl NativeWindowHostLoopLinuxSelectorTimerFdSysApi {
     pub fn new() -> Self {
         Self::default()
@@ -18221,6 +18267,113 @@ mod tests {
                 value,
             }
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    fn native_window_linux_x11_xauthority_filesystem_test_path(name: &str) -> std::path::PathBuf {
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "neplg2_native_xauthority_{name}_{}",
+            std::process::id()
+        ));
+        path
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_filesystem_file_bytes_reader_reads_exact_path() {
+        let path = native_window_linux_x11_xauthority_filesystem_test_path("read_exact");
+        let _ = std::fs::remove_file(&path);
+        std::fs::write(&path, [1_u8, 2, 3, 4]).unwrap();
+        let path_string = path.to_string_lossy().into_owned();
+        let mut reader = NativeWindowLinuxX11XauthorityFilesystemFileBytesReader::new();
+
+        let bytes = reader
+            .read_xauthority_file_bytes(path_string.as_str())
+            .unwrap();
+
+        assert_eq!(bytes, vec![1_u8, 2, 3, 4]);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_filesystem_file_bytes_reader_preserves_read_failure() {
+        let path = native_window_linux_x11_xauthority_filesystem_test_path("missing");
+        let _ = std::fs::remove_file(&path);
+        let path_string = path.to_string_lossy().into_owned();
+        let mut reader = NativeWindowLinuxX11XauthorityFilesystemFileBytesReader::new();
+
+        let error = reader
+            .read_xauthority_file_bytes(path_string.as_str())
+            .unwrap_err();
+
+        match error {
+            NativeWindowLinuxX11XauthorityFilesystemFileBytesReadError::ReadFailed {
+                path,
+                error,
+            } => {
+                assert_eq!(path, path_string);
+                assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_window_linux_x11_xauthority_filesystem_helper_uses_f5jg_validation() {
+        let path = native_window_linux_x11_xauthority_filesystem_test_path("validation");
+        let _ = std::fs::remove_file(&path);
+        let path_string = path.to_string_lossy().into_owned();
+        let plan = native_window_linux_x11_xauthority_path_plan(
+            NativeWindowLinuxX11XauthorityLookupInput::new(Some(path_string.as_str()), None),
+        )
+        .unwrap();
+
+        std::fs::write(&path, Vec::<u8>::new()).unwrap();
+        match native_window_linux_x11_xauthority_read_file_bytes_from_filesystem(&plan).unwrap_err()
+        {
+            NativeWindowLinuxX11XauthorityFileBytesReadError::EmptyFile { source, path } => {
+                assert_eq!(
+                    source,
+                    NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+                );
+                assert_eq!(path, path_string);
+            }
+            other => panic!("expected empty-file validation error, got {other:?}"),
+        }
+
+        std::fs::write(
+            &path,
+            vec![7_u8; NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN + 1],
+        )
+        .unwrap();
+        match native_window_linux_x11_xauthority_read_file_bytes_from_filesystem(&plan).unwrap_err()
+        {
+            NativeWindowLinuxX11XauthorityFileBytesReadError::FileTooLarge {
+                source,
+                path,
+                byte_len,
+                max_byte_len,
+            } => {
+                assert_eq!(
+                    source,
+                    NativeWindowLinuxX11XauthorityPathSource::ExplicitAuthorityFile
+                );
+                assert_eq!(path, path_string);
+                assert_eq!(
+                    byte_len,
+                    NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN + 1
+                );
+                assert_eq!(
+                    max_byte_len,
+                    NATIVE_WINDOW_LINUX_X11_XAUTHORITY_FILE_MAX_BYTE_LEN
+                );
+            }
+            other => panic!("expected too-large validation error, got {other:?}"),
+        }
+
+        std::fs::remove_file(&path).unwrap();
     }
 
     #[test]
