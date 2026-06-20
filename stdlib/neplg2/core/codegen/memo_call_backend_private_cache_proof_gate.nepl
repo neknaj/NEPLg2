@@ -23,11 +23,13 @@
 //: - Phase 1 では proof record / proof table / proof table writer / gate 本体は module-private です。後続の Resource proof producer が接続されるまでは、外部 module が arbitrary `RequestEvidenceProven` record を table に注入したり、その table を accepted gate に渡したりできないようにします。
 //: - Resource observation producer も同じ module-private proof table writer を使います。現 checkpoint では public accepted path を追加せず、stage0 smoke だけで Resource observation から request-evidence gate へ流す境界を確認します。
 //: - Resource graph producer は body / place / edge の typed graph input を module-private Resource observation table へ畳む境界まで接続済みです。現 checkpoint では actual Resource IR walker 本体ではなく、walker が返すべき graph input contract と typed graph input fold を固定します。
+//: - Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します。event stream はまだ actual walker 由来ではなく stage0 fixture だけですが、body / place / edge / unsupported event の authority 境界、owner cleanup、unsupported override を先に固定します。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
 //: - proof lookup は現状、request ごとに proof table を線形走査するため proof record 数を `p` とすると O(m * p) 時間です。
 //: - graph producer は body 数を `b`、place 数を `q`、edge 数を `e` とすると、現状の preflight duplicate / orphan / endpoint 検査に O(b*b + q*(b+q) + e*(b+q+e)) 時間を使います。これは後続で index 化できますが、closed graph だけを proof authority にする fail-closed contract は維持します。
+//: - walker input scanner は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると、duplicate / membership / unsupported override の線形 scan に O((b+p+e+u)^2) 時間を使います。これは index 化可能ですが、event stream の typed authority と unsupported override の contract を先に固定します。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -133,6 +135,38 @@
 //:             let checks1 checks_push checks0 Result::Err "memo_call private cache Resource graph producer stage0 setup failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
+//: ```
+
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_stage0
+//:     let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_ok_result_eq summary.accepted_result 1
+//:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_refuted_result_eq summary.may_escape_rejected expected_key
+//:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_missing_result_eq summary.missing_rejected expected_key
+//:     let checks4 checks_push checks3 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_unknown_result_eq summary.unsupported_rejected expected_key
+//:     let checks5 checks_push checks4 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq summary.duplicate_ordinal_rejected SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate 0
+//:     let checks6 checks_push checks5 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq summary.missing_body_event_rejected SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing expected_key
+//:     let checks7 checks_push checks6 check selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq summary.placeholder_rejected SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
 //: ```
 
 #import "alloc/collections/vec" as v
@@ -450,6 +484,113 @@ pub struct SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary
     duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
     endpoint_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason: walker が private-cache graph を closed にできなかった理由
+//:
+//: [契約/けいやく]:
+//: - reason は diagnostic string ではなく typed enum です。後段はこの値を `TraversalUnsupported` として fail-closed に扱い、pure accepted path へは進めません。
+enum SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason:
+    UnknownResourceOperation
+    UnknownPlaceRoot
+    UnknownProjection
+    UnknownCallBoundary
+    CacheObservationUnsupported
+    RawIdentityObservationUnsupported
+    PrivateStateBoundaryUnsupported
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord: future walker が返す private-cache graph header
+//:
+//: [契約/けいやく]:
+//: - body record は proof key と graph id と upstream completeness だけを authority にします。source text、span、display name、public surface hash から body identity を推測しません。
+struct SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    completeness %SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord: future walker が観測した private-cache place event
+//:
+//: [契約/けいやく]:
+//: - operation ordinal は同じ body graph 内で place / edge / unsupported event を通じて一意でなければなりません。
+struct SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheResourcePlaceKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord: future walker が観測した private-cache graph edge event
+//:
+//: [契約/けいやく]:
+//: - endpoint は同じ body graph の place id を指します。scanner は負の endpoint を拒否し、GraphInput producer は endpoint missing をさらに検査します。
+struct SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    kind %SelfhostMemoCallBackendPrivateCacheResourceEdgeKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord: closed graph にできない walker event
+//:
+//: [契約/けいやく]:
+//: - unsupported event が closed body に属する場合、その body は output GraphInput では `TraversalUnsupported` として渡します。partial place / edge graph を no-escape proof に使いません。
+struct SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    reason %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerInput: future walker event の owner table
+//:
+//: [契約/けいやく]:
+//: - owner table は module-private です。actual walker が未接続の段階で、外部 caller が forged event stream を accepted path へ渡せる public API は作りません。
+struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInput:
+    bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord
+    places %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord
+    edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord
+    unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind: walker event scanner の拒否理由
+//:
+//: [目的/もくてき]:
+//: - walker event owner の構築失敗、typed event validation、duplicate operation、GraphInput への projection、既存 graph gate rejection を enum として分けます。
+pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind:
+    WalkerBodyTableAllocFailed %StdErrorKind
+    WalkerPlaceEventTableAllocFailed %StdErrorKind
+    WalkerEdgeEventTableAllocFailed %StdErrorKind
+    WalkerUnsupportedEventTableAllocFailed %StdErrorKind
+    WalkerBodyPushFailed %StdErrorKind
+    WalkerPlaceEventPushFailed %StdErrorKind
+    WalkerEdgeEventPushFailed %StdErrorKind
+    WalkerUnsupportedEventPushFailed %StdErrorKind
+    WalkerBodyReadFailed %i32
+    WalkerPlaceEventReadFailed %i32
+    WalkerEdgeEventReadFailed %i32
+    WalkerUnsupportedEventReadFailed %i32
+    WalkerBodyDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    WalkerOperationDuplicate %i32
+    WalkerBodyMissing %SelfhostMemoCallBackendPrivateCacheProofKey
+    WalkerEventForNonClosedGraph %i32
+    BodyModuleFingerprintPlaceholder
+    GraphIdInvalid %i32
+    PlaceIdInvalid %i32
+    OperationOrdinalInvalid %i32
+    OutputGraphInputRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind
+    Stage0FixtureAllocFailed %StdErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: walker scanner smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted / may-escape / missing / unsupported projection、duplicate ordinal、missing body event、placeholder body を確認します。
+pub struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary:
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    duplicate_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
+
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofStatus: request-evidence status を値として[複製/ふくせい]する
 //:
 //: [契約/けいやく]:
@@ -736,6 +877,97 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Sum
 //: Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary: graph producer smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason: unsupported reason を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - reason は owner を持たない typed enum なので Copy payload として扱います。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason: unsupported reason の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord: walker body record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は typed key と graph completeness だけを持ち、GraphInput owner ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord: walker body record の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord: walker place event を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - place event は typed id と enum kind だけを持ち、cache storage owner ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord: walker place event の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord: walker edge event を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - edge event は graph-local endpoint id と enum kind だけを持ち、GraphInput owner ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord: walker edge event の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord: walker unsupported event を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - unsupported event は typed reason だけを運び、diagnostic string や owner payload を持ちません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord: walker unsupported event の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind: scanner error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は enum payload を保持しますが owner table を持たないため Result payload として Copy にできます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind: scanner error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: scanner stage0 summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は doctest 用の immutable Result payload だけを持つため Copy にできます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary: scanner stage0 summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate error を値として[複製/ふくせい]する
@@ -1157,6 +1389,734 @@ fn selfhost_memo_call_backend_private_cache_resource_graph_get_place %fn &Selfho
 fn selfhost_memo_call_backend_private_cache_resource_graph_get_edge %fn &SelfhostMemoCallBackendPrivateCacheResourceGraphInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \input\idx:
     let edges %&Vec SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord field::get_ref input "edges"
     v::get edges idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_record_new: walker body record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \key\graph_id\completeness:
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord key graph_id completeness
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new: walker place event record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord \key\graph_id\operation_ordinal\place_id\kind:
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord key graph_id operation_ordinal place_id kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new: walker edge event record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord \key\graph_id\operation_ordinal\from_place\to_place\kind:
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new: walker unsupported event record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord \key\graph_id\operation_ordinal\reason:
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord key graph_id operation_ordinal reason
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_new: [空/から]の walker input owner を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \void:
+    let bodies_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord StdErrorKind v::new
+    match bodies_result:
+        Result::Ok bodies:
+            let places_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord StdErrorKind v::new
+            match places_result:
+                Result::Ok places:
+                    let edges_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Ok edges:
+                            let unsupported_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord StdErrorKind v::new
+                            match unsupported_result:
+                                Result::Ok unsupported:
+                                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceWalkerInput bodies places edges unsupported
+                                Result::Err e:
+                                    v::free bodies
+                                    v::free places
+                                    v::free edges
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventTableAllocFailed e
+                        Result::Err e:
+                            v::free bodies
+                            v::free places
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventTableAllocFailed e
+                Result::Err e:
+                    v::free bodies
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventTableAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_free: walker input owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput unit \input:
+    v::free field::get input "unsupported"
+    v::free field::get input "edges"
+    v::free field::get input "places"
+    v::free field::get input "bodies"
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_len: walker body record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_len %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput i32 \input:
+    let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get_ref input "bodies"
+    v::len bodies
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_place_len: walker place event 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_place_len %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput i32 \input:
+    let places %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get_ref input "places"
+    v::len places
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_edge_len: walker edge event 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_edge_len %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput i32 \input:
+    let edges %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get_ref input "edges"
+    v::len edges
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_unsupported_len: walker unsupported event 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_unsupported_len %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput i32 \input:
+    let unsupported %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get_ref input "unsupported"
+    v::len unsupported
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_get_body: walker body record を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_walker_get_body %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \input\idx:
+    let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get_ref input "bodies"
+    v::get bodies idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_get_place: walker place event を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_walker_get_place %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord \input\idx:
+    let places %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get_ref input "places"
+    v::get places idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_get_edge: walker edge event を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_walker_get_edge %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord \input\idx:
+    let edges %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get_ref input "edges"
+    v::get edges idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_get_unsupported: walker unsupported event を index で[読/よ]む
+fn selfhost_memo_call_backend_private_cache_resource_walker_get_unsupported %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord \input\idx:
+    let unsupported %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get_ref input "unsupported"
+    v::get unsupported idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_body_result: walker body record の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_body_result %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \body:
+    if:
+        eq body.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt body.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid body.graph_id.index
+                else:
+                    Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_place_result: walker place event の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_place_result %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \place:
+    if:
+        eq place.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt place.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid place.graph_id.index
+                else:
+                    if:
+                        lt place.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid place.operation_ordinal
+                        else:
+                            if:
+                                lt place.place_id.index 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid place.place_id.index
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_edge_result: walker edge event の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_edge_result %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \edge:
+    if:
+        eq edge.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt edge.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid edge.graph_id.index
+                else:
+                    if:
+                        lt edge.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid edge.operation_ordinal
+                        else:
+                            if:
+                                lt edge.from_place.index 0
+                                then:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid edge.from_place.index
+                                else:
+                                    if:
+                                        lt edge.to_place.index 0
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid edge.to_place.index
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_unsupported_result: walker unsupported event の構造を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_unsupported_result %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \event:
+    if:
+        eq event.key.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt event.graph_id.index 0
+                then:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid event.graph_id.index
+                else:
+                    if:
+                        lt event.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid event.operation_ordinal
+                        else:
+                            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_push_body: walker body record を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_push_body %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\body:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_body_result body:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push bodies body:
+                Result::Ok next_bodies:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceWalkerInput next_bodies places edges unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    v::free places
+                    v::free edges
+                    v::free unsupported
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyPushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_push_place: walker place event を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_push_place %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\place:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_place_result place:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push places place:
+                Result::Ok next_places:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceWalkerInput bodies next_places edges unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free bodies
+                    v::free v::vec_push_error_vec e
+                    v::free edges
+                    v::free unsupported
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventPushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge: walker edge event を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\edge:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_edge_result edge:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push edges edge:
+                Result::Ok next_edges:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceWalkerInput bodies places next_edges unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free bodies
+                    v::free places
+                    v::free v::vec_push_error_vec e
+                    v::free unsupported
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventPushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported: walker unsupported event を[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\event:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_unsupported_result event:
+        Result::Ok _valid:
+            let bodies %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push unsupported event:
+                Result::Ok next_unsupported:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceWalkerInput bodies places edges next_unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free bodies
+                    v::free places
+                    v::free edges
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventPushFailed error
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_identity_eq: walker body identity が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_identity_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord bool \a\b:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq a.key b.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq a.graph_id b.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_place_matches_body: place event が body graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_place_matches_body %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord bool \place\body:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq place.key body.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id body.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_edge_matches_body: edge event が body graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_edge_matches_body %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord bool \edge\body:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq edge.key body.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq edge.graph_id body.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_unsupported_matches_body: unsupported event が body graph に[属/ぞく]するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_unsupported_matches_body %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord bool \event\body:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq event.key body.key
+        selfhost_memo_call_backend_private_cache_resource_graph_id_eq event.graph_id body.graph_id
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_place_operation_eq: place event と key / graph / ordinal が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_place_operation_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 bool \place\key\graph_id\ordinal:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq place.key key
+        and:
+            selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id
+            eq place.operation_ordinal ordinal
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_edge_operation_eq: edge event と key / graph / ordinal が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_edge_operation_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 bool \edge\key\graph_id\ordinal:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq edge.key key
+        and:
+            selfhost_memo_call_backend_private_cache_resource_graph_id_eq edge.graph_id graph_id
+            eq edge.operation_ordinal ordinal
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_unsupported_operation_eq: unsupported event と key / graph / ordinal が同じか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_unsupported_operation_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 bool \event\key\graph_id\ordinal:
+    and:
+        selfhost_memo_call_backend_private_cache_proof_key_eq event.key key
+        and:
+            selfhost_memo_call_backend_private_cache_resource_graph_id_eq event.graph_id graph_id
+            eq event.operation_ordinal ordinal
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop: place event table に同じ operation があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id\ordinal\idx\limit:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_place input idx:
+                Option::Some place:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_walker_place_operation_eq place key graph_id ordinal
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input key graph_id ordinal add idx 1 limit
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop: edge event table に同じ operation があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id\ordinal\idx\limit:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_edge input idx:
+                Option::Some edge:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_walker_edge_operation_eq edge key graph_id ordinal
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop input key graph_id ordinal add idx 1 limit
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_seen_unsupported_operation_loop: unsupported event table に同じ operation があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_seen_unsupported_operation_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id\ordinal\idx\limit:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_unsupported input idx:
+                Option::Some event:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_walker_unsupported_operation_eq event key graph_id ordinal
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_seen_unsupported_operation_loop input key graph_id ordinal add idx 1 limit
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_seen_before_loop: earlier body identity を[探/さが]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_seen_before_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\body\idx\limit:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_body input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_walker_body_identity_eq existing body
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_body_seen_before_loop input body add idx 1 limit
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result: event に対応する closed body header があるか[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id:
+    selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_loop input key graph_id 0
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_loop: event に対応する closed body header を[探/さが]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_body_len input
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing key
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_body input idx:
+                Option::Some body:
+                    if:
+                        and:
+                            selfhost_memo_call_backend_private_cache_proof_key_eq key body.key
+                            selfhost_memo_call_backend_private_cache_resource_graph_id_eq graph_id body.graph_id
+                        then:
+                            if:
+                                selfhost_memo_call_backend_private_cache_resource_graph_completeness_is_closed body.completeness
+                                then:
+                                    Result::Ok unit
+                                else:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEventForNonClosedGraph graph_id.index
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_loop input key graph_id add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_all_bodies_loop: body table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_all_bodies_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_body_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_body input idx:
+                Option::Some body:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_validate_body_result body:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_body_seen_before_loop input body 0 idx:
+                                Result::Ok exists:
+                                    if:
+                                        exists
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyDuplicate body.key
+                                        else:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_validate_all_bodies_loop input add idx 1
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_all_places_loop: place event table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_all_places_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_place_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_place input idx:
+                Option::Some place:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_validate_place_result place:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input place.key place.graph_id place.operation_ordinal 0 idx:
+                                Result::Ok seen:
+                                    if:
+                                        seen
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate place.operation_ordinal
+                                        else:
+                                            match selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result input place.key place.graph_id:
+                                                Result::Ok _body:
+                                                    selfhost_memo_call_backend_private_cache_resource_walker_validate_all_places_loop input add idx 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop: edge event table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_edge_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_validate_edge_result edge:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input edge.key edge.graph_id edge.operation_ordinal 0 selfhost_memo_call_backend_private_cache_resource_walker_place_len input:
+                                Result::Ok seen_place:
+                                    if:
+                                        seen_place
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate edge.operation_ordinal
+                                        else:
+                                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop input edge.key edge.graph_id edge.operation_ordinal 0 idx:
+                                                Result::Ok seen_edge:
+                                                    if:
+                                                        seen_edge
+                                                        then:
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate edge.operation_ordinal
+                                                        else:
+                                                            match selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result input edge.key edge.graph_id:
+                                                                Result::Ok _body:
+                                                                    selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop input add idx 1
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop: unsupported event table 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_unsupported_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_unsupported input idx:
+                Option::Some event:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_validate_unsupported_result event:
+                        Result::Ok _valid:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input event.key event.graph_id event.operation_ordinal 0 selfhost_memo_call_backend_private_cache_resource_walker_place_len input:
+                                Result::Ok seen_place:
+                                    if:
+                                        seen_place
+                                        then:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate event.operation_ordinal
+                                        else:
+                                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop input event.key event.graph_id event.operation_ordinal 0 selfhost_memo_call_backend_private_cache_resource_walker_edge_len input:
+                                                Result::Ok seen_edge:
+                                                    if:
+                                                        seen_edge
+                                                        then:
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate event.operation_ordinal
+                                                        else:
+                                                            match selfhost_memo_call_backend_private_cache_resource_walker_seen_unsupported_operation_loop input event.key event.graph_id event.operation_ordinal 0 idx:
+                                                                Result::Ok seen_unsupported:
+                                                                    if:
+                                                                        seen_unsupported
+                                                                        then:
+                                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate event.operation_ordinal
+                                                                        else:
+                                                                            match selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result input event.key event.graph_id:
+                                                                                Result::Ok _body:
+                                                                                    selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop input add idx 1
+                                                                                Result::Err e:
+                                                                                    Result::Err e
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result: walker event stream 全体を[検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput Result unit SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_all_bodies_loop input 0:
+        Result::Ok _bodies:
+            match selfhost_memo_call_backend_private_cache_resource_walker_validate_all_places_loop input 0:
+                Result::Ok _places:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop input 0:
+                        Result::Ok _edges:
+                            selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop input 0
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_loop: body に unsupported event があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_unsupported_len input
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_unsupported input idx:
+                Option::Some event:
+                    if:
+                        and:
+                            selfhost_memo_call_backend_private_cache_proof_key_eq event.key key
+                            selfhost_memo_call_backend_private_cache_resource_graph_id_eq event.graph_id graph_id
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_loop input key graph_id add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result: body に unsupported event があるか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result bool SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\key\graph_id:
+    selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_loop input key graph_id 0
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_body_to_graph_body_result: walker body を GraphInput body へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_body_to_graph_body_result %fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord Result SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input\body:
+    match selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input body.key body.graph_id:
+        Result::Ok has_unsupported:
+            if:
+                has_unsupported
+                then:
+                    Result::Ok selfhost_memo_call_backend_private_cache_resource_graph_body_record_new body.key body.graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::TraversalUnsupported
+                else:
+                    Result::Ok selfhost_memo_call_backend_private_cache_resource_graph_body_record_new body.key body.graph_id body.completeness
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_place_to_graph_place: walker place event を GraphInput place へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_place_to_graph_place %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord SelfhostMemoCallBackendPrivateCacheResourceGraphPlaceRecord \place:
+    selfhost_memo_call_backend_private_cache_resource_graph_place_record_new place.key place.graph_id place.operation_ordinal place.place_id place.kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_edge_to_graph_edge: walker edge event を GraphInput edge へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_edge_to_graph_edge %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord SelfhostMemoCallBackendPrivateCacheResourceGraphEdgeRecord \edge:
+    selfhost_memo_call_backend_private_cache_resource_graph_edge_record_new edge.key edge.graph_id edge.operation_ordinal edge.from_place edge.to_place edge.kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_output_fail: output GraphInput を[閉/と]じて scanner error を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_output_fail %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \output\error:
+    selfhost_memo_call_backend_private_cache_resource_graph_input_free output
+    Result::Err error
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_append_bodies_loop: body event を output GraphInput へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_append_bodies_loop %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \output\input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_body_len input
+        then:
+            Result::Ok output
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_body input idx:
+                Option::Some body:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_body_to_graph_body_result input body:
+                        Result::Ok graph_body:
+                            match selfhost_memo_call_backend_private_cache_resource_graph_input_push_body output graph_body:
+                                Result::Ok next_output:
+                                    selfhost_memo_call_backend_private_cache_resource_walker_append_bodies_loop next_output input add idx 1
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected e
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_walker_output_fail output e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_walker_output_fail output SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop: place event を output GraphInput へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \output\input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_place_len input
+        then:
+            Result::Ok output
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_place input idx:
+                Option::Some place:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input place.key place.graph_id:
+                        Result::Ok has_unsupported:
+                            if:
+                                has_unsupported
+                                then:
+                                    selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop output input add idx 1
+                                else:
+                                    match selfhost_memo_call_backend_private_cache_resource_graph_input_push_place output selfhost_memo_call_backend_private_cache_resource_walker_place_to_graph_place place:
+                                        Result::Ok next_output:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop next_output input add idx 1
+                                        Result::Err e:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected e
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_walker_output_fail output e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_walker_output_fail output SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop: edge event を output GraphInput へ[追加/ついか]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphInput impure fn &SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \output\input\idx:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_resource_walker_edge_len input
+        then:
+            Result::Ok output
+        else:
+            match selfhost_memo_call_backend_private_cache_resource_walker_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input edge.key edge.graph_id:
+                        Result::Ok has_unsupported:
+                            if:
+                                has_unsupported
+                                then:
+                                    selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop output input add idx 1
+                                else:
+                                    match selfhost_memo_call_backend_private_cache_resource_graph_input_push_edge output selfhost_memo_call_backend_private_cache_resource_walker_edge_to_graph_edge edge:
+                                        Result::Ok next_output:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop next_output input add idx 1
+                                        Result::Err e:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected e
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_walker_output_fail output e
+                Option::None:
+                    selfhost_memo_call_backend_private_cache_resource_walker_output_fail output SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result: walker event stream を GraphInput owner へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput Result SelfhostMemoCallBackendPrivateCacheResourceGraphInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input:
+    match selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result &input:
+        Result::Ok _valid:
+            match selfhost_memo_call_backend_private_cache_resource_graph_input_new:
+                Result::Ok output0:
+                    match selfhost_memo_call_backend_private_cache_resource_walker_append_bodies_loop output0 &input 0:
+                        Result::Ok output1:
+                            match selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop output1 &input 0:
+                                Result::Ok output2:
+                                    match selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop output2 &input 0:
+                                        Result::Ok output3:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                                            Result::Ok output3
+                                        Result::Err e:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_resource_graph_place_identity_eq: place identity が同じか[返/かえ]す
 //:
@@ -2750,6 +3710,241 @@ pub fn selfhost_memo_call_backend_private_cache_resource_graph_endpoint_missing_
                 SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind::Stage0FixtureAllocFailed _e:
                     false
 
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_code: scanner error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が display string ではなく enum 分類を比較できるようにします。
+fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_code %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyTableAllocFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventTableAllocFailed _e:
+            2
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventTableAllocFailed _e:
+            3
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventTableAllocFailed _e:
+            4
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyPushFailed _e:
+            5
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventPushFailed _e:
+            6
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventPushFailed _e:
+            7
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventPushFailed _e:
+            8
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed _idx:
+            9
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed _idx:
+            10
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed _idx:
+            11
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed _idx:
+            12
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyDuplicate _key:
+            13
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate _ordinal:
+            14
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing _key:
+            15
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEventForNonClosedGraph _graph_id:
+            16
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+            17
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid _idx:
+            18
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid _idx:
+            19
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid _idx:
+            20
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected _e:
+            21
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphGateRejected _e:
+            22
+        SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed _e:
+            23
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_kind_eq: scanner error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_code a selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_code b
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq: scanner result が期待 error 分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_kind_eq actual expected
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_refuted_result_eq: scanner 経由の MayEscape が refuted error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_refuted_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphGateRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_graph_refuted_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_ok_result_eq: scanner result が期待 Ok 値か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_ok_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_missing_result_eq: scanner 経由の Missing が missing error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_missing_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphGateRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_graph_missing_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_unknown_result_eq: scanner 経由の unsupported event が unknown error になったか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_unknown_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphGateRejected nested:
+                    selfhost_memo_call_backend_private_cache_resource_graph_unknown_result_eq Result::Err nested expected_key
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerPlaceEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEdgeEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerUnsupportedEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerOperationDuplicate _ordinal:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerBodyMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::WalkerEventForNonClosedGraph _graph_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::GraphIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::PlaceIdInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OperationOrdinalInvalid _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphInputRejected _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
 //: selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key: stage0 の期待 key を[返/かえ]す
 pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
     let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
@@ -2917,6 +4112,167 @@ pub fn selfhost_memo_call_backend_private_cache_resource_proof_producer_stage0 %
             Result::Ok SelfhostMemoCallBackendPrivateCacheResourceProofProducerStage0Summary accepted.request_count accepted.proven_request_count may_escape_rejected missing_rejected unknown_rejected duplicate_rejected
         Result::Err e:
             Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint: stage0 用 key を body fingerprint 差し替えで[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint %fn i32 SelfhostMemoCallBackendPrivateCacheProofKey \body_module_fingerprint:
+    let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let root_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    selfhost_memo_call_backend_private_cache_proof_key_new memoized_expr_id def_id function_ty root_expr_id body_module_fingerprint SelfhostMemoCallBackendRequestKind::MemoCall SelfhostEffectKind::Pure 0
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_key: stage0 scanner の標準 key を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
+    selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 77
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id: stage0 scanner の標準 graph id を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id %fn void SelfhostMemoCallBackendPrivateCacheResourceGraphId \void:
+    selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record_with_key: stage0 body event を key 指定で[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record_with_key %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \key\completeness:
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id completeness
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record: stage0 body event を標準 key で[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord \completeness:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record_with_key key completeness
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_place_record: stage0 place event を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_place_record %fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord \operation_ordinal\place_index\kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    let place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new place_index
+    selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new key graph_id operation_ordinal place_id kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_edge_record: stage0 edge event を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_edge_record %fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord \operation_ordinal\from_index\to_index\kind:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new from_index
+    let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new to_index
+    selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new key graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_record: stage0 unsupported event を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_record %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord \operation_ordinal\reason:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_walker_stage0_graph_id
+    selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new key graph_id operation_ordinal reason
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_only_input_result: body event だけの scanner input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_only_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \completeness:
+    match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+        Result::Ok input0:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input0 selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record completeness
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_input_result: closed body と 1 place event を持つ scanner input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \place_kind:
+    match selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_only_input_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary:
+        Result::Ok input1:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input1 selfhost_memo_call_backend_private_cache_resource_walker_stage0_place_record 0 0 place_kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result: accepted / escaping 用 scanner input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceKind impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceEdgeKind Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \place_kind\to_place_index\edge_kind:
+    match selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_input_result place_kind:
+        Result::Ok input2:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input2 selfhost_memo_call_backend_private_cache_resource_walker_stage0_edge_record 1 0 to_place_index edge_kind
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result: unsupported event で closed body を unsupported graph へ落とす input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_only_input_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary:
+        Result::Ok input1:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_unsupported input1 selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_record 2 SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_duplicate_ordinal_input_result: cross-kind ordinal duplicate を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_duplicate_ordinal_input_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage:
+        Result::Ok input2:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input2 selfhost_memo_call_backend_private_cache_resource_walker_stage0_edge_record 0 0 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::Owns
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result: body なし event の scanner input を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+        Result::Ok input0:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input0 selfhost_memo_call_backend_private_cache_resource_walker_stage0_place_record 0 0 SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result: placeholder fingerprint を持つ body を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+        Result::Ok input0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 0
+            selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input0 selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_record_with_key key SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_summary_with_input_result: scanner output を既存 graph gate へ[接続/せつぞく]する
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_summary_with_input_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input:
+    match selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result input:
+        Result::Ok graph:
+            let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+            let def_id %SelfhostDefId selfhost_def_id_new 41
+            let function_ty %SelfhostTypeId selfhost_type_id_new 11
+            match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+                Result::Ok module:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind selfhost_memo_call_backend_private_cache_resource_graph_gate_from_hir_root_result &module root 8 77 &graph
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+                    selfhost_hir_module_free module
+                    match result:
+                        Result::Ok summary:
+                            Result::Ok summary
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::OutputGraphGateRejected e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_resource_graph_input_free graph
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind::Stage0FixtureAllocFailed e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result: scanner input builder result を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result %impure fn Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind \input_result:
+    match input_result:
+        Result::Ok input:
+            match selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_summary_with_input_result input:
+                Result::Ok summary:
+                    Result::Ok summary.proven_request_count
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_stage0: walker scanner 境界の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - future Resource IR walker が作る typed event stream を GraphInput に正規化する前段契約を固定します。
+//: - accepted stream は既存 gate まで到達し、MayEscape / missing / unsupported / duplicate ordinal / missing body / placeholder fingerprint は fail-closed に拒否されます。
+//:
+//: [現状/げんじょう]:
+//: - 入力は stage0 fixture です。actual Resource IR traversal、private region freshness、identity observation ban はまだこの関数で実装しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - stage0 fixture は定数サイズです。実運用の event stream では body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると O((b+p+e+u)^2) の検査を行います。
+pub fn selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary \void:
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::BorrowView
+    let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_body_only_input_result SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ResourceGraphMissing
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result
+    let duplicate_ordinal_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_duplicate_ordinal_input_result
+    let missing_body_event_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind selfhost_memo_call_backend_private_cache_resource_walker_stage0_run_i32_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
+    SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerStage0Summary accepted_result may_escape_rejected missing_rejected unsupported_rejected duplicate_ordinal_rejected missing_body_event_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record: stage0 用 graph body record を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_resource_graph_stage0_body_record %fn SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness SelfhostMemoCallBackendPrivateCacheResourceGraphBodyRecord \completeness:

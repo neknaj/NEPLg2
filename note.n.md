@@ -63856,3 +63856,39 @@ MERGE_APPROVED
 - fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
 - sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
 - graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した closed graph 限定 / typed endpoint validation / private type exposure ban / fail-closed status fold を保てるため後続最適化として扱う。
+
+## 2026-06-21 selfhost memo_call backend Resource walker input scanner stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future actual Resource IR walker が返す typed event stream を module-private graph input へ正規化する Resource walker input scanner stage0 を追加した。
+- scanner input は body event、place event、edge event、unsupported event の owner table で表し、event payload と owner input は module-private のままにした。public API から forged event stream を accepted path へ渡す経路は公開していない。
+- scanner preflight は body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate operation ordinal、missing body event、non-closed graph event を typed enum error として拒否する。operation ordinal は place / edge / unsupported の cross-kind で重複を拒否する。
+- unsupported event は `SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason` の typed reason を持つ。scanner は unsupported event が付いた body を `TraversalUnsupported` graph body に変換し、その body に属する place / edge event を GraphInput へ渡さない。
+- stage0 smoke は accepted、MayEscape、missing、unsupported、duplicate ordinal、missing body event、placeholder fingerprint を確認する。accepted stream は既存 request-evidence gate の non-executable summary まで到達し、それ以外は既存 graph / Resource / gate error または scanner error で fail-closed になる。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、walker event payload / owner の public exposure ban、WalkerInput owner の no Clone / Copy、typed unsupported reason、scanner validation order、unsupported override、place / edge skip、stage0 7分岐を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Epicurus review: actual Resource IR graph walker 本体へ飛ばさず、まず module-private walker event scanner を stage0 として固定すること、walker input payload / owner を public API に出さないこと、unsupported operation event contract を先に入れること、Missing / Unknown / MayEscape を accepted にしないこと、Resource IR / backend / artifact import を禁止すること、行数や doc comment length cap を追加しないことが blocker / required として示された。
+- 対応として、actual walker 本体は後続に残し、typed event stream scanner、unsupported reason enum、cross-kind operation ordinal duplicate rejection、missing body rejection、placeholder fingerprint rejection、source policy regression を追加した。
+- follow-up review では Blocker はなく、Required として issue front matter の `updated` と本文 checkpoint 日付の不一致だけが指摘された。対応として対象 issue の `updated` を `2026-06-21` に更新した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-walker-scanner.json`
+
+### residual
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する境界は未実装である。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した typed event authority / unsupported override / owner cleanup / private type exposure ban を保てるため後続最適化として扱う。

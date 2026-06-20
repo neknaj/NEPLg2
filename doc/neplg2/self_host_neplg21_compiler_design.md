@@ -2097,6 +2097,18 @@ graph producer は graph input を module-private Resource proof table へ変換
 
 この checkpoint 後も、actual Resource IR graph walker から body / place / edge event を生成する境界、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。現 stage0 の graph preflight は body 数を `b`、place 数を `q`、edge 数を `e` とすると O(b*b + q*(b+q) + e*(b+q+e)) である。graph id / place id / operation ordinal の sorted index 化は後からできる最適化として扱えるが、closed graph 限定、typed endpoint validation、empty graph unknown、private type exposure ban は semantic contract として維持する。
 
+## 2026-06-21 memo_call backend Resource walker input scanner stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future actual Resource IR walker が返す typed event stream を module-private `SelfhostMemoCallBackendPrivateCacheResourceGraphInput` へ正規化する scanner stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。ここで固定したのは、body event、place event、edge event、unsupported event を別 table として受け、placeholder fingerprint、invalid graph id、invalid place id、invalid operation ordinal、duplicate operation ordinal、missing body event、non-closed graph event を scanner 段階で fail-closed に拒否する境界である。`SelfhostMemoCallBackendPrivateCacheResourceWalkerInput` と各 event record は module-private であり、public API から forged walker event stream を accepted path へ渡す経路は作らない。
+
+unsupported event は display string ではなく `SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason` の enum variant として保持する。scanner は unsupported event が付いた body を `TraversalUnsupported` graph body に変換し、その body に属する place / edge event は GraphInput へ渡さない。これにより、未対応 Resource operation を accidentally closed graph として扱って `PrivateCacheNoEscapeProven` へ進める経路を閉じる。
+
+stage0 smoke は accepted graph、MayEscape graph、missing graph、unsupported graph、cross-kind duplicate operation ordinal、missing body event、placeholder fingerprint を確認する。accepted graph は既存 request-evidence gate の non-executable summary まで到達する。MayEscape / missing / unsupported は既存 graph producer / Resource producer / request-evidence gate の typed error に進み、duplicate ordinal、missing body event、placeholder fingerprint は scanner error として止まる。
+
+この checkpoint 後も、actual Resource IR graph walker 本体、fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影は未完了である。現 scanner preflight は body 数を `b`、place event 数を `p`、edge event 数を `e`、unsupported event 数を `u` とすると O((b+p+e+u)^2) である。walker event operation ordinal index 化、graph lookup index 化、stage0 fixture 分割は、今回固定した typed event authority / unsupported override / owner cleanup / private type exposure ban を保ったまま後からできる最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

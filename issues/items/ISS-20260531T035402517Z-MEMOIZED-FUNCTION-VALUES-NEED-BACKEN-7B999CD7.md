@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-20
+updated: 2026-06-21
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -241,5 +241,32 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - cache hit / miss / size / clear / raw identity observation ban。
 - sealed memoized backend representation。
 - `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。
+
+## 2026-06-21 selfhost memo_call backend Resource walker input scanner stage0 checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future actual Resource IR walker が返す typed event stream を module-private graph input へ正規化する scanner stage0 を追加した。
+
+この checkpoint は actual Resource IR walker 本体ではない。body event、place event、edge event、unsupported event を別 table として受け、scanner が body / place / edge / unsupported の構造を検査したうえで既存 `SelfhostMemoCallBackendPrivateCacheResourceGraphInput` に写す境界である。walker input owner と event payload は module-private のままにし、public API から forged event stream を accepted path へ渡す経路は作らない。
+
+scanner preflight は body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate operation ordinal、missing body event、non-closed graph event を typed enum error として拒否する。operation ordinal は place / edge / unsupported の cross-kind で重複を拒否する。unsupported event は `SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason` の typed reason を保持し、対応 body を `TraversalUnsupported` graph body へ変換する。unsupported body に属する place / edge event は GraphInput へ渡さない。
+
+stage0 smoke は accepted、MayEscape、missing、unsupported、duplicate ordinal、missing body event、placeholder fingerprint を確認する。accepted stream は既存 request-evidence gate の non-executable summary まで到達する。MayEscape / missing / unsupported は既存 graph producer / Resource producer / request-evidence gate の typed fail-closed path へ流れ、duplicate ordinal / missing body / placeholder は scanner error として止まる。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。walker event payload / owner が public signature に露出しないこと、WalkerInput owner が Clone / Copy にならないこと、unsupported reason が typed enum であること、scanner が body / place / edge / unsupported を検査すること、unsupported override と place / edge skip、stage0 の7分岐、行数や doc comment 量の制限を追加しないことを固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-walker-scanner.json`
+
+残件:
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する境界。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking。
+- cache hit / miss / size / clear / raw identity observation ban。
+- sealed memoized backend representation。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner の接続。
 - `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
 - graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割。

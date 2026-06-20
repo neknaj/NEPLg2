@@ -64,9 +64,10 @@ assert.ok(
         source.includes("non-executable summary") &&
         source.includes("proof record / proof table / proof table writer / gate 本体は module-private") &&
         source.includes("Resource observation producer も同じ module-private proof table writer を使います") &&
+        source.includes("Resource walker input scanner は、future actual Resource IR walker が返す typed event stream を module-private GraphInput へ正規化します") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer without adding a public accepted path, and index optimization is a later contract-preserving change",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -157,6 +158,16 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheResourceWalker(?:UnsupportedReason|BodyRecord|PlaceEventRecord|EdgeEventRecord|UnsupportedEventRecord|Input)\b/,
+    "Resource walker input event payloads and owner input must stay private until actual Resource IR walker owns the event stream",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason|SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord|SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord|SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord|SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord|SelfhostMemoCallBackendPrivateCacheResourceWalkerInput)\b/m,
+    "public functions must not expose private Resource walker event payload or owner types in their signatures",
+);
+assert.doesNotMatch(
+    code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_proof_(?:key_new|record_new|table_new|table_free|table_len)\b/m,
     "proof key/table constructors and owner operations must not be public accepted-path building blocks",
 );
@@ -201,6 +212,20 @@ assert.doesNotMatch(
     graphInputArea,
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceGraphInput/,
     "Resource graph input owner must not implement Clone or Copy",
+);
+const walkerInputArea = source.slice(
+    source.indexOf("struct SelfhostMemoCallBackendPrivateCacheResourceWalkerInput:"),
+    source.indexOf("pub enum SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind:"),
+);
+assert.doesNotMatch(
+    walkerInputArea,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceWalkerInput/,
+    "Resource walker input owner must not implement Clone or Copy",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheResourceWalkerInput\b/,
+    "Resource walker input owner Clone/Copy ban must apply to the whole module, not only the declaration area",
 );
 assertOrdered(
     source,
@@ -588,6 +613,149 @@ assertOrdered(
         "PrivateCacheStorage 9 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::Owns",
     ],
     "Resource graph producer stage0 must cover accepted, may-escape, missing, unknown, duplicate, and endpoint-missing paths",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason"),
+    [
+        "UnknownResourceOperation",
+        "UnknownPlaceRoot",
+        "UnknownProjection",
+        "UnknownCallBoundary",
+        "CacheObservationUnsupported",
+        "RawIdentityObservationUnsupported",
+        "PrivateStateBoundaryUnsupported",
+    ],
+    "Resource walker unsupported reason must use typed event reasons instead of display strings",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind"),
+    [
+        "WalkerBodyTableAllocFailed %StdErrorKind",
+        "WalkerPlaceEventTableAllocFailed %StdErrorKind",
+        "WalkerEdgeEventTableAllocFailed %StdErrorKind",
+        "WalkerUnsupportedEventTableAllocFailed %StdErrorKind",
+        "WalkerBodyPushFailed %StdErrorKind",
+        "WalkerPlaceEventPushFailed %StdErrorKind",
+        "WalkerEdgeEventPushFailed %StdErrorKind",
+        "WalkerUnsupportedEventPushFailed %StdErrorKind",
+        "WalkerBodyReadFailed %i32",
+        "WalkerPlaceEventReadFailed %i32",
+        "WalkerEdgeEventReadFailed %i32",
+        "WalkerUnsupportedEventReadFailed %i32",
+        "WalkerBodyDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "WalkerOperationDuplicate %i32",
+        "WalkerBodyMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "WalkerEventForNonClosedGraph %i32",
+        "BodyModuleFingerprintPlaceholder",
+        "GraphIdInvalid %i32",
+        "PlaceIdInvalid %i32",
+        "OperationOrdinalInvalid %i32",
+        "OutputGraphInputRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind",
+        "OutputGraphGateRejected %SelfhostMemoCallBackendPrivateCacheResourceGraphProducerErrorKind",
+        "Stage0FixtureAllocFailed %StdErrorKind",
+    ],
+    "Resource walker scanner error taxonomy must distinguish allocation, push, read, duplicate operation, missing body, non-closed graph event, invalid ids, lower graph input, lower graph gate, and fixture failures",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_error_code"),
+    /_:/,
+    "Resource walker scanner error code helper must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_bodies_loop input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_places_loop input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop input 0",
+    ],
+    "Resource walker scanner must validate body, place, edge, and unsupported event tables before producing graph input",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_edges_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input edge.key edge.graph_id edge.operation_ordinal",
+        "WalkerOperationDuplicate edge.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop input edge.key edge.graph_id edge.operation_ordinal 0 idx",
+        "WalkerOperationDuplicate edge.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result input edge.key edge.graph_id",
+    ],
+    "Resource walker edge validation must reject operation ordinals already used by place events, reject duplicate edge ordinals, and require a closed body event",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_validate_all_unsupported_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_seen_place_operation_loop input event.key event.graph_id event.operation_ordinal",
+        "WalkerOperationDuplicate event.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_walker_seen_edge_operation_loop input event.key event.graph_id event.operation_ordinal",
+        "WalkerOperationDuplicate event.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_walker_seen_unsupported_operation_loop input event.key event.graph_id event.operation_ordinal 0 idx",
+        "WalkerOperationDuplicate event.operation_ordinal",
+        "selfhost_memo_call_backend_private_cache_resource_walker_event_closed_body_result input event.key event.graph_id",
+    ],
+    "Resource walker unsupported validation must reject cross-kind ordinal reuse, duplicate unsupported ordinals, and missing or non-closed body events",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_body_to_graph_body_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input body.key body.graph_id",
+        "has_unsupported",
+        "SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::TraversalUnsupported",
+        "body.completeness",
+    ],
+    "Resource walker scanner must turn any unsupported event for a body into TraversalUnsupported instead of silently accepting the original body completeness",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_graph_input_scanner_output_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result &input",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_new",
+        "selfhost_memo_call_backend_private_cache_resource_walker_append_bodies_loop output0 &input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop output1 &input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop output2 &input 0",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+    ],
+    "Resource walker scanner output must validate first, allocate GraphInput, append bodies/places/edges in order, and always close the walker input owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input place.key place.graph_id",
+        "has_unsupported",
+        "selfhost_memo_call_backend_private_cache_resource_walker_append_places_loop output input add idx 1",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_push_place output",
+    ],
+    "Resource walker scanner must skip place events for bodies already marked unsupported",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop"),
+    [
+        "selfhost_memo_call_backend_private_cache_resource_walker_body_has_unsupported_result input edge.key edge.graph_id",
+        "has_unsupported",
+        "selfhost_memo_call_backend_private_cache_resource_walker_append_edges_loop output input add idx 1",
+        "selfhost_memo_call_backend_private_cache_resource_graph_input_push_edge output",
+    ],
+    "Resource walker scanner must skip edge events for bodies already marked unsupported",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_input_scanner_stage0"),
+    [
+        "accepted_result",
+        "PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue",
+        "may_escape_rejected",
+        "ReturnCacheReference 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::BorrowView",
+        "missing_rejected",
+        "ResourceGraphMissing",
+        "unsupported_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_stage0_unsupported_input_result",
+        "duplicate_ordinal_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_stage0_duplicate_ordinal_input_result",
+        "missing_body_event_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_stage0_missing_body_event_input_result",
+        "placeholder_rejected",
+        "selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
+    ],
+    "Resource walker scanner stage0 must cover accepted, may-escape, missing, unsupported, duplicate ordinal, missing body event, and placeholder fingerprint paths",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_proof_table_push"),
