@@ -1281,6 +1281,16 @@ F5jx は generic `InternAtom` encoding を複製せず、F5jw helper の結果�
 
 F5jx は request batch owner boundary だけを担当する。raw fd write/read、accepted write progress、sequence assignment、InternAtom reply parse / retain、request / reply correlation、Atom ID owner、`ChangeProperty` による `WM_PROTOCOLS` property mutation、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
 
+## F5jy Native Linux X11 top-level CreateWindow/MapWindow split request owner boundary
+
+F5jy では、従来の `NativeWindowLinuxX11TopLevelWindowCreateRequest` に含まれていた `CreateWindow` bytes と `MapWindow` bytes を、`NativeWindowLinuxX11CreateWindowRequest` と `NativeWindowLinuxX11MapWindowRequest` として standalone owner に分離する。combined owner は互換境界として残し、standalone owner の bytes を `CreateWindow`、`MapWindow` の順に連結するだけにする。
+
+この分離は、後続の WM protocol registration で `CreateWindow -> InternAtom batch -> InternAtom replies / Atom IDs -> ChangeProperty WM_PROTOCOLS -> MapWindow` の順序を作るための前提である。F5jy 自体は request owner split だけを担当し、current reader write path は combined owner のまま維持する。
+
+standalone `CreateWindow` は、window id、parent window id、geometry、background pixel、event mask を既存 F5jo と同じ validation で検査する。standalone `MapWindow` は window id validation を同じ public error enum で返す。combined owner は create byte length、map byte length、total bytes、window id を参照できるが、sequence number や writer state は持たない。
+
+F5jy は raw fd write/read、reader integration、accepted write progress、sequence assignment、InternAtom write/reply correlation、Atom ID owner、`ChangeProperty`、`ClientMessage` decode、keyboard / IME、Wayland concrete decoding、Linux runner / CLI dispatch、Linux support gate の `Ok` 化、fallback、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

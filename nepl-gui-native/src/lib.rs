@@ -7660,6 +7660,18 @@ pub struct NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11CreateWindowRequest {
+    window_id: u32,
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11MapWindowRequest {
+    window_id: u32,
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11TopLevelWindowCreateRequest {
     window_id: u32,
     bytes: Vec<u8>,
@@ -8412,6 +8424,34 @@ impl NativeWindowLinuxX11SetupBackedTopLevelWindowCreatePlan {
     }
 }
 
+impl NativeWindowLinuxX11CreateWindowRequest {
+    pub fn window_id(&self) -> u32 {
+        self.window_id
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+impl NativeWindowLinuxX11MapWindowRequest {
+    pub fn window_id(&self) -> u32 {
+        self.window_id
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
 impl NativeWindowLinuxX11TopLevelWindowCreateRequest {
     pub fn window_id(&self) -> u32 {
         self.window_id
@@ -8423,6 +8463,14 @@ impl NativeWindowLinuxX11TopLevelWindowCreateRequest {
 
     pub fn len(&self) -> usize {
         self.bytes.len()
+    }
+
+    pub fn create_window_request_byte_len(&self) -> usize {
+        NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+    }
+
+    pub fn map_window_request_byte_len(&self) -> usize {
+        NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN
     }
 }
 
@@ -8482,10 +8530,22 @@ fn native_window_linux_x11_top_level_window_validate_root_parent_resource_id(
     Ok(())
 }
 
-fn native_window_linux_x11_top_level_window_create_request_after_resource_id_validation(
+fn native_window_linux_x11_create_window_request_length_units(
+) -> Result<u16, NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError> {
+    NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS
+        .checked_add(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT)
+        .ok_or(
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::RequestLengthOverflow {
+                base_units: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS,
+                value_count: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT,
+            },
+        )
+}
+
+fn native_window_linux_x11_create_window_request_after_resource_id_validation(
     input: NativeWindowLinuxX11TopLevelWindowCreateInput,
 ) -> Result<
-    NativeWindowLinuxX11TopLevelWindowCreateRequest,
+    NativeWindowLinuxX11CreateWindowRequest,
     NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
 > {
     if input.width == 0 {
@@ -8495,18 +8555,8 @@ fn native_window_linux_x11_top_level_window_create_request_after_resource_id_val
         return Err(NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::HeightZero);
     }
     native_window_linux_x11_top_level_window_validate_event_mask(input.event_mask)?;
-    let create_window_length_units = NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS
-        .checked_add(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT)
-        .ok_or(
-            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::RequestLengthOverflow {
-                base_units: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS,
-                value_count: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT,
-            },
-        )?;
-    let byte_capacity = usize::from(
-        create_window_length_units + NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS,
-    ) * 4;
-    let mut bytes = Vec::with_capacity(byte_capacity);
+    let create_window_length_units = native_window_linux_x11_create_window_request_length_units()?;
+    let mut bytes = Vec::with_capacity(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN);
 
     bytes.push(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE);
     bytes.push(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_COPY_FROM_PARENT_DEPTH);
@@ -8531,13 +8581,80 @@ fn native_window_linux_x11_top_level_window_create_request_after_resource_id_val
     bytes.extend_from_slice(&input.background_pixel.to_le_bytes());
     bytes.extend_from_slice(&input.event_mask.to_le_bytes());
 
+    Ok(NativeWindowLinuxX11CreateWindowRequest {
+        window_id: input.window_id,
+        bytes,
+    })
+}
+
+pub fn native_window_linux_x11_create_window_request(
+    input: NativeWindowLinuxX11TopLevelWindowCreateInput,
+) -> Result<
+    NativeWindowLinuxX11CreateWindowRequest,
+    NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+> {
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+        input.window_id,
+    )?;
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::ParentWindow,
+        input.parent_window_id,
+    )?;
+    native_window_linux_x11_create_window_request_after_resource_id_validation(input)
+}
+
+fn native_window_linux_x11_map_window_request_after_resource_id_validation(
+    window_id: u32,
+) -> NativeWindowLinuxX11MapWindowRequest {
+    let mut bytes = Vec::with_capacity(NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN);
+
     bytes.push(NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE);
     bytes.push(0);
     bytes.extend_from_slice(&NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_LENGTH_UNITS.to_le_bytes());
-    bytes.extend_from_slice(&input.window_id.to_le_bytes());
+    bytes.extend_from_slice(&window_id.to_le_bytes());
+
+    NativeWindowLinuxX11MapWindowRequest { window_id, bytes }
+}
+
+pub fn native_window_linux_x11_map_window_request(
+    window_id: u32,
+) -> Result<
+    NativeWindowLinuxX11MapWindowRequest,
+    NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+> {
+    native_window_linux_x11_top_level_window_validate_resource_id(
+        NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+        window_id,
+    )?;
+    Ok(native_window_linux_x11_map_window_request_after_resource_id_validation(window_id))
+}
+
+fn native_window_linux_x11_top_level_window_create_request_after_resource_id_validation(
+    input: NativeWindowLinuxX11TopLevelWindowCreateInput,
+) -> Result<
+    NativeWindowLinuxX11TopLevelWindowCreateRequest,
+    NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError,
+> {
+    let create_window_request =
+        native_window_linux_x11_create_window_request_after_resource_id_validation(input)?;
+    let map_window_request =
+        native_window_linux_x11_map_window_request_after_resource_id_validation(input.window_id);
+    let byte_capacity = create_window_request
+        .len()
+        .checked_add(map_window_request.len())
+        .ok_or(
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::RequestLengthOverflow {
+                base_units: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS,
+                value_count: NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT,
+            },
+        )?;
+    let mut bytes = Vec::with_capacity(byte_capacity);
+    bytes.extend_from_slice(create_window_request.as_bytes());
+    bytes.extend_from_slice(map_window_request.as_bytes());
 
     Ok(NativeWindowLinuxX11TopLevelWindowCreateRequest {
-        window_id: input.window_id,
+        window_id: create_window_request.window_id(),
         bytes,
     })
 }
@@ -21048,6 +21165,79 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_create_window_request_encodes_standalone_bytes() {
+        let input = NativeWindowLinuxX11TopLevelWindowCreateInput::new(
+            0x0020_0001,
+            0x0000_0123,
+            10,
+            20,
+            640,
+            480,
+            0,
+            0x0011_2233,
+        );
+
+        let request = native_window_linux_x11_create_window_request(input).unwrap();
+
+        assert_eq!(request.window_id(), 0x0020_0001);
+        assert_eq!(
+            request.len(),
+            NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_BYTE_LEN
+        );
+        assert_eq!(
+            request.as_bytes()[0],
+            NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_REQUEST_OPCODE
+        );
+        assert_eq!(
+            &request.as_bytes()[2..4],
+            &(NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_BASE_LENGTH_UNITS
+                + NATIVE_WINDOW_LINUX_X11_CREATE_WINDOW_VALUE_COUNT)
+                .to_le_bytes()
+        );
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                1, 0, 10, 0, 1, 0, 32, 0, 35, 1, 0, 0, 10, 0, 20, 0, 128, 2, 224, 1, 0, 0, 1, 0, 0,
+                0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 0, 0, 0,
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_map_window_request_encodes_standalone_bytes() {
+        let request = native_window_linux_x11_map_window_request(0x0020_0001).unwrap();
+
+        assert_eq!(request.window_id(), 0x0020_0001);
+        assert_eq!(
+            request.len(),
+            NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_BYTE_LEN
+        );
+        assert_eq!(
+            request.as_bytes()[0],
+            NATIVE_WINDOW_LINUX_X11_MAP_WINDOW_REQUEST_OPCODE
+        );
+        assert_eq!(request.as_bytes(), &[8, 0, 2, 0, 1, 0, 32, 0]);
+    }
+
+    #[test]
+    fn native_window_linux_x11_map_window_request_rejects_invalid_window_ids() {
+        assert_eq!(
+            native_window_linux_x11_map_window_request(0).unwrap_err(),
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdZero {
+                kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+            }
+        );
+        assert_eq!(
+            native_window_linux_x11_map_window_request(0xe000_0001).unwrap_err(),
+            NativeWindowLinuxX11TopLevelWindowCreateRequestBuildError::ResourceIdHighBitsSet {
+                kind: NativeWindowLinuxX11TopLevelWindowResourceIdKind::Window,
+                value: 0xe000_0001,
+                unused_high_bits: 0xe000_0000,
+            }
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_top_level_window_create_request_encodes_create_and_map() {
         let input = NativeWindowLinuxX11TopLevelWindowCreateInput::new(
             0x0020_0001,
@@ -21060,10 +21250,25 @@ mod tests {
             0x0011_2233,
         );
 
+        let create_window_request = native_window_linux_x11_create_window_request(input).unwrap();
+        let map_window_request =
+            native_window_linux_x11_map_window_request(input.window_id()).unwrap();
         let request = native_window_linux_x11_top_level_window_create_request(input).unwrap();
+        let mut recomposed_bytes =
+            Vec::with_capacity(create_window_request.len() + map_window_request.len());
+        recomposed_bytes.extend_from_slice(create_window_request.as_bytes());
+        recomposed_bytes.extend_from_slice(map_window_request.as_bytes());
 
         assert_eq!(request.window_id(), 0x0020_0001);
         assert_eq!(request.len(), 48);
+        assert_eq!(
+            request.create_window_request_byte_len(),
+            create_window_request.len()
+        );
+        assert_eq!(
+            request.map_window_request_byte_len(),
+            map_window_request.len()
+        );
         assert_eq!(
             request.as_bytes(),
             &[
@@ -21071,6 +21276,7 @@ mod tests {
                 0, 0, 0, 2, 8, 0, 0, 51, 34, 17, 0, 76, 0, 0, 0, 8, 0, 2, 0, 1, 0, 32, 0,
             ]
         );
+        assert_eq!(request.as_bytes(), recomposed_bytes.as_slice());
         assert_eq!(
             input.event_mask(),
             NATIVE_WINDOW_LINUX_X11_EVENT_MASK_BUTTON_PRESS
