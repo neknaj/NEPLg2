@@ -111,6 +111,8 @@ const allocRender2dCompositorByteStorage = read("stdlib/alloc/gui/render2d/compo
 const allocRender2dCompositorByteStorageImpl = withoutComments(allocRender2dCompositorByteStorage);
 const allocRender2dCompositorTilePlan = read("stdlib/alloc/gui/render2d/compositor_tile_plan.nepl");
 const allocRender2dCompositorTilePlanImpl = withoutComments(allocRender2dCompositorTilePlan);
+const allocRender2dCompositorTilePayload = read("stdlib/alloc/gui/render2d/compositor_tile_payload.nepl");
+const allocRender2dCompositorTilePayloadImpl = withoutComments(allocRender2dCompositorTilePayload);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -359,6 +361,7 @@ const guiRender2dCompositorBatchDrainTests = read("tests/stdlib/gui_render2d_com
 const guiRender2dCompositorBatchRangeTests = read("tests/stdlib/gui_render2d_compositor_batch_range.n.md");
 const guiRender2dCompositorByteStorageTests = read("tests/stdlib/gui_render2d_compositor_byte_storage.n.md");
 const guiRender2dCompositorTilePlanTests = read("tests/stdlib/gui_render2d_compositor_tile_plan.n.md");
+const guiRender2dCompositorTilePayloadTests = read("tests/stdlib/gui_render2d_compositor_tile_payload.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -26798,6 +26801,173 @@ assert(
         guiRender2dCompositorTilePlanTests.includes("render2d_compositor_tile_plan_finish_entry_ok") &&
         guiRender2dCompositorTilePlanTests.includes("render2d_compositor_tile_plan_no_payload_no_platform_no_fallback"),
     "F5md compositor tile plan focused doctest must cover facade, prepare, descriptor metadata, invalid config recovery, finish entry recovery, and no payload/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5me") &&
+            doc.includes("compositor tile payload") &&
+            doc.includes("GuiRgba8888CompositorTilePayloadOwner") &&
+            doc.includes("gui_rgba8888_row_tile_payload_prepare") &&
+            doc.includes("tile-relative byte") &&
+            doc.includes("no RLE / host present") &&
+            doc.includes("fallback"),
+        `F5me ${name} must document compositor tile payload bridge, checked payload view, deferred RLE/std present, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5me") &&
+        implementationPlan.includes("Feynman plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("prepare error は `kind/category/plan`") &&
+        implementationPlan.includes("finish error は `kind/category/entry`") &&
+        implementationPlan.includes("descriptor / plan metadata は lower checked helper") &&
+        implementationPlan.includes("owner_free は finish failure と entry free failure を分ける"),
+    "F5me implementation plan must retain plan review approval, checked metadata helper policy, plan/entry-bearing errors, and explicit free error split",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_payload" as *'), "alloc/gui/render2d facade must export F5me compositor tile payload");
+assert(
+    allocRender2dCompositorTilePayload.includes("pub enum GuiRgba8888CompositorTilePayloadPrepareErrorKind:") &&
+        allocRender2dCompositorTilePayload.includes("RowTilePayloadPrepareFailed %GuiRgba8888RowTilePayloadPrepareErrorKind") &&
+        allocRender2dCompositorTilePayload.includes("pub enum GuiRgba8888CompositorTilePayloadFinishErrorKind:") &&
+        allocRender2dCompositorTilePayload.includes("TilePlanFinishFailed %GuiRgba8888CompositorTilePlanFinishErrorKind") &&
+        allocRender2dCompositorTilePayload.includes("pub enum GuiRgba8888CompositorTilePayloadFreeErrorKind:") &&
+        allocRender2dCompositorTilePayload.includes("EntryFreeFailed %GuiRgba8888SoftwareSurfaceErrorKind") &&
+        allocRender2dCompositorTilePayload.includes("pub struct GuiRgba8888CompositorTilePayloadOwner:") &&
+        allocRender2dCompositorTilePayload.includes("payload %GuiRgba8888RowTilePayloadOwner") &&
+        allocRender2dCompositorTilePayload.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTilePayload.includes("pub struct GuiRgba8888CompositorTilePayloadPrepareError:") &&
+        allocRender2dCompositorTilePayload.includes("plan %GuiRgba8888CompositorTilePlanOwner") &&
+        allocRender2dCompositorTilePayload.includes("pub struct GuiRgba8888CompositorTilePayloadFinishError:") &&
+        allocRender2dCompositorTilePayload.includes("entry %GuiRgba8888CompositorFrameEntryOwner"),
+    "alloc/gui/render2d/compositor_tile_payload F5me must define typed lower error kind, metadata-preserving owner, plan-bearing prepare error, and entry-bearing finish error",
+);
+assertNoMatch(
+    allocRender2dCompositorTilePayloadImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888CompositorTilePayloadPrepareError|GuiRgba8888CompositorTilePayloadFinishError)\b/,
+    "alloc/gui/render2d/compositor_tile_payload F5me owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTilePayloadPrepare = functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_prepare");
+assertOrderedFragments(
+    compositorTilePayloadPrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_plan_owner_metadata &plan_owner",
+        'let lower_plan %GuiRgba8888RowTilePlanOwner field::get plan_owner "plan"',
+        "match gui_rgba8888_row_tile_payload_prepare lower_plan tile_index:",
+        "Result::Err gui_rgba8888_compositor_tile_payload_prepare_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_payload_owner_new payload metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me must copy metadata before consuming compositor tile plan owner and call row tile payload prepare in order",
+);
+assert(
+    (compositorTilePayloadPrepare.match(/\bgui_rgba8888_row_tile_payload_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_payload F5me prepare helper must call lower row tile payload prepare exactly once",
+);
+assertNoMatch(
+    compositorTilePayloadPrepare,
+    /\b(?:gui_rgba8888_row_tile_plan_storage_ref|gui_rgba8888_row_byte_storage_byte_at|row_byte_storage|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op|RegionToken|MemPtr|alloc_region|dealloc_region)\b/,
+    "alloc/gui/render2d/compositor_tile_payload F5me prepare helper must not expose row byte storage, raw storage, RLE, host/platform, or fallback APIs",
+);
+assertNoMatch(
+    compositorTilePayloadPrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_payload F5me prepare helper must preserve NEPL prefix style without parentheses",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_prepare_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowTilePayloadPrepareErrorKind gui_rgba8888_row_tile_payload_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_payload_prepare_error_category_value &lower",
+        "let lower_plan %GuiRgba8888RowTilePlanOwner gui_rgba8888_row_tile_payload_prepare_error_plan lower",
+        "let plan %GuiRgba8888CompositorTilePlanOwner GuiRgba8888CompositorTilePlanOwner lower_plan metadata",
+        "GuiRgba8888CompositorTilePayloadPrepareErrorKind::RowTilePayloadPrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_payload_prepare_error_new kind category plan",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me prepare error wrapper must read lower kind/category before normalizing lower plan owner to compositor tile plan owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_descriptor_checked"),
+    [
+        'let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref owner "payload"',
+        "gui_rgba8888_row_tile_payload_descriptor_checked payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me descriptor access must delegate to lower checked helper",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_plan_metadata_checked"),
+    [
+        'let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref owner "payload"',
+        "gui_rgba8888_row_tile_payload_plan_metadata_checked payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me plan metadata access must delegate to lower checked helper",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_byte_at"),
+    [
+        'let payload %&GuiRgba8888RowTilePayloadOwner field::get_ref owner "payload"',
+        "gui_rgba8888_row_tile_payload_byte_at payload index",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me byte read must delegate only to lower payload checked reader",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_finish_tile_plan"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_payload_owner_metadata &owner",
+        'let payload %GuiRgba8888RowTilePayloadOwner field::get owner "payload"',
+        "let lower_plan %GuiRgba8888RowTilePlanOwner gui_rgba8888_row_tile_payload_finish_plan payload",
+        "GuiRgba8888CompositorTilePlanOwner lower_plan metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me finish tile plan recovery must copy metadata before consuming lower payload owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_finish_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888CompositorTilePlanFinishErrorKind gui_rgba8888_compositor_tile_plan_finish_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_compositor_tile_plan_finish_error_category_value &lower",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_tile_plan_finish_error_finish_entry lower",
+        "GuiRgba8888CompositorTilePayloadFinishErrorKind::TilePlanFinishFailed lower_kind",
+        "gui_rgba8888_compositor_tile_payload_finish_error_new kind category entry",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me finish error wrapper must read lower kind/category before taking entry owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_finish_entry"),
+    [
+        "let plan %GuiRgba8888CompositorTilePlanOwner gui_rgba8888_compositor_tile_payload_owner_finish_tile_plan owner",
+        "match gui_rgba8888_compositor_tile_plan_owner_finish_entry plan:",
+        "Result::Err gui_rgba8888_compositor_tile_payload_finish_error_from_lower lower",
+        "Result::Ok entry",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me finish entry recovery must delegate to compositor tile plan finish",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTilePayloadImpl, "gui_rgba8888_compositor_tile_payload_owner_free"),
+    [
+        "match gui_rgba8888_compositor_tile_payload_owner_finish_entry owner:",
+        "let kind %GuiRgba8888CompositorTilePayloadFinishErrorKind gui_rgba8888_compositor_tile_payload_finish_error_kind &error",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_tile_payload_finish_error_finish_entry error",
+        "GuiRgba8888CompositorTilePayloadFreeErrorKind::FinishFailed kind",
+        "GuiRgba8888CompositorTilePayloadFreeErrorKind::EntryFreeFailed kind",
+    ],
+    "alloc/gui/render2d/compositor_tile_payload F5me free helper must preserve finish failure and distinguish entry free failure after successful finish",
+);
+assertNoMatch(
+    allocRender2dCompositorTilePayloadImpl,
+    /\b(?:RegionToken|MemPtr|alloc_region|dealloc_region|gui_rgba8888_row_tile_plan_storage_ref|gui_rgba8888_row_byte_storage_byte_at|row_byte_storage|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_payload F5me must not expose raw storage, direct row byte storage APIs, RLE, present, host, or platform APIs",
+);
+assert(
+    guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_facade_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_prepare_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_checked_metadata_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_tile_relative_read_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_invalid_index_recovery_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_finish_entry_ok") &&
+        guiRender2dCompositorTilePayloadTests.includes("render2d_compositor_tile_payload_no_rle_no_platform_no_fallback"),
+    "F5me compositor tile payload focused doctest must cover facade, prepare, checked metadata, tile-relative read, invalid index recovery, finish entry recovery, and no RLE/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

@@ -1,3 +1,49 @@
+# 2026-06-22 GUI render2d F5me compositor tile payload bridge checkpoint
+
+## 目的
+
+- F5md の `GuiRgba8888CompositorTilePlanOwner` を、F5cb の `gui_rgba8888_row_tile_payload_prepare` へ compositor metadata 付きで接続する。
+- lower row tile payload owner を compositor metadata と束ね、success / prepare error / finish error のどの経路でも compositor tile plan owner または frame entry owner へ戻せるようにする。
+- RLE / std present / host / platform / fallback には進まない。
+
+## subagent review
+
+- Feynman plan review は `PLAN_APPROVED`。
+- F5me は F5md の compositor tile plan owner と F5cb の row tile payload owner をつなぐ bridge として承認された。
+- descriptor / plan metadata は lower checked helper に委譲し、compositor boundary には unchecked descriptor accessor を追加しない方針になった。
+- source policy は `row_tile_payload` module / checked byte reader delegation を許可しつつ、row byte storage、raw storage、RLE、std present、host / platform / fallback を禁止する方針になった。
+- invalid tile index recovery は nested kind `RowTilePayloadPrepareFailed (DescriptorInvalid TileIndexOutOfBounds)`、`GuiError::InvalidCommand` category、metadata preservation を確認する方針になった。
+- Feynman implementation review は `REVIEW_CHANGES_REQUESTED`。実装自体の blocker はなく、`note.n.md` に F5me checkpoint が未記載である点だけが指摘された。
+- 指摘対応として本 checkpoint を追記した。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_payload.nepl` を追加した。
+- `GuiRgba8888CompositorTilePayloadOwner`、prepare / finish / free error kind、owner-bearing prepare / finish error を追加した。
+- `gui_rgba8888_compositor_tile_payload_prepare` は metadata を Copy してから lower tile plan owner を取り出し、lower row tile payload prepare を 1 回だけ呼ぶ。
+- prepare error は lower prepare error の kind / category を読んでから tile plan owner を `GuiRgba8888CompositorTilePlanOwner` へ戻す。
+- descriptor / plan metadata は lower checked helper に委譲し、tile-relative byte read は lower row tile payload checked reader に委譲する。
+- finish tile plan recovery、finish entry recovery、prepare / finish error free、owner free を追加した。
+- facade、focused doctest、source policy、spec / detailed design / standard spec / implementation plan、`todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_payload.n.md --no-tree -o tmp_gui_render2d_compositor_tile_payload_f5me.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_payload.nepl --no-tree -o tmp_gui_render2d_compositor_tile_payload_module_f5me.json -j 1`。29/29。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_plan_f5me_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5me_regression.json -j 1`。2/2。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。baseline ok。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5me_compositor_tile_payload.json`
+- checked JSON: `output/playground_editor_f5me_compositor_tile_payload.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 未接続
+
+- F5me 後続として、RLE と std present への payload transport / present continuation を別 boundary として進める。
+
 # 2026-06-22 GUI render2d F5md compositor tile plan bridge checkpoint
 
 ## 目的

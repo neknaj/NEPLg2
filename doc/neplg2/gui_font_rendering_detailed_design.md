@@ -8323,6 +8323,27 @@ Finish errors are normalized back to the compositor entry owner boundary. `owner
 
 F5md must not expose row tile plan storage refs, checked byte readers, `RegionToken`, `MemPtr`, source storage, destination raw storage, tile payload views, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no RLE / host present compositor tile plan bridge; payload transport and std present remain later compositor continuation boundaries.
 
+## Render2d compositor tile payload boundary
+
+F5me is the compositor-side bridge from F5md tile plan metadata to F5cb checked row tile payload view. It consumes `GuiRgba8888CompositorTilePlanOwner`, copies the compositor metadata first, extracts the lower `GuiRgba8888RowTilePlanOwner`, and then calls `gui_rgba8888_row_tile_payload_prepare` exactly once. The result is `GuiRgba8888CompositorTilePayloadOwner`, which keeps the lower `GuiRgba8888RowTilePayloadOwner` and copied `GuiRgba8888CompositorFrameEntryMetadata`.
+
+```text
+metadata = copy tile plan owner metadata
+lower_plan = move lower row tile plan owner
+payload_or_error = gui_rgba8888_row_tile_payload_prepare lower_plan tile_index
+wrap lower payload owner with metadata
+```
+
+Prepare errors are normalized back to the compositor tile plan boundary. `GuiRgba8888CompositorTilePayloadPrepareError` reads the lower row tile payload prepare kind and category before consuming the lower error owner, then reconstructs `GuiRgba8888CompositorTilePlanOwner` from the lower row tile plan owner plus copied metadata. It stores `kind/category/plan`, not the lower owner-bearing error.
+
+Descriptor and plan metadata access stay checked. `gui_rgba8888_compositor_tile_payload_owner_descriptor_checked` delegates to `gui_rgba8888_row_tile_payload_descriptor_checked`, and `gui_rgba8888_compositor_tile_payload_owner_plan_metadata_checked` delegates to `gui_rgba8888_row_tile_payload_plan_metadata_checked`. The compositor boundary never exposes the lower row tile plan storage ref or row byte storage accessor. `gui_rgba8888_compositor_tile_payload_owner_byte_at` is a tile-relative byte reader that delegates to lower `gui_rgba8888_row_tile_payload_byte_at`.
+
+Finish errors are normalized back to the compositor entry owner boundary. `owner_finish_tile_plan` copies metadata before consuming the lower payload owner and then wraps the recovered `GuiRgba8888RowTilePlanOwner` as `GuiRgba8888CompositorTilePlanOwner`. `owner_finish_entry` delegates to F5md `gui_rgba8888_compositor_tile_plan_owner_finish_entry`; if that returns a tile-plan finish error, F5me reads the lower finish kind and category before taking the recovered entry owner, and stores `kind/category/entry`.
+
+`owner_free` delegates to `owner_finish_entry` and then `gui_rgba8888_compositor_frame_entry_owner_free`. It distinguishes `FinishFailed lower_finish_kind` from `EntryFreeFailed entry_free_kind`, where `entry_free_kind` is the `GuiRgba8888SoftwareSurfaceErrorKind` returned by frame entry teardown. A successful tile-payload finish followed by entry free failure is not collapsed into the tile-plan finish path.
+
+F5me must not expose row tile plan storage refs, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, RLE encode, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no RLE / host present compositor tile payload bridge; payload transport and std present remain later compositor continuation boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
