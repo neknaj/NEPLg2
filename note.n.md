@@ -79075,3 +79075,22 @@ MERGE_APPROVED
 - actual Resource IR traversal / materializer が `PrivateState` / `PrivateCache` の fresh region / non-escape observation table を発行し、この producer で proof table へ変換する。
 - scanner / upper orchestrator が同じ body module fingerprint と proof table を proof-aware public impl materializer へ渡す。
 - memo_call backend の request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+## 2026-06-21 Agent2 GUI font rendering F5ls shadow source resource reservation boundary
+
+- F5ls では、F5lp completed shadow source composition order owner を authority として、未登録の `AlphaMaskId` と shadow source alpha storage owner を同じ owner-bearing reservation value に束ねる境界を追加中。
+- Maxwell の plan review は `PLAN_APPROVED`。F5lp が direct authority であり、F5lr の per-sample command bridge を resource path の authority にしないこと、`AlphaMaskId` は nonzero/reserved だけを証明し registered / unique / uploaded / renderable を主張しないこと、rect top-left は `source_placement_origin - shadow_extent` を checked i32 subtraction で作ることが承認条件だった。
+- 指摘に従い、F5ls は resource reservation 専用の shadow shape / alpha storage invariant helper と error kind を持ち、F5lq sample cursor error vocabulary を露出しない方針にした。
+- この checkpoint は resource table 登録、`RenderCommand::AlphaMaskRect` emission、F5lq start/read/step、F5lr sample command bridge、platform / host / backend API、font fallback、zero-fill fallback、shadow rasterizer、software surface、2D compositor drain を扱わない。
+- `plan.md` との差異はない。plan.md の言語・stdlib 方針に沿って、仕様と実装計画を先に確認し、root cause 境界として F5ls を F5lp authority に固定した。
+- 更新対象は `stdlib/alloc/gui/font/sfnt/glyf.nepl`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、focused doctest、`todo.md`、`note.n.md`。
+- F5ls 後続は shadow source resource table、shadow source prepared command、2D compositor drain に分ける。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_f5ls.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5ls_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5ls_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ls.json -j 1`。1327/1327 passed。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ls.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- pass with LF/CRLF warnings only: `git diff --check`
+- Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。

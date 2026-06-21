@@ -23497,15 +23497,27 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \error:
         error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_error: command bridge error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \kind\rejected_sample:
     GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError kind rejected_sample
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_kind: command bridge error の reason を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_rejected_sample: command bridge error に[保持/ほじ]された sample を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_rejected_sample %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSample \error:
     *field::get_ref error "rejected_sample"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend: sample の blend mode が FillRect command に[写/うつ]せることを[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \sample:
     let blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_source_sample_blend sample
     match blend:
@@ -23514,6 +23526,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend %fn 
         _:
             Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::UnsupportedBlendMode
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha: sample alpha と paint alpha を FillRect 用 alpha に[正規/せいき]化する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha %fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \alpha\alpha_max\paint_alpha:
     if le alpha_max 0:
         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::InvalidAlphaMax
@@ -23537,6 +23552,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha %fn i32
                                                 then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::ScaledAlphaOutOfRange
                                                 else Result::Ok scaled_alpha
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint: shadow sample から FillRect に[使/つか]う paint を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result GuiPaint GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \sample:
     match gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend sample:
         Result::Err error_kind:
@@ -23559,6 +23577,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint %fn &GuiSfntS
                         scaled_alpha_u8
                     Result::Ok gui_paint_solid command_color
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_render_command: shadow sample を 1x1 FillRect command に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_render_command %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result RenderCommand GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \sample:
     match gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint sample:
         Result::Err error_kind:
@@ -23596,49 +23617,85 @@ struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError:
     rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error: command cursor error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError kind cursor rejected_sample order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple: composition order error なしの command cursor error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error kind cursor rejected_sample order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_with_order: composition order error を[持/も]つ command cursor error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample\order_error_value:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
     gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error kind cursor rejected_sample order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_kind: command cursor error の reason を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_cursor: command cursor error から cursor owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \error:
     field::get error "cursor"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_rejected_sample: command cursor error の rejected sample を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_rejected_sample %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError Option GuiSfntSimpleGlyphRenderShadowSourceSample \error:
     *field::get_ref error "rejected_sample"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_order_error: command cursor error の composition order error を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
-//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal: shadow command cursor step の結果
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand: FillRect command と次 cursor owner の payload
 //:
 //: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand:
     command %RenderCommand
     cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command: command cursor step の Command payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command %fn RenderCommand fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand \command\cursor:
     GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand command cursor
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_command: Command payload の render command を[返/かえ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_command %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand RenderCommand \command_payload:
     *field::get_ref command_payload "command"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_cursor: Command payload の次 cursor owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \command_payload:
     field::get command_payload "cursor"
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal: shadow command cursor step の結果
+//:
+//: neplg2:test[skip]
 enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal:
     Command %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand
     Completed %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step: shadow sample cursor を 1 command 進める
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \cursor:
     let owner_ref %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref &cursor "owner"
     match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner_ref:
@@ -23712,13 +23769,22 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step %impure
                                                             let command_payload %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command command next_cursor
                                                             Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Command command_payload
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_free: shadow command cursor bridge の cursor owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor unit \cursor:
     gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_free: command cursor error に[含/ふく]まれる cursor owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError unit \error:
     let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor field::get error "cursor"
     gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
 
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_terminal_free: command cursor terminal が[所有/しょゆう]する resource を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal unit \terminal:
     match terminal:
         GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Command command_payload:
@@ -23726,6 +23792,343 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_terminal_fre
             gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
         GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig: shadow source alpha mask resource reservation の設定
+//:
+//: [目的/もくてき]:
+//: - 完成済み shadow source composition order owner を、未登録の `AlphaMaskId` と安全に結びつけるための value-only 設定です。
+//: - この段階では resource table 登録も command 発行も行いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:
+    mask_id %AlphaMaskId
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig \config:
+        config
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config: shadow resource reservation config を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config %fn AlphaMaskId GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig \mask_id:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig mask_id
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config_mask_id: reservation config の mask id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config_mask_id %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig AlphaMaskId \config:
+    *field::get_ref config "mask_id"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner: shadow mask storage owner と alpha mask id の内部予約
+//:
+//: [目的/もくてき]:
+//: - shadow source alpha mask の実 storage owner と、後続 table 登録で使う予定の id/rect/paint/order metadata を同じ所有者付き value に束ねます。
+//: - `AlphaMaskId` が登録済み、一意、host-visible、renderable であることは証明しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner:
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+    shadow_order %i32
+    source_order %i32
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner: shadow resource reservation owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn AlphaMaskId fn GuiRect fn GuiPaint fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner \owner\mask_id\rect\paint\shadow_order\source_order:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner owner mask_id rect paint shadow_order source_order
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_mask_id: reservation owner の mask id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_mask_id %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner AlphaMaskId \reservation:
+    *field::get_ref reservation "mask_id"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_rect: reservation owner の rect を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_rect %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiRect \reservation:
+    *field::get_ref reservation "rect"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_paint: reservation owner の paint を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiPaint \reservation:
+    *field::get_ref reservation "paint"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_order: reservation owner の shadow order を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner i32 \reservation:
+    *field::get_ref reservation "shadow_order"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_source_order: reservation owner の source order を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_source_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner i32 \reservation:
+    *field::get_ref reservation "source_order"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_composition_owner: reservation owner から composition owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_composition_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner \reservation:
+    field::get reservation "owner"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind: shadow resource reservation の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind:
+    InvalidMaskId
+    CompositionOrderInvariantFailed
+    ShadowShapeInvalidWidth
+    ShadowShapeInvalidHeight
+    ShadowShapeInvalidSampleScale
+    ShadowShapeCoverageMaxMismatch
+    ShadowShapeCellCountMismatch
+    InvalidAlphaMax
+    ShadowAlphaCellCountMismatch
+    ShadowAlphaStorageLenMismatch
+    ShadowAlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectXOverflow
+    RectYOverflow
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError: shadow resource reservation の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    config %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error: resource reservation start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError \kind\owner\config\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError kind owner config order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple: order error なしの resource reservation start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError \kind\owner\config:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error kind owner config order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_with_order: composition order error 付き start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError \kind\owner\config\order_error_value:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error kind owner config order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_kind: start error の reason を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_config: start error の config を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_config %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig \error:
+    *field::get_ref error "config"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_order_error: start error の composition order error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_owner: start error から composition owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner \error:
+    field::get error "owner"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_count_checked_mul: resource reservation 用 count multiplication を overflow 検査付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_checked_sub_i32: resource rect 座標用 subtraction を i32 範囲で[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_checked_sub_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \left\right\overflow_kind:
+    let difference %i64 sub %i64 cast left %i64 cast right
+    let narrowed %i32 cast difference
+    let round_trip %i64 %i64 cast narrowed
+    if ne round_trip difference:
+        then Result::Err overflow_kind
+        else Result::Ok narrowed
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_config: reservation config の mask id を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_config %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig Result unit GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \config:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config_mask_id config
+    let raw %i32 alpha_mask_id_raw &mask_id
+    if le raw 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::InvalidMaskId
+        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_shadow_shape: shadow packed mask shape の count invariant を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_shadow_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_storage_invariants: shadow alpha storage owner と shape の整合性を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_storage_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \owner:
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner
+    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_shadow_shape &shadow_shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max shadow_owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::InvalidAlphaMax
+                else:
+                    let shadow_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count shadow_owner
+                    if ne owner_cell_count shadow_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_len shadow_owner
+                            if ne alpha_cells_len shadow_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_cap shadow_owner
+                                    if ne alpha_cells_cap shadow_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_blend: resource reservation が扱える blend mode か[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \owner:
+    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_blend owner
+    match blend:
+        GuiBlendMode::SourceOver:
+            Result::Ok unit
+        _:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::UnsupportedBlendMode
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner: composition owner から reserved alpha mask rect を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result GuiRect GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind \owner:
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shadow_shape
+    let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shadow_shape
+    let origin %GuiPoint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_placement_origin owner
+    let origin_x %i32 gui_point_x &origin
+    let origin_y %i32 gui_point_y &origin
+    let shadow_extent %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_extent owner
+    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_checked_sub_i32 origin_x shadow_extent GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectXOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok rect_x:
+            match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_checked_sub_i32 origin_y shadow_extent GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectYOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok rect_y:
+            Result::Ok gui_rect_new rect_x rect_y width_px height_px
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_start: shadow source owner を alpha mask resource reservation owner へ[進/すす]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_start %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig Result GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError \owner\config:
+    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_config &config:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple error_kind owner config
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants &owner:
+                Result::Err order_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_with_order GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::CompositionOrderInvariantFailed owner config order_error
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_storage_invariants &owner:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple error_kind owner config
+                        Result::Ok _:
+                            match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_blend &owner:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple error_kind owner config
+                                Result::Ok _:
+                                    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner &owner:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_simple error_kind owner config
+                                        Result::Ok rect:
+                                            let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_config_mask_id &config
+                                            let paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint &owner
+                                            let shadow_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order &owner
+                                            let source_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order &owner
+                                            let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner owner mask_id rect paint shadow_order source_order
+                                            Result::Ok reservation
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free: reservation owner が[持/も]つ composition owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner unit \reservation:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get reservation "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_free: start error に[含/ふく]まれる composition owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
 
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
