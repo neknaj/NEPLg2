@@ -107,6 +107,8 @@ const allocRender2dCompositorBatchDrain = read("stdlib/alloc/gui/render2d/compos
 const allocRender2dCompositorBatchDrainImpl = withoutComments(allocRender2dCompositorBatchDrain);
 const allocRender2dCompositorBatchRange = read("stdlib/alloc/gui/render2d/compositor_batch_range.nepl");
 const allocRender2dCompositorBatchRangeImpl = withoutComments(allocRender2dCompositorBatchRange);
+const allocRender2dCompositorByteStorage = read("stdlib/alloc/gui/render2d/compositor_byte_storage.nepl");
+const allocRender2dCompositorByteStorageImpl = withoutComments(allocRender2dCompositorByteStorage);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -353,6 +355,7 @@ const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame
 const guiRender2dCompositorFrameEntryTests = read("tests/stdlib/gui_render2d_compositor_frame_entry.n.md");
 const guiRender2dCompositorBatchDrainTests = read("tests/stdlib/gui_render2d_compositor_batch_drain.n.md");
 const guiRender2dCompositorBatchRangeTests = read("tests/stdlib/gui_render2d_compositor_batch_range.n.md");
+const guiRender2dCompositorByteStorageTests = read("tests/stdlib/gui_render2d_compositor_byte_storage.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -26511,6 +26514,137 @@ assert(
         guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_metadata_recovery_ok") &&
         guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_no_payload_no_platform_no_fallback"),
     "F5mb compositor batch range focused doctest must cover facade, first range, continuation, complete cursor recovery, metadata recovery, and no payload/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5mc") &&
+            doc.includes("compositor byte storage") &&
+            doc.includes("GuiRgba8888CompositorByteStorageOwner") &&
+            doc.includes("gui_rgba8888_row_byte_storage_prepare") &&
+            doc.includes("row tile") &&
+            doc.includes("fallback"),
+        `F5mc ${name} must document compositor byte storage bridge, metadata recovery, deferred tile transport, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mc") &&
+        implementationPlan.includes("Hilbert plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("prepare error は `kind/category/range`") &&
+        implementationPlan.includes("finish error は `kind/category/entry`") &&
+        implementationPlan.includes("owner_free は finish failure と entry free failure を分ける"),
+    "F5mc implementation plan must retain plan review approval, normalized range/entry-bearing errors, and explicit free error split",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_byte_storage" as *'), "alloc/gui/render2d facade must export F5mc compositor byte storage");
+assert(
+    allocRender2dCompositorByteStorage.includes("pub enum GuiRgba8888CompositorByteStoragePrepareErrorKind:") &&
+        allocRender2dCompositorByteStorage.includes("RowByteStoragePrepareFailed %GuiRgba8888RowByteStoragePrepareErrorKind") &&
+        allocRender2dCompositorByteStorage.includes("pub enum GuiRgba8888CompositorByteStorageFinishErrorKind:") &&
+        allocRender2dCompositorByteStorage.includes("RowByteStorageFinishFailed %GuiRgba8888RowByteStorageFinishErrorKind") &&
+        allocRender2dCompositorByteStorage.includes("pub enum GuiRgba8888CompositorByteStorageFreeErrorKind:") &&
+        allocRender2dCompositorByteStorage.includes("EntryFreeFailed %GuiRgba8888SoftwareSurfaceErrorKind") &&
+        allocRender2dCompositorByteStorage.includes("pub struct GuiRgba8888CompositorByteStorageOwner:") &&
+        allocRender2dCompositorByteStorage.includes("storage %GuiRgba8888RowByteStorageOwner") &&
+        allocRender2dCompositorByteStorage.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorByteStorage.includes("pub struct GuiRgba8888CompositorByteStoragePrepareError:") &&
+        allocRender2dCompositorByteStorage.includes("range %GuiRgba8888CompositorBatchRangeOwner") &&
+        allocRender2dCompositorByteStorage.includes("pub struct GuiRgba8888CompositorByteStorageFinishError:") &&
+        allocRender2dCompositorByteStorage.includes("entry %GuiRgba8888CompositorFrameEntryOwner"),
+    "alloc/gui/render2d/compositor_byte_storage F5mc must define typed lower error kind, metadata-preserving owner, range-bearing prepare error, and entry-bearing finish error",
+);
+assertNoMatch(
+    allocRender2dCompositorByteStorageImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorByteStorageOwner|GuiRgba8888CompositorByteStoragePrepareError|GuiRgba8888CompositorByteStorageFinishError)\b/,
+    "alloc/gui/render2d/compositor_byte_storage F5mc owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorByteStoragePrepare = functionSlice(allocRender2dCompositorByteStorageImpl, "gui_rgba8888_compositor_byte_storage_prepare");
+assertOrderedFragments(
+    compositorByteStoragePrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_range_owner_metadata &range_owner",
+        'let lower_range %GuiRgba8888RowBatchRangeOwner field::get range_owner "range"',
+        "match gui_rgba8888_row_byte_storage_prepare lower_range:",
+        "Result::Err gui_rgba8888_compositor_byte_storage_prepare_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_byte_storage_owner_new storage metadata",
+    ],
+    "alloc/gui/render2d/compositor_byte_storage F5mc must copy metadata before consuming compositor range owner and call row byte storage prepare in order",
+);
+assert(
+    (compositorByteStoragePrepare.match(/\bgui_rgba8888_row_byte_storage_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_byte_storage F5mc prepare helper must call lower row byte storage prepare exactly once",
+);
+assertNoMatch(
+    compositorByteStoragePrepare,
+    /\b(?:gui_rgba8888_row_byte_storage_validate_authority|row_tile|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op|RegionToken|MemPtr|alloc_region|dealloc_region)\b/,
+    "alloc/gui/render2d/compositor_byte_storage F5mc prepare helper must not revalidate lower storage, expose raw storage, or enter tile/RLE/host/platform/fallback APIs",
+);
+assertNoMatch(
+    compositorByteStoragePrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_byte_storage F5mc prepare helper must preserve NEPL prefix style without parentheses",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorByteStorageImpl, "gui_rgba8888_compositor_byte_storage_prepare_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowByteStoragePrepareErrorKind gui_rgba8888_row_byte_storage_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_byte_storage_prepare_error_category_value &lower",
+        "let lower_range %GuiRgba8888RowBatchRangeOwner gui_rgba8888_row_byte_storage_prepare_error_owner lower",
+        "let range %GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorBatchRangeOwner lower_range metadata",
+        "GuiRgba8888CompositorByteStoragePrepareErrorKind::RowByteStoragePrepareFailed lower_kind",
+        "gui_rgba8888_compositor_byte_storage_prepare_error_new kind category range",
+    ],
+    "alloc/gui/render2d/compositor_byte_storage F5mc prepare error wrapper must read lower kind/category before normalizing lower range owner to compositor range owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorByteStorageImpl, "gui_rgba8888_compositor_byte_storage_finish_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowByteStorageFinishErrorKind gui_rgba8888_row_byte_storage_finish_error_kind &lower",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_byte_storage_finish_error_cursor lower",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+        "GuiRgba8888CompositorByteStorageFinishErrorKind::RowByteStorageFinishFailed lower_kind",
+        "let category %Option GuiError Option::Some GuiError::BackendFailure",
+        "gui_rgba8888_compositor_byte_storage_finish_error_new kind category entry",
+    ],
+    "alloc/gui/render2d/compositor_byte_storage F5mc finish error wrapper must read lower kind before normalizing lower cursor to entry and map to BackendFailure",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorByteStorageImpl, "gui_rgba8888_compositor_byte_storage_owner_finish_entry"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_byte_storage_owner_metadata &owner",
+        'let storage %GuiRgba8888RowByteStorageOwner field::get owner "storage"',
+        "match gui_rgba8888_row_byte_storage_finish_cursor storage:",
+        "Result::Err gui_rgba8888_compositor_byte_storage_finish_error_from_lower lower metadata",
+        "Result::Ok GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+    ],
+    "alloc/gui/render2d/compositor_byte_storage F5mc finish recovery must copy metadata before consuming lower storage owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorByteStorageImpl, "gui_rgba8888_compositor_byte_storage_owner_free"),
+    [
+        "match gui_rgba8888_compositor_byte_storage_owner_finish_entry owner:",
+        "let kind %GuiRgba8888CompositorByteStorageFinishErrorKind gui_rgba8888_compositor_byte_storage_finish_error_kind &error",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_byte_storage_finish_error_finish_entry error",
+        "GuiRgba8888CompositorByteStorageFreeErrorKind::FinishFailed kind",
+        "GuiRgba8888CompositorByteStorageFreeErrorKind::EntryFreeFailed kind",
+    ],
+    "alloc/gui/render2d/compositor_byte_storage F5mc free helper must preserve lower finish failure and distinguish entry free failure after successful finish",
+);
+assertNoMatch(
+    allocRender2dCompositorByteStorageImpl,
+    /\b(?:RegionToken|MemPtr|alloc_region|dealloc_region|gui_rgba8888_row_byte_storage_validate_authority)\b|\bgui_rgba8888_compositor_byte_storage_(?:row_tile|rle|present|publish|host|platform|video_memory)\b/,
+    "alloc/gui/render2d/compositor_byte_storage F5mc must not expose raw storage, direct lower authority validation, row tile/RLE, present, host, or platform APIs",
+);
+assert(
+    guiRender2dCompositorByteStorageTests.includes("render2d_compositor_byte_storage_facade_ok") &&
+        guiRender2dCompositorByteStorageTests.includes("render2d_compositor_byte_storage_exact_copy_ok") &&
+        guiRender2dCompositorByteStorageTests.includes("render2d_compositor_byte_storage_metadata_recovery_ok") &&
+        guiRender2dCompositorByteStorageTests.includes("render2d_compositor_byte_storage_finish_entry_ok") &&
+        guiRender2dCompositorByteStorageTests.includes("render2d_compositor_byte_storage_no_tile_no_platform_no_fallback"),
+    "F5mc compositor byte storage focused doctest must cover facade, exact copy, metadata recovery, finish entry recovery, and no tile/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

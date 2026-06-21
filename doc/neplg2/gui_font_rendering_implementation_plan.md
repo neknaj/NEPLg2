@@ -4271,6 +4271,58 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mb.json
 ```
 
+## Phase F5mc: render2d compositor byte storage bridge boundary
+
+目的:
+
+- F5mb の `GuiRgba8888CompositorBatchRangeOwner` を authority とし、既存 F5bz `gui_rgba8888_row_byte_storage_prepare` を compositor metadata 付きで接続する。
+- lower `gui_rgba8888_row_byte_storage_prepare` を 1 回だけ呼び、1 batch 分の copied row byte storage を `GuiRgba8888CompositorByteStorageOwner` として返す。
+- success / prepare error / finish error recovery のどれでも compositor metadata を保持し、range owner または frame entry owner へ戻せるようにする。
+- この phase では row tile、tile payload、RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Hilbert plan review は `PLAN_APPROVED`。
+- F5mc は F5mb の compositor batch range owner と F5bz の row byte storage owner をつなぐ bridge として承認された。
+- refinement として、prepare error は lower kind / category を読んだ後で lower prepare error owner を消費し、copied metadata と lower range owner から compositor range owner を再構成して、prepare error は `kind/category/range` を保持することになった。
+- finish error は metadata を lower storage owner 消費前に Copy し、lower finish error から kind を読んだ後で returned cursor を compositor frame entry owner へ正規化し、finish error は `kind/category/entry` を保持することになった。storage dealloc failure category は `GuiError::BackendFailure` へ写す。
+- owner_free は finish failure と entry free failure を分ける。byte storage finish が成功した後に entry free が失敗した場合を失わず、finish failure では original lower finish kind を保持する。
+- source policy で lower `gui_rgba8888_row_byte_storage_prepare` exact once、direct `row_byte_storage_validate_authority` 禁止、raw `RegionToken` / `MemPtr` / source storage 公開禁止、row tile / RLE / std present / host / platform / fallback 禁止、checked byte-count / byte-read helper だけ許可を検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_byte_storage.nepl` を追加する。
+- `GuiRgba8888CompositorByteStoragePrepareErrorKind`、`GuiRgba8888CompositorByteStorageFinishErrorKind`、`GuiRgba8888CompositorByteStorageFreeErrorKind` を追加する。
+- `GuiRgba8888CompositorByteStorageOwner`、`GuiRgba8888CompositorByteStoragePrepareError`、`GuiRgba8888CompositorByteStorageFinishError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_byte_storage_prepare` は metadata を range owner から Copy してから lower range owner を取り出し、lower row byte storage prepare を 1 回だけ呼ぶ。
+- prepare failure は lower kind / category を読んでから `GuiRgba8888CompositorBatchRangeOwner` へ正規化し、prepare error は `kind/category/range` を保持する。
+- `gui_rgba8888_compositor_byte_storage_owner_finish_entry` は metadata を Copy してから lower storage owner を finish し、success / failure のどちらでも `GuiRgba8888CompositorFrameEntryOwner` へ戻せるようにする。finish error は `kind/category/entry` を保持する。
+- checked byte count / checked byte read helper、prepare error / finish error recovery accessor、free helper を追加する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor byte storage を再公開する。
+- `tests/stdlib/gui_render2d_compositor_byte_storage.n.md` を追加し、facade、exact copy、metadata recovery、finish entry recovery、no tile / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mc source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Hilbert approval、facade export、typed lower error variants、success owner / prepare error / finish error no Clone / Copy、exact one lower row byte storage prepare call、metadata-before-range-owner-consume、lower kind/category before range normalization、metadata-before-storage-finish、finish failure BackendFailure category、owner_free の finish failure / entry free failure split、raw storage / validate_authority / row tile / RLE / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5mb compositor batch range regression、F5bz row byte storage regression、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower finish kind loss、entry free failure collapse、payload / host leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_byte_storage.n.md --no-tree -o tmp_gui_render2d_compositor_byte_storage_f5mc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_byte_storage.nepl --no-tree -o tmp_gui_render2d_compositor_byte_storage_module_f5mc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_range.n.md --no-tree -o tmp_gui_render2d_compositor_batch_range_f5mc_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_byte_storage.n.md --no-tree -o tmp_gui_render2d_row_byte_storage_f5mc_regression.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mc.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
