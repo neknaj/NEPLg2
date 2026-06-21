@@ -520,6 +520,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -600,6 +601,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -18196,9 +18198,9 @@ assert(
     "GUI font docs must pin F5la F5kz authority, shared shape helper reuse, no scan computation, and scan-before-packed order",
 );
 const renderStrokeCoverageMaskStartIndex = renderStrokeEdgeClosureEndIndex;
-const renderStrokeCoverageMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeCoverageMaskStartIndex);
+const renderStrokeCoverageMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:", renderStrokeCoverageMaskStartIndex);
 const renderStrokeCoverageMaskRegion = allocFontSfntGlyfImpl.slice(renderStrokeCoverageMaskStartIndex, renderStrokeCoverageMaskEndIndex);
-assert(renderStrokeCoverageMaskStartIndex >= 0 && renderStrokeCoverageMaskEndIndex > renderStrokeCoverageMaskStartIndex, "alloc/gui/font/sfnt/glyf F5la stroke coverage mask writer region must exist before fill alpha sample cursor");
+assert(renderStrokeCoverageMaskStartIndex >= 0 && renderStrokeCoverageMaskEndIndex > renderStrokeCoverageMaskStartIndex, "alloc/gui/font/sfnt/glyf F5la stroke coverage mask writer region must exist before stroke coverage scan converter");
 for (const fragment of [
     "enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind:",
     "SourceSideEdgeOwnerInvariantFailed",
@@ -18379,6 +18381,282 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests.includes("render_stroke_coverage_mask_writer_exact_completion_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests.includes("render_stroke_coverage_mask_writer_no_scan_geometry_packed_render"),
     "F5la render stroke coverage mask writer focused doctest must cover F5kz authority, shape reuse, closure revalidation, exact capacity, push recovery, exact completion, and no scan/geometry/packed/render policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke coverage scan converter boundary"), "GUI font spec must document F5lb render stroke coverage scan converter boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke coverage scan converter boundary"), "GUI font detailed design must document F5lb render stroke coverage scan converter boundary");
+assert(implementationPlan.includes("## Phase F5lb: sfnt simple glyph render stroke coverage scan converter"), "GUI font implementation plan must include F5lb phase");
+assert(
+    implementationPlan.includes("Archimedes plan review は `PLAN_REVIEWED`") &&
+        detailedDesign.includes("F5lb consumes the F5la stroke coverage mask writer owner as the only direct authority") &&
+        detailedDesign.includes("F5lb scans line side edges and F5kz bevel connector chords only") &&
+        detailedDesign.includes("Quadratic side edges also fail closed in F5lb") &&
+        spec.includes("connector chord は bevel geometry としてだけ有効") &&
+        spec.includes("miter / round join geometry と quadratic side edge approximation は後続 boundary"),
+    "GUI font docs must pin F5lb F5la authority, bevel-only connector policy, non-bevel fail-closed, quadratic fail-closed, and later geometry work",
+);
+const renderStrokeCoverageScanStartIndex = renderStrokeCoverageMaskEndIndex;
+const renderStrokeCoverageScanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeCoverageScanStartIndex);
+const renderStrokeCoverageScanRegion = allocFontSfntGlyfImpl.slice(renderStrokeCoverageScanStartIndex, renderStrokeCoverageScanEndIndex);
+assert(renderStrokeCoverageScanStartIndex >= 0 && renderStrokeCoverageScanEndIndex > renderStrokeCoverageScanStartIndex, "alloc/gui/font/sfnt/glyf F5lb stroke coverage scan converter region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:",
+    "writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner",
+    "cell_index %i32",
+    "enum GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind:",
+    "ClosureInvariantFailed",
+    "UnsupportedJoinPolicy",
+    "UnsupportedQuadraticSideEdges",
+    "enum GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind:",
+    "UnsupportedQuadraticSideEdge",
+    "JoinRecordPolicyMismatch",
+    "EdgeCoordinateInvalid",
+    "JoinCoordinateInvalid",
+    "PushCellFailed",
+    "CompletionStorageInvalid",
+    "ProgressInvariantInvalid",
+    "enum GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal:",
+    "CoverageScanCompleted %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner",
+]) {
+    assert(renderStrokeCoverageScanRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lb stroke coverage scan region must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner",
+    "GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError",
+    "GuiSfntSimpleGlyphRenderStrokeCoverageScanError",
+    "GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lb ${typeName} owns transition state and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeCoverageScan(?:Owner|StartError|Error)|pub enum GuiSfntSimpleGlyphRenderStrokeCoverageScan(?:StartErrorKind|ErrorKind|Terminal)|pub fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_(?:start|step|drain_to_complete_budget)\b/,
+    "alloc/gui/font/sfnt/glyf F5lb owner-bearing boundary and scan operations must remain private",
+);
+const renderStrokeCoverageScanValidateShape = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_validate_shape_for_start");
+const renderStrokeCoverageScanStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_start");
+const renderStrokeCoverageScanCellBounds = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds");
+const renderStrokeCoverageScanReadSideEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_side_edge");
+const renderStrokeCoverageScanReadJoin = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_join");
+const renderStrokeCoverageScanLineCrosses = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled");
+const renderStrokeCoverageScanLineSideEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_side_edge_crosses");
+const renderStrokeCoverageScanJoinChord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_chord_crosses");
+const renderStrokeCoverageScanSideEdgeCount = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_side_edge_crossing_count");
+const renderStrokeCoverageScanJoinCount = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_join_crossing_count");
+const renderStrokeCoverageScanSampleInside = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_sample_inside");
+const renderStrokeCoverageScanCellCoverage = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_coverage");
+const renderStrokeCoverageScanStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_step");
+const renderStrokeCoverageScanDrain = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_drain_to_complete_budget");
+assertOrderedFragments(
+    renderStrokeCoverageScanValidateShape,
+    [
+        "ShapeInvalidWidth",
+        "ShapeInvalidHeight",
+        "ShapeInvalidSampleScale",
+        "ShapeCoverageMaxMismatch",
+        "ShapeCellCountMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb start must locally revalidate coverage shape before stroke scan math",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_validate_shape_for_start &shape",
+        "WriterAlreadyStarted",
+        "CellStorageLenMismatch",
+        "CellStorageCapacityMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage edge_closure_owner",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_closure_failed writer closure_error",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_is_bevel join_policy",
+        "UnsupportedJoinPolicy",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count side_edge_owner",
+        "UnsupportedQuadraticSideEdges",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner writer 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb start must consume F5la writer, revalidate F5kz closure, require bevel joins, and fail closed on quadratic side edges",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanCellBounds,
+    [
+        "CellIndexNegative",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer",
+        "gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape",
+        "CellIndexExceedsCellCount",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb must check cell-index bounds before completion, budget, sample math, or push",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanReadSideEdge,
+    [
+        "SideEdgeIndexNegative",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_side_edge_count edge_closure_owner",
+        "SideEdgeIndexOutOfRange",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_len side_edge_owner",
+        "SideEdgeStorageLenMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_cap side_edge_owner",
+        "SideEdgeStorageCapacityMismatch",
+        "vec::get edges side_edge_index",
+        "SideEdgeSlotMissing",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb side edge read must use nested completed F5ky owner with bounds and storage revalidation",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanReadJoin,
+    [
+        "JoinIndexNegative",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner",
+        "JoinIndexOutOfRange",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_len edge_closure_owner",
+        "JoinStorageLenMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_cap edge_closure_owner",
+        "JoinStorageCapacityMismatch",
+        "vec::get joins join_index",
+        "JoinSlotMissing",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb join read must use nested completed F5kz owner with bounds and storage revalidation",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanLineCrosses,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_line_coords_valid x0 y0 x1 y1",
+        "Result::Err coordinate_error_kind",
+        "gt y0 sample_y",
+        "gt y1 sample_y",
+        "let same_side %bool if y0_above:",
+        "if same_side:",
+        "let dy %f32 sub y1 y0",
+        "let left %f32 mul sub sample_x x0 dy",
+        "let right %f32 mul sub x1 x0 sub sample_y y0",
+        "lt left right",
+        "gt left right",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb line crossing must finite-check f32 coordinates and use strict crossing parity math",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanLineSideEdge,
+    [
+        "start_x2",
+        "end_x2",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate start_x2 sample_scale",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled sample_x sample_y x0 y0 x1 y1 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::EdgeCoordinateInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb must scan line side edges as f32 scaled line segments",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanJoinChord,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_is_bevel join_policy",
+        "JoinRecordPolicyMismatch",
+        "from_end_x2",
+        "to_start_x2",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled sample_x sample_y x0 y0 x1 y1 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinCoordinateInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb join connector chords must be scanned only as explicit bevel geometry",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanSideEdgeCount,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_side_edge owner side_edge_index",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line_edge:",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_side_edge_crosses &line_edge &shape sample_x sample_y",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic _quadratic_edge:",
+        "UnsupportedQuadraticSideEdge",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb side edge crossing must support line side edges and fail closed on quadratic side edges",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanJoinCount,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_join owner join_index",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_chord_crosses &join &shape sample_x sample_y",
+        "add join_index 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb join crossing must scan F5kz bevel connector chords",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanSampleInside,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_side_edge_crossing_count owner sample_x sample_y 0 0",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_join_crossing_count owner sample_x sample_y 0 side_crossing_count",
+        "Result::Ok eq rem_s crossing_count 2 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb sample inside must combine side-edge and bevel-connector crossing parity",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanCellCoverage,
+    [
+        "rem_s cell_index width_px",
+        "div_s cell_index width_px",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_y_loop",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb cell coverage must derive cell coordinates and sample the cell",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds &owner",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_coverage &owner",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell writer coverage",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_owner push_error",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_push",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb step must validate bounds, compute coverage, push through F5la, and recover writer on push failure",
+);
+assertOrderedFragments(
+    renderStrokeCoverageScanDrain,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds &owner",
+        "eq cell_index cell_count",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_complete writer",
+        "CoverageScanCompleted",
+        "CompletionIncomplete",
+        "StepBudgetExhausted",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_step owner",
+        "ProgressInvariantInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lb drain must check bounds before completion/budget/scan and keep typed terminals",
+);
+assertNoMatch(
+    renderStrokeCoverageScanRegion,
+    /\b(?:path_sink_scalars|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_glyf_simple_point_with_tables|GuiSfntSimpleGlyphRasterCoverageScan|gui_sfnt_simple_glyph_raster_coverage_scan|GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner|gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_|GuiSfntSimpleGlyphRasterPackedMask|gui_sfnt_simple_glyph_raster_packed_mask|GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner|gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_|GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner|gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_|GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner|gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5lb region must not read scalar storage, parse bytes, call F5be fill scan/writer, restart earlier drains, use packed masks, emit commands, call platform APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderStrokeCoverageScanValidateShape, "shape validation"],
+    [renderStrokeCoverageScanStart, "start"],
+    [renderStrokeCoverageScanCellBounds, "cell bounds"],
+    [renderStrokeCoverageScanReadSideEdge, "side edge read"],
+    [renderStrokeCoverageScanReadJoin, "join read"],
+    [renderStrokeCoverageScanLineCrosses, "line crossing"],
+    [renderStrokeCoverageScanLineSideEdge, "line side edge crossing"],
+    [renderStrokeCoverageScanJoinChord, "join chord crossing"],
+    [renderStrokeCoverageScanSideEdgeCount, "side edge crossing count"],
+    [renderStrokeCoverageScanJoinCount, "join crossing count"],
+    [renderStrokeCoverageScanSampleInside, "sample inside"],
+    [renderStrokeCoverageScanCellCoverage, "cell coverage"],
+    [renderStrokeCoverageScanStep, "step"],
+    [renderStrokeCoverageScanDrain, "drain"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lb ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_f5la_writer_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_closure_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_cell_bounds_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_line_side_edge_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_bevel_connector_chord_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_non_bevel_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_quadratic_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_push_budget_completion_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_no_fill_scan_packed_render_platform"),
+    "F5lb render stroke coverage scan converter focused doctest must cover F5la authority, closure revalidation, cell bounds, line scan, bevel chord, fail-closed policies, push/budget/completion, and no fill-scan/packed/render/platform policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");

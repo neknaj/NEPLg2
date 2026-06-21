@@ -24022,6 +24022,571 @@ fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_terminal_free %i
         GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner:
             gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner: stroke coverage scan owner
+//:
+//: [目的/もくてき]:
+//: - F5la writer owner を[所有/しょゆう]し、1 cell ごとの stroke coverage を[計算/けいさん]して `push_cell` へ[渡/わた]します。
+//: - この boundary は line side edge と bevel connector chord だけを scan し、miter / round / quadratic は silent substitute せず fail-closed にします。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:
+    writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    cell_index %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner \writer\cell_index:
+    GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner writer cell_index
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner i32 \owner:
+    *field::get_ref owner "cell_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_writer_written_cell_count %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner i32 \owner:
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count writer
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind: stroke scan start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind:
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    WriterAlreadyStarted
+    CellStorageLenMismatch
+    CellStorageCapacityMismatch
+    ClosureInvariantFailed
+    UnsupportedJoinPolicy
+    UnsupportedQuadraticSideEdges
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind
+    writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError \kind\writer\closure_error:
+    GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError kind writer closure_error
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError \kind\writer:
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error kind writer closure_error
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_closure_failed %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError \writer\closure_error_value:
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind some closure_error_value
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ClosureInvariantFailed writer closure_error
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_closure_error %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \error:
+    *field::get_ref error "closure_error"
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_writer %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner \error:
+    field::get error "writer"
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind: stroke scan failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind:
+    CellIndexNegative
+    CellIndexExceedsCellCount
+    SideEdgeIndexNegative
+    SideEdgeIndexOutOfRange
+    SideEdgeStorageLenMismatch
+    SideEdgeStorageCapacityMismatch
+    SideEdgeSlotMissing
+    JoinIndexNegative
+    JoinIndexOutOfRange
+    JoinStorageLenMismatch
+    JoinStorageCapacityMismatch
+    JoinSlotMissing
+    UnsupportedQuadraticSideEdge
+    JoinRecordPolicyMismatch
+    EdgeCoordinateInvalid
+    JoinCoordinateInvalid
+    PushCellFailed
+    CompletionStorageInvalid
+    CompletionIncomplete
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderStrokeCoverageScanError:
+    owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner
+    kind %GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind
+    side_edge_index %Option i32
+    join_index %Option i32
+    push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind
+    completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind fn Option i32 fn Option i32 fn Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\kind\side_edge_index\join_index\push_error_kind\completion_error_kind:
+    GuiSfntSimpleGlyphRenderStrokeCoverageScanError owner kind side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\kind:
+    let side_edge_index %Option i32 none
+    let join_index %Option i32 none
+    let push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind none
+    let completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_error owner kind side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_side_edge_index %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\kind\side_edge_index_value:
+    let side_edge_index %Option i32 some side_edge_index_value
+    let join_index %Option i32 none
+    let push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind none
+    let completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_error owner kind side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_join_index %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\kind\join_index_value:
+    let side_edge_index %Option i32 none
+    let join_index %Option i32 some join_index_value
+    let push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind none
+    let completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_error owner kind side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_push %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\push_kind:
+    let side_edge_index %Option i32 none
+    let join_index %Option i32 none
+    let push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind some push_kind
+    let completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_error owner GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::PushCellFailed side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_completion %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\completion_kind:
+    let side_edge_index %Option i32 none
+    let join_index %Option i32 none
+    let push_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind none
+    let completion_error_kind %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind some completion_kind
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_error owner GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::CompletionStorageInvalid side_edge_index join_index push_error_kind completion_error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageScanError GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_validate_shape_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_is_bevel %fn GuiStrokeJoin bool \join:
+    match join:
+        GuiStrokeJoin::Miter:
+            false
+        GuiStrokeJoin::Bevel:
+            true
+        GuiStrokeJoin::Round:
+            false
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_start %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner Result GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError \writer:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape &writer
+    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_validate_shape_for_start &shape:
+        Result::Err shape_error:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple shape_error writer
+        Result::Ok _:
+            let written_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count &writer
+            if ne written_cell_count 0:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::WriterAlreadyStarted writer
+                else:
+                    let cells_len %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_len &writer
+                    if ne cells_len 0:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::CellStorageLenMismatch writer
+                        else:
+                            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                            let cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_cap &writer
+                            if ne cells_cap cell_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::CellStorageCapacityMismatch writer
+                                else:
+                                    let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref &writer "edge_closure_owner"
+                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage edge_closure_owner:
+                                        Result::Err closure_error:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_closure_failed writer closure_error
+                                        Result::Ok _:
+                                            let join_policy %GuiStrokeJoin *field::get_ref edge_closure_owner "join_policy"
+                                            if not gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_is_bevel join_policy:
+                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::UnsupportedJoinPolicy writer
+                                                else:
+                                                    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref edge_closure_owner "side_edge_owner"
+                                                    let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count side_edge_owner
+                                                    if ne quadratic_side_edge_count 0:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_simple GuiSfntSimpleGlyphRenderStrokeCoverageScanStartErrorKind::UnsupportedQuadraticSideEdges writer
+                                                        else:
+                                                            let owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner writer 0
+                                                            Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner Result unit GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index owner
+    if lt cell_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::CellIndexNegative
+        else:
+            let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            if gt cell_index cell_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::CellIndexExceedsCellCount
+                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_side_edge %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\side_edge_index:
+    if lt side_edge_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::SideEdgeIndexNegative
+        else:
+            let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+            let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref writer "edge_closure_owner"
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_side_edge_count edge_closure_owner
+            if ge side_edge_index side_edge_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::SideEdgeIndexOutOfRange
+                else:
+                    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref edge_closure_owner "side_edge_owner"
+                    let edges_len %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_len side_edge_owner
+                    if ne edges_len side_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::SideEdgeStorageLenMismatch
+                        else:
+                            let edges_cap %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_cap side_edge_owner
+                            if ne edges_cap side_edge_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::SideEdgeStorageCapacityMismatch
+                                else:
+                                    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref side_edge_owner "edges"
+                                    match vec::get edges side_edge_index:
+                                        Option::Some edge:
+                                            Result::Ok edge
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::SideEdgeSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_join %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\join_index:
+    if lt join_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinIndexNegative
+        else:
+            let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+            let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref writer "edge_closure_owner"
+            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner
+            if ge join_index join_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinIndexOutOfRange
+                else:
+                    let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_len edge_closure_owner
+                    if ne joins_len join_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinStorageLenMismatch
+                        else:
+                            let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_cap edge_closure_owner
+                            if ne joins_cap join_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinStorageCapacityMismatch
+                                else:
+                                    let joins %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref edge_closure_owner "joins"
+                                    match vec::get joins join_index:
+                                        Option::Some join:
+                                            Result::Ok join
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_is_finite %fn f32 bool \value:
+    let bits %i32 bitcast_f32_to_i32 value
+    let abs_bits %i32 and bits 0x7fffffff
+    lt abs_bits 0x7f800000
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_line_coords_valid %fn f32 fn f32 fn f32 fn f32 bool \x0\y0\x1\y1:
+    and gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_is_finite x0 and gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_is_finite y0 and gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_is_finite x1 gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_is_finite y1
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_i32_to_f32 %fn i32 f32 \value:
+    let value_i64 %i64 %i64 cast value
+    %f32 cast value_i64
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_sample_coordinate %fn i32 fn i32 fn i32 fn i32 f32 \origin_x2\cell_axis_index\sample_axis_index\sample_scale:
+    let two %i32 2
+    let base_x2 %i32 add origin_x2 mul cell_axis_index two
+    let base_f %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_i32_to_f32 base_x2
+    let scale_f %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_i32_to_f32 sample_scale
+    let base_scaled %f32 mul base_f scale_f
+    let sample_offset_i32 %i32 add mul sample_axis_index two 1
+    let sample_offset %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_i32_to_f32 sample_offset_i32
+    add base_scaled sample_offset
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate %fn f32 fn i32 f32 \coordinate_x2\sample_scale:
+    let scale_f %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_i32_to_f32 sample_scale
+    mul coordinate_x2 scale_f
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled %fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind Result bool GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \sample_x\sample_y\x0\y0\x1\y1\coordinate_error_kind:
+    if not gui_sfnt_simple_glyph_render_stroke_coverage_scan_f32_line_coords_valid x0 y0 x1 y1:
+        then Result::Err coordinate_error_kind
+        else:
+            let y0_above %bool gt y0 sample_y
+            let y1_above %bool gt y1 sample_y
+            let same_side %bool if y0_above:
+                then y1_above
+                else not y1_above
+            if same_side:
+                then Result::Ok false
+                else:
+                    let dy %f32 sub y1 y0
+                    if eq dy 0.0:
+                        then Result::Ok false
+                        else:
+                            let left %f32 mul sub sample_x x0 dy
+                            let right %f32 mul sub x1 x0 sub sample_y y0
+                            if gt dy 0.0:
+                                then Result::Ok lt left right
+                                else Result::Ok gt left right
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_side_edge_crosses %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord fn &GuiSfntSimpleGlyphRasterCoverageShape fn f32 fn f32 Result bool GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \edge\shape\sample_x\sample_y:
+    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+    let start_x2 %f32 *field::get_ref edge "start_x2"
+    let start_y2 %f32 *field::get_ref edge "start_y2"
+    let end_x2 %f32 *field::get_ref edge "end_x2"
+    let end_y2 %f32 *field::get_ref edge "end_y2"
+    let x0 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate start_x2 sample_scale
+    let y0 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate start_y2 sample_scale
+    let x1 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate end_x2 sample_scale
+    let y1 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate end_y2 sample_scale
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled sample_x sample_y x0 y0 x1 y1 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::EdgeCoordinateInvalid
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_chord_crosses %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn &GuiSfntSimpleGlyphRasterCoverageShape fn f32 fn f32 Result bool GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \join\shape\sample_x\sample_y:
+    let join_policy %GuiStrokeJoin *field::get_ref join "join"
+    if not gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_is_bevel join_policy:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinRecordPolicyMismatch
+        else:
+            let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+            let from_end_x2 %f32 *field::get_ref join "from_end_x2"
+            let from_end_y2 %f32 *field::get_ref join "from_end_y2"
+            let to_start_x2 %f32 *field::get_ref join "to_start_x2"
+            let to_start_y2 %f32 *field::get_ref join "to_start_y2"
+            let x0 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate from_end_x2 sample_scale
+            let y0 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate from_end_y2 sample_scale
+            let x1 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate to_start_x2 sample_scale
+            let y1 %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_scaled_edge_coordinate to_start_y2 sample_scale
+            gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_crosses_scaled sample_x sample_y x0 y0 x1 y1 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::JoinCoordinateInvalid
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_side_edge_crossing_count %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn f32 fn f32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\sample_x\sample_y\side_edge_index\crossing_count:
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref writer "edge_closure_owner"
+    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_side_edge_count edge_closure_owner
+    if ge side_edge_index side_edge_count:
+        then Result::Ok crossing_count
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_side_edge owner side_edge_index:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok edge:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+                    match edge:
+                        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line_edge:
+                            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_line_side_edge_crosses &line_edge &shape sample_x sample_y:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok crosses:
+                                    let next_crossing_count %i32 if crosses:
+                                        then add crossing_count 1
+                                        else crossing_count
+                                    gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_side_edge_crossing_count owner sample_x sample_y add side_edge_index 1 next_crossing_count
+                        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic _quadratic_edge:
+                            Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::UnsupportedQuadraticSideEdge
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_join_crossing_count %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn f32 fn f32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\sample_x\sample_y\join_index\crossing_count:
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref writer "edge_closure_owner"
+    let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner
+    if ge join_index join_count:
+        then Result::Ok crossing_count
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_read_join owner join_index:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok join:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+                    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_chord_crosses &join &shape sample_x sample_y:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok crosses:
+                            let next_crossing_count %i32 if crosses:
+                                then add crossing_count 1
+                                else crossing_count
+                            gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_join_crossing_count owner sample_x sample_y add join_index 1 next_crossing_count
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_sample_inside %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn f32 fn f32 Result bool GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\sample_x\sample_y:
+    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_side_edge_crossing_count owner sample_x sample_y 0 0:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok side_crossing_count:
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_join_crossing_count owner sample_x sample_y 0 side_crossing_count:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok crossing_count:
+                    Result::Ok eq rem_s crossing_count 2 1
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_x_loop %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\cell_x\cell_y\sample_y_index\sample_x_index\coverage:
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+    if ge sample_x_index sample_scale:
+        then Result::Ok coverage
+        else:
+            let origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &shape
+            let origin_y2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 &shape
+            let sample_x %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_sample_coordinate origin_x2 cell_x sample_x_index sample_scale
+            let sample_y %f32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_sample_coordinate origin_y2 cell_y sample_y_index sample_scale
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_sample_inside owner sample_x sample_y:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok inside:
+                    let next_coverage %i32 if inside:
+                        then add coverage 1
+                        else coverage
+                    gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_x_loop owner cell_x cell_y sample_y_index add sample_x_index 1 next_coverage
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_y_loop %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner fn i32 fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner\cell_x\cell_y\sample_y_index\coverage:
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &shape
+    if ge sample_y_index sample_scale:
+        then Result::Ok coverage
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_x_loop owner cell_x cell_y sample_y_index 0 coverage:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok row_coverage:
+                    gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_y_loop owner cell_x cell_y add sample_y_index 1 row_coverage
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_coverage %fn &GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index owner
+    let writer %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref owner "writer"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+    let cell_x %i32 rem_s cell_index width_px
+    let cell_y %i32 div_s cell_index width_px
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_sample_y_loop owner cell_x cell_y 0 0
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner Result GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_coverage &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple owner error_kind
+                Result::Ok coverage:
+                    let cell_index %i32 field::get owner "cell_index"
+                    let writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get owner "writer"
+                    match gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell writer coverage:
+                        Result::Err push_error:
+                            let push_kind %GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_kind &push_error
+                            let returned_writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_owner push_error
+                            let returned_owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner returned_writer cell_index
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_push returned_owner push_kind
+                        Result::Ok next_writer:
+                            let next_cell_index %i32 add cell_index 1
+                            let next_owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner next_writer next_cell_index
+                            Result::Ok next_owner
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal: bounded stroke scan drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal:
+    CoverageScanCompleted %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal GuiSfntSimpleGlyphRenderStrokeCoverageScanError \owner\remaining_steps:
+    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index_bounds &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple owner error_kind
+        Result::Ok _:
+            let writer_ref %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get_ref &owner "writer"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape writer_ref
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index &owner
+            if eq cell_index cell_count:
+                then:
+                    let writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get owner "writer"
+                    match gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_complete writer:
+                        Result::Err completion_error:
+                            let completion_kind %GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_kind &completion_error
+                            let returned_writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_owner completion_error
+                            let returned_owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner returned_writer cell_index
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_with_completion returned_owner completion_kind
+                        Result::Ok terminal:
+                            match terminal:
+                                GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskCompleted completed:
+                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal::CoverageScanCompleted completed
+                                GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskIncomplete incomplete_writer:
+                                    let returned_owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner incomplete_writer cell_index
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple returned_owner GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::CompletionIncomplete
+                else:
+                    if le remaining_steps 0:
+                        then Result::Ok GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal::StepBudgetExhausted owner
+                        else:
+                            let old_cell_index %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index &owner
+                            let old_written_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_writer_written_cell_count &owner
+                            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_step owner:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    let next_cell_index %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_cell_index &next_owner
+                                    let required_cell_index %i32 add old_cell_index 1
+                                    let next_written_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_writer_written_cell_count &next_owner
+                                    let required_written_cell_count %i32 add old_written_cell_count 1
+                                    if or ne next_cell_index required_cell_index ne next_written_cell_count required_written_cell_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_simple next_owner GuiSfntSimpleGlyphRenderStrokeCoverageScanErrorKind::ProgressInvariantInvalid
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_drain_to_complete_budget next_owner next_remaining_steps
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get owner "writer"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanStartError unit \error:
+    let writer %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get error "writer"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal::CoverageScanCompleted completed:
+            gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free completed
+        GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:

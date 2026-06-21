@@ -3052,6 +3052,56 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5la.json
 ```
 
+## Phase F5lb: sfnt simple glyph render stroke coverage scan converter
+
+目的:
+
+- F5la stroke coverage mask writer owner を direct authority とし、stroke coverage cell を 1 cell ずつ計算して F5la `push_cell` boundary へ渡す。
+- completed F5kz closure owner と completed F5ky side edge owner は F5la writer の内側から読むだけにし、F5kx/F5ky/F5kz drain を再実行しない。
+- F5be fill raster coverage scan owner / error / terminal を直接再利用しない。
+- start で shape、writer progress/storage、F5kz closure invariant、join policy、quadratic side edge count を再検査する。
+- 初期範囲は line side edge と bevel connector chord の coverage scan に限定する。
+- miter / round join は bevel connector chord で代用せず、`UnsupportedJoinPolicy` / `JoinRecordPolicyMismatch` で fail-closed にする。
+- quadratic side edge は endpoint chord として扱わず、`UnsupportedQuadraticSideEdges` / `UnsupportedQuadraticSideEdge` で fail-closed にする。
+- packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+plan review:
+
+- Archimedes plan review は `PLAN_REVIEWED`。
+- F5lb は予定通り stroke coverage scan converter として進める。ただし conservative にし、F5la writer を消費する boundary に限定する。
+- side edge + F5kz `from_end -> to_start` connector chord は bevel geometry としてだけ有効であり、miter / round を silent bevel 化してはいけない。
+- quadratic side edge を endpoint chord として scan すると quadratic stroke support を偽るため、明示的 approximation policy が入るまで fail-closed にする。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner`、start / step error、bounded drain terminal を追加する。
+- start は F5la writer shape/storage/progress と F5kz closure invariant を再検査し、join policy が Bevel であることと quadratic side edge が 0 であることを要求する。
+- read helper は nested completed owner の side edge Vec と join Vec を bounds / len / cap / slot 付きで読む。
+- line side edge と bevel connector chord の crossing を f32 scaled coordinate で計算し、finite でない座標は typed error にする。
+- step は cell coverage を計算し、F5la `push_cell` だけで writer へ積む。
+- bounded drain は exact full のときだけ F5la completion を呼び、budget exhausted / incomplete / progress invariant を分ける。
+- docs / source policy / focused doctest label / todo / note を F5lb に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Archimedes review result、F5la writer authority、F5kz closure revalidation、cell bounds、line side edge scan、bevel connector chord policy、non-bevel fail-closed、quadratic fail-closed、push recovery、budget/completion、owner-bearing type no Clone/Copy、no F5be direct reuse / no earlier drain restart / no packed/render/platform/fallback 接続を検査する。
+- focused doctest label が F5la authority、closure revalidation、cell bounds、line side edge scan、bevel chord、non-bevel fail-closed、quadratic fail-closed、push/budget/completion、no fill-scan/packed/render/platform policy を固定する。
+- implementation review で F5lb が stroke coverage scan converter に留まり、miter/round を bevel として代用せず、quadratic support を偽装せず、packed/render/platform へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lb line/bevel fail-closed baseline 接続済み、後続の miter/round join geometry、quadratic side-edge approximation、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5lb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lb.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lb.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

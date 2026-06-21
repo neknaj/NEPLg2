@@ -7231,6 +7231,22 @@ Start errors keep three independent payload channels: shape validation error, F5
 
 A later stroke coverage scan converter must consume the F5la writer before packed stroke mask conversion. F5la does not build stroke coverage scans, packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output.
 
+## SFNT simple glyph render stroke coverage scan converter boundary
+
+F5lb consumes the F5la stroke coverage mask writer owner as the only direct authority. The completed F5kz closure owner and completed F5ky side edge owner are nested authority reachable through that writer. F5lb must not return to byte-backed glyph lookup, F5kx offset geometry drain, F5ky side edge drain, F5kz closure drain, or the F5be fill raster coverage scan owner.
+
+The scan owner stores the F5la writer and the current `cell_index`. Start revalidates the shared coverage shape, requires `written_cell_count == 0`, requires cell Vec len/cap to match the shape, and reruns the F5la closure invariant over the nested completed F5kz owner. This keeps the scan from treating a stale or corrupted closure owner as a closed stroke boundary.
+
+F5lb scans line side edges and F5kz bevel connector chords only. A F5kz join closure record gives a directed `from_end -> to_start` connector. That connector is valid bevel geometry, but it is not valid miter or round geometry. Therefore F5lb fail-closes with `UnsupportedJoinPolicy` for `Miter` and `Round`, and also checks each join record with `JoinRecordPolicyMismatch` before scanning the chord.
+
+Quadratic side edges also fail closed in F5lb. F5ky intentionally did not invent an offset control point, and scanning only the endpoint chord would falsely claim quadratic stroke support. A later phase must add an explicit approximation policy if quadratic stroke coverage is supported.
+
+For every sample point, F5lb counts crossings from line side edges and then from bevel connector chords, using f32 scaled coordinates with finite checks. The parity of the combined crossing count determines whether the sample contributes to coverage. The scan does not write cells directly; each computed coverage value is pushed only through `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell`.
+
+The bounded drain checks cell bounds before completion or stepping. When `cell_index == shape.cell_count`, it completes the F5la writer and produces the completed stroke coverage mask owner. Push failure and completion failure both recover the returned writer inside the scan owner, and progress is checked by requiring both `cell_index` and `written_cell_count` to advance by exactly one after a successful step.
+
+F5lb does not build packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output. Miter/round join geometry, quadratic side-edge approximation, packed stroke mask conversion, and glyph paint composition remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
