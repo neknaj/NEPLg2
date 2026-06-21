@@ -104,6 +104,79 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+
+# 2026-06-21 Agent2 GUI native F5kp Linux X11 keymap projection evidence boundary
+
+## 目的
+
+- F5ko の raw keysym selection evidence と F5kk の keysym projection evidence を pure evidence として束ねる。
+- `NativeWindowKeyboardEvent` に optional evidence slot を持たせるが、既存 X11 event decoder / reader path からは作らず `None` のままにする。
+- IME / text input、shortcut、pending keymap と key event packet の照合、runner、queue、fallback、support gate `Ok` 化には進まない。
+
+## subagent review
+
+- Planck の F5kp plan review は `PLAN_APPROVED`。
+- 指摘は、evidence fields を private にし、`from_selection` 以外で selection と keysym projection を別々に注入できない形にすること、keycode mismatch 判定は selection / evidence 側の total raw-keycode accessor を使い constructor 側で variant match を重複させないことだった。
+- Planck の implementation review は `REVIEW_APPROVED`。from_selection-only evidence、optional event slot、event decoder / reader 非接続、docs / source policy に blocker は無いことが確認された。
+
+## implementation_current
+
+- `NativeWindowLinuxX11KeyboardMappingProjectionEvidence` を追加し、selection -> final_raw_keysym() -> project_portable_key() の一方向合成だけで projection evidence を作るようにした。
+- unsupported modifier selection は projection `None` のまま selection evidence を保持し、Shift `NoSymbol` selection は base candidate 由来の projection を保持する。
+- `NativeWindowKeyboardEvent` に optional `x11_keymap_projection` slot を追加し、既存 constructor と X11 event decoder は `None` を入れるままにした。
+- F5kp 専用 constructor は event raw keycode と evidence raw keycode の一致を検査し、不一致は typed `KeyboardMappingProjectionKeycodeMismatch` error にする。
+- docs、todo、source policy、focused Rust tests を F5kp に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --lib --tests`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_projection -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_keyboard_event -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
+# 2026-06-21 Agent2 GUI native F5ko Linux X11 raw keymap selection boundary
+
+## 目的
+
+- F5kl / F5kn の raw keymap table を、range owner、raw keycode、modifier evidence から raw keysym selection evidence へ写す pure selector を追加する。
+- event packet decoder、reader path、portable key projection、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化へは接続しない。
+
+## subagent review
+
+- James の F5ko plan review は `CHANGES_REQUESTED`。
+- 指摘は、loose first keycode 入力ではなく `first_keycode` / `keycode_count` / computed `last_keycode` を持つ range owner を使うこと、Shift column `NoSymbol` を dedicated selection evidence にすること、Lock / AltGr / Mod bit を unsupported evidence として test すること、checked indexing と shape mismatch を分けること、event decoder / reader path から selector を呼ばないことを source-policy で固定することだった。
+- docs / todo はこの指摘に合わせて F5ko scope を更新した。
+
+## implementation_current
+
+- `NativeWindowLinuxX11KeyboardMappingRange` を追加し、first keycode、keycode count、computed last keycode を持つ owner として setup-owned keyboard mapping request から作れるようにした。
+- `native_window_linux_x11_keyboard_mapping_select_raw_keysym` を追加し、range owner と raw keymap table の keycode count 一致、raw keysyms length、keycode range、checked row offset / keysym index、column range を typed error として検査するようにした。
+- selection evidence は base column、shift column、shift column `NoSymbol` with base candidate、unsupported modifier state に分けた。Shift column が存在しない one-keysym-per-keycode table は typed `ColumnOutOfRange` error とし、base fallback success にはしない。
+- Lock / Caps、AltGr / Mod bit、unknown modifier bits は raw modifier state と unsupported mask を保持する unsupported evidence にし、event decoder / reader path / portable projection / IME / text input / shortcut / queue / runner / support gate / fallback / fd IO へは接続していない。
+- docs、todo、source policy、focused Rust tests を F5ko に合わせて更新した。
+
+## implementation_review
+
+- Parfit の implementation review は `CHANGES_REQUESTED`。
+- 指摘は、Shift column が存在しない場合を `ShiftColumnUnavailableBaseColumn` success として base column へ戻していたため、`ColumnOutOfRange` typed error と `NoSymbol` 専用 evidence の仕様に反していたことだった。
+- 指摘対応として `ShiftColumnUnavailableBaseColumn` を削除し、Shift column lookup は `ColumnOutOfRange` をそのまま返すようにした。single-column + Shift test は error expectation へ変更し、source policy も旧 variant 禁止、`ColumnOutOfRange` / overflow family / `?` propagation を検査するようにした。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回 blocker は解消し、range owner、checked indexing、NoSymbol dedicated evidence、unsupported modifier evidence、no event decoder / reader / portable projection / fallback connection に追加 blocker は無いことが確認された。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --lib --tests`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
 # 2026-06-21 Agent2 GUI native F5kn Linux X11 setup-owned keyboard mapping reader scheduling boundary
 
 ## 目的
@@ -77421,3 +77494,17 @@ MERGE_APPROVED
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / mask 完了と誤認しない上位 orchestration を追加する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
+
+## 2026-06-21 Agent2 GUI font rendering F5kq stroke request boundary
+
+- F5kq では、completed path command stream writer owner を authority として glyph stroke request owner を作る境界を追加した。fill alpha mask owner / raster edge owner は stroke geometry authority にしない。
+- McClintock の plan review は `PLAN_APPROVED`。指摘条件に従い、この slice は stroke request validation owner までに限定し、stroke segment expansion、stroke edge owner、coverage mask、packed mask、`RenderCommand`、platform API、fallback には進まない。
+- `GuiSfntSimpleGlyphRenderStrokeRequestConfig`、`GuiSfntSimpleGlyphRenderStrokeRequestOwner`、owner-bearing `GuiSfntSimpleGlyphRenderStrokeRequestStartError` を追加した。start validation は missing stroke、invalid stroke width、shadow paint、unsupported blend、completed path command writer invariant の順に fail closed する。
+- optional fill paint は後続の composition order boundary 用 metadata として保存するだけで、hidden fill render success にはしない。owner / start error free と writer recovery helper は path command writer authority を回収できるようにした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest を更新した。
+- pass: `git fetch origin`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1`
+- implementation review は McClintock が `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5kq 後続として、stroke segment expansion plan、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
