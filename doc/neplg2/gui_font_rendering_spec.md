@@ -6957,6 +6957,16 @@ fill / shadow の completed owner は `prepared + surface + dirty` を同時に�
 
 bridge error は fill / shadow で別型にし、`Clone` / `Copy` を実装しない。error free は completed owner free に委譲し、surface free failure を握りつぶさない。F5ly は `dirty_regions_push_unchecked`、`dirty_region_merge`、unchecked dirty fallback、`gui_rgba8888_bitmap_frame_prepare`、row byte storage、tile / RLE、publish / present、Canvas / DOM / minifb、platform / host API、fallback / silent no-op を使わない。
 
+### Render2d compositor frame entry boundary
+
+F5lz は F5ly が返す `GuiRgba8888SoftwareSurfaceDirtyOwner` を、2D compositor drain の最初の entry owner へ正規化する boundary である。これは compositor drain の全完了ではなく、既存の `gui_rgba8888_bitmap_frame_prepare`、`gui_rgba8888_row_batch_plan_prepare`、`gui_rgba8888_row_batch_cursor_start` を順に接続し、後続の row batch drain が消費できる `GuiRgba8888CompositorFrameEntryOwner` を作る入口である。
+
+F5lz の config は `frame_id` と `max_rows_per_batch` だけを持つ。`frame_id <= 0` や `max_rows_per_batch <= 0` は ownerless error へ逃がさず、Copy config aggregate を lower prepare へ渡し、lower の owner-bearing error から最終的に `GuiRgba8888SoftwareSurfaceDirtyOwner` を回収する。error kind は `BitmapFramePrepareFailed`、`RowBatchPlanPrepareFailed`、`RowBatchCursorStartFailed` に分け、lower kind と coarse `GuiError` category を保持する。row plan 以降の失敗では、bitmap frame / row batch plan が保持する dirty metadata を surface owner より先に読み、dirty owner boundary へ戻してから caller へ返す。
+
+success metadata は `gui_rgba8888_row_batch_cursor_start plan` の前に plan から Copy value として読む。metadata は frame id、width、height、row_start、row_count、batch_count、max_rows_per_batch を保持する。success path だけが plan owner を cursor owner へ move し、entry owner は cursor owner と metadata を保持する。
+
+F5lz は row batch drain、row batch range、row byte storage、tile plan / payload、RLE encode、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

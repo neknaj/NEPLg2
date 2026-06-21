@@ -4129,6 +4129,53 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ly.json
 ```
 
+## Phase F5lz: render2d compositor frame entry owner boundary
+
+目的:
+
+- F5ly 後の `GuiRgba8888SoftwareSurfaceDirtyOwner` を、既存 F5bu / F5bv / F5bw の順序で `GuiRgba8888CompositorFrameEntryOwner` へ正規化する。
+- `gui_rgba8888_bitmap_frame_prepare`、`gui_rgba8888_row_batch_plan_prepare`、`gui_rgba8888_row_batch_cursor_start` を 1 回ずつ順に呼び、caller が lower boundary を手動 interleave しないための entry owner を作る。
+- row batch drain、row batch range、row byte storage、tile / RLE、std present、host / platform API、fallback には進まない。
+
+plan review:
+
+- Rawls plan review は `PLAN_APPROVED`。
+- F5ly の次として dirty owner から bitmap frame、row batch plan、row batch cursor までを束ねる entry boundary は既存 owner 設計と一致すると承認された。
+- refinement として、`frame_id` / `max_rows_per_batch` invalid を ownerless error へ逃がさず、Copy config aggregate を lower prepare へ渡して owner-bearing lower error に包むこと、success metadata は row batch cursor start の前に plan から Copy value として読むこと、lower error は kind / category を読んでから dirty owner へ回収することが条件になった。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_frame_entry.nepl` を追加する。
+- `GuiRgba8888CompositorFrameEntryConfig`、`GuiRgba8888CompositorFrameEntryMetadata`、`GuiRgba8888CompositorFrameEntryOwner`、`GuiRgba8888CompositorFrameEntryPrepareErrorKind`、`GuiRgba8888CompositorFrameEntryPrepareError` を追加する。
+- config / metadata / kind は Copy value とし、entry owner と owner-bearing error は Clone / Copy を実装しない。
+- prepare は config checked helper を呼ばず、lower config aggregate を作って lower prepare へ渡す。
+- `BitmapFramePrepareFailed` / `RowBatchPlanPrepareFailed` / `RowBatchCursorStartFailed` は lower kind と category を保持し、recoverable owner は共通して `GuiRgba8888SoftwareSurfaceDirtyOwner` へ戻す。row plan / cursor start 失敗では `gui_rgba8888_bitmap_frame_finish_dirty_owner` / `gui_rgba8888_row_batch_plan_finish_dirty_owner` で dirty metadata を surface owner より先に読む。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor frame entry を再公開する。
+- `tests/stdlib/gui_render2d_compositor_frame_entry.n.md` を追加し、facade、empty / full dirty success metadata、invalid frame id / max rows recovery、no transport / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5lz source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Rawls approval、facade export、typed lower error variants、owner no Clone / Copy、config invalid owner-bearing lower path、metadata-before-cursor-start、lower kind/category before dirty-owner recovery、no row batch drain / row byte / tile / RLE / std present / host / platform / fallback、focused doctest label を検査する。
+- focused doctest、bitmap frame / row batch plan / row batch cursor regression、source policy、module doctest、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で owner loss、ownerless config error、metadata-after-move、transport / host leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5lz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_frame_entry.nepl --no-tree -o tmp_gui_render2d_compositor_frame_entry_module_f5lz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_bitmap_frame.n.md --no-tree -o tmp_gui_render2d_bitmap_frame_f5lz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5lz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5lz_regression.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lz.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -1,0 +1,198 @@
+//: # alloc/gui/render2d/compositor_frame_entry
+//: RGBA8888 software compositor frame entry boundary
+//:
+//: ### [目的/もくてき]
+//: - dirty metadata [付/つ]き RGBA8888 software surface を、2D compositor が[後続/こうぞく]で batch drain へ[渡/わた]せる row batch cursor owner へ[正規化/せいきか]します。
+//: - F5bu bitmap frame、F5bv row batch plan、F5bw row batch cursor を[順番/じゅんばん]に 1 [回/かい]ずつ[呼/よ]び、caller が lower boundary を[手動/しゅどう]で interleave しないための entry owner を[作/つく]ります。
+//:
+//: ### [契約/けいやく]
+//: - config の `frame_id` / `max_rows_per_batch` が[不正/ふせい]でも ownerless error へ[逃/に]がさず、lower prepare の owner-bearing error から dirty owner を[回収/かいしゅう]します。
+//: - lower error は kind / category を Copy value として[読/よ]んでから owner を[消費/しょうひ]します。
+//: - success metadata は row batch cursor start の[前/まえ]に plan から Copy value として[読/よ]みます。
+//: - row batch drain、row byte copy、tile / RLE、std present、host / platform API、fallback / silent no-op には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/bitmap_frame" as *
+#import "alloc/gui/render2d/dirty_surface" as *
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/row_batch_plan" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888CompositorFrameEntryPrepareErrorKind:
+    BitmapFramePrepareFailed %GuiRgba8888BitmapFramePrepareErrorKind
+    RowBatchPlanPrepareFailed %GuiRgba8888RowBatchPlanPrepareErrorKind
+    RowBatchCursorStartFailed %GuiRgba8888RowBatchCursorErrorKind
+
+impl Clone for GuiRgba8888CompositorFrameEntryPrepareErrorKind:
+    fn clone %fn &GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorFrameEntryPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888CompositorFrameEntryConfig:
+    frame_id %i32
+    max_rows_per_batch %i32
+
+impl Clone for GuiRgba8888CompositorFrameEntryConfig:
+    fn clone %fn &GuiRgba8888CompositorFrameEntryConfig GuiRgba8888CompositorFrameEntryConfig \config:
+        *config
+
+impl Copy for GuiRgba8888CompositorFrameEntryConfig:
+    fn copy_mark %fn GuiRgba8888CompositorFrameEntryConfig GuiRgba8888CompositorFrameEntryConfig \config:
+        config
+
+pub struct GuiRgba8888CompositorFrameEntryMetadata:
+    frame_id %i32
+    width %i32
+    height %i32
+    row_start %i32
+    row_count %i32
+    batch_count %i32
+    max_rows_per_batch %i32
+
+impl Clone for GuiRgba8888CompositorFrameEntryMetadata:
+    fn clone %fn &GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorFrameEntryMetadata \metadata:
+        *metadata
+
+impl Copy for GuiRgba8888CompositorFrameEntryMetadata:
+    fn copy_mark %fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorFrameEntryMetadata \metadata:
+        metadata
+
+pub struct GuiRgba8888CompositorFrameEntryOwner:
+    cursor %GuiRgba8888RowBatchCursorOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+pub struct GuiRgba8888CompositorFrameEntryPrepareError:
+    kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888SoftwareSurfaceDirtyOwner
+
+fn gui_rgba8888_compositor_frame_entry_owner_new %fn GuiRgba8888RowBatchCursorOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorFrameEntryOwner \cursor\metadata:
+    GuiRgba8888CompositorFrameEntryOwner cursor metadata
+
+fn gui_rgba8888_compositor_frame_entry_prepare_error_new %fn GuiRgba8888CompositorFrameEntryPrepareErrorKind fn Option GuiError fn GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888CompositorFrameEntryPrepareError \kind\category\owner:
+    GuiRgba8888CompositorFrameEntryPrepareError kind category owner
+
+fn gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new %fn GuiRgba8888BitmapFramePrepareError GuiRgba8888CompositorFrameEntryPrepareError \lower:
+    let lower_kind %GuiRgba8888BitmapFramePrepareErrorKind gui_rgba8888_bitmap_frame_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_bitmap_frame_prepare_error_category_value &lower
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_bitmap_frame_prepare_error_owner lower
+    let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::BitmapFramePrepareFailed lower_kind
+    gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
+
+fn gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new %fn GuiRgba8888RowBatchPlanPrepareError GuiRgba8888CompositorFrameEntryPrepareError \lower:
+    let lower_kind %GuiRgba8888RowBatchPlanPrepareErrorKind gui_rgba8888_row_batch_plan_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_batch_plan_prepare_error_category_value &lower
+    let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_prepare_error_frame lower
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_bitmap_frame_finish_dirty_owner frame
+    let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchPlanPrepareFailed lower_kind
+    gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
+
+fn gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new %fn GuiRgba8888RowBatchCursorStartError GuiRgba8888CompositorFrameEntryPrepareError \lower:
+    let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_start_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_batch_cursor_start_error_category_value &lower
+    let plan %GuiRgba8888RowBatchPlanOwner gui_rgba8888_row_batch_cursor_start_error_plan lower
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_row_batch_plan_finish_dirty_owner plan
+    let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchCursorStartFailed lower_kind
+    gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
+
+fn gui_rgba8888_compositor_frame_entry_metadata_from_plan %fn &GuiRgba8888RowBatchPlanOwner GuiRgba8888CompositorFrameEntryMetadata \plan:
+    let frame_id %i32 gui_rgba8888_row_batch_plan_frame_id plan
+    let width %i32 gui_rgba8888_row_batch_plan_width plan
+    let height %i32 gui_rgba8888_row_batch_plan_height plan
+    let row_start %i32 gui_rgba8888_row_batch_plan_row_start plan
+    let row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+    let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+    let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_max_rows_per_batch plan
+    GuiRgba8888CompositorFrameEntryMetadata frame_id width height row_start row_count batch_count max_rows_per_batch
+
+pub fn gui_rgba8888_compositor_frame_entry_config %fn i32 fn i32 GuiRgba8888CompositorFrameEntryConfig \frame_id\max_rows_per_batch:
+    GuiRgba8888CompositorFrameEntryConfig frame_id max_rows_per_batch
+
+pub fn gui_rgba8888_compositor_frame_entry_config_frame_id %fn &GuiRgba8888CompositorFrameEntryConfig i32 \config:
+    *field::get_ref config "frame_id"
+
+pub fn gui_rgba8888_compositor_frame_entry_config_max_rows_per_batch %fn &GuiRgba8888CompositorFrameEntryConfig i32 \config:
+    *field::get_ref config "max_rows_per_batch"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata %fn &GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_frame_id %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "frame_id"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_width %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "width"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_height %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "height"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_row_start %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "row_start"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_row_count %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "row_count"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_batch_count %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "batch_count"
+
+pub fn gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
+    *field::get_ref metadata "max_rows_per_batch"
+
+pub fn gui_rgba8888_compositor_frame_entry_prepare_error_kind %fn &GuiRgba8888CompositorFrameEntryPrepareError GuiRgba8888CompositorFrameEntryPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_compositor_frame_entry_prepare_error_category_value %fn &GuiRgba8888CompositorFrameEntryPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_compositor_frame_entry_prepare_error_owner %fn GuiRgba8888CompositorFrameEntryPrepareError GuiRgba8888SoftwareSurfaceDirtyOwner \error:
+    field::get error "owner"
+
+//: gui_rgba8888_compositor_frame_entry_prepare: dirty owner を compositor frame entry owner へ[正規化/せいきか]する
+//:
+//: [契約/けいやく]:
+//: - `frame_id` と `max_rows_per_batch` は lower config aggregate として[渡/わた]し、lower prepare が owner-bearing error を[返/かえ]します。
+//: - row batch cursor start の[前/まえ]に plan metadata を Copy value として[保存/ほぞん]します。
+pub fn gui_rgba8888_compositor_frame_entry_prepare %fn GuiRgba8888SoftwareSurfaceDirtyOwner fn GuiRgba8888CompositorFrameEntryConfig Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryPrepareError \owner\config:
+    let frame_id %i32 gui_rgba8888_compositor_frame_entry_config_frame_id &config
+    let frame_config %GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFrameConfig frame_id
+    match gui_rgba8888_bitmap_frame_prepare owner frame_config:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new lower
+        Result::Ok frame:
+            let max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_config_max_rows_per_batch &config
+            let plan_config %GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanConfig max_rows_per_batch
+            match gui_rgba8888_row_batch_plan_prepare frame plan_config:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new lower
+                Result::Ok plan:
+                    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata_from_plan &plan
+                    match gui_rgba8888_row_batch_cursor_start plan:
+                        Result::Err lower:
+                            Result::Err gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new lower
+                        Result::Ok cursor:
+                            Result::Ok gui_rgba8888_compositor_frame_entry_owner_new cursor metadata
+
+pub fn gui_rgba8888_compositor_frame_entry_finish_cursor %fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888RowBatchCursorOwner \owner:
+    field::get owner "cursor"
+
+pub fn gui_rgba8888_compositor_frame_entry_owner_free %fn GuiRgba8888CompositorFrameEntryOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor owner
+    gui_rgba8888_row_batch_cursor_free cursor
+
+pub fn gui_rgba8888_compositor_frame_entry_prepare_error_free %fn GuiRgba8888CompositorFrameEntryPrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_compositor_frame_entry_prepare_error_owner error
+    gui_rgba8888_software_surface_dirty_owner_free owner

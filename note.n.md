@@ -79373,3 +79373,27 @@ MERGE_APPROVED
 - 指摘対応として、F5lw helper-only region を `checked_position` 以降に分離し、raw command field 検出 regex の `"command"` 末尾境界も強化した。
 - Faraday follow-up implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lw 後続は shadow dirty region、2D compositor drain に分ける。
+
+## 2026-06-22 Agent2 GUI render2d F5lz compositor frame entry owner boundary
+
+- F5lz では、F5ly 後の `GuiRgba8888SoftwareSurfaceDirtyOwner` と frame config を、既存 F5bu bitmap frame / F5bv row batch plan / F5bw row batch cursor の順に接続する `GuiRgba8888CompositorFrameEntryOwner` へ正規化した。
+- `GuiRgba8888CompositorFrameEntryConfig`、`GuiRgba8888CompositorFrameEntryMetadata`、`GuiRgba8888CompositorFrameEntryOwner`、`GuiRgba8888CompositorFrameEntryPrepareErrorKind`、`GuiRgba8888CompositorFrameEntryPrepareError` を追加した。config / metadata / kind は Copy、entry owner と prepare error は Clone / Copy なし。
+- 当初の owner-bearing public error enum は focused doctest の `resource.owner.use_after_move` を起こしたため、根本修正として `kind/category/GuiRgba8888SoftwareSurfaceDirtyOwner` を持つ単一 error struct に変更した。stage-specific な原因は kind enum に保持し、recoverable owner は dirty owner に正規化する。
+- row plan / cursor start 失敗で dirty metadata を失わないように、`gui_rgba8888_bitmap_frame_finish_dirty_owner` と `gui_rgba8888_row_batch_plan_finish_dirty_owner` を追加した。どちらも surface owner を消費する前に Copy dirty metadata を読み、F5ly 後の dirty owner boundary へ戻す。
+- prepare は ownerless `config_checked` へ逃げず、lower config aggregate を作って `gui_rgba8888_bitmap_frame_prepare`、`gui_rgba8888_row_batch_plan_prepare`、`gui_rgba8888_row_batch_cursor_start` を順に呼ぶ。success metadata は cursor start の前に plan から Copy value として保存する。
+- この checkpoint は row batch drain / range、row byte storage、tile / RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_frame_entry.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5lz contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5lz.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_frame_entry.nepl --no-tree -o tmp_gui_render2d_compositor_frame_entry_module_f5lz.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_bitmap_frame.n.md --no-tree -o tmp_gui_render2d_bitmap_frame_f5lz_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5lz_regression.json -j 1`。3/3。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5lz_regression.json -j 1`。3/3。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lz.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- Rawls の initial implementation review は `REVIEW_BLOCKED`。code 本体の blocker はなく、commit 対象の新規ファイル未 tracking とこの note 未更新が blocker だったため、明示的な staging と note 更新で対応する。
+- Rawls follow-up implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5lz 後続は row batch drain / range / row byte storage / tile / RLE と std present への compositor drain continuation に分ける。
