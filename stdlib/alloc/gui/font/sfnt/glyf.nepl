@@ -30,6 +30,7 @@
 #import "core/gui/font" as *
 #import "core/gui/geometry" as *
 #import "core/gui/dirty_region" as *
+#import "core/gui/dirty_region_set" as *
 #import "core/gui/render_command" as *
 #import "core/gui/render_style" as *
 #import "core/math" as *
@@ -23536,6 +23537,14 @@ struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
     surface %GuiRgba8888SoftwareSurfaceOwner
     dirty %DirtyRegion
 
+enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind:
+    DirtyRegionSetPushFailed
+
+struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind
+    error %GuiError
+    completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
+
 enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
     Completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
     StepBudgetExhausted %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner
@@ -23550,6 +23559,18 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner %fn GuiSfntSi
 
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn DirtyRegion GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner \prepared\surface\dirty:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner prepared surface dirty
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind fn GuiError fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError \kind\error\completed:
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError kind error completed
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError GuiError \error:
+    *field::get_ref error "error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_completed %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner \error:
+    field::get error "completed"
 
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_step_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError \kind\owner\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError kind owner order_error
@@ -23910,6 +23931,20 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_fre
             Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceFreeFailed
         Result::Ok _:
             Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
+    let completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_completed error
+    gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_free completed
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_into_dirty_owner %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner Result GuiRgba8888SoftwareSurfaceDirtyOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError \completed:
+    let dirty %DirtyRegion gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty &completed
+    let dirty_set %DirtyRegionSet dirty_regions_empty
+    match dirty_regions_push_region_checked dirty_set dirty:
+        Result::Err error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind::DirtyRegionSetPushFailed error completed
+        Result::Ok next_dirty:
+            let surface %GuiRgba8888SoftwareSurfaceOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_finish_surface completed
+            Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty
 
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError \owner\remaining_steps:
     let prepared_ref %&GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get_ref &owner "prepared"
@@ -34230,6 +34265,14 @@ struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
     surface %GuiRgba8888SoftwareSurfaceOwner
     dirty %DirtyRegion
 
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind:
+    DirtyRegionSetPushFailed
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind
+    error %GuiError
+    completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
+
 enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
     Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
     StepBudgetExhausted %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
@@ -34243,6 +34286,18 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner %fn GuiSfnt
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn DirtyRegion GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner \prepared\surface\dirty:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner prepared surface dirty
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind fn GuiError fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError \kind\error\completed:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError kind error completed
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_error %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError GuiError \error:
+    *field::get_ref error "error"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_completed %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner \error:
+    field::get error "completed"
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \kind\owner:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError kind owner
@@ -34555,6 +34610,20 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_f
             Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceFreeFailed
         Result::Ok _:
             Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
+    let completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_completed error
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_free completed
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_into_dirty_owner %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner Result GuiRgba8888SoftwareSurfaceDirtyOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError \completed:
+    let dirty %DirtyRegion gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty &completed
+    let dirty_set %DirtyRegionSet dirty_regions_empty
+    match dirty_regions_push_region_checked dirty_set dirty:
+        Result::Err error:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind::DirtyRegionSetPushFailed error completed
+        Result::Ok next_dirty:
+            let surface %GuiRgba8888SoftwareSurfaceOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface completed
+            Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \owner\remaining_steps:
     let prepared_ref %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get_ref &owner "prepared"

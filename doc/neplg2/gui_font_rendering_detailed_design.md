@@ -8209,6 +8209,25 @@ if cell_index == cell_count:
 
 This order avoids losing the prepared/surface owners on dirty construction failure. F5lx must not call Web/native host APIs, video-memory publish helpers, tile or bitmap transport helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, the old F5lq/F5lr sample bridge, raw `RenderCommand` accessors, fallback paths, unchecked dirty-region helpers, or a 2D compositor drain.
 
+## SFNT simple glyph render software drain dirty-owner bridge boundary
+
+F5ly is the bridge between font-owned completed software drains and the render2d dirty surface owner. It is intentionally not the compositor drain itself. Fill F5br and shadow F5lx both end with a completed owner that still owns the prepared/resource side, the RGBA8888 software surface, and one `DirtyRegion`. Render2d F5bt already defines the shared `GuiRgba8888SoftwareSurfaceDirtyOwner` that later bitmap / row / tile boundaries consume. F5ly connects those two contracts without entering F5bu or host transport.
+
+The bridge order is:
+
+```text
+dirty = completed_owner_dirty &completed
+next_dirty = dirty_regions_push_region_checked dirty_regions_empty dirty
+if next_dirty fails:
+    return owner-bearing bridge error with original completed owner
+surface = completed_owner_finish_surface completed
+return GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty
+```
+
+The key point is that dirty aggregation happens before `finish_surface`. A dirty-set failure therefore leaves the completed owner intact, including prepared and surface ownership. On success, `finish_surface` frees the prepared/resource side and returns only the surface owner, which is then packed with the already-checked `DirtyRegionSet`.
+
+Fill and shadow have separate bridge error types and bridge functions because their completed owner and free error kinds differ. The policy is otherwise identical. The bridge error is owner-bearing and must not implement `Clone` / `Copy`; its free helper delegates to the completed-owner free path so that surface free failure remains visible. F5ly must not call bitmap frame prepare, row byte storage, tile or RLE transport, host present, video-memory publish helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, platform APIs, fallback paths, `dirty_regions_push_unchecked`, or `dirty_region_merge`.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

@@ -1,3 +1,43 @@
+# 2026-06-22 Agent2 GUI font rendering F5ly software drain dirty-owner bridge boundary
+
+## 目的
+
+- F5br fill completed owner と F5lx shadow completed owner を render2d の `GuiRgba8888SoftwareSurfaceDirtyOwner` へ渡す bridge boundary を作る。
+- dirty aggregation は completed owner の `finish_surface` より前に行い、失敗時に prepared / surface を失わない。
+- 2D compositor drain 本体、F5bu bitmap frame prepare、row byte copy、tile / RLE transport、host present、platform API、fallback には進まない。
+
+## 実装
+
+- fill / shadow それぞれに dirty-owner bridge error kind と owner-bearing bridge error を追加した。
+- `completed_owner_into_dirty_owner` は completed owner の dirty accessor を読み、`dirty_regions_push_region_checked dirty_regions_empty dirty` を先に通す。
+- dirty set 化が失敗した場合は bridge error に元 completed owner を保持し、prepared / surface を move しない。
+- 成功時だけ既存 `completed_owner_finish_surface` を呼び、prepared side を free して surface owner を取り出し、`GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty` を作る。
+- bridge error free は completed owner free に委譲し、surface free failure を既存 error kind の `Result` として返す。
+- docs、source policy、focused doctest labels、`todo.md` を F5ly contract へ更新した。
+
+## subagent review
+
+- Dalton plan review は `PLAN_APPROVED`。F5ly は compositor drain 本体ではなく bridge boundary として切ること、dirty checked push before finish、fill/shadow 同一 slice、F5bu 以降 / host / transport / fallback 禁止、bridge error no Clone / no Copy が条件として承認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_software_drain_f5ly.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_f5ly.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5ly_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ly.json -j 1` は 1334 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ly.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5ly.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Banach implementation review 1 は `REVIEW_CHANGES_REQUESTED`。code 本体には blocker はなく、F5ly 検証欄が未実行表現のままだった点だけが指摘された。
+- 指摘対応として、この検証欄を実行済み結果へ更新した。
+
+## 残件
+
+- F5ly 後続として、2D compositor drain を別 boundary として進める。
+
 # 2026-06-22 Agent2 GUI font rendering F5lx shadow source software drain dirty-region completion boundary
 
 ## 目的

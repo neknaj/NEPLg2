@@ -19886,13 +19886,17 @@ for (const fragment of [
     "kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind",
     "owner %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner",
     "order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+    "enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind:",
+    "DirtyRegionSetPushFailed",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError:",
+    "completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner",
 ]) {
     assert(renderShadowSourceSoftwareDrainStepRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lw software drain step region must include ${fragment}`);
 }
 assertNoMatch(
     renderShadowSourceSoftwareDrainStepRegion,
-    /impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:/,
-    "alloc/gui/font/sfnt/glyf F5lw owner-bearing completed owner, terminal, and step error must not implement Clone or Copy",
+    /impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError:/,
+    "alloc/gui/font/sfnt/glyf F5lw/F5ly owner-bearing completed owner, terminal, step error, and dirty owner bridge error must not implement Clone or Copy",
 );
 assertNoMatch(
     renderShadowSourceSoftwareDrainStepRegion,
@@ -19909,6 +19913,8 @@ const renderShadowSourceSoftwareDrainStepOnce = functionSlice(allocFontSfntGlyfI
 const renderShadowSourceSoftwareDrainCompletedFinishSurface = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_finish_surface");
 const renderShadowSourceSoftwareDrainCompletedDirty = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty");
 const renderShadowSourceSoftwareDrainCompletedFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_free");
+const renderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_free");
+const renderShadowSourceSoftwareDrainCompletedIntoDirtyOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_into_dirty_owner");
 const renderShadowSourceSoftwareDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_to_complete_budget");
 const renderShadowSourceSoftwareDrainStepErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_step_error_free");
 const renderShadowSourceSoftwareDrainTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_terminal_free");
@@ -20029,6 +20035,39 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5lw completed free must close the finished surface after freeing prepared side",
 );
 assertOrderedFragments(
+    renderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_owner_bridge_error_completed error",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_free completed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ly shadow dirty owner bridge error free must delegate to completed owner free",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainCompletedIntoDirtyOwner,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty &completed",
+        "let dirty_set %DirtyRegionSet dirty_regions_empty",
+        "dirty_regions_push_region_checked dirty_set dirty",
+        "Result::Err error:",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind::DirtyRegionSetPushFailed",
+        "error completed",
+        "Result::Ok next_dirty:",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_finish_surface completed",
+        "Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ly shadow completed owner bridge must checked-push dirty before moving surface into render2d dirty owner",
+);
+assertNoMatch(
+    renderShadowSourceSoftwareDrainCompletedIntoDirtyOwner,
+    /\b(?:dirty_regions_push_unchecked|dirty_region_merge|dirty_region_rect_unchecked|dirty_region_full|dirty_region_empty|DirtyRegion::Full|DirtyRegion::Empty|gui_rgba8888_bitmap_frame_prepare|row_byte|row_tile|rle|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|minifb|fallback|zero_fill|transport|publish|present|gui_web_video_memory_|silent no-op)\b/,
+    "alloc/gui/font/sfnt/glyf F5ly shadow bridge must not use unchecked dirty aggregation, bitmap/row/tile transport, host present, platform, or fallback APIs",
+);
+assertNoMatch(
+    renderShadowSourceSoftwareDrainCompletedIntoDirtyOwner,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ly shadow bridge must preserve NEPL prefix style without parentheses",
+);
+assertOrderedFragments(
     renderShadowSourceSoftwareDrainBudget,
     [
         "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start prepared_ref surface_ref",
@@ -20099,8 +20138,11 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_dirty_failure_owner_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_dirty_read_before_finish_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_no_dirty_fallback_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_dirty_owner_bridge_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_dirty_owner_bridge_failure_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_dirty_owner_bridge_no_transport_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_no_old_shadow_bridge_ok"),
-    "F5lw/F5lx render shadow source software drain focused doctest must cover completed pair, budget, alpha borrow, SourceOver, write recovery, post-write advance, lower order evidence, checked dirty metadata, no dirty fallback, and no old bridge policy",
+    "F5lw/F5lx/F5ly render shadow source software drain focused doctest must cover completed pair, budget, alpha borrow, SourceOver, write recovery, post-write advance, lower order evidence, checked dirty metadata, dirty owner bridge, no dirty fallback, and no old bridge policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");
@@ -25807,13 +25849,17 @@ for (const fragment of [
     "DirtyRegionInvalid",
     "ProgressInvariantInvalid",
     "dirty %DirtyRegion",
+    "enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind:",
+    "DirtyRegionSetPushFailed",
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError:",
+    "completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner",
 ]) {
     assert(renderFillAlphaMaskSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bq software drain region must include ${fragment}`);
 }
 assertNoMatch(
     renderFillAlphaMaskSoftwareDrainRegion,
-    /impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:/,
-    "alloc/gui/font/sfnt/glyf F5bq owner-bearing completed owner, terminal, and step error must not implement Clone or Copy",
+    /impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError:/,
+    "alloc/gui/font/sfnt/glyf F5bq/F5ly owner-bearing completed owner, terminal, step error, and dirty owner bridge error must not implement Clone or Copy",
 );
 assertNoMatch(
     renderFillAlphaMaskSoftwareDrainRegion,
@@ -25826,6 +25872,8 @@ const renderFillAlphaMaskSoftwareDrainDirtyRegion = functionSlice(allocFontSfntG
 const renderFillAlphaMaskSoftwareDrainStepOnce = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once");
 const renderFillAlphaMaskSoftwareDrainCompletedFinishSurface = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface");
 const renderFillAlphaMaskSoftwareDrainCompletedDirty = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty");
+const renderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_free");
+const renderFillAlphaMaskSoftwareDrainCompletedIntoDirtyOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_into_dirty_owner");
 const renderFillAlphaMaskSoftwareDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget");
 const renderFillAlphaMaskSoftwareDrainStepErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_free");
 const renderFillAlphaMaskSoftwareDrainTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_terminal_free");
@@ -25910,6 +25958,39 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5br completed dirty accessor must only return Copy dirty metadata",
 );
 assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_owner_bridge_error_completed error",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_free completed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ly fill dirty owner bridge error free must delegate to completed owner free",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainCompletedIntoDirtyOwner,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty &completed",
+        "let dirty_set %DirtyRegionSet dirty_regions_empty",
+        "dirty_regions_push_region_checked dirty_set dirty",
+        "Result::Err error:",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind::DirtyRegionSetPushFailed",
+        "error completed",
+        "Result::Ok next_dirty:",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface completed",
+        "Result::Ok GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ly fill completed owner bridge must checked-push dirty before moving surface into render2d dirty owner",
+);
+assertNoMatch(
+    renderFillAlphaMaskSoftwareDrainCompletedIntoDirtyOwner,
+    /\b(?:dirty_regions_push_unchecked|dirty_region_merge|dirty_region_rect_unchecked|dirty_region_full|dirty_region_empty|DirtyRegion::Full|DirtyRegion::Empty|gui_rgba8888_bitmap_frame_prepare|row_byte|row_tile|rle|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|minifb|fallback|zero_fill|transport|publish|present|gui_web_video_memory_|silent no-op)\b/,
+    "alloc/gui/font/sfnt/glyf F5ly fill bridge must not use unchecked dirty aggregation, bitmap/row/tile transport, host present, platform, or fallback APIs",
+);
+assertNoMatch(
+    renderFillAlphaMaskSoftwareDrainCompletedIntoDirtyOwner,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ly fill bridge must preserve NEPL prefix style without parentheses",
+);
+assertOrderedFragments(
     renderFillAlphaMaskSoftwareDrainBudget,
     [
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start prepared_ref surface_ref",
@@ -25974,9 +26055,35 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_failure_owner_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_read_before_finish_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_dirty_fallback_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_owner_bridge_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_owner_bridge_failure_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_owner_bridge_no_transport_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_old_fillrect_bridge_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_target_platform_fallback"),
-    "F5bq/F5br render fill alpha mask software drain focused doctest must cover completed pair, dirty metadata, checked dirty construction, budget, alpha borrow, SourceOver, write recovery, post-write advance, and no old bridge/platform/fallback policy",
+    "F5bq/F5br/F5ly render fill alpha mask software drain focused doctest must cover completed pair, dirty metadata, checked dirty construction, dirty owner bridge, budget, alpha borrow, SourceOver, write recovery, post-write advance, and no old bridge/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5ly") &&
+            doc.includes("dirty-owner bridge") &&
+            doc.includes("GuiRgba8888SoftwareSurfaceDirtyOwner") &&
+            doc.includes("dirty_regions_push_region_checked dirty_regions_empty dirty") &&
+            doc.includes("finish_surface") &&
+            doc.includes("bitmap frame") &&
+            doc.includes("fallback"),
+        `F5ly ${name} must document dirty-owner bridge ordering, render2d dirty owner handoff, deferred bitmap transport, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Dalton plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("dirty aggregation は completed owner の `finish_surface` より先") &&
+        implementationPlan.includes("F5bu 以降、host present、row byte copy、tile / RLE、unchecked dirty push、dirty merge、fallback は禁止する"),
+    "F5ly implementation plan must retain subagent approval and dirty-before-finish / no transport conditions",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

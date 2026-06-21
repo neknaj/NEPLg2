@@ -4080,6 +4080,55 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lx.json
 ```
 
+## Phase F5ly: sfnt simple glyph render software drain dirty-owner bridge boundary
+
+目的:
+
+- F5br の fill completed owner と F5lx の shadow completed owner を render2d の `GuiRgba8888SoftwareSurfaceDirtyOwner` へ渡す bridge boundary を作る。
+- 2D compositor drain 本体、bitmap frame prepare、row byte copy、tile / RLE transport、host present、platform API、fallback には進まない。
+- completed owner の dirty value を `dirty_regions_push_region_checked dirty_regions_empty dirty` で surface move より前に `DirtyRegionSet` 化し、失敗時は元 completed owner を owner-bearing bridge error に保持する。
+- 成功時だけ completed owner を consume し、既存 `completed_owner_finish_surface` helper で prepared side を free して surface を取り出し、render2d dirty owner を作る。
+
+plan review:
+
+- Dalton plan review は `PLAN_APPROVED`。
+- F5ly は 2D compositor drain 本体ではなく、font completed software drain owner から render2d dirty owner へ渡す bridge boundary として切る。
+- dirty aggregation は completed owner の `finish_surface` より先に行い、失敗時に prepared / surface を move/free しない。
+- fill と shadow は同一 slice でよいが、error kind / bridge error / bridge function は別名にする。
+- `GuiRgba8888SoftwareSurfaceDirtyOwner` direct constructor は checked dirty set 作成成功後だけなら owner loss の問題はない。source policy で ordering を固定する。
+- F5bu 以降、host present、row byte copy、tile / RLE、unchecked dirty push、dirty merge、fallback は禁止する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeErrorKind` / `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainDirtyOwnerBridgeError` を追加する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_into_dirty_owner` を追加する。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeErrorKind` / `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainDirtyOwnerBridgeError` を追加する。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_into_dirty_owner` を追加する。
+- bridge error free は completed owner free に委譲し、surface free failure を握りつぶさない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` と shadow source software drain focused doctest に F5ly labels を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ly source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が fill/shadow 両方の bridge error no `Clone` / no `Copy`、dirty checked push before `finish_surface`、owner-bearing failure recovery、error free delegation、no bitmap frame / row byte / tile / RLE / host / platform / fallback を検査する。
+- focused doctest labels、F5br / F5lx focused doctest、render2d dirty surface regression、source policy、full glyf doctest、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で owner loss、split accessor、fallback、F5bu 以降への leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_software_drain_f5ly.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_f5ly.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5ly_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ly.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ly.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
