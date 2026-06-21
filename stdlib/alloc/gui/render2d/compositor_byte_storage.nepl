@@ -1,0 +1,383 @@
+//: # alloc/gui/render2d/compositor_byte_storage
+//: RGBA8888 compositor row byte storage bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mb の `GuiRgba8888CompositorBatchRangeOwner` を F5bz の row byte storage boundary へ[渡/わた]します。
+//: - compositor frame metadata を copied byte storage owner と[束/たば]ね、byte storage [破棄/はき]後も frame entry owner へ[戻/もど]せるようにします。
+//:
+//: ### [契約/けいやく]
+//: - range owner を lower row byte storage へ[渡/わた]す[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_byte_storage_prepare` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower owner-bearing error は kind / category を[読/よ]んでから compositor owner へ[正規化/せいきか]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は copied row byte storage までで[止/と]まります。tile / RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op には[進/すす]みません。
+//: - public API は checked byte count / byte read だけを[公開/こうかい]し、raw `RegionToken` や `MemPtr` は[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_batch_range" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/row_batch_range" as *
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorByteStoragePrepareErrorKind: compositor byte storage prepare の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower row byte storage prepare の kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub enum GuiRgba8888CompositorByteStoragePrepareErrorKind:
+    RowByteStoragePrepareFailed %GuiRgba8888RowByteStoragePrepareErrorKind
+
+impl Clone for GuiRgba8888CompositorByteStoragePrepareErrorKind:
+    fn clone %fn &GuiRgba8888CompositorByteStoragePrepareErrorKind GuiRgba8888CompositorByteStoragePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorByteStoragePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorByteStoragePrepareErrorKind GuiRgba8888CompositorByteStoragePrepareErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorByteStorageFinishErrorKind: byte storage から entry へ[戻/もど]す[失敗/しっぱい]
+//:
+//: lower storage dealloc / cursor free failure を compositor boundary の typed error として[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub enum GuiRgba8888CompositorByteStorageFinishErrorKind:
+    RowByteStorageFinishFailed %GuiRgba8888RowByteStorageFinishErrorKind
+
+impl Clone for GuiRgba8888CompositorByteStorageFinishErrorKind:
+    fn clone %fn &GuiRgba8888CompositorByteStorageFinishErrorKind GuiRgba8888CompositorByteStorageFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorByteStorageFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorByteStorageFinishErrorKind GuiRgba8888CompositorByteStorageFinishErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorByteStorageFreeErrorKind: compositor byte storage free の[失敗/しっぱい][段階/だんかい]
+//:
+//: byte storage finish failure と、finish 成功後の entry free failure を[分/わ]けて[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub enum GuiRgba8888CompositorByteStorageFreeErrorKind:
+    FinishFailed %GuiRgba8888CompositorByteStorageFinishErrorKind
+    EntryFreeFailed %GuiRgba8888SoftwareSurfaceErrorKind
+
+impl Clone for GuiRgba8888CompositorByteStorageFreeErrorKind:
+    fn clone %fn &GuiRgba8888CompositorByteStorageFreeErrorKind GuiRgba8888CompositorByteStorageFreeErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorByteStorageFreeErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorByteStorageFreeErrorKind GuiRgba8888CompositorByteStorageFreeErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorByteStorageOwner: copied byte storage と compositor metadata の owner
+//:
+//: lower copied storage owner と frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub struct GuiRgba8888CompositorByteStorageOwner:
+    storage %GuiRgba8888RowByteStorageOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorByteStoragePrepareError: range owner を[回収/かいしゅう]できる prepare error
+//:
+//: lower kind / category と、metadata [付/つ]き compositor range owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub struct GuiRgba8888CompositorByteStoragePrepareError:
+    kind %GuiRgba8888CompositorByteStoragePrepareErrorKind
+    category %Option GuiError
+    range %GuiRgba8888CompositorBatchRangeOwner
+
+//: GuiRgba8888CompositorByteStorageFinishError: entry owner を[回収/かいしゅう]できる finish error
+//:
+//: storage finish [失敗/しっぱい][時/じ]も cursor を compositor entry owner として[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub struct GuiRgba8888CompositorByteStorageFinishError:
+    kind %GuiRgba8888CompositorByteStorageFinishErrorKind
+    category %Option GuiError
+    entry %GuiRgba8888CompositorFrameEntryOwner
+
+//: gui_rgba8888_compositor_byte_storage_owner_new: lower storage owner と metadata を[束/たば]ねる
+//:
+//: lower prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+fn gui_rgba8888_compositor_byte_storage_owner_new %fn GuiRgba8888RowByteStorageOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorByteStorageOwner \storage\metadata:
+    GuiRgba8888CompositorByteStorageOwner storage metadata
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_new: prepare error payload を[作/つく]る
+//:
+//: lower kind、category、回収用 range owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+fn gui_rgba8888_compositor_byte_storage_prepare_error_new %fn GuiRgba8888CompositorByteStoragePrepareErrorKind fn Option GuiError fn GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorByteStoragePrepareError \kind\category\range:
+    GuiRgba8888CompositorByteStoragePrepareError kind category range
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_new: finish error payload を[作/つく]る
+//:
+//: lower finish kind、category、回収用 entry owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+fn gui_rgba8888_compositor_byte_storage_finish_error_new %fn GuiRgba8888CompositorByteStorageFinishErrorKind fn Option GuiError fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorByteStorageFinishError \kind\category\entry:
+    GuiRgba8888CompositorByteStorageFinishError kind category entry
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_from_lower: lower prepare error を compositor range error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower owner を[消費/しょうひ]し、metadata [付/つ]き range owner を[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+fn gui_rgba8888_compositor_byte_storage_prepare_error_from_lower %fn GuiRgba8888RowByteStoragePrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorByteStoragePrepareError \lower\metadata:
+    let lower_kind %GuiRgba8888RowByteStoragePrepareErrorKind gui_rgba8888_row_byte_storage_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_byte_storage_prepare_error_category_value &lower
+    let lower_range %GuiRgba8888RowBatchRangeOwner gui_rgba8888_row_byte_storage_prepare_error_owner lower
+    let range %GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorBatchRangeOwner lower_range metadata
+    let kind %GuiRgba8888CompositorByteStoragePrepareErrorKind GuiRgba8888CompositorByteStoragePrepareErrorKind::RowByteStoragePrepareFailed lower_kind
+    gui_rgba8888_compositor_byte_storage_prepare_error_new kind category range
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_from_lower: lower finish error を compositor entry error へ[写/うつ]す
+//:
+//: lower kind を[読/よ]んでから cursor を[取/と]り[出/だ]し、metadata [付/つ]き entry owner を[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+fn gui_rgba8888_compositor_byte_storage_finish_error_from_lower %fn GuiRgba8888RowByteStorageFinishError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorByteStorageFinishError \lower\metadata:
+    let lower_kind %GuiRgba8888RowByteStorageFinishErrorKind gui_rgba8888_row_byte_storage_finish_error_kind &lower
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_byte_storage_finish_error_cursor lower
+    let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata
+    let kind %GuiRgba8888CompositorByteStorageFinishErrorKind GuiRgba8888CompositorByteStorageFinishErrorKind::RowByteStorageFinishFailed lower_kind
+    let category %Option GuiError Option::Some GuiError::BackendFailure
+    gui_rgba8888_compositor_byte_storage_finish_error_new kind category entry
+
+//: gui_rgba8888_compositor_byte_storage_owner_metadata: owner に[保持/ほじ]した compositor metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_owner_metadata %fn &GuiRgba8888CompositorByteStorageOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_byte_storage_owner_byte_count: copied byte storage の byte [数/すう]を[返/かえ]す
+//:
+//: lower storage owner を[借用/しゃくよう]し、raw storage は[公開/こうかい]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_owner_byte_count %fn &GuiRgba8888CompositorByteStorageOwner i32 \owner:
+    let storage %&GuiRgba8888RowByteStorageOwner field::get_ref owner "storage"
+    gui_rgba8888_row_byte_storage_byte_count storage
+
+//: gui_rgba8888_compositor_byte_storage_owner_byte_at: copied byte storage から 1 byte を checked read する
+//:
+//: checked reader を lower storage に[委譲/いじょう]し、source surface storage は[公開/こうかい]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_owner_byte_at %fn &GuiRgba8888CompositorByteStorageOwner fn i32 Result i32 GuiRgba8888RowByteStorageReadErrorKind \owner\index:
+    let storage %&GuiRgba8888RowByteStorageOwner field::get_ref owner "storage"
+    gui_rgba8888_row_byte_storage_byte_at storage index
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_kind: prepare error kind を[返/かえ]す
+//:
+//: lower prepare failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_prepare_error_kind %fn &GuiRgba8888CompositorByteStoragePrepareError GuiRgba8888CompositorByteStoragePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_category_value: prepare error の coarse category を[返/かえ]す
+//:
+//: lower row byte storage prepare の category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_prepare_error_category_value %fn &GuiRgba8888CompositorByteStoragePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_range: prepare error から range owner を[取/と]り[出/だ]す
+//:
+//: caller が recovery / free を[選/えら]べるように compositor range owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_prepare_error_range %fn GuiRgba8888CompositorByteStoragePrepareError GuiRgba8888CompositorBatchRangeOwner \error:
+    field::get error "range"
+
+//: gui_rgba8888_compositor_byte_storage_prepare: compositor range owner から copied byte storage owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower range owner を[取/と]り[出/だ]します。
+//: - lower row byte storage prepare のみを[呼/よ]び、tile / RLE / present へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_prepare %fn GuiRgba8888CompositorBatchRangeOwner Result GuiRgba8888CompositorByteStorageOwner GuiRgba8888CompositorByteStoragePrepareError \range_owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_range_owner_metadata &range_owner
+    let lower_range %GuiRgba8888RowBatchRangeOwner field::get range_owner "range"
+    match gui_rgba8888_row_byte_storage_prepare lower_range:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_byte_storage_prepare_error_from_lower lower metadata
+        Result::Ok storage:
+            Result::Ok gui_rgba8888_compositor_byte_storage_owner_new storage metadata
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_kind: finish error kind を[返/かえ]す
+//:
+//: lower storage finish failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_finish_error_kind %fn &GuiRgba8888CompositorByteStorageFinishError GuiRgba8888CompositorByteStorageFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_category_value: finish error の coarse category を[返/かえ]す
+//:
+//: storage finish failure は backend failure として[分類/ぶんるい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_finish_error_category_value %fn &GuiRgba8888CompositorByteStorageFinishError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_finish_entry: finish error から entry owner を[取/と]り[出/だ]す
+//:
+//: lower finish failure で[戻/もど]った cursor を metadata と[束/たば]ねた entry owner として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_finish_error_finish_entry %fn GuiRgba8888CompositorByteStorageFinishError GuiRgba8888CompositorFrameEntryOwner \error:
+    field::get error "entry"
+
+//: gui_rgba8888_compositor_byte_storage_owner_finish_entry: copied bytes を[破棄/はき]して compositor entry owner を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower storage owner を[消費/しょうひ]します。
+//: - lower finish failure でも recovered cursor と metadata から entry owner を[再構成/さいこうせい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_owner_finish_entry %fn GuiRgba8888CompositorByteStorageOwner Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorByteStorageFinishError \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_byte_storage_owner_metadata &owner
+    let storage %GuiRgba8888RowByteStorageOwner field::get owner "storage"
+    match gui_rgba8888_row_byte_storage_finish_cursor storage:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_byte_storage_finish_error_from_lower lower metadata
+        Result::Ok cursor:
+            Result::Ok GuiRgba8888CompositorFrameEntryOwner cursor metadata
+
+//: gui_rgba8888_compositor_byte_storage_prepare_error_free: prepare error の range owner を[破棄/はき]する
+//:
+//: error から range owner を[取/と]り[出/だ]し、既存の compositor batch range free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_prepare_error_free %fn GuiRgba8888CompositorByteStoragePrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let range %GuiRgba8888CompositorBatchRangeOwner gui_rgba8888_compositor_byte_storage_prepare_error_range error
+    gui_rgba8888_compositor_batch_range_owner_free range
+
+//: gui_rgba8888_compositor_byte_storage_finish_error_free: finish error の entry owner を[破棄/はき]する
+//:
+//: error から entry owner を[取/と]り[出/だ]し、既存の compositor frame entry free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_finish_error_free %fn GuiRgba8888CompositorByteStorageFinishError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_byte_storage_finish_error_finish_entry error
+    gui_rgba8888_compositor_frame_entry_owner_free entry
+
+//: gui_rgba8888_compositor_byte_storage_owner_free: byte storage owner を[閉/と]じて entry owner まで[破棄/はき]する
+//:
+//: finish failure と finish 成功後の entry free failure を[区別/くべつ]して[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_byte_storage" as *
+//: ```
+pub fn gui_rgba8888_compositor_byte_storage_owner_free %fn GuiRgba8888CompositorByteStorageOwner Result unit GuiRgba8888CompositorByteStorageFreeErrorKind \owner:
+    match gui_rgba8888_compositor_byte_storage_owner_finish_entry owner:
+        Result::Err error:
+            let kind %GuiRgba8888CompositorByteStorageFinishErrorKind gui_rgba8888_compositor_byte_storage_finish_error_kind &error
+            let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_byte_storage_finish_error_finish_entry error
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Err _:
+                    Result::Err GuiRgba8888CompositorByteStorageFreeErrorKind::FinishFailed kind
+                Result::Ok _:
+                    Result::Err GuiRgba8888CompositorByteStorageFreeErrorKind::FinishFailed kind
+        Result::Ok entry:
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Err kind:
+                    Result::Err GuiRgba8888CompositorByteStorageFreeErrorKind::EntryFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit

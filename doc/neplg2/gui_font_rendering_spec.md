@@ -6987,6 +6987,16 @@ F5mb は entry owner を cursor へ分解する前に metadata を Copy value �
 
 F5mb は row byte storage、tile plan / payload、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row byte storage 以降の payload transport と std present は後続の compositor continuation boundary で扱う。
 
+### Render2d compositor byte storage boundary
+
+F5mc は F5mb の `GuiRgba8888CompositorBatchRangeOwner` を、F5bz の `gui_rgba8888_row_byte_storage_prepare` へ 1 回だけ通す compositor byte storage bridge である。これは row tile plan、tile payload、RLE、std present を作る phase ではなく、1 batch 分の copied row byte storage owner を compositor metadata と束ねる phase である。
+
+F5mc の success owner は `GuiRgba8888CompositorByteStorageOwner` であり、lower `GuiRgba8888RowByteStorageOwner` と `GuiRgba8888CompositorFrameEntryMetadata` を保持する。prepare error は `GuiRgba8888CompositorByteStoragePrepareError` であり、`RowByteStoragePrepareFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorBatchRangeOwner` を保持する。finish error は `GuiRgba8888CompositorByteStorageFinishError` であり、`RowByteStorageFinishFailed lower_kind`、`BackendFailure` category、回収済み `GuiRgba8888CompositorFrameEntryOwner` を保持する。success owner / prepare error / finish error は Clone / Copy を実装しない。error kind と metadata は Copy value である。
+
+F5mc は compositor range owner を lower range owner へ分解する前に metadata を Copy value として読む。prepare failure では lower prepare error から kind / category を読んでから range owner を compositor batch range owner へ正規化する。finish では lower storage owner を消費する前に metadata を Copy value として読み、lower finish failure でも returned cursor を compositor frame entry owner へ戻す。`owner_free` は finish failure と finish 成功後の entry free failure を別の free error kind として返す。
+
+F5mc は checked byte count / byte read 以外の storage accessor を公開せず、raw `RegionToken` / `MemPtr`、row tile、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row tile 以降の payload transport と std present は後続 boundary で扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
