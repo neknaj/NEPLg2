@@ -6309,6 +6309,40 @@ completion は `cell_index == shape.cell_count` の exact state でのみ成功�
 
 F5lf は glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
 
+### SFNT simple glyph render glyph paint composition order boundary
+
+F5lg は completed fill alpha mask owner と completed stroke packed mask owner を direct authority とし、fill+stroke glyph paint の composition order を owner として固定する境界である。この boundary は fill-before-stroke の順序だけを証明し、stroke-only paint は `MissingStrokeFillMetadata` として拒否する。stroke-only composition は別 sibling boundary として後続に残す。
+
+start はまず両 owner を個別に再検査する。fill owner と stroke owner はそれぞれ shape の `width_px > 0`、`height_px > 0`、`sample_scale > 0`、`coverage_max == sample_scale * sample_scale`、`cell_count == width_px * height_px`、`alpha_max > 0`、owner cell count / alpha cell len / alpha cell cap が shape cell count と一致することを満たさなければならない。stroke owner はさらに completed `join_geometry_owner` に対して `gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage` を通し、失敗時は lower join geometry error kind を recovery payload に保持する。
+
+F5lg は stroke metadata を次の nested chain から読む。
+
+```text
+stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner
+```
+
+この plan owner から origin / optional fill / stroke / blend を読み、fill owner の origin / fill paint / blend と照合する。stroke metadata の fill が `None` なら `MissingStrokeFillMetadata`、origin mismatch、fill paint mismatch、blend mismatch はそれぞれ typed error にする。blend は現行 alpha-mask composition contract に合わせて SourceOver だけを受理する。
+
+両 owner の shape は、個別 invariant を通した後で `origin_x2`、`origin_y2`、`width_px`、`height_px`、`sample_scale`、`coverage_max`、`cell_count` の全 tuple を比較する。どれかが一致しなければ、field-specific mismatch error を返す。
+
+成功時の completed composition order owner は次だけを保持する。
+
+```text
+GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner:
+    fill_owner
+    stroke_owner
+    origin
+    fill_paint
+    stroke
+    blend
+    fill_order = 0
+    stroke_order = 1
+```
+
+start error は fill owner と stroke owner を同時に回収できる owner-bearing payload であり、split raw owner accessor を公開しない。free path は fill owner を先に閉じ、その後 stroke owner を閉じる。
+
+F5lg は render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。F5bf raster packed mask internals は直接再利用せず、F5bh/F5bg で completed fill owner 化された payload と、F5lf completed stroke packed owner のみを authority とする。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

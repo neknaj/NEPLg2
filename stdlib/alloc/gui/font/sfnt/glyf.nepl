@@ -26148,6 +26148,406 @@ fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_terminal_free %impure fn
         GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner: fill と stroke の glyph paint [順序/じゅんじょ] owner
+//:
+//: [目的/もくてき]:
+//: - 完成済み fill alpha mask owner と stroke packed mask owner を、同じ glyph paint 由来の fill-before-stroke [順序/じゅんじょ]として[束/たば]ねます。
+//: - この owner は command や resource を[作/つく]らず、後続境界が読む paint metadata と mask owner だけを[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner:
+    fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    origin %GuiPoint
+    fill_paint %GuiPaint
+    stroke %GuiStroke
+    blend %GuiBlendMode
+    fill_order %i32
+    stroke_order %i32
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn GuiPoint fn GuiPaint fn GuiStroke fn GuiBlendMode fn i32 fn i32 GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner \fill_owner\stroke_owner\origin\fill_paint\stroke\blend\fill_order\stroke_order:
+    GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner fill_owner stroke_owner origin fill_paint stroke blend fill_order stroke_order
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_origin %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner GuiPoint \owner:
+    *field::get_ref owner "origin"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_fill_paint %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner GuiPaint \owner:
+    *field::get_ref owner "fill_paint"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_stroke %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner GuiStroke \owner:
+    *field::get_ref owner "stroke"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_blend %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner GuiBlendMode \owner:
+    *field::get_ref owner "blend"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_fill_order %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "fill_order"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_stroke_order %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "stroke_order"
+
+//: GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind: composition order start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind:
+    FillShapeInvalidWidth
+    FillShapeInvalidHeight
+    FillShapeInvalidSampleScale
+    FillShapeCoverageMaxMismatch
+    FillShapeCellCountMismatch
+    FillAlphaMaxInvalid
+    FillAlphaCellCountMismatch
+    FillAlphaStorageLenMismatch
+    FillAlphaStorageCapacityMismatch
+    StrokeShapeInvalidWidth
+    StrokeShapeInvalidHeight
+    StrokeShapeInvalidSampleScale
+    StrokeShapeCoverageMaxMismatch
+    StrokeShapeCellCountMismatch
+    StrokeAlphaMaxInvalid
+    StrokeAlphaCellCountMismatch
+    StrokeAlphaStorageLenMismatch
+    StrokeAlphaStorageCapacityMismatch
+    StrokeJoinGeometryInvariantFailed
+    ShapeOriginXMismatch
+    ShapeOriginYMismatch
+    ShapeWidthMismatch
+    ShapeHeightMismatch
+    ShapeSampleScaleMismatch
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    MissingStrokeFillMetadata
+    OriginMismatch
+    FillPaintMismatch
+    BlendMismatch
+    UnsupportedBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError: composition order start の owner recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError:
+    kind %GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind
+    fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind
+
+struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery:
+    fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error %fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError \kind\fill_owner\stroke_owner\lower_join_error:
+    GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError kind fill_owner stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple %fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError \kind\fill_owner\stroke_owner:
+    let lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error kind fill_owner stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_join_failed %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError \fill_owner\stroke_owner\lower_join_error_value:
+    let lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind some lower_join_error_value
+    gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeJoinGeometryInvariantFailed fill_owner stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_kind %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_lower_join_error %fn &GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \error:
+    *field::get_ref error "lower_join_error"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery %fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery \error:
+    let fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get error "fill_owner"
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get error "stroke_owner"
+    GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery fill_owner stroke_owner
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind Result i32 GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_fill_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_stroke_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_fill_owner_invariants %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner Result unit GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+    match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_fill_shape &shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillAlphaMaxInvalid
+                else:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+                    if ne owner_cell_count shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillAlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_len owner
+                            if ne alpha_cells_len shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillAlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_cap owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillAlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner Result unit GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_shape owner
+    match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_stroke_shape &shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_max owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaMaxInvalid
+                else:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_cell_count owner
+                    if ne owner_cell_count shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_len owner
+                            if ne alpha_cells_len shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_cap owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_shape_match %fn &GuiSfntSimpleGlyphRasterCoverageShape fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind \fill_shape\stroke_shape:
+    let fill_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 fill_shape
+    let stroke_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 stroke_shape
+    if ne fill_origin_x2 stroke_origin_x2:
+        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeOriginXMismatch
+        else:
+            let fill_origin_y2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 fill_shape
+            let stroke_origin_y2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 stroke_shape
+            if ne fill_origin_y2 stroke_origin_y2:
+                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeOriginYMismatch
+                else:
+                    let fill_width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px fill_shape
+                    let stroke_width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px stroke_shape
+                    if ne fill_width_px stroke_width_px:
+                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeWidthMismatch
+                        else:
+                            let fill_height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px fill_shape
+                            let stroke_height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px stroke_shape
+                            if ne fill_height_px stroke_height_px:
+                                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeHeightMismatch
+                                else:
+                                    let fill_sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale fill_shape
+                                    let stroke_sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale stroke_shape
+                                    if ne fill_sample_scale stroke_sample_scale:
+                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeSampleScaleMismatch
+                                        else:
+                                            let fill_coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max fill_shape
+                                            let stroke_coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max stroke_shape
+                                            if ne fill_coverage_max stroke_coverage_max:
+                                                then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeCoverageMaxMismatch
+                                                else:
+                                                    let fill_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count fill_shape
+                                                    let stroke_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count stroke_shape
+                                                    if ne fill_cell_count stroke_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner &GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner \stroke_owner:
+    let join_geometry_owner %&GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get_ref stroke_owner "join_geometry_owner"
+    let edge_closure_owner %&GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get_ref join_geometry_owner "edge_closure_owner"
+    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref edge_closure_owner "side_edge_owner"
+    let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref side_edge_owner "geometry_owner"
+    let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref geometry_owner "source_owner"
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref source_owner "metric_owner"
+    field::get_ref metric_owner "plan_owner"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_point_equal %fn GuiPoint fn GuiPoint bool \left\right:
+    let x_matches %bool eq gui_point_x &left gui_point_x &right
+    let y_matches %bool eq gui_point_y &left gui_point_y &right
+    and x_matches y_matches
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_rgba_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
+    let left_r %i32 cast rgba8888_r &left
+    let left_g %i32 cast rgba8888_g &left
+    let left_b %i32 cast rgba8888_b &left
+    let left_a %i32 cast rgba8888_a &left
+    let right_r %i32 cast rgba8888_r &right
+    let right_g %i32 cast rgba8888_g &right
+    let right_b %i32 cast rgba8888_b &right
+    let right_a %i32 cast rgba8888_a &right
+    and and eq left_r right_r eq left_g right_g and eq left_b right_b eq left_a right_a
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
+    let left_color %Rgba8888 gui_paint_color &left
+    let right_color %Rgba8888 gui_paint_color &right
+    gui_sfnt_simple_glyph_render_glyph_paint_composition_order_rgba_equal left_color right_color
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_equal %fn GuiBlendMode fn GuiBlendMode bool \left\right:
+    match left:
+        GuiBlendMode::SourceOver:
+            match right:
+                GuiBlendMode::SourceOver:
+                    true
+                _:
+                    false
+        GuiBlendMode::Copy:
+            match right:
+                GuiBlendMode::Copy:
+                    true
+                _:
+                    false
+        GuiBlendMode::Multiply:
+            match right:
+                GuiBlendMode::Multiply:
+                    true
+                _:
+                    false
+        GuiBlendMode::Screen:
+            match right:
+                GuiBlendMode::Screen:
+                    true
+                _:
+                    false
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_supported %fn GuiBlendMode bool \blend:
+    match blend:
+        GuiBlendMode::SourceOver:
+            true
+        GuiBlendMode::Copy:
+            false
+        GuiBlendMode::Multiply:
+            false
+        GuiBlendMode::Screen:
+            false
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_start %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner Result GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError \fill_owner\stroke_owner:
+    match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_fill_owner_invariants &fill_owner:
+        Result::Err fill_error:
+            Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple fill_error fill_owner stroke_owner
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants &stroke_owner:
+                Result::Err stroke_error:
+                    Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple stroke_error fill_owner stroke_owner
+                Result::Ok _:
+                    let join_geometry_owner %&GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get_ref &stroke_owner "join_geometry_owner"
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner:
+                        Result::Err lower_join_error:
+                            Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_join_failed fill_owner stroke_owner lower_join_error
+                        Result::Ok _:
+                            let fill_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape &fill_owner
+                            let stroke_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_shape &stroke_owner
+                            match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_shape_match &fill_shape &stroke_shape:
+                                Result::Err shape_error:
+                                    Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple shape_error fill_owner stroke_owner
+                                Result::Ok _:
+                                    let stroke_plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner &stroke_owner
+                                    let stroke_fill %Option GuiPaint gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_fill stroke_plan_owner
+                                    match stroke_fill:
+                                        Option::None:
+                                            Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::MissingStrokeFillMetadata fill_owner stroke_owner
+                                        Option::Some stroke_fill_paint:
+                                            let fill_origin %GuiPoint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin &fill_owner
+                                            let stroke_origin %GuiPoint gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_origin stroke_plan_owner
+                                            if not gui_sfnt_simple_glyph_render_glyph_paint_composition_order_point_equal fill_origin stroke_origin:
+                                                then Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::OriginMismatch fill_owner stroke_owner
+                                                else:
+                                                    let fill_blend %GuiBlendMode gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_blend &fill_owner
+                                                    let stroke_blend %GuiBlendMode gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_blend stroke_plan_owner
+                                                    if not gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_equal fill_blend stroke_blend:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::BlendMismatch fill_owner stroke_owner
+                                                        else:
+                                                            if not gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_supported fill_blend:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::UnsupportedBlendMode fill_owner stroke_owner
+                                                                else:
+                                                                    let fill_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint &fill_owner
+                                                                    if not gui_sfnt_simple_glyph_render_glyph_paint_composition_order_paint_equal fill_paint stroke_fill_paint:
+                                                                        then Result::Err gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::FillPaintMismatch fill_owner stroke_owner
+                                                                        else:
+                                                                            let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke stroke_plan_owner
+                                                                            let owner %GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner fill_owner stroke_owner fill_origin fill_paint stroke fill_blend 0 1
+                                                                            Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_free %impure fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner unit \owner:
+    let fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get owner "fill_owner"
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get owner "stroke_owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free fill_owner
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_free %impure fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError unit \error:
+    let recovery %GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery error
+    gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery_free recovery
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery_free %impure fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery unit \recovery:
+    let fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get recovery "fill_owner"
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get recovery "stroke_owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free fill_owner
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
