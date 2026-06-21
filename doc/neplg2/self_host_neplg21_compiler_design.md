@@ -3048,6 +3048,10 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 この follow-up は `collector_owned_traversal_bundle_with_owners_result` や `actual_traversal_bundle_stage0_with_sources_result` の fixture witness metadata を production body reader bundle path に使わない。source helper の失敗、operation table projection failure、event build failure、split failure、collector failure は `Stage0SourceRejected` として source/build 境界で閉じ、collector 後の `RegionProofUnsupported` / `RegionProofObservationRejected` / `RegionProofMayEscape` / fresh witness rejection は包み直さず返す。これにより、body reader bundle producer は source-only smoke ではなく operation classifier / unified event split / collector / source-derived witness の lifecycle に接続された。
 
+2026-06-22 second follow-up では、source table validation、source-to-operation projection、context-owned unified event build を `actual_traversal_body_reader_events_from_context_sources_result` に集約した。request context から event table owner を作る入口も `actual_traversal_body_reader_events_from_request_context_result` に分け、output path と bundle path は event table owner を split するだけにした。これにより、output helper と bundle helper が別々に source / operation / event build を実装せず、owner cleanup と typed bridge error の扱いが body reader event producer 境界にまとまる。
+
+この event producer 境界は split、collector、source-derived witness、request evidence gate を持たない。request-context helper は resolver-bound HIR body source reader を 1 回だけ呼び、source validation は context-source event helper へ集約する。bundle path の split failure は `Stage0SourceRejected(NormalizerRejected)`、output path の split failure は `ActualTraversalBodyNormalizerRejected` として、それぞれの外側で写す。
+
 この follow-up も full Resource IR walker 本体ではない。現時点では HIR body reader source plan が operation-classified collector path へ収束しただけであり、actual Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する boundary は後続に残る。
 
 残件:

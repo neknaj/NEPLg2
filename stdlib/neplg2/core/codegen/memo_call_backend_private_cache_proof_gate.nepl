@@ -9946,33 +9946,60 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result: context-bound source owner を unified event owner へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - body reader が作った source table owner を、validation、operation projection、context-owned event table build までの 1 境界に集約します。
+//:
+//: [契約/けいやく]:
+//: - source table owner は validation / projection の成功・失敗にかかわらずこの helper が必ず閉じます。
+//: - operation table owner は event table build の成功・失敗にかかわらずこの helper が必ず閉じます。
+//: - success payload は event table owner だけです。split、collector、fresh witness、GraphInput、proof table、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\sources:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+        Result::Ok _valid:
+            let operations_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            match operations_result:
+                Result::Ok operations:
+                    let event_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+                    event_result
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result: request context から unified event owner を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolver-bound HIR body reader source plan を読み、その source owner を context-bound event producer 境界へ渡します。
+//:
+//: [契約/けいやく]:
+//: - source table validation は `actual_traversal_body_reader_events_from_context_sources_result` に集約し、request-context helper では二重に行いません。
+//: - success payload は event table owner だけです。split、collector、fresh witness、GraphInput、proof table、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result: source plan から reader output owner を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - source table は context-bound validation を通してから operation table / unified event / split output へ進めます。
-//: - source table owner と operation table owner は、この helper が success / failure のどちらでも閉じます。split output の walker input / observation table owner は success payload だけが保持します。
+//: - source table は context-bound event producer 境界を通してから split output へ進めます。
+//: - source table owner と operation table owner は event producer helper が閉じます。split output の walker input / observation table owner は success payload だけが保持します。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind \context\sources:
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
-        Result::Ok _valid:
-            match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources:
-                Result::Ok operations:
-                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
-                    let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations:
-                        Result::Ok events:
-                            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
-                                Result::Ok output:
-                                    Result::Ok output
-                                Result::Err e:
-                                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyNormalizerRejected e
-                        Result::Err e:
-                            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e
-                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
-                    result
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources:
+        Result::Ok events:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+                Result::Ok output:
+                    Result::Ok output
                 Result::Err e:
-                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyNormalizerRejected e
         Result::Err e:
-            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result: recheck 済み context から reader output を[作/つく]る
@@ -9986,9 +10013,13 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_
 //: - output は必ず `ResourceWalkerInput` owner と `ObservationBanTable` owner の pair として返します。fresh witness、GraphInput、proof table、effect mask、backend bytes、artifact key はここでは作りません。
 //: - source / operation / event 構築に失敗した場合は typed availability error として fail-closed にします。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind \module\context\resolutions:
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions:
-        Result::Ok sources:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context sources
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result module context resolutions:
+        Result::Ok events:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+                Result::Ok output:
+                    Result::Ok output
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyNormalizerRejected e
         Result::Err e:
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e
 
@@ -12717,52 +12748,38 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_
 //: - request context 由来 source table を operation table、context-owned unified event stream、split output、collector-owned source table の順に通してから fresh witness bundle を作ります。
 //:
 //: [契約/けいやく]:
-//: - source table owner は operation table 投影後、成功・失敗のどちらでもこの helper が閉じます。
-//: - operation table owner は event table build 後、成功・失敗のどちらでもこの helper が閉じます。
+//: - source table owner と operation table owner は event producer helper が閉じます。
 //: - event table owner は split helper が成功・失敗のどちらでも閉じます。
 //: - source table / operation table / event table / split output を public API に出しません。GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\sources:
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
-        Result::Ok _valid:
-            let operations_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources
-            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
-            match operations_result:
-                Result::Ok operations:
-                    let output_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations:
-                        Result::Ok events:
-                            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
-                                Result::Ok output:
-                                    Result::Ok output
-                                Result::Err e:
-                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e
-                        Result::Err e:
-                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
-                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
-                    match output_result:
-                        Result::Ok output:
-                            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output
-                        Result::Err e:
-                            Result::Err e
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources:
+        Result::Ok events:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+                Result::Ok output:
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output
                 Result::Err e:
-                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e
         Result::Err e:
-            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result: body reader source と fresh witness を bundle に[束/たば]ねる
 //:
 //: [目的/もくてき]:
-//: - resolver-bound body reader が作る request-local source table を、operation-classified collector path と source-derived fresh witness owner に通して同じ bundle boundary で返します。
+//: - resolver-bound body reader が作る request-local event table を、split output、operation-classified collector path、source-derived fresh witness owner に通して同じ bundle boundary で返します。
 //:
 //: [契約/けいやく]:
-//: - source table 化は `actual_traversal_body_adapter_sources_from_request_context_result` を通し、request context / resolver / HIR body reader の authority を再利用します。
-//: - source validation に成功した後だけ source-to-operation projection、context-owned classifier event stream、split、collector、source-derived witness helper へ進みます。
+//: - request context から source table と event table を作る部分は `actual_traversal_body_reader_events_from_request_context_result` に集約します。
+//: - event build に成功した後だけ split、collector、source-derived witness helper へ進みます。
 //: - この helper は full Resource IR traversal 完了を意味しません。現 checkpoint では HIR body reader source plan を operation-classified bundle producer boundary へ収束させます。
 //: - availability/output roundtrip、input-owner adapter、external witness metadata、stage0 witness fixture、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\context\resolutions:
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions:
-        Result::Ok sources:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result context sources
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result module context resolutions:
+        Result::Ok events:
+            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+                Result::Ok output:
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 

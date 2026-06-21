@@ -1,3 +1,28 @@
+# 2026-06-22 selfhost memo_call backend body reader typed event producer checkpoint
+
+## 目的
+
+- actual body reader の source table validation、source-to-operation projection、context-owned unified event build を `actual_traversal_body_reader_events_from_context_sources_result` に集約する。
+- request context から event table owner を作る入口を `actual_traversal_body_reader_events_from_request_context_result` として分け、output path と bundle path は event owner を split するだけにする。
+- full Resource IR / HIR lowering body traversal、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Zeno plan review は `PLAN_APPROVED`。重複している validate / projection / event build を event producer helper に集約する方針は、前回の operation-classified collector path から後退しないと確認された。
+- 指摘に従い、event helper は split / collector / witness を持たず、source owner と operation owner の cleanup だけを所有する。request-context helper は raw reader source helper から context-source event helperへ渡し、validation は event helper 内に 1 回だけ集約した。
+
+## 実装
+
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result` を追加し、context validation、operation projection、source owner close、context-owned event build、operation owner close までを 1 境界にした。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result` を追加し、resolver-bound HIR body reader source plan から event producer 境界へ渡すだけにした。
+- `actual_traversal_body_reader_output_from_context_sources_result` / `actual_traversal_body_reader_output_from_request_context_result` / `actual_traversal_body_reader_bundle_from_context_sources_result` / `actual_traversal_body_reader_bundle_from_request_context_result` は event helper -> split へ薄くした。
+- contract test は event helper が split / collector / source-derived witness / root-wide classifier / fixture witness / GraphInput / proof / backend / effect / artifact を持たないこと、output / bundle helper が validate / projection / event build を重複実装しないことを固定した。
+
+## 残件
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 # 2026-06-22 selfhost memo_call backend operation-classified body reader bundle checkpoint
 
 ## 目的
