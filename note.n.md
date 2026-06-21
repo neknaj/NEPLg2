@@ -1,3 +1,39 @@
+# 2026-06-21 Agent2 GUI font F5lp shadow source composition order boundary
+
+## 目的
+
+- F5lo completed shadow source packed mask owner を direct authority として消費し、shadow contribution を source paint より前に置く order metadata を固定する。
+- F5lk context 由来の placement / shadow paint / blend は downstream 用の固定証跡として保持し、completed invariant で nested context と再照合する。
+- fill/stroke composition、sample cursor、resource reservation、render command、pixel write、platform API、font fallback、shadow rasterizer、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner`、start error kind、start error、recovery、start / invariant / context / free helper を追加した。
+- start は F5lo packed mask owner invariant、nested F5lk edge owner invariant、SourceOver-only blend support を検査し、`shadow_order = 0`、`source_order = 1` を固定する。
+- completed invariant は F5lo owner invariant、nested F5lk edge owner invariant、context metadata equality、SourceOver-only support、fixed order を再検査する。
+- start error は lower packed mask error evidence と lower edge error evidence を保持する。Hume implementation review 1 の指摘により、F5lo invariant が nested edge invalidity を `EdgeOwnerInvariantFailed` に畳んだ packed failure path でも nested edge invariant を再実行し、具体的な F5lk edge error kind を併せて保持するよう修正した。
+- owner / recovery free は F5lo packed mask owner を閉じる経路に一本化した。
+- Hume plan review は `PLAN_APPROVED`。completed F5lo owner だけを direct authority とし、F5lo invariant と nested F5lk edge/context invariant を再検査する設計が承認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md --no-tree -o tmp_gui_font_render_shadow_source_composition_order_f5lp.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_f5lp_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lp.json -j 1` は 1312 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lp.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lp.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Hume implementation review 1 は `CHANGES_REQUESTED`。F5lo invariant failure が lower edge error を packed error に畳む path で concrete edge evidence が失われる点を指摘された。
+- 指摘対応として packed `EdgeOwnerInvariantFailed` path で nested F5lk edge invariant を再実行し、packed error と concrete edge error の両方を start error に保持するようにした。
+- Hume follow-up implementation review は `REVIEW_APPROVED`。
+
+## 残件
+
+- F5lp 後続として、shadow source sample/resource/command bridge、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lo shadow source packed mask owner boundary
 
 ## 目的

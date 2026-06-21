@@ -7784,6 +7784,44 @@ F5lo also provides a completed owner invariant for later composition boundaries.
 
 F5lo must not call generic raster packed mask owners, stroke packed mask owners, fill alpha mask helpers, glyph paint composition order helpers, render command constructors, resource table helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
 
+## SFNT simple glyph render shadow source composition order boundary
+
+F5lp consumes the completed F5lo shadow source packed mask owner and fixes only the shadow contribution order relative to the source paint. It is still pre-sample, pre-resource, pre-command, pre-pixel, pre-platform, and pre-compositor.
+
+Hume plan review was `PLAN_APPROVED`. The review confirmed that F5lp should use only the completed F5lo owner as direct authority, keep fill/stroke owners out of this boundary, preserve lower packed-mask and lower edge error evidence, and store shadow paint / blend / placement metadata only as downstream fixed evidence revalidated against the nested F5lk context.
+
+The completed owner is owner-bearing and non-copyable:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner:
+    shadow_owner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner
+    source_placement_origin GuiPoint
+    shadow_offset GuiPoint
+    shadow_extent i32
+    shadow_paint GuiPaint
+    blend GuiBlendMode
+    shadow_order i32
+    source_order i32
+```
+
+`shadow_order` is fixed to `0` and `source_order` is fixed to `1`. This represents shadow contribution before the source paint. It does not imply a render command or pixel write; it is metadata for the later bridge.
+
+Start validates:
+
+```text
+F5lo completed packed mask owner invariant holds
+nested F5lk edge owner invariant holds
+context blend is supported by the shadow source edge helper
+shadow_order == 0
+source_order == 1
+```
+
+When the F5lo invariant fails, the start error stores the returned packed-mask error kind as lower packed error evidence. If the packed-mask invariant collapsed nested edge invalidity into `EdgeOwnerInvariantFailed`, F5lp probes the nested edge invariant again and stores the concrete lower edge error evidence alongside the packed error. When the explicit nested F5lk edge owner invariant fails after a successful F5lo invariant, the start error stores the returned lower edge error evidence. Recovery keeps the original F5lo owner so ownership can be closed exactly once.
+
+The completed invariant revalidates the F5lo owner and nested F5lk edge owner, then compares the stored `source_placement_origin`, `shadow_offset`, `shadow_extent`, `shadow_paint`, and `blend` against the current F5lk context. Point, paint, and blend equality use the typed F5lk helpers rather than raw field comparison. The invariant also rechecks SourceOver-only support and the fixed order values.
+
+F5lp must not consume fill/stroke owners, call F5lg or F5lh glyph paint composition helpers, allocate resource IDs, emit render commands, reserve tables, sample pixels, write software surfaces, call platform/backend APIs, invoke fallback, use shadow rasterizers, or drain a compositor.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
