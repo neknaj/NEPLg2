@@ -81,6 +81,7 @@
 #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_operation_public_impl_materializer_record" as *
 #import "./memo_trait_public_impl_header" as *
 #import "./memo_trait_public_surface_normalizer" as *
 

@@ -234,11 +234,12 @@ pub fn selfhost_lifetime_outlives_issue_new %fn SelfhostLifetimeId fn SelfhostLi
 //: SelfhostEffectBoundaryError: effect boundary proof の失敗分類
 //:
 //: [目的/もくてき]:
-//: - pure context の impure effect、unsafe boundary 外の unsafe memory、no-escape 未証明の internal allocation を typed reason として表します。
+//: - pure context の impure effect、unsafe boundary 外の unsafe memory、no-escape 未証明の internal allocation / private effect を typed reason として表します。
 pub enum SelfhostEffectBoundaryError:
     ImpureEffectInPureContext
     UnsafeMemoryOutsideBoundary
     InternalAllocEscapeNotProven
+    PrivateEffectEscapeNotProven
 
 impl Clone for SelfhostEffectBoundaryError:
     fn clone %fn &SelfhostEffectBoundaryError SelfhostEffectBoundaryError \self:

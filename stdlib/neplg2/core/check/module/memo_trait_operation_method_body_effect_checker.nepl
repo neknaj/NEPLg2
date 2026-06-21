@@ -144,6 +144,10 @@ fn selfhost_memo_trait_operation_method_body_call_effect_summary %fn SelfhostEff
             selfhost_memo_trait_operation_method_body_effect_summary_pure
         SelfhostEffectKind::InternalAlloc:
             selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::PrivateState:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::PrivateState SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::PrivateCache:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
         SelfhostEffectKind::UnsafeMemory:
             selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::UnsafeMemory SelfhostEffectEscapeState::NotApplicable
         SelfhostEffectKind::ExternalIo:
@@ -161,12 +165,16 @@ fn selfhost_memo_trait_operation_method_body_effect_rank %fn SelfhostEffectKind 
             0
         SelfhostEffectKind::InternalAlloc:
             1
-        SelfhostEffectKind::UnsafeMemory:
+        SelfhostEffectKind::PrivateState:
             2
-        SelfhostEffectKind::ExternalIo:
+        SelfhostEffectKind::PrivateCache:
             3
-        SelfhostEffectKind::Nondet:
+        SelfhostEffectKind::UnsafeMemory:
             4
+        SelfhostEffectKind::ExternalIo:
+            5
+        SelfhostEffectKind::Nondet:
+            6
 
 //: selfhost_memo_trait_operation_method_body_stronger_effect: 2 つの effect kind から強い方を[返/かえ]す
 fn selfhost_memo_trait_operation_method_body_stronger_effect %fn SelfhostEffectKind fn SelfhostEffectKind SelfhostEffectKind \a\b:
@@ -177,7 +185,7 @@ fn selfhost_memo_trait_operation_method_body_stronger_effect %fn SelfhostEffectK
         else:
             a
 
-//: selfhost_memo_trait_operation_method_body_escape_combine: `InternalAlloc` 同士の escape summary を[結合/けつごう]する
+//: selfhost_memo_trait_operation_method_body_escape_combine: private/internal effect 同士の escape summary を[結合/けつごう]する
 fn selfhost_memo_trait_operation_method_body_escape_combine %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState SelfhostEffectEscapeState \a\b:
     match a:
         SelfhostEffectEscapeState::MayEscape:
@@ -202,15 +210,24 @@ fn selfhost_memo_trait_operation_method_body_escape_combine %fn SelfhostEffectEs
 //: selfhost_memo_trait_operation_method_body_summary_combine: 2 つの summary を[結合/けつごう]する
 //:
 //: [契約/けいやく]:
-//: - `InternalAlloc` が最終 effect のときだけ escape state を保持します。
-//: - `UnsafeMemory` / `ExternalIo` / `Nondet` が混じる場合、private allocation の escape proof より観測可能 effect が優先されるため escape は `NotApplicable` に戻します。
+//: - `InternalAlloc` / `PrivateState` / `PrivateCache` が最終 effect のときだけ escape state を保持します。
+//: - `UnsafeMemory` / `ExternalIo` / `Nondet` が混じる場合、private/internal effect の escape proof より観測可能 effect が優先されるため escape は `NotApplicable` に戻します。
 fn selfhost_memo_trait_operation_method_body_summary_combine %fn SelfhostMemoTraitOperationMethodBodyEffectSummary fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectSummary \a\b:
     let effect %SelfhostEffectKind selfhost_memo_trait_operation_method_body_stronger_effect a.effect b.effect
-    if:
-        selfhost_effect_kind_eq effect SelfhostEffectKind::InternalAlloc
-        then:
+    match effect:
+        SelfhostEffectKind::Pure:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::InternalAlloc:
             selfhost_memo_trait_operation_method_body_effect_summary_new effect selfhost_memo_trait_operation_method_body_escape_combine a.escape b.escape
-        else:
+        SelfhostEffectKind::PrivateState:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect selfhost_memo_trait_operation_method_body_escape_combine a.escape b.escape
+        SelfhostEffectKind::PrivateCache:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect selfhost_memo_trait_operation_method_body_escape_combine a.escape b.escape
+        SelfhostEffectKind::UnsafeMemory:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::ExternalIo:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::Nondet:
             selfhost_memo_trait_operation_method_body_effect_summary_new effect SelfhostEffectEscapeState::NotApplicable
 
 //: selfhost_memo_trait_operation_method_body_effect_fold_children_loop: child range を左から右へ[畳/たた]む

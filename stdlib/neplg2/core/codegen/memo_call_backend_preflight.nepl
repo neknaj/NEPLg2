@@ -1,0 +1,362 @@
+#indent 4
+
+//: # codegen/memo_call_backend_preflight
+//: HIR root から `MemoizedFunctionValue` backend request を[再/さい][検査/けんさ]し、PrivateCache proof がまだ接続されていない非空 request を fail-closed に[止/と]める module です。
+//:
+//: [目的/もくてき]:
+//: - backend request table は HIR leaf から作られる typed manifest ですが、table struct 自体は public な値です。この module は public table を直接 authority にせず、borrowed `SelfhostHirModule` と root expression から request table を内部で作り、各 entry を HIR payload に対して再照合します。
+//: - `MemoizedFunctionValue` を通常の `FnValue` と同化させないため、backend bytes や sealed cache representation を作る前に、memoized backend materialization が必要であることを typed preflight で確定します。
+//: - PrivateCache / PrivateState effect masking、stable artifact key、prechecked proof がまだ未接続の段階では、非空 request を accepted backend plan として返さず、typed error で fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - public entrypoint は HIR module borrow、root expr id、traversal fuel だけを受け取ります。caller supplied request table や source text は accepted authority にしません。
+//: - request entry は `memoized_expr_id` で HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` の再実行結果と `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を照合します。
+//: - request が 0 件なら、memoized backend materialization は不要なので `Result::Ok(summary)` を返します。
+//: - request が 1 件以上ある場合、現段階では `PrivateCacheProofUnavailable(expr_id)` を返します。この error は「不正な HIR」ではなく、PrivateCache proof boundary と stable artifact key projection が未接続であるため backend accepted path へ進めないことを示します。
+//: - `diagnostic_symbol`、`diagnostic_span`、関数名、`memo_call` という文字列、source token は accepted 判定や cache namespace の authority ではありません。
+//:
+//: [現状/げんじょう]:
+//: - この module は backend preflight の境界だけを実装します。PrivateCache region、cache lookup / insert、hit / miss、cache size、clear、Resource IR proof、proof store、prechecked artifact、`.neplobj` fragment、Wasm / LLVM bytes は作りません。
+//: - 永続 artifact key は `SelfhostHirExprId`、`SelfhostDefId`、`SelfhostTypeId` だけから作れません。これらは session-local identity なので、後続 stage で module source identity、typed public surface hash、policy hash、stable type argument identity と組み合わせる必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - request collection は HIR root subtree の expression 数を `n` とすると O(n) 時間です。
+//: - request entry recheck は accepted request 数を `m` とすると O(m) 時間です。
+//: - 追加で保持する owner buffer は request table 1 つで O(m) 空間です。成功・失敗どちらでもこの module が request table owner を閉じます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_preflight" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_call_backend_preflight_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check_eq_i32 0 summary.empty_request_count
+//:             let expected_expr %SelfhostHirExprId selfhost_hir_expr_id_new 0
+//:             let checks2 checks_push checks1 check selfhost_memo_call_backend_preflight_private_cache_proof_unavailable_result_eq summary.non_empty_blocked expected_expr
+//:             let shown checks_print_report checks2
+//:             checks_exit_code shown
+//:         Result::Err _error:
+//:             let checks1 checks_push checks0 Result::Err "memo_call backend preflight stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./memo_call_backend_request" as *
+#import "./memo_call_backend_request_table" as *
+
+//: SelfhostMemoCallBackendPreflightSummary: backend preflight の accepted summary
+//:
+//: [目的/もくてき]:
+//: - memoized backend materialization が不要な HIR root を、request count 付きで成功として返します。
+//:
+//: [契約/けいやく]:
+//: - 現段階で成功するのは `request_count == 0` の場合だけです。非空 request は PrivateCache proof boundary が接続されるまで accepted backend plan にしません。
+pub struct SelfhostMemoCallBackendPreflightSummary:
+    request_count %i32
+
+impl Clone for SelfhostMemoCallBackendPreflightSummary:
+    fn clone %fn &SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightSummary \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPreflightSummary:
+    fn copy_mark %fn SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightSummary \self:
+        self
+
+//: SelfhostMemoCallBackendPreflightStage0Summary: preflight smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - request 0 件の成功と、memoized request 非空時の PrivateCache proof 未接続 rejection を同じ doctest で確認できるようにします。
+pub struct SelfhostMemoCallBackendPreflightStage0Summary:
+    empty_request_count %i32
+    non_empty_blocked %Result i32 SelfhostMemoCallBackendPreflightErrorKind
+
+impl Clone for SelfhostMemoCallBackendPreflightStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPreflightStage0Summary SelfhostMemoCallBackendPreflightStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPreflightStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPreflightStage0Summary SelfhostMemoCallBackendPreflightStage0Summary \self:
+        self
+
+//: SelfhostMemoCallBackendPreflightErrorKind: backend preflight の失敗分類
+//:
+//: [目的/もくてき]:
+//: - request collection、HIR 再照合、PrivateCache proof 未接続、stable artifact key 未接続を表示文ではなく enum payload として返します。
+//:
+//: [契約/けいやく]:
+//: - `RequestCollectionFailed` は下位 collector の typed error を保持します。
+//: - `RequestRecheckRejected` は request entry が指す HIR expression を request builder に再投入した結果の typed rejection です。
+//: - `PrivateCacheProofUnavailable` と `StableArtifactKeyUnavailable` は、backend accepted path に必要な証拠がまだ存在しないことを表します。これらを `Ok` の plan entry に入れてはいけません。
+//: - `Stage0FixtureAllocFailed` は doctest fixture 用の allocation 失敗であり、production preflight の semantic error ではありません。
+pub enum SelfhostMemoCallBackendPreflightErrorKind:
+    RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind
+    RequestEntryMissing %i32
+    RequestExpressionMissing %SelfhostHirExprId
+    RequestRecheckRejected %SelfhostMemoCallBackendRequestRejection
+    RequestIdentityMismatch %SelfhostHirExprId
+    PrivateCacheProofUnavailable %SelfhostHirExprId
+    StableArtifactKeyUnavailable %SelfhostHirExprId
+    Stage0FixtureAllocFailed %StdErrorKind
+
+impl Clone for SelfhostMemoCallBackendPreflightErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPreflightErrorKind SelfhostMemoCallBackendPreflightErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPreflightErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPreflightErrorKind SelfhostMemoCallBackendPreflightErrorKind \self:
+        self
+
+//: selfhost_memo_call_backend_preflight_error_code: preflight error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - equality helper が wildcard fallback を使わず、variant 追加時に match の網羅性検査で止まるようにします。
+fn selfhost_memo_call_backend_preflight_error_code %fn SelfhostMemoCallBackendPreflightErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPreflightErrorKind::RequestCollectionFailed _e:
+            1
+        SelfhostMemoCallBackendPreflightErrorKind::RequestEntryMissing _index:
+            2
+        SelfhostMemoCallBackendPreflightErrorKind::RequestExpressionMissing _expr_id:
+            3
+        SelfhostMemoCallBackendPreflightErrorKind::RequestRecheckRejected _rejection:
+            4
+        SelfhostMemoCallBackendPreflightErrorKind::RequestIdentityMismatch _expr_id:
+            5
+        SelfhostMemoCallBackendPreflightErrorKind::PrivateCacheProofUnavailable _expr_id:
+            6
+        SelfhostMemoCallBackendPreflightErrorKind::StableArtifactKeyUnavailable _expr_id:
+            7
+        SelfhostMemoCallBackendPreflightErrorKind::Stage0FixtureAllocFailed _e:
+            8
+
+//: selfhost_memo_call_backend_preflight_error_kind_eq: preflight error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が表示文ではなく enum 分類を比較できるようにします。
+pub fn selfhost_memo_call_backend_preflight_error_kind_eq %fn SelfhostMemoCallBackendPreflightErrorKind fn SelfhostMemoCallBackendPreflightErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_preflight_error_code a selfhost_memo_call_backend_preflight_error_code b
+
+//: selfhost_memo_call_backend_preflight_private_cache_proof_unavailable_result_eq: expected expr の proof unavailable error か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stage0 doctest が、非空 memoized request を accepted plan にせず PrivateCache proof 未接続で止めたことを確認します。
+pub fn selfhost_memo_call_backend_preflight_private_cache_proof_unavailable_result_eq %fn Result i32 SelfhostMemoCallBackendPreflightErrorKind fn SelfhostHirExprId bool \result\expected_expr_id:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoCallBackendPreflightErrorKind::PrivateCacheProofUnavailable actual_expr_id:
+                    eq selfhost_hir_expr_id_index actual_expr_id selfhost_hir_expr_id_index expected_expr_id
+                SelfhostMemoCallBackendPreflightErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::RequestEntryMissing _index:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::RequestExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::RequestRecheckRejected _rejection:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::RequestIdentityMismatch _expr_id:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::StableArtifactKeyUnavailable _expr_id:
+                    false
+                SelfhostMemoCallBackendPreflightErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_preflight_request_record_matches: table entry と HIR 再構築 request が一致するか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - forged request table や stale request table を accepted path に使わないため、typed field を HIR 由来の再構築 request と照合します。
+//:
+//: [契約/けいやく]:
+//: - diagnostic metadata は比較しません。`diagnostic_symbol` と `diagnostic_span` は表示・source map 用であり、identity authority ではないためです。
+fn selfhost_memo_call_backend_preflight_request_record_matches %fn &SelfhostMemoCallBackendRequestTableEntry fn SelfhostMemoCallBackendRequest bool \entry\rebuilt:
+    let stored %SelfhostMemoCallBackendRequest *field::get_ref entry "request"
+    let stored_kind_ok %bool match stored.request_kind:
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            true
+    let rebuilt_kind_ok %bool match rebuilt.request_kind:
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            true
+    let def_id_ok %bool selfhost_def_id_eq stored.source_function_def_id rebuilt.source_function_def_id
+    let type_ok %bool selfhost_type_id_eq stored.function_ty rebuilt.function_ty
+    let stored_effect_ok %bool selfhost_effect_kind_eq stored.source_effect SelfhostEffectKind::Pure
+    let rebuilt_effect_ok %bool selfhost_effect_kind_eq rebuilt.source_effect SelfhostEffectKind::Pure
+    let type_args_ok %bool and eq stored.type_arg_count 0 eq rebuilt.type_arg_count 0
+    and stored_kind_ok and rebuilt_kind_ok and and def_id_ok type_ok and and stored_effect_ok rebuilt_effect_ok type_args_ok
+
+//: selfhost_memo_call_backend_preflight_recheck_entry_result: 1 request entry を HIR に対して[再/さい][検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - request table entry の occurrence id から HIR expression を引き直し、request builder を再実行します。
+//:
+//: [契約/けいやく]:
+//: - HIR expression が欠落していれば `RequestExpressionMissing` を返します。
+//: - HIR payload が request builder で拒否される場合は `RequestRecheckRejected` を返し、下位 error kind を保持します。
+//: - 再構築 request と entry の typed field が一致しなければ `RequestIdentityMismatch` を返します。
+fn selfhost_memo_call_backend_preflight_recheck_entry_result %fn &SelfhostHirModule fn SelfhostMemoCallBackendRequestTableEntry Result unit SelfhostMemoCallBackendPreflightErrorKind \module\entry:
+    match selfhost_hir_module_get_expr module entry.memoized_expr_id:
+        Option::Some expr:
+            match selfhost_memo_call_backend_request_from_hir_expr_result &expr:
+                Result::Ok rebuilt:
+                    if:
+                        selfhost_memo_call_backend_preflight_request_record_matches &entry rebuilt
+                        then:
+                            Result::Ok unit
+                        else:
+                            Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestIdentityMismatch entry.memoized_expr_id
+                Result::Err request_error:
+                    Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestRecheckRejected SelfhostMemoCallBackendRequestRejection entry.memoized_expr_id request_error.kind
+        Option::None:
+            Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestExpressionMissing entry.memoized_expr_id
+
+//: selfhost_memo_call_backend_preflight_recheck_loop_result: request table を左から[再/さい][検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - accepted request table を後続 backend へ渡す前に、全 entry が現在の HIR root 由来の memoized leaf と一致することを確認します。
+fn selfhost_memo_call_backend_preflight_recheck_loop_result %fn &SelfhostHirModule fn &SelfhostMemoCallBackendRequestTable fn i32 fn i32 Result unit SelfhostMemoCallBackendPreflightErrorKind \module\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_preflight_recheck_entry_result module entry:
+                        Result::Ok _unit:
+                            selfhost_memo_call_backend_preflight_recheck_loop_result module table add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_preflight_block_non_empty_result: 非空 request を accepted plan にせず[止/と]める
+//:
+//: [目的/もくてき]:
+//: - PrivateCache proof boundary が接続されるまでは、memoized request を backend accepted path へ進めません。
+fn selfhost_memo_call_backend_preflight_block_non_empty_result %fn &SelfhostMemoCallBackendRequestTable Result SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightErrorKind \table:
+    match selfhost_memo_call_backend_request_table_get_entry table 0:
+        Option::Some first_entry:
+            Result::Err SelfhostMemoCallBackendPreflightErrorKind::PrivateCacheProofUnavailable first_entry.memoized_expr_id
+        Option::None:
+            Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestEntryMissing 0
+
+//: selfhost_memo_call_backend_preflight_from_collected_table_result: 内部収集済み table を[検査/けんさ]し owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - `selfhost_memo_call_backend_request_table_from_hir_root_result` で作った owner table を必ず閉じ、request 0 件だけを accepted summary として返します。
+fn selfhost_memo_call_backend_preflight_from_collected_table_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTable Result SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightErrorKind \module\table:
+    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
+    match selfhost_memo_call_backend_preflight_recheck_loop_result module &table 0 request_count:
+        Result::Ok _unit:
+            if:
+                eq request_count 0
+                then:
+                    selfhost_memo_call_backend_request_table_free table
+                    Result::Ok SelfhostMemoCallBackendPreflightSummary request_count
+                else:
+                    let blocked %Result SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightErrorKind selfhost_memo_call_backend_preflight_block_non_empty_result &table
+                    selfhost_memo_call_backend_request_table_free table
+                    blocked
+        Result::Err e:
+            selfhost_memo_call_backend_request_table_free table
+            Result::Err e
+
+//: selfhost_memo_call_backend_preflight_from_hir_root_result: HIR root の memo_call backend preflight を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - backend が `MemoizedFunctionValue` を含む HIR root を lowering する前に、request collection、HIR 再照合、PrivateCache proof availability gate を一括で通します。
+//:
+//: [契約/けいやく]:
+//: - `module` は borrow であり、この関数は閉じません。
+//: - request table はこの関数の内部で作り、成功・失敗どちらでも閉じます。
+//: - request collection 自体が失敗した場合は、下位 collector error を `RequestCollectionFailed` に包んで返します。
+pub fn selfhost_memo_call_backend_preflight_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightErrorKind \module\root\fuel:
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            selfhost_memo_call_backend_preflight_from_collected_table_result module table
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPreflightErrorKind::RequestCollectionFailed e
+
+//: selfhost_memo_call_backend_preflight_stage0_build_plain_module: request 0 件 smoke 用 HIR module を[作/つく]る
+fn selfhost_memo_call_backend_preflight_stage0_build_plain_module %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result SelfhostHirModule StdErrorKind \function_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "plain" def_id function_ty SelfhostEffectKind::Pure
+            let fn_expr %SelfhostHirExpr selfhost_hir_expr_fn_value function_ty span pure_identity
+            match selfhost_hir_module_add_expr module0 fn_expr:
+                Result::Ok expr_alloc:
+                    Result::Ok selfhost_hir_module_expr_alloc_into_module expr_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_preflight_stage0_build_memoized_module: request 非空 smoke 用 HIR module を[作/つく]る
+fn selfhost_memo_call_backend_preflight_stage0_build_memoized_module %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result SelfhostHirModule StdErrorKind \function_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "memo_source" def_id function_ty SelfhostEffectKind::Pure
+            let memo_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span pure_identity
+            match selfhost_hir_module_add_expr module0 memo_expr:
+                Result::Ok expr_alloc:
+                    Result::Ok selfhost_hir_module_expr_alloc_into_module expr_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_preflight_stage0: preflight 境界の代表 smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - request 0 件は成功し、memoized request 非空は PrivateCache proof 未接続で fail-closed になることを確認します。
+pub fn selfhost_memo_call_backend_preflight_stage0 %impure fn void Result SelfhostMemoCallBackendPreflightStage0Summary SelfhostMemoCallBackendPreflightErrorKind \void:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_preflight_stage0_build_plain_module function_ty span def_id:
+        Result::Ok plain_module:
+            let plain_root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_preflight_from_hir_root_result &plain_module plain_root 8:
+                Result::Ok plain_summary:
+                    let empty_request_count %i32 plain_summary.request_count
+                    selfhost_hir_module_free plain_module
+                    match selfhost_memo_call_backend_preflight_stage0_build_memoized_module function_ty span def_id:
+                        Result::Ok memo_module:
+                            let memo_root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                            let non_empty_result %Result SelfhostMemoCallBackendPreflightSummary SelfhostMemoCallBackendPreflightErrorKind selfhost_memo_call_backend_preflight_from_hir_root_result &memo_module memo_root 8
+                            selfhost_hir_module_free memo_module
+                            match non_empty_result:
+                                Result::Ok _unexpected:
+                                    Result::Ok SelfhostMemoCallBackendPreflightStage0Summary empty_request_count (Result::Ok 0)
+                                Result::Err e:
+                                    Result::Ok SelfhostMemoCallBackendPreflightStage0Summary empty_request_count (Result::Err e)
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPreflightErrorKind::Stage0FixtureAllocFailed e
+                Result::Err e:
+                    selfhost_hir_module_free plain_module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPreflightErrorKind::Stage0FixtureAllocFailed e

@@ -268,6 +268,10 @@ assertOrdered(
         "Result::Ok fact",
         "SelfhostEffectKind::InternalAlloc:",
         "selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result proofs fact",
+        "SelfhostEffectKind::PrivateState:",
+        "Result::Ok fact",
+        "SelfhostEffectKind::PrivateCache:",
+        "Result::Ok fact",
         "SelfhostEffectKind::UnsafeMemory:",
         "Result::Ok fact",
         "SelfhostEffectKind::ExternalIo:",
@@ -275,7 +279,7 @@ assertOrdered(
         "SelfhostEffectKind::Nondet:",
         "Result::Ok fact",
     ],
-    "gate must only change InternalAlloc escape state and must not weaken observable effects",
+    "gate must only change InternalAlloc escape state and must not weaken private or observable effects",
 );
 assert.doesNotMatch(
     code,

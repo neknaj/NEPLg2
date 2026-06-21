@@ -537,12 +537,16 @@ fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_effect_kin
             0
         SelfhostEffectKind::InternalAlloc:
             1
-        SelfhostEffectKind::UnsafeMemory:
+        SelfhostEffectKind::PrivateState:
             2
-        SelfhostEffectKind::ExternalIo:
+        SelfhostEffectKind::PrivateCache:
             3
-        SelfhostEffectKind::Nondet:
+        SelfhostEffectKind::UnsafeMemory:
             4
+        SelfhostEffectKind::ExternalIo:
+            5
+        SelfhostEffectKind::Nondet:
+            6
 
 //: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_code: escape state を比較用 code へ[写/うつ]す
 fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_code %fn SelfhostEffectEscapeState i32 \state:

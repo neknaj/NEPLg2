@@ -437,6 +437,10 @@ fn selfhost_memo_trait_operation_drop_no_escape_transform_fact_result %fn &Selfh
             Result::Ok fact
         SelfhostEffectKind::InternalAlloc:
             selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result proofs fact
+        SelfhostEffectKind::PrivateState:
+            Result::Ok fact
+        SelfhostEffectKind::PrivateCache:
+            Result::Ok fact
         SelfhostEffectKind::UnsafeMemory:
             Result::Ok fact
         SelfhostEffectKind::ExternalIo:

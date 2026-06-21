@@ -272,7 +272,7 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /\b(SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostMemoTraitProofArtifact|SelfhostPrivateCache|SelfhostPrivateState|PrivateCache|PrivateState|NoDropRequired|PureDrop|prechecked|Prechecked)\b/,
+    /\b(SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostMemoTraitProofArtifact|SelfhostPrivateCache|SelfhostPrivateState|PrivateCacheMask|PrivateStateMask|NoDropRequired|PureDrop|prechecked|Prechecked)\b/,
     "producer must not synthesize Drop evidence, aggregate proof, proof-store/artifact values, prechecked artifacts, or PrivateCache/PrivateState masking",
 );
 assert.doesNotMatch(

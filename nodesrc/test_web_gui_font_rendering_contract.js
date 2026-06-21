@@ -21094,7 +21094,7 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment &step",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step",
-        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line &segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare &segment",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed",
         "LineMetricCountExceeded",
         "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric",
@@ -21107,7 +21107,7 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment &step",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step",
-        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic &segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare &segment",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed",
         "QuadraticMetricCountExceeded",
         "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric",
@@ -21668,6 +21668,12 @@ const renderStrokeOffsetGeometryQuadraticFromMetric = functionSlice(allocFontSfn
 const renderStrokeOffsetGeometryStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_start");
 const renderStrokeOffsetGeometryPushGeometry = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry");
 const renderStrokeOffsetGeometryStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_step");
+assert(
+    allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError"),
+    "alloc/gui/font/sfnt/glyf F5kx impure drain helpers must use impure argument separators for owner-consuming push paths",
+);
 assertOrderedFragments(
     renderStrokeOffsetGeometrySourceInvariants,
     [
@@ -21774,7 +21780,8 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants &source_owner",
         "gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard &source_owner",
-        "vec::with_capacity metric_count",
+        "let geometry_result %Result Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry StdErrorKind vec::with_capacity metric_count",
+        "match geometry_result:",
         "GeometryStorageInitialLenMismatch",
         "GeometryStorageCapacityMismatch",
         "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner geometry 0 0 0",
@@ -21939,6 +21946,12 @@ const renderStrokeSideEdgeStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt
 const renderStrokeSideEdgeReadGeometry = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry");
 const renderStrokeSideEdgePushEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge");
 const renderStrokeSideEdgeStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_step");
+assert(
+    allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeEdgeSide impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError"),
+    "alloc/gui/font/sfnt/glyf F5ky impure drain helpers must use impure argument separators for owner-consuming push paths",
+);
 assertOrderedFragments(
     renderStrokeSideEdgeSourceInvariants,
     [
@@ -22017,7 +22030,8 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge &geometry_owner",
         "gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_count",
-        "vec::with_capacity side_edge_capacity",
+        "let edges_result %Result Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord StdErrorKind vec::with_capacity side_edge_capacity",
+        "match edges_result:",
         "EdgeStorageInitialLenMismatch",
         "EdgeStorageCapacityMismatch",
         "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner edges 0 GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left 0 0 0 0 0",
@@ -22204,6 +22218,18 @@ const renderStrokeEdgeClosureRecordInvariants = functionSlice(allocFontSfntGlyfI
 const renderStrokeEdgeClosurePushJoin = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join");
 const renderStrokeEdgeClosurePushCurrent = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current");
 const renderStrokeEdgeClosureStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_step");
+assert(
+    renderStrokeEdgeClosurePushJoin.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5kz push join must keep every argument separator impure in the impure function type",
+);
+assert(
+    renderStrokeEdgeClosurePushCurrent.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5kz push current must keep every argument separator impure in the impure function type",
+);
 assertOrderedFragments(
     renderStrokeEdgeClosureSourceInvariants,
     [
@@ -22222,7 +22248,8 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure &side_edge_owner",
         "let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count &side_edge_owner",
-        "vec::with_capacity side_edge_count",
+        "let joins_result %Result Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord StdErrorKind vec::with_capacity side_edge_count",
+        "match joins_result:",
         "JoinStorageInitialLenMismatch",
         "JoinStorageCapacityMismatch",
         "gui_stroke_cap &stroke",
@@ -22698,6 +22725,18 @@ const renderStrokeCoverageMaskJoinGeometryInvariant = functionSlice(allocFontSfn
 const renderStrokeCoverageMaskStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start");
 const renderStrokeCoverageMaskPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell");
 const renderStrokeCoverageMaskComplete = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_complete");
+assert(
+    renderStrokeCoverageMaskStart.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner impure fn GuiSfntSimpleGlyphRasterCoverageConfig Result GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5la start must keep every argument separator impure in the impure function type",
+);
+assert(
+    renderStrokeCoverageMaskPush.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5la push must keep every argument separator impure in the impure function type",
+);
 assertOrderedFragments(
     renderStrokeCoverageMaskJoinGeometryInvariant,
     [
@@ -22724,7 +22763,8 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage &join_geometry_owner",
         "gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_join_geometry_failed join_geometry_owner config shape join_geometry_error",
         "gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape",
-        "vec::with_capacity cell_count",
+        "let cells_result %Result Vec i32 StdErrorKind vec::with_capacity cell_count",
+        "match cells_result:",
         "CellStorageInitialLenMismatch",
         "CellStorageCapacityMismatch",
         "gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner join_geometry_owner shape cells 0",

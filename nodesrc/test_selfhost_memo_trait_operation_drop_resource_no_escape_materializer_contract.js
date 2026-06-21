@@ -313,7 +313,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /\b(SelfhostMemoTraitOperationDropNoEscapeProofTable|SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostMemoTraitProofArtifact|SelfhostPrivateCache|SelfhostPrivateState|PrivateCache|PrivateState|NoDropRequired|PureDrop|prechecked|Prechecked)\b/,
+    /\b(SelfhostMemoTraitOperationDropNoEscapeProofTable|SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostMemoTraitProofArtifact|SelfhostPrivateCache|SelfhostPrivateState|PrivateCacheMask|PrivateStateMask|NoDropRequired|PureDrop|prechecked|Prechecked)\b/,
     "materializer must not synthesize proof tables, Drop evidence, aggregate proof, proof-store/artifact values, prechecked artifacts, or PrivateCache/PrivateState masking",
 );
 assert.doesNotMatch(

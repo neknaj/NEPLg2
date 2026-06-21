@@ -65,8 +65,14 @@ assertOrdered(
 );
 assert.ok(
     source.includes("actual public impl materializer が作る予定の typed record table") &&
-        source.includes("method body fact orchestrator、body check resolver、operation impl table"),
+        source.includes("method body fact boundary、body check resolver、operation impl table"),
     "docs must place the builder after typed public impl materialization and before operation impl table consumption",
+);
+assert.ok(
+    source.includes("旧 API では Eq / Hash の method body fact を `memo_trait_operation_method_body_fact_orchestrator`") &&
+        source.includes("proof-aware API では caller が渡す `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable`") &&
+        source.includes("MethodBodyFact が body root identity を失う前に `PrivateState` / `PrivateCache` の no-escape proof を適用します"),
+    "docs must keep the old method fact orchestrator path and describe the proof-aware private-effect gate path",
 );
 assert.ok(
     source.includes("Drop operation が input に現れた場合は、未証明の `Unknown` evidence を作らず") &&
@@ -78,6 +84,16 @@ assert.ok(
     source.includes("同じ `SelfhostTypeId` と operation kind の candidate が複数来た場合は first-wins にせず") &&
         source.includes("`CandidateDuplicate` として拒否"),
     "docs must reject first-wins duplicate candidate handling",
+);
+assert.ok(
+    source.includes("`body_module_fingerprint` は、1 回の呼び出しで渡す HIR root 群が同一 module origin に属することを caller が示す typed identity") &&
+        source.includes("public materializer が接続される段階では module ごとに分割するか、単一 fingerprint であることを検証してから呼び出します"),
+    "docs must keep proof-aware builder calls scoped to a caller-validated single module fingerprint",
+);
+assert.ok(
+    source.includes("proof-aware API は caller から受け取った private-effect proof table だけを消費し") &&
+        source.includes("operation evidence、aggregate proof、memo_call backend request evidence、artifact policy hash、Resource proof production は作りません"),
+    "docs must allow caller-supplied private-effect proofs without producing operation evidence, backend request evidence, artifacts, or Resource proofs",
 );
 assert.doesNotMatch(
     facade,
@@ -99,6 +115,7 @@ assertOrdered(
         "#import \"./memo_trait_operation_method_body_fact_input_scan\" as *",
         "#import \"./memo_trait_operation_method_body_fact_orchestrator\" as *",
         "#import \"./memo_trait_operation_method_body_resolver\" as *",
+        "#import \"./memo_trait_operation_private_effect_no_escape_gate\" as *",
         "#import \"./memo_trait_operation_purity_gate\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
     ],
@@ -134,6 +151,7 @@ assertOrdered(
         "SourceReadFailed %i32",
         "MethodScanRecordPushFailed %SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind",
         "MethodFactBuildRejected %SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind",
+        "PrivateEffectNoEscapeGateRejected %SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind",
         "DropTableAllocFailed %StdErrorKind",
         "DropOperationUnsupportedUntilResourceProof %SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation",
         "OutputTableAllocFailed %StdErrorKind",
@@ -163,6 +181,25 @@ assertOrdered(
         "MethodFactBuildRejected build_error",
     ],
     "builder must close the temporary scan owner on both success and fact-build rejection",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_builder_method_facts_with_private_effect_proofs_result"),
+    [
+        "selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new",
+        "selfhost_memo_trait_operation_impl_candidate_builder_scan_loop scan0 source 0",
+        "selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan_with_private_effect_proofs module body_module_fingerprint scan proofs",
+        "MethodScanTableAllocFailed alloc_error",
+    ],
+    "proof-aware builder path must create a scan table and delegate fact construction to the private-effect no-escape gate",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan_with_private_effect_proofs"),
+    [
+        "selfhost_memo_trait_operation_private_effect_no_escape_table_from_scan_records_result module body_module_fingerprint &scan proofs",
+        "selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan",
+        "PrivateEffectNoEscapeGateRejected build_error",
+    ],
+    "proof-aware method fact path must close the temporary scan owner and preserve private-effect gate errors",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result"),
@@ -248,6 +285,18 @@ assertOrdered(
     "public builder entry must build method facts first, allocate a Drop table only as a borrowed resolver argument, and clean up method facts on Drop allocation failure",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result"),
+    [
+        "selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source 0",
+        "selfhost_memo_trait_operation_impl_candidate_builder_method_facts_with_private_effect_proofs_result module body_module_fingerprint source proofs",
+        "selfhost_memo_trait_operation_drop_impl_table_new",
+        "selfhost_memo_trait_operation_impl_candidate_builder_from_tables_result method_table drop_table source",
+        "selfhost_memo_trait_operation_method_body_table_free method_table",
+        "DropTableAllocFailed drop_alloc",
+    ],
+    "proof-aware public builder entry must reuse Drop preflight/output construction and only replace method fact construction",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq"),
     [
         "HirSetupFailed a_setup:",
@@ -257,6 +306,7 @@ assertOrdered(
         "SourceReadFailed a_read:",
         "MethodScanRecordPushFailed a_scan_push:",
         "MethodFactBuildRejected a_fact:",
+        "PrivateEffectNoEscapeGateRejected a_private_effect:",
         "DropTableAllocFailed a_drop_alloc:",
         "OutputTableAllocFailed a_output_alloc:",
         "BodyCheckRejected a_body:",
@@ -282,8 +332,11 @@ assertOrdered(
         "selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_result_eq",
         "selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_result_eq",
         "selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_error_result_eq",
+        "summary.private_effect_proven",
+        "SelfhostMemoTraitOperationMethodBodyEvidence::Unknown",
+        "selfhost_memo_trait_operation_impl_candidate_builder_private_gate_error_result_eq",
     ],
-    "stage0 must exercise accepted candidate method evidence, scan-missing rejection, duplicate rejection, and Drop unsupported rejection",
+    "stage0 must exercise accepted candidate method evidence, scan-missing rejection, duplicate rejection, Drop unsupported rejection, and proof-aware private-effect behavior",
 );
 assert.doesNotMatch(
     code,

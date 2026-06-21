@@ -1,0 +1,70 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_public_impl_materializer_record
+//: operation public impl materializer と generic materializer connector が[共有/きょうゆう]する typed record を[定義/ていぎ]する module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_public_impl_materializer` は record table owner と candidate builder 接続を担当します。
+//: - `memo_trait_public_impl_generic_materializer_connector` は同じ record を generic instantiation / projection / coherence evidence と照合します。
+//: - 両 module が互いを import すると dependency が cycle になるため、record 型だけをこの小さな shared module に切り出します。
+//:
+//: [契約/けいやく]:
+//: - この module は型と Copy / Clone marker だけを持ちます。record table owner、connector evidence、classifier、candidate builder、Resource proof は扱いません。
+//: - `type_id` は operation proof を求める対象型です。session-local id であり、永続 artifact identity ではありません。
+//: - `module_fingerprint`、`declaration_ordinal`、`visibility`、`impl_kind`、`target_type_shape_hash`、`trait_application_shape_hash`、`type_parameter_count`、`type_parameter_bound_count` は public impl header input へ写される typed header material です。
+//: - `generic_binder_evidence` は public impl header producer が検査する binder side authority です。source text や record order から復元しません。
+//: - `trait_source` と `trait_type_argument_count` は operation classifier input です。operation kind は source identity field を直接信用せず、classifier evidence から導出します。
+//: - `method_body_root` は operation-specific body root です。root の有無や effect safety は candidate builder / method body checker / Drop resolver など後続の専用 boundary が検査します。
+//: - `fuel` は HIR traversal 上限です。0 以下や過大値の意味付けは method body checker / builder 側の責務です。
+//:
+//: [現状/げんじょう]:
+//: - actual public impl scanner はまだ後続 stage です。この record はその scanner が作る typed output の境界を先に固定します。
+//: - generic accepted path は、この record と connector evidence を組み合わせて concrete candidate builder input を作ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - この module の constructor 相当は struct field の束ねだけなので O(1) 時間・O(1) 追加空間です。
+
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_public_impl_generic_binder" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationPublicImplMaterializerRecord: actual public impl materializer が渡す typed operation impl record
+//:
+//: [目的/もくてき]:
+//: - public impl header、trait application identity、operation-specific body root を 1 つに束ね、candidate builder input や Drop fact projection へ安全に変換できる最小 payload にします。
+pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:
+    type_id %SelfhostTypeId
+    module_fingerprint %i32
+    declaration_ordinal %Option i32
+    visibility %SelfhostModuleDeclarationVisibility
+    impl_kind %SelfhostMemoTraitPublicImplHeaderKind
+    target_type_shape_hash %Option i32
+    trait_source %SelfhostMemoTraitOperationSourceIdentity
+    trait_type_argument_count %i32
+    trait_application_shape_hash %Option i32
+    type_parameter_count %i32
+    type_parameter_bound_count %i32
+    generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence
+    method_body_root %Option SelfhostHirExprId
+    fuel %i32
+
+impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerRecord:
+    fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \self:
+        self
+
+//: selfhost_memo_trait_operation_public_impl_materializer_record_new: typed public impl materializer record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - constructor は typed field を束ねるだけです。
+//: - public impl header の妥当性、trait source の trust、method root の operation matrix はそれぞれ header / classifier / builder / proof boundary が検査します。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new %fn SelfhostTypeId fn i32 fn Option i32 fn SelfhostModuleDeclarationVisibility fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\module_fingerprint\declaration_ordinal\visibility\impl_kind\target_type_shape_hash\trait_source\trait_type_argument_count\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\generic_binder_evidence\method_body_root\fuel:
+    SelfhostMemoTraitOperationPublicImplMaterializerRecord type_id module_fingerprint declaration_ordinal visibility impl_kind target_type_shape_hash trait_source trait_type_argument_count trait_application_shape_hash type_parameter_count type_parameter_bound_count generic_binder_evidence method_body_root fuel

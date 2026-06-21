@@ -1,0 +1,502 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_substitution_projection
+//: generic substitution 後の `SelfhostTypeId` を canonical type key 由来の stable shape evidence へ[写/うつ]す module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_generic_substitution_shape` は substitution traversal と output `SelfhostTypeId` を同一 session 内の typed evidence として固定します。しかし `SelfhostTypeId` は arena-local index なので、materializer accepted path、proof store、prechecked artifact の key としては使えません。
+//: - この module は substituted target type と substituted trait application type の output `SelfhostTypeId` を、既存の canonical key projection、canonical fingerprint、canonical payload hash に通し、後続 stage が読む final shape hash を作ります。
+//: - source text、span、display name、diagnostic text、module path、HIR、Resource IR、backend artifact を authority にせず、`SelfhostTypeArena`、`SelfhostMemoTraitStableNominalKeyTable`、substitution shape evidence の typed field だけを入力にします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence` は public struct として構築可能なので、schema、root hash placeholder、field からの root hash 再計算をこの boundary でも確認します。
+//: - `target_substitution_output_type_id` と `trait_application_substitution_output_type_id` は、caller が渡した `SelfhostTypeArena` の record として projection できなければなりません。負 index や arena record 欠落は fail-closed に拒否します。
+//: - この public API 単独では、public struct として渡された evidence の TypeId が本当に substitution traversal と同じ arena owner から来たことまでは証明できません。同一 arena provenance は上流の owner boundary が保証する precondition であり、materializer accepted path へ接続する後続 connector が再確認します。
+//: - canonical projection は `selfhost_canonical_type_key_project_from_arena`、fingerprint は `selfhost_memo_trait_canonical_type_fingerprint_result`、payload hash は `selfhost_memo_trait_canonical_key_payload_hash_result` だけを使います。この module は canonical key の独自実装を持ちません。
+//: - function type と unresolved type parameter は、下位 canonical fingerprint / payload boundary が拒否します。この module はその typed error を payload として保持します。
+//: - `projection_shape_hash` は session-local linkage を含む checker-layer root hash です。永続 artifact の authority は target / trait application それぞれの canonical fingerprint、canonical payload hash、final shape hash を schema 付きで保持する field 群です。
+//: - 成功した evidence は generic instantiation の substituted final shape を表す材料です。trait bound solver、generic coherence、operation candidate materializer、PrivateCache / PrivateState effect masking、proof store lookup は後続 stage が別 evidence として検査します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stable nominal key table を caller が渡します。public surface / `.neplmeta` から table を作る producer は後続 slice です。
+//: - materializer の `GenericImplInstantiationUnsupported` はこの slice では維持します。この module の成功は materializer accepted path を緩める根拠ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - projection は target / trait application の canonical key tree size を k、stable nominal key table size を n として最悪 O(k * n) です。
+//: - source-wide scan、FileSystem、diagnostic formatting、Resource IR、backend codegen、proof store lookup は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/id" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_generic_substitution_projection_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.accepted
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq summary.schema_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaMismatch
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq summary.hash_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashMismatch
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq summary.target_invalid SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetOutputTypeIdInvalid
+//:             let missing_type_id %SelfhostTypeId selfhost_type_id_new 99
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq summary.target_missing_record selfhost_memo_trait_public_impl_generic_substitution_projection_target_missing_type_record_error missing_type_id
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq summary.target_type_parameter_unsupported selfhost_memo_trait_public_impl_generic_substitution_projection_target_type_parameter_unsupported_error
+//:             let checks7 checks_push checks6 check summary.target_trait_role_hash_diff
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "generic substitution projection stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/key" as *
+#import "neplg2/core/ty/ty/kind/model" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+#import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+#import "./memo_trait_public_impl_generic_substitution_shape" as *
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType: 1 substituted TypeId の canonical projection 結果
+//:
+//: [契約/けいやく]:
+//: - `source_type_id` は projection 元の arena-local TypeId です。persistent identity ではありません。
+//: - `canonical_fingerprint` と `canonical_payload_hash` は、同じ canonical key arena/root から作った schema 付き stable material です。
+//: - `final_shape_hash` は後続 checker-layer が比較しやすい compact hash ですが、単独 authority ではありません。schema 付き fingerprint と payload hash を一緒に保持します。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType:
+    source_type_id %SelfhostTypeId
+    canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    final_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence: substituted target / trait application の canonical projection evidence
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence:
+    schema_version %i32
+    substitution_shape_hash %i32
+    target %SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType
+    trait_application %SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType
+    projection_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind: 1 TypeId projection の拒否理由
+pub enum SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind:
+    ProjectionRejected %SelfhostCanonicalTypeKeyProjectError
+    FingerprintRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
+    PayloadRejected %SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    FinalShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind: generic substitution projection evidence の拒否理由
+pub enum SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind:
+    SubstitutionShapeSchemaPlaceholder
+    SubstitutionShapeSchemaMismatch
+    SubstitutionShapeHashPlaceholder
+    SubstitutionShapeHashMismatch
+    TargetOutputTypeIdInvalid
+    TraitApplicationOutputTypeIdInvalid
+    TargetTypeRejected %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind
+    TraitApplicationTypeRejected %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind
+    ProjectionShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary: projection smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    schema_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    hash_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    target_invalid %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    target_missing_record %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    target_type_parameter_unsupported %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind
+    target_trait_role_hash_diff %bool
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version: projection evidence schema
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version %fn void i32 \void:
+    1
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 a b c
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    let left %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 a b
+    let right %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 c d
+    selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 left right
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_nonzero_type_hash_result %fn i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind \hash:
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FinalShapeHashPlaceholder
+        else:
+            Result::Ok hash
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_type_final_shape_hash_result %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind \fingerprint\payload_hash:
+    let fingerprint_material %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 fingerprint.schema_version fingerprint.root_hash
+    let payload_material %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 payload_hash.schema_version payload_hash.payload_hash
+    selfhost_memo_trait_public_impl_generic_substitution_projection_nonzero_type_hash_result selfhost_memo_trait_public_impl_generic_substitution_projection_mix4 613101 selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version fingerprint_material payload_material
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_projected_type_new %fn SelfhostTypeId fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType \type_id\fingerprint\payload_hash\final_shape_hash:
+    SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType type_id fingerprint payload_hash final_shape_hash
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_type_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind \types\nominal_table\type_id:
+    match selfhost_canonical_type_key_project_from_arena types type_id:
+        Result::Ok allocated:
+            let root %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated
+            let key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated
+            match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &key_arena root:
+                Result::Ok fingerprint:
+                    match selfhost_memo_trait_canonical_key_payload_hash_result nominal_table &key_arena root:
+                        Result::Ok payload_hash:
+                            match selfhost_memo_trait_public_impl_generic_substitution_projection_type_final_shape_hash_result fingerprint payload_hash:
+                                Result::Ok final_shape_hash:
+                                    selfhost_canonical_type_key_arena_free key_arena
+                                    Result::Ok selfhost_memo_trait_public_impl_generic_substitution_projection_projected_type_new type_id fingerprint payload_hash final_shape_hash
+                                Result::Err e:
+                                    selfhost_canonical_type_key_arena_free key_arena
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_canonical_type_key_arena_free key_arena
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::PayloadRejected e
+                Result::Err e:
+                    selfhost_canonical_type_key_arena_free key_arena
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FingerprintRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::ProjectionRejected e
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_evidence_hash %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence i32 \evidence:
+    let target_payload %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix4 selfhost_type_id_index evidence.target.source_type_id evidence.target.canonical_fingerprint.root_hash evidence.target.canonical_payload_hash.payload_hash evidence.target.final_shape_hash
+    let trait_payload %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix4 selfhost_type_id_index evidence.trait_application.source_type_id evidence.trait_application.canonical_fingerprint.root_hash evidence.trait_application.canonical_payload_hash.payload_hash evidence.trait_application.final_shape_hash
+    let target_material %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 613311 target_payload
+    let trait_material %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 613313 trait_payload
+    let projection_material %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_mix2 target_material trait_material
+    selfhost_memo_trait_public_impl_generic_substitution_projection_mix4 613301 evidence.schema_version evidence.substitution_shape_hash projection_material
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_shape_hash_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \evidence:
+    let hash %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_evidence_hash evidence
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::ProjectionShapeHashPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_result: substitution shape evidence から canonical projection evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `substitution_evidence` の root hash を field から再計算し、public struct を手で組み立てた値をそのまま信用しません。
+//: - target と trait application の projection は別々の typed error に包み、どちらの output TypeId が失敗したかを後続診断へ渡します。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \types\nominal_table\substitution_evidence:
+    if:
+        eq substitution_evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaPlaceholder
+        else:
+            if:
+                not eq substitution_evidence.schema_version selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaMismatch
+                else:
+                    if:
+                        eq substitution_evidence.substitution_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashPlaceholder
+                        else:
+                            if:
+                                not eq substitution_evidence.substitution_shape_hash selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash substitution_evidence
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashMismatch
+                                else:
+                                    if:
+                                        lt selfhost_type_id_index substitution_evidence.target_substitution_output_type_id 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetOutputTypeIdInvalid
+                                        else:
+                                            if:
+                                                lt selfhost_type_id_index substitution_evidence.trait_application_substitution_output_type_id 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationOutputTypeIdInvalid
+                                                else:
+                                                    match selfhost_memo_trait_public_impl_generic_substitution_projection_type_result types nominal_table substitution_evidence.target_substitution_output_type_id:
+                                                        Result::Ok target:
+                                                            match selfhost_memo_trait_public_impl_generic_substitution_projection_type_result types nominal_table substitution_evidence.trait_application_substitution_output_type_id:
+                                                                Result::Ok trait_application:
+                                                                    let schema %i32 selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version
+                                                                    let draft %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence schema substitution_evidence.substitution_shape_hash target trait_application 0
+                                                                    match selfhost_memo_trait_public_impl_generic_substitution_projection_shape_hash_result draft:
+                                                                        Result::Ok projection_hash:
+                                                                            Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence schema substitution_evidence.substitution_shape_hash target trait_application projection_hash
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationTypeRejected e
+                                                        Result::Err e:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetTypeRejected e
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_project_error_kind_code %fn SelfhostCanonicalTypeKeyProjectErrorKind i32 \kind:
+    match kind:
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord:
+            1
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeArgument:
+            2
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingFunctionArgument:
+            3
+        SelfhostCanonicalTypeKeyProjectErrorKind::InvalidAppliedArgumentRange:
+            4
+        SelfhostCanonicalTypeKeyProjectErrorKind::InvalidFunctionArgumentRange:
+            5
+        SelfhostCanonicalTypeKeyProjectErrorKind::OutOfMemory:
+            6
+        SelfhostCanonicalTypeKeyProjectErrorKind::InternalInvariant:
+            7
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_project_error_eq %fn SelfhostCanonicalTypeKeyProjectError fn SelfhostCanonicalTypeKeyProjectError bool \a\b:
+    and:
+        eq selfhost_memo_trait_public_impl_generic_substitution_projection_project_error_kind_code a.kind selfhost_memo_trait_public_impl_generic_substitution_projection_project_error_kind_code b.kind
+        selfhost_type_id_eq a.type_id b.type_id
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_type_error_eq %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::ProjectionRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::ProjectionRejected other:
+                    selfhost_memo_trait_public_impl_generic_substitution_projection_project_error_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FingerprintRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FingerprintRejected other:
+                    selfhost_memo_trait_canonical_fingerprint_error_kind_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::PayloadRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::PayloadRejected other:
+                    selfhost_memo_trait_canonical_key_payload_error_kind_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FinalShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FinalShapeHashPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_error_kind_eq: projection error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaMismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeSchemaMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashMismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::SubstitutionShapeHashMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetOutputTypeIdInvalid:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetOutputTypeIdInvalid:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationOutputTypeIdInvalid:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationOutputTypeIdInvalid:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetTypeRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetTypeRejected other:
+                    selfhost_memo_trait_public_impl_generic_substitution_projection_type_error_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationTypeRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TraitApplicationTypeRejected other:
+                    selfhost_memo_trait_public_impl_generic_substitution_projection_type_error_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::ProjectionShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::ProjectionShapeHashPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_substitution_projection_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_target_missing_type_record_error: target projection が arena 外 TypeId を拒否したときの期待 error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public doctest や source policy で、positive index だが arena record が存在しない TypeId を `MissingTypeRecord` payload 付きで拒否する contract を確認します。
+//: - この helper は診断表示文字列を作らず、typed enum error だけを組み立てます。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_target_missing_type_record_error %fn SelfhostTypeId SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \type_id:
+    let project_error %SelfhostCanonicalTypeKeyProjectError SelfhostCanonicalTypeKeyProjectError SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord type_id
+    let type_error %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::ProjectionRejected project_error
+    SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetTypeRejected type_error
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_target_type_parameter_unsupported_error: target projection が未解決 type parameter を拒否したときの期待 error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - unresolved type parameter は canonical key projection までは可能でも、MemoKey / MemoValue 用の stable fingerprint では永続 payload にできません。
+//: - この helper は `TypeParameterUnsupported` を target 側の typed error として包み、payload を無視した比較へ退行しないことを確認するために使います。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_target_type_parameter_unsupported_error %fn void SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind \void:
+    let type_error %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionProjectionTypeErrorKind::FingerprintRejected SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported
+    SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind::TargetTypeRejected type_error
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_hash_diff %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind bool \left\right:
+    match left:
+        Result::Ok left_evidence:
+            match right:
+                Result::Ok right_evidence:
+                    not eq left_evidence.projection_shape_hash right_evidence.projection_shape_hash
+                Result::Err _e:
+                    false
+        Result::Err _e:
+            false
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with %fn i32 fn i32 fn SelfhostTypeId fn SelfhostTypeId SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \schema\hash_delta\target_output\trait_output:
+    let identity %SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash 1 613701
+    let root %SelfhostTypeId selfhost_type_id_new 0
+    let draft %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence schema 1 1 0 613711 613713 613717 identity 613719 613723 613729 root target_output 1 613731 613733 root trait_output 1 613737 613739 0
+    let base_hash %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash draft
+    let final_hash %i32 add base_hash hash_delta
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence schema 1 1 0 613711 613713 613717 identity 613719 613723 613729 root target_output 1 613731 613733 root trait_output 1 613737 613739 final_hash
+
+fn selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_after_unit %impure fn SelfhostTypeArenaAlloc Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary StdErrorKind \unit_alloc:
+    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &unit_alloc
+    let arena0 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unit_alloc
+    match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+        Result::Ok i32_alloc:
+            let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+            let parameter_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            match selfhost_type_arena_add_type_parameter arena1 parameter_binding:
+                Result::Ok parameter_alloc:
+                    let parameter_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_alloc
+                    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_alloc
+                    match selfhost_memo_trait_stable_nominal_key_table_new:
+                        Result::Ok nominal_table:
+                            let accepted_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 unit_id unit_id
+                            let schema_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with add selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 1 0 unit_id unit_id
+                            let hash_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 1 unit_id unit_id
+                            let invalid_type_id %SelfhostTypeId selfhost_type_id_new sub 0 1
+                            let invalid_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 invalid_type_id unit_id
+                            let missing_type_id %SelfhostTypeId selfhost_type_id_new 99
+                            let missing_record_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 missing_type_id unit_id
+                            let parameter_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 parameter_id unit_id
+                            let target_role_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 unit_id i32_id
+                            let trait_role_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_evidence_with selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 0 i32_id unit_id
+                            let accepted %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table accepted_evidence
+                            let schema_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table schema_evidence
+                            let hash_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table hash_evidence
+                            let target_invalid %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table invalid_evidence
+                            let target_missing_record %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table missing_record_evidence
+                            let target_type_parameter_unsupported %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table parameter_evidence
+                            let target_trait_role %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table target_role_evidence
+                            let trait_target_role %Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionErrorKind selfhost_memo_trait_public_impl_generic_substitution_projection_result &arena &nominal_table trait_role_evidence
+                            let target_trait_role_hash_diff %bool selfhost_memo_trait_public_impl_generic_substitution_projection_hash_diff target_trait_role trait_target_role
+                            selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                            selfhost_type_arena_free arena
+                            Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary accepted schema_mismatch hash_mismatch target_invalid target_missing_record target_type_parameter_unsupported target_trait_role_hash_diff
+                        Result::Err e:
+                            selfhost_type_arena_free arena
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_projection_stage0: projection boundary の代表 smoke
+pub fn selfhost_memo_trait_public_impl_generic_substitution_projection_stage0 %impure fn void Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok unit_alloc:
+                    selfhost_memo_trait_public_impl_generic_substitution_projection_stage0_after_unit unit_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

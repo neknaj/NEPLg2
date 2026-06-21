@@ -8,7 +8,7 @@
 //: - effect checker が文字列や bool flag ではなく、typed fact を proof solver へ渡せるようにします。
 //:
 //: [注意/ちゅうい]:
-//: - `InternalAlloc` は単独では pure に fold しません。Resource IR 側が no-escape を証明した場合だけ `NoEscapeProven` fact として渡します。
+//: - `InternalAlloc` / `PrivateState` / `PrivateCache` は単独では pure に fold しません。Resource IR 側が no-escape を証明した場合だけ `NoEscapeProven` fact として渡します。
 //: - この module は effect の型だけを持ち、証明規則は `neplg2/core/proof` に置きます。
 //:
 //: neplg2:test
@@ -20,16 +20,19 @@
 //:     if selfhost_effect_kind_eq SelfhostEffectKind::Pure SelfhostEffectKind::Pure 0 1
 //: ```
 
+#import "core/math" as *
 #import "core/traits/copy" as *
 
 //: SelfhostEffectKind: self-host compiler が扱う内部 effect 分類
 //:
 //: [目的/もくてき]:
 //: - surface pure / impure へ fold する前の effect を enum として保持します。
-//: - raw memory や I/O を bool の impure flag に潰さず、proof solver が分類ごとに検査できるようにします。
+//: - raw memory、I/O、PrivateState、PrivateCache を bool の impure flag に潰さず、proof solver が分類ごとに検査できるようにします。
 pub enum SelfhostEffectKind:
     Pure
     InternalAlloc
+    PrivateState
+    PrivateCache
     UnsafeMemory
     ExternalIo
     Nondet
@@ -45,7 +48,7 @@ impl Copy for SelfhostEffectKind:
 //: SelfhostEffectEscapeState: internal effect が safe surface へ漏れないことの証明状態
 //:
 //: [目的/もくてき]:
-//: - `InternalAlloc` を pure surface へ fold できるかを、関数名ではなく Resource IR などから得た typed fact で表します。
+//: - `InternalAlloc` / `PrivateState` / `PrivateCache` を pure surface へ fold できるかを、関数名ではなく Resource IR などから得た typed fact で表します。
 pub enum SelfhostEffectEscapeState:
     NotApplicable
     NoEscapeProven
@@ -76,66 +79,28 @@ impl Copy for SelfhostEffectContext:
     fn copy_mark %fn SelfhostEffectContext SelfhostEffectContext \self:
         self
 
+//: selfhost_effect_kind_code: effect kind の比較用 code を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この code は equality helper 専用であり、永続 artifact key ではありません。
+//: - 新しい effect kind を追加した場合は、既存 kind と同じ code に潰さず専用 code を割り当てます。
+fn selfhost_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            1
+        SelfhostEffectKind::InternalAlloc:
+            2
+        SelfhostEffectKind::PrivateState:
+            3
+        SelfhostEffectKind::PrivateCache:
+            4
+        SelfhostEffectKind::UnsafeMemory:
+            5
+        SelfhostEffectKind::ExternalIo:
+            6
+        SelfhostEffectKind::Nondet:
+            7
+
 //: selfhost_effect_kind_eq: effect kind が同じ分類か[返/かえ]す
 pub fn selfhost_effect_kind_eq %fn SelfhostEffectKind fn SelfhostEffectKind bool \left\right:
-    match left:
-        SelfhostEffectKind::Pure:
-            match right:
-                SelfhostEffectKind::Pure:
-                    true
-                SelfhostEffectKind::InternalAlloc:
-                    false
-                SelfhostEffectKind::UnsafeMemory:
-                    false
-                SelfhostEffectKind::ExternalIo:
-                    false
-                SelfhostEffectKind::Nondet:
-                    false
-        SelfhostEffectKind::InternalAlloc:
-            match right:
-                SelfhostEffectKind::InternalAlloc:
-                    true
-                SelfhostEffectKind::Pure:
-                    false
-                SelfhostEffectKind::UnsafeMemory:
-                    false
-                SelfhostEffectKind::ExternalIo:
-                    false
-                SelfhostEffectKind::Nondet:
-                    false
-        SelfhostEffectKind::UnsafeMemory:
-            match right:
-                SelfhostEffectKind::UnsafeMemory:
-                    true
-                SelfhostEffectKind::Pure:
-                    false
-                SelfhostEffectKind::InternalAlloc:
-                    false
-                SelfhostEffectKind::ExternalIo:
-                    false
-                SelfhostEffectKind::Nondet:
-                    false
-        SelfhostEffectKind::ExternalIo:
-            match right:
-                SelfhostEffectKind::ExternalIo:
-                    true
-                SelfhostEffectKind::Pure:
-                    false
-                SelfhostEffectKind::InternalAlloc:
-                    false
-                SelfhostEffectKind::UnsafeMemory:
-                    false
-                SelfhostEffectKind::Nondet:
-                    false
-        SelfhostEffectKind::Nondet:
-            match right:
-                SelfhostEffectKind::Nondet:
-                    true
-                SelfhostEffectKind::Pure:
-                    false
-                SelfhostEffectKind::InternalAlloc:
-                    false
-                SelfhostEffectKind::UnsafeMemory:
-                    false
-                SelfhostEffectKind::ExternalIo:
-                    false
+    eq selfhost_effect_kind_code left selfhost_effect_kind_code right

@@ -1259,12 +1259,16 @@ fn selfhost_drop_resource_graph_effect_kind_code %fn SelfhostEffectKind i32 \kin
             1
         SelfhostEffectKind::InternalAlloc:
             2
-        SelfhostEffectKind::UnsafeMemory:
+        SelfhostEffectKind::PrivateState:
             3
-        SelfhostEffectKind::ExternalIo:
+        SelfhostEffectKind::PrivateCache:
             4
-        SelfhostEffectKind::Nondet:
+        SelfhostEffectKind::UnsafeMemory:
             5
+        SelfhostEffectKind::ExternalIo:
+            6
+        SelfhostEffectKind::Nondet:
+            7
 
 //: selfhost_drop_resource_graph_escape_state_code: escape state を比較用 code へ[写/うつ]す
 fn selfhost_drop_resource_graph_escape_state_code %fn SelfhostEffectEscapeState i32 \state:

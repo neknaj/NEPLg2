@@ -1,0 +1,1744 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector
+//: PrivateState / PrivateCache method body の typed Resource graph input から traversal summary table を[作/つく]る checker-layer collector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_private_effect_resource_no_escape_materializer` は traversal summary table を既存 Resource no-escape observation table へ変換します。
+//: - この module は、その 1 つ前の境界として、後続 Resource IR lowering / graph walker が作る typed graph input を PrivateEffect method body ごとの traversal summary へ畳み込みます。
+//: - graph の閉包状態、place、edge、escape sink を bool や diagnostic string に潰さず、typed enum / struct として保持します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostPrivateEffectResourceGraphBodyRecord`、`SelfhostPrivateEffectResourceGraphPlaceRecord`、`SelfhostPrivateEffectResourceGraphEdgeRecord` の typed payload だけです。source text、span、lexeme、display name、module path、public surface hash、payload hash から no-escape を推測しません。
+//: - collector input key は `SelfhostTypeId`、operation、body module fingerprint、PrivateEffect method body root、effect、escape、graph id をすべて含みます。materializer output key は graph id を含まないため、graph id だけ異なる同一 materializer key は fail-closed に拒否します。
+//: - `body_module_fingerprint == 0`、`graph_id < 0`、`effect != PrivateState / PrivateCache`、`escape != NotApplicable`、duplicate body / place / edge は fail-closed に拒否します。
+//: - `ClosedForPrivateEffectBody` かつ `FreshPrivateRegionWitnessed` の body だけが graph を no-escape 判定に使えます。`FreshRegionMissing` は `ResourceGraphMissing`、`FreshRegionUnsupported` は `TraversalUnsupported` summary に倒します。
+//: - closed graph に return / public store / external handle place、または return / public store edge があれば `EscapingPlaceObserved` にします。unsupported place / edge があれば `TraversalUnsupported` にします。
+//: - closed graph に place が 1 つもない場合、または edge endpoint が同じ body graph 内に存在しない場合は fail-closed にします。空 graph から `AllTraversedPlacesPrivate` を合成しません。
+//: - この module は proof table、proof store、PrivateEffect evidence、aggregate proof、generic binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。summary table 以降の observation / proof conversion は既存 materializer / producer が担当します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Rust 側と同等の full Resource IR graph model はまだ selfhost にありません。この module は graph walker 本体ではなく、graph walker が後で返す typed body/place/edge stream の collector boundary を固定します。
+//: - `SelfhostPrivateEffectResourcePlaceId` と `SelfhostPrivateEffectResourceGraphId` は session-local id です。永続 artifact key や module 間 stable identity には使いません。
+//: - facade には re-export しません。full Resource proof orchestration が private-effect fact builder、graph walker、collector、materializer、producer、no-escape gate、purity gate をまとめる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup を doc comment で明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - body 数を b、place 数を p、edge 数を e とすると、現状の duplicate 検査と per-body fold は O((b+p+e)^2) 時間、output summary table に O(b) 空間を使います。
+//: - body bucket 化、place id sorted index 化、edge endpoint index 化、actual Resource graph child range index 化は、key equality、duplicate rejection、owner cleanup、fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_materializer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_len_result_eq summary.collected_len 4
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq summary.private_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq summary.escape_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq summary.missing_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq summary.unsupported_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq summary.fresh_missing_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq summary.duplicate_rejected SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq summary.materializer_key_duplicate_rejected SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphMaterializerKeyDuplicate
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq summary.placeholder_rejected SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq summary.endpoint_missing_rejected SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing 1
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "private-effect Resource graph traversal collector stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_resource_no_escape_materializer" as *
+
+//: SelfhostPrivateEffectResourceGraphId: PrivateEffect method body 用 Resource graph の session-local id
+pub struct SelfhostPrivateEffectResourceGraphId:
+    index %i32
+
+//: SelfhostPrivateEffectResourcePlaceId: Resource graph 内の place id
+pub struct SelfhostPrivateEffectResourcePlaceId:
+    index %i32
+
+//: SelfhostPrivateEffectResourceGraphCompleteness: PrivateEffect method body graph の閉包状態
+//:
+//: [目的/もくてき]:
+//: - graph が PrivateEffect method body について閉じている場合だけ no-escape 判定へ進めます。
+pub enum SelfhostPrivateEffectResourceGraphCompleteness:
+    ClosedForPrivateEffectBody
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostPrivateEffectResourceFreshRegionEvidence: private-only graph が fresh private region 由来かを示す typed evidence
+//:
+//: [目的/もくてき]:
+//: - PrivateState / PrivateCache body は、private place だけを通ったことに加えて、その region が呼び出しごとに fresh であることを確認できる場合だけ no-escape として扱います。
+//: - missing / unsupported を bool に潰すと pure mask が安全側に倒れないため、typed enum のまま summary へ畳みます。
+pub enum SelfhostPrivateEffectResourceFreshRegionEvidence:
+    FreshPrivateRegionWitnessed
+    FreshRegionMissing
+    FreshRegionUnsupported
+
+//: SelfhostPrivateEffectResourcePlaceKind: Resource graph place の分類
+pub enum SelfhostPrivateEffectResourcePlaceKind:
+    PrivateLocal
+    PrivateTemporary
+    ReturnPlace
+    PublicStore
+    ExternalHandle
+    UnsupportedPlace
+
+//: SelfhostPrivateEffectResourceEdgeKind: Resource graph edge の分類
+pub enum SelfhostPrivateEffectResourceEdgeKind:
+    Owns
+    Field
+    BorrowView
+    MoveTo
+    StoreToPublic
+    Return
+    CallBoundaryUnsupported
+
+//: SelfhostPrivateEffectResourceGraphBodyRecord: 1 PrivateEffect method body の Resource graph header
+pub struct SelfhostPrivateEffectResourceGraphBodyRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    graph_id %SelfhostPrivateEffectResourceGraphId
+    completeness %SelfhostPrivateEffectResourceGraphCompleteness
+    fresh_region %SelfhostPrivateEffectResourceFreshRegionEvidence
+
+//: SelfhostPrivateEffectResourceGraphPlaceRecord: Resource graph の place record
+pub struct SelfhostPrivateEffectResourceGraphPlaceRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostPrivateEffectResourceGraphId
+    place_id %SelfhostPrivateEffectResourcePlaceId
+    kind %SelfhostPrivateEffectResourcePlaceKind
+
+//: SelfhostPrivateEffectResourceGraphEdgeRecord: Resource graph の edge record
+pub struct SelfhostPrivateEffectResourceGraphEdgeRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostPrivateEffectResourceGraphId
+    from_place %SelfhostPrivateEffectResourcePlaceId
+    to_place %SelfhostPrivateEffectResourcePlaceId
+    kind %SelfhostPrivateEffectResourceEdgeKind
+
+//: SelfhostPrivateEffectResourceGraphInput: PrivateEffect method body Resource graph input の owner table
+pub struct SelfhostPrivateEffectResourceGraphInput:
+    bodies %Vec SelfhostPrivateEffectResourceGraphBodyRecord
+    places %Vec SelfhostPrivateEffectResourceGraphPlaceRecord
+    edges %Vec SelfhostPrivateEffectResourceGraphEdgeRecord
+
+//: SelfhostPrivateEffectResourceTraversalFoldSummary: graph fold の summary
+pub struct SelfhostPrivateEffectResourceTraversalFoldSummary:
+    status %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus
+    reason %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason
+
+//: SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind: graph collector の構造的な拒否理由
+pub enum SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind:
+    GraphBodyPushFailed %StdErrorKind
+    GraphPlacePushFailed %StdErrorKind
+    GraphEdgePushFailed %StdErrorKind
+    GraphBodyReadFailed %i32
+    GraphPlaceReadFailed %i32
+    GraphEdgeReadFailed %i32
+    GraphBodyDuplicate
+    GraphMaterializerKeyDuplicate
+    GraphBodyMissing %i32
+    GraphPlaceDuplicate
+    GraphEdgeDuplicate
+    BodyModuleFingerprintPlaceholder
+    GraphIdInvalid %i32
+    PlaceIdInvalid %i32
+    EdgeEndpointInvalid %i32
+    EdgeEndpointMissing %i32
+    EffectNotPrivate %SelfhostEffectKind
+    EscapeNotApplicable %SelfhostEffectEscapeState
+    OutputTraversalTableAllocFailed %StdErrorKind
+    OutputTraversalTableRejected %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeMaterializerErrorKind
+
+//: SelfhostPrivateEffectResourceGraphDuplicateDecision: duplicate / seen 判定
+pub enum SelfhostPrivateEffectResourceGraphDuplicateDecision:
+    UniqueSoFar
+    DuplicateFound
+
+//: SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary: collector smoke の代表結果
+pub struct SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary:
+    collected_len %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    private_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    escape_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    missing_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    unsupported_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    fresh_missing_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    duplicate_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    materializer_key_duplicate_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    placeholder_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+    endpoint_missing_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind
+
+//: Clone for SelfhostPrivateEffectResourceGraphId: graph id は i32 wrapper なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphId:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphId SelfhostPrivateEffectResourceGraphId \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphId: graph id は owner を[持/も]たない session-local key として Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphId:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphId SelfhostPrivateEffectResourceGraphId \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourcePlaceId: place id は i32 wrapper なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourcePlaceId:
+    fn clone %fn &SelfhostPrivateEffectResourcePlaceId SelfhostPrivateEffectResourcePlaceId \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourcePlaceId: place id は owner を[持/も]たない graph-local key として Copy にする
+impl Copy for SelfhostPrivateEffectResourcePlaceId:
+    fn copy_mark %fn SelfhostPrivateEffectResourcePlaceId SelfhostPrivateEffectResourcePlaceId \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphCompleteness: graph completeness は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphCompleteness:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphCompleteness SelfhostPrivateEffectResourceGraphCompleteness \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphCompleteness: graph completeness は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphCompleteness:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphCompleteness SelfhostPrivateEffectResourceGraphCompleteness \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceFreshRegionEvidence: fresh region evidence は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceFreshRegionEvidence:
+    fn clone %fn &SelfhostPrivateEffectResourceFreshRegionEvidence SelfhostPrivateEffectResourceFreshRegionEvidence \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceFreshRegionEvidence: fresh region evidence は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostPrivateEffectResourceFreshRegionEvidence:
+    fn copy_mark %fn SelfhostPrivateEffectResourceFreshRegionEvidence SelfhostPrivateEffectResourceFreshRegionEvidence \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourcePlaceKind: place kind は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourcePlaceKind:
+    fn clone %fn &SelfhostPrivateEffectResourcePlaceKind SelfhostPrivateEffectResourcePlaceKind \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourcePlaceKind: place kind は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostPrivateEffectResourcePlaceKind:
+    fn copy_mark %fn SelfhostPrivateEffectResourcePlaceKind SelfhostPrivateEffectResourcePlaceKind \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceEdgeKind: edge kind は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceEdgeKind:
+    fn clone %fn &SelfhostPrivateEffectResourceEdgeKind SelfhostPrivateEffectResourceEdgeKind \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceEdgeKind: edge kind は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostPrivateEffectResourceEdgeKind:
+    fn copy_mark %fn SelfhostPrivateEffectResourceEdgeKind SelfhostPrivateEffectResourceEdgeKind \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphBodyRecord: body record は typed key と small enum だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphBodyRecord:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphBodyRecord SelfhostPrivateEffectResourceGraphBodyRecord \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphBodyRecord: body record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphBodyRecord:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphBodyRecord SelfhostPrivateEffectResourceGraphBodyRecord \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphPlaceRecord: place record は typed key と place kind だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphPlaceRecord:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphPlaceRecord SelfhostPrivateEffectResourceGraphPlaceRecord \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphPlaceRecord: place record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphPlaceRecord:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphPlaceRecord SelfhostPrivateEffectResourceGraphPlaceRecord \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphEdgeRecord: edge record は typed key と endpoint id だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphEdgeRecord:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphEdgeRecord SelfhostPrivateEffectResourceGraphEdgeRecord \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphEdgeRecord: edge record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphEdgeRecord:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphEdgeRecord SelfhostPrivateEffectResourceGraphEdgeRecord \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceTraversalFoldSummary: fold summary は status/reason だけなので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceTraversalFoldSummary:
+    fn clone %fn &SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceTraversalFoldSummary \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceTraversalFoldSummary: fold summary は owner を[持/も]たない集約結果として Copy にする
+impl Copy for SelfhostPrivateEffectResourceTraversalFoldSummary:
+    fn copy_mark %fn SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceTraversalFoldSummary \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind: collector error は payload も Copy payload に限るため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind: collector error は Result payload として owner cleanup を[必要/ひつよう]としないため Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphDuplicateDecision: duplicate decision は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphDuplicateDecision:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphDuplicateDecision \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphDuplicateDecision: duplicate decision は owner を[持/も]たない branch marker として Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphDuplicateDecision:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphDuplicateDecision \self:
+        self
+
+//: Clone for SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary: stage0 summary は Result payload も Copy payload に限るため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary:
+    fn clone %fn &SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary: stage0 summary は doctest 用の small immutable payload として Copy にする
+impl Copy for SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary:
+    fn copy_mark %fn SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary \self:
+        self
+
+//: selfhost_private_effect_resource_graph_id_new: graph id を[作/つく]る
+pub fn selfhost_private_effect_resource_graph_id_new %fn i32 SelfhostPrivateEffectResourceGraphId \index:
+    SelfhostPrivateEffectResourceGraphId index
+
+//: selfhost_private_effect_resource_place_id_new: place id を[作/つく]る
+pub fn selfhost_private_effect_resource_place_id_new %fn i32 SelfhostPrivateEffectResourcePlaceId \index:
+    SelfhostPrivateEffectResourcePlaceId index
+
+//: selfhost_private_effect_resource_graph_body_record_new: graph body record を[作/つく]る
+pub fn selfhost_private_effect_resource_graph_body_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostPrivateEffectResourceGraphId fn SelfhostPrivateEffectResourceGraphCompleteness fn SelfhostPrivateEffectResourceFreshRegionEvidence SelfhostPrivateEffectResourceGraphBodyRecord \type_id\operation\body_module_fingerprint\body_root\effect\escape\graph_id\completeness\fresh_region:
+    SelfhostPrivateEffectResourceGraphBodyRecord type_id operation body_module_fingerprint body_root effect escape graph_id completeness fresh_region
+
+//: selfhost_private_effect_resource_graph_place_record_new: graph place record を[作/つく]る
+pub fn selfhost_private_effect_resource_graph_place_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostPrivateEffectResourceGraphId fn SelfhostPrivateEffectResourcePlaceId fn SelfhostPrivateEffectResourcePlaceKind SelfhostPrivateEffectResourceGraphPlaceRecord \type_id\operation\body_module_fingerprint\body_root\graph_id\place_id\kind:
+    SelfhostPrivateEffectResourceGraphPlaceRecord type_id operation body_module_fingerprint body_root graph_id place_id kind
+
+//: selfhost_private_effect_resource_graph_edge_record_new: graph edge record を[作/つく]る
+pub fn selfhost_private_effect_resource_graph_edge_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostPrivateEffectResourceGraphId fn SelfhostPrivateEffectResourcePlaceId fn SelfhostPrivateEffectResourcePlaceId fn SelfhostPrivateEffectResourceEdgeKind SelfhostPrivateEffectResourceGraphEdgeRecord \type_id\operation\body_module_fingerprint\body_root\graph_id\from_place\to_place\kind:
+    SelfhostPrivateEffectResourceGraphEdgeRecord type_id operation body_module_fingerprint body_root graph_id from_place to_place kind
+
+//: selfhost_private_effect_resource_graph_input_new: [空/から]の graph input owner を[作/つく]る
+pub fn selfhost_private_effect_resource_graph_input_new %impure fn void Result SelfhostPrivateEffectResourceGraphInput StdErrorKind \void:
+    let bodies_result %Result Vec SelfhostPrivateEffectResourceGraphBodyRecord StdErrorKind v::new
+    match bodies_result:
+        Result::Ok bodies:
+            let places_result %Result Vec SelfhostPrivateEffectResourceGraphPlaceRecord StdErrorKind v::new
+            match places_result:
+                Result::Ok places:
+                    let edges_result %Result Vec SelfhostPrivateEffectResourceGraphEdgeRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Ok edges:
+                            Result::Ok SelfhostPrivateEffectResourceGraphInput bodies places edges
+                        Result::Err e:
+                            v::free places
+                            v::free bodies
+                            Result::Err e
+                Result::Err e:
+                    v::free bodies
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_private_effect_resource_graph_input_free: graph input owner を[閉/と]じる
+pub fn selfhost_private_effect_resource_graph_input_free %impure fn SelfhostPrivateEffectResourceGraphInput unit \input:
+    v::free field::get input "bodies"
+    v::free field::get input "places"
+    v::free field::get input "edges"
+
+//: selfhost_private_effect_resource_graph_body_len: body record 数を[返/かえ]す
+pub fn selfhost_private_effect_resource_graph_body_len %fn &SelfhostPrivateEffectResourceGraphInput i32 \input:
+    let bodies %&Vec SelfhostPrivateEffectResourceGraphBodyRecord field::get_ref input "bodies"
+    v::len bodies
+
+//: selfhost_private_effect_resource_graph_place_len: place record 数を[返/かえ]す
+pub fn selfhost_private_effect_resource_graph_place_len %fn &SelfhostPrivateEffectResourceGraphInput i32 \input:
+    let places %&Vec SelfhostPrivateEffectResourceGraphPlaceRecord field::get_ref input "places"
+    v::len places
+
+//: selfhost_private_effect_resource_graph_edge_len: edge record 数を[返/かえ]す
+pub fn selfhost_private_effect_resource_graph_edge_len %fn &SelfhostPrivateEffectResourceGraphInput i32 \input:
+    let edges %&Vec SelfhostPrivateEffectResourceGraphEdgeRecord field::get_ref input "edges"
+    v::len edges
+
+//: selfhost_private_effect_resource_graph_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_private_effect_resource_graph_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_private_effect_resource_graph_id_eq: graph id が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_id_eq %fn SelfhostPrivateEffectResourceGraphId fn SelfhostPrivateEffectResourceGraphId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_private_effect_resource_place_id_eq: place id が同じか[返/かえ]す
+fn selfhost_private_effect_resource_place_id_eq %fn SelfhostPrivateEffectResourcePlaceId fn SelfhostPrivateEffectResourcePlaceId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_private_effect_resource_graph_body_key_eq: body record と body record の key が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_key_eq %fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourceGraphBodyRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_effect_kind_eq a.effect b.effect
+                        and:
+                            selfhost_private_effect_resource_graph_escape_state_eq a.escape b.escape
+                            selfhost_private_effect_resource_graph_id_eq a.graph_id b.graph_id
+
+//: selfhost_private_effect_resource_graph_body_materializer_key_eq: materializer record key が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_materializer_key_eq %fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourceGraphBodyRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_effect_kind_eq a.effect b.effect
+                        selfhost_private_effect_resource_graph_escape_state_eq a.escape b.escape
+
+//: selfhost_private_effect_resource_graph_place_body_key_eq: body record と place record の key が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_place_body_key_eq %fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourceGraphPlaceRecord bool \body\place:
+    and:
+        selfhost_type_id_eq body.type_id place.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq body.operation place.operation
+            and:
+                eq body.body_module_fingerprint place.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index place.body_root
+                    selfhost_private_effect_resource_graph_id_eq body.graph_id place.graph_id
+
+//: selfhost_private_effect_resource_graph_edge_body_key_eq: body record と edge record の key が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_body_key_eq %fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourceGraphEdgeRecord bool \body\edge:
+    and:
+        selfhost_type_id_eq body.type_id edge.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq body.operation edge.operation
+            and:
+                eq body.body_module_fingerprint edge.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index edge.body_root
+                    selfhost_private_effect_resource_graph_id_eq body.graph_id edge.graph_id
+
+//: selfhost_private_effect_resource_graph_place_identity_eq: place identity が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_place_identity_eq %fn SelfhostPrivateEffectResourceGraphPlaceRecord fn SelfhostPrivateEffectResourceGraphPlaceRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_private_effect_resource_graph_id_eq a.graph_id b.graph_id
+                        selfhost_private_effect_resource_place_id_eq a.place_id b.place_id
+
+//: selfhost_private_effect_resource_graph_edge_kind_code: edge kind の比較用 code を[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_kind_code %fn SelfhostPrivateEffectResourceEdgeKind i32 \kind:
+    match kind:
+        SelfhostPrivateEffectResourceEdgeKind::Owns:
+            1
+        SelfhostPrivateEffectResourceEdgeKind::Field:
+            2
+        SelfhostPrivateEffectResourceEdgeKind::BorrowView:
+            3
+        SelfhostPrivateEffectResourceEdgeKind::MoveTo:
+            4
+        SelfhostPrivateEffectResourceEdgeKind::StoreToPublic:
+            5
+        SelfhostPrivateEffectResourceEdgeKind::Return:
+            6
+        SelfhostPrivateEffectResourceEdgeKind::CallBoundaryUnsupported:
+            7
+
+//: selfhost_private_effect_resource_graph_edge_identity_eq: edge identity が同じか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_identity_eq %fn SelfhostPrivateEffectResourceGraphEdgeRecord fn SelfhostPrivateEffectResourceGraphEdgeRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_private_effect_resource_graph_id_eq a.graph_id b.graph_id
+                        and:
+                            selfhost_private_effect_resource_place_id_eq a.from_place b.from_place
+                            and:
+                                selfhost_private_effect_resource_place_id_eq a.to_place b.to_place
+                                eq selfhost_private_effect_resource_graph_edge_kind_code a.kind selfhost_private_effect_resource_graph_edge_kind_code b.kind
+
+//: selfhost_private_effect_resource_graph_effect_is_private: private-effect traversal が受理できる effect か[返/かえ]す
+fn selfhost_private_effect_resource_graph_effect_is_private %fn SelfhostEffectKind bool \effect:
+    match effect:
+        SelfhostEffectKind::Pure:
+            false
+        SelfhostEffectKind::InternalAlloc:
+            false
+        SelfhostEffectKind::PrivateState:
+            true
+        SelfhostEffectKind::PrivateCache:
+            true
+        SelfhostEffectKind::UnsafeMemory:
+            false
+        SelfhostEffectKind::ExternalIo:
+            false
+        SelfhostEffectKind::Nondet:
+            false
+
+//: selfhost_private_effect_resource_graph_validate_body_result: body record の受理条件を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_validate_body_result %fn SelfhostPrivateEffectResourceGraphBodyRecord Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \body:
+    if:
+        eq body.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt body.graph_id.index 0
+                then:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphIdInvalid body.graph_id.index
+                else:
+                    if:
+                        selfhost_private_effect_resource_graph_effect_is_private body.effect
+                        then:
+                            match body.escape:
+                                SelfhostEffectEscapeState::NotApplicable:
+                                    Result::Ok unit
+                                SelfhostEffectEscapeState::NoEscapeProven:
+                                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable body.escape
+                                SelfhostEffectEscapeState::MayEscape:
+                                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable body.escape
+                        else:
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EffectNotPrivate body.effect
+
+//: selfhost_private_effect_resource_graph_validate_place_result: place record の受理条件を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_validate_place_result %fn SelfhostPrivateEffectResourceGraphPlaceRecord Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \place:
+    if:
+        eq place.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt place.graph_id.index 0
+                then:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphIdInvalid place.graph_id.index
+                else:
+                    if:
+                        lt place.place_id.index 0
+                        then:
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid place.place_id.index
+                        else:
+                            Result::Ok unit
+
+//: selfhost_private_effect_resource_graph_validate_edge_result: edge record の受理条件を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_validate_edge_result %fn SelfhostPrivateEffectResourceGraphEdgeRecord Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \edge:
+    if:
+        eq edge.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt edge.graph_id.index 0
+                then:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphIdInvalid edge.graph_id.index
+                else:
+                    if:
+                        lt edge.from_place.index 0
+                        then:
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid edge.from_place.index
+                        else:
+                            if:
+                                lt edge.to_place.index 0
+                                then:
+                                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid edge.to_place.index
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_private_effect_resource_graph_get_body: body record を[読/よ]む
+fn selfhost_private_effect_resource_graph_get_body %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Option SelfhostPrivateEffectResourceGraphBodyRecord \input\idx:
+    let bodies %&Vec SelfhostPrivateEffectResourceGraphBodyRecord field::get_ref input "bodies"
+    v::get bodies idx
+
+//: selfhost_private_effect_resource_graph_get_place: place record を[読/よ]む
+fn selfhost_private_effect_resource_graph_get_place %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Option SelfhostPrivateEffectResourceGraphPlaceRecord \input\idx:
+    let places %&Vec SelfhostPrivateEffectResourceGraphPlaceRecord field::get_ref input "places"
+    v::get places idx
+
+//: selfhost_private_effect_resource_graph_get_edge: edge record を[読/よ]む
+fn selfhost_private_effect_resource_graph_get_edge %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Option SelfhostPrivateEffectResourceGraphEdgeRecord \input\idx:
+    let edges %&Vec SelfhostPrivateEffectResourceGraphEdgeRecord field::get_ref input "edges"
+    v::get edges idx
+
+//: selfhost_private_effect_resource_graph_contains_body_loop: duplicate body を[探/さが]す
+fn selfhost_private_effect_resource_graph_contains_body_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_private_effect_resource_graph_body_key_eq existing body
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_contains_body_loop input body add idx 1
+                Option::None:
+                    true
+
+//: selfhost_private_effect_resource_graph_contains_body: duplicate body があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_contains_body %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord bool \input\body:
+    selfhost_private_effect_resource_graph_contains_body_loop input body 0
+
+//: selfhost_private_effect_resource_graph_contains_place_loop: duplicate place を[探/さが]す
+fn selfhost_private_effect_resource_graph_contains_place_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord fn i32 bool \input\place\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_private_effect_resource_graph_place_identity_eq existing place
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_contains_place_loop input place add idx 1
+                Option::None:
+                    true
+
+//: selfhost_private_effect_resource_graph_contains_place: duplicate place があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_contains_place %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord bool \input\place:
+    selfhost_private_effect_resource_graph_contains_place_loop input place 0
+
+//: selfhost_private_effect_resource_graph_contains_edge_loop: duplicate edge を[探/さが]す
+fn selfhost_private_effect_resource_graph_contains_edge_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn i32 bool \input\edge\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_edge_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_edge input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_private_effect_resource_graph_edge_identity_eq existing edge
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_contains_edge_loop input edge add idx 1
+                Option::None:
+                    true
+
+//: selfhost_private_effect_resource_graph_contains_edge: duplicate edge があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_contains_edge %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord bool \input\edge:
+    selfhost_private_effect_resource_graph_contains_edge_loop input edge 0
+
+//: selfhost_private_effect_resource_graph_input_push_body: body record を graph input に[追加/ついか]する
+pub fn selfhost_private_effect_resource_graph_input_push_body %impure fn SelfhostPrivateEffectResourceGraphInput impure fn SelfhostPrivateEffectResourceGraphBodyRecord Result SelfhostPrivateEffectResourceGraphInput SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body:
+    match selfhost_private_effect_resource_graph_validate_body_result body:
+        Result::Ok _unit:
+            if:
+                selfhost_private_effect_resource_graph_contains_body &input body
+                then:
+                    selfhost_private_effect_resource_graph_input_free input
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                else:
+                    let bodies %Vec SelfhostPrivateEffectResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostPrivateEffectResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostPrivateEffectResourceGraphEdgeRecord field::get input "edges"
+                    match v::push bodies body:
+                        Result::Ok next_bodies:
+                            Result::Ok SelfhostPrivateEffectResourceGraphInput next_bodies places edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free places
+                            v::free edges
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed error
+        Result::Err error:
+            selfhost_private_effect_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_private_effect_resource_graph_input_push_place: place record を graph input に[追加/ついか]する
+pub fn selfhost_private_effect_resource_graph_input_push_place %impure fn SelfhostPrivateEffectResourceGraphInput impure fn SelfhostPrivateEffectResourceGraphPlaceRecord Result SelfhostPrivateEffectResourceGraphInput SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\place:
+    match selfhost_private_effect_resource_graph_validate_place_result place:
+        Result::Ok _unit:
+            if:
+                selfhost_private_effect_resource_graph_contains_place &input place
+                then:
+                    selfhost_private_effect_resource_graph_input_free input
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate
+                else:
+                    let bodies %Vec SelfhostPrivateEffectResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostPrivateEffectResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostPrivateEffectResourceGraphEdgeRecord field::get input "edges"
+                    match v::push places place:
+                        Result::Ok next_places:
+                            Result::Ok SelfhostPrivateEffectResourceGraphInput bodies next_places edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free bodies
+                            v::free edges
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed error
+        Result::Err error:
+            selfhost_private_effect_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_private_effect_resource_graph_input_push_edge: edge record を graph input に[追加/ついか]する
+pub fn selfhost_private_effect_resource_graph_input_push_edge %impure fn SelfhostPrivateEffectResourceGraphInput impure fn SelfhostPrivateEffectResourceGraphEdgeRecord Result SelfhostPrivateEffectResourceGraphInput SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\edge:
+    match selfhost_private_effect_resource_graph_validate_edge_result edge:
+        Result::Ok _unit:
+            if:
+                selfhost_private_effect_resource_graph_contains_edge &input edge
+                then:
+                    selfhost_private_effect_resource_graph_input_free input
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate
+                else:
+                    let bodies %Vec SelfhostPrivateEffectResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostPrivateEffectResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostPrivateEffectResourceGraphEdgeRecord field::get input "edges"
+                    match v::push edges edge:
+                        Result::Ok next_edges:
+                            Result::Ok SelfhostPrivateEffectResourceGraphInput bodies places next_edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free bodies
+                            v::free places
+                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed error
+        Result::Err error:
+            selfhost_private_effect_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_private_effect_resource_traversal_summary_new: fold summary を[作/つく]る
+fn selfhost_private_effect_resource_traversal_summary_new %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason SelfhostPrivateEffectResourceTraversalFoldSummary \status\reason:
+    SelfhostPrivateEffectResourceTraversalFoldSummary status reason
+
+//: selfhost_private_effect_resource_traversal_status_rank: summary status の優先度を[返/かえ]す
+fn selfhost_private_effect_resource_traversal_status_rank %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            0
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            1
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            2
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            3
+
+//: selfhost_private_effect_resource_traversal_summary_combine: summary を fail-closed 優先度で[結合/けつごう]する
+fn selfhost_private_effect_resource_traversal_summary_combine %fn SelfhostPrivateEffectResourceTraversalFoldSummary fn SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceTraversalFoldSummary \a\b:
+    if:
+        gt selfhost_private_effect_resource_traversal_status_rank b.status selfhost_private_effect_resource_traversal_status_rank a.status
+        then:
+            b
+        else:
+            a
+
+//: selfhost_private_effect_resource_graph_place_summary: place kind を summary に[写/うつ]す
+fn selfhost_private_effect_resource_graph_place_summary %fn SelfhostPrivateEffectResourcePlaceKind SelfhostPrivateEffectResourceTraversalFoldSummary \kind:
+    match kind:
+        SelfhostPrivateEffectResourcePlaceKind::PrivateLocal:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourcePlaceKind::PrivateTemporary:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourcePlaceKind::ReturnPlace:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::ReturnPlaceEscapes
+        SelfhostPrivateEffectResourcePlaceKind::PublicStore:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostPrivateEffectResourcePlaceKind::ExternalHandle:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostPrivateEffectResourcePlaceKind::UnsupportedPlace:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+
+//: selfhost_private_effect_resource_graph_edge_summary: edge kind を summary に[写/うつ]す
+fn selfhost_private_effect_resource_graph_edge_summary %fn SelfhostPrivateEffectResourceEdgeKind SelfhostPrivateEffectResourceTraversalFoldSummary \kind:
+    match kind:
+        SelfhostPrivateEffectResourceEdgeKind::Owns:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourceEdgeKind::Field:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourceEdgeKind::BorrowView:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourceEdgeKind::MoveTo:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+        SelfhostPrivateEffectResourceEdgeKind::StoreToPublic:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostPrivateEffectResourceEdgeKind::Return:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::ReturnPlaceEscapes
+        SelfhostPrivateEffectResourceEdgeKind::CallBoundaryUnsupported:
+            selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+
+//: selfhost_private_effect_resource_graph_body_has_place_loop: body graph に place があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_has_place_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        selfhost_private_effect_resource_graph_place_body_key_eq body place
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_body_has_place_loop input body add idx 1
+                Option::None:
+                    false
+
+//: selfhost_private_effect_resource_graph_body_has_place: body graph に place があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_has_place %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord bool \input\body:
+    selfhost_private_effect_resource_graph_body_has_place_loop input body 0
+
+//: selfhost_private_effect_resource_graph_body_has_place_id_loop: body graph に指定 place があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_has_place_id_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourcePlaceId fn i32 bool \input\body\place_id\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_private_effect_resource_graph_place_body_key_eq body place
+                            selfhost_private_effect_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_body_has_place_id_loop input body place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_private_effect_resource_graph_body_has_place_id: body graph に指定 place があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_body_has_place_id %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn SelfhostPrivateEffectResourcePlaceId bool \input\body\place_id:
+    selfhost_private_effect_resource_graph_body_has_place_id_loop input body place_id 0
+
+//: selfhost_private_effect_resource_graph_place_has_body_loop: place に対応する body header があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_place_has_body_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord fn i32 bool \input\place\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_private_effect_resource_graph_place_body_key_eq body place
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_place_has_body_loop input place add idx 1
+                Option::None:
+                    false
+
+//: selfhost_private_effect_resource_graph_place_has_body: place に対応する body header があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_place_has_body %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord bool \input\place:
+    selfhost_private_effect_resource_graph_place_has_body_loop input place 0
+
+//: selfhost_private_effect_resource_graph_edge_has_body_loop: edge に対応する body header があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_has_body_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn i32 bool \input\edge\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_private_effect_resource_graph_edge_body_key_eq body edge
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_edge_has_body_loop input edge add idx 1
+                Option::None:
+                    false
+
+//: selfhost_private_effect_resource_graph_edge_has_body: edge に対応する body header があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_has_body %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord bool \input\edge:
+    selfhost_private_effect_resource_graph_edge_has_body_loop input edge 0
+
+//: selfhost_private_effect_resource_graph_place_edge_key_eq: edge と place が同じ graph body に[属/ぞく]するか[返/かえ]す
+fn selfhost_private_effect_resource_graph_place_edge_key_eq %fn SelfhostPrivateEffectResourceGraphEdgeRecord fn SelfhostPrivateEffectResourceGraphPlaceRecord bool \edge\place:
+    and:
+        selfhost_type_id_eq edge.type_id place.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq edge.operation place.operation
+            and:
+                eq edge.body_module_fingerprint place.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index edge.body_root selfhost_hir_expr_id_index place.body_root
+                    selfhost_private_effect_resource_graph_id_eq edge.graph_id place.graph_id
+
+//: selfhost_private_effect_resource_graph_edge_has_place_id_loop: edge endpoint place が graph table にあるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_has_place_id_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn SelfhostPrivateEffectResourcePlaceId fn i32 bool \input\edge\place_id\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_private_effect_resource_graph_place_edge_key_eq edge place
+                            selfhost_private_effect_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_private_effect_resource_graph_edge_has_place_id_loop input edge place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_private_effect_resource_graph_edge_has_place_id: edge endpoint place が graph table にあるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_edge_has_place_id %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn SelfhostPrivateEffectResourcePlaceId bool \input\edge\place_id:
+    selfhost_private_effect_resource_graph_edge_has_place_id_loop input edge place_id 0
+
+//: selfhost_private_effect_resource_graph_seen_place_before_loop: earlier place identity を[探/さが]す
+fn selfhost_private_effect_resource_graph_seen_place_before_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord fn i32 fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\place\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some existing:
+                    match selfhost_private_effect_resource_graph_validate_place_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_place_identity_eq existing place
+                                then:
+                                    Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_private_effect_resource_graph_seen_place_before_loop input place limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_private_effect_resource_graph_seen_place_before_result: earlier place identity があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_seen_place_before_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphPlaceRecord fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\place\limit:
+    selfhost_private_effect_resource_graph_seen_place_before_loop input place limit 0
+
+//: selfhost_private_effect_resource_graph_seen_edge_before_loop: earlier edge identity を[探/さが]す
+fn selfhost_private_effect_resource_graph_seen_edge_before_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn i32 fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\edge\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_private_effect_resource_graph_get_edge input idx:
+                Option::Some existing:
+                    match selfhost_private_effect_resource_graph_validate_edge_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_edge_identity_eq existing edge
+                                then:
+                                    Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_private_effect_resource_graph_seen_edge_before_loop input edge limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_private_effect_resource_graph_seen_edge_before_result: earlier edge identity があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_seen_edge_before_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\edge\limit:
+    selfhost_private_effect_resource_graph_seen_edge_before_loop input edge limit 0
+
+//: selfhost_private_effect_resource_graph_validate_all_bodies_loop: input body table 全体を[検査/けんさ]する
+fn selfhost_private_effect_resource_graph_validate_all_bodies_loop %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_body_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some body:
+                    match selfhost_private_effect_resource_graph_validate_body_result body:
+                        Result::Ok _unit:
+                            match selfhost_private_effect_resource_graph_seen_body_before_result input body idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar:
+                                            match selfhost_private_effect_resource_graph_seen_materializer_key_before_result input body idx:
+                                                Result::Ok seen_materializer_key:
+                                                    if:
+                                                        seen_materializer_key
+                                                        then:
+                                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphMaterializerKeyDuplicate
+                                                        else:
+                                                            selfhost_private_effect_resource_graph_validate_all_bodies_loop input add idx 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_private_effect_resource_graph_validate_all_places_loop: input place table 全体を[検査/けんさ]する
+fn selfhost_private_effect_resource_graph_validate_all_places_loop %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_private_effect_resource_graph_validate_place_result place:
+                        Result::Ok _unit:
+                            match selfhost_private_effect_resource_graph_seen_place_before_result input place idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar:
+                                            if:
+                                                selfhost_private_effect_resource_graph_place_has_body input place
+                                                then:
+                                                    selfhost_private_effect_resource_graph_validate_all_places_loop input add idx 1
+                                                else:
+                                                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyMissing place.graph_id.index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_private_effect_resource_graph_validate_edge_endpoints_result: edge endpoint が同じ graph の place table にあるか[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_validate_edge_endpoints_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphEdgeRecord Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\edge:
+    if:
+        selfhost_private_effect_resource_graph_edge_has_place_id input edge edge.from_place
+        then:
+            if:
+                selfhost_private_effect_resource_graph_edge_has_place_id input edge edge.to_place
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.to_place.index
+        else:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.from_place.index
+
+//: selfhost_private_effect_resource_graph_validate_all_edges_loop: input edge table 全体を[検査/けんさ]する
+fn selfhost_private_effect_resource_graph_validate_all_edges_loop %fn &SelfhostPrivateEffectResourceGraphInput fn i32 Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_edge_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_private_effect_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_private_effect_resource_graph_validate_edge_result edge:
+                        Result::Ok _unit:
+                            match selfhost_private_effect_resource_graph_seen_edge_before_result input edge idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar:
+                                            if:
+                                                selfhost_private_effect_resource_graph_edge_has_body input edge
+                                                then:
+                                                    match selfhost_private_effect_resource_graph_validate_edge_endpoints_result input edge:
+                                                        Result::Ok _endpoints:
+                                                            selfhost_private_effect_resource_graph_validate_all_edges_loop input add idx 1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                else:
+                                                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyMissing edge.graph_id.index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_private_effect_resource_graph_validate_input_result: collector input table 全体を fail-closed に[検査/けんさ]する
+fn selfhost_private_effect_resource_graph_validate_input_result %fn &SelfhostPrivateEffectResourceGraphInput Result unit SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input:
+    match selfhost_private_effect_resource_graph_validate_all_bodies_loop input 0:
+        Result::Ok _bodies:
+            match selfhost_private_effect_resource_graph_validate_all_places_loop input 0:
+                Result::Ok _places:
+                    selfhost_private_effect_resource_graph_validate_all_edges_loop input 0
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_private_effect_resource_graph_fold_places_loop: body graph の place を summary へ[畳/たた]む
+fn selfhost_private_effect_resource_graph_fold_places_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 fn SelfhostPrivateEffectResourceTraversalFoldSummary Result SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_private_effect_resource_graph_place_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_private_effect_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_private_effect_resource_graph_validate_place_result place:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_place_body_key_eq body place
+                                then:
+                                    let next_summary %SelfhostPrivateEffectResourceTraversalFoldSummary selfhost_private_effect_resource_traversal_summary_combine acc selfhost_private_effect_resource_graph_place_summary place.kind
+                                    selfhost_private_effect_resource_graph_fold_places_loop input body add idx 1 next_summary
+                                else:
+                                    selfhost_private_effect_resource_graph_fold_places_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_private_effect_resource_graph_fold_edges_loop: body graph の edge を summary へ[畳/たた]む
+fn selfhost_private_effect_resource_graph_fold_edges_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 fn SelfhostPrivateEffectResourceTraversalFoldSummary Result SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_private_effect_resource_graph_edge_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_private_effect_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_private_effect_resource_graph_validate_edge_result edge:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_edge_body_key_eq body edge
+                                then:
+                                    if:
+                                        and:
+                                            selfhost_private_effect_resource_graph_body_has_place_id input body edge.from_place
+                                            selfhost_private_effect_resource_graph_body_has_place_id input body edge.to_place
+                                        then:
+                                            let next_summary %SelfhostPrivateEffectResourceTraversalFoldSummary selfhost_private_effect_resource_traversal_summary_combine acc selfhost_private_effect_resource_graph_edge_summary edge.kind
+                                            selfhost_private_effect_resource_graph_fold_edges_loop input body add idx 1 next_summary
+                                        else:
+                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.from_place.index
+                                else:
+                                    selfhost_private_effect_resource_graph_fold_edges_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_private_effect_resource_graph_body_summary_result: body graph 1 件を traversal summary へ[畳/たた]む
+fn selfhost_private_effect_resource_graph_body_summary_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord Result SelfhostPrivateEffectResourceTraversalFoldSummary SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body:
+    match body.completeness:
+        SelfhostPrivateEffectResourceGraphCompleteness::ResourceGraphMissing:
+            Result::Ok selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+        SelfhostPrivateEffectResourceGraphCompleteness::TraversalUnsupported:
+            Result::Ok selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+        SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody:
+            match body.fresh_region:
+                SelfhostPrivateEffectResourceFreshRegionEvidence::FreshPrivateRegionWitnessed:
+                    if:
+                        selfhost_private_effect_resource_graph_body_has_place input body
+                        then:
+                            let initial %SelfhostPrivateEffectResourceTraversalFoldSummary selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::PrivateRegionOnly
+                            match selfhost_private_effect_resource_graph_fold_places_loop input body 0 initial:
+                                Result::Ok place_summary:
+                                    selfhost_private_effect_resource_graph_fold_edges_loop input body 0 place_summary
+                                Result::Err e:
+                                    Result::Err e
+                        else:
+                            Result::Ok selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+                SelfhostPrivateEffectResourceFreshRegionEvidence::FreshRegionMissing:
+                    Result::Ok selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+                SelfhostPrivateEffectResourceFreshRegionEvidence::FreshRegionUnsupported:
+                    Result::Ok selfhost_private_effect_resource_traversal_summary_new SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+
+//: selfhost_private_effect_resource_graph_seen_body_before_loop: earlier body key を[探/さが]す
+fn selfhost_private_effect_resource_graph_seen_body_before_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some existing:
+                    match selfhost_private_effect_resource_graph_validate_body_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_body_key_eq existing body
+                                then:
+                                    Result::Ok SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_private_effect_resource_graph_seen_body_before_loop input body limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_private_effect_resource_graph_seen_body_before_result: earlier body key があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_seen_body_before_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 Result SelfhostPrivateEffectResourceGraphDuplicateDecision SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\limit:
+    selfhost_private_effect_resource_graph_seen_body_before_loop input body limit 0
+
+//: selfhost_private_effect_resource_graph_seen_materializer_key_before_loop: earlier body が同じ materializer key を[持/も]つか[探/さが]す
+fn selfhost_private_effect_resource_graph_seen_materializer_key_before_loop %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 fn i32 Result bool SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok false
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some existing:
+                    match selfhost_private_effect_resource_graph_validate_body_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_private_effect_resource_graph_body_materializer_key_eq existing body
+                                then:
+                                    Result::Ok true
+                                else:
+                                    selfhost_private_effect_resource_graph_seen_materializer_key_before_loop input body limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_private_effect_resource_graph_seen_materializer_key_before_result: graph id を除いた materializer key の重複があるか[返/かえ]す
+fn selfhost_private_effect_resource_graph_seen_materializer_key_before_result %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord fn i32 Result bool SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input\body\limit:
+    selfhost_private_effect_resource_graph_seen_materializer_key_before_loop input body limit 0
+
+//: selfhost_private_effect_resource_graph_output_push_result: traversal summary record を output table へ[追加/ついか]する
+fn selfhost_private_effect_resource_graph_output_push_result %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalTable impure fn SelfhostPrivateEffectResourceGraphBodyRecord impure fn SelfhostPrivateEffectResourceTraversalFoldSummary Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalTable SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \output\body\summary:
+    let record %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_record_new body.type_id body.operation body.body_module_fingerprint body.body_root body.effect body.escape summary.status summary.reason
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_push output record:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err materializer_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected materializer_error
+
+//: selfhost_private_effect_resource_graph_collect_loop: graph input から traversal summary table を[作/つく]る
+fn selfhost_private_effect_resource_graph_collect_loop %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalTable impure fn &SelfhostPrivateEffectResourceGraphInput impure fn i32 Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalTable SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \output\input\idx:
+    if:
+        ge idx selfhost_private_effect_resource_graph_body_len input
+        then:
+            Result::Ok output
+        else:
+            match selfhost_private_effect_resource_graph_get_body input idx:
+                Option::Some body:
+                    match selfhost_private_effect_resource_graph_validate_body_result body:
+                        Result::Ok _unit:
+                            match selfhost_private_effect_resource_graph_seen_body_before_result input body idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::DuplicateFound:
+                                            selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                                        SelfhostPrivateEffectResourceGraphDuplicateDecision::UniqueSoFar:
+                                            match selfhost_private_effect_resource_graph_seen_materializer_key_before_result input body idx:
+                                                Result::Ok seen_materializer_key:
+                                                    if:
+                                                        seen_materializer_key
+                                                        then:
+                                                            selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                                                            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphMaterializerKeyDuplicate
+                                                        else:
+                                                            match selfhost_private_effect_resource_graph_body_summary_result input body:
+                                                                Result::Ok summary:
+                                                                    match selfhost_private_effect_resource_graph_output_push_result output body summary:
+                                                                        Result::Ok next_output:
+                                                                            selfhost_private_effect_resource_graph_collect_loop next_output input add idx 1
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                                                                    Result::Err e
+                                                Result::Err e:
+                                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                                                    Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free output
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_private_effect_resource_graph_traversal_collector_table_result: graph input を traversal summary table へ[変換/へんかん]する
+pub fn selfhost_private_effect_resource_graph_traversal_collector_table_result %impure fn &SelfhostPrivateEffectResourceGraphInput Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalTable SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \input:
+    match selfhost_private_effect_resource_graph_validate_input_result input:
+        Result::Ok _validated:
+            match selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_new:
+                Result::Ok output0:
+                    selfhost_private_effect_resource_graph_collect_loop output0 input 0
+                Result::Err alloc_error:
+                    Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed alloc_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_private_effect_resource_graph_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_private_effect_resource_graph_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            1
+        StdErrorKind::OutOfMemory:
+            2
+        StdErrorKind::EmptyCollection:
+            3
+        StdErrorKind::IndexOutOfBounds:
+            4
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            6
+        StdErrorKind::InvalidOperation:
+            7
+        StdErrorKind::InvalidUtf8:
+            8
+        StdErrorKind::ParseError:
+            9
+        StdErrorKind::IoError:
+            10
+        StdErrorKind::Other:
+            11
+
+//: selfhost_private_effect_resource_graph_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_private_effect_resource_graph_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            1
+        SelfhostEffectKind::InternalAlloc:
+            2
+        SelfhostEffectKind::PrivateState:
+            3
+        SelfhostEffectKind::PrivateCache:
+            4
+        SelfhostEffectKind::UnsafeMemory:
+            5
+        SelfhostEffectKind::ExternalIo:
+            6
+        SelfhostEffectKind::Nondet:
+            7
+
+//: selfhost_private_effect_resource_graph_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_private_effect_resource_graph_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            0
+        SelfhostEffectEscapeState::NoEscapeProven:
+            1
+        SelfhostEffectEscapeState::MayEscape:
+            2
+
+//: selfhost_private_effect_resource_graph_collector_error_kind_code: collector error variant を比較用 code へ[写/うつ]す
+pub fn selfhost_private_effect_resource_graph_collector_error_kind_code %fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind i32 \kind:
+    match kind:
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed _error:
+            1
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed _error:
+            2
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed _error:
+            3
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed _idx:
+            4
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed _idx:
+            5
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed _idx:
+            6
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate:
+            7
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyMissing _idx:
+            8
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate:
+            9
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate:
+            10
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder:
+            11
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphIdInvalid _idx:
+            12
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid _idx:
+            13
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid _idx:
+            14
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing _idx:
+            15
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EffectNotPrivate _effect:
+            16
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable _escape:
+            17
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed _error:
+            18
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected _materializer_error:
+            19
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphMaterializerKeyDuplicate:
+            20
+
+//: selfhost_private_effect_resource_graph_collector_error_payload_code: collector error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_private_effect_resource_graph_collector_error_payload_code %fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind i32 \kind:
+    match kind:
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed error:
+            selfhost_private_effect_resource_graph_std_error_kind_code error
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed error:
+            selfhost_private_effect_resource_graph_std_error_kind_code error
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed error:
+            selfhost_private_effect_resource_graph_std_error_kind_code error
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate:
+            0
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphMaterializerKeyDuplicate:
+            0
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyMissing idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate:
+            0
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate:
+            0
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphIdInvalid idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing idx:
+            idx
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EffectNotPrivate effect:
+            selfhost_private_effect_resource_graph_effect_kind_code effect
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable escape:
+            selfhost_private_effect_resource_graph_escape_state_code escape
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed error:
+            selfhost_private_effect_resource_graph_std_error_kind_code error
+        SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected materializer_error:
+            add:
+                mul selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_error_kind_code materializer_error 100000
+                selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_error_payload_code materializer_error
+
+//: selfhost_private_effect_resource_graph_collector_error_kind_eq: collector error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_private_effect_resource_graph_collector_error_kind_eq %fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind bool \a\b:
+    and:
+        eq selfhost_private_effect_resource_graph_collector_error_kind_code a selfhost_private_effect_resource_graph_collector_error_kind_code b
+        eq selfhost_private_effect_resource_graph_collector_error_payload_code a selfhost_private_effect_resource_graph_collector_error_payload_code b
+
+//: selfhost_private_effect_resource_graph_status_code: traversal status を比較用 code へ[写/うつ]す
+fn selfhost_private_effect_resource_graph_status_code %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            1
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            2
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            3
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            4
+
+//: selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq: traversal status result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_traversal_collector_status_result_eq %fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq selfhost_private_effect_resource_graph_status_code actual selfhost_private_effect_resource_graph_status_code expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_resource_traversal_collector_len_result_eq: collected len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_traversal_collector_len_result_eq %fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq: collector result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_traversal_collector_error_result_eq %fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_private_effect_resource_graph_collector_error_kind_eq error expected
+
+//: selfhost_private_effect_resource_graph_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_summary_new %fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary \collected_len\private_status\escape_status\missing_status\unsupported_status\fresh_missing_status\duplicate_rejected\materializer_key_duplicate_rejected\placeholder_rejected\endpoint_missing_rejected:
+    SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary collected_len private_status escape_status missing_status unsupported_status fresh_missing_status duplicate_rejected materializer_key_duplicate_rejected placeholder_rejected endpoint_missing_rejected
+
+//: selfhost_private_effect_resource_graph_stage0_body_with_fresh: stage0 用 graph body を fresh evidence 指定で[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_body_with_fresh %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn SelfhostPrivateEffectResourceGraphCompleteness fn SelfhostPrivateEffectResourceFreshRegionEvidence SelfhostPrivateEffectResourceGraphBodyRecord \type_id\module_fingerprint\root\graph_idx\completeness\fresh_region:
+    selfhost_private_effect_resource_graph_body_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq module_fingerprint root SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable selfhost_private_effect_resource_graph_id_new graph_idx completeness fresh_region
+
+//: selfhost_private_effect_resource_graph_stage0_body: stage0 用 graph body を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_body %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn SelfhostPrivateEffectResourceGraphCompleteness SelfhostPrivateEffectResourceGraphBodyRecord \type_id\module_fingerprint\root\graph_idx\completeness:
+    selfhost_private_effect_resource_graph_stage0_body_with_fresh type_id module_fingerprint root graph_idx completeness SelfhostPrivateEffectResourceFreshRegionEvidence::FreshPrivateRegionWitnessed
+
+//: selfhost_private_effect_resource_graph_stage0_place: stage0 用 graph place を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_place %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn SelfhostPrivateEffectResourcePlaceKind SelfhostPrivateEffectResourceGraphPlaceRecord \type_id\module_fingerprint\root\graph_idx\place_idx\kind:
+    selfhost_private_effect_resource_graph_place_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq module_fingerprint root selfhost_private_effect_resource_graph_id_new graph_idx selfhost_private_effect_resource_place_id_new place_idx kind
+
+//: selfhost_private_effect_resource_graph_stage0_edge: stage0 用 graph edge を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_edge %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn i32 fn SelfhostPrivateEffectResourceEdgeKind SelfhostPrivateEffectResourceGraphEdgeRecord \type_id\module_fingerprint\root\graph_idx\from_idx\to_idx\kind:
+    selfhost_private_effect_resource_graph_edge_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq module_fingerprint root selfhost_private_effect_resource_graph_id_new graph_idx selfhost_private_effect_resource_place_id_new from_idx selfhost_private_effect_resource_place_id_new to_idx kind
+
+//: selfhost_private_effect_resource_graph_stage0_push_body_len: 1 body push の length result を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_push_body_len %impure fn SelfhostPrivateEffectResourceGraphBodyRecord Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \body:
+    match selfhost_private_effect_resource_graph_input_new:
+        Result::Ok input0:
+            match selfhost_private_effect_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    let len %i32 selfhost_private_effect_resource_graph_body_len &input1
+                    selfhost_private_effect_resource_graph_input_free input1
+                    Result::Ok len
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_private_effect_resource_graph_stage0_duplicate_body_len: duplicate body rejection を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_stage0_duplicate_body_len %impure fn SelfhostPrivateEffectResourceGraphBodyRecord Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \body:
+    match selfhost_private_effect_resource_graph_input_new:
+        Result::Ok input0:
+            match selfhost_private_effect_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    match selfhost_private_effect_resource_graph_input_push_body input1 body:
+                        Result::Ok input2:
+                            let len %i32 selfhost_private_effect_resource_graph_body_len &input2
+                            selfhost_private_effect_resource_graph_input_free input2
+                            Result::Ok len
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_private_effect_resource_graph_stage0_materializer_key_duplicate_len: graph id だけ異なる body key の拒否を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_stage0_materializer_key_duplicate_len %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \type_id\root:
+    match selfhost_private_effect_resource_graph_input_new:
+        Result::Ok input0:
+            let body1 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root 11 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            match selfhost_private_effect_resource_graph_input_push_body input0 body1:
+                Result::Ok input1:
+                    let body2 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root 12 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+                    match selfhost_private_effect_resource_graph_input_push_body input1 body2:
+                        Result::Ok input2:
+                            match selfhost_private_effect_resource_graph_traversal_collector_table_result &input2:
+                                Result::Ok table:
+                                    let len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_len &table
+                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free table
+                                    selfhost_private_effect_resource_graph_input_free input2
+                                    Result::Ok len
+                                Result::Err e:
+                                    selfhost_private_effect_resource_graph_input_free input2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_private_effect_resource_graph_stage0_endpoint_missing_len: endpoint 欠落 graph の拒否を[確認/かくにん]する
+fn selfhost_private_effect_resource_graph_stage0_endpoint_missing_len %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \type_id\root:
+    match selfhost_private_effect_resource_graph_input_new:
+        Result::Ok input0:
+            let body %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root 7 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            match selfhost_private_effect_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    let place %SelfhostPrivateEffectResourceGraphPlaceRecord selfhost_private_effect_resource_graph_stage0_place type_id 880101 root 7 0 SelfhostPrivateEffectResourcePlaceKind::PrivateLocal
+                    match selfhost_private_effect_resource_graph_input_push_place input1 place:
+                        Result::Ok input2:
+                            let missing_edge %SelfhostPrivateEffectResourceGraphEdgeRecord selfhost_private_effect_resource_graph_stage0_edge type_id 880101 root 7 0 1 SelfhostPrivateEffectResourceEdgeKind::Owns
+                            match selfhost_private_effect_resource_graph_input_push_edge input2 missing_edge:
+                                Result::Ok input3:
+                                    match selfhost_private_effect_resource_graph_traversal_collector_table_result &input3:
+                                        Result::Ok table:
+                                            let len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_len &table
+                                            selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free table
+                                            selfhost_private_effect_resource_graph_input_free input3
+                                            Result::Ok len
+                                        Result::Err e:
+                                            selfhost_private_effect_resource_graph_input_free input3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_private_effect_resource_graph_stage0_source_result: 4 body graph を持つ input を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostPrivateEffectResourceGraphInput SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \type_id\root1\root2\root3\root4:
+    match selfhost_private_effect_resource_graph_input_new:
+        Result::Ok input0:
+            let body1 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root1 1 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            match selfhost_private_effect_resource_graph_input_push_body input0 body1:
+                Result::Ok input1:
+                    let body2 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root2 2 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+                    match selfhost_private_effect_resource_graph_input_push_body input1 body2:
+                        Result::Ok input2:
+                            let body3 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root3 3 SelfhostPrivateEffectResourceGraphCompleteness::ResourceGraphMissing
+                            match selfhost_private_effect_resource_graph_input_push_body input2 body3:
+                                Result::Ok input3:
+                                    let body4 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root4 4 SelfhostPrivateEffectResourceGraphCompleteness::TraversalUnsupported
+                                    match selfhost_private_effect_resource_graph_input_push_body input3 body4:
+                                        Result::Ok input4:
+                                            let private_place %SelfhostPrivateEffectResourceGraphPlaceRecord selfhost_private_effect_resource_graph_stage0_place type_id 880101 root1 1 0 SelfhostPrivateEffectResourcePlaceKind::PrivateLocal
+                                            match selfhost_private_effect_resource_graph_input_push_place input4 private_place:
+                                                Result::Ok input5:
+                                                    let private_source %SelfhostPrivateEffectResourceGraphPlaceRecord selfhost_private_effect_resource_graph_stage0_place type_id 880101 root2 2 0 SelfhostPrivateEffectResourcePlaceKind::PrivateLocal
+                                                    match selfhost_private_effect_resource_graph_input_push_place input5 private_source:
+                                                        Result::Ok input6:
+                                                            let return_place %SelfhostPrivateEffectResourceGraphPlaceRecord selfhost_private_effect_resource_graph_stage0_place type_id 880101 root2 2 1 SelfhostPrivateEffectResourcePlaceKind::ReturnPlace
+                                                            match selfhost_private_effect_resource_graph_input_push_place input6 return_place:
+                                                                Result::Ok input7:
+                                                                    let return_edge %SelfhostPrivateEffectResourceGraphEdgeRecord selfhost_private_effect_resource_graph_stage0_edge type_id 880101 root2 2 0 1 SelfhostPrivateEffectResourceEdgeKind::Return
+                                                                    selfhost_private_effect_resource_graph_input_push_edge input7 return_edge
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_private_effect_resource_graph_stage0_collected_len: collector output len を[作/つく]る
+fn selfhost_private_effect_resource_graph_stage0_collected_len %impure fn SelfhostPrivateEffectResourceGraphInput Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \source:
+    match selfhost_private_effect_resource_graph_traversal_collector_table_result &source:
+        Result::Ok summaries:
+            let summary_len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_len &summaries
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_table_free summaries
+            selfhost_private_effect_resource_graph_input_free source
+            Result::Ok summary_len
+        Result::Err e:
+            selfhost_private_effect_resource_graph_input_free source
+            Result::Err e
+
+//: selfhost_private_effect_resource_graph_stage0_status_for_body: body summary status を[返/かえ]す
+fn selfhost_private_effect_resource_graph_stage0_status_for_body %fn &SelfhostPrivateEffectResourceGraphInput fn SelfhostPrivateEffectResourceGraphBodyRecord Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind \source\body:
+    match selfhost_private_effect_resource_graph_body_summary_result source body:
+        Result::Ok summary:
+            Result::Ok summary.status
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_stage0: traversal collector の smoke API
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_stage0 %impure fn void Result SelfhostPrivateEffectResourceGraphTraversalCollectorStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 8801
+    let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 88011
+    let root2 %SelfhostHirExprId selfhost_hir_expr_id_new 88012
+    let root3 %SelfhostHirExprId selfhost_hir_expr_id_new 88013
+    let root4 %SelfhostHirExprId selfhost_hir_expr_id_new 88014
+    match selfhost_private_effect_resource_graph_stage0_source_result type_id root1 root2 root3 root4:
+        Result::Ok source:
+            let body1 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root1 1 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            let body2 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root2 2 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            let body3 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root3 3 SelfhostPrivateEffectResourceGraphCompleteness::ResourceGraphMissing
+            let body4 %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root4 4 SelfhostPrivateEffectResourceGraphCompleteness::TraversalUnsupported
+            let fresh_missing_body %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body_with_fresh type_id 880101 root1 1 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody SelfhostPrivateEffectResourceFreshRegionEvidence::FreshRegionMissing
+            let private_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_status_for_body &source body1
+            let escape_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_status_for_body &source body2
+            let missing_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_status_for_body &source body3
+            let unsupported_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_status_for_body &source body4
+            let fresh_missing_status %Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTraversalStatus SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_status_for_body &source fresh_missing_body
+            let collected_len %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_collected_len source
+            let duplicate_body %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 880101 root1 1 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            let duplicate_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_duplicate_body_len duplicate_body
+            let materializer_key_duplicate_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_materializer_key_duplicate_len type_id root1
+            let placeholder_body %SelfhostPrivateEffectResourceGraphBodyRecord selfhost_private_effect_resource_graph_stage0_body type_id 0 root1 1 SelfhostPrivateEffectResourceGraphCompleteness::ClosedForPrivateEffectBody
+            let placeholder_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_push_body_len placeholder_body
+            let endpoint_missing_rejected %Result i32 SelfhostPrivateEffectResourceGraphTraversalCollectorErrorKind selfhost_private_effect_resource_graph_stage0_endpoint_missing_len type_id root1
+            Result::Ok selfhost_private_effect_resource_graph_stage0_summary_new collected_len private_status escape_status missing_status unsupported_status fresh_missing_status duplicate_rejected materializer_key_duplicate_rejected placeholder_rejected endpoint_missing_rejected
+        Result::Err _setup:
+            Result::Err StdErrorKind::InvalidOperation

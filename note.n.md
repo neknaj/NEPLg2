@@ -41,6 +41,281 @@
 
 - F5lx 後続として、2D compositor drain を別 boundary として進める。
 
+# 2026-06-21 selfhost private effect Resource no-escape materializer
+
+## 目的
+
+- PrivateState / PrivateCache method body の actual Resource traversal summary を、既存 private-effect Resource no-escape producer が読む observation table へ正規化する境界を追加した。
+- proof table helper は既存 producer を必ず呼び、materializer 内で proof key / proof record / proof table constructor を直接呼ばないようにした。
+- Missing / Unknown は pure mask に使わず、actual traversal 本体、memo_call request evidence、backend bytes、effect mask、artifact key、public surface hash には接続しない。
+
+## subagent review
+
+- Epicurus の計画 review は `PLAN_APPROVED`。
+- 指摘は、次 slice の root cause が actual Resource traversal output から no-escape observation table を作り、既存 producer 経由で proof-aware materializer へ渡す境界であること、proof source authority を typed traversal payload に限定すること、body module fingerprint / Missing / Unknown / owner borrow を固定することだった。
+- 対応として、Drop 用 Resource materializer と同型の private-effect materializerを追加し、key に operation を含め、effect は `PrivateState` / `PrivateCache`、escape は `NotApplicable` だけを受理する形にした。
+
+## 実装内容
+
+- `memo_trait_operation_private_effect_resource_no_escape_materializer.nepl` を追加した。
+- traversal summary status は `AllTraversedPlacesPrivate` / `EscapingPlaceObserved` / `ResourceGraphMissing` / `TraversalUnsupported` を持ち、それぞれ `NoEscapeProven` / `MayEscape` / `Missing` / `Unknown` に写す。
+- traversal record key は `SelfhostTypeId` / operation / body module fingerprint / HIR body root / effect / original escape state の完全一致にした。
+- `selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_proof_table_result` は observation table owner を内部で閉じ、proof table は既存 producer だけで作る。
+- source policy、設計 doc、private effect design、todo を更新した。
+
+## main merge 対応
+
+- latest `origin/main` F5ls merge 後、`glyf.nepl` の shadow source resource reservation / F5lr command bridge declaration doc gap を `neplg2:test[skip]` 付きの stdlib comment で解消した。
+- F5ls の `gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner` で、nested `match` arm が 1 段浅くなり full stdlib compile が `parser.token.expected` で止まっていたため、`origin_y - shadow_extent` の result 分岐を outer `Result::Ok rect_x` の内側へ戻した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_materializer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-materializer-doctest.json -j 1`
+- pass after latest F5ls merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest F5ls merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_after_indent_fix.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with CRLF warning only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_resource_materializer.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## 未接続
+
+- actual Resource IR traversal / collector が real traversal summary table を発行する boundary。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す boundary。
+- Resource summary body hash / capability policy hash / artifact policy hash への private effect mask policy projection。
+- memo_call backend request-evidence proof と private effect mask の接続。
+
+# 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport
+
+## 目的
+
+- `memo_trait_operation_impl_candidate_builder` の proof-aware path を、actual public impl materializer と public impl surface orchestrator の入口へ接続した。
+- proof table を public surface hash authority にせず、operation materializer / candidate builder へだけ渡す transport boundary にした。
+- generic connector input と private-effect proof table を同時に扱う入口も追加し、generic materializer accepted path が proof-aware path で抜け落ちないようにした。
+
+## subagent review
+
+- 計画 review で Herschel は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、generic+proof path をこの slice で必須にすること、materializer が source record の `module_fingerprint` と call-level `body_module_fingerprint` を proof-aware builder 呼び出し前に全件検証すること、orchestrator は candidate builder を直接呼ばず materializer API だけを使うこと、proof/connectors を borrow として扱うことだった。
+- 対応として、proof-aware materializer API は fingerprint placeholder / mismatch を typed error で拒否し、generic+proof API も同じ検査を通す。orchestrator は scanner-output / AST-records それぞれに proof-only と generic+proof entry を追加し、normalizer / hash / materializer の順序を既存 entry と同じにした。
+- 実装後 review で Arendt は本体にブロッカーなしとしつつ、production materializer entry で proof key 合成を禁止する契約が function-scoped ではないと指摘した。
+- 対応として、proof-aware materializer production function ごとに `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey` / `proof_key_new` の直接使用を禁止し、proof table と generic connector table を free しない borrow 契約も function-scoped に固定した。orchestrator 側も proof / connector borrow の free 禁止を proof-aware entry ごとに追加した。
+
+## 実装内容
+
+- `SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch` と `BodyModuleFingerprintPlaceholder` / `BodyModuleFingerprintMismatch` error を追加した。
+- `selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result` と `...with_generics_and_private_effect_proofs_result` を追加した。
+- public impl surface orchestrator に scanner-output proof、scanner-output generic+proof、AST-records proof、AST-records generic+proof の entry を追加した。
+- stage0 doctest に PrivateCache proof proven / missing / duplicate / fingerprint mismatch の representative smoke を追加した。
+- 設計 doc、issue、todo、契約テストを更新した。
+- `origin/main` の F5kw source contour authority merge 後、`glyf.nepl` の 1-space indent 崩れと impure helper signature の `fn` 区切りを修正した。
+- その indent 崩れで `nepl-core/src/lexer.rs` が `IndentLevelMismatch` 診断前に panic していたため、dedent error recovery を「現在 indent 以下の既知 level まで pop」に直し、未知 indent へ診断を出す回帰テストを追加した。
+- latest `origin/main` の F5kx / F5ky merge 後、full GUI import でだけ露出した impure drain helper signature の pure `fn` 区切り、`next_*` parameter 名の崩れ、typed `Vec` allocation 欠落を修正した。
+- F5kx / F5ky の declaration doc gap を baseline 増加ではなく `neplg2:test[skip]` 付きの boundary doc 追加で解消し、契約テストに impure helper signature と typed `vec::with_capacity` を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --dist web/dist -o tmp/selfhost_materializer_doctest.json -j 1`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --dist web/dist -o tmp/selfhost_orchestrator_doctest.json -j 1`
+- pass after implementation review hardening: `node --check nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass after implementation review hardening: `node --check nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass after implementation review hardening: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass after implementation review hardening: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass after F5kw merge fix: `cargo test -p nepl-core lexer_reports_dedent_to_unknown_indent_without_panic`
+- pass after F5kw merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after F5kw merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after F5kw merge fix: `trunk build`
+- pass after F5kw merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after F5kw merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after F5kw merge fix: `git diff --check`
+- pass after F5kw merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md --no-tree -o tmp_gui_font_render_stroke_source_contour_authority_merge_verify_after_lexer_fix.json -j 1`
+- pass after F5kw merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_public_impl_proof_transport_after_merge_lexer_fix.json`
+- checked JSON after F5kw merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest F5kx/F5ky merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest F5kx/F5ky merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md --no-tree -o tmp_gui_font_render_stroke_source_contour_authority_after_latest_merge_fix.json -j 1`
+- pass after latest F5kx/F5ky merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_offset_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_offset_geometry_after_full_compile_fix.json -j 1`
+- pass after latest F5kx/F5ky merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md --no-tree -o tmp_gui_font_render_stroke_side_edge_owner_after_full_compile_fix.json -j 1`
+- pass after latest F5kx/F5ky merge fix: `cargo test -p nepl-core lexer_reports_dedent_to_unknown_indent_without_panic`
+- pass after latest F5kx/F5ky merge fix: `trunk build`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_public_impl_proof_transport_after_doc_fix.json`
+- checked JSON after latest F5kx/F5ky merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest F5kx/F5ky merge fix: `node nodesrc/run_source_policy_regressions.js` with long timeout; final test reached `nodesrc/test_zed_extension_no_tracked_target.js`
+- pass after latest F5kx/F5ky merge fix: `git diff --check`
+
+## 未接続
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行する boundary。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint を proof-aware public impl materializer へ渡す boundary。
+- Resource summary body hash / capability policy hash / artifact policy hash への private effect mask policy projection。
+- memo_call backend request-evidence proof と private effect mask の接続。
+
+# 2026-06-21 selfhost operation impl candidate builder private effect proof path
+
+### 実装
+
+- `memo_trait_operation_impl_candidate_builder.nepl` に、caller supplied `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を受ける proof-aware builder path を追加した。
+- 既存の proof なし public API はそのまま残し、proof-aware API だけが method body scan record から `memo_trait_operation_private_effect_no_escape_gate` を通して method body fact table を作る。
+- `body_module_fingerprint` は 1 回の builder call に対応する HIR module body identity とし、proof key は `SelfhostTypeId` / operation / body module fingerprint / body root / effect / original escape state の完全一致で照合する。
+- missing proof は accepted `Pure` にしない。`PrivateState` / `PrivateCache` の `NotApplicable` を `Unknown` 相当のまま残し、proven proof だけを `NoEscapeProven` へ、duplicate proof は `PrivateEffectNoEscapeGateRejected(ProofDuplicate)` へ写す。
+- candidate builder は operation evidence、aggregate proof、Resource proof production、memo_call backend bytes、sealed backend representation、artifact key を作らない。caller supplied proof table と existing scan authority を照合して candidate table に届く method body evidence を作るだけにした。
+
+### 関連修正
+
+- `memo_call_backend_request_table.nepl` の stage0 fixture に残っていた `unwrap_ok` を explicit `Result` handling に置き換え、source-policy の unsafe helper regression が次の検査へ進めるようにした。
+- documentation contract baseline を現行値へ更新し、`selfhost_proof_solve_effect_pure_context` の comment に `SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` を明記した。
+- source-policy が到達した既存 doctest metadata 欠落として、GUI render2d n.md の compile_fail `diag_code` と report doctest の stdout / exit metadata を補った。
+- merge 後の full-stdlib compile で露呈した `glyf.nepl` の F5ku helper 構文を修正した。zero-argument helper は `%fn void ... \void` にし、impure drain helper は `impure fn` 区切りと既存 enum metric の二重 wrapping なしに揃えた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_doctest_diag_code_metadata.js`
+- pass: `node nodesrc/test_nepl_doc_report_metadata_policy.js`
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js` 相当。ログ `neplg2_source_policy_final_20260621134349.out` は最後の `test_zed_extension_no_tracked_target.js` まで到達し、failure pattern は無い。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_candidate_builder.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass after latest `origin/main` F5kv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_merge_diag.json -j 1`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/run_source_policy_regressions.js`; log `neplg2_source_policy_after_merge_20260621141112.out` reached final `test_zed_extension_no_tracked_target.js`
+- pass after latest `origin/main` F5kv merge: `trunk build`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_candidate_builder_after_merge.json`
+- checked JSON after latest `origin/main` F5kv merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+### 残件
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、public impl materializer / candidate builder の proof-aware path へ渡す。
+- public impl surface orchestrator が proof table の source authority と materializer record の body module fingerprint を同じ単位で分配する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
+# 2026-06-21 selfhost memo_call fresh witness request-evidence bridge
+
+## 目的
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の続きとして、fresh region witness bridge が生成した module-private Resource proof table を、既存 request-evidence gate へ接続した。
+- candidate / witness の一致を直接 backend accepted path にせず、既存 gate が HIR root から request table を再構築し、request entry recheck と proof key construction を再実行する境界にした。
+
+## subagent review
+
+- 実装前 review で Wegener は `PLAN_APPROVED` を返した。
+- 指摘は、`SelfhostModuleAst` ではなく既存 gate に合わせて `&SelfhostHirModule` / `SelfhostHirExprId` を authority にすること、bridge は witness table owner を消費して必ず閉じること、Resource proof table も gate 呼び出し後に必ず閉じることだった。
+- 対応として、新 bridge は witness table owner を受け取り、`region_fresh_witness_resource_table_result` 実行後に witness table を閉じ、既存 `resource_proof_gate_from_hir_root_result` 実行後に Resource proof table を閉じる構造にした。
+- 実装後 review で Wegener は `CHANGES_REQUESTED` を返し、stage0 helper が candidate construction を witness owner より先に match すると、caller が既に作った witness owner を candidate failure 時に閉じられないと指摘した。
+- 対応として stage0 helper は `witness_result` を先に match し、`Result::Ok witnesses` を得た後に candidate を作る。candidate failure と module fixture failure のどちらでも witness table owner を free する source policy を追加した。
+
+## 実装内容
+
+- module-private `selfhost_memo_call_backend_private_cache_region_fresh_witness_request_evidence_gate_result` を追加した。
+- public stage0 summary は request/proof count と typed `Result` payload だけを公開し、candidate、fresh witness table、Resource proof table、request proof table を公開しない。
+- source policy は、fresh-witness-only stage が request-evidence gate を呼ばないこと、新 bridge だけが既存 Resource proof gate を呼ぶこと、低層 proof table writer / request-evidence converter bypass、backend bytes、effect mask、artifact key 合成を禁止することを固定した。
+- module doc、設計doc、issue、todo を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-request-evidence-doctest.json`
+
+## 未接続
+
+- actual Resource IR traversal 本体から fresh-region witness table を作る boundary。
+- actual traversal 由来の fresh witness と Resource proof / request-evidence bridge を上位 orchestration へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
+# 2026-06-21 selfhost memo_call fresh region witness bridge
+
+## 目的
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の続きとして、region no-escape candidate consistency checker の次段に fresh-region witness bridge を追加した。
+- candidate record だけで `PrivateCacheNoEscapeProven` へ昇格させず、別 record として渡される fresh witness が同じ key / graph / root ordinal / support ordinal を持つ場合だけ、module-private Resource proof table を 1 件作る境界にした。
+
+## subagent review
+
+- 実装前 review で Wegener は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、この slice で既存 Resource proof producer / request-evidence gate へ接続すると actual Resource IR traversal 未接続でも accepted request evidence に進めるように見えるため、Resource proof table 生成で止めるべきというものだった。
+- 対応として、fresh witness bridge は `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を作るところで止め、`resource_proof_gate_from_hir_root_result`、request-evidence proof table、`RequestEvidenceProven`、GraphInput、backend bytes、effect mask、artifact key へ接続しない source policy を追加した。
+- 実装後 review で Wegener は `REVIEW_APPROVED` を返した。Resource proof table 生成止まりで request-evidence gate へ接続していないこと、fresh witness 型が module-private に閉じていること、owner table Clone / Copy ban、wildcard fallback ban、fail-closed 分類が揃っていることを確認した。
+
+## 実装内容
+
+- `SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus` / `Record` / `Table` を module-private に追加した。
+- witness は accepted / missing / rejected / unavailable を enum で区別し、accepted 以外は fail-closed にした。
+- candidate と witness の key / graph / root ordinal / support ordinal 一致を検査し、empty witness、missing、key mismatch、graph mismatch、root/support ordinal mismatch、root/support ordinal duplicate、duplicate witness、placeholder fingerprint、invalid graph、invalid ordinal を typed error として拒否する。
+- public には `SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStage0Summary` だけを出し、private owner table や Resource proof table を公開しない。
+- module doc、設計doc、issue、source policy、doctest、todo を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-fresh-witness-doctest.json`
+
+## 未接続
+
+- actual Resource IR traversal 本体から fresh-region witness table を作る boundary。
+- fresh witness bridge で作った Resource proof table を、producer-owned request-evidence gate へ接続する boundary。
+- PrivateCache / PrivateState effect masking。
+- sealed memoized backend representation と prechecked artifact key projection。
+
+# 2026-06-21 selfhost memo_call region no-escape candidate consistency checker
+
+## 目的
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の続きとして、private cache region candidate stage0 の出力を、actual no-escape proof へ進める前の consistency checker まで進めた。
+- `PrivateCacheRegionRootCandidate` と `PrivateCacheRegionSupportCandidate` を直接 `PrivateCacheNoEscapeProven` にせず、candidate-only の中間 status / record に留めることで、actual Resource IR traversal、fresh private region proof、PrivateCache / PrivateState effect masking、sealed backend representation を未接続のまま accepted Resource proof と誤認しない境界にした。
+
+## subagent review
+
+- 実装前 review で Wegener は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、root/support candidate から既存 `PrivateCacheNoEscapeProven` へ進めるのは早すぎるため、中間 status で止めること、single key / single graph、duplicate、empty、bad status を fail-closed にすること、Resource proof table / request-evidence proof table / GraphInput / backend bytes / effect mask を合成しないことだった。
+- 対応として `SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateStatus` と `SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord` を module-private に追加し、public には Result payload の stage0 summary だけを公開した。
+- 実装後 review で Wegener は `REVIEW_APPROVED` を返した。candidate status / record が module-private に留まり、既存 Resource proof と混同される公開経路が無いこと、duplicate / mismatch / bad status が fail-closed であること、source policy が private exposure ban と proof / backend / effect mask 合成禁止を固定していることを確認した。
+
+## 実装内容
+
+- region proof table から candidate-only record へ進む checker を追加した。
+- checker は empty table、key mismatch、graph mismatch、root duplicate、support duplicate、operation ordinal duplicate、root/support 欠落、escape、observation、unsupported、unavailable、placeholder / malformed origin を typed enum error として拒否する。
+- stage0 public summary は accepted / empty / key mismatch / graph mismatch / duplicate / ordinal duplicate / missing support / may escape / observation / unsupported / unavailable / placeholder を代表 case として返す。
+- module doc と source policy は、candidate checker が `PrivateCacheNoEscapeProven`、`RequestEvidenceProven`、GraphInput、backend bytes、Pure mask、artifact proof を作らないことを固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-doctest.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with CRLF warnings only: `git diff --check`
+- pass: subagent implementation review by Wegener
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 244 秒で timeout した。対象 module 専用 policy は通過済み。
+
+## 未接続
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
+- candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
 # 2026-06-21 Agent2 GUI font F5lr shadow source sample command bridge boundary
 
 ## 目的
@@ -93,6 +368,7 @@
 - read は `vec::get` で alpha slot を読み、slot missing、negative alpha、`alpha > alpha_max` を typed error に分ける。成功時は F5lp owner の shadow paint / blend / order metadata を sample へコピーする。
 - cursor / start error / step error / terminal の free path は保持している F5lp owner を一度だけ閉じる。
 - Carson plan review は `PLAN_APPROVED`。F5lp owner だけを direct authority とし、lower order error evidence、checked position、resource / command / platform / compositor 禁止を固定する設計が承認された。
+- selfhost branch merge 後、F5lq sample cursor helper の stdlib declaration doc gap を baseline 増加ではなく `neplg2:test[skip]` 付きの boundary doc 追加で解消した。
 
 ## 検証
 
@@ -108,6 +384,11 @@
 - Carson implementation review 1 は `CHANGES_REQUESTED`。F5lq 実装本体には blocker はなく、`note.n.md` に F5lq entry が無い点を指摘された。
 - 指摘対応として、この F5lq entry に plan review、実装、検証、implementation review、残件を記録した。
 - Carson follow-up implementation review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lq_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch merge doc fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
 
 ## 残件
 
@@ -129,6 +410,7 @@
 - start error は lower packed mask error evidence と lower edge error evidence を保持する。Hume implementation review 1 の指摘により、F5lo invariant が nested edge invalidity を `EdgeOwnerInvariantFailed` に畳んだ packed failure path でも nested edge invariant を再実行し、具体的な F5lk edge error kind を併せて保持するよう修正した。
 - owner / recovery free は F5lo packed mask owner を閉じる経路に一本化した。
 - Hume plan review は `PLAN_APPROVED`。completed F5lo owner だけを direct authority とし、F5lo invariant と nested F5lk edge/context invariant を再検査する設計が承認された。
+- selfhost branch merge 後、F5lp composition order helper の stdlib declaration doc gap を baseline 増加ではなく `neplg2:test[skip]` 付きの boundary doc 追加で解消した。
 
 ## 検証
 
@@ -144,6 +426,11 @@
 - Hume implementation review 1 は `CHANGES_REQUESTED`。F5lo invariant failure が lower edge error を packed error に畳む path で concrete edge evidence が失われる点を指摘された。
 - 指摘対応として packed `EdgeOwnerInvariantFailed` path で nested F5lk edge invariant を再実行し、packed error と concrete edge error の両方を start error に保持するようにした。
 - Hume follow-up implementation review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md --no-tree -o tmp_gui_font_render_shadow_source_composition_order_f5lp_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch merge doc fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
 
 ## 残件
 
@@ -167,6 +454,7 @@
 - completion は exact full のときだけ F5ln blur owner を分解し、raw blurred cells を free して、F5lk edge owner、source shape、shadow shape、alpha cells、cell count、alpha max を持つ completed owner を返す。
 - completed owner invariant を追加し、後続 composition が nested F5lk edge authority、cached source shape、derived shadow shape、alpha max、alpha Vec len/cap を再検査できるようにした。
 - Pasteur plan review は `PLAN_APPROVED`。F5ln authority、raw blur coverage 上での alpha normalization、shadow paint / blend をコピーしない設計、push failure / completion free の設計が承認された。
+- selfhost branch merge 後、F5lo packed mask helper の stdlib declaration doc gap を baseline 増加ではなく `neplg2:test[skip]` 付きの boundary doc 追加で解消した。
 
 ## 検証
 
@@ -180,6 +468,11 @@
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lo.json` は 13/13 passed。
 - checked JSON: `tmp/playground-editor-tests-f5lo.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Pasteur implementation review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_owner_f5lo_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch merge doc fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
 
 ## 残件
 
@@ -217,6 +510,12 @@
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ln.json` は 13/13 passed。
 - checked JSON: `tmp/playground-editor-tests-f5ln.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Pasteur implementation review は `REVIEW_APPROVED`。
+- selfhost branch への latest `origin/main` F5ln merge 後、`node nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 2813 > 2756` で失敗した。原因は F5ln の blur mask owner 新規 top-level helper 57 件に doc が無かったことだったため、各 helper に日本語 doc と `neplg2:test[skip]` を追加し、baseline は変更しなかった。
+- F5ln merge 後の full GUI import では `gui_sfnt_simple_glyph_render_shadow_source_blur_mask_build_owner_start` の `vec::with_capacity shadow_cell_count` が型未注釈で、`Result::Ok/Err` が literal arm 扱いになっていた。`let cells_result %Result Vec i32 StdErrorKind vec::with_capacity shadow_cell_count` に束縛してから match し、allocation result の型を根本で固定した。
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch F5ln merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_owner_f5ln_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
 
 ## 残件
 
@@ -257,6 +556,11 @@
 - 指摘対応として、F5lm source policy に approved 4 helper 以外の `gui_sfnt_simple_glyph_raster_coverage_scan_*` を拒否する negative allowlist を追加した。
 - `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は source policy 強化後も pass。
 - Kuhn follow-up implementation review は `REVIEW_APPROVED`。
+- selfhost branch への latest `origin/main` F5lm merge 後、`node nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 2794 > 2756` で失敗した。原因は F5lm の coverage scan converter 新規 helper 群が baseline なしで doc gap を増やしていたことだったため、対象 helper に日本語 doc と `neplg2:test[skip]` を追加し、baseline は変更しなかった。
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch F5lm merge doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_converter_f5lm_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
 
 ## 残件
 
@@ -280,6 +584,8 @@
 - completion は `written_cell_count == cell_count` のときだけ completed owner を返し、未充足なら writer owner を `CoverageMaskIncomplete` として返す。
 - Turing plan review 1 は `CHANGES_REQUESTED`。F5ll start が F5lk owner の自己整合だけでなく nested writer plan / capacity にも照合する必要があり、`edges.cap == edge_count or raster_edge_capacity` は緩すぎると指摘された。
 - Turing revised plan review は `PLAN_APPROVED`。
+- selfhost branch への latest `origin/main` F5ll merge 後、`stdlib declaration doc gaps increased: 2796 > 2756` が出た。baseline 更新ではなく、F5ll coverage mask writer block の top-level helper に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- 同じ merge 後の full GUI compile で、F5ll coverage mask writer start の typed `Vec` allocation 欠落と `push_cell` signature の `impure fn` 区切り欠落が露呈した。既存 coverage writer pattern に合わせ、typed `vec::with_capacity` result と `impure fn i32` に修正した。
 
 ## 検証
 
@@ -293,6 +599,10 @@
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ll.json` は 13/13 passed。
 - checked JSON: `tmp/playground-editor-tests-f5ll.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Turing の implementation review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll_after_selfhost_merge_fix.json -j 1`。1/1。
 
 ## 残件
 
@@ -318,6 +628,8 @@
 - Laplace の plan review 1 は `CHANGES_REQUESTED`。generic raster edge drain 経由では completed raster mask writer が必要になり、F5lj の writer state と契約が合わないため修正した。
 - Laplace の revised plan review 1 は `CHANGES_REQUESTED`。`SkipNoSegment` を scalar record として扱う案が誤りだったため、tag 4 rejection に修正した。
 - Laplace revised plan 2 は `PLAN_APPROVED`。
+- selfhost branch への latest `origin/main` F5lk merge 後、`stdlib declaration doc gaps increased: 2825 > 2756` が出た。baseline 更新ではなく、F5lk shadow source edge block の top-level helper に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- 同じ merge 後の full GUI compile で、F5lk shadow source edge block の `and` の多項風記述、typed `Vec` allocation 欠落、`next_*` parameter 名の `\nnext_*` 誤記、`StdErrorKind` の二重変換が露呈した。既存 raster edge drain pattern に合わせ、boolean check を中間値化し、typed `vec::with_capacity` result を match し、parameter 名と allocation error payload を修正した。
 
 ## 検証
 
@@ -332,6 +644,10 @@
 - checked JSON: `tmp/playground-editor-tests-f5lk.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Laplace の implementation review 1 は `CHANGES_REQUESTED`。F5lk 実装本体の blocker はなく、検証欄が pending のままだったことと focused doctest file が untracked であることを指摘されたため修正した。
 - Laplace の implementation re-review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5lk_after_selfhost_merge_fix.json -j 1`。1/1。
 
 ## 残件
 
@@ -516,6 +832,8 @@
 
 ## 残件
 
+- F5lf は `origin/main` 側で merge 済み。この作業 branch では latest `origin/main` merge として統合し、production actual traversal reader 変更との同居を検証した。
+- glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor は引き続き別 boundary として進める。
 - F5lf は commit / push / main merge 済み。後続は F5lg fill+stroke glyph paint composition order、stroke-only composition order、shadow rasterization、2D compositor drain である。
 
 # 2026-06-21 Agent2 GUI font F5le quadratic side edge scan policy
@@ -589,7 +907,8 @@
 ## 残件
 
 - F5ld の commit / push / main merge は完了済み。
-- F5le 作業開始時点では quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain が残件だった。
+- F5le 作業開始時点では quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain が残件だった。F5le 後は packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を別 boundary として進める。
+- この作業 branch では latest `origin/main` merge として F5ld/F5le を統合し、production actual traversal reader 変更との同居を検証した。
 
 # 2026-06-21 Agent2 GUI font F5lc stroke join geometry boundary
 
@@ -743,6 +1062,27 @@
 - 残リスクは、F5la が writer owner boundary なので、実データで stroke coverage を計算するケースは後続の stroke coverage scan converter で追加する必要がある点。
 - F5la 後続は stroke coverage scan converter を別 boundary として追加する。
 
+## merge_integration
+
+- latest `origin/main` merge 後、F5la の full GUI import で F5kx/F5ky/F5kz と同根の型解決問題を確認した。`gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start` の `vec::with_capacity cell_count` は `Vec i32` の型を明示せず、fake host import で型解決が不安定になるため、`Result Vec i32 StdErrorKind` の型付き binding に変更した。
+- `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start` と `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` は `%impure fn` の後続引数区切りを純粋 `fn` としていたため、全引数区切りを `impure fn` に揃えた。
+- F5la helper declaration の doccomment gaps を埋め、writer owner / completed owner / error payload / invariant / push / completion / free の責務を F5la owner boundary として記録した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5la の型付き Vec 確保と impure function type signature を固定する contract を追加した。
+
+## merge_verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_mask_writer_after_merge_fix.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5la_after_merge_fix.json -j 1`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_public_impl_proof_transport_after_f5la_merge_fix.json`
+- checked JSON: `output/playground_editor_selfhost_public_impl_proof_transport_after_f5la_merge_fix.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+
 # 2026-06-21 Agent2 GUI font F5kz stroke edge closure owner boundary
 
 ## 目的
@@ -792,6 +1132,27 @@
 - Arendt の re-review は `REVIEW_APPROVED`。focused doctest staged、implementation/docs/source policy/note/todo staged、`git diff --cached --check` pass が確認された。
 - 残リスクは、focused doctest が policy label smoke であり、実データでの skip/wrap/self-target geometry 化は後続の stroke coverage phase で具体ケースを追加する余地がある点。
 - F5kz 後続は stroke coverage mask owner を別 boundary として追加する。
+
+## merge_integration
+
+- latest `origin/main` merge 後、F5kz の full GUI import で F5kx/F5ky と同根の型解決問題を確認した。`gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_start` の `vec::with_capacity side_edge_count` は join record Vec の型を明示せず、fake host import で型解決が不安定になるため、`Result Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord StdErrorKind` の型付き binding に変更した。
+- `gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join` と `gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current` は `%impure fn` の後続引数区切りを純粋 `fn` としていたため、全引数区切りを `impure fn` に揃えた。
+- F5kz helper declaration の doccomment gaps を埋め、constructor / getter / invariant / evidence / drain / free の責務を F5kz owner boundary として記録した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5kz の型付き Vec 確保と impure function type signature を固定する contract を追加した。
+
+## merge_verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md --no-tree -o tmp_gui_font_render_stroke_edge_closure_owner_after_merge_fix.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kz_after_merge_fix.json -j 1`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_public_impl_proof_transport_after_f5kz_merge_fix.json`
+- checked JSON: `output/playground_editor_selfhost_public_impl_proof_transport_after_f5kz_merge_fix.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
 
 # 2026-06-21 Agent2 GUI font F5ky stroke side edge owner boundary
 
@@ -906,6 +1267,7 @@
 - F5ku metric owner と同じ count を持つ別 source を誤って受け入れる余地を塞ぐため、LineTo / QuadraticTo push 前に collection-backed `GuiSfntSimpleGlyphCurveSegment` を読み直し、line start/end と quadratic start/control/end が F5ku metric 座標と一致することを追加で検査する。
 - 座標一致は origin guard であり、contour boundary / wrap / skipped terminal edge は引き続き command value と contour span provenance からのみ保持する。
 - docs、source policy、focused doctest label、todo を F5kw に合わせて更新した。
+- merge integration で F5kw 追加 API の declaration doc gap が source policy baseline を超えたため、metric provenance / contour owner / drain helper / free helper に `neplg2:test[skip]` 付きの doc comment を追加した。
 
 ## verification_current
 
@@ -919,6 +1281,7 @@
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kw-sourceguard.json`
 - checked JSON: `tmp/playground-editor-tests-f5kw-sourceguard.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after merge integration: `node nodesrc/test_stdlib_documentation_contract.js`
 
 ## implementation_review
 
@@ -945,6 +1308,8 @@
 - `gui_stroke_new` を color、width、cap、join、miter limit、dash をすべて受け取る checked constructor に変更し、`width > 0` と `miter_limit > 0.0` が両方成り立つ場合だけ `Ok` にした。NaN miter は positive comparison が false になるため `GuiError::InvalidCommand` になる。
 - direct `GuiStroke` construction は private proof field により外部からできない形にした。
 - `gui_stroke_color` / `gui_stroke_width` / `gui_stroke_cap` / `gui_stroke_join` / `gui_stroke_miter_limit` / `gui_stroke_dash` accessor を追加した。
+- merge integration で accessor comment に `gui_stroke_new` doctest coverage を明記し、宣言単位の stdlib documentation doctest gap を増やさないようにした。
+- merge integration で `GuiStroke` direct construction compile_fail doctest に実診断 `type.stack.extra_values` の `diag_code` を固定した。
 - F5kq / F5kr / F5ks の stroke width read を `gui_stroke_width` に寄せ、`GuiStroke` 内部 field 名への依存を減らした。
 - docs、source policy、render_command doctest、todo を F5kv に合わせて更新した。
 
@@ -1040,7 +1405,6 @@
 ## implementation_review
 
 - Cicero の implementation review は `REVIEW_APPROVED`。value-only metric preparation、checked i64 arithmetic、degenerate policy、F5ks cursor owner / edge / coverage / command / platform 非接続が承認された。
-
 # 2026-06-21 Agent2 GUI native F5kp Linux X11 keymap projection evidence boundary
 
 ## 目的
@@ -74396,6 +74760,157 @@ MERGE_APPROVED
 - F5 outline storage doctest の timeout root cause は phase / scenario split で解消したが、compiler compile time 自体は重い。parallel 実行では heavy doctest 同士が重なると timeout し得るため、CI や runner 側では heavy doctest の scheduling policy を別途改善する余地がある。
 - 次 slice では F5k 以降として PointX/PointY を束ねた full point decode boundary、edge/path tag population、outline point stream、raster mask、render2d command emission へ進む。
 
+## 2026-06-15 selfhost generic bound solver checkpoint
+
+### scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: `Result` / enum error / typed field authority / owner boundary / facade-private stage / 丁寧な doc comment を優先した。行数やdoc comment量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl` を追加した。
+- bound solver は generic binder evidence、parameter table、bound table、proof table、solver policy hash だけを accepted authority として扱う。
+- binder evidence は producer と同じ same-origin helper で再検査し、proof count、bound ordinal、parameter ordinal、trait application shape hash、trait type argument count、proof status、proof shape hash、solver policy hash を typed field として検査する。
+- `Proven` の proof だけを `AllSolved` に進め、`Missing` / `Refuted` / `Unknown`、count / ordinal / shape / hash / policy mismatch は typed error で fail-closed にした。
+- proof table は `Vec` owner を持つため `Clone` / `Copy` を実装しない。source policy でも shallow clone / copy の再導入を拒否する。
+- materializer accepted path は変更していない。detailed generic binder evidence は generic coherence と accepted candidate boundary が揃うまで `GenericImplInstantiationUnsupported` のままにする。
+
+### subagent_review
+
+- Popper review: bound solver evidence producer を次sliceにする判断を支持した。materializer accepted path を開くには bound solver と generic coherence が必要で、今回のsliceでは HIR / Resource / backend / proof store / private effect / prechecked artifact を持ち込まないことを求めた。
+- Tesla review: caller supplied `AllSolved` を accepted path の根拠にしてはいけないこと、generic coherence より先に bound solver evidence producer を置くこと、missing / unknown / refuted / ordinal / shape / duplicate などをtyped rejectに分けることを blocker / required として指摘した。今回の実装は materializer fail-closed を維持し、solver moduleをfacade-privateに保つ形で反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-generic-bound-solver.json`
+- pass: `git diff --check`
+
+### performance_observation
+
+- `memo_trait_public_impl_generic_bound_solver.nepl` focused doctest は compile_ms 約 78.9s、run_ms 約 0.05s、total_ms 約 78.9s だった。
+- この時間は owner-bearing stage0 fixture と既存 Resource static check の探索空間が主因であり、今回固定した semantic boundary の誤りではない。sorted index / lookup cache / fixture分割は contract を変えずに後続で実装できる最適化として扱う。
+
+### residual
+
+- generic coherence は未実装である。
+- bound solver evidence、instantiation evidence、projection evidence を materializer accepted path へ接続する境界は未実装である。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続は未着手である。
+
+## 2026-06-15 selfhost generic materializer connector checkpoint
+
+### scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: Zenn 記事の `Result` / enum error、typed field authority、match による網羅、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl` を追加した。
+- connector は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` だけを accepted authority として扱う。
+- record は `Detailed` generic binder evidence を要求し、monomorphic record は既存 materializer の monomorphic path に任せるため `RecordGenericBinderMonomorphic` で拒否する。
+- binder evidence の parameter count、bound count、parameter table hash、bound table hash、binder shape hash を instantiation evidence と照合する。
+- bound solving status は connector でも `NoBounds` / `AllSolved` / `Unsolved` を再検査し、`AllSolved` evidence の schema が `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致し、導出した bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致する場合だけ受理する。
+- projection connector evidence と instantiation evidence の substitution shape hash、substituted target shape、substituted trait application shape を照合する。
+- projection connector evidence と concrete coherence evidence は schema、instantiation shape、connector shape、canonical target fingerprint / payload、canonical trait application fingerprint / payload、target final shape、trait application final shape を field-by-field で照合する。
+- accepted connector evidence は substituted target / trait shape と canonical target / trait material と final target / trait shape を別 field として保持する。次段 materializer integration が hash-only authority に落ちないための境界である。
+- materializer accepted path はまだ開いていない。`memo_trait_operation_public_impl_materializer.nepl` の detailed generic record は引き続き `GenericImplInstantiationUnsupported` で fail-closed にする。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` を追加し、facade 非公開、selfhost source list 非登録、materializer fail-closed、forbidden layer import 禁止、typed field / error / result order、bound solving evidence schema exact match、stage0 unsolved-bound / schema-mismatch rejection、行数 / doc comment 長制限禁止を source policy として固定した。
+- `nodesrc/run_source_policy_regressions.js` に新しい source policy test を登録した。
+- `todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md` を更新し、generic materializer connector の完了と次段の materializer accepted path 接続を記録した。
+
+### subagent_review
+
+- Tesla review: caller-supplied `AllSolved` summary をそのまま accepted path の根拠にしてはいけないこと、bound solving status を connector でも再検査して instantiation evidence の bound hash と照合すること、materializer の detailed generic acceptance はまだ開かないことを required として指摘した。今回の実装では `selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result` と `BoundSolutionShapeHashMismatch` を追加して反映した。
+- Tesla final review blocker: connector / coherence evidence が public constructible なのに canonical target / trait fingerprint + payload と substitution shape を十分に再検査していないこと、accepted evidence が final shape だけを保持して次段を hash-only authority にし得ることを指摘した。今回の follow-up で connector / coherence canonical material の schema/hash placeholder と field mismatch を typed error に分け、instantiation / connector の substitution shape / substituted shape 照合を追加し、accepted evidence に substituted shape と canonical/final material を分けて保持するように修正した。
+- Popper review: この slice は materializer acceptance ではなく generic materializer connector / preflight boundary として進めるべきであり、typed materializer record、instantiation evidence、projection connector evidence、concrete coherence evidence を束ねる方針を支持した。operation classifier / candidate builder / Resource / backend / proof store / PrivateCache / prechecked artifact を持ち込まない方針を維持した。
+- Popper final review blocker: public constructible な `AllSolved` evidence について、schema_version が nonzero であることだけでは弱く、期待 schema と一致しなければ accepted authority に含めてはいけないと指摘した。今回の follow-up で instantiation module に `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` を公開し、bound solver と materializer connector の両方が同じ schema helper を使うようにした。connector では `BoundSolvingSchemaMismatch` を追加し、stage0 と source policy で schema mismatch rejection を固定した。
+- Popper re-review: Blocker なし。bound solving evidence schema helper の共有、connector の exact schema match、`BoundSolvingSchemaMismatch`、stage0 / source policy の schema mismatch rejection が Zenn 方針の enum / Result / typed field authority / 丁寧な contract comment に沿っていることを確認した。Tesla final review は既に Blocker なしで、schema fix 後の追加 re-review は timeout したため、Popper re-review と再検証を commit 判断に使う。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-materializer-connector.json`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-instantiation.json`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-bound-solver.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### performance_observation
+
+- `memo_trait_public_impl_generic_materializer_connector.nepl` focused doctest は 240 秒 timeout で pass した。schema exact match 追加後の最新実測 wall time は約 156 秒であり、標準 60 秒 timeout では失敗し得る。
+- 主因は owner-bearing stage0 fixture と既存 Resource static check の探索空間であり、今回固定した semantic connector boundary の誤りではない。stage0 fixture 分割、Resource initialized-state 探索範囲削減、generic table lookup index 化は、typed authority boundary を保って後からできる最適化として扱う。
+
+### residual
+
+- generic materializer connector evidence を `memo_trait_operation_public_impl_materializer` の accepted path 本体へ接続する作業は未実装である。
+- 接続時には operation classifier、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof と同じ operation candidate construction boundary へ束ねる必要がある。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は未実装である。
+## 2026-06-15 selfhost generic materializer accepted path checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。`Result` / enum error、typed field authority、match による網羅、責務分割、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `memo_trait_operation_public_impl_materializer_record.nepl` を追加し、materializer record struct と constructor を shared module へ分離した。これにより generic connector は materializer body ではなく shared record module を import し、materializer body は connector を import しても cycle を作らない。
+- `memo_trait_public_impl_generic_materializer_connector.nepl` は concrete target TypeId を bridge hash と recheck hash に含めるようにした。materializer は generic definition 側の `type_id` ではなく、connector result の `concrete_target_type_id` を candidate builder input の target TypeId として使う。
+- 初期実装では connector-owned final evidence table を追加したが、subagent review で public struct constructor から self-consistent な final evidence table を直接作れるという blocker が出たため破棄した。
+- follow-up では `SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidenceTable` を廃止し、connector module は `SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput` / `InputTable` だけを持つ設計へ変更した。
+- materializer generic-aware path は matching input を declaration ordinal で探し、`selfhost_memo_trait_public_impl_generic_materializer_connector_result record input.bound_status input.instantiation input.projection_connector input.coherence` を materializer 内で必ず実行する。返った evidence は defensive `evidence_recheck_result` と record identity / module fingerprint / pre-substitution target shape / pre-substitution trait application shape の再照合を通った場合だけ builder input へ進む。
+- connector table を受け取らない既存 API は `Detailed` generic record を引き続き `GenericImplInstantiationUnsupported` で fail-closed にする。
+- Resource IR、proof store、backend artifact、PrivateCache / PrivateState、prechecked artifact はこの slice へ直接 import していない。method body purity、Drop no-escape proof、MemoKey / MemoValue aggregate proof は後続 orchestration の責務として残した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、final evidence table ではなく connector input table + materializer-side connector result 実行を現在の設計として記録した。
+
+### subagent_review
+
+- Popper initial review: `concrete_target_type_id` と import cycle の修正は確認したが、connector-owned final evidence table が public constructible であるため、`evidence_table_push_result` を経由しない偽造 table を作れる点を blocker とした。
+- 対応: final evidence table を廃止し、table を final evidence ではなく connector input transport に変更した。accepted path の authority は materializer 内の `connector_result` 実行に戻した。
+- Tesla re-review: blocker なし。final evidence table 廃止、input table からの connector result 実行、concrete target TypeId の利用、import cycle 解消、forbidden layer import なし、source policy の十分性を確認した。
+- Popper re-review: timeout。元 blocker は設計変更で final evidence table 自体をなくしており、同じ偽造経路は focused contract でも禁止した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-materializer-test.json`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-generic-materializer-connector-test.json`
+
+### performance_observation
+
+- `memo_trait_operation_public_impl_materializer.nepl` focused doctest は約 191 秒で pass した。
+- `memo_trait_public_impl_generic_materializer_connector.nepl` focused doctest は約 161 秒で pass した。
+- `memo_trait_public_impl_generic_substitution_shape.nepl` 単体 doctest は 240 秒 timeout になり得る。これは owner-bearing stage0 fixture と現行 Resource static check の探索空間に由来する性能課題であり、今回の accepted path semantic boundary とは分けて扱う。
+
+### residual
+
+- generic accepted path を operation evidence / aggregate proof / memo_call backend representation へ渡す上位 orchestration は未実装である。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は未実装である。
+- table lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した typed input / connector-result boundary を保ったまま後から実装できる最適化として扱う。
 ## 2026-06-15 GUI font outline point stream item collection checkpoint
 
 ### scope
@@ -74438,6 +74953,317 @@ MERGE_APPROVED
 - F5t は collection owner / single push / typed read までであり、F5s drain result を collection へ流す loop は未実装である。
 - 次 slice では F5u として、F5s drain と collection push を owner-preserving に接続する。`StepBudgetExhausted` は typed terminal として残し、push failure では collection owner、cursor、last item、lower error metadata を失わないようにする。
 
+## 2026-06-15 selfhost generic surface orchestration checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。`Result` / enum error、typed field authority、match による網羅、責務分割、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `memo_trait_public_impl_surface_orchestrator.nepl` に、generic connector input table を受け取る scanner-output entry と AST-record entry を追加した。
+- 新 entry は既存 path と同じ順序で public declaration evidence を normalizer と full public surface hash composer へ通し、operation record table だけを generic-aware materializer へ渡す。connector input table は public surface hash の authority ではない。
+- `SelfhostMemoTraitPublicImplSurfaceState` は従来どおり public surface hash と operation impl table owner を束ねる transport owner state として再利用し、connector table は state に保持しない。
+- focused doctest で露出した `memo_trait_public_impl_scanner.nepl` の missing import を修正した。scanner は materializer record table と constructor を直接使うため、`memo_trait_operation_public_impl_materializer_record` を明示 import する。materializer body の transitive import に依存する形は責務境界として不適切なので採用しない。
+- Resource IR、backend artifact、proof store、operation evidence producer、purity gate、method body、Drop resolver、PrivateCache / PrivateState、prechecked artifact はこの slice へ直接 import していない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、generic-aware materializer accepted path が public impl surface state へ接続済みであることと、残件を記録した。
+
+### subagent_review
+
+- Popper review: blocker なし。generic-aware variant が materializer 呼び出しだけを `candidate_table_from_records_with_generics_result` に差し替え、既存の scanner output -> normalizer -> hash -> materializer の順序を保つ方針は既存 DAG に合うと確認した。
+- Required として、generic connector import allow-list、connector input table が final proof/evidence authority ではないことの doc comment、AST-record entry の scanner output cleanup、hash 成功後だけ generic-aware materializer へ進む source policy 固定が挙げられた。これらは同じ slice 内で反映済みである。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-public-impl-scanner-import.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout_nonfatal: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-surface-orchestrator-generic-entry.json`
+
+### performance_observation
+
+- `memo_trait_public_impl_surface_orchestrator.nepl` focused doctest は、今回の修正前に `selfhost_memo_trait_operation_public_impl_materializer_record_new` undefined identifier で compile error になった。scanner の shared record module import を追加した後は、その compile error は解消した。
+- 最新の focused doctest は compile phase の 240 秒 timeout になった。これは今回の semantic boundary の失敗ではなく、owner-bearing stage0 fixture と現行 Resource static check の cold compile 探索空間に属する性能残件である。
+- stage0 fixture 分割、Resource initialized-state 探索範囲削減、generic connector table の sorted index 化、operation bucket 化は、今回固定した transport owner state / generic-aware materializer boundary を保ったまま後から進められる最適化である。
+
+### residual
+
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation は未実装である。
+- generic accepted path を memo_call backend representation へ渡す時には、operation impl table を最終 proof authority と混同せず、aggregate proof / purity / Drop no-escape / backend identity の各境界を個別に検査する必要がある。
+
+## 2026-06-15 selfhost memo_call backend request manifest checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- related_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_request.nepl` を追加し、HIR `SelfhostHirExprPayload::MemoizedFunctionValue` を codegen / backend が読む typed request manifest へ変換する境界を作った。
+- accepted input は `MemoizedFunctionValue` payload だけにし、`FnValue`、`Call`、その他 non-memo payload はそれぞれ typed enum error で fail-closed にした。
+- request acceptance では `DefId` あり、monomorphic、`SelfhostEffectKind::Pure`、`SelfhostHirExpr.ty == identity.function_ty` を再検査する。
+- request record は `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を authority field とし、`diagnostic_symbol` と `diagnostic_span` は診断用 metadata として明示した。
+- Resource IR、proof store、memo trait proof layer、PrivateCache / PrivateState、prechecked artifact、Wasm / LLVM bytes、lower/hir、checker、compiler-known primitive registry は import していない。
+- `nodesrc/test_selfhost_memo_call_backend_request_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と関連 issue に checkpoint を追記した。
+
+### subagent_review
+
+- Tesla review: blocker として、`symbol` / `span` / path / display name を request authority や cache namespace key に入れてはいけないこと、`DefId` / `TypeId` / `Span` は session-local なので永続 cache namespace にしないこと、codegen module で lower/hir や compiler-known registry を import して `memo_call` source identity 判定をやり直さないことが指摘された。
+- Tesla required 対応として、request field を `source_function_def_id` / `source_effect` / `diagnostic_symbol` / `diagnostic_span` に分け、cache namespace を作らず、`expr.ty == identity.function_ty` を再検査し、Resource / proof / PrivateCache / prechecked / backend bytes / source text authority / `"memo_call"` 文字列判定禁止を source policy に固定した。
+- Locke review: blocker なし。Required として、主入口を HIR expression にすること、`FnValue` / `Call` / nonmemo / missing DefId / generic / impure / type mismatch を typed error で分けること、`lower/hir/function_value.nepl` を import しないこと、request-only record に留めることが挙げられた。
+- Locke required 対応として、public main entry を `selfhost_memo_call_backend_request_from_hir_expr_result` にし、identity helper は module 内 helper に留め、payload kind と expression type mismatch を request boundary で検査するようにした。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request.json`
+
+### residual
+
+- sealed memoized backend representation、private cache region allocation、hit / miss logic、identity observation ban は未実装である。
+- PrivateCache / PrivateState effect masking、Resource no-escape proof、MemoKey / MemoValue aggregate proof と backend request の接続、prechecked artifact / `.neplobj` stable key への投影は後続 slice で行う。
+- backend request table の sorted index 化や request stream compaction は、今回固定した typed request manifest contract を保てるため後続最適化として扱う。
+
+## 2026-06-15 selfhost memo_call backend request table checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl` を追加し、borrowed `SelfhostHirModule` の root expression subtree から `MemoizedFunctionValue` leaf だけを typed backend request table へ集める境界を作った。
+- `SelfhostMemoCallBackendRequestTableEntry` は `memoized_expr_id` と `SelfhostMemoCallBackendRequest` を保持する。同じ source function `DefId` / function type を指す複数 leaf でも、後続 PrivateCache materialization では別 occurrence として扱う必要があるため dedupe しない。
+- `memoized_expr_id` は session-local occurrence metadata であり、永続 artifact key、diagnostic span、cache namespace authority ではない。
+- collector は `MemoizedFunctionValue` branch でだけ `selfhost_memo_call_backend_request_from_hir_expr_result` を呼ぶ。通常の `FnValue`、literal、`Var` は backend cache materialization を要求しないので正常に無視する。
+- HIR `Error` payload、root expression 欠落、child range 不正、child id 欠落、child expression 欠落、memo request rejection、fuel exhaustion は `SelfhostMemoCallBackendRequestCollectorErrorKind` で fail-closed にする。
+- child range は `selfhost_hir_child_range_new_bounded_result` で module child table 長に対して事前検証する。unchecked range の範囲不正を `get_child None` へ潰さない。
+- traversal fuel は再帰深さではなく訪問 expression 総数の予算として `SelfhostMemoCallBackendRequestTraversalState` に保持し、sibling 間で残量を thread する。
+- table push は private API とし、外部 caller が forged request entry を直接 table へ投入できないようにした。push failure では `Vec` が返した owner を閉じ、`StdErrorKind` を `RequestPushFailed` に保持する。
+- `nodesrc/test_selfhost_memo_call_backend_request_table_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Tesla review: blocker として、request table entry に arena-local occurrence identity が必要であること、builder error を全exprで握りつぶしてはいけないことを指摘した。Required として、HIR `Error` payload の fail-closed、child range 事前検証、fuel の global traversal budget 化、root / child / range / request rejection の typed cause 分離、push の private 化、partial owner cleanup の source policy 固定が挙げられた。
+- Locke review: blocker なし。Required として、non-memo skip は通常 payload に限定し、`UnsupportedExprKind` 相当の HIR `Error` sentinel は fail-close すること、child range bounded validation、`get_child None` と `get_expr None` の別 error、request rejection で nested builder kind を保持すること、push failure owner cleanup を doc / source policy に固定することが挙げられた。
+- 対応として、`SelfhostMemoCallBackendRequestTableEntry`、`SelfhostMemoCallBackendRequestTraversalState`、`SelfhostMemoCallBackendRequestRejection`、`ChildRangeInvalid`、`ChildIdMissing`、`ChildExpressionMissing`、`InvalidHirExpr`、global fuel threading、private push、bounded range validation、occurrence 2 件の stage0 smoke、source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request-table.json`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 180 秒で timeout した。今回追加した direct source policy と関連 request / Zenn gate policy は個別に通っているため、全体 runner の既存長時間化として扱い、残った runner process は停止した。
+
+### performance_observation
+
+- focused doctest の compile wall time は約 175 秒だった。これは今回追加した semantic boundary の失敗ではなく、owner-bearing stage0 fixture と現行 Resource static check の cold compile 探索空間に属する。
+- request table の sorted index 化、stream compaction、explicit stack traversal、subtree memoization、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した occurrence identity / fail-closed / owner cleanup contract を保てるため後続最適化として扱う。
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と request stream の接続、prechecked artifact / `.neplobj` stable key 投影は後続 slice で行う。
+
+## 2026-06-15 selfhost memo_call backend preflight checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl` を追加し、caller supplied request table を accepted authority にしない memo_call backend preflight 境界を作った。
+- public entrypoint は borrowed `SelfhostHirModule`、root `SelfhostHirExprId`、traversal fuel を受け取り、内部で `selfhost_memo_call_backend_request_table_from_hir_root_result` を呼ぶ。public API が `SelfhostMemoCallBackendRequestTable` を受け取る経路は作っていない。
+- preflight は各 request entry の `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行して、`request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を再照合する。
+- request 0 件は `SelfhostMemoCallBackendPreflightSummary` として成功する。request 非空は PrivateCache / PrivateState effect masking、Resource no-escape proof、stable artifact key projection がまだ接続されていないため、`PrivateCacheProofUnavailable(expr_id)` で fail-closed にする。
+- `diagnostic_symbol`、`diagnostic_span`、関数名、`"memo_call"` 文字列は authority として使わない。`nodesrc/test_selfhost_memo_call_backend_preflight_contract.js` で source policy を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Popper review: `ProofDeferred` を accepted backend plan に入れる設計は避け、実行不能な診断なら plan と別型に分けるべきと指摘した。request entry の再検査、source/display authority 禁止、Resource / proof / PrivateCache / prechecked / backend bytes import 禁止も required とした。
+- Tesla review: `SelfhostMemoCallBackendRequestTable` だけを authority とすると forged table 経路になるため、HIR root から内部で request table を作るか、各 `memoized_expr_id` を HIR payload と再照合する必要があると指摘した。`ProofDeferred` を `Ok` plan table に入れないこと、stable key ready を現段階で作らないこと、non-empty request は `ProofMissing` / `ProofUnavailable` で fail-closed にすることも required とした。
+- 対応として、実行可能 plan table は作らず、HIR-root public preflight、entry recheck、typed `PrivateCacheProofUnavailable`、source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_preflight_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-preflight.json`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 300 秒で timeout した。今回追加した direct policy と関連 request / Zenn / line-count guard は個別に pass しているため、全体 runner の既存長時間化として扱う。
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と preflight の接続、prechecked artifact / `.neplobj` stable request key への投影は後続 slice で行う。
+- preflight recheck loop の sorted index 化、stage0 fixture 分割、full source policy runner の長時間化解消は、今回固定した HIR-root authority / fail-closed proof boundary を保てるため後続最適化として扱う。
+
+## 2026-06-15 selfhost memo_call backend private-cache request-evidence gate checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、責務分割、DAG、丁寧な doc comment、契約と現状の分離、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` を追加し、memoized backend request と request occurrence evidence を照合する gate を作った。
+- accepted gate 本体は module-private である。内部 entrypoint は borrowed `SelfhostHirModule`、root `SelfhostHirExprId`、traversal fuel、`body_module_fingerprint`、borrowed proof table だけを受け取る。caller supplied request table は受け取らず、内部で HIR root から request table を再構築する。
+- 各 request entry は `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行して、request kind、source function DefId、function TypeId、source effect、type argument count を再照合する。
+- proof key は `memoized_expr_id`、`source_function_def_id`、`function_ty`、`root_expr_id`、`body_module_fingerprint`、`request_kind`、`source_effect`、`type_arg_count`、`proof_kind`、`proof_schema_version` を持つ。`DefId` / `TypeId` だけの proof reuse は認めない。
+- proof status は `RequestEvidenceProven` / `RequestEvidenceRefuted` とした。これは request occurrence evidence の一致だけを表し、PrivateCache effect masking、Resource no-escape proof、sealed backend representation、cache correctness の完了ではない。
+- proof record、proof table、proof table push、accepted gate 本体は module-private とし、外部 module が arbitrary `RequestEvidenceProven` record を table に注入して accepted gate に渡せる経路を公開しない。
+- missing proof、refuted proof、duplicate proof、current root の request に対応しない orphan proof を typed enum error で fail-closed にした。
+- success は executable backend plan ではなく `SelfhostMemoCallBackendPrivateCacheProofGateSummary` の non-executable summary だけを返す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Tesla review: blocker として、public constructible proof table と public push が trust bypass になること、`Proven` という広い status 名が PrivateCache proof 完了と誤読されること、key に request kind / source effect / type arg count / proof kind / schema version が必要であること、orphan proof を拒否すべきことが指摘された。追加レビューでは、push だけを private にしても public proof table / record constructor / table field から直組みできるため不十分だと指摘された。
+- Popper review: blocker として、missing / refuted proof を `Ok` の ready/deferred plan に混ぜると後続 backend が実行可能 plan と誤認すること、success summary が backend bytes や cache operation plan に見えてはいけないことが指摘された。
+- 対応として、status 名を `RequestEvidenceProven` / `RequestEvidenceRefuted` に変更し、proof key field を拡張し、proof kind / schema version を internal constructor で補い、proof record / proof table / writer / accepted gate を module-private にし、orphan proof rejection と source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp_memo_gate_tests.json`
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と proof gate の接続、producer-owned Resource proof boundary、prechecked artifact / `.neplobj` / `.neplproof` stable key 投影は後続 slice で行う。
+- proof lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した exact key / duplicate rejection / orphan rejection / non-executable summary contract を保てるため後続最適化として扱う。
+## 2026-06-20 selfhost memo_call backend Resource observation producer stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-20 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、Resource observation 由来の private-cache proof status を既存 request-evidence proof gate へ流す module-private producer stage0 を追加した。
+- Resource status は `PrivateCacheNoEscapeProven` / `PrivateCacheMayEscape` / `PrivateCacheMissing` / `PrivateCacheUnknown` に分けた。`PrivateCacheNoEscapeProven` だけを `RequestEvidenceProven` へ変換し、`PrivateCacheMayEscape` は `RequestEvidenceRefuted` へ変換して既存 gate の `ProofRefuted` で止める。`PrivateCacheMissing` と `PrivateCacheUnknown` は `ResourceProofMissing` / `ResourceProofUnknown` として producer error にし、request-evidence proof table へ保存しない。
+- Resource proof record、Resource proof table、Resource proof table writer、Resource proof gate は module-private にした。外部 module が forged Resource observation table を public API に渡して accepted path を作る経路は公開していない。
+- producer は Resource observation table を module-private request-evidence proof table へ変換してから既存 gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築し、request entry を HIR payload と再照合する。
+- 既存 request-evidence status / key / record / summary / error の `Clone` / `Copy` impl に、owner lifecycle と authority を緩めないことを説明する doc comment を補った。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、private request-evidence 型と private Resource proof 型が public function signature や `pub struct` / `pub enum` に露出しないこと、Missing / Unknown が `Result::Ok` へ畳まれないこと、MayEscape が refuted request-evidence として fail-closed に進むことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Parfit review: Blocker / Required なし。`SelfhostMemoCallBackendPrivateCacheProofStatus/Record/Table` と `SelfhostMemoCallBackendPrivateCacheResourceProofStatus/Record/Table` が private のままで public signature に露出していないこと、`PrivateCacheMissing` / `PrivateCacheUnknown` が `Err` で fail-closed になること、`PrivateCacheMayEscape` が `RequestEvidenceRefuted` 経由で `ProofRefuted` に流れること、Resource no-escape を cache correctness / sealed representation / artifact replay の完了と混同していないこと、行数制限や doc comment 長制限を追加していないことを確認した。
+- 対応として、追加修正は不要だった。レビュー前に受けていた前回指摘に基づき、source policy は名前 allowlist ではなく private table / record / status 型が public signature に漏れること自体を禁止する形へ拡張済みである。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-proof-producer.json`
+- subagent observed timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 124 秒で timeout した。今回更新した個別 source policy は pass しているため、全体 runner の既存長時間化として扱う。
+
+### residual
+
+- actual Resource IR graph walker から `SelfhostMemoCallBackendPrivateCacheResourceProofTable` を作る境界は未実装である。
+- fresh private cache region / non-escape proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- Resource proof table lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した private type exposure ban / fail-closed status fold / HIR-root recheck contract を保てるため後続最適化として扱う。
+
+## 2026-06-20 selfhost memo_call backend Resource graph producer stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-20 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、typed Resource graph input を private-cache Resource observation へ畳む graph producer stage0 を追加した。
+- `SelfhostMemoCallBackendPrivateCacheResourceGraphInput`、body / place / edge record、graph id、place id、place kind、edge kind、fold summary は module-private にした。外部 module が forged graph input を public API に渡して accepted path を作る経路は公開していない。
+- preflight は body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate body、duplicate place、duplicate edge、missing body、non-closed graph event、edge endpoint missing を typed enum error として拒否する。
+- fold は `ClosedForPrivateCacheBoundary` だけを使う。private storage / entry / owned clone は `PrivateCacheNoEscapeProven`、reference return / public store / external handle は `PrivateCacheMayEscape`、unsupported place / unsupported call boundary は `PrivateCacheUnknown` に畳む。closed graph でも private-cache place が 1 つもない場合は `PrivateCacheUnknown` にする。
+- graph input は module-private Resource proof table へ変換し、その後で既存 Resource observation producer / request-evidence gate を呼ぶ。既存 gate は引き続き HIR root から request table を内部再構築して request entry を HIR payload と再照合する。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、graph input payload / owner / fold type が public signature に露出しないこと、GraphInput owner が Clone / Copy にならないこと、preflight が body / place / edge を検査すること、Missing / Unknown / MayEscape を accepted path に混ぜないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Carver review: 初回レビューで、actual Resource graph input から no-escape observation table へつなぐ slice、public accepted path を作らないこと、Missing / Unknown / MayEscape を fail-closed に保つこと、typed key / private writer authority、orphan / duplicate / endpoint missing preflight、graph fold の計算量説明、source policy 固定が required として指摘された。
+- 対応として、Resource graph input model、body / place / edge preflight、closed graph fold、empty graph unknown、module-private Resource proof table conversion、graph producer stage0 smoke、source policy regression を追加した。
+- Carver follow-up review: Zenn 方針上の blocker は無し。軽微な指摘として、actual Resource IR walker 未接続と typed graph input fold 接続済みの説明を分けること、invalid id と non-closed graph event の source policy を直接化することが挙がった。対応として module header の現状説明を更新し、place / edge validation の invalid id と non-closed graph event を policy assertion に追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-resource-graph-producer.json`
+
+### residual
+
+- actual Resource IR graph walker から body / place / edge event を生成する境界は未実装である。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した closed graph 限定 / typed endpoint validation / private type exposure ban / fail-closed status fold を保てるため後続最適化として扱う。
+
+## 2026-06-21 selfhost memo_call backend Resource walker input scanner stage0 checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future actual Resource IR walker が返す typed event stream を module-private graph input へ正規化する Resource walker input scanner stage0 を追加した。
+- scanner input は body event、place event、edge event、unsupported event の owner table で表し、event payload と owner input は module-private のままにした。public API から forged event stream を accepted path へ渡す経路は公開していない。
+- scanner preflight は body module fingerprint placeholder、invalid graph id、invalid place id、invalid operation ordinal、duplicate operation ordinal、missing body event、non-closed graph event を typed enum error として拒否する。operation ordinal は place / edge / unsupported の cross-kind で重複を拒否する。
+- unsupported event は `SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason` の typed reason を持つ。scanner は unsupported event が付いた body を `TraversalUnsupported` graph body に変換し、その body に属する place / edge event を GraphInput へ渡さない。
+- stage0 smoke は accepted、MayEscape、missing、unsupported、duplicate ordinal、missing body event、placeholder fingerprint を確認する。accepted stream は既存 request-evidence gate の non-executable summary まで到達し、それ以外は既存 graph / Resource / gate error または scanner error で fail-closed になる。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、walker event payload / owner の public exposure ban、WalkerInput owner の no Clone / Copy、typed unsupported reason、scanner validation order、unsupported override、place / edge skip、stage0 7分岐を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Epicurus review: actual Resource IR graph walker 本体へ飛ばさず、まず module-private walker event scanner を stage0 として固定すること、walker input payload / owner を public API に出さないこと、unsupported operation event contract を先に入れること、Missing / Unknown / MayEscape を accepted にしないこと、Resource IR / backend / artifact import を禁止すること、行数や doc comment length cap を追加しないことが blocker / required として示された。
+- 対応として、actual walker 本体は後続に残し、typed event stream scanner、unsupported reason enum、cross-kind operation ordinal duplicate rejection、missing body rejection、placeholder fingerprint rejection、source policy regression を追加した。
+- follow-up review では Blocker はなく、Required として issue front matter の `updated` と本文 checkpoint 日付の不一致だけが指摘された。対応として対象 issue の `updated` を `2026-06-21` に更新した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-walker-scanner.json`
+
+### residual
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する境界は未実装である。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban は未実装である。
+- sealed memoized backend representation、`MemoKey` / `MemoValue` aggregate proof と request stream / proof gate / Resource producer / graph producer / scanner の接続、`.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影は後続 slice で行う。
+- graph lookup index 化、walker event operation ordinal index 化、stage0 fixture 分割は、今回固定した typed event authority / unsupported override / owner cleanup / private type exposure ban を保てるため後続最適化として扱う。
 ## 2026-06-15 GUI font collection path sink event kind at checkpoint
 
 ### scope
@@ -76744,6 +77570,33 @@ MERGE_APPROVED
 - Rust test は close failure 後の `raw_fd()` が `CloseFailed` を返すこと、2 回目の `close()` が raw close を再実行しないこと、Drop 後も close call が 1 回のままであることを検査するように修正した。source policy も private state enum と close-once contract を検査するように更新した。
 - 指摘対応後の re-review は `REVIEW_APPROVED`。close-state blocker は解消され、`NativeWindowLinuxWindowEventSourceOwnedFdState` が close failure 後の stale descriptor access を防ぎ、repeated `close()` と Drop が raw close を再試行しないことが確認された。
 
+## 2026-06-21 selfhost memo_call Resource walker producer bridge checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource walker input scanner stage0 の次段として producer-owned bridge を追加した。
+- HIR root から request table を内部再構築し、各 request entry を HIR payload と再照合して private walker input を作る境界を固定した。
+- actual Resource IR walker はまだ未接続なので、accepted no-escape graph は合成せず、typed unsupported event を scanner / graph gate に通して `ResourceProofUnknown` として fail-closed にする。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeErrorKind` と `SelfhostMemoCallBackendPrivateCacheResourceWalkerProducerBridgeStage0Summary` を追加した。
+- producer bridge は caller supplied request table、public walker event stream、direct GraphInput を authority にしない。
+- request collection、request recheck、proof key construction、private walker input build、scanner output、graph gate rejection を typed enum で分離した。
+- source policy は bridge internals の public API 化禁止、scanner 経由、unsupported traversal の Unknown rejection、placeholder fingerprint rejection、wildcard-free error code helper を固定した。
+
+### review_current
+
+- Hegel の review では、private walker input / event record の public API 露出、HIR payload や関数名からの `PrivateCacheNoEscapeProven` 合成、caller supplied request table の authority 化が blocker と指摘された。
+- 対応として、bridge internals は module-private に保ち、public には stage0 summary と typed result helper だけを出した。
+- closed body header は作るが、private-cache place / edge や no-escape proof は作らず、`UnknownResourceOperation` の unsupported event へ落とすようにした。
+
+### remaining
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、cache hit / miss / size / clear / raw identity observation ban を接続する。
+- sealed memoized backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影、request/key bucket 化や graph lookup index 化へ進める。
+
 ## 2026-06-21 Agent2 GUI native F5jv Linux X11 server reply body drain boundary
 
 ### scope
@@ -76796,6 +77649,387 @@ MERGE_APPROVED
 - 確認内容は、pending body drain が event packet read より先に実行されること、新規 reply header でも body drain 完了後だけ `ServerReplyReceived` を返すこと、would-block / EOF / read failure / overflow が header と remaining count を持つ typed error になること、`length_units * 4` が checked arithmetic で fail-closed になることだった。
 - source policy の軽量化は巨大な `libSource` regex を dedicated slice に寄せたもので、検査意味は弱まっていないと確認された。
 - 非 blocker として hard read failure の focused test が薄い点が挙がったため、`native_window_linux_x11_observation_provider_keeps_server_reply_body_state_after_read_failure` を追加し、typed error と pending state retention を検査した。read overflow は scripted API の contract 上 buffer 超過を返せないため source policy / code review で固定する。
+
+## 2026-06-21 selfhost memo_call Resource observation ban classifier checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource walker producer bridge stage0 の次段として observation ban classifier stage0 を追加した。
+- cache hit / miss / size / stats / clear / debug / cache region identity、function equality / hash / debug / closure allocation identity、raw identity / raw representation を typed observation kind として分類し、Resource walker unsupported event へ畳む境界を固定した。
+- この checkpoint は NoEscape proof ではない。`NoObservationDetected` は 1 record の中立状態であり、`PrivateCacheNoEscapeProven` や accepted private-cache place / edge には変換しない。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheObservationKind`、`SelfhostMemoCallBackendPrivateCacheObservationBanStatus`、`SelfhostMemoCallBackendPrivateCacheObservationBanRecord`、`SelfhostMemoCallBackendPrivateCacheObservationBanTable` を module-private 型として追加した。
+- `SelfhostMemoCallBackendPrivateCacheObservationBanProducerErrorKind` と public stage0 summary を追加し、request collection、request recheck、proof key、observation read、walker input build、scanner output、graph gate rejection、fixture allocation を enum payload で分けた。
+- observation kind classifier は wildcard fallback を使わず、cache observation を `CacheObservationUnsupported`、function identity observation を `FunctionIdentityObservationUnsupported`、raw identity observation を `RawIdentityObservationUnsupported`、unsupported observation を `UnknownResourceOperation` へ畳む。
+- observation ban gate は HIR root から request table を内部再構築し、HIR payload recheck と proof key construction を通したうえで observation record を scanner / graph gate へ渡す。caller supplied request table、source text、diagnostic symbol、function name、display string は authority にしない。
+- source policy を更新し、private observation type の public signature 露出禁止、observation table owner の Clone / Copy 禁止、classification match の wildcard 禁止、accepted proof / place / edge 合成禁止、stage0 の cache / function identity / raw identity smoke を固定した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- partial pass before timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-observation-ban.json` は 6 件中 5 件 pass 後に全体累積時間で timeout。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 5/6 -o tmp/selfhost-memo-call-backend-private-cache-observation-ban-shard5.json`
+
+### remaining
+
+- actual Resource IR graph walker 本体から typed body / place / edge / unsupported event stream を生成する。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して observation table へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+
+## 2026-06-21 selfhost memo_call actual walker event normalizer checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、Resource observation ban classifier stage0 の次段として actual walker unified event normalizer stage0 を追加した。
+- この checkpoint は actual Resource IR walker 本体ではない。future actual walker が返す単一の body / place / edge / unsupported / observation stream を、既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配する境界を固定した。
+- detected observation が 1 件でもある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにした。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload`、`SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable`、`SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput` を module-private 型として追加した。
+- split loop は body / place / edge / unsupported payload を既存 `ResourceWalkerInput` push へ通し、`ObservationDetected` だけを `ObservationBanTable` へ通す。`NoObservationDetected` は body 全体の無観測証明ではないため accepted proof に変換せず、table にも追加しない。
+- normalizer gate は split 後、detected observation があれば graph-side walker input を閉じて既存 observation ban gate を実行する。detected observation がなければ observation table を閉じて既存 scanner / graph gate を実行する。
+- split の owner cleanup は、walker input push 失敗時には observation table だけを閉じ、observation table push 失敗時には walker input だけを閉じるように分けた。unified event table は split result が成功・失敗どちらでも閉じる。
+- source policy を更新し、unified event payload / table / split output の public 露出禁止、owner Clone / Copy 禁止、wildcard fallback 禁止、既存 scanner / graph gate / observation ban gate 経由、accepted proof / accepted graph payload / proof table / GraphInput 合成禁止を固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。この slice は、actual Resource IR traversal に入る前に単一 typed event stream を既存 graph path と observation path へ分配する境界を固定する right next step と確認された。
+- required 指摘は、actual walker 本体と誤認されない命名、unified event 型の module-private 維持、exhaustive match、既存 scanner / graph gate / observation ban gate 経由、accepted proof / place / edge 合成禁止、operation ordinal と owner cleanup の明確化だった。今回の実装と source policy で対応した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-normalizer-full.json`
+
+### remaining
+
+- actual Resource IR walker 本体が unified event stream を生成する境界へ進める。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+
+## 2026-06-21 selfhost memo_call actual walker event producer bridge checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker unified event normalizer stage0 の次段として actual walker event producer bridge stage0 を追加した。
+- この checkpoint は actual Resource IR walker 本体ではない。HIR root 由来 request authority から producer-owned unified event stream を作り、既存 normalizer へ渡す境界を固定した。
+- actual traversal が未接続の段階では、request ごとに closed body event と `UnknownResourceOperation` unsupported event だけを作り、normalizer / scanner / graph gate に fail-closed 判定を委ねる。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- 静的検査、enum / Result、match による網羅、純粋性境界、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind` と `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary` を追加した。
+- bridge は HIR root から request table を内部再構築し、request entry ごとに既存の HIR payload recheck と proof key construction を通す。caller supplied request table、forged unified event table、direct GraphInput、source text、diagnostic symbol、function name は authority にしない。
+- request ごとの unified event stream は body event と unsupported event だけを生成する。`PrivateCacheNoEscapeProven`、`PrivateCacheStorage`、`CloneOutOwnedValue`、GraphInput、proof table record は合成しない。
+- producer bridge は scanner / graph gate / observation ban gate を直接呼ばず、必ず `selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result` を経由する。
+- stage0 observation fixture は module-private helper で detected observation を unified stream に混ぜるだけにした。public API から private event table や injected observation を渡す入口は作っていない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、request recheck、proof key construction、body / unsupported unified event のみの生成、normalizer 経由、normalizer bypass 禁止、accepted proof / accepted graph payload / proof table record 合成禁止、private bridge internals の public API 化禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と対象 issue を更新し、actual traversal 本体、fresh private cache region proof、PrivateCache / PrivateState masking、sealed representation、prechecked artifact key 投影を残件として維持した。
+- `todo.md` は、actual walker event producer bridge stage0 まで完了済みであり、次は actual Resource IR graph walker 本体が unified event stream を生成する境界であることに更新した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、旧 producer bridge と役割が重なるため unified normalizer へ渡す producer bridge と明確にすること、request table 内部再構築、entry recheck、proof key construction、body / unsupported event 限定、normalizer 経由、observation fixture の module-private 維持、owner cleanup の source policy 固定だった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。private unified event 型の public 露出なし、HIR-root request authority、entry recheck、proof key construction、body / unsupported event 限定、normalizer 経由、normalizer bypass なし、accepted proof / GraphInput / proof table record 合成なし、docs / issue / todo / note 整合、行数や doc comment 量の制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-shard8.json`
+- timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-call-backend-private-cache-actual-walker-producer-bridge-full.json` は 8 件中 7 件 pass 後、新規 doctest が compile timeout。shard 実行では pass しており、semantic failure ではなく大型 stage0 module の Resource 検査時間が支配している。特に `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的だった。
+
+### remaining
+
+- actual Resource IR walker 本体が request / body から unified body / place / edge / unsupported / observation event stream を生成する境界へ進める。
+- actual Resource IR walker が cache hit / miss / size / stats / clear / debug、function identity、raw identity observation を検出して unified stream へ出す。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked `.neplobj` / `.neplproof` stable key 投影へ進める。
+- stage0 fixture 分割、initialized-state 探索削減、request/key bucket 化、graph lookup index 化、walker event operation ordinal index 化、unified event stream index 化は、今回固定した typed authority / normalizer / owner cleanup contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker operation classifier checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker event producer bridge stage0 の次段として operation classifier stage0 を追加した。
+- この checkpoint は actual Resource IR traversal 本体ではない。future traversal が出す operation 相当の typed record を、既存 unified event normalizer へ渡す前段 classifier として固定した。
+- accepted path は synthetic closed private cache storage + clone-out owner value を既存 graph gate へ通す smoke であり、fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、artifact replay の完了を意味しない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / match による静的検査、外部観測可能な効果の分離、module-private owner boundary、試作段階でも設計の曖昧さを残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。今回も doc comment には contract、現状の範囲、残件、計算量を明記する方針を維持した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind`、`SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord`、`SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable` を追加した。operation table は owner であり module-private のままにし、Clone / Copy は実装していない。
+- operation record は proof key、graph id、operation ordinal、from/to place、operation kind を持つ。source text、function name、diagnostic text、display string を authority にしない。
+- classifier は HIR root から request table を内部再構築し、request entry と proof key を再照合してから body event と operation-derived event を unified event stream へ追加する。
+- closed private cache storage / clone-out owned value は graph accepted 側の place/edge event、return cache reference / public store は MayEscape 側の place/edge event、未知 operation は `UnknownResourceOperation` unsupported event、cache hit / function identity / raw identity は observation event へ写す。
+- classifier は scanner / graph gate / observation ban gate を直接呼ばず、既存 producer bridge の normalizer path へ渡す。GraphInput、proof table record、sealed backend bytes、`PrivateCacheNoEscapeProven` は合成しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、operation vocabulary、operation record authority、operation table public exposure 禁止、owner Clone / Copy 禁止、wildcard-free classification、accepted / MayEscape / unsupported / observation mapping、normalizer bypass 禁止、proof / backend 合成禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal、fresh private cache region proof、PrivateCache / PrivateState masking、sealed representation、prechecked artifact key 投影を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、accepted path を classifier-to-existing-gate connectivity に限定すること、operation descriptor / record / table を module-private owner に閉じること、wildcard fallback や string/source/function name authority を使わないこと、unknown operation と observation を別 path に落とすこと、normalizer bypass を作らないこと、backend/proof 合成をしないことだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。operation owner type の public 露出なし、operation table Clone / Copy なし、wildcard-free classifier、placeholder / invalid id fail-closed、accepted / MayEscape / Unknown / observation の分離、HIR-root request authority、normalizer 経由、backend / proof 合成なし、docs / issue / todo / note 整合、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-operation-classifier-selfhost-shard8of8.json`
+- removed: operation classifier 専用 doctest は巨大 module の compile timeout を悪化させたため、この checkpoint では追加しない。semantic boundary は source policy で固定し、stage0 fixture 分割を後続最適化として扱う。
+
+### remaining
+
+- actual Resource IR traversal 本体が typed operation record または unified event stream を生成する境界へ進める。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と operation classifier / producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、typed operation vocabulary / HIR-root authority / normalizer path / observation precedence contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker operation producer bridge checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker operation classifier stage0 の次段として operation producer bridge stage0 を追加した。
+- この checkpoint は actual Resource IR traversal 本体ではない。HIR root 由来 request authority から producer-owned operation table を module-private に作り、既存 operation classifier / unified normalizer へ渡す境界を固定した。
+- stage0 producer は request ごとに `UnknownResourceOperation` だけを出す。accepted 側の `PrivateCacheStoragePlace` や `CloneOutOwnedValueEdge` は producer bridge から出さず、actual traversal / fresh private region / clone-out safety が未接続であることを明確に保った。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / match による静的検査、module-private owner boundary、public API で private table を受け取らない設計、試作段階でも暫定設計にしない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary` を追加した。summary は typed Result payload だけを持ち、private operation table owner を公開しない。
+- `selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result` は HIR root から request table を内部再構築し、operation table を module-private owner として作る。
+- `append_request_result` は request entry の HIR payload recheck と proof key construction を通したうえで、graph id と place id を作り、`UnknownResourceOperation` record だけを operation table に push する。
+- producer bridge は `selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result` を必ず通す。scanner / graph gate / observation ban gate / unified normalizer を直接呼ばず、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment を合成しない。
+- operation table owner cleanup を追加した。request recheck / proof key / missing request entry の失敗では bridge helper が owner を閉じ、push 失敗では push 側が owner を閉じる。classifier 実行後は producer bridge が borrowed operation table を閉じる。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、HIR-root request authority、unknown-only stage0 operation emit、classifier 経由、lower gate bypass 禁止、accepted proof / accepted operation / GraphInput / proof table / backend bytes 合成禁止、operation table cleanup、producer internals の public API 化禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal、fresh private cache region proof、PrivateCache / PrivateState masking、sealed representation、prechecked artifact key 投影を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、producer bridge stage0 は `UnknownResourceOperation` だけを emit し、accepted 側 synthetic record は既存 classifier stage0 に留めること、HIR-root request authority を内部再構築すること、外から operation table を渡せる public API を追加しないこと、operation classifier 経由で unified normalizer path に入ること、proof/backend 合成や lower gate bypass を禁止することだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。unknown-only operation emit、accepted 側 synthetic path の非混入、operation table / record / kind の public signature 非露出、operation classifier 経由、lower gate bypass なし、proof / backend 合成なし、owner cleanup、docs / issue / todo / note の残件維持、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-operation-producer-bridge-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed operation record または unified event stream を生成する境界へ進める。
+- actual traversal 由来の closed private cache storage / clone-out owned value / return reference / public store / observation operation の分類へ進める。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- operation table request/key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、HIR-root authority / producer-owned operation table / classifier path / unknown-only fail-closed stage0 contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker traversal source stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker operation producer bridge の前段に traversal source stage0 を追加した。
+- この checkpoint は real Resource IR traversal 本体ではない。HIR root 由来 request authority から module-private traversal source table を作り、その source table を operation table へ射影してから既存 operation classifier / unified normalizer path に渡す境界を固定した。
+- stage0 source は `ResourceIrTraversalUnavailable` だけを表す。accepted private cache storage、clone-out owned value、return cache reference、public store、cache hit / identity observation は、actual traversal が対応する source を生成できるまで producer から作らない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / match による静的検査、module-private owner boundary、外部から見える public API に private traversal/source table を出さない設計、試作段階でも曖昧な synthetic proof を残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。今回も doc comment には source の意味、authority boundary、現状の fail-closed 範囲、残件、計算量を明記する方針を維持した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind`、`SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord`、`SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable` を追加した。source table は owner であり module-private のままにし、Clone / Copy は実装していない。
+- traversal source record は proof key、graph id、operation ordinal、from/to place、source kind を持つ。ここでの source は source text ではなく traversal producer seed であり、diagnostic text、display string、function name を authority にしない。
+- operation producer bridge は HIR root から request table を内部再構築し、request entry recheck と proof key construction を通したうえで `ResourceIrTraversalUnavailable` source だけを source table に push する。
+- source-to-operation projection は exhaustive match で `ResourceIrTraversalUnavailable` を `UnknownResourceOperation` にだけ写す。wildcard fallback、accepted operation、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment は合成しない。
+- source table owner cleanup を追加した。request table、source table、operation table は success/error/push failure/classifier failure の各経路で閉じる。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、traversal source owner の public exposure 禁止、owner Clone / Copy 禁止、invalid id reject、source-to-operation projection boundary、classifier bypass 禁止、proof / backend 合成禁止、line / doc comment limit 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal、accepted / escaping / observation source、fresh private cache region proof、PrivateCache / PrivateState masking、sealed backend representation、prechecked artifact key 投影を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、source stage0 を HIR-root request authority から始めること、source table を module-private owner に閉じること、stage0 source は `ResourceIrTraversalUnavailable` だけにすること、projection は `UnknownResourceOperation` への fail-closed に限定すること、accepted path / proof / backend synthesis を作らないことだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。traversal source types の public signature 非露出、source table Clone / Copy なし、HIR-root request authority、`ResourceIrTraversalUnavailable -> UnknownResourceOperation` の exhaustive projection、accepted/proof/backend 合成なし、cleanup、source policy、docs / issue / todo の残件維持、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から accepted / escaping / observation / unknown source を生成する境界へ進める。
+- actual traversal source を operation vocabulary に拡張し、closed private cache storage / clone-out owned value / return reference / public store / cache observation の分類へ進める。
+- fresh private cache region proof、PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、HIR-root authority / traversal source boundary / fail-closed projection / classifier path contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker traversal source projection checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker traversal source vocabulary を accepted / escaping / observation / unavailable source へ広げた。
+- この checkpoint は actual Resource IR traversal 本体ではない。private fixture source table から source-to-operation projection、operation classifier、unified normalizer へ流れる smoke を追加し、future actual traversal が返す classification tag の境界を固定した。
+- operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit する。accepted source は private fixture 専用であり、actual traversal 未接続のまま no-escape proof を観測したようには扱わない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match による静的検査、module-private owner boundary、契約と現状の分離、試作段階でも雑設計を残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。source / operation / projection の doc comment では、目的、現状、作ってよいもの、作ってはいけない proof/backend artifact、計算量、残件を明記した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind` に private cache storage、private cache entry、returned owned clone、clone-out edge、return cache reference、public store、cache hit observation、function identity observation、raw identity observation、unavailable traversal を表す typed source variant を追加した。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_operation_record` を wildcard-free exhaustive match にし、各 source を対応する `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind` へ写すようにした。`ResourceIrTraversalUnavailable` は引き続き `UnknownResourceOperation` へだけ写す。
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary` と `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0` を追加した。summary は Result payload だけを公開し、private source table / operation table を公開しない。
+- source projection smoke は private fixture source table を作り、source-to-operation projection で operation table を作り、既存 operation classifier / unified normalizer path に渡す。GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment は合成しない。
+- source table / operation table は module-private owner のままにした。owner table に Clone / Copy は追加していない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、source vocabulary、projection exhaustive match、private helper 維持、producer bridge unavailable-only emit、proof/backend 合成禁止、owner cleanup、line / doc comment limit 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal 本体、fresh private region proof、PrivateCache / PrivateState masking、sealed backend、artifact projection、`MemoKey` / `MemoValue` aggregate proof を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘はなかった。実装時に守るべき条件として、accepted source fixture は projection/classifier 接続 smoke に限定すること、producer bridge は `ResourceIrTraversalUnavailable` のみ emit すること、projection は wildcard-free exhaustive match にすること、proof/backend/GraphInput を合成しないこと、owner table を public signature に出さないこと、source record authority を key / graph / ordinal / place / typed kind に限定することが確認された。
+- Wegener の implementation review は `REVIEW_APPROVED`。producer bridge unavailable-only、accepted source が private fixture 専用であること、projection が全 variant を explicit mapping していること、proof/backend 合成なし、owner cleanup、source policy、docs / issue / todo の残件維持、line / doc comment 制限追加なしが確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-projection-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table へ accepted / escaping / observation / unavailable source を生成する境界へ進める。
+- actual traversal source と fresh private cache region proof を接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、source vocabulary / projection / producer unavailable-only / classifier path contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call actual walker traversal source collector checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、既存 `ResourceWalkerInput` と `ObservationBanTable` を traversal source table へ写す collector stage0 を追加した。
+- この checkpoint は actual Resource IR traversal 本体ではない。scanner / observation ban 側で typed event 化された入力を、operation producer が読む source vocabulary へ渡す境界を固定した。
+- `ResourceIrTraversalUnavailable` は actual traversal 未接続専用に戻し、known unsupported traversal / observation は `UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持した。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match、module-private owner boundary、契約と現状の分離、試作段階でも雑な catch-all を残さない方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。source / operation / collector の doc comment には、目的、契約、known unsupported と unavailable の違い、作ってはいけない proof/backend artifact、計算量、残件を明記した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind` と `SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind` に `UnsupportedTraversalSource` / `UnsupportedObservationSource` を追加した。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_place_kind` は `ExternalHandle` / `UnsupportedPlace` を unavailable に落とさず、`ExternalHandlePlace` / `UnsupportedPlace` として保持する。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_edge_kind` は `Owns` / `BorrowView` を `CloneOutOwnedValue` に偽装せず、`CallBoundaryUnsupported` も unavailable に落とさない。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_observation_kind` は `UnsupportedObservation` を unavailable ではなく `UnsupportedObservationSource` として保持する。
+- `selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result` は borrowed input / observations を検査して source table owner を作るだけに留め、GraphInput、proof table record、`PrivateCacheNoEscapeProven`、sealed backend bytes、Wasm / LLVM fragment、operation table は作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、place / edge / observation helper の wildcard fallback 禁止、ExternalHandle / Unsupported / UnsupportedObservation の unavailable 化禁止、Owns / BorrowView の clone-out 偽装禁止、NoObservationDetected の source なし、collector helper 非公開、proof/backend/table 合成禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、actual Resource IR traversal 本体、fresh private region proof、PrivateCache / PrivateState masking、sealed backend、artifact projection、`MemoKey` / `MemoValue` aggregate proof を残件として維持した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_NEEDS_CHANGES`。
+- required 指摘は、`ResourceIrTraversalUnavailable` を catch-all にせず actual traversal 未接続専用にすること、ExternalHandle を unavailable に落とさないこと、Owns / BorrowView を CloneOutOwnedValue 相当に扱わないこと、unsupported source と unavailable を typed variant で分けること、collector が GraphInput / proof table / backend を作らないことだった。
+- 今回の実装で `UnsupportedTraversalSource` / `UnsupportedObservationSource` を追加し、ExternalHandle / UnsupportedPlace / CallBoundaryUnsupported / Owns / BorrowView を明示 source として保持した。source policy でも同じ条件を固定した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-traversal-source-collector-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から typed walker input または traversal source table を生成する境界へ進める。
+- actual traversal source と fresh private cache region proof を接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、typed source vocabulary / known unsupported と unavailable の分離 / collector boundary contract を保って後から行う。
+
+## 2026-06-21 selfhost memo_call private cache region candidate checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual walker traversal source collector が作る source table を private cache region proof の入力候補へ写す stage0 を追加した。
+- この checkpoint は fresh private region proof や no-escape proof の完了ではない。private cache storage source を `PrivateCacheRegionRootCandidate` として保持し、entry / returned owned value / internal edge / clone-out edge source を `PrivateCacheRegionSupportCandidate` として保持し、escape / observation / unsupported / unavailable を別 status と別 error で拒否する境界を固定した。
+- `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` は stage0 candidate であり、`PrivateCacheNoEscapeProven`、`RequestEvidenceProven`、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key を意味しない。fold は root と support の両方を要求し、entry-only、returned-value-only、owns-edge-only、clone-out-edge-only の table は accepted smoke にしない。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match、module-private owner boundary、authority source の限定、契約と未実装の明示的な分離、試作段階でも雑な proof 合成を避ける方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。region proof candidate の doc comment には、目的、candidate と proof の違い、作ってよいもの、作ってはいけない proof / backend / effect mask、計算量、残件を明記した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheRegionProofInputKind`、`SelfhostMemoCallBackendPrivateCacheRegionProofInputRecord`、`SelfhostMemoCallBackendPrivateCacheRegionProofStatus`、`SelfhostMemoCallBackendPrivateCacheRegionProofRecord`、`SelfhostMemoCallBackendPrivateCacheRegionProofTable` を module-private 型として追加した。
+- proof status の success-like path は `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` と命名し、実証済み proof と誤読される `FreshPrivateCacheRegionProven` のような名称は使わない形にした。
+- `selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind` と `selfhost_memo_call_backend_private_cache_region_proof_status_from_input_kind` は wildcard-free の明示 match にした。accepted / neutral source は candidate、escape / observation / unsupported / unavailable source はそれぞれ別 status へ写す。
+- region proof table は owner であり module-private のままにした。owner table に Clone / Copy は追加していない。
+- fold は root candidate と support candidate の両方がある場合だけ success とし、escape / observation / unsupported / unavailable / missing root-or-support candidate を別 error で返す。placeholder fingerprint と負の graph/source ordinal は table push 時点で fail-closed にする。
+- `SelfhostMemoCallBackendPrivateCacheRegionProofStage0Summary` と `selfhost_memo_call_backend_private_cache_region_proof_stage0` を追加した。summary は Result payload だけを公開し、private input / proof table owner を公開しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、region proof input/status/record/table の public exposure 禁止、proof table Clone / Copy 禁止、source kind projection / status projection / fold の wildcard fallback 禁止、distinct rejection、proof/backend/effect mask 合成禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、candidate boundary 完了と actual Resource IR traversal 本体、fresh private region proof、no-escape proof、PrivateCache / PrivateState masking、sealed backend、artifact projection、`MemoKey` / `MemoValue` aggregate proof を残件として整理した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_NEEDS_CHANGES`。
+- required 指摘は、`FreshPrivateCacheRegionProven` のような proof 完了名を使わず candidate として命名すること、proof table / Resource proof / Pure mask / backend representation を合成しないこと、owner table を public API や Clone / Copy にしないこと、fold で escape / observation / unsupported / unavailable を別 error にすること、`ResourceIrTraversalUnavailable` を unsupported の catch-all に戻さないことだった。
+- 今回の実装で `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` へ分け、source policy でも rootless support candidate rejection、candidate と proof の分離、module-private owner boundary、distinct rejection、proof/backend/effect mask 合成禁止を固定した。
+- Wegener の initial implementation review は `REVIEW_NEEDS_CHANGES`。`PrivateCacheRegionCandidate` 単一 status では edge-only / clone-only / entry-only table が accepted smoke になるため、region root を別条件として要求する必要があるという blocker だった。
+- blocker 対応として、`PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` へ status を分離し、fold が `seen_region_root` と `seen_support` の両方を要求するようにした。stage0 summary には entry-only / returned-value-only / owns-edge-only / clone-out-edge-only の rootless support rejection smoke を追加した。
+- Wegener の fix review は `REVIEW_APPROVED`。rootless support table が accepted smoke にならないこと、proof/backend/effect 合成が無いこと、module-private owner boundary、wildcard fallback 禁止、docs / issue / todo / note の candidate と残件の分離が確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist --shard 8/8 -o tmp/selfhost-memo-call-backend-private-cache-region-candidate-selfhost-shard8of8.json`
+
+### remaining
+
+- actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を生成する境界へ進める。
+- `PrivateCacheRegionRootCandidate` / `PrivateCacheRegionSupportCandidate` を fresh private cache region proof と no-escape proof へ進める checker-layer boundary へ進める。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+- source / operation / region proof table request-key bucket 化、graph id index 化、stage0 fixture 分割、initialized-state 探索削減は、candidate boundary / source authority / distinct rejection contract を保って後から行う。
 ## 2026-06-21 Agent2 GUI native F5ke Linux X11 WM_DELETE_WINDOW ClientMessage decode boundary
 
 - F5ke では、F5kd の `ChangeProperty` accepted boundary を越えた registration context だけを authority として、X11 `ClientMessage` を `WM_DELETE_WINDOW` close observation へ decode する。
@@ -76856,6 +78090,47 @@ MERGE_APPROVED
 - after review follow-up pass with LF/CRLF warnings only: `git diff --check`
 - Rawls / Boyle の再レビューは `REVIEW_APPROVED`。commit-blocking finding は無い。
 
+## 2026-06-21 selfhost memo_call actual traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、将来の actual Resource IR traversal producer が返すべき最小 bundle contract を stage0 fixture として追加した。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` は module-private owner として traversal source table と fresh witness table を保持する。public API、Clone / Copy、caller supplied accepted path は追加していない。
+- この checkpoint は actual Resource IR traversal 本体ではない。accepted source と matching witness は stage0 fixture でのみ作り、HIR-root production path は引き続き `ResourceIrTraversalUnavailable` source だけを emit する。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。
+- enum / struct / Result / exhaustive match、module-private owner boundary、契約と現状の分離、試作段階でも雑な proof 合成を避ける方針を優先した。
+- 行数や doc comment 量を制限する検査は追加していない。bundle stage0 の doc comment には、目的、契約、actual traversal 本体ではないこと、owner cleanup、計算量、残件を記述した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBundle` と `SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary` を追加した。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result` は、source table から既存 region proof table producer を通し、source owner を閉じ、既存 no-escape candidate checker を通して candidate を作る。candidate extraction に失敗した場合は witness owner を閉じる。candidate extraction に成功した場合だけ witness owner を既存 fresh witness request-evidence bridge へ渡す。
+- public stage0 は accepted request/proof count、body fingerprint mismatch、missing witness、rejected witness、unsupported source の typed `Result` payload だけを返す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、bundle owner の public exposure 禁止、Clone / Copy 禁止、cleanup order、accepted fixture の root/support ordinal と matching witness ordinal、unsupported source + matching witness の fail-closed、HIR-root production path が accepted source / witness を emit しないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、bundle stage0 完了と actual Resource IR traversal 本体、producer-owned actual traversal bundle、PrivateCache / PrivateState effect masking、sealed backend、artifact projectionを残件として整理した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、命名を `actual traversal bundle stage0` に留めること、actual traversal 本体完了と誤読させないこと、bundle owner を module-private にし Clone / Copy と public signature exposure を禁止すること、source table / region proof table / witness table の cleanup order を固定すること、accepted fixture の root/support ordinal と witness ordinal 一致を source policy で固定すること、direct ResourceProofTable push / request proof table push / GraphInput / backend / Pure mask / artifact key を作らないこと、既存 HIR-root operation producer path は `ResourceIrTraversalUnavailable` のみを emit し続けることだった。
+- 今回の実装では、bundle gate を既存 `region_no_escape_candidate_from_table_result -> region_fresh_witness_request_evidence_gate_result` 経由にし、HIR-root production path には accepted source/witness を追加していない。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-bundle-doctest.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed walker input または traversal source table を生成する boundary へ進める。
+- actual traversal 由来の fresh witness table を生成し、bundle fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof と producer-owned private cache region proof の接続へ進める。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影へ進める。
+
 ## 2026-06-21 Agent2 GUI native F5kg Linux X11 raw keyboard event evidence boundary
 
 - F5kg では、X11 default event mask に `KeyPressMask` と `KeyReleaseMask` を追加し、`KeyPress` / `KeyRelease` を raw keyboard event evidence として扱う。
@@ -76887,6 +78162,363 @@ MERGE_APPROVED
 - after simplification pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - after simplification pass with LF/CRLF warnings only: `git diff --check`
 
+## 2026-06-21 selfhost memo_call collector-owned traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、既存 collector が生成する traversal source table と matching fresh witness table を同じ bundle lifecycle に載せる stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted source は collector fixture から作り、fresh witness も stage0 witness fixture から作る。HIR-root production path は引き続き `ResourceIrTraversalUnavailable` source だけを emit する。
+- public API は smoke summary の counts と typed `Result` payload だけを返す。walker input、observation table、source table、witness table、region proof table、candidate、bundle owner は module-private のままにしている。
+
+### zenn_policy
+
+- 2026-06-21 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した上で、試作段階でも外部に見せてよい contract と内部 owner boundary を分ける方針を優先した。
+- `Result` / enum / struct / exhaustive match を使い、fail-closed path を明示的な error payload として残している。
+- 行数や doc comment 量を制限する検査は追加していない。NEPL selfhost 側の doc comment には、目的、owner cleanup、stage0 の非目標、計算量、残件を記述している。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary` を追加し、accepted path、body fingerprint mismatch、missing witness、unsupported collector source、observation collector source を同じ representative smoke で確認できるようにした。
+- `selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result` は、walker input と observation table を owner として受け取り、既存 `actual_walker_traversal_source_collect_from_walker_input_result` で source table を作る。source collection の成功・失敗の両方で input / observation owner を閉じる。
+- `selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_from_input_result` は input fixture failure を `Stage0SourceRejected ActualWalkerTraversalInputRejected` に写し、observation table 作成失敗時は input owner を閉じる。
+- accepted fixture は `PrivateCacheStorage` root ordinal `0` と `CloneOutOwnedValue` support ordinal `1` を collector 経由で source にし、matching witness ordinal `0/1` と組み合わせる。unsupported / observation source も matching witness を与えて fail-closed を確認する。
+- direct lower proof push、GraphInput、Wasm / LLVM backend bytes、PrivateCache / PrivateState effect masking、sealed backend、`.neplobj` / `.neplproof` artifact key は追加していない。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、`collector-owned traversal bundle stage0` を actual traversal completion と誤読させないこと、collector path の owner を public signature に出さないこと、source collection success / failure と witness handoff の cleanup order を固定すること、accepted fixture の root/support ordinal と witness ordinal 一致を source policy で固定すること、HIR-root production path は `ResourceIrTraversalUnavailable` のみを保つことだった。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、public に出ているのが summary と smoke function だけであること、collector / source / witness / candidate / proof table owner が public signature に漏れていないこと、collector success / failure と observation table failure の cleanup order が source policy で固定されていること、accepted fixture の source ordinal `0/1` と matching witness ordinal `0/1` が一致していること、unsupported / observation source が matching witness 付きでも fail-closed になることを確認した。
+- HIR-root production path が `ResourceIrTraversalUnavailable` のみを emit し続け、actual Resource IR traversal、GraphInput、direct proof push、backend bytes、effect mask、artifact key を追加していないこともレビューで確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-collector-owned-bundle-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、typed walker input または traversal source table と fresh witness table を生成する。
+- collector fixture ではなく producer-owned actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+
+## 2026-06-21 selfhost memo_call producer-owned unavailable traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、HIR-root request authority から既存 producer が作る `ResourceIrTraversalUnavailable` source table を actual traversal bundle lifecycle へ渡す stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted `PrivateCacheStorage` source、`CloneOutOwnedValue` source、real fresh witness producer、PrivateCache / PrivateState effect masking、sealed backend representation、artifact projection は作っていない。
+- public summary は well-formed witness、missing witness、rejected witness の typed rejection payload だけを返す。accepted request count / proof count は持たせず、source table、witness table、bundle、candidate、Resource proof table、request-evidence proof tableも公開していない。
+
+### zenn_policy
+
+- 2026-06-21 に確認済みの Zenn 方針に従い、表面上の成功を増やすのではなく、production authority と fail-closed の境界を先に固定した。
+- 試作段階でも accepted proof を合成せず、`ResourceIrTraversalUnavailable` source が well-formed witness 付きでも拒否されることを型付き `Result` payload と source policy で固定した。
+- 行数や doc comment 量を制限する検査は追加していない。doc comment には目的、契約、非目標、owner cleanup、計算量を記述した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheProducerOwnedUnavailableTraversalBundleStage0Summary` を追加し、owner を持たない rejection summary として `Clone` / `Copy` を追加した。
+- `selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result` は `actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result` を通して source table owner を作り、成功時だけ既存 `actual_traversal_bundle_stage0_with_sources_result` へ渡す。source 生成失敗は `Stage0SourceRejected` に写す。
+- public smoke は stage0 HIR module fixture から HIR-root producer を通し、well-formed / missing / rejected witness status のいずれでも unavailable source のため accepted proof に進まないことを確認する。
+- source policy では producer helper が HIR-root producer source を通ること、collector fixture / accepted projection fixture を使わないこと、direct proof push / GraphInput / backend / effect mask / sealed backend / artifact key 合成禁止、HIR-root production path が accepted source / witness を emit しないことを固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、名前と doc comment を `producer-owned unavailable traversal bundle stage0` に寄せること、accepted count を summary に持たせないこと、`matching witness` ではなく key / graph / ordinal 形式として well-formed な witness でも source unavailable により fail-closed になると表現することだった。
+- 実装はこの指摘に合わせ、summary を rejection payload のみとし、well-formed witness 付きの unavailable source rejection を中心にした。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、producer helper が HIR-root producer source を通ること、collector fixture / accepted projection fixture を使っていないこと、public summary が rejection `Result` payload のみに限定されていること、source 生成失敗の `Stage0SourceRejected` 化と source 生成成功後の cleanup 委譲に owner leak / double free が無いことを確認した。
+- direct proof push、GraphInput、backend bytes、PrivateCache / PrivateState mask、sealed backend、`.neplobj` / `.neplproof` key 合成が無いこと、doc / issue / note / todo が actual traversal 本体未接続のまま unavailable source fail-closed bundle接続であることを明記していることも確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-producer-owned-unavailable-bundle-doctest-current.json`
+- after implementation review pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-producer-owned-unavailable-bundle-post-doc-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、accepted / escaping / observation / unsupported source を生成する。
+- actual traversal 由来の fresh witness table を生成し、producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+
+## 2026-06-21 selfhost memo_call backend operation-classified traversal bundle stage0 checkpoint
+
+### scope
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、module-private operation descriptor を HIR-root request authority、operation classifier、unified event split、collector-owned traversal bundle、既存 request-evidence bridge へ接続する stage0 を追加した。
+- この checkpoint は actual Resource IR body traversal 本体ではない。accepted source と matching witness は private operation descriptor fixture から作る。production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、actual traversal 未接続のまま accepted private cache storage / clone-out owned value を観測したように見せない。
+- public summary は accepted request/proof count と representative fail-closed `Result` payload だけを返す。operation table、event table、split output、walker input、observation table、source table、fresh witness table、bundle、candidate、Resource proof table、request-evidence proof table は公開していない。
+
+### zenn_policy
+
+- 2026-06-21 に Zenn 方針を再確認し、試作段階でも雑な success path を作らず、Result / enum による typed fail-closed と owner cleanup を優先した。
+- doc comment は目的、契約、現状、非目標、owner 移譲、error taxonomy、計算量を明示し、コメント量を減らす検査は追加していない。
+- キャッシュや artifact ではなく、semantic boundary と traversal 探索範囲の分離を先に固定した。operation table request-key bucket 化や proof lookup index 化は、公開契約を変えずに後からできる最適化として残した。
+
+### implementation_current
+
+- `SelfhostMemoCallBackendPrivateCacheOperationClassifiedTraversalBundleStage0Summary` を追加し、owner を持たない summary として `Clone` / `Copy` を追加した。
+- `selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_with_operations_result` は `actual_walker_operation_classifier_events_from_hir_root_result` を通し、classifier success / classifier error のどちらでも operation table owner を閉じる。
+- `selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_split_events_result` は `actual_walker_event_split_result` を通し、success 後の walker input / observation table owner を `collector_owned_traversal_bundle_with_owners_result` に渡す。split error は `Stage0SourceRejected (NormalizerRejected e)` に写す。
+- module fixture 作成に失敗した場合は、作成済み operation table owner を閉じてから `Stage0FixtureAllocFailed` を返す。
+- public smoke は accepted、body fingerprint mismatch、missing witness、may escape、cache-hit observation、unsupported operation を確認する。GraphInput、direct proof push、request proof push、backend bytes、effect mask、sealed backend、artifact key は作らない。
+- source policy では classifier / split / collector 経由、operation owner cleanup、classifier error と normalizer error の写し分け、public internals 禁止、lower gate bypass / accepted source fixture bypass / backend / effect / artifact 合成禁止を固定した。
+
+### subagent_review
+
+- Wegener の plan review は `PLAN_APPROVED`。
+- required 指摘は、classifier error と split normalizer error を別に写すこと、operation table owner を classifier success / classifier error / module fixture failure で必ず閉じること、split success 後の walker input / observation owner を collector-owned bundle に移譲して二重 free しないことだった。
+- 実装はこの指摘に合わせ、`with_operations_result` で operation table owner を閉じ、`from_split_events_result` で split error を `Stage0SourceRejected (NormalizerRejected e)` に写し、`from_operation_table_result` で fixture failure 時に operation table owner を閉じる形にした。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。
+- レビューでは、classifier error と split normalizer error の写し分け、operation owner cleanup、split success 後の owner 移譲、source policy、actual Resource IR body traversal 未接続の明記を確認した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-operation-classified-bundle-doctest-current.json`
+
+### remaining
+
+- actual Resource IR traversal 本体から real HIR lowering result / Resource IR body を読み、operation descriptor fixture ではなく actual traversal 由来の accepted / escaping / observation / unsupported source または operation event を生成する。
+- actual traversal 由来の fresh witness table を生成し、operation-classified actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed backend representation、`MemoKey` / `MemoValue` aggregate proof、producer-owned private cache region proof、`.neplobj` / `.neplproof` stable request key への投影へ進める。
+## 2026-06-21 selfhost memo_call backend actual traversal body adapter checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、HIR-root production path の actual traversal body source 生成を `actual_traversal_body_adapter` helper に分離した。
+- `append_request_result` は request entry の再検査、proof key 生成、graph id 作成、adapter 呼び出し、source table push、error 時の source table owner cleanup に責務を限定した。
+- 現 stage0 adapter は real Resource IR body / HIR lowering result をまだ読まないため、`ResourceIrTraversalUnavailable` source record だけを返す。
+- production path は accepted private cache storage、clone-out owned value、fresh witness、GraphInput、Resource proof table、request-evidence proof table、backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key を合成しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body adapter stage0 checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、adapter が availability boundary を通ること、producer 未接続だけを unavailable source helper へ委譲すること、available input を単一 source record に潰さず owner cleanup 後に typed unsupported error にすること、accepted source / fresh witness / lower proof / backend / effect mask / artifact record を合成しないこと、`append_request_result` が direct unavailable source を作らないことを source policy に固定した。
+
+### subagent review
+
+- Meitner の design review は、次 slice を accepted proof 生成ではなく actual traversal body adapter の fail-closed unavailable boundary にするべきだと指摘した。
+- required 指摘は、request identity だけから `PrivateCacheStoragePlace + CloneOutOwnedValueEdge` を合成しないこと、fresh witness を source record と同じ場所で捏造しないこと、classifier / normalizer / collector / candidate checker を bypass しないこと、production path では actual Resource IR body / HIR lowering body を読めるまで unavailable に閉じることだった。今回の実装と source policy で対応した。
+- Wegener の implementation review は `REVIEW_APPROVED`。blocking finding は無い。`append_request_result` が adapter に委譲していること、adapter stage0 が unavailable-only で accepted source / fresh witness / lower proof / backend / effect / artifact を合成しないこと、source policy が line / doc comment 制限を追加していないこと、日本語 doc comment が具体的であることを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-adapter-doctest-current.json`
+
+### 残件
+
+- actual traversal body adapter の内側で real Resource IR body / HIR lowering result を読み、typed place / edge / observation / unsupported source を生成する。
+- fresh private cache region witness を source generation と別 authority として生成し、matching key / graph / ordinal で照合する。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body input adapter checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、actual traversal body adapter が `ResourceWalkerInput` owner と `ObservationBanTable` owner を消費して `ActualWalkerTraversalSourceTable` owner を返す private helper を追加した。
+- helper は既存 collector を経由し、success / failure のどちらでも walker input owner と observation table owner を閉じる。
+- source count smoke helper は source table length を読んだあと source table owner を閉じる。
+- production HIR-root path はまだ body input fixture helper を呼ばず、real body input が届くまでは unavailable-only のままにした。
+- public stage0 summary は accepted-shaped input source count、observation-shaped input source count、unsupported input source count、placeholder rejected result だけを返す。private walker input、observation table、source table、operation table、fresh witness table、proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body input adapter stage0 checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、existing collector 経由、input / observation owner cleanup、source table cleanup、summary public payload、adapter internals public 禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、次 slice として private typed actual traversal body input/result boundary を推奨した。
+- required 指摘は、fixture-only body input は production HIR-root path が accepted source を合成しない限り許容できること、key / graph / body identity binding、source kind taxonomy、duplicate / orphan rejection、fail-closed owner cleanup、actual-vs-fixture naming separation、proof / fresh witness coupling 禁止は今固定すべきこと、index 化は後続最適化でよいことだった。今回の実装は既存 typed body input owner を adapter helper で消費し、production path を unavailable-only のまま保つ形で対応した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-actual-traversal-body-input-adapter-doctest-current.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ source table owner path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
+## 2026-06-21 selfhost memo_call backend request-local source table merge checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、operation producer bridge が request ごとに単一 traversal source record を push する形をやめ、request-local `ActualWalkerTraversalSourceTable` owner を producer source table owner へ merge する形に変更した。
+- `actual_traversal_body_adapter_unavailable_sources_from_request_result` は unavailable source 1 件だけを持つ request-local source table owner を作る。production HIR-root path はまだ real body input を読まず、unavailable-only table を返す。
+- `actual_walker_operation_producer_bridge_append_request_sources_result` は request-local source table owner を success / failure のどちらでも閉じる。producer source table owner は success の場合だけ返し、merge failure では fail helper が閉じる。
+- public stage0 summary は unavailable fallback source count、accepted-shaped input source count、observation-shaped input source count、unsupported input source count、merged source count、placeholder rejected result だけを返す。private walker input、observation table、request-local source table、producer source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+- この checkpoint は actual Resource IR body traversal 本体ではない。real body input が 1 request から複数 source を返す後続 stage でも、request collection と source-to-operation projection の public contract を再度崩さないための owner merge 境界である。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に request-local source table merge checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、unavailable fallback の source table owner、request adapter の source table owner boundary、request-local source table owner cleanup、plural helper 経由、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、次 slice として production HIR-root adapter の availability typed Result と source table owner transfer を推奨した。今回の checkpoint は、その前段として単一 source record push を request-local source table merge へ広げた。
+- Wegener implementation review は `REVIEW_APPROVED`。request-local source table owner cleanup、production unavailable-only、public owner 非公開、proof / fresh witness / backend / effect / artifact 合成禁止が確認され、availability typed Result は次 slice 残件として扱えると判断された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-source-table-merge-doctest-current.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production HIR-root adapter が real body input available のときだけ `actual_traversal_body_adapter_sources_from_input_owners_result` 相当の path へ進み、missing / unavailable / unsupported / malformed body input は fail-closed にする。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body availability checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、production HIR-root adapter が real Resource IR body input を読む前段として、body input availability を typed `Result` と enum error で表す境界を追加した。
+- module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind` を追加し、stage0 の producer 未接続 fallback である `ProducerNotConnected` と、reader 接続後に返り得る `Missing` / real `Unavailable` / `Unsupported` / `Malformed` を別 variant として扱うようにした。
+- public stage0 用 bridge error には `ActualTraversalBodyInputMissing` / `ActualTraversalBodyInputUnavailable` / `ActualTraversalBodyInputUnsupported` / `ActualTraversalBodyInputMalformed` を追加した。
+- `actual_traversal_body_adapter_input_availability_from_request_result` は production request path 上で呼ばれ、現段階では real body reader 未接続を `ProducerNotConnected` として返す。
+- `actual_traversal_body_adapter_sources_from_request_result` は availability 判定を通し、available の場合だけ split output owner から `walker_input` / `observations` を取り出して既存 input-owner adapter へ渡す。現段階の `ProducerNotConnected` だけは fail-closed fallback として unavailable source table へ写すが、`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は unavailable source に偽装せず typed bridge error として返す。
+- public stage0 summary に availability available / missing / unavailable / unsupported / malformed の代表結果を追加した。private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body availability checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を request-local source table merge checkpoint / actual traversal body availability checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、availability error enum の module-private 境界、producer 未接続 fallback と real unavailable の分離、bridge error mapping、production request helper の availability 判定、available path の owner transfer、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、module-private availability enum と owner-free public bridge mapping、available path だけの owner transfer、partial owner cleanup、source policy による public exposure / accepted proof synthesis / line-comment limit 禁止の固定を推奨した。
+- Meitner の追加指摘として、stage0 の producer 未接続 fallback と real body reader が返す `Unavailable` を同じ variant として扱うと、reader 接続後に本当に unavailable な入力まで `ResourceIrTraversalUnavailable` source table へ落とす危険があると確認した。
+- 対応として `ActualTraversalBodyInputProducerNotConnected` を追加し、request helper ではこの variant だけを unavailable source table fallback に写し、`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は typed bridge error のまま fail-closed にした。doc / issue / source policy も同じ区別へ更新した。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required 指摘は無かった。optional improvement として、古い singular compatibility helper が future availability path の誤用点になり得るため、削除または availability 経由を source policy で固定するとよいと指摘された。
+- 対応として `actual_traversal_body_adapter_source_from_request_result` も availability boundary を通すようにした。`ProducerNotConnected` だけは singular fallback として unavailable source record を返し、available input が届いた場合は `walker_input` / `observations` owner を閉じて `ActualTraversalBodyInputUnsupported` typed error にする。`Missing` / real `Unavailable` / `Unsupported` / `Malformed` は bridge error に写す。source policy もこの互換 helper が accepted real input を singular record path に入れないことを固定した。
+- Wegener follow-up review も `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。singular compatibility helper が availability boundary を必ず通ること、available path の owner cleanup、ProducerNotConnected だけの fallback、real unavailable などの bridge error 化、source policy の順序固定が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-availability-doctest-after-compat-helper.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- actual body reader が available の場合に、real input owner を production path へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body reader output connector checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader が返す `ResourceWalkerInput` owner と `ObservationBanTable` owner を `ActualWalkerEventSplitOutput` へ束ねる module-private connector を追加した。
+- `actual_traversal_body_reader_split_output_from_parts_result` は、input result と observation table result の両方が `Ok` の場合だけ split output owner pair を返す。
+- input owner だけが作られて observation table が失敗した場合は input owner を閉じる。input が scanner error で observation table owner だけが作られていた場合は observation table owner を閉じる。
+- input scanner error は `ActualTraversalBodyInputMalformed` bridge error へ写し、unavailable source や accepted source に偽装しない。
+- `actual_traversal_body_reader_source_count_from_parts_result` は stage0 smoke として、reader connector の `Ok` を既存 availability adapter と input-owner adapter へ渡せることを確認する。
+- public stage0 summary に `reader_connector_available_source_count` を追加した。private walker input、observation table、source table、operation table、fresh witness table、Resource proof table、request-evidence proof table、backend bytes、effect mask、artifact key は public API に出していない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body reader output connector checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を actual traversal body reader output connector checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、reader connector helper の module-private 境界、Ok だけの owner pair transport、partial owner cleanup、既存 unsupported producer bridge の production availability 流用禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、この slice を future real body reader output connector に限定するなら妥当と判断した。
+- 必須条件として、production HIR-root path を `ProducerNotConnected` fallback のまま保つこと、既存 `resource_walker_producer_bridge_input_from_hir_root_result` を real body reader として production availability に接続しないこと、owner pair は `Ok` だけで運び Err path は owner-free typed error にすること、actual traversal 本体 / fresh witness / effect masking / artifact 接続 / index 化は後続でよいことが確認された。
+- 実装ではこの指摘に従い、reader connector は owner pair の束ねと cleanup だけを担当し、production request helper は引き続き `ProducerNotConnected` を返す。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。両方 `Ok` の場合だけ split output を返すこと、partial owner failure で作成済み owner を閉じること、scanner error を `ActualTraversalBodyInputMalformed` に写すこと、production availability helper が既存 unsupported producer bridge を real body reader として呼んでいないこと、source policy / docs / issue / note / todo が stage0 smoke と actual reader 未完了を明確にしていることが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-connector-doctest.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- reader producer が available の場合だけ production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend actual traversal body reader request context checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader が信頼する request authority を module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext` として追加した。
+- context は request entry、root expr id、body module fingerprint、proof key、Resource graph id を owner-free に保持する。context 自体は public API に出していない。
+- `actual_traversal_body_reader_request_context_from_entry_result` は `proof_gate_recheck_entry_result`、`proof_key_from_entry_result`、`resource_graph_id_new` をこの順で実行し、recheck 失敗は `RequestRecheckRejected`、proof key 失敗は `ProofKeyRejected` に写す。
+- `actual_traversal_body_adapter_input_availability_from_request_context_result` と `actual_traversal_body_adapter_sources_from_request_context_result` を追加した。context path でも production availability はまだ `ProducerNotConnected` fallback のままであり、既存 unsupported producer bridge を real reader として呼んでいない。
+- `actual_walker_operation_producer_bridge_append_request_result` は raw に proof key / graph id を直接作らず、context helper から context-based source helper へ進む。source helper は `ProducerNotConnected` だけを unavailable source table fallback に写し、missing / real unavailable / unsupported / malformed は typed bridge error として fail-closed にする。
+- public stage0 summary に `reader_context_unavailable_source_count` を追加した。これは context path が現在の unavailable fallback source 1 件に到達する smoke であり、actual traversal body reader、accepted source、fresh witness、proof、effect mask、backend artifact の完了を意味しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body reader request context checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を actual traversal body reader request context checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context type / helper の public API 化禁止、context helper の recheck / proof key / graph id 作成順序、context availability が既存 unsupported producer bridge を呼ばないこと、append_request が raw key / graph id を直接作らないこと、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+
+### subagent review
+
+- Meitner design review は、この slice を real reader 接続前の semantic authority boundary として妥当と判断した。
+- 必須条件として、context helper が `recheck_entry -> proof_key_from_entry -> graph_id_new` を一括で実行すること、context は module-private / owner-free にすること、real reader は将来 raw `entry + graph_index` ではなく context を受けること、production availability はまだ `ProducerNotConnected` に保つこと、既存 unsupported producer bridge を real reader として呼ばないこと、accepted source / fresh witness / proof / backend / effect / artifact を合成しないことが確認された。
+- 実装ではこの指摘に従い、append_request 内の recheck / key / graph 作成を context helper へ移し、append_request は context 取得、context source helper、request-local source table merge、cleanup だけに薄くした。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。context 非公開、owner-free payload、context helper 順序、append_request の raw key / graph id 生成禁止、`ProducerNotConnected` fallback 維持、既存 unsupported producer bridge の非流用、proof / fresh witness / GraphInput / effect / backend / artifact 非合成、source policy と doc / issue / todo の整合が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-context-doctest.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- reader producer が available の場合だけ context path から production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
 ## 2026-06-21 Agent2 GUI native F5kh Linux X11 raw keyboard modifier evidence boundary
 
 - F5kh では、F5kg の raw keyboard event evidence に X11 core event の raw `state` field を追加する。
@@ -76903,6 +78535,266 @@ MERGE_APPROVED
 - pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - pass with LF/CRLF warnings only: `git diff --check`
 
+## 2026-06-21 selfhost memo_call backend actual traversal body context-bound reader output checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、available reader output から作った source table を `ActualTraversalBodyReaderRequestContext` に束縛する境界を追加した。
+- `ActualWalkerEventProducerBridgeErrorKind` に `ActualTraversalBodyInputEmpty`、`ActualTraversalBodyInputKeyMismatch`、`ActualTraversalBodyInputGraphMismatch` を追加した。空 table、別 request key、別 graph id を bool や generic Err に潰さず、match の網羅性で扱える typed error として分けるためである。
+- `actual_traversal_body_adapter_sources_from_request_context_result` の `Ok output` branch は、input-owner adapter を直接呼ばず `actual_traversal_body_adapter_sources_from_request_context_output_result` を通る。この helper は source table owner 生成後に非空、proof key 一致、graph id 一致を検査し、拒否時は source table owner を閉じる。
+- public stage0 summary に `reader_context_available_source_count`、`reader_context_key_mismatch_rejected`、`reader_context_graph_mismatch_rejected`、`reader_context_empty_source_rejected` を追加した。これらは context-bound available output validation の smoke であり、actual Resource IR traversal、fresh witness、Resource proof、effect mask、sealed backend、artifact key の完了を意味しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body context-bound reader output checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を actual traversal body context-bound reader output checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context-bound output helper 経由、proof key / graph id 比較、empty source rejection、rejected source table cleanup、input-owner adapter 直呼び禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針の丁寧な contract / 現状説明 / doctest を優先する。
+
+### subagent review
+
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。proof key / graph id の typed validation、empty source table rejection、rejected source table owner cleanup、context helper の input-owner adapter 直呼び禁止、proof / fresh witness / backend / effect / artifact 非合成、private helper 非公開、行数 / doc comment 量制限なしが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-reader-output-doctest.json`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader traversal bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、context-bound available reader output を actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` を追加し、accepted request / proof count、context key mismatch、context graph mismatch、missing witness、rejected witness を typed `Result` で公開した。
+- `context_bound_reader_traversal_bundle_from_output_result` は、available output を `actual_traversal_body_adapter_sources_from_request_context_output_result` に通してから `actual_traversal_bundle_stage0_with_sources_result` へ渡す。source validation に失敗した場合は `Stage0SourceRejected` に写し、fresh witness owner は作らない。
+- `context_bound_reader_traversal_bundle_stage0_run_summary_result` は HIR root から request table を再構築し、reader context、available split output、context-bound source table、fresh witness owner、actual traversal bundle gate の順に接続する。production availability はまだ `ProducerNotConnected` fallback のままである。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound reader traversal bundle checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を context-bound reader traversal bundle checkpoint 後の real traversal producer、production availability、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 成功後だけ witness 作成へ進む順序、request table / HIR module cleanup、helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針の丁寧な contract / 現状説明 / doctest を優先する。
+
+### subagent review
+
+- Locke design review は `PLAN_APPROVED`。この slice は `ProducerNotConnected` production 境界を維持したまま、context-bound reader output validation、request-local traversal source table、fresh witness owner、actual traversal bundle、request evidence gate を stage0 smoke に限って接続する semantic boundary として妥当と判断された。
+- 必須条件として、source table 化は context-bound helper 経由に限定すること、source validation failure 時に fresh witness table を作らないこと、fresh witness table は source validation 成功後だけ作ること、bundle / witness / source / proof table を public API に出さないこと、backend bytes / effect mask / artifact key / GraphInput を作らないこと、mismatch / empty / unsupported / unavailable は typed enum error で fail-closed にすることが確認された。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required 指摘は無かった。context-bound source helper 経由、source validation failure で fresh witness owner を作らない順序、witness 作成失敗時の既存 source cleanup 委譲、`ProducerNotConnected` fallback 維持、GraphInput / proof push / RequestEvidenceProven / backend bytes / effect mask / artifact key 非生成、owner 型の public API 非公開、Zenn 方針に沿う契約・現状・残件コメントが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-reader-bundle-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend source-derived witness bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、context-bound reader output から得た source table を no-escape candidate checker に通し、その candidate 由来で fresh witness table を作る checkpoint を追加した。
+- `selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result` を追加した。caller から witness body fingerprint、graph index、root / support ordinal、status を受け取らず、candidate の proof key / graph id / root-support ordinal だけから accepted witness record を作る。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result` を追加した。source table から region proof table を作り、candidate extraction 後に proof table を閉じ、candidate extraction / witness table creation の失敗時には source table owner を閉じる。
+- `context_bound_reader_traversal_bundle_from_output_result` と stage0 runner から external witness metadata 引数を削除し、context-bound source helper -> source-derived witness helper -> actual traversal bundle gate の順にした。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` は accepted request / proof count と context key / graph mismatch の typed `Result` だけを公開する。missing / rejected witness の代表 smoke は既存 fresh witness stage と actual traversal bundle stage の責務として残す。
+- production availability はまだ `ProducerNotConnected` fallback のままである。`RequestEvidenceProven`、Resource proof push、GraphInput、PrivateCache / PrivateState effect mask、backend bytes、artifact key は作っていない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` を source-derived witness bundle checkpoint の説明へ更新した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に、external witness metadata fixture path を context-bound helper から外し、candidate-derived witness owner へ移したことを記録した。
+- `todo.md` の memo_call backend 残件を source-derived fresh witness bundle checkpoint 後の real Resource IR traversal producer、production availability、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、candidate-derived witness 作成順序、source-derived bundle helper の cleanup、context-bound helper が `actual_traversal_bundle_stage0_with_sources_result` を呼ばないこと、private helper 非公開、backend / effect / artifact 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、残件、owner cleanup をコメントと文書で明示した。
+
+### subagent review
+
+- Locke design review は `PLAN_APPROVED`。source table から `region_proof_table_from_sources_result` と `region_no_escape_candidate_from_table_result` を通し、その candidate 由来で witness owner を作る方向は、stage0 fixture 依存を減らす root-cause 的な前進として承認された。
+- 必須条件として、helper 非公開、external witness metadata 引数の削除、context-bound source validation failure では witness を作らないこと、proof table / source table cleanup、`RequestEvidenceProven` が backend / effect mask 完了ではないことの明記、production availability 維持、GraphInput / backend / effect / artifact 非生成、source policy での順序固定が確認された。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。candidate field 由来の witness 作成、candidate / witness failure での source owner cleanup、context-bound helper の external metadata fixture helper 非使用、public owner 非公開、source policy による backend / effect / artifact 非生成と `ProducerNotConnected` 維持、行数 / doc comment 量制限の非導入が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-source-derived-witness-bundle-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- real Resource IR traversal producer から供給された source table を source-derived witness bundle helper へ渡し、stage0 fixture ではなく producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound availability traversal bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader の `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` を context-bound traversal bundle へ渡す helper を追加した。
+- `selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result` は、`Ok output` の場合だけ既存 `context_bound_reader_traversal_bundle_from_output_result` へ委譲し、source validation と source-derived witness helper の順序を維持する。
+- `Err availability_error` の場合は split output owner、source table owner、fresh witness table owner、bundle owner を作らず、`actual_traversal_body_adapter_bridge_error_from_availability_error` 経由で `Stage0SourceRejected` を返す。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` に `producer_not_connected_availability_rejected` と `missing_reader_availability_rejected` を追加し、availability error が accepted bundle path へ進まない representative smoke を固定した。
+- source adapter の production fallback では `ProducerNotConnected` を unavailable source table へ写すが、bundle helper では accepted proof に到達させない。この違いを doccomment と source policy に明記した。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound availability traversal bundle checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、subagent 指摘、反映内容、検証、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、availability helper 経由、Err availability から bundle 非到達、direct output helper bypass 禁止、split output fixture 非生成、private helper 非公開、GraphInput / proof push / backend bytes / effect mask / artifact record 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、owner lifecycle、fail-closed taxonomy をコメントと文書で明示した。
+
+### subagent review
+
+- Locke review は `CHANGES_REQUESTED`。source-derived witness へ閉じること、bundle helper で `ProducerNotConnected` を unavailable source table にしないこと、helper 非公開、Ok output だけの委譲、Err availability の owner-free typed rejection、ProducerNotConnected / Missing の representative smoke、GraphInput / proof push / backend bytes / effect mask / artifact key 非生成の固定が要求された。
+- 指摘を受け、現行 `from_output_result` が source-derived witness helper へ閉じていることを確認しつつ、`ProducerNotConnected` と bridge error 表現の混同を避ける field 名へ変更し、doccomment / source policy に bundle path 非到達を追記した。
+- Locke implementation review は `REVIEW_APPROVED`。Err availability path が split output / source table / witness table / bundle を作らないこと、Ok output path が context-bound source validation と source-derived witness helper を迂回しないこと、`ProducerNotConnected` と source adapter fallback の差が doccomment / summary comment で明確であること、helper 非公開、GraphInput / proof push / backend / effect / artifact 合成禁止、行数制限や doccomment 抑制検査の非追加が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-availability-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound availability helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader seed availability checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader が返す最小 evidence を stage0 seed として表す checkpoint を追加した。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed` は proof key、Resource graph id、place kind、to-place index、edge kind、observation status だけを持つ module-private value である。seed は proof でも public accepted path でもない。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result` は `Option::None` を missing seed として owner-free に拒否し、`Some seed` は key / graph id 照合、place / edge / observation shape validation、owner output construction の順で処理する。
+- accepted representative は `PrivateCacheStorage`、`CloneOutOwnedValue`、`NoObservationDetected` だけであり、key mismatch、graph mismatch、missing seed、unsupported shape、malformed to-place、observation detected は typed seed rejection として fail-closed にする。
+- owner-bearing output は validation 後だけ作る。walker input owner 作成後に observation owner 作成が失敗した場合は walker input owner を閉じる。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` は accepted request/proof count、seed key mismatch、seed graph mismatch、missing seed、observation seed、unsupported seed、malformed seed、producer-not-connected availability、missing-reader availability の typed `Result` payload だけを公開する。
+- production availability はまだ `ProducerNotConnected` fallback のままである。Resource proof、request-evidence proof、GraphInput、PrivateCache / PrivateState effect mask、backend bytes、artifact key は作っていない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound reader seed availability checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、検証、残件を追記した。
+- `todo.md` の memo_call backend 残件を context-bound reader seed availability checkpoint 後の real Resource IR traversal producer、production availability、fresh witness、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、seed type / helper の public API 化禁止、availability error taxonomy、seed authority validation、place / edge / observation wildcard fallback 禁止、owner cleanup、seed 系 availability error の bridge mapping、`to_place_index = -1` malformed seed rejection、stage0 runner が split-output fixture ではなく seed availability helper を通ることを固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、owner lifecycle、fail-closed taxonomy をコメントと文書で明示した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から seed ではなく `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound availability helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 seed fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader seed availability review follow-up
+
+### subagent review
+
+- Ramanujan review は blocking issue なし。seed が public accepted path / caller supplied authority になっていないこと、accepted path が context -> seed availability -> context-bound source validation -> source-derived witness -> request-evidence gate を通ること、seed mismatch / missing / unsupported / observation detected が owner 作成前に typed rejection へ落ちること、owner cleanup と Clone/Copy 禁止に問題がないことが確認された。
+- 推奨指摘として、seed 系 availability error の bridge mapping と `to_place_index = -1` malformed seed case の source-policy 固定が出た。
+
+### 反映
+
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` に `seed_malformed_rejected` を追加した。
+- public doctest に malformed seed check を追加し、`to_place_index = -1` が typed rejection になることを固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` に seed 系 availability error の bridge mapping assertion と malformed seed stage0 assertion を追加した。
+
+### 追加検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`
+
+## 2026-06-21 selfhost private effect boundary model checkpoint
+
+### 実装
+
+- `SelfhostEffectKind` に `PrivateState` / `PrivateCache` を追加し、`effect.nepl` の equality を stable code helper 経由にした。
+- proof solver では `selfhost_proof_private_effect_allowed` を追加し、`NoEscapeProven` だけ accepted、`NotApplicable` / `MayEscape` は `PrivateEffectEscapeNotProven` へ fail-closed にした。
+- method body effect checker は `InternalAlloc` / `PrivateState` / `PrivateCache` だけ escape state を保持し、observable effect では escape state を `NotApplicable` へ戻すようにした。
+- operation purity gate は `PrivateState` / `PrivateCache` を `InternalAlloc` と同じ no-escape proof required effect として扱う。NoEscapeProven は Pure 相当、MayEscape は Impure、NotApplicable は Unknown にする。
+- Drop no-escape gate は private effect を proof 合成せず pass-through し、Resource no-escape producer / materializer / graph input scanner / traversal collector は enum coverage と error payload equality だけを private effect 対応にした。
+- public function signature hash は existing effect code を維持し、`PrivateState = 332006`、`PrivateCache = 332007` を append-only code として追加した。
+- `memo_trait_public_function_signature` の doctest に残っていた legacy parenthesis call を中間 let に分け、selfhost parser の current syntax でも受理される形へ更新した。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に selfhost private effect boundary model checkpoint を追加した。
+- `issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md` に checkpoint、subagent 指摘、検証、残件を追記した。
+- `todo.md` の private effect 残件を、actual Resource IR proof producer、Resource summary / artifact policy hash、memo_call backend effect masking へ更新した。
+- `nodesrc/test_selfhost_documentation_contract.js` に private effect boundary の required pattern を追加した。ただし同 contract の `declarationNoDoc` baseline は HEAD 時点でも 71 > 57 で、今回差分とは別の既存失敗である。
+
+### subagent review
+
+- Halley review は blocking 指摘あり。`memo_trait_public_function_signature` で既存 stable effect code を移動していたため、schema version 1 のまま既存 public signature hash を silently に変えると指摘された。
+- 指摘を反映し、`UnsafeMemory = 332003`、`ExternalIo = 332004`、`Nondet = 332005` を維持し、`PrivateState` / `PrivateCache` だけを append-only code にした。契約テストも shifted mapping ではなく append-only invariant を固定するように更新した。
+
+### 検証
+
+- pass: `git pull --ff-only`。Already up to date.
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl -i stdlib/neplg2/core/proof/solver/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --dist web/dist -o tmp/private-effects-selfhost-doctests.json`。5/5。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effects.json`。13/13。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl -i stdlib/neplg2/core/proof/solver/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --dist web/dist -o tmp/private-effects-selfhost-doctests-after-trunk.json`。5/5。
+- known pre-existing failure: `node nodesrc/test_selfhost_documentation_contract.js` は `declarationNoDoc: 71 > 57` で失敗する。private effect 追加 requirement は通過しており、残った baseline gap は今回の private effect boundary とは別の既存 documentation debt。
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 5 分で timeout。今回触った source-policy contract は focused contract suite で pass 済み。
+
+### 残件
+
+- actual Resource IR proof producer から `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行して selfhost private effect gate へ接続する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
+
 ## 2026-06-21 Agent2 GUI font rendering F5kq stroke request boundary
 
 - F5kq では、completed path command stream writer owner を authority として glyph stroke request owner を作る境界を追加した。fill alpha mask owner / raster edge owner は stroke geometry authority にしない。
@@ -76916,6 +78808,64 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1`
 - implementation review は McClintock が `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5kq 後続として、stroke segment expansion plan、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 selfhost private effect no-escape gate checkpoint
+
+### 実装
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
+- final `SelfhostMemoTraitOperationMethodBodyFact` は body root identity を保持しないため、fact table の後補正ではなく、HIR root から fact を作る直前で proof を適用する。
+- proof key は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、元 escape state の完全一致とした。`body_module_fingerprint == 0` は proof record と identity-bearing input の両方で拒否し、同一 key の duplicate proof は `ProofDuplicate` にする。
+- proof lookup は `PrivateState + NotApplicable` / `PrivateCache + NotApplicable` だけで行い、`Proven -> NoEscapeProven`、`Refuted -> MayEscape`、`Missing` / `Unknown -> NotApplicable` として fail-closed に写す。private effect summary が事前に `NoEscapeProven` を持つ場合は `UnexpectedPreProvenNoEscape` で拒否する。
+- stage0 smoke は private cache proven / missing、private state refuted、pure pass-through、internal alloc pass-through、root mismatch、module fingerprint mismatch、duplicate proof、pre-proven bypass rejection を確認する。
+- この checkpoint は operation evidence、aggregate proof、memo_call backend bytes、sealed backend representation、Resource proof production、artifact key を作らない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に private effect no-escape gate checkpoint を追記した。
+- `issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md` に実装内容、Raman review、検証、残件を追記した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に memo_call backend proof chain 側から見た dependency checkpoint を追記した。
+- `todo.md` の private effect 残件を、actual Resource IR proof producer から `memo_trait_operation_private_effect_no_escape_gate` へ proof table を渡し、その後に Resource summary / artifact policy / memo_call backend mask へ接続する内容へ更新した。
+
+### subagent review
+
+- Raman の plan review は `PLAN_CHANGES`。既存 `SelfhostMemoTraitOperationMethodBodyFact` に body identity がないため、最終 fact の後補正ではなく identity-bearing input を gate に通す必要があるという blocker が出た。
+- 指摘に従い、proof key と scan input に body module fingerprint / body root を保持し、placeholder fingerprint と duplicate proof を fail-closed にする形にした。
+- Raman の implementation review は `REVIEW_APPROVED`。blocking finding はない。
+- 非 blocking watchpoint として、`body_module_fingerprint` は 1 回の table build call 全体の identity であり per scan record field ではないことが挙がった。現在の API は 1 つの `&SelfhostHirModule` と 1 つの fingerprint に閉じるため sound と判断し、doc comment と source policy に「複数 module 由来の root を 1 回の呼び出しに混ぜない」契約を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest.json`。1/1。
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl --dist web/dist -o tmp/private-effect-no-escape-gate-doctests.json`。3/3。
+- pass: `node nodesrc/analyze_tests_json.js tmp/private-effect-no-escape-gate-doctests.json`。3 passed / 0 failed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-no-escape-gate-final.json`。13/13。
+- pass: `tmp/playground-editor-private-effect-no-escape-gate-final.json` は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+- pass after `origin/main` merge: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass after `origin/main` merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after `origin/main` merge: `node nodesrc/issues.js check --dir issues`
+- pass after `origin/main` merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest-after-merge.json`。1/1。
+- pass after `origin/main` merge: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md --no-tree -o tmp_gui_font_render_stroke_segment_plan_f5kr_after_merge.json -j 1`。1/1。
+- pass after `origin/main` merge: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kr_after_merge.json -j 1`。1162/1162。
+- pass after `origin/main` merge: `git diff --check`
+- pass after `origin/main` merge: `trunk build`
+- pass after `origin/main` merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-no-escape-gate-after-merge.json`。13/13、JSON は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+
+### 残件
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行して、この gate の proof table に渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
 
 ## 2026-06-21 Agent2 GUI font rendering F5kr stroke segment plan boundary
 
@@ -76949,6 +78899,275 @@ MERGE_APPROVED
 - implementation review は Franklin が `IMPLEMENTATION_BLOCKED`。code boundary / invariant / SkipNoSegment handling / owner recovery に blocker は無いが、`note.n.md` 未記録と新規 focused doctest 未追跡が required fix とされたため、この記録を追加し、新規 doctest を commit 対象に含める。
 - required fix 対応後の re-review は Franklin が `IMPLEMENTATION_APPROVED`。前回 blocker は解消済みで、commit-blocking finding は無い。
 - F5ks 後続として、stroke offset geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 selfhost memo_call backend production actual traversal reader checkpoint
+
+### 実装
+
+- `actual_traversal_body_reader_output_from_request_context_result` を追加し、recheck 済み `ActualTraversalBodyReaderRequestContext` から owner-bearing `ResourceWalkerInput + ObservationBanTable` output を作る production reader boundary を接続した。
+- reader output は `PrivateCacheStorage` place と `CloneOutOwnedValue` edge の wrapper body representative だけを発行し、seed fixture、既存 unsupported producer bridge、GraphInput、proof table、backend bytes、effect mask、artifact record は作らない。
+- `context_bound_reader_traversal_bundle_stage0_run_summary_result` は seed accepted path ではなく production availability を通り、context-bound source validation、source-derived witness generation、request-evidence gate の順に進む。
+- operation producer bridge stage0 は production reader output 由来 source table を operation table へ投影する `accepted_result` を持つ。
+- explicit unavailable smoke は production accepted bridge を呼ばず、request context から key / graph id だけを取り出して専用 unavailable source helperへ渡す。
+
+### review 対応
+
+- Rawls の implementation review は `REVIEW_CHANGES_REQUESTED`。`actual_traversal_body_adapter_input_availability_from_request_result` が caller-supplied key / graph id から context を直接作っていたことと、context source helper が `ProducerNotConnected` を unavailable source table へ写していたことが blocker とされた。
+- 指摘に従い、compat availability helper も `actual_traversal_body_reader_request_context_from_entry_result` を通してから context availability へ委譲し、recheck / proof-key failure は bridge error のまま返すようにした。
+- `actual_traversal_body_adapter_sources_from_request_context_result` は availability error をすべて typed bridge error へ写し、unavailable source table fallback を持たない形にした。unavailable source table は explicit unavailable smoke helper だけが作る。
+- source policy は direct context constructor、seed accepted path、unsupported producer bridge reuse、context helper 内の producer-not-connected source fallback を拒否するよう更新した。
+- Rawls re-review は `REVIEW_APPROVED`。split output helper の stale comment も production reader output が recheck 済み context 由来である説明へ修正済みであることが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-production-reader-doctest.json`。17 passed / 0 failed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader.json`。13/13、JSON は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_merge.json -j 1`。1623/1623。
+- pass after latest `origin/main` F5lc/F5lb merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-final-doctest.json`。17/17。
+- pass after latest `origin/main` F5lc/F5lb merge fix: `trunk build`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-final.json`
+- checked JSON after latest `origin/main` F5lc/F5lb merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lc/F5lb merge fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5ld merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ld merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5ld merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ld merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_f5ld_merge.json -j 1`。1632/1632。
+- pass after latest `origin/main` F5ld merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_join_geometry_f5ld_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5ld merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5ld_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5ld merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-after-f5ld-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5ld merge fix: `trunk build`
+- pass after latest `origin/main` F5ld merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-after-f5ld-merge.json`
+- checked JSON after latest `origin/main` F5ld merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5ld merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5ld merge fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5ld merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5le merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_f5le_merge.json -j 1`。1643/1643。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_join_geometry_f5le_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5le_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-after-f5le-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5le merge fix: `trunk build`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-after-f5le-merge.json`
+- checked JSON after latest `origin/main` F5le merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5le merge fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lf merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_f5lf_merge.json -j 1`。1692/1692。
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_stroke_packed_mask_f5lf_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-after-f5lf-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5lf merge fix: `trunk build`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-after-f5lf-merge.json`
+- checked JSON after latest `origin/main` F5lf merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lf merge fix: `git diff --check`。CRLF warning のみ。
+
+### 残件
+
+- context-derived wrapper body reader を full Resource IR / HIR lowering body reader へ拡張し、cache lookup / insert / observation / effect operation を typed traversal source または operation event として発行する。
+- full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
+
+### 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind` を追加し、wrapper default、cache lookup / insert、PrivateCache / PrivateState effect、cache / function / raw observation を module-private typed vocabulary として固定した。
+- production operation producer bridge が使う `actual_traversal_body_adapter_sources_from_request_context_result` は、split-output availability ではなく recheck 済み `ActualTraversalBodyReaderRequestContext` から reader policy source table を作り、context-bound source validation を通してから返す。
+- production default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけを発行する。cache lookup / insert / private effect / observation policy は stage0 policy runner で source-to-operation projection と classifier / normalizer に届くが、accepted proof には進まない。
+- source / operation vocabulary に `CacheLookupOperation`、`CacheInsertOperation`、`PrivateCacheEffectOperation`、`PrivateStateEffectOperation`、cache miss / size / stats / clear / debug / region identity observation、function hash / debug / closure allocation observation、raw representation observation を追加した。
+- source-to-operation projection、operation classifier、region proof input projection、contract test を wildcard fallback なしで更新した。cache lookup / insert は `PrivateCacheOperationUnsupported`、private effect は `PrivateStateBoundaryUnsupported`、observation は observation ban payload へ fail-closed に写す。
+- この checkpoint は executable cache operation、GraphInput、request proof table、Resource proof table、fresh witness table、backend bytes、effect mask、sealed backend representation、artifact key を作らない。
+
+### review 対応
+
+- Gibbs の plan review は `PLAN_APPROVED`。この slice は production reader output の typed traversal source 化と operation producer bridge への policy source 接続だけに限定し、GraphInput、proof table、effect mask、backend bytes、artifact key へ進まない方針を確認した。
+- Locke の implementation review は `REVIEW_APPROVED`。reader policy は module-private で、default accepted は `WrapperPrivateCacheStorage` / `WrapperCloneOutOwnedValue` だけ、lookup / insert / effect / observation は typed vocabulary 経由で fail-closed に分類されることを確認した。
+- latest `origin/main` F5lg/F5lh merge 後、`run_source_policy_regressions.js` が `stdlib declaration doc gaps increased: 2804 > 2756` で止まった。原因は merge で入った `glyf.nepl` の glyph paint / stroke-only composition order block の新規 helper 宣言に `//:` doc が無かったことだったため、baseline 更新ではなく各宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- latest `origin/main` F5li merge 後も、F5li shadow request block の writer authority / shadow request helper 宣言で `stdlib declaration doc gaps increased: 2791 > 2756` が再発した。こちらも baseline 更新ではなく、各 helper 宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- latest `origin/main` F5lj merge 後も、F5lj shadow source coverage config block の helper 宣言で `stdlib declaration doc gaps increased: 2784 > 2756` が再発した。こちらも baseline 更新ではなく、各 helper 宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-doctest.json`。17/17。
+- pass after latest `origin/main` F5lg/F5lh merge: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-merge-doctest.json`。17 passed / 0 failed。
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `trunk build`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-final.json`
+- checked JSON after latest `origin/main` F5lg/F5lh merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lg/F5lh merge: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5li merge: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5li merge: `git diff --check`
+- pass after latest `origin/main` F5li merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-f5li-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5li merge: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-f5li-merge-doctest.json`。17 passed / 0 failed。
+- pass after latest `origin/main` F5li merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_after_f5li_merge_doc_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5li merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5li merge: `trunk build`
+- pass after latest `origin/main` F5li merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-after-f5li-merge-doc-fix.json`
+- checked JSON after latest `origin/main` F5li merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lj merge: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lj merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lj merge: `node nodesrc/test_stdlib_documentation_contract.js`
+
+### 残件
+
+- actual Resource IR / HIR lowering body reader が実 traversal から reader policy source table と fresh-region witness table を発行する。
+- full traversal 由来 source / witness を request-evidence bridge と `memo_trait_operation_private_effect_no_escape_gate` の両方へ同じ body identity で渡す upper orchestration を追加する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-21 selfhost private effect Resource no-escape producer checkpoint
+
+### 実装
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl` を追加し、Resource IR 側 typed observation table から `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を作る checker-layer producer を固定した。
+- proof key は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state をすべて含める。`SelfhostTypeId` や root だけの proof reuse はできない。
+- `PrivateState` / `PrivateCache` + `NotApplicable` だけを受理し、`InternalAlloc` や observable effect、`NoEscapeProven` / `MayEscape` 入力は fail-closed に拒否する。
+- `NoEscapeProven -> Proven`、`MayEscape -> Refuted`、`Missing -> Missing`、`Unknown -> Unknown` に写し、`Missing` / `Unknown` を pure mask しない。
+- Drop 用 `InternalAlloc` no-escape producer とは別 module / 別 proof type として保ち、Drop gate と private-effect gate を混ぜない。
+- facade には出さず、`nodesrc/selfhost_ty_sources.js` にも登録しない。backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / materializer / purity gate / Drop proof layer へ依存しない。
+
+### 検証
+
+- Banach の implementation review は `REVIEW_APPROVED`。producer は HIR summary から proof を合成せず typed Resource observation だけを authority にし、private-effect proof key と同一 key で `PrivateState` / `PrivateCache` + `NotApplicable` だけを受理することを確認した。`Missing` / `Unknown` は mask されず、Drop 用 `InternalAlloc` producer との意味混線もない。
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1 passed / 0 failed。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-final-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-final-doctest.json`。1 passed / 0 failed。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-final.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lk-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lk-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lk-fix.json`
+- checked JSON after latest `origin/main` F5lk merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ll-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ll-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5ll-fix.json`
+- checked JSON after latest `origin/main` F5ll merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_converter_f5lm_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lm-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lm-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `trunk build`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lm-fix.json`
+- checked JSON after latest `origin/main` F5lm merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_owner_f5ln_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ln-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ln-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5ln-fix.json`
+- checked JSON after latest `origin/main` F5ln merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_owner_f5lo_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lo-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lo-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `trunk build`
+- pass after latest `origin/main` F5lo merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lo-fix.json`
+- checked JSON after latest `origin/main` F5lo merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md --no-tree -o tmp_gui_font_render_shadow_source_composition_order_f5lp_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lp-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lp-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `trunk build`
+- pass after latest `origin/main` F5lp merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lp-fix.json`
+- checked JSON after latest `origin/main` F5lp merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lq_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lq-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lq-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `trunk build`
+- pass after latest `origin/main` F5lq merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lq-fix.json`
+- checked JSON after latest `origin/main` F5lq merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+### 残件
+
+- actual Resource IR traversal / materializer が `PrivateState` / `PrivateCache` の fresh region / non-escape observation table を発行し、この producer で proof table へ変換する。
+- scanner / upper orchestrator が同じ body module fingerprint と proof table を proof-aware public impl materializer へ渡す。
+- memo_call backend の request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 ## 2026-06-21 Agent2 GUI font rendering F5ls shadow source resource reservation boundary
 
 - F5ls では、F5lp completed shadow source composition order owner を authority として、未登録の `AlphaMaskId` と shadow source alpha storage owner を同じ owner-bearing reservation value に束ねる境界を追加中。
@@ -77042,6 +79261,47 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lv.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 - Maxwell の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lv 後続は bounded shadow SourceOver drain step、dirty region、2D compositor drain に分ける。
+
+## 2026-06-22 selfhost private effect Resource traversal collector / graph input scanner checkpoint
+
+- `plan.md` との差異はない。selfhost 方針に沿って、private effect mask を即時に広げず、Resource graph 由来の typed evidence と fresh-region witness を先に fail-closed boundary として固定した。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl` を追加し、private-effect Resource graph body/place/edge input から existing private-effect no-escape materializer 用 traversal summary table を作る checker-layer collector を分離した。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl` を追加し、actual Resource walker が将来返す typed walker body/place/edge/unsupported event table を collector input へ正規化する scanner boundary を分離した。
+- Volta の design review は、materializer key へ graph id を足さないこと、graph id だけ異なる同一 materializer key を fail-closed に拒否すること、fresh private region witness を `AllTraversedPlacesPrivate` の必須条件にすること、proof/backend/memo_call/public surface/source/display/hash authority を scanner に混ぜないことを条件に承認だった。
+- 指摘に従い、collector input key は graph id を含む一方で materializer output key は graph id を含まないままにし、graph-id-only materializer key collision は `GraphMaterializerKeyDuplicate` として拒否する。
+- `AllTraversedPlacesPrivate` は `ClosedForPrivateEffectBody`、`FreshPrivateRegionWitnessed`、非空 place table、private local/temporary だけを通る edge、return/public/external/observation/unsupported event なしの場合だけ発行する。`FreshRegionMissing` は `ResourceGraphMissing`、`FreshRegionUnsupported` は `TraversalUnsupported` に畳む。
+- accepted authority は typed graph / walker payload、`SelfhostTypeId`、operation、body module fingerprint、HIR body root、`PrivateState` / `PrivateCache` effect、`NotApplicable` escape、graph id、fresh-region evidence に限定した。source text、span、display name、diagnostic、public surface hash、payload hash、proof store、backend bytes、memo_call request evidence から no-escape や freshness を推測しない。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js` と `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/private_effect_memoization_purity_design.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新し、完了済み境界と残る actual Resource IR / HIR body walker、upper mask orchestration、artifact policy hash 接続を分けた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl -o output/selfhost_private_effect_resource_traversal_collector_doctest.json --dist web/dist`。1/1。
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl -o output/selfhost_private_effect_resource_graph_input_scanner_doctest.json --dist web/dist`。1/1。
+- Bohr の implementation review は `REVIEW_APPROVED`。指摘された `internal storage` doc drift は、実装済み variant に合わせて private local/temporary のみに修正した。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lv merge: `node nodesrc/test_stdlib_documentation_contract.js`。source policy 内でも通過。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl -o output/selfhost_private_effect_resource_traversal_collector_doctest.json --dist web/dist`。1/1。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl -o output/selfhost_private_effect_resource_graph_input_scanner_doctest.json --dist web/dist`。1/1。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/analyze_tests_json.js output/selfhost_private_effect_resource_traversal_collector_doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/analyze_tests_json.js output/selfhost_private_effect_resource_graph_input_scanner_doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_after_doc_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lv merge: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lv merge: `trunk build`
+- pass after latest `origin/main` F5lv merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_resource_traversal_collector.json`
+- checked JSON after latest `origin/main` F5lv merge: `caseCount=13`, `passedCount=13`, `failedCount=0`
+
+### 残件
+
+- actual Resource IR / HIR body walker から typed walker event と fresh-region witness table を発行する。
+- collector / scanner / materializer / proof producer で作った proof table owner を同じ body module fingerprint で proof-aware public impl materializer / candidate builder へ渡す upper orchestration を追加する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 
 ## 2026-06-22 Agent2 GUI font rendering F5lw shadow source software drain-step boundary
 

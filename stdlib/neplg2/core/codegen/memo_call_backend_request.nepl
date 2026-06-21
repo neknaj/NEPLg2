@@ -1,0 +1,317 @@
+#indent 4
+
+//: # codegen/memo_call_backend_request
+//: HIR `MemoizedFunctionValue` を codegen が読む typed request へ[変換/へんかん]する module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` の HIR lowering は、cache state を子 expression として持たない `MemoizedFunctionValue` leaf を作ります。
+//: - codegen / backend はこの leaf を通常の `FnValue` と同じ扱いに戻してはいけません。この module は memoized function body materialization が必要であることを、source token や関数名の再読ではなく typed request record として渡します。
+//: - request は backend bytecode ではなく、後続の private cache backend、sealed capability、prechecked artifact が消費するための typed request manifest です。
+//:
+//: [契約/けいやく]:
+//: - accepted input は `SelfhostHirExprPayload::MemoizedFunctionValue(identity)` だけです。`FnValue`、`Call`、`Var`、literal、block、if は同じ function identity を持っていても accepted request にはしません。
+//: - identity は `DefId` を持ち、monomorphic で、effect が `Pure` であり、さらに `SelfhostHirExpr.ty` と identity の `function_ty` が一致していなければなりません。これは HIR lowering の Phase 1 gate と synthetic HIR の型整合性を codegen 入力境界でも再検査するためです。
+//: - request の `diagnostic_symbol` と `diagnostic_span` は backend symbol / diagnostic 用 metadata です。accepted 判定、cache namespace、proof authority は `source_function_def_id`、function type、source effect、type argument evidence から行います。
+//: - この module は private cache allocation、hit / miss、cache size、clear、storage identity、Resource IR `PrivateCache` proof、proof store、prechecked artifact、Wasm / LLVM bytes を作りません。
+//:
+//: [現状/げんじょう]:
+//: - `DefId` と `SelfhostTypeId` は現在の selfhost session 内の identity です。永続 `.neplobj` / `.neplproof` 境界では、module source identity、public surface hash、policy hash、stable type-argument identity と組み合わせる必要があります。
+//: - generic memoized function value は stable type argument identity が codegen request に入るまで fail-closed にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - expression payload の match、identity field の検査、request record の構築だけなので O(1) 時間、O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_request" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+//:     let def_id %SelfhostDefId selfhost_def_id_new 31
+//:     let function_ty %SelfhostTypeId selfhost_type_id_new 7
+//:     let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "add" def_id function_ty SelfhostEffectKind::Pure
+//:     let memo_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span pure_identity
+//:     match selfhost_memo_call_backend_request_from_hir_expr_result &memo_expr:
+//:         Result::Ok request:
+//:             let checks1 checks_push checks0 check selfhost_memo_call_backend_request_identity_matches &request def_id function_ty
+//:             let fn_expr %SelfhostHirExpr selfhost_hir_expr_fn_value function_ty span pure_identity
+//:             match selfhost_memo_call_backend_request_from_hir_expr_result &fn_expr:
+//:                 Result::Ok _bad_fn_value:
+//:                     let checks2 checks_push checks1 Result::Err "FnValue was accepted as memo_call backend request"
+//:                     let shown checks_print_report checks2
+//:                     checks_exit_code shown
+//:                 Result::Err fn_value_error:
+//:                     let checks2 checks_push checks1 check selfhost_memo_call_backend_request_error_kind_eq fn_value_error.kind SelfhostMemoCallBackendRequestErrorKind::FnValueUnsupported
+//:                     match selfhost_hir_function_value_identity_new_result "generic_add" Option::Some def_id function_ty SelfhostEffectKind::Pure 1:
+//:                         Result::Ok generic_identity:
+//:                             let generic_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span generic_identity
+//:                             match selfhost_memo_call_backend_request_from_hir_expr_result &generic_expr:
+//:                                 Result::Ok _bad_generic:
+//:                                     let checks3 checks_push checks2 Result::Err "generic identity was accepted as memo_call backend request"
+//:                                     let shown checks_print_report checks3
+//:                                     checks_exit_code shown
+//:                                 Result::Err generic_error:
+//:                                     let checks3 checks_push checks2 check selfhost_memo_call_backend_request_error_kind_eq generic_error.kind SelfhostMemoCallBackendRequestErrorKind::GenericTypeArgumentsUnsupported
+//:                                     let impure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "read" def_id function_ty SelfhostEffectKind::ExternalIo
+//:                                     let impure_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span impure_identity
+//:                                     match selfhost_memo_call_backend_request_from_hir_expr_result &impure_expr:
+//:                                         Result::Ok _bad_impure:
+//:                                             let checks4 checks_push checks3 Result::Err "impure identity was accepted as memo_call backend request"
+//:                                             let shown checks_print_report checks4
+//:                                             checks_exit_code shown
+//:                                         Result::Err impure_error:
+//:                                             let checks4 checks_push checks3 check selfhost_memo_call_backend_request_error_kind_eq impure_error.kind SelfhostMemoCallBackendRequestErrorKind::ImpureSourceFunction
+//:                                             let other_ty %SelfhostTypeId selfhost_type_id_new 8
+//:                                             let mismatched_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value other_ty span pure_identity
+//:                                             match selfhost_memo_call_backend_request_from_hir_expr_result &mismatched_expr:
+//:                                                 Result::Ok _bad_mismatch:
+//:                                                     let checks5 checks_push checks4 Result::Err "mismatched expression type was accepted as memo_call backend request"
+//:                                                     let shown checks_print_report checks5
+//:                                                     checks_exit_code shown
+//:                                                 Result::Err mismatch_error:
+//:                                                     let checks5 checks_push checks4 check selfhost_memo_call_backend_request_error_kind_eq mismatch_error.kind SelfhostMemoCallBackendRequestErrorKind::ExpressionTypeMismatch
+//:                                                     let shown checks_print_report checks5
+//:                                                     checks_exit_code shown
+//:                         Result::Err _build_error:
+//:                             let checks3 checks_push checks2 Result::Err "generic identity fixture build failed"
+//:                             let shown checks_print_report checks3
+//:                             checks_exit_code shown
+//:         Result::Err _error:
+//:             let checks1 checks_push checks0 Result::Err "memoized function value request was rejected"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostMemoCallBackendRequestKind: codegen request manifest の分類
+//:
+//: [目的/もくてき]:
+//: - codegen 側が request record を複数種類へ拡張しても、数値 tag や文字列ではなく enum で分類できるようにします。
+pub enum SelfhostMemoCallBackendRequestKind:
+    MemoCall
+
+impl Clone for SelfhostMemoCallBackendRequestKind:
+    fn clone %fn &SelfhostMemoCallBackendRequestKind SelfhostMemoCallBackendRequestKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestKind:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestKind SelfhostMemoCallBackendRequestKind \self:
+        self
+
+//: SelfhostMemoCallBackendRequest: memoized function backend materialization の typed request manifest
+//:
+//: [目的/もくてき]:
+//: - `MemoizedFunctionValue` HIR leaf から、backend が memoized wrapper / cache namespace / reachable function materialization を要求するための最小入力を保持します。
+//:
+//: [契約/けいやく]:
+//: - `request_kind` は現時点では `MemoCall` だけですが、後続 request と混ぜないため typed tag として保持します。
+//: - `diagnostic_symbol` は metadata であり、accepted 判定の authority ではありません。
+//: - `source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` は HIR identity からそのまま copy した typed evidence です。
+//: - `diagnostic_span` は diagnostic / source map 用であり、cache namespace の authority ではありません。
+pub struct SelfhostMemoCallBackendRequest:
+    request_kind %SelfhostMemoCallBackendRequestKind
+    source_function_def_id %SelfhostDefId
+    function_ty %SelfhostTypeId
+    source_effect %SelfhostEffectKind
+    type_arg_count %i32
+    diagnostic_symbol %str
+    diagnostic_span %SelfhostSourceSpan
+
+impl Clone for SelfhostMemoCallBackendRequest:
+    fn clone %fn &SelfhostMemoCallBackendRequest SelfhostMemoCallBackendRequest \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequest:
+    fn copy_mark %fn SelfhostMemoCallBackendRequest SelfhostMemoCallBackendRequest \self:
+        self
+
+//: SelfhostMemoCallBackendRequestErrorKind: backend request 化の失敗分類
+//:
+//: [目的/もくてき]:
+//: - memoized HIR leaf 以外、通常関数値、direct call、DefId 欠落、generic identity、impure identity、expression type mismatch を別々の enum variant として返します。
+//:
+//: [契約/けいやく]:
+//: - 表示文や翻訳はここで扱いません。診断層はこの enum を match して表示します。
+pub enum SelfhostMemoCallBackendRequestErrorKind:
+    UnsupportedExprKind
+    NonMemoizedExpressionUnsupported
+    FnValueUnsupported
+    CallUnsupported
+    MissingDefId
+    GenericTypeArgumentsUnsupported
+    ImpureSourceFunction
+    ExpressionTypeMismatch
+
+impl Clone for SelfhostMemoCallBackendRequestErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendRequestErrorKind SelfhostMemoCallBackendRequestErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestErrorKind SelfhostMemoCallBackendRequestErrorKind \self:
+        self
+
+//: SelfhostMemoCallBackendRequestError: backend request 化の typed error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と source span を保持し、診断層がどの場所でどの不変条件が壊れたかを失わないようにします。
+pub struct SelfhostMemoCallBackendRequestError:
+    kind %SelfhostMemoCallBackendRequestErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMemoCallBackendRequestError:
+    fn clone %fn &SelfhostMemoCallBackendRequestError SelfhostMemoCallBackendRequestError \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestError:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestError SelfhostMemoCallBackendRequestError \self:
+        self
+
+//: selfhost_memo_call_backend_request_error_new: request error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - enum kind と span をまとめ、bool や文字列 error へ潰さないようにします。
+pub fn selfhost_memo_call_backend_request_error_new %fn SelfhostMemoCallBackendRequestErrorKind fn SelfhostSourceSpan SelfhostMemoCallBackendRequestError \kind\span:
+    SelfhostMemoCallBackendRequestError kind span
+
+//: selfhost_memo_call_backend_request_error_kind_code: request error kind の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - equality helper が wildcard fallback を使わず、variant 追加時に match の網羅性検査で止まるようにします。
+fn selfhost_memo_call_backend_request_error_kind_code %fn SelfhostMemoCallBackendRequestErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoCallBackendRequestErrorKind::UnsupportedExprKind:
+            1
+        SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported:
+            2
+        SelfhostMemoCallBackendRequestErrorKind::FnValueUnsupported:
+            3
+        SelfhostMemoCallBackendRequestErrorKind::CallUnsupported:
+            4
+        SelfhostMemoCallBackendRequestErrorKind::MissingDefId:
+            5
+        SelfhostMemoCallBackendRequestErrorKind::GenericTypeArgumentsUnsupported:
+            6
+        SelfhostMemoCallBackendRequestErrorKind::ImpureSourceFunction:
+            7
+        SelfhostMemoCallBackendRequestErrorKind::ExpressionTypeMismatch:
+            8
+
+//: selfhost_memo_call_backend_request_error_kind_eq: request error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文ではなく enum payload を確認できるようにします。
+pub fn selfhost_memo_call_backend_request_error_kind_eq %fn SelfhostMemoCallBackendRequestErrorKind fn SelfhostMemoCallBackendRequestErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_request_error_kind_code a selfhost_memo_call_backend_request_error_kind_code b
+
+//: selfhost_memo_call_backend_request_identity_matches: request が期待 identity と対応するか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と後続 source policy が request の typed evidence を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - diagnostic metadata は比較しません。DefId、function type、Pure effect、type argument count 0、request kind を確認します。
+pub fn selfhost_memo_call_backend_request_identity_matches %fn &SelfhostMemoCallBackendRequest fn SelfhostDefId fn SelfhostTypeId bool \request\def_id\function_ty:
+    let kind_ok %bool match *field::get_ref request "request_kind":
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            true
+    let def_id_ok %bool selfhost_def_id_eq *field::get_ref request "source_function_def_id" def_id
+    let type_ok %bool selfhost_type_id_eq *field::get_ref request "function_ty" function_ty
+    let effect_ok %bool selfhost_effect_kind_eq *field::get_ref request "source_effect" SelfhostEffectKind::Pure
+    let type_args_ok %bool eq *field::get_ref request "type_arg_count" 0
+    and kind_ok and and def_id_ok type_ok and effect_ok type_args_ok
+
+//: selfhost_memo_call_backend_request_from_identity_result: memoized HIR identity を backend request へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `MemoizedFunctionValue` payload から取り出した identity を、codegen が扱う request record にします。
+//:
+//: [契約/けいやく]:
+//: - `DefId` 欠落、generic identity、impure identity はそれぞれ別 variant で fail-closed にします。
+//: - この helper は HIR payload variant と `SelfhostHirExpr.ty` の照合後だけに呼びます。public API の入口は `selfhost_memo_call_backend_request_from_hir_expr_result` です。
+fn selfhost_memo_call_backend_request_from_identity_result %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostMemoCallBackendRequest SelfhostMemoCallBackendRequestError \identity\span:
+    match identity.def_id:
+        Option::Some def_id:
+            if:
+                not selfhost_hir_function_value_identity_is_monomorphic &identity
+                then:
+                    Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::GenericTypeArgumentsUnsupported span
+                else:
+                    if:
+                        not selfhost_effect_kind_eq identity.effect SelfhostEffectKind::Pure
+                        then:
+                            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::ImpureSourceFunction span
+                        else:
+                            Result::Ok SelfhostMemoCallBackendRequest SelfhostMemoCallBackendRequestKind::MemoCall def_id identity.function_ty identity.effect identity.type_arg_count identity.symbol span
+        Option::None:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::MissingDefId span
+
+//: selfhost_memo_call_backend_request_from_hir_expr_result: HIR expression から backend request を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - codegen が HIR expression を走査したとき、`MemoizedFunctionValue` leaf だけを memo_call backend materialization request として取り出します。
+//:
+//: [契約/けいやく]:
+//: - `FnValue` は accepted request ではありません。通常関数値と memoized function value を backend で混同しないためです。
+//: - `MemoizedFunctionValue` でも、expression type と identity の function type が一致しない synthetic HIR は拒否します。
+//: - この関数は source token、callee name、compiler-known primitive name を読みません。HIR payload と typed fields だけを authority とします。
+pub fn selfhost_memo_call_backend_request_from_hir_expr_result %fn &SelfhostHirExpr Result SelfhostMemoCallBackendRequest SelfhostMemoCallBackendRequestError \expr:
+    let span %SelfhostSourceSpan *field::get_ref expr "span"
+    let expr_ty %SelfhostTypeId *field::get_ref expr "ty"
+    match *field::get_ref expr "payload":
+        SelfhostHirExprPayload::Error:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::UnsupportedExprKind span
+        SelfhostHirExprPayload::Unit:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::BoolLiteral _value:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::I32Literal _value:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::F32Literal _value:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::StrLiteral _value:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::Var _identity:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::FnValue _identity:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::FnValueUnsupported span
+        SelfhostHirExprPayload::MemoizedFunctionValue identity:
+            if:
+                not selfhost_type_id_eq expr_ty identity.function_ty
+                then:
+                    Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::ExpressionTypeMismatch span
+                else:
+                    selfhost_memo_call_backend_request_from_identity_result identity span
+        SelfhostHirExprPayload::Call _call:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::CallUnsupported span
+        SelfhostHirExprPayload::Block _children:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span
+        SelfhostHirExprPayload::If _branches:
+            Result::Err selfhost_memo_call_backend_request_error_new SelfhostMemoCallBackendRequestErrorKind::NonMemoizedExpressionUnsupported span

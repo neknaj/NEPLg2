@@ -140,6 +140,7 @@ fn gui_stroke_proof %fn i32 GuiStrokeProof \width:
 //: GuiStroke: stroke [用/よう] paint と geometry style
 //:
 //: neplg2:test[compile_fail]
+//: diag_code: type.stack.extra_values
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -763,7 +764,9 @@ pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
 //: [目的/もくてき]:
 //: - renderer や font rasterizer が `GuiPaint` の[内部/ないぶ] field 名に[依存/いぞん]せず、solid color を O(1) で[取得/しゅとく]します。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_render_command_gui_paint_color_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"alpha\" expected=\"40\" actual=\"40\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
@@ -889,26 +892,50 @@ pub fn gui_stroke_new %fn Rgba8888 fn i32 fn GuiStrokeCap fn GuiStrokeJoin fn f3
         else Result::Err GuiError::InvalidCommand
 
 //: gui_stroke_color: stroke color を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_color %fn &GuiStroke Rgba8888 \stroke:
     *field::get_ref stroke "color"
 
 //: gui_stroke_width: stroke width を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_width %fn &GuiStroke i32 \stroke:
     *field::get_ref stroke "width"
 
 //: gui_stroke_cap: stroke line cap policy を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_cap %fn &GuiStroke GuiStrokeCap \stroke:
     *field::get_ref stroke "cap"
 
 //: gui_stroke_join: stroke line join policy を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_join %fn &GuiStroke GuiStrokeJoin \stroke:
     *field::get_ref stroke "join"
 
 //: gui_stroke_miter_limit: stroke miter limit を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_miter_limit %fn &GuiStroke f32 \stroke:
     *field::get_ref stroke "miter_limit"
 
 //: gui_stroke_dash: stroke dash policy を[読/よ]む
+//:
+//: `gui_stroke_new` の doctest で getter [群/ぐん]をまとめて[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_stroke_dash %fn &GuiStroke GuiStrokeDash \stroke:
     *field::get_ref stroke "dash"
 

@@ -464,13 +464,13 @@ impl LexState {
             self.push_token(TokenKind::Indent, line_start, line_start);
         } else if indent < current {
             while let Some(&top) = self.indent_stack.last() {
-                if top == indent {
+                if top <= indent {
                     break;
                 }
                 self.indent_stack.pop();
                 self.push_token(TokenKind::Dedent, line_start, line_start);
             }
-            if *self.indent_stack.last().unwrap() != indent {
+            if self.indent_stack.last().copied() != Some(indent) {
                 let span = Span::new(self.file_id, line_start as u32, line_start as u32);
                 self.diagnostics.push(lexer_error(
                     LexerDiagnosticCode::IndentLevelMismatch,
