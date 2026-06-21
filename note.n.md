@@ -79144,3 +79144,27 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ls.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
 - pass with LF/CRLF warnings only: `git diff --check`
 - Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+
+## 2026-06-22 Agent2 GUI font rendering F5lt shadow source resource table boundary
+
+- F5lt では、F5ls reservation owner を消費して shadow source alpha mask id を metadata-only table に登録する内部 alloc/font 境界を追加中。
+- 初回 plan review は `PLAN_BLOCKED`。F5lp composition order invariant を再検証するなら、`CompositionOrderInvariantFailed` だけでは root cause evidence が失われるため、register error に lower `order_error` を保持する必要があると指摘された。
+- 改訂 plan では `GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError` と register error の `order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind` を追加し、F5lp invariant failure だけ `Some lower_kind` を保持する形にした。Maxwell 改訂 plan review は `PLAN_APPROVED`。
+- `GuiSfntSimpleGlyphRenderShadowSourceResourceRecord` は Copy metadata とし、table Vec は record だけを保持する。shadow alpha storage owner は registered resource owner の reservation 内に残す。
+- register は `AlphaMaskId.raw > 0`、F5lp invariant、F5ls shadow storage invariant、SourceOver-only blend、F5ls rect derivation、reservation cached rect / paint / shadow_order / source_order metadata を再検証してから duplicate-before-push を行う。
+- success / error recovery は pair callback 型にし、table だけまたは reservation / resource だけを消費する split accessor は持たない。
+- この checkpoint は `RenderCommand::AlphaMaskRect` emission、F5lq cursor、F5lr sample command bridge、platform / host / backend API、font fallback、zero-fill fallback、shadow rasterizer、software surface、2D compositor drain を扱わない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest、`todo.md` を F5lt contract へ更新した。
+- `plan.md` との差異はない。plan.md の言語・stdlib 方針に沿って、F5ls の dangling id 防止境界の後続として table registration の owner/lifetime 境界だけを切り出した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_table_f5lt.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_f5lt_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5lt_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lt_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lt.json -j 1`。1332/1332 passed。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lt.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- pass with LF/CRLF warnings only: `git diff --check`
+- Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5lt 後続は shadow source prepared command、2D compositor drain に分ける。

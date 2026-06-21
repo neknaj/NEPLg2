@@ -6720,6 +6720,75 @@ software surface
 2D compositor drain
 ```
 
+### SFNT simple glyph render shadow source resource table boundary
+
+F5lt は F5ls の `GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner` を消費し、shadow source alpha mask id を metadata-only table に登録する内部 alloc/font 境界である。この phase は host-visible resource 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へ storage を渡さず、shadow mask が presentation layer で解決可能であることも証明しない。
+
+table は `AlphaMaskId`、rect、paint、width、height、cell count、alpha max、shadow/source order だけを持つ index である。shadow alpha storage owner は table の `Vec` へ入れず、成功 owner が table owner と registered resource owner を同時に保持する。これにより、metadata だけが残り storage owner を失う partial registration を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    width_px i32
+    height_px i32
+    cell_count i32
+    alpha_max i32
+    shadow_order i32
+    source_order i32
+
+GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner:
+    records Vec ResourceRecord
+
+GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner:
+    reservation GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
+    record ResourceRecord
+
+GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner:
+    table GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
+    resource GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+```
+
+registration は push 前に次を検査する。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+F5lp composition order invariant failure -> CompositionOrderInvariantFailed with lower order_error
+shadow storage invariant mismatch -> corresponding F5ls storage error
+blend != SourceOver -> UnsupportedBlendMode
+rect derivation overflow -> RectXOverflow / RectYOverflow
+reservation rect != F5lp-derived rect -> RectMetadataMismatch
+reservation paint != F5lp shadow paint -> PaintMetadataMismatch
+reservation shadow_order != F5lp shadow_order -> ShadowOrderMetadataMismatch
+reservation source_order != F5lp source_order -> SourceOrderMetadataMismatch
+table already contains mask_id -> DuplicateMaskId
+Vec push failure -> TablePushFailed with storage_error
+```
+
+`lookup` は metadata record だけを返す。これは id が table 内で一意に登録されていることを示すだけで、storage の借用、host upload、texture availability、renderability を示さない。missing resource、unsupported backend、transport failure は後続 renderer / host layer が `Result` で返す。
+
+成功 owner は callback 型の continuation により updated table owner と registered resource owner を同時に次境界へ渡す。error recovery も table owner と reservation owner を同時に保持する rejected owner を経由し、table だけ、または reservation だけを消費回収する accessor は持たない。
+
+F5lt は次を呼ばない。
+
+```text
+F5lq cursor start / read / step
+F5lr sample command bridge
+render_command_alpha_mask_rect
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+shadow rasterizer
+software surface
+owner-bearing Vec payload
+alpha Vec copy
+2D compositor drain
+```
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

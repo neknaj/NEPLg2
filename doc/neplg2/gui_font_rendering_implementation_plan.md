@@ -3822,6 +3822,57 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ls.json
 ```
 
+## Phase F5lt: sfnt simple glyph render shadow source resource table boundary
+
+目的:
+
+- F5ls の `GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner` を消費し、shadow source alpha mask id を metadata-only table に登録する。
+- table には Copy metadata record だけを入れ、shadow alpha storage owner は registered resource owner の reservation 内に保持する。
+- F5lt は host-visible resource 登録、upload、renderability proof、`RenderCommand::AlphaMaskRect` emission、2D compositor drain ではない。
+
+plan review:
+
+- Maxwell 初回 plan review は `PLAN_BLOCKED`。
+- 指摘は、F5lt が F5lp composition order invariant を再検証するなら、`CompositionOrderInvariantFailed` へ潰すだけでは F5ls が保持した lower `order_error` evidence を失う、というものだった。
+- 改訂 plan では register error に `order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind` を追加し、record derivation 用の value-only record error から owner-bearing register error へ lower evidence を渡す。
+- F5lp invariant failure は `CompositionOrderInvariantFailed` かつ `order_error = Some lower_kind`、storage / blend / rect / metadata / duplicate / push failure は `order_error = None` とする。
+- Maxwell 改訂 plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceResourceRecord` を追加する。`mask_id`、`rect`、`paint`、`width_px`、`height_px`、`cell_count`、`alpha_max`、`shadow_order`、`source_order` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner` を追加する。`Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord` だけを保持し、reservation / registered resource / F5lp owner / alpha Vec payload は table Vec に入れない。
+- `GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner` を追加する。F5ls reservation owner と stored record を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner` を追加する。updated table owner と registered resource owner を同時に保持し、pair continuation helper だけで次境界へ渡す。
+- register error は kind、table、reservation、`Option StdErrorKind`、`Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind` を保持する。error rejected owner は table と reservation を同時に回収する。
+- record derivation は `AlphaMaskId.raw > 0`、F5lp composition order invariant、F5ls shadow storage invariant、SourceOver-only blend、F5ls rect derivationを再検査し、reservation の rect / paint / shadow_order / source_order cached metadata が F5lp-derived metadata と一致することを確認する。
+- register は record derivation 後、duplicate を `vec::push` 前に検査し、push failure では `vec_push_error_vec` と `vec_push_error_kind` から table / reservation / storage error を回収する。
+- `render_command_alpha_mask_rect`、`render_command_fill_rect`、F5lq start/read/step、F5lr sample command bridge、DrawTarget / RenderTarget、platform / host / backend API、font fallback、zero-fill fallback、shadow rasterizer、software surface、2D compositor は呼ばない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md` を追加し、source policy coverage label を固定する。
+
+完了条件:
+
+- source policy が docs、Maxwell blocker / revised approval、metadata-only table、record fields、record `Clone` / `Copy`、owner-bearing types no `Clone` / `Copy`、register error `order_error`、F5lp lower order evidence、F5ls storage/blend/rect remap、rect/paint/order metadata match、duplicate-before-push、push failure recovery、success/error pair continuation、split consuming accessor 禁止、no command/platform/fallback/compositor/sample cursor/alpha Vec copy、括弧なし prefix style、focused doctest coverage label を検査する。
+- focused doctest と F5ls / F5lr / F5lq 回帰、`stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest が通る。
+- implementation review で lower order evidence、metadata-only table、owner pair、source policy、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lt 後の shadow source prepared command / 2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_table_f5lt.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_f5lt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5lt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lt_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lt.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lt.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
