@@ -24858,6 +24858,847 @@ fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_terminal_free %impure 
         GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind: stroke coverage start source validation failure
+//:
+//: [目的/もくてき]:
+//: - F5la が completed F5kz closure owner を新しい allocation boundary として[再検査/さいけんさ]したときの失敗理由です。
+//: - nested stroke style と completed owner に保存された cap / join / miter policy の矛盾も typed error として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind:
+    SourceSideEdgeOwnerInvariantFailed
+    SideEdgeCountNegative
+    JoinCountNegative
+    LeftJoinCountNegative
+    RightJoinCountNegative
+    SideEdgeCountMismatch
+    JoinCountMismatch
+    LeftRightJoinCountMismatch
+    LeftJoinCountMismatch
+    RightJoinCountMismatch
+    JoinStorageLenMismatch
+    JoinStorageCapacityMismatch
+    CapResolutionMismatch
+    CapPolicyMismatch
+    JoinPolicyMismatch
+    MiterLimitMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner: stroke coverage cell writer
+//:
+//: [目的/もくてき]:
+//: - completed F5kz closure owner と coverage cell Vec を[所有/しょゆう]します。
+//: - 後続 stroke scan converter が `push_cell` で raw coverage value を[積/つ]むための writer boundary です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner:
+    edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    written_cell_count %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner: writer owner を構築する
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner \edge_closure_owner\shape\cells\written_cell_count:
+    GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner edge_closure_owner shape cells written_cell_count
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count: writer owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner i32 \owner:
+    *field::get_ref owner "written_cell_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape: writer owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_len: writer owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_len %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::len cells
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_cap: writer owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::cap cells
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner: completed stroke coverage mask owner
+//:
+//: [目的/もくてき]:
+//: - raw stroke coverage cell Vec が完全に埋まった状態だけを completed owner として[保持/ほじ]します。
+//: - packed mask conversion や paint binding は後続 boundary の責務です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner:
+    edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    cell_count %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner: completed coverage owner を構築する
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner \edge_closure_owner\shape\cells\cell_count:
+    GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner edge_closure_owner shape cells cell_count
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cell_count: completed coverage owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_len: completed coverage owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_len %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::len cells
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_cap: completed coverage owner の状態を扱う
+//:
+//: [目的/もくてき]:
+//: - owner / error payload の field を型付き getter として読みます。
+//: - 呼び出し側は内部 field 名へ直接依存せず、invariant 検査と同じ読み口を使います。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::cap cells
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind: stroke coverage writer start failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind:
+    ShapeRejected
+    ClosureInvariantFailed
+    CellStorageAllocFailed
+    CellStorageInitialLenMismatch
+    CellStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind
+    edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    config %GuiSfntSimpleGlyphRasterCoverageConfig
+    shape %Option GuiSfntSimpleGlyphRasterCoverageShape
+    shape_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind
+    closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageConfig fn Option GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \kind\edge_closure_owner\config\shape\shape_error\closure_error\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError kind edge_closure_owner config shape shape_error closure_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape_failed: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape_failed %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageStartErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \edge_closure_owner\config\shape_error_value:
+    let shape %Option GuiSfntSimpleGlyphRasterCoverageShape none
+    let shape_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind some shape_error_value
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind::ShapeRejected edge_closure_owner config shape shape_error closure_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_closure_failed: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_closure_failed %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageShape fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \edge_closure_owner\config\shape_value\closure_error_value:
+    let shape %Option GuiSfntSimpleGlyphRasterCoverageShape some shape_value
+    let shape_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind none
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind some closure_error_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind::ClosureInvariantFailed edge_closure_owner config shape shape_error closure_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_failed: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageShape fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \edge_closure_owner\config\shape_value\storage_error_value:
+    let shape %Option GuiSfntSimpleGlyphRasterCoverageShape some shape_value
+    let shape_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind none
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind::CellStorageAllocFailed edge_closure_owner config shape shape_error closure_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_shape: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_shape %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn GuiSfntSimpleGlyphRasterCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \kind\edge_closure_owner\config\shape_value:
+    let shape %Option GuiSfntSimpleGlyphRasterCoverageShape some shape_value
+    let shape_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind none
+    let closure_error %Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error kind edge_closure_owner config shape shape_error closure_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_kind: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_config: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_config %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError GuiSfntSimpleGlyphRasterCoverageConfig \error:
+    *field::get_ref error "config"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError Option GuiSfntSimpleGlyphRasterCoverageShape \error:
+    *field::get_ref error "shape"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape_error: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape_error %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind \error:
+    *field::get_ref error "shape_error"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_closure_error: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_closure_error %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError Option GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \error:
+    *field::get_ref error "closure_error"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_error: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_error %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_edge_closure_owner: start error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_edge_closure_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner \error:
+    field::get error "edge_closure_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind: stroke coverage push failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind:
+    CellStorageLenMismatch
+    CellStorageCapacityMismatch
+    MaskFull
+    CoverageNegative
+    CoverageExceedsMax
+    CellStoragePushFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError: push failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError:
+    owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    coverage_value %i32
+    kind %GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError \owner\coverage_value\kind\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError owner coverage_value kind storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError \owner\coverage_value\kind:
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error owner coverage_value kind storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_storage_failed: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn i32 fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError \owner\coverage_value\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::CellStoragePushFailed storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_kind: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_coverage_value: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_coverage_value %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError i32 \error:
+    *field::get_ref error "coverage_value"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_storage_error: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_storage_error %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_owner: push error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind: stroke coverage completion failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind:
+    CellStorageLenMismatch
+    CellStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError: F5la coverage cell boundary の helper
+//:
+//: [目的/もくてき]:
+//: - F5la coverage cell boundary の小さな helper として責務を局所化します。
+//: - typed value を返し、暗黙の補正や別 authority への遡りを行いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError:
+    owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    kind %GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error: completion error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed owner に進めない理由と writer owner を束ねます。
+//: - len/cap の不整合を typed error にし、cell buffer を暗黙に補正しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError \owner\kind:
+    GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError owner kind
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_kind: completion error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed owner に進めない理由と writer owner を束ねます。
+//: - len/cap の不整合を typed error にし、cell buffer を暗黙に補正しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_owner: completion error payload を扱う
+//:
+//: [目的/もくてき]:
+//: - completed owner に進めない理由と writer owner を束ねます。
+//: - len/cap の不整合を typed error にし、cell buffer を暗黙に補正しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal: stroke coverage completion terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal:
+    CoverageMaskCompleted %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner
+    CoverageMaskIncomplete %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_count_checked_add: left/right count の加算を検査する
+//:
+//: [目的/もくてき]:
+//: - count と policy evidence の比較を 1 箇所に閉じ込めます。
+//: - match と Result を使い、判定失敗を F5la の typed error へ変換します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_eq: cap policy の一致を判定する
+//:
+//: [目的/もくてき]:
+//: - count と policy evidence の比較を 1 箇所に閉じ込めます。
+//: - match と Result を使い、判定失敗を F5la の typed error へ変換します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_eq %fn GuiStrokeCap fn GuiStrokeCap bool \left\right:
+    match left:
+        GuiStrokeCap::Butt:
+            match right:
+                GuiStrokeCap::Butt:
+                    true
+                GuiStrokeCap::Square:
+                    false
+                GuiStrokeCap::Round:
+                    false
+        GuiStrokeCap::Square:
+            match right:
+                GuiStrokeCap::Butt:
+                    false
+                GuiStrokeCap::Square:
+                    true
+                GuiStrokeCap::Round:
+                    false
+        GuiStrokeCap::Round:
+            match right:
+                GuiStrokeCap::Butt:
+                    false
+                GuiStrokeCap::Square:
+                    false
+                GuiStrokeCap::Round:
+                    true
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_join_eq: join policy の一致を判定する
+//:
+//: [目的/もくてき]:
+//: - count と policy evidence の比較を 1 箇所に閉じ込めます。
+//: - match と Result を使い、判定失敗を F5la の typed error へ変換します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_join_eq %fn GuiStrokeJoin fn GuiStrokeJoin bool \left\right:
+    match left:
+        GuiStrokeJoin::Miter:
+            match right:
+                GuiStrokeJoin::Miter:
+                    true
+                GuiStrokeJoin::Bevel:
+                    false
+                GuiStrokeJoin::Round:
+                    false
+        GuiStrokeJoin::Bevel:
+            match right:
+                GuiStrokeJoin::Miter:
+                    false
+                GuiStrokeJoin::Bevel:
+                    true
+                GuiStrokeJoin::Round:
+                    false
+        GuiStrokeJoin::Round:
+            match right:
+                GuiStrokeJoin::Miter:
+                    false
+                GuiStrokeJoin::Bevel:
+                    false
+                GuiStrokeJoin::Round:
+                    true
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_resolution_is_closed: closed contour cap evidence を判定する
+//:
+//: [目的/もくてき]:
+//: - count と policy evidence の比較を 1 箇所に閉じ込めます。
+//: - match と Result を使い、判定失敗を F5la の typed error へ変換します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_resolution_is_closed %fn GuiSfntSimpleGlyphRenderStrokeCapResolution bool \resolution:
+    match resolution:
+        GuiSfntSimpleGlyphRenderStrokeCapResolution::ClosedContourNoCap:
+            true
+
+//: gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage: F5la source owner invariant を検査する
+//:
+//: [目的/もくてき]:
+//: - side edge / join count、Vec len/cap、cap / join / miter policy の一致を再検査します。
+//: - 不整合は closure error kind に写し、caller が start error として保持できる形にします。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner Result unit GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind \owner:
+    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref owner "side_edge_owner"
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure side_edge_owner:
+        Result::Err _error_kind:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::SourceSideEdgeOwnerInvariantFailed
+        Result::Ok _:
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_side_edge_count owner
+            if lt side_edge_count 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::SideEdgeCountNegative
+                else:
+                    let source_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+                    if ne side_edge_count source_side_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::SideEdgeCountMismatch
+                        else:
+                            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count owner
+                            if lt join_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::JoinCountNegative
+                                else:
+                                    if ne join_count side_edge_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::JoinCountMismatch
+                                        else:
+                                            let left_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_left_join_count owner
+                                            if lt left_join_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::LeftJoinCountNegative
+                                                else:
+                                                    let right_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_right_join_count owner
+                                                    if lt right_join_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::RightJoinCountNegative
+                                                        else:
+                                                            match gui_sfnt_simple_glyph_render_stroke_coverage_mask_count_checked_add left_join_count right_join_count:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok side_join_count:
+                                                                    if ne side_join_count join_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::LeftRightJoinCountMismatch
+                                                                        else:
+                                                                            let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_left_side_edge_count side_edge_owner
+                                                                            if ne left_join_count left_side_edge_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::LeftJoinCountMismatch
+                                                                                else:
+                                                                                    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_right_side_edge_count side_edge_owner
+                                                                                    if ne right_join_count right_side_edge_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::RightJoinCountMismatch
+                                                                                        else:
+                                                                                            let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_len owner
+                                                                                            if ne joins_len side_edge_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::JoinStorageLenMismatch
+                                                                                                else:
+                                                                                                    let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_cap owner
+                                                                                                    if ne joins_cap side_edge_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::JoinStorageCapacityMismatch
+                                                                                                        else:
+                                                                                                            let cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution *field::get_ref owner "cap_resolution"
+                                                                                                            if not gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_resolution_is_closed cap_resolution:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::CapResolutionMismatch
+                                                                                                                else:
+                                                                                                                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner side_edge_owner
+                                                                                                                    let expected_cap %GuiStrokeCap gui_stroke_cap &stroke
+                                                                                                                    let cap_policy %GuiStrokeCap *field::get_ref owner "cap_policy"
+                                                                                                                    if not gui_sfnt_simple_glyph_render_stroke_coverage_mask_cap_eq expected_cap cap_policy:
+                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::CapPolicyMismatch
+                                                                                                                        else:
+                                                                                                                            let expected_join %GuiStrokeJoin gui_stroke_join &stroke
+                                                                                                                            let join_policy %GuiStrokeJoin *field::get_ref owner "join_policy"
+                                                                                                                            if not gui_sfnt_simple_glyph_render_stroke_coverage_mask_join_eq expected_join join_policy:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::JoinPolicyMismatch
+                                                                                                                                else:
+                                                                                                                                    let expected_miter_limit %f32 gui_stroke_miter_limit &stroke
+                                                                                                                                    let miter_limit %f32 *field::get_ref owner "miter_limit"
+                                                                                                                                    if ne expected_miter_limit miter_limit:
+                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind::MiterLimitMismatch
+                                                                                                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start: F5la cell writer owner を開始する
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner impure fn GuiSfntSimpleGlyphRasterCoverageConfig Result GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError \edge_closure_owner\config:
+    match gui_sfnt_simple_glyph_raster_coverage_shape_from_config &config:
+        Result::Err shape_error:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_shape_failed edge_closure_owner config shape_error
+        Result::Ok shape:
+            match gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage &edge_closure_owner:
+                Result::Err closure_error:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_closure_failed edge_closure_owner config shape closure_error
+                Result::Ok _:
+                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let cells_result %Result Vec i32 StdErrorKind vec::with_capacity cell_count
+                    match cells_result:
+                        Result::Err storage_error:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_failed edge_closure_owner config shape storage_error
+                        Result::Ok cells:
+                            let cells_len %i32 vec::len &cells
+                            if ne cells_len 0:
+                                then:
+                                    vec::free cells
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_shape GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind::CellStorageInitialLenMismatch edge_closure_owner config shape
+                                else:
+                                    let cells_cap %i32 vec::cap &cells
+                                    if ne cells_cap cell_count:
+                                        then:
+                                            vec::free cells
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_storage_shape GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartErrorKind::CellStorageCapacityMismatch edge_closure_owner config shape
+                                        else:
+                                            let owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner edge_closure_owner shape cells 0
+                                            Result::Ok owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell: coverage cell を writer owner に積む
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError \owner\coverage_value:
+    let written_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count &owner
+    let cells_len %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_len &owner
+    if ne cells_len written_cell_count:
+        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::CellStorageLenMismatch
+        else:
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape &owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_cap &owner
+            if ne cells_cap cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::CellStorageCapacityMismatch
+                else:
+                    if ge written_cell_count cell_count:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::MaskFull
+                        else:
+                            if lt coverage_value 0:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::CoverageNegative
+                                else:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+                                    if gt coverage_value coverage_max:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushErrorKind::CoverageExceedsMax
+                                        else:
+                                            let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
+                                            let shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get owner "shape"
+                                            let cells %Vec i32 field::get owner "cells"
+                                            match vec::push cells coverage_value:
+                                                Result::Ok next_cells:
+                                                    let next_written_cell_count %i32 add written_cell_count 1
+                                                    let next_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner edge_closure_owner shape_value next_cells next_written_cell_count
+                                                    Result::Ok next_owner
+                                                Result::Err push_error:
+                                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                                                    let returned_cells %Vec i32 vec::vec_push_error_vec push_error
+                                                    let returned_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner edge_closure_owner shape_value returned_cells written_cell_count
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_storage_failed returned_owner coverage_value storage_error_value
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_complete: writer owner を completed owner へ進める
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_complete %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner Result GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError \owner:
+    let written_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_written_cell_count &owner
+    let cells_len %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_len &owner
+    if ne cells_len written_cell_count:
+        then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error owner GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind::CellStorageLenMismatch
+        else:
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_shape &owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_cells_cap &owner
+            if ne cells_cap cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error owner GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionErrorKind::CellStorageCapacityMismatch
+                else:
+                    if eq written_cell_count cell_count:
+                        then:
+                            let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
+                            let shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get owner "shape"
+                            let cells %Vec i32 field::get owner "cells"
+                            let completed %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner edge_closure_owner shape_value cells written_cell_count
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskCompleted completed
+                        else Result::Ok GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - owner が保持する cell Vec と上流 owner を順に解放します。
+//: - terminal / error payload の variant ごとに所有権を取り出し、二重解放を避けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner unit \owner:
+    let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
+    let cells %Vec i32 field::get owner "cells"
+    vec::free cells
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free edge_closure_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - owner が保持する cell Vec と上流 owner を順に解放します。
+//: - terminal / error payload の variant ごとに所有権を取り出し、二重解放を避けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner unit \owner:
+    let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
+    let cells %Vec i32 field::get owner "cells"
+    vec::free cells
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free edge_closure_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - completed F5kz owner と shared shape value を authority にし、cell Vec の所有権を段階的に運びます。
+//: - written count と cell_count を検査し、未完了と完了を typed Result で分けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskStartError unit \error:
+    let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get error "edge_closure_owner"
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free edge_closure_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - push 失敗時の owner、拒否された cell 値、storage error を保持します。
+//: - returned Vec と pre-push written count を復元した owner を渡し、progress を捏造しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_push_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskPushError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - completed owner に進めない理由と writer owner を束ねます。
+//: - len/cap の不整合を typed error にし、cell buffer を暗黙に補正しません。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_terminal_free: F5la owner-bearing payload を解放する
+//:
+//: [目的/もくてき]:
+//: - owner が保持する cell Vec と上流 owner を順に解放します。
+//: - terminal / error payload の variant ごとに所有権を取り出し、二重解放を避けます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskCompleted owner:
+            gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner:
+            gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:

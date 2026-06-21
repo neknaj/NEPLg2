@@ -223,6 +223,75 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5la stroke coverage mask writer owner boundary
+
+## 目的
+
+- completed F5kz stroke edge closure owner を authority として消費し、stroke coverage mask writer owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、F5kx geometry drain 再実行、F5ky side edge drain 再実行、F5kz closure drain 再実行へ戻らない。
+- shared raster coverage config / shape validation helper は再利用するが、fill coverage writer / scan converter / packed mask owner は直接使わない。
+- F5kz completed owner を coverage cell buffer の authority として再検査し、cap / join / miter policy が nested stroke style と一致することを確認する。
+- raw i32 coverage cell Vec を exact capacity で 1 回だけ確保し、`written_cell_count` と exact full completion を分ける。
+- stroke coverage scan converter、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へは進まない。
+
+## subagent review
+
+- Anscombe の F5la plan review は `PLAN_REVIEWED`。
+- 指摘は、F5la を F5bd 相当の stroke coverage mask writer / buffer owner に限定し、scan computation は次 phase に送るというものだった。
+- 指摘に従い、packed stroke mask の前に stroke coverage scan converter を挟むことを docs/todo に明示し、start error payload を shape validation / F5kz invariant / storage に分離する方針にした。
+- source policy は `vec::with_capacity` と `vec::push` を 1 か所ずつに限定し、F5bd/F5be direct reuse、stroke scan、flatten、join-cap geometry、packed/render/platform/fallback/shadow/compositor へ進まないことを検査する。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner` と completed `GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner` を追加した。
+- `GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind` と start / push / completion error を追加し、shape validation error、closure invariant error、storage error を別 payload として保持するようにした。
+- `gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage` を追加し、F5ky side edge invariant、side edge / join / left-right count、join Vec len/cap、`ClosedContourNoCap`、nested stroke style 由来の cap/join/miter policy 一致を再検査するようにした。
+- start は `gui_sfnt_simple_glyph_raster_coverage_shape_from_config` で shape を作り、F5kz owner invariant を通し、cell Vec を `shape.cell_count` exact capacity で確保する。
+- push は cell len/cap、full、coverage range を検査し、Vec push failure では returned Vec と pre-push `written_cell_count` を保持する。
+- completion は exact full のときだけ completed owner を返し、未完了なら writer owner を返す。
+- docs、source policy、focused doctest label、todo を F5la に合わせて更新した。
+
+## verification_current
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5la_probe.json -j 1`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_mask_writer_f5la.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5la.json -j 1`
+- pass: `git diff --check`
+- pass: `git diff --cached --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5la.json`
+- checked JSON: `tmp/playground-editor-tests-f5la.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Anscombe の implementation review 1 は `REVIEW_CHANGES_REQUESTED`。指摘は focused doctest が未追跡で、このままでは clean checkout の source policy が壊れるという staged set blocker だった。
+- 指摘対応として、`tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md` を commit 対象へ追加した。
+- Anscombe の re-review は `REVIEW_APPROVED`。
+- 残リスクは、F5la が writer owner boundary なので、実データで stroke coverage を計算するケースは後続の stroke coverage scan converter で追加する必要がある点。
+- F5la 後続は stroke coverage scan converter を別 boundary として追加する。
+
+## merge_integration
+
+- latest `origin/main` merge 後、F5la の full GUI import で F5kx/F5ky/F5kz と同根の型解決問題を確認した。`gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start` の `vec::with_capacity cell_count` は `Vec i32` の型を明示せず、fake host import で型解決が不安定になるため、`Result Vec i32 StdErrorKind` の型付き binding に変更した。
+- `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_start` と `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` は `%impure fn` の後続引数区切りを純粋 `fn` としていたため、全引数区切りを `impure fn` に揃えた。
+- F5la helper declaration の doccomment gaps を埋め、writer owner / completed owner / error payload / invariant / push / completion / free の責務を F5la owner boundary として記録した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5la の型付き Vec 確保と impure function type signature を固定する contract を追加した。
+
+## merge_verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_mask_writer_after_merge_fix.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5la_after_merge_fix.json -j 1`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_public_impl_proof_transport_after_f5la_merge_fix.json`
+- checked JSON: `output/playground_editor_selfhost_public_impl_proof_transport_after_f5la_merge_fix.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
 
 # 2026-06-21 Agent2 GUI font F5kz stroke edge closure owner boundary
 
