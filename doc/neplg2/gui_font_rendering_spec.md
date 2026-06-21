@@ -6612,6 +6612,51 @@ sample read は `vec::get` で alpha slot を読み、slot missing、negative al
 
 F5lq は fill / stroke owner、F5lg / F5lh composition helper、resource table、resource reservation、render command、software surface、platform/backend API、shadow rasterizer、2D compositor、Vec allocation / push を呼ばない。
 
+### SFNT simple glyph render shadow source sample command bridge boundary
+
+F5lr は F5lq の sample cursor を authority とし、1 shadow sample を 1 typed `RenderCommand::FillRect` へ変換する境界である。これは shadow contribution command を作る correctness bridge であり、最終的な shadow/source composition order、resource registration、pixel write、software surface、platform API、font fallback、2D compositor を表さない。
+
+現行の `FillRectCommand` は blend mode を payload に持たない。つまり FillRectCommand は blend mode を payload に持たないため、F5lr は `GuiBlendMode::SourceOver` だけを受理し、`Copy` / `Multiply` / `Screen` は `UnsupportedBlendMode` として fail closed に返す。`sample.blend` を黙って捨ててはいけない。
+
+alpha は次の式で scale する。
+
+```text
+command_alpha = sample.alpha * shadow_paint.alpha / sample.alpha_max
+```
+
+ただし `cast i32 u8` の前に次を検査する。
+
+```text
+sample.alpha_max <= 0 -> InvalidAlphaMax
+sample.alpha < 0 -> AlphaNegative
+sample.alpha > sample.alpha_max -> AlphaExceedsMax
+sample.alpha * shadow_paint.alpha overflow -> PaintAlphaMultiplyOverflow
+scaled alpha not in 0..255 -> ScaledAlphaOutOfRange
+```
+
+`sample.alpha == 0` または `shadow_paint.alpha == 0` は透明な `FillRect` command を返す。silent skip や no-op にしてはいけない。
+
+cursor command step は F5lp completed owner invariant を最初に再検査する。失敗時は F5lr error kind を `SampleCursorFailed CompositionOrderInvariantFailed` とし、lower F5lp error kind を `order_error` として保持する。storage / read / command conversion failure では `order_error = None` のままにする。
+
+`cell_index == cell_count` は `read` より先に `Completed owner` として扱う。`cell_index > cell_count` は completion ではなく error である。`cell_index < cell_count` の場合は、F5lq cursor を参照で `read` し、command 変換が成功してから owner を取り出して next cursor を作る。command conversion failure は元 cursor と `rejected_sample = Some sample` を error に保持し、cursor を進めない。
+
+F5lr は F5lq の owning `sample_cursor_step` を呼ばない。F5lr の `FillRect` は shadow contribution command だけであり、F5lp の `shadow_order` / `source_order` を command に encode しない。最終的な shadow/source ordering と resource/compositor integration は後続境界で扱う。
+
+F5lr は次を呼ばない。
+
+```text
+F5lq owning step
+fill / stroke owner
+F5lg / F5lh composition helper
+resource table / reservation
+software surface
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+shadow rasterizer
+2D compositor
+```
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

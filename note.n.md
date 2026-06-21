@@ -1,3 +1,38 @@
+# 2026-06-21 Agent2 GUI font F5lr shadow source sample command bridge boundary
+
+## 目的
+
+- F5lq shadow source sample cursor を authority とし、1 shadow sample を 1 typed `RenderCommand::FillRect` へ変換する。
+- この command は shadow contribution command だけであり、最終的な shadow/source composition order、resource registration、pixel write、platform、2D compositor を表さない。
+- F5lq owning step を先に呼ばず、command conversion が成功した後にだけ owner を next cursor へ移す。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind`、value-only command error、cursor command error kind、owner-bearing cursor command error、command payload、terminal、step / free helper を追加した。
+- `FillRectCommand` が blend mode を payload に持たないため、`GuiBlendMode::SourceOver` だけを受理し、それ以外は `UnsupportedBlendMode` とする。
+- shadow paint の RGB は保持し、`sample.alpha * shadow_paint.alpha / sample.alpha_max` で alpha を checked scale する。zero alpha は透明な command として返し、silent skip にしない。
+- step は F5lp composition order invariant、F5lq storage invariant、bounds、borrowed read、command conversion、owner handoff、progress check の順に進める。
+- `order_error = Some lower` は F5lp composition-order invariant precheck failure のみに限定し、storage / read / command conversion failure では `order_error = None` とする。
+- command payload、cursor error、terminal は owner-bearing なので `Clone` / `Copy` を実装しない。
+- Aristotle plan review は `PLAN_APPROVED`。command payload no Clone/Copy、F5lq `step` 不使用、`order_error` の保持範囲、shadow contribution command の docs 表現、F5lr no-match policy の許可/禁止語を実装条件として反映した。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5lr.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lr_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lr.json -j 1` は 1323 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lr.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lr.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Aristotle implementation review は `REVIEW_APPROVED`。F5lq sample cursor authority、F5lq owning step 不使用、conversion-before-advance、`order_error` の保持範囲、owner-bearing type、docs/source-policy/doctest/todo/note の整合が承認された。
+
+## 残件
+
+- F5lr 後続として、shadow source resource bridge、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lq shadow source sample cursor boundary
 
 ## 目的
