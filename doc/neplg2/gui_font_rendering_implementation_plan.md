@@ -3583,6 +3583,55 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ln.json
 ```
 
+## Phase F5lo: sfnt simple glyph render shadow source packed mask owner
+
+目的:
+
+- F5ln completed shadow source blur mask owner を direct authority とし、raw blurred coverage cells を alpha cells へ正規化する。
+- F5be generic packed mask、stroke packed mask、fill alpha mask、composition、render command、resource、pixel write、platform API、font fallback、2D compositor へ進まない。
+- shadow paint / blend は completed packed owner にコピーせず、後続の composition が nested F5lk context から読む。
+- completion 時に raw blurred coverage cells を解放し、completed packed owner には alpha cells と F5lk edge authority を残す。
+
+plan review:
+
+- Pasteur plan review は `PLAN_APPROVED`。
+- F5lo は F5ln completed blur owner を direct authority とし、blurred coverage の段階で alpha normalization を行う設計が承認された。
+- start / step は F5ln owner invariant、raw blur cell count / Vec exactness、`alpha_max > 0`、coverage と alpha の i32 product overflow を再検査する。
+- completion は exact full のときだけ raw blurred cells を free し、source shape / shadow shape / alpha cells / alpha max / F5lk edge authority を返す。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig` を追加する。`alpha_max` だけを持つ value-only record とし、`Clone` / `Copy` を許可する。
+- `GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner` を追加する。F5ln blur owner、alpha cell Vec、config、cell index を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner` を追加する。F5lk edge owner、source shape、shadow shape、alpha cells、cell count、alpha max を保持し、`Clone` / `Copy` は実装しない。
+- error kind、start error、pack error、bounded terminal、free/recovery helper を追加する。
+- start は F5ln completed owner invariant、`alpha_max > 0`、raw blur cells len/cap、`coverage_max * alpha_max` を検査してから、shadow cell count と等しい capacity の alpha Vec を確保する。
+- step は raw blurred cell を読み、`0 <= coverage <= coverage_max` と `coverage * alpha_max` を検査し、`(coverage * alpha_max) / coverage_max` を push する。push failure では returned Vec と pre-push `cell_index` を持つ owner-bearing error を返す。
+- completion は exact full のときだけ raw blurred cells を free し、completed packed mask owner を返す。
+- completed owner invariant を追加し、nested F5lk edge authority、cached source shape、derived shadow shape、alpha max、alpha Vec len/cap を後続 boundary が再検査できるようにする。
+- docs / source policy / focused doctest label / todo / note を F5lo に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Pasteur approval、F5ln completed blur owner authority、private config / pack / completed owner / error / terminal、config と error kind の `Clone` / `Copy`、owner-bearing no `Clone` / `Copy`、alpha config validation、blur owner invariant、exact alpha allocation、raw cell read、alpha normalization、push recovery、exact completion / raw blur free、completed owner invariant、budget / progress invariant、generic packed / stroke / fill / composition / render / platform / compositor / fallback 禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md` に F5ln authority、config alpha、blur owner invariant、exact alpha allocation、raw cell read、alpha scale、push recovery、raw blur free、completed invariant、budget progress、no generic/stroke/render/platform policy の coverage label を追加する。
+- implementation review で F5lo が F5ln blur owner 以外を direct authority にしていないこと、raw blurred cells を completion 後に保持していないこと、composition / render / platform path へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lo 後の shadow composition、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_f5lo.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_f5lo_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lo.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lo.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -1,3 +1,39 @@
+# 2026-06-21 Agent2 GUI font F5lo shadow source packed mask owner boundary
+
+## 目的
+
+- F5ln completed shadow source blur mask owner を direct authority として消費し、raw blurred coverage cells を alpha cells へ正規化する。
+- alpha normalization を行うだけに留め、composition / render command / resource / pixel write / platform API / font fallback / 2D compositor へ進まない。
+- shadow paint / blend は packed owner にコピーせず、後続が nested F5lk context から読む。
+- completion 時に raw blurred coverage cells を解放し、completed packed owner には alpha cells と F5lk edge authority を残す。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig`、pack owner、completed packed mask owner、start / pack error、bounded terminal、free/recovery helper を追加した。
+- start は `alpha_max > 0`、F5ln completed blur owner invariant、raw blur cell count / Vec len/cap、`coverage_max * alpha_max` の i32 overflow を再検査し、shadow cell count と等しい capacity の alpha Vec を確保する。
+- pack invariant は F5ln owner invariant、`alpha_max > 0`、`cell_index` bounds、alpha Vec len/cap、raw blur cells len/cap を各 step / drain / complete 前に再検査する。
+- step は raw blurred cell を読み、missing / negative / `coverage_max` 超過を拒否し、`(coverage * alpha_max) / coverage_max` を checked product の後で push する。push failure では returned Vec と pre-push `cell_index` を持つ owner-bearing error を返す。
+- completion は exact full のときだけ F5ln blur owner を分解し、raw blurred cells を free して、F5lk edge owner、source shape、shadow shape、alpha cells、cell count、alpha max を持つ completed owner を返す。
+- completed owner invariant を追加し、後続 composition が nested F5lk edge authority、cached source shape、derived shadow shape、alpha max、alpha Vec len/cap を再検査できるようにした。
+- Pasteur plan review は `PLAN_APPROVED`。F5ln authority、raw blur coverage 上での alpha normalization、shadow paint / blend をコピーしない設計、push failure / completion free の設計が承認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_f5lo.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_f5lo_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lo.json -j 1` は 1309 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lo.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lo.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Pasteur implementation review は `REVIEW_APPROVED`。
+
+## 残件
+
+- F5lo 後続として、shadow source composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5ln shadow source blur mask owner boundary
 
 ## 目的
